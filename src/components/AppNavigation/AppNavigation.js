@@ -1,22 +1,67 @@
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, View, TouchableOpacity} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 
-import ScreenDelivery from '../../screens/Delivery/ScreenDelivery';
-import ScreenHome from '../../screens/Home/ScreenHome';
-import ScreenListing from '../../screens/Listing/ScreenListing';
-import ScreenLogin from '../../screens/Login';
-import ScreenOrder from '../../screens/Order/ScreenOrder';
-import ScreenSell from '../../screens/Sell/ScreenSell';
-import ScreenSignup from '../../screens/Singup/ScreenSignup';
+import {
+  ScreenDelivery,
+  ScreenDeliveryHub,
+  ScreenDeliveryReceived,
+  ScreenDeliveryMissing,
+  ScreenDeliveryCasualty,
+} from '../../screens/Seller/Delivery';
+import {
+  ScreenHome,
+  ScreenMyStore,
+  ScreenMyStoreDetail,
+  ScreenPayout,
+  ScreenPayoutDetails,
+} from '../../screens/Seller/Home';
+import {
+  ScreenListing,
+  ScreenListingAction,
+} from '../../screens/Seller/Listing/';
+import {
+  ScreenLogin,
+  ScreenLoginForm,
+  ScreenLoginOtp,
+} from '../../screens/Login';
+import ScreenOrder from '../../screens/Seller/Order/ScreenOrder';
+import {
+  ScreenSell,
+  ScreenSingleSell,
+  ScreenWholesaleSell,
+  ScreenGrowersSell,
+  ScreenDuplicateSell,
+  ScreenDraftSell,
+} from '../../screens/Seller/Sell';
+import {
+  ScreenSignup,
+  ScreenSignupNext,
+  ScreenSignupActivationCode,
+  ScreenSignupActivationCodeNext,
+} from '../../screens/Singup';
+import {
+  ScreenProfile,
+  ScreenProfileAccount,
+  ScreenProfileProblem,
+  ScreenProfilePassword,
+  ScreenProfileRequest,
+  ScreenProfileChatAdmin,
+} from '../../screens/Profile';
 
 import HomeIcon from '../../assets/icontabs/home.svg';
+import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
 import DeliveryIcon from '../../assets/icontabs/delivery.svg';
+import DeliveryIconSelected from '../../assets/icontabs/box-solid.svg';
 import ListingIcon from '../../assets/icontabs/listing.svg';
+import ListingIconSelected from '../../assets/icontabs/leaf-solid.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
+import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import SellIcon from '../../assets/icontabs/sell.svg';
+
+import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,15 +76,360 @@ const AppNavigation = () => {
           options={{headerShown: false, animation: 'slide_from_right'}}
         />
         <Stack.Screen
+          name="LoginForm"
+          component={ScreenLoginForm}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: '', // Optionally hide the header title
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+        <Stack.Screen
+          name="LoginOtp"
+          component={ScreenLoginOtp}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: '', // Optionally hide the header title
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+        <Stack.Screen
           name="Signup"
           component={ScreenSignup}
-          options={{headerShown: false, animation: 'slide_from_right'}}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: '', // Optionally hide the header title
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+        <Stack.Screen
+          name="ScreenSignupNext"
+          component={ScreenSignupNext}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: '', // Optionally hide the header title
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+        <Stack.Screen
+          name="ScreenSignupActivationCode"
+          component={ScreenSignupActivationCode}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: '', // Optionally hide the header title
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+        <Stack.Screen
+          name="ScreenSignupActivationCodeNext"
+          component={ScreenSignupActivationCodeNext}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: '', // Optionally hide the header title
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
         /> */}
+
         <Stack.Screen
           name="MainTabs"
           component={MainTabNavigator}
           options={{headerShown: false, animation: 'slide_from_right'}}
         />
+
+        <Stack.Screen
+          name="ScreenSingleSell"
+          component={ScreenSingleSell}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: 'Single Plant', // Optionally hide the header title
+            headerTitleAlign: 'center',
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+        <Stack.Screen
+          name="ScreenWholesaleSell"
+          component={ScreenWholesaleSell}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: 'Wholesale', // Optionally hide the header title
+            headerTitleAlign: 'center',
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+        <Stack.Screen
+          name="ScreenGrowersSell"
+          component={ScreenGrowersSell}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: "Grower's choice", // Optionally hide the header title
+            headerTitleAlign: 'center',
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+
+        <Stack.Screen
+          name="ScreenDuplicateSell"
+          component={ScreenDuplicateSell}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: 'Existing Listing', // Optionally hide the header title
+            headerTitleAlign: 'center',
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+
+        <Stack.Screen
+          name="ScreenDraftSell"
+          component={ScreenDraftSell}
+          options={({navigation}) => ({
+            headerShown: true, // Ensure the header is shown
+            title: 'Draft Listing', // Optionally hide the header title
+            headerTitleAlign: 'center',
+            animation: 'slide_from_right', // Screen transition animation
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.canGoBack() ? navigation.goBack() : null
+                }>
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            ),
+            headerStyle: {
+              elevation: 0, // For Android
+              shadowOpacity: 0, // For iOS
+              borderBottomWidth: 0, // For iOS
+            },
+            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+          })}
+        />
+
+        <Stack.Screen
+          name="ScreenMyStore"
+          component={ScreenMyStore}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenMyStoreDetail"
+          component={ScreenMyStoreDetail}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenProfile"
+          component={ScreenProfile}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenProfileAccount"
+          component={ScreenProfileAccount}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenProfileProblem"
+          component={ScreenProfileProblem}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenProfilePassword"
+          component={ScreenProfilePassword}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenProfileRequest"
+          component={ScreenProfileRequest}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenProfileChatAdmin"
+          component={ScreenProfileChatAdmin}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenListingAction"
+          component={ScreenListingAction}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenDeliveryHub"
+          component={ScreenDeliveryHub}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+        <Stack.Screen
+          name="ScreenDeliveryReceived"
+          component={ScreenDeliveryReceived}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+        <Stack.Screen
+          name="ScreenDeliveryMissing"
+          component={ScreenDeliveryMissing}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+        <Stack.Screen
+          name="ScreenDeliveryCasualty"
+          component={ScreenDeliveryCasualty}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenPayout"
+          component={ScreenPayout}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
+        <Stack.Screen
+          name="ScreenPayoutDetails"
+          component={ScreenPayoutDetails}
+          options={{headerShown: false, animation: 'slide_from_right'}}
+        />
+
         {/* <Stack.Screen
           name="SettingsEditProfile"
           component={SettingsEditProfile}
@@ -77,24 +467,21 @@ function MainTabNavigator() {
         // },
         tabBarIcon: ({color, size, focused}) => {
           // Determine the icon based on the route name
+
           switch (route.name) {
             case 'Home':
               Icon = HomeIcon;
-              return (
-                <HomeIcon
-                  width={size}
-                  height={size}
-                  fill={color} // Icon color will follow focus state
-                />
+              return focused ? (
+                <HomeIconSelected width={size} height={size} />
+              ) : (
+                <HomeIcon width={size} height={size} />
               );
               break;
             case 'Listings':
-              return (
-                <ListingIcon
-                  width={size}
-                  height={size}
-                  fill={color} // Icon color will follow focus state
-                />
+              return focused ? (
+                <ListingIconSelected width={size} height={size} />
+              ) : (
+                <ListingIcon width={size} height={size} />
               );
               break;
             case 'Sell':
@@ -119,21 +506,17 @@ function MainTabNavigator() {
               );
               break;
             case 'Order':
-              return (
-                <OrderIcon
-                  width={size}
-                  height={size}
-                  fill={color} // Icon color will follow focus state
-                />
+              return focused ? (
+                <OrderIconSelected width={size} height={size} />
+              ) : (
+                <OrderIcon width={size} height={size} />
               );
               break;
             case 'Delivery':
-              return (
-                <DeliveryIcon
-                  width={size}
-                  height={size}
-                  fill={color} // Icon color will follow focus state
-                />
+              return focused ? (
+                <DeliveryIconSelected width={size} height={size} />
+              ) : (
+                <DeliveryIcon width={size} height={size} />
               );
               break;
           }
@@ -163,7 +546,7 @@ const styles = StyleSheet.create({
     marginTop: -10,
   },
   tabBar: {
-    paddingBottom: 5,
+    // paddingBottom: 20,
   },
 });
 
