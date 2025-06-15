@@ -79,7 +79,7 @@ const ScreenProfileProblem = ({navigation}) => {
             />
           </View>
           <View style={{marginHorizontal: 20, paddingTop: 10}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 5}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
               Attachment/s
             </Text>
             {images.length > 0 && (
@@ -103,6 +103,11 @@ const ScreenProfileProblem = ({navigation}) => {
         </View>
         {/* Main Content */}
       </ScrollView>
+      <View style={{padding: 20, backgroundColor: '#fff'}}>
+        <TouchableOpacity style={[globalStyles.primaryButton]}>
+          <Text style={styles.buttonText}>Submit</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -129,6 +134,11 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingTop: 12,
     paddingBottom: 12,
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
 });
 

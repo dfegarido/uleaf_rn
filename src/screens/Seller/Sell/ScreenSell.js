@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,18 @@ import {
   Dimensions,
   StyleSheet,
   StatusBar,
+  Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {globalStyles} from '../../../assets/styles/styles';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import CarouselSell from './components/CarouselSell';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+
+import {getSellMostLove} from '../../../components/Api';
 
 import SinglePlantIcon from '../../../assets/sellicon/single.svg';
 import GrowerPlantIcon from '../../../assets/sellicon/growers.svg';
@@ -53,13 +60,55 @@ const ScreenSell = ({navigation}) => {
     navigation.navigate('ScreenDraftSell');
   };
 
+  const [loading, setLoading] = useState(false);
+
+  // Most love
+  useEffect(() => {
+    // setLoading(true);
+    const fetchData = async () => {
+      try {
+        await loadListingData();
+      } catch (error) {
+        console.log('Fetching details:', error);
+        Alert.alert('Buyer Wishlist', error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // fetchData();
+  }, []);
+
+  const loadListingData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getSellMostLove(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load sort api');
+    }
+
+    console.log(res.data);
+  };
+  // Most love
+
   return (
     <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <View style={styles.mainContainer}>
         <View style={styles.topContainer}>
           <Text
             style={[
-              globalStyles.textXLPrimaryDark,
+              globalStyles.textXLGreyDark,
               {textAlign: 'left', paddingTop: 5},
             ]}>
             Sell Plant
@@ -70,7 +119,7 @@ const ScreenSell = ({navigation}) => {
         </View>
 
         <View style={{paddingTop: 30}}>
-          <Text style={globalStyles.textMDGrayDark}>Start from scratch</Text>
+          <Text style={globalStyles.textMDGreyDark}>Start from scratch</Text>
           <View
             style={{
               flexDirection: 'row',
@@ -78,7 +127,13 @@ const ScreenSell = ({navigation}) => {
               marginTop: 20,
             }}>
             <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
-              <TouchableOpacity onPress={handlePressSingle}>
+              <TouchableOpacity
+                onPress={handlePressSingle}
+                style={{
+                  marginTop: 10,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
                 <SinglePlantIcon width={42} height={52}></SinglePlantIcon>
                 <Text style={[globalStyles.textLGAccentDark, {paddingTop: 10}]}>
                   Single Plant
@@ -86,7 +141,13 @@ const ScreenSell = ({navigation}) => {
               </TouchableOpacity>
             </View>
             <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
-              <TouchableOpacity onPress={handlePressGrowers}>
+              <TouchableOpacity
+                onPress={handlePressGrowers}
+                style={{
+                  marginTop: 10,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
                 <GrowerPlantIcon width={42} height={52}></GrowerPlantIcon>
                 <Text style={[globalStyles.textLGAccentDark, {paddingTop: 10}]}>
                   Grower's choice
@@ -121,7 +182,7 @@ const ScreenSell = ({navigation}) => {
         </View>
 
         <View style={{paddingTop: 30}}>
-          <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
             Buyers Wishlist
           </Text>
           <CarouselSell />
@@ -203,6 +264,13 @@ const styles = StyleSheet.create({
   },
   cardMenu: {padding: 20, width: screenWidth * 0.5 - 25},
   cardMenuFull: {padding: 20},
+
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
 export default ScreenSell;

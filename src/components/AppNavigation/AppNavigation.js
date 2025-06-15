@@ -1,8 +1,15 @@
-import React from 'react';
-import {StyleSheet, Text, View, TouchableOpacity} from 'react-native';
+import React, {useContext} from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {AuthContext} from '../../auth/AuthProvider';
 
 import {
   ScreenDelivery,
@@ -21,6 +28,7 @@ import {
 import {
   ScreenListing,
   ScreenListingAction,
+  ScreenListingDetail,
 } from '../../screens/Seller/Listing/';
 import {
   ScreenLogin,
@@ -66,381 +74,381 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const AppNavigation = () => {
+const AuthStack = () => {
   return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        {/* <Stack.Screen
-          name="Login"
-          component={ScreenLogin}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
-        <Stack.Screen
-          name="LoginForm"
-          component={ScreenLoginForm}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: '', // Optionally hide the header title
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
-        <Stack.Screen
-          name="LoginOtp"
-          component={ScreenLoginOtp}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: '', // Optionally hide the header title
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
-        <Stack.Screen
-          name="Signup"
-          component={ScreenSignup}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: '', // Optionally hide the header title
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
-        <Stack.Screen
-          name="ScreenSignupNext"
-          component={ScreenSignupNext}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: '', // Optionally hide the header title
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
-        <Stack.Screen
-          name="ScreenSignupActivationCode"
-          component={ScreenSignupActivationCode}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: '', // Optionally hide the header title
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
-        <Stack.Screen
-          name="ScreenSignupActivationCodeNext"
-          component={ScreenSignupActivationCodeNext}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: '', // Optionally hide the header title
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        /> */}
+    <Stack.Navigator>
+      <Stack.Screen
+        name="Login"
+        component={ScreenLogin}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="LoginForm"
+        component={ScreenLoginForm}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: '', // Optionally hide the header title
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      <Stack.Screen
+        name="LoginOtp"
+        component={ScreenLoginOtp}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: '', // Optionally hide the header title
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      <Stack.Screen
+        name="Signup"
+        component={ScreenSignup}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: '', // Optionally hide the header title
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      <Stack.Screen
+        name="ScreenSignupNext"
+        component={ScreenSignupNext}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: '', // Optionally hide the header title
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      <Stack.Screen
+        name="ScreenSignupActivationCode"
+        component={ScreenSignupActivationCode}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: '', // Optionally hide the header title
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      <Stack.Screen
+        name="ScreenSignupActivationCodeNext"
+        component={ScreenSignupActivationCodeNext}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: '', // Optionally hide the header title
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+    </Stack.Navigator>
+  );
+};
 
-        <Stack.Screen
-          name="MainTabs"
-          component={MainTabNavigator}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+const MainStack = () => {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabNavigator}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenSingleSell"
-          component={ScreenSingleSell}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: 'Single Plant', // Optionally hide the header title
-            headerTitleAlign: 'center',
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
-        <Stack.Screen
-          name="ScreenWholesaleSell"
-          component={ScreenWholesaleSell}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: 'Wholesale', // Optionally hide the header title
-            headerTitleAlign: 'center',
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
-        <Stack.Screen
-          name="ScreenGrowersSell"
-          component={ScreenGrowersSell}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: "Grower's choice", // Optionally hide the header title
-            headerTitleAlign: 'center',
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
+      <Stack.Screen
+        name="ScreenSingleSell"
+        component={ScreenSingleSell}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Single Plant', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      <Stack.Screen
+        name="ScreenWholesaleSell"
+        component={ScreenWholesaleSell}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Wholesale', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      <Stack.Screen
+        name="ScreenGrowersSell"
+        component={ScreenGrowersSell}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: "Grower's choice", // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
 
-        <Stack.Screen
-          name="ScreenDuplicateSell"
-          component={ScreenDuplicateSell}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: 'Existing Listing', // Optionally hide the header title
-            headerTitleAlign: 'center',
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
+      <Stack.Screen
+        name="ScreenDuplicateSell"
+        component={ScreenDuplicateSell}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Existing Listing', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
 
-        <Stack.Screen
-          name="ScreenDraftSell"
-          component={ScreenDraftSell}
-          options={({navigation}) => ({
-            headerShown: true, // Ensure the header is shown
-            title: 'Draft Listing', // Optionally hide the header title
-            headerTitleAlign: 'center',
-            animation: 'slide_from_right', // Screen transition animation
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.canGoBack() ? navigation.goBack() : null
-                }>
-                <BackSolidIcon width={20} height={20} />
-              </TouchableOpacity>
-            ),
-            headerStyle: {
-              elevation: 0, // For Android
-              shadowOpacity: 0, // For iOS
-              borderBottomWidth: 0, // For iOS
-            },
-            headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-          })}
-        />
+      <Stack.Screen
+        name="ScreenDraftSell"
+        component={ScreenDraftSell}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Draft Listing', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
 
-        <Stack.Screen
-          name="ScreenMyStore"
-          component={ScreenMyStore}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenMyStore"
+        component={ScreenMyStore}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenMyStoreDetail"
-          component={ScreenMyStoreDetail}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenMyStoreDetail"
+        component={ScreenMyStoreDetail}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenProfile"
-          component={ScreenProfile}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenProfile"
+        component={ScreenProfile}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenProfileAccount"
-          component={ScreenProfileAccount}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenProfileAccount"
+        component={ScreenProfileAccount}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenProfileProblem"
-          component={ScreenProfileProblem}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenProfileProblem"
+        component={ScreenProfileProblem}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenProfilePassword"
-          component={ScreenProfilePassword}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenProfilePassword"
+        component={ScreenProfilePassword}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenProfileRequest"
-          component={ScreenProfileRequest}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenProfileRequest"
+        component={ScreenProfileRequest}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenProfileChatAdmin"
-          component={ScreenProfileChatAdmin}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenProfileChatAdmin"
+        component={ScreenProfileChatAdmin}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenListingAction"
-          component={ScreenListingAction}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenListingAction"
+        component={ScreenListingAction}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenDeliveryHub"
-          component={ScreenDeliveryHub}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
-        <Stack.Screen
-          name="ScreenDeliveryReceived"
-          component={ScreenDeliveryReceived}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
-        <Stack.Screen
-          name="ScreenDeliveryMissing"
-          component={ScreenDeliveryMissing}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
-        <Stack.Screen
-          name="ScreenDeliveryCasualty"
-          component={ScreenDeliveryCasualty}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenListingDetail"
+        component={ScreenListingDetail}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenPayout"
-          component={ScreenPayout}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenDeliveryHub"
+        component={ScreenDeliveryHub}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="ScreenDeliveryReceived"
+        component={ScreenDeliveryReceived}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="ScreenDeliveryMissing"
+        component={ScreenDeliveryMissing}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="ScreenDeliveryCasualty"
+        component={ScreenDeliveryCasualty}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        <Stack.Screen
-          name="ScreenPayoutDetails"
-          component={ScreenPayoutDetails}
-          options={{headerShown: false, animation: 'slide_from_right'}}
-        />
+      <Stack.Screen
+        name="ScreenPayout"
+        component={ScreenPayout}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
-        {/* <Stack.Screen
-          name="SettingsEditProfile"
-          component={SettingsEditProfile}
-          options={{
-            headerShown: true,
-            title: 'Edit Profile',
-            animation: 'slide_from_right',
-          }}
-        /> */}
-      </Stack.Navigator>
-    </NavigationContainer>
+      <Stack.Screen
+        name="ScreenPayoutDetails"
+        component={ScreenPayoutDetails}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+    </Stack.Navigator>
   );
 };
 
@@ -532,6 +540,23 @@ function MainTabNavigator() {
     </Tab.Navigator>
   );
 }
+
+const AppNavigation = () => {
+  const {isLoggedIn, isLoading} = useContext(AuthContext);
+
+  if (isLoading) {
+    return (
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+  return (
+    <NavigationContainer>
+      {isLoggedIn ? <MainStack /> : <AuthStack />}
+    </NavigationContainer>
+  );
+};
 
 const styles = StyleSheet.create({
   focusedLabel: {

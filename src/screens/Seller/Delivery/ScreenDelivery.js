@@ -14,6 +14,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
+import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
@@ -21,6 +22,7 @@ import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import ShareIcon from '../../../assets/icons/accent/share-regular.svg';
 import RightIcon from '../../../assets/icons/greylight/caret-right-regular.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 
 import OrderTableList from '../Order/components/OrderTableList';
 const screenHeight = Dimensions.get('window').height;
@@ -92,7 +94,12 @@ const ScreenDelivery = ({navigation}) => {
         {/* Search and Icons */}
         <View style={styles.stickyHeader}>
           <View style={styles.header}>
-            <TextInput style={styles.search} placeholder="Search plants" />
+            <View style={{flex: 1}}>
+              <InputGroupLeftIcon
+                IconLeftComponent={SearchIcon}
+                placeholder={'Search'}
+              />
+            </View>
             <View style={styles.headerIcons}>
               <TouchableOpacity style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />

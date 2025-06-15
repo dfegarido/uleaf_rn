@@ -73,7 +73,7 @@ const ScreenProfilePassword = ({navigation}) => {
           <View style={styles.mainContainer}>
             {/* Current Password */}
             <View style={{paddingTop: 20}}>
-              <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+              <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
                 Current password
               </Text>
               <InputPassword
@@ -82,7 +82,7 @@ const ScreenProfilePassword = ({navigation}) => {
 
             {/* New Password */}
             <View style={{paddingTop: 20}}>
-              <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+              <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
                 New password
               </Text>
               <InputPassword placeholder={'Enter new password'}></InputPassword>
@@ -108,7 +108,7 @@ const ScreenProfilePassword = ({navigation}) => {
 
             {/* Confirm Password */}
             <View style={{paddingTop: 20}}>
-              <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+              <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
                 Confirm password
               </Text>
               <InputPassword

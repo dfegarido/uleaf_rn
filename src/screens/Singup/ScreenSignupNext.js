@@ -42,7 +42,7 @@ const ScreenSignup = ({navigation}) => {
             <TouchableOpacity>
               <Text style={{color: '#699E73'}}>Terms & Conditions</Text>
             </TouchableOpacity>
-            <Text> and </Text>
+            <Text style={{color: '#000'}}> and </Text>
             <TouchableOpacity>
               <Text style={{color: '#699E73'}}>Privacy Policy</Text>
             </TouchableOpacity>

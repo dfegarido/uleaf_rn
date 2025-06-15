@@ -105,14 +105,14 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
               paddingBottom: 20,
             }}>
             <View style={[{flexDirection: 'column'}, {paddingHorizontal: 20}]}>
-              <Text style={globalStyles.textXLPrimaryDark}>{plantName}</Text>
+              <Text style={globalStyles.textXLGreyDark}>{plantName}</Text>
               <View
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                 }}>
-                <Text style={globalStyles.textMDGrayDark}>{subPlantName}</Text>
+                <Text style={globalStyles.textMDGreyDark}>{subPlantName}</Text>
                 {listingCode != 'L1' && (
                   <View
                     style={{
@@ -126,7 +126,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
               </View>
               <View style={[{flexDirection: 'row'}]}>
                 <Text style={[globalStyles.textMDGreyLight]}>Mutation: </Text>
-                <Text style={globalStyles.textMDGrayDark}>{subPlantName}</Text>
+                <Text style={globalStyles.textMDGreyDark}>{subPlantName}</Text>
               </View>
             </View>
           </View>
@@ -208,7 +208,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
               {/* Pot Size */}
               <View style={{alignItems: 'flex-start', paddingTop: 10}}>
                 <View style={{flexDirection: 'row'}}>
-                  <Text style={globalStyles.textMDGrayDark}>Pot size </Text>
+                  <Text style={globalStyles.textMDGreyDark}>Pot size </Text>
                   <Text style={globalStyles.textMDGreyLight}>
                     2"-4" (5 to 11 cm)
                   </Text>
@@ -229,7 +229,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                           style={[
                             styles.badge,
                             {
-                              color: globalStyles.textMDGrayDark,
+                              color: globalStyles.textMDGreyDark,
                               // backgroundColor: '#E4E7E9',
                             },
                           ]}>
@@ -254,7 +254,8 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
               <View style={{paddingTop: 10}} key={index}>
                 <View style={{flexDirection: 'row'}}>
                   <InchesIcon width={20} height={20} />
-                  <Text style={{paddingLeft: 10}}>
+                  <Text
+                    style={[globalStyles.textMDGreyDark, {paddingLeft: 10}]}>
                     Below 12 inches {`(< 30cm)`}
                   </Text>
                 </View>

@@ -1,7 +1,12 @@
 import React from 'react';
 import {View, TextInput, StyleSheet} from 'react-native';
 
-const InputPasswordLeftIcon = ({IconLeftComponent, placeholder}) => {
+const InputPasswordLeftIcon = ({
+  IconLeftComponent,
+  placeholder,
+  value,
+  onChangeText,
+}) => {
   return (
     <View style={styles.inputContainer}>
       {IconLeftComponent && (
@@ -12,6 +17,8 @@ const InputPasswordLeftIcon = ({IconLeftComponent, placeholder}) => {
         placeholder={'Password'}
         placeholderTextColor="#888"
         secureTextEntry={true}
+        value={value}
+        onChangeText={onChangeText}
       />
     </View>
   );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useContext, useEffect} from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,36 @@ import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 
+import {getApp} from '@react-native-firebase/app';
+import {getAuth, signInWithEmailAndPassword} from '@react-native-firebase/auth';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {AuthContext} from '../../auth/AuthProvider';
+
 const ScreenLogin = ({navigation}) => {
-  // useFocusEffect(
-  //   React.useCallback(() => {
-  //     changeNavigationBarColor('transparent', true); // dark background, light icons
-  //   }, []),
-  // );
+  const {setIsLoggedIn} = useContext(AuthContext);
+  const app = getApp();
+  const auth = getAuth(app);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const currentUser = auth.currentUser;
+
+      if (currentUser) {
+        console.log('here mike');
+        try {
+          const token = await user.getIdToken();
+          // On login success:
+          await AsyncStorage.setItem('authToken', token); // your token logic
+          setIsLoggedIn(true);
+        } catch (err) {
+          console.log('Session token error:', err.message);
+        }
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handlePressCreateAccount = () => {
     navigation.navigate('Signup');

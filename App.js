@@ -9,9 +9,14 @@
 import React from 'react';
 import {SafeAreaView, StyleSheet, Text} from 'react-native';
 import AppNavigation from './src/components/AppNavigation';
+import {AuthProvider} from './src/auth/AuthProvider';
 
 const App = () => {
-  return <AppNavigation />;
+  return (
+    <AuthProvider>
+      <AppNavigation />
+    </AuthProvider>
+  );
 };
 
 export default App;

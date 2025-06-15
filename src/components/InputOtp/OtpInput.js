@@ -1,19 +1,31 @@
-import React, {useRef} from 'react';
+import React, {useRef, useState} from 'react';
 import {View, TextInput, StyleSheet} from 'react-native';
 
 const OtpInput = ({length = 4, onChangeOtp}) => {
   const inputs = useRef([]);
+  const [otpArray, setOtpArray] = useState(Array(length).fill(''));
+
+  // const handleChange = (text, index) => {
+  //   if (!/^[0-9]$/.test(text)) return;
+
+  //   const newOtpArray = [...otpArray];
+  //   newOtpArray[index] = text;
+  //   setOtpArray(newOtpArray);
+
+  //   onChangeOtp(newOtpArray.join(''));
+
+  //   if (text && index < length - 1) {
+  //     inputs.current[index + 1].focus();
+  //   }
+  // };
 
   const handleChange = (text, index) => {
-    if (!/^[0-9]$/.test(text)) return; // accept only numbers
+    if (text !== '' && !/^[0-9]$/.test(text)) return;
 
-    const otp = inputs.current
-      .map((input, i) => {
-        return i === index ? text : input.value || '';
-      })
-      .join('');
-
-    onChangeOtp(otp);
+    const newOtpArray = [...otpArray];
+    newOtpArray[index] = text;
+    setOtpArray(newOtpArray);
+    onChangeOtp(newOtpArray.join(''));
 
     if (text && index < length - 1) {
       inputs.current[index + 1].focus();
@@ -24,7 +36,7 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
     if (
       e.nativeEvent.key === 'Backspace' &&
       index > 0 &&
-      !inputs.current[index].value
+      otpArray[index] === ''
     ) {
       inputs.current[index - 1].focus();
     }
@@ -39,6 +51,7 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
           style={styles.input}
           maxLength={1}
           keyboardType="number-pad"
+          value={otpArray[i]}
           onChangeText={text => handleChange(text, i)}
           onKeyPress={e => handleKeyPress(e, i)}
           textAlign="center"

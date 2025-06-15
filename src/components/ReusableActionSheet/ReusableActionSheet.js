@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import ActionSheet from '../ActionSheet/ActionSheet';
 import {RadioButton} from '../RadioButton';
@@ -7,50 +7,24 @@ import {globalStyles} from '../../assets/styles/styles';
 import {CheckBoxGroup} from '../CheckBox';
 import SelectableItemList from '../SelectableItems/SelectableItems';
 
-const sortOptions = [
-  {label: 'Newest', value: 'Newest'},
-  {label: 'Oldest', value: 'Oldest'},
-  {label: 'Price Low to High', value: 'Price Low to High'},
-  {label: 'Price High to Low', value: 'Price High to Low'},
-  {label: 'Most Loved', value: 'Most Loved'},
-];
-
-const genusOptions = [
-  {label: 'Mostera', value: 'Mostera'},
-  {label: 'Alocasia', value: 'Alocasia'},
-  {label: 'Scindapsus', value: 'Scindapsus'},
-  {label: 'Anthurium', value: 'Anthurium'},
-  {label: 'Philodendron', value: 'Philodendron'},
-  {label: 'Syngonium', value: 'Syngonium'},
-  {label: 'Hoya', value: 'Hoya'},
-  {label: 'Others', value: 'Others'},
-];
-
-const items = [
-  {label: 'Albo', value: 'Albo'},
-  {label: 'Aurea', value: 'Aurea'},
-  {label: 'Caramel Latte', value: 'Caramel Latte'},
-  {label: 'Fire', value: 'Fire'},
-  {label: 'Galaxy', value: 'Galaxy'},
-  {label: 'Green On Green', value: 'Green On Green'},
-  {label: 'Inner Variegated', value: 'Inner Variegated'},
-];
-
-const listingTypeOptions = [
-  {label: 'Single Plant', value: 'Single Plant'},
-  {label: 'Wholesale', value: 'Wholesale'},
-  {label: "Grower's Choice", value: "Grower's Choice"},
-];
-
-const ReusableActionSheet = ({code, visible, onClose}) => {
-  const [sort, setSort] = useState('');
-  const [selectedGenus, setSelectedGenus] = useState([]);
-  const [selectedItems, setSelectedItems] = useState([]);
-  const resetSelection = () => setSelectedItems([]);
-
-  const handleSelectionChange = newSelected => {
-    setSelectedItems(newSelected);
-  };
+const ReusableActionSheet = ({
+  code,
+  visible,
+  onClose,
+  sortOptions,
+  genusOptions,
+  variegationOptions,
+  listingTypeOptions,
+  sortValue,
+  sortChange,
+  genusValue,
+  genusChange,
+  variegationValue,
+  variegationChange,
+  listingTypeValue,
+  listingTypeChange,
+}) => {
+  const resetSelection = () => variegationChange([]);
 
   const renderSheetContent = () => {
     switch (code) {
@@ -69,8 +43,8 @@ const ReusableActionSheet = ({code, visible, onClose}) => {
 
             <RadioButton
               options={sortOptions}
-              selected={sort}
-              onSelect={setSort}
+              selected={sortValue}
+              onSelect={sortChange}
               containerStyle={{marginTop: 20}}
               optionStyle={{
                 justifyContent: 'space-between',
@@ -79,13 +53,29 @@ const ReusableActionSheet = ({code, visible, onClose}) => {
               }}
             />
 
-            <TouchableOpacity style={{marginHorizontal: 20}}>
-              <View style={globalStyles.primaryButton}>
-                <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
-                  View
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+              }}>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 20,
+                  alignSelf: 'stretch',
+                  width: '100%',
+                }}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </ActionSheet>
         );
       case 'GENUS':
@@ -103,22 +93,37 @@ const ReusableActionSheet = ({code, visible, onClose}) => {
 
             <CheckBoxGroup
               options={genusOptions}
-              selectedValues={selectedGenus}
-              onChange={setSelectedGenus}
+              selectedValues={genusValue}
+              onChange={genusChange}
               optionStyle={{
                 justifyContent: 'space-between',
                 paddingHorizontal: 20,
                 paddingBottom: 10,
               }}
             />
-
-            <TouchableOpacity style={{marginHorizontal: 20}}>
-              <View style={globalStyles.primaryButton}>
-                <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
-                  View
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+              }}>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 20,
+                  alignSelf: 'stretch',
+                  width: '100%',
+                }}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </ActionSheet>
         );
       case 'VARIEGATION':
@@ -135,9 +140,9 @@ const ReusableActionSheet = ({code, visible, onClose}) => {
             </View>
             <View>
               <SelectableItemList
-                options={items}
-                selectedValues={selectedItems}
-                onSelectionChange={setSelectedItems}
+                options={variegationOptions}
+                selectedValues={variegationValue}
+                onSelectionChange={variegationChange}
               />
             </View>
             <View
@@ -188,8 +193,8 @@ const ReusableActionSheet = ({code, visible, onClose}) => {
 
             <CheckBoxGroup
               options={listingTypeOptions}
-              selectedValues={selectedGenus}
-              onChange={setSelectedGenus}
+              selectedValues={listingTypeValue}
+              onChange={listingTypeChange}
               optionStyle={{
                 justifyContent: 'space-between',
                 paddingHorizontal: 20,
@@ -197,13 +202,29 @@ const ReusableActionSheet = ({code, visible, onClose}) => {
               }}
             />
 
-            <TouchableOpacity style={{marginHorizontal: 20}}>
-              <View style={globalStyles.primaryButton}>
-                <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
-                  View
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+              }}>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 20,
+                  alignSelf: 'stretch',
+                  width: '100%',
+                }}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </ActionSheet>
         );
       default:

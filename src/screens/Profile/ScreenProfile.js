@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useContext} from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
+import {globalStyles} from '../../assets/styles/styles';
+import {AuthContext} from '../../auth/AuthProvider';
 
 import ProfileIcon from '../../assets/icons/greydark/profile.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
@@ -17,6 +19,7 @@ import EnvelopeIcon from '../../assets/icons/greydark/envelope.svg';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 
 const ScreenProfile = ({navigation}) => {
+  const {logout} = useContext(AuthContext);
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
@@ -25,7 +28,7 @@ const ScreenProfile = ({navigation}) => {
           <View style={styles.avatar} />
         </View>
         <View>
-          <Text style={styles.name}>Olla Holic</Text>
+          <Text style={globalStyles.textLGGreyDark}>Olla Holic</Text>
           <Text style={styles.status}>● Active</Text>
         </View>
       </View>
@@ -40,7 +43,9 @@ const ScreenProfile = ({navigation}) => {
             onPress={() => navigation.navigate('ScreenProfileAccount')}>
             <View style={styles.menuLeft}>
               <ProfileIcon width={20} height={20} />
-              <Text style={styles.menuText}>Account Information</Text>
+              <Text style={globalStyles.textSMGreyDark}>
+                Account Information
+              </Text>
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
@@ -50,7 +55,7 @@ const ScreenProfile = ({navigation}) => {
             onPress={() => navigation.navigate('ScreenProfilePassword')}>
             <View style={styles.menuLeft}>
               <PasswordIcon width={20} height={20} />
-              <Text style={styles.menuText}>Password</Text>
+              <Text style={globalStyles.textSMGreyDark}>Password</Text>
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
@@ -63,7 +68,7 @@ const ScreenProfile = ({navigation}) => {
             onPress={() => navigation.navigate('ScreenProfileProblem')}>
             <View style={styles.menuLeft}>
               <ReportIcon width={20} height={20} />
-              <Text style={styles.menuText}>Report a Problem</Text>
+              <Text style={globalStyles.textSMGreyDark}>Report a Problem</Text>
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
@@ -72,7 +77,9 @@ const ScreenProfile = ({navigation}) => {
             onPress={() => navigation.navigate('ScreenProfileRequest')}>
             <View style={styles.menuLeft}>
               <PlantIcon width={20} height={20} />
-              <Text style={styles.menuText}>Request Genus/Species Name</Text>
+              <Text style={globalStyles.textSMGreyDark}>
+                Request Genus/Species Name
+              </Text>
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
@@ -81,7 +88,7 @@ const ScreenProfile = ({navigation}) => {
             onPress={() => navigation.navigate('ScreenProfileChatAdmin')}>
             <View style={styles.menuLeft}>
               <ChatIcon width={20} height={20} />
-              <Text style={styles.menuText}>Chat with Us</Text>
+              <Text style={globalStyles.textSMGreyDark}>Chat with Us</Text>
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
@@ -92,21 +99,21 @@ const ScreenProfile = ({navigation}) => {
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuLeft}>
               <EnvelopeIcon width={20} height={20} />
-              <Text style={styles.menuText}>Terms of Use</Text>
+              <Text style={globalStyles.textSMGreyDark}>Terms of Use</Text>
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuLeft}>
               <EnvelopeIcon width={20} height={20} />
-              <Text style={styles.menuText}>Privacy Policy</Text>
+              <Text style={globalStyles.textSMGreyDark}>Privacy Policy</Text>
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
         </View>
 
         {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -136,10 +143,6 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     backgroundColor: '#C4C4C4',
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: '600',
   },
   status: {
     color: '#34C759',
@@ -171,10 +174,6 @@ const styles = StyleSheet.create({
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  menuText: {
-    marginLeft: 10,
-    fontSize: 16,
   },
   logoutButton: {
     marginTop: 30,

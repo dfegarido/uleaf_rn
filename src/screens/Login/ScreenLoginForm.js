@@ -1,40 +1,137 @@
-import React from 'react';
-import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
+import React, {useState} from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {
   InputGroupLeftIcon,
   InputPasswordLeftIcon,
 } from '../../components/InputGroup/Left';
+import {getApp} from '@react-native-firebase/app';
+import {getAuth, signInWithEmailAndPassword} from '@react-native-firebase/auth';
+import {postSellerAfterSignInApi} from '../../components/Api';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
 
 const ScreenLoginForm = ({navigation}) => {
-  const handlePressLogin = () => {
-    navigation.navigate('LoginOtp');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [validateErrors, setValidateErrors] = useState({});
+
+  const requiredFields = ['email', 'password'];
+
+  const app = getApp();
+  const auth = getAuth(app);
+
+  const loadData = async token => {
+    try {
+      const postSellerAfterSignInApiData = await postSellerAfterSignInApi(
+        token,
+      );
+      if (!postSellerAfterSignInApiData?.user) {
+        throw new Error(
+          postSellerAfterSignInApiData?.message || 'Login verification failed.',
+        );
+      }
+    } catch (error) {
+      throw new Error(error.message || 'Failed to load seller data.');
+    }
+  };
+
+  const validateFields = () => {
+    const newErrors = {};
+    requiredFields.forEach(field => {
+      if (!formData[field] || formData[field].trim() === '') {
+        newErrors[field] = 'This is a required field';
+      }
+    });
+
+    setValidateErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handlePressLogin = async () => {
+    if (validateFields()) {
+      try {
+        setLoading(true);
+        // console.log(formData.email);
+        const authResult = await signInWithEmailAndPassword(
+          auth,
+          formData.email,
+          formData.password,
+        );
+        const user = authResult.user;
+
+        if (user) {
+          const localIdToken = await user.getIdToken();
+          await loadData(localIdToken);
+          navigation.navigate('LoginOtp');
+        }
+      } catch (error) {
+        Alert.alert('Login failed', error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   return (
     <View style={styles.mainContent}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
+
       <View style={styles.mainContainer}>
         <Text style={[globalStyles.title]}>Welcome back!</Text>
-        <Text style={[globalStyles.textXXLGrayDark, styles.subtTitle]}>
+        <Text style={[globalStyles.textXXLGreyDark, styles.subtTitle]}>
           Log in to your account
         </Text>
+
         <View style={{paddingTop: 30}}>
           <InputGroupLeftIcon
             IconLeftComponent={EmailIcon}
             placeholder={'Email'}
+            value={formData.email}
+            onChangeText={text => setFormData({...formData, email: text})}
           />
+          {validateErrors.email && (
+            <Text style={globalStyles.textXSRed}>{validateErrors.email}</Text>
+          )}
         </View>
+
         <View style={{paddingTop: 30}}>
-          <InputPasswordLeftIcon IconLeftComponent={PasswordIcon} />
+          <InputPasswordLeftIcon
+            IconLeftComponent={PasswordIcon}
+            value={formData.password}
+            onChangeText={text => setFormData({...formData, password: text})}
+          />
+          {validateErrors.password && (
+            <Text style={globalStyles.textXSRed}>
+              {validateErrors.password}
+            </Text>
+          )}
         </View>
+
         <View style={{paddingTop: 20}}>
           <Text style={[globalStyles.textLGAccent, {textAlign: 'right'}]}>
             Forgot password?
           </Text>
         </View>
+
         <View style={styles.buttonContainer}>
           <View style={styles.loginAccountContainer}>
             <Text style={{color: '#000', textAlign: 'center'}}>
@@ -43,11 +140,12 @@ const ScreenLoginForm = ({navigation}) => {
             <TouchableOpacity>
               <Text style={{color: '#699E73'}}>Terms & Conditions</Text>
             </TouchableOpacity>
-            <Text> and </Text>
+            <Text style={{color: '#000'}}> and </Text>
             <TouchableOpacity>
               <Text style={{color: '#699E73'}}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
+
           <TouchableOpacity
             style={globalStyles.primaryButton}
             onPress={handlePressLogin}>
@@ -90,6 +188,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingBottom: 10,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

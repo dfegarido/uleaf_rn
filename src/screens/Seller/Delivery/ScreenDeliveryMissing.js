@@ -14,6 +14,8 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
+import {globalStyles} from '../../../assets/styles/styles';
+import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
@@ -21,6 +23,7 @@ import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import ShareIcon from '../../../assets/icons/accent/share-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
 
 import OrderTableList from '../Order/components/OrderTableList';
 const screenHeight = Dimensions.get('window').height;
@@ -103,7 +106,12 @@ const ScreenDeliveryMissing = ({navigation}) => {
               }}>
               <LeftIcon width={30} hegiht={30} />
             </TouchableOpacity>
-            <TextInput style={styles.search} placeholder="Search plants" />
+            <View style={{flex: 1}}>
+              <InputGroupLeftIcon
+                IconLeftComponent={SearchIcon}
+                placeholder={'Search'}
+              />
+            </View>
             <View style={styles.headerIcons}>
               <TouchableOpacity style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
@@ -141,7 +149,7 @@ const ScreenDeliveryMissing = ({navigation}) => {
                 flexDirection: 'row',
               }}>
               <SortIcon width={20} height={20}></SortIcon>
-              <Text>Sort</Text>
+              <Text style={globalStyles.textSMGreyDark}>Sort</Text>
             </View>
             <View
               style={{
@@ -151,7 +159,7 @@ const ScreenDeliveryMissing = ({navigation}) => {
                 padding: 10,
                 flexDirection: 'row',
               }}>
-              <Text>Date</Text>
+              <Text style={globalStyles.textSMGreyDark}>Date</Text>
               <DownIcon width={20} height={20}></DownIcon>
             </View>
             <View
@@ -162,7 +170,7 @@ const ScreenDeliveryMissing = ({navigation}) => {
                 padding: 10,
                 flexDirection: 'row',
               }}>
-              <Text>Date Range</Text>
+              <Text style={globalStyles.textSMGreyDark}>Date Range</Text>
               <DownIcon width={20} height={20}></DownIcon>
             </View>
             <View
@@ -173,7 +181,7 @@ const ScreenDeliveryMissing = ({navigation}) => {
                 padding: 10,
                 flexDirection: 'row',
               }}>
-              <Text>Listing Type</Text>
+              <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
               <DownIcon width={20} height={20}></DownIcon>
             </View>
           </ScrollView>

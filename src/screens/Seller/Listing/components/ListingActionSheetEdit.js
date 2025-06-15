@@ -19,7 +19,7 @@ const ListingActionSheet = ({
 }) => {
   const renderSheetContent = () => {
     switch (code) {
-      case 'L1':
+      case 'Single Plant':
         return (
           <ActionSheet
             visible={visible}
@@ -66,140 +66,204 @@ const ListingActionSheet = ({
             </View>
           </ActionSheet>
         );
-      case 'L2':
-        return (
-          <ActionSheet
-            visible={visible}
-            onClose={onClose}
-            heightPercent={'20%'}>
-            <View
-              style={{
-                marginHorizontal: 20,
-                marginVertical: 20,
-                flexDirection: 'column',
-              }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}>
-                <View style={{flexDirection: 'row'}}>
-                  <IconNote width={20} height={20} />
-                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                    Edit Listing
-                  </Text>
-                </View>
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </View>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}>
-                <TouchableOpacity onPress={() => onPressUpdateStockShow()}>
-                  <View style={{flexDirection: 'row'}}>
-                    <IconStocks width={20} height={20} />
-                    <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                      Update Stocks
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+      // case 'L2':
+      //   return (
+      //     <ActionSheet
+      //       visible={visible}
+      //       onClose={onClose}
+      //       heightPercent={'20%'}>
+      //       <View
+      //         style={{
+      //           marginHorizontal: 20,
+      //           marginVertical: 20,
+      //           flexDirection: 'column',
+      //         }}>
+      //         <View
+      //           style={{
+      //             flexDirection: 'row',
+      //             justifyContent: 'space-between',
+      //             paddingBottom: 20,
+      //           }}>
+      //           <View style={{flexDirection: 'row'}}>
+      //             <IconNote width={20} height={20} />
+      //             <Text style={{paddingLeft: 10, color: '#393D40'}}>
+      //               Edit Listing
+      //             </Text>
+      //           </View>
+      //           <View>
+      //             <IconRight width={20} height={20} />
+      //           </View>
+      //         </View>
+      //         <View
+      //           style={{
+      //             flexDirection: 'row',
+      //             justifyContent: 'space-between',
+      //             paddingBottom: 20,
+      //           }}>
+      //           <TouchableOpacity onPress={() => onPressUpdateStockShow()}>
+      //             <View style={{flexDirection: 'row'}}>
+      //               <IconStocks width={20} height={20} />
+      //               <Text style={{paddingLeft: 10, color: '#393D40'}}>
+      //                 Update Stocks
+      //               </Text>
+      //             </View>
+      //           </TouchableOpacity>
 
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </View>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}>
-                <View style={{flexDirection: 'row'}}>
-                  <IconTrash width={20} height={20} />
-                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                    Delete Listing
-                  </Text>
-                </View>
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </View>
-            </View>
-          </ActionSheet>
-        );
-      case 'L3':
-        return (
-          <ActionSheet
-            visible={visible}
-            onClose={onClose}
-            heightPercent={'20%'}>
-            <View
-              style={{
-                marginHorizontal: 20,
-                marginVertical: 20,
-                flexDirection: 'column',
-              }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}>
-                <View style={{flexDirection: 'row'}}>
-                  <IconNote width={20} height={20} />
-                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                    Edit Listing
-                  </Text>
-                </View>
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </View>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}>
-                <TouchableOpacity onPress={() => onPressUpdateStockShow()}>
-                  <View style={{flexDirection: 'row'}}>
-                    <IconStocks width={20} height={20} />
-                    <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                      Update Stocks
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+      //           <View>
+      //             <IconRight width={20} height={20} />
+      //           </View>
+      //         </View>
+      //         <View
+      //           style={{
+      //             flexDirection: 'row',
+      //             justifyContent: 'space-between',
+      //             paddingBottom: 20,
+      //           }}>
+      //           <View style={{flexDirection: 'row'}}>
+      //             <IconTrash width={20} height={20} />
+      //             <Text style={{paddingLeft: 10, color: '#393D40'}}>
+      //               Delete Listing
+      //             </Text>
+      //           </View>
+      //           <View>
+      //             <IconRight width={20} height={20} />
+      //           </View>
+      //         </View>
+      //       </View>
+      //     </ActionSheet>
+      //   );
+      // case 'L3':
+      //   return (
+      //     <ActionSheet
+      //       visible={visible}
+      //       onClose={onClose}
+      //       heightPercent={'20%'}>
+      //       <View
+      //         style={{
+      //           marginHorizontal: 20,
+      //           marginVertical: 20,
+      //           flexDirection: 'column',
+      //         }}>
+      //         <View
+      //           style={{
+      //             flexDirection: 'row',
+      //             justifyContent: 'space-between',
+      //             paddingBottom: 20,
+      //           }}>
+      //           <View style={{flexDirection: 'row'}}>
+      //             <IconNote width={20} height={20} />
+      //             <Text style={{paddingLeft: 10, color: '#393D40'}}>
+      //               Edit Listing
+      //             </Text>
+      //           </View>
+      //           <View>
+      //             <IconRight width={20} height={20} />
+      //           </View>
+      //         </View>
+      //         <View
+      //           style={{
+      //             flexDirection: 'row',
+      //             justifyContent: 'space-between',
+      //             paddingBottom: 20,
+      //           }}>
+      //           <TouchableOpacity onPress={() => onPressUpdateStockShow()}>
+      //             <View style={{flexDirection: 'row'}}>
+      //               <IconStocks width={20} height={20} />
+      //               <Text style={{paddingLeft: 10, color: '#393D40'}}>
+      //                 Update Stocks
+      //               </Text>
+      //             </View>
+      //           </TouchableOpacity>
 
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </View>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}>
-                <View style={{flexDirection: 'row'}}>
-                  <IconTrash width={20} height={20} />
-                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                    Delete Listing
-                  </Text>
-                </View>
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </View>
-            </View>
-          </ActionSheet>
-        );
+      //           <View>
+      //             <IconRight width={20} height={20} />
+      //           </View>
+      //         </View>
+      //         <View
+      //           style={{
+      //             flexDirection: 'row',
+      //             justifyContent: 'space-between',
+      //             paddingBottom: 20,
+      //           }}>
+      //           <View style={{flexDirection: 'row'}}>
+      //             <IconTrash width={20} height={20} />
+      //             <Text style={{paddingLeft: 10, color: '#393D40'}}>
+      //               Delete Listing
+      //             </Text>
+      //           </View>
+      //           <View>
+      //             <IconRight width={20} height={20} />
+      //           </View>
+      //         </View>
+      //       </View>
+      //     </ActionSheet>
+      //   );
       default:
-        return null;
+        return (
+          <ActionSheet
+            visible={visible}
+            onClose={onClose}
+            heightPercent={'20%'}>
+            <View
+              style={{
+                marginHorizontal: 20,
+                marginVertical: 20,
+                flexDirection: 'column',
+              }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingBottom: 20,
+                }}>
+                <View style={{flexDirection: 'row'}}>
+                  <IconNote width={20} height={20} />
+                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
+                    Edit Listing
+                  </Text>
+                </View>
+                <View>
+                  <IconRight width={20} height={20} />
+                </View>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingBottom: 20,
+                }}>
+                <TouchableOpacity onPress={() => onPressUpdateStockShow()}>
+                  <View style={{flexDirection: 'row'}}>
+                    <IconStocks width={20} height={20} />
+                    <Text style={{paddingLeft: 10, color: '#393D40'}}>
+                      Update Stocks
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View>
+                  <IconRight width={20} height={20} />
+                </View>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingBottom: 20,
+                }}>
+                <View style={{flexDirection: 'row'}}>
+                  <IconTrash width={20} height={20} />
+                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
+                    Delete Listing
+                  </Text>
+                </View>
+                <View>
+                  <IconRight width={20} height={20} />
+                </View>
+              </View>
+            </View>
+          </ActionSheet>
+        );
     }
   };
 

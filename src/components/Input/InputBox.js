@@ -1,16 +1,25 @@
 import React, {useState} from 'react';
 import {View, TextInput, StyleSheet} from 'react-native';
 
-const InputBox = ({placeholder, value, setValue}) => {
+const InputBox = ({placeholder, value, setValue, isNumeric = false}) => {
   const [internalValue, setInternalValue] = useState('');
 
   const handleChangeText = text => {
-    if (setValue) {
-      setValue(text); // controlled input
+    let newValue = text;
+
+    if (isNumeric) {
+      newValue = text.replace(/[^0-9]/g, ''); // allow digits only
+    }
+
+    if (typeof setValue === 'function') {
+      setValue(newValue);
     } else {
-      setInternalValue(text); // uncontrolled input
+      setInternalValue(newValue);
     }
   };
+
+  const displayValue =
+    value !== undefined && value !== null ? String(value) : internalValue;
 
   return (
     <View style={styles.inputContainer}>
@@ -18,7 +27,8 @@ const InputBox = ({placeholder, value, setValue}) => {
         style={styles.input}
         placeholder={placeholder}
         placeholderTextColor="#888"
-        value={value !== undefined ? value : internalValue}
+        keyboardType={isNumeric ? 'numeric' : 'default'}
+        value={displayValue}
         onChangeText={handleChangeText}
       />
     </View>

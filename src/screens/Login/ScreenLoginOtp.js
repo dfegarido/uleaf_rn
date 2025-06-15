@@ -1,21 +1,114 @@
-import React, {useState} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
+import React, {useState, useEffect, useContext} from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
+import {getAuth} from '@react-native-firebase/auth';
+import {
+  postSellerPinCodeApi,
+  postSellerAfterSignInApi,
+} from '../../components/Api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {AuthContext} from '../../auth/AuthProvider';
 
 const ScreenLoginOtp = ({navigation}) => {
-  const handlePressLogin = () => {
-    navigation.navigate('MainTabs');
+  const [pin, setPin] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [idToken, setIdToken] = useState('');
+  const {setIsLoggedIn} = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
+
+  const postData = async token => {
+    // If this throws, it must be caught outside
+    const response = await postSellerPinCodeApi(token, pin);
+
+    // Optionally validate response success
+    if (!response.success) {
+      throw new Error(response.error || 'Verification failed.');
+    }
+
+    console.log('After Submit:', response);
   };
 
-  const [otp, setOtp] = useState('');
+  const postRequestPinData = async token => {
+    // If this throws, it must be caught outside
+    const response = await postSellerAfterSignInApi(token, pin);
+
+    // Optionally validate response success
+    if (!response.success) {
+      throw new Error(response.error || 'Verification failed.');
+    }
+  };
+
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (user) {
+      setCurrentUser(user);
+      user.getIdToken().then(token => {
+        setIdToken(token);
+      });
+    } else {
+      console.log('No user is signed in.');
+    }
+  }, []);
+
+  const handlePressLogin = async () => {
+    if (pin.length !== 4) {
+      Alert.alert('Invalid Code', 'Please enter the 4-digit code.');
+      return;
+    } else {
+      try {
+        if (idToken != '') {
+          setLoading(true);
+          await postData(idToken); // Pass token directly here
+          console.log('User logged in with ID Token:', idToken);
+          // TODO: Use this token with your backend API or save session
+
+          await AsyncStorage.setItem('authToken', idToken);
+          setIsLoggedIn(true);
+        }
+      } catch (error) {
+        Alert.alert('Token', error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleResendPin = async () => {
+    setLoading(true);
+    try {
+      if (idToken != '') {
+        await postRequestPinData(idToken);
+        setLoading(false);
+      }
+    } catch (error) {
+      Alert.alert('Token ', error.message);
+    }
+  };
 
   return (
     <View style={styles.mainContent}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <View style={styles.mainContainer}>
         <Text
           style={[
-            globalStyles.textXXLPrimaryDark,
+            globalStyles.textXXLGreyDark,
             {textAlign: 'center', fontWeight: 'bold'},
           ]}>
           Enter authentication code
@@ -28,7 +121,7 @@ const ScreenLoginOtp = ({navigation}) => {
           ]}>
           Enter the 4-digit that we have sent via the email
         </Text>
-        <OtpInput length={4} onChangeOtp={setOtp} />
+        <OtpInput length={4} onChangeOtp={setPin} />
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={globalStyles.primaryButton}
@@ -36,7 +129,7 @@ const ScreenLoginOtp = ({navigation}) => {
             <Text style={globalStyles.primaryButtonText}>Continue</Text>
           </TouchableOpacity>
           <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={handleResendPin}>
               <Text style={globalStyles.textLGAccent}>Resend Code</Text>
             </TouchableOpacity>
           </View>
@@ -77,6 +170,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingBottom: 10,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -12,7 +12,6 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../../assets/styles/styles';
-import {InputBox} from '../../../components/Input';
 import PayoutCard from './components/PayoutCard';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';

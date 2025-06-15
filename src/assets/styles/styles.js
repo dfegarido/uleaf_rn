@@ -120,115 +120,157 @@ export const globalStyles = StyleSheet.create({
     borderRadius: 10,
     marginVertical: 5,
   },
+  // Buttons
   // Typography
   title: {
     color: colors.primaryDark,
     fontWeight: 'bold',
     fontSize: fontSize.xxxxl,
   },
-  // Primary Dark
-  textXLPrimaryDark: {
-    color: colors.greyDark,
-    fontWeight: 'semi-bold',
-    fontSize: fontSize.xl,
+  textBold: {
+    fontWeight: 'bold',
   },
-  textLGPrimaryDark: {
-    color: colors.greyDark,
-    fontWeight: 'semi-bold',
-    fontSize: fontSize.lg,
+  textSemiBold: {
+    fontWeight: 'semibold',
   },
-  textXXLPrimaryDark: {
-    color: colors.greyDark,
-    fontWeight: 'semi-bold',
-    fontSize: fontSize.xxl,
+  textRegular: {
+    fontWeight: 'regular',
   },
+  // Typography
   // Grey Dark
-  textMDGrayDark: {
+  textXSGreyDark: {
     color: colors.greyDark,
-    fontWeight: 'semi-bold',
+    fontSize: fontSize.xs,
+  },
+  textSMGreyDark: {
+    color: colors.greyDark,
+    fontSize: fontSize.sm,
+  },
+  textMDGreyDark: {
+    color: colors.greyDark,
     fontSize: fontSize.md,
   },
   textLGGreyDark: {
     color: colors.greyDark,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.lg,
   },
-  textXXLGrayDark: {
+  textXLGreyDark: {
     color: colors.greyDark,
-    fontWeight: 'semi-bold',
+    fontSize: fontSize.xl,
+  },
+  textXXLGreyDark: {
+    color: colors.greyDark,
     fontSize: fontSize.xxl,
   },
+  // Grey Dark
   // Grey Light
+  textXSGreyLight: {
+    color: colors.greyLight,
+    fontSize: fontSize.xs,
+  },
   textSMGreyLight: {
     color: colors.greyLight,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.sm,
   },
   textMDGreyLight: {
     color: colors.greyLight,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.md,
   },
   textLGGreyLight: {
     color: colors.greyLight,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.lg,
   },
+  textXLGreyLight: {
+    color: colors.greyLight,
+    fontSize: fontSize.xl,
+  },
+  textXXLGreyLight: {
+    color: colors.greyLight,
+    fontSize: fontSize.xxl,
+  },
+  // Grey Light
   // Accent
+  textXSAccent: {
+    color: colors.accent,
+    fontSize: fontSize.xs,
+  },
   textSMAccent: {
     color: colors.accent,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.sm,
   },
   textMDAccent: {
     color: colors.accent,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.md,
   },
   textLGAccent: {
     color: colors.accent,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.lg,
   },
   textXLGAccent: {
     color: colors.accent,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.xl,
   },
   textXXLGAccent: {
     color: colors.accent,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.xxl,
   },
+  // Accent
   // Accent Dark
+  textXSAccentDark: {
+    color: colors.accentDark,
+    fontSize: fontSize.xs,
+  },
+  textSMAccentDark: {
+    color: colors.accentDark,
+    fontSize: fontSize.sm,
+  },
+  textMDAccentDark: {
+    color: colors.accentDark,
+    fontSize: fontSize.md,
+  },
   textLGAccentDark: {
     color: colors.accentDark,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.lg,
   },
   textXLAccentDark: {
     color: colors.accentDark,
-    fontWeight: 'semi-bold',
     fontSize: fontSize.xl,
   },
+  textXXLAccentDark: {
+    color: colors.accentDark,
+    fontSize: fontSize.xxl,
+  },
+  // Accent Dark
   // White
+  textXSWhite: {
+    color: '#fff',
+    fontSize: fontSize.xs,
+  },
   textSMWhite: {
     color: '#fff',
-    fontWeight: 'semi-bold',
     fontSize: fontSize.sm,
   },
   textMDWhite: {
     color: '#fff',
-    fontWeight: 'semi-bold',
     fontSize: fontSize.md,
   },
-
+  textLGWhite: {
+    color: '#fff',
+    fontSize: fontSize.lg,
+  },
   textXLWhite: {
     color: '#fff',
-    fontWeight: 'semi-bold',
     fontSize: fontSize.xl,
   },
-
+  textXXLWhite: {
+    color: '#fff',
+    fontSize: fontSize.xxl,
+  },
+  // White
+  textXSRed: {
+    color: '#FF5247',
+    fontSize: fontSize.xs,
+  },
   // Card
   cardLightAccent: {
     backgroundColor: colors.bgCardSurfaceLightAccent,
@@ -236,4 +278,5 @@ export const globalStyles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
   },
+  // Card
 });

@@ -1,6 +1,7 @@
 // CheckBoxGroup.js
 import React from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
+import {globalStyles} from '../../assets/styles/styles';
 
 const CheckBoxGroup = ({
   options = [],
@@ -22,12 +23,14 @@ const CheckBoxGroup = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {options.map(opt => (
+      {options.map((opt, index) => (
         <TouchableOpacity
-          key={opt.value}
+          key={index}
           style={[styles.optionContainer, optionStyle]}
           onPress={() => toggleSelection(opt.value)}>
-          <Text style={[styles.optionText, labelStyle]}>{opt.label}</Text>
+          <Text style={[globalStyles.textMDGreyDark, labelStyle]}>
+            {opt.label}
+          </Text>
           <View style={[styles.checkBox, boxStyle]}>
             {selectedValues.includes(opt.value) && (
               <View style={[styles.checked, checkStyle]} />
@@ -62,8 +65,5 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     backgroundColor: '#539461',
-  },
-  optionText: {
-    fontSize: 16,
   },
 });

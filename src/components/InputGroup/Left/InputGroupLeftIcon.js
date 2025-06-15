@@ -5,6 +5,8 @@ const InputGroupLeftIcon = ({
   IconLeftComponent,
   IconRightComponent,
   placeholder,
+  value,
+  onChangeText,
 }) => {
   return (
     <View style={styles.inputContainer}>
@@ -15,6 +17,8 @@ const InputGroupLeftIcon = ({
         style={styles.input}
         placeholder={placeholder}
         placeholderTextColor="#888"
+        value={value}
+        onChangeText={onChangeText}
       />
       {IconRightComponent && (
         <IconRightComponent width={20} height={20} style={styles.icon} />
@@ -43,6 +47,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#000',
+    backgroundColor: '#fff',
   },
 });
 

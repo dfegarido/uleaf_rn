@@ -7,16 +7,24 @@ const StatusBadge = ({statusCode}) => {
   let text = '';
 
   switch (statusCode) {
-    case 'LS1':
+    case 'Active':
       badgeStyle = styles.active;
       text = 'Active';
       break;
-    case 'LS2':
+    case 'Inactive':
       badgeStyle = styles.inactive;
-      text = 'In Active';
+      text = 'Inactive';
+      break;
+    case 'Scheduled':
+      badgeStyle = styles.scheduled;
+      text = 'Scheduled';
+      break;
+    case 'Expired':
+      badgeStyle = styles.expired;
+      text = 'Scheduled';
       break;
     default:
-      badgeStyle = styles.unknown;
+      badgeStyle = styles.expired;
       text = 'Out of Stock';
   }
 
@@ -40,8 +48,14 @@ const styles = StyleSheet.create({
   inactive: {
     backgroundColor: '#FFB323',
   },
+  scheduled: {
+    backgroundColor: '#48A7F8',
+  },
+  expired: {
+    backgroundColor: '#6B4EFF',
+  },
   unknown: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#E7522F',
   },
 });
 

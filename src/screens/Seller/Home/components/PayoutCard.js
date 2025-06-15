@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
+import {globalStyles} from '../../../../assets/styles/styles';
 
 const PayoutCard = ({item}) => {
   const statusStyles = {
@@ -14,16 +15,18 @@ const PayoutCard = ({item}) => {
       </View>
 
       {item.reference && (
-        <Text style={styles.reference}>Ref # {item.reference}</Text>
+        <Text style={globalStyles.textMDGreyLight}>Ref # {item.reference}</Text>
       )}
 
-      <Text style={styles.amount}>${item.amount.toLocaleString()}</Text>
+      <Text style={[globalStyles.textLGGreyDark, globalStyles.textBold]}>
+        ${item.amount.toLocaleString()}
+      </Text>
       <Text style={styles.label}>Total amount</Text>
 
-      <Text style={styles.date}>{item.payoutDate}</Text>
+      <Text style={[globalStyles.textSMGreyDark]}>{item.payoutDate}</Text>
       <Text style={styles.label}>Payout date</Text>
 
-      <Text style={styles.period}>{item.salesPeriod}</Text>
+      <Text style={[globalStyles.textSMGreyDark]}>{item.salesPeriod}</Text>
       <Text style={styles.label}>Sales period</Text>
     </View>
   );
@@ -51,13 +54,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   receivable: {
-    backgroundColor: '#E0F0FF',
+    backgroundColor: '#48A7F8',
   },
   paid: {
-    backgroundColor: '#D1FAD7',
+    backgroundColor: '#23C16B',
   },
   statusText: {
-    color: '#000',
+    color: '#fff',
     fontWeight: '600',
     fontSize: 12,
   },
@@ -75,14 +78,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginBottom: 4,
-  },
-  date: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  period: {
-    fontSize: 14,
-    fontWeight: '500',
   },
 });
 

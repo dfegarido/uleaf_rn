@@ -1,6 +1,6 @@
 import React from 'react';
 import {Pressable, Text, View, StyleSheet} from 'react-native';
-import MyCheckIcon from '../../assets/icons/accent/check-bold.svg'; // replace with the actual path to your icon
+import MyCheckIcon from '../../assets/icons/white/check-regular.svg'; // replace with the actual path to your icon
 
 const InputCheckBox = ({label, checked, onChange}) => {
   return (
@@ -28,11 +28,12 @@ const styles = StyleSheet.create({
     borderColor: '#647276',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#fff',
     // marginRight: 10,
   },
   checked: {
     padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#539461',
     borderColor: '#539461',
   },
   label: {

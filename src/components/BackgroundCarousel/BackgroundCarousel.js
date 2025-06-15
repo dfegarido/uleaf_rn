@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 const BackgroundCarousel = ({
-  images,
+  images = [],
   autoSlide = true,
   interval = 4000,
   width,
@@ -21,23 +21,31 @@ const BackgroundCarousel = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef(null);
 
+  const hasImages = images && images.length > 0;
+
   useEffect(() => {
-    if (!autoSlide) return;
+    if (!autoSlide || !hasImages) return;
+
     const slideInterval = setInterval(() => {
       goToNextImage();
     }, interval);
 
     return () => clearInterval(slideInterval);
-  }, [currentIndex]);
+  }, [currentIndex, hasImages]);
 
   const goToNextImage = () => {
+    if (!hasImages || !flatListRef.current) return;
+
     const nextIndex = (currentIndex + 1) % images.length;
-    flatListRef.current.scrollToIndex({index: nextIndex, animated: true});
+    flatListRef.current.scrollToIndex({
+      index: nextIndex,
+      animated: true,
+    });
     setCurrentIndex(nextIndex);
   };
 
   const onViewableItemsChanged = useRef(({viewableItems}) => {
-    if (viewableItems.length > 0) {
+    if (viewableItems?.length > 0 && viewableItems[0].index != null) {
       setCurrentIndex(viewableItems[0].index);
     }
   }).current;
@@ -51,47 +59,59 @@ const BackgroundCarousel = ({
           height: height || screenHeight,
         },
       ]}>
-      <FlatList
-        ref={flatListRef}
-        data={images}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(_, index) => index.toString()}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{viewAreaCoveragePercentThreshold: 50}}
-        renderItem={({item}) => (
-          <ImageBackground
-            source={item}
-            style={[
-              styles.image,
-              {
-                width: width || screenWidth,
-                height: height || screenHeight,
-              },
-            ]}
-            resizeMode="cover"
-          />
-        )}
-      />
+      {hasImages ? (
+        <>
+          <FlatList
+            ref={flatListRef}
+            data={images}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(_, index) => index.toString()}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={{viewAreaCoveragePercentThreshold: 50}}
+            renderItem={({item}) => (
+              <ImageBackground
+                // source={item}
+                source={{uri: item}}
+                style={{
+                  backgroundColor: '#eee',
 
-      {/* Index Display */}
-      <View style={[styles.indicator, {right: width * 0.45}]}>
-        <Text style={styles.indicatorText}>
-          {currentIndex + 1} / {images.length}
-        </Text>
-      </View>
+                  width: width || screenWidth,
+                  height: height || screenHeight,
+                }}
+                resizeMode="cover"
+              />
+            )}
+          />
+
+          {/* Index Display */}
+          <View
+            style={[styles.indicator, {right: (width || screenWidth) * 0.43}]}>
+            <Text style={styles.indicatorText}>
+              {currentIndex + 1} / {images.length}
+            </Text>
+          </View>
+        </>
+      ) : (
+        <View
+          style={[
+            styles.noImageContainer,
+            {
+              width: width || screenWidth,
+              height: height || screenHeight,
+            },
+          ]}>
+          <Text style={styles.noImageText}>No Images Available</Text>
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    // ...StyleSheet.absoluteFillObject,
-    zIndex: -1, // send to background
-  },
-  image: {
-    flex: 1,
+    zIndex: -1,
   },
   indicator: {
     position: 'absolute',
@@ -103,6 +123,15 @@ const styles = StyleSheet.create({
   },
   indicatorText: {
     color: '#fff',
+    fontSize: 16,
+  },
+  noImageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ccc',
+  },
+  noImageText: {
+    color: '#333',
     fontSize: 16,
   },
 });

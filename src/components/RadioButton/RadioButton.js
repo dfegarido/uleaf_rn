@@ -14,9 +14,9 @@ const RadioButton = ({
 }) => {
   return (
     <View style={[styles.container, containerStyle]}>
-      {options.map(opt => (
+      {options.map((opt, index) => (
         <TouchableOpacity
-          key={opt.value}
+          key={index}
           style={[styles.optionContainer, optionStyle]}
           onPress={() => onSelect(opt.value)}>
           <Text style={[styles.optionText, labelStyle]}>{opt.label}</Text>

@@ -10,6 +10,7 @@ import {
   StatusBar,
   Image,
 } from 'react-native';
+import {globalStyles} from '../../assets/styles/styles';
 
 const TabFilter = ({tabFilters, activeTab, setActiveTab, onPressTab}) => {
   return (
@@ -41,7 +42,9 @@ const TabFilter = ({tabFilters, activeTab, setActiveTab, onPressTab}) => {
               borderBottomWidth:
                 activeTab === parseTabFilters.filterKey ? 2 : 0,
             }}>
-            <Text>{parseTabFilters.filterKey}</Text>
+            <Text style={globalStyles.textSMGreyDark}>
+              {parseTabFilters.filterKey}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>

@@ -21,6 +21,7 @@ const InputGroupAddon = ({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        placeholderTextColor="#888"
         {...props}
       />
       {position === 'right' && (
@@ -53,6 +54,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    color: '#000',
     paddingHorizontal: 10,
     paddingVertical: 10,
     fontSize: 16,

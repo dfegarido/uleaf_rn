@@ -58,13 +58,13 @@ const ScreenProfileRequest = ({navigation}) => {
         {/* Main Content */}
         <View style={{marginHorizontal: 20}}>
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               Genus
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               Species
             </Text>
             <InputBox placeholder={''} />

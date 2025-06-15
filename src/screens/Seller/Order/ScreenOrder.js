@@ -14,11 +14,14 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
+import {globalStyles} from '../../../assets/styles/styles';
+import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 
 import OrderTableList from './components/OrderTableList';
 
@@ -86,7 +89,12 @@ const ScreenOrder = () => {
         {/* Search and Icons */}
         <View style={styles.stickyHeader}>
           <View style={styles.header}>
-            <TextInput style={styles.search} placeholder="Search plants" />
+            <View style={{flex: 1}}>
+              <InputGroupLeftIcon
+                IconLeftComponent={SearchIcon}
+                placeholder={'Search'}
+              />
+            </View>
             <View style={styles.headerIcons}>
               <TouchableOpacity style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
@@ -105,7 +113,7 @@ const ScreenOrder = () => {
               isActive('option1') ? styles.buttonActive : styles.buttonInactive
             }
             onPress={() => setActive('option1')}>
-            <Text style={styles.text}>For Delivery</Text>
+            <Text style={globalStyles.textSMGreyDark}>For Delivery</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -113,7 +121,7 @@ const ScreenOrder = () => {
               isActive('option2') ? styles.buttonActive : styles.buttonInactive
             }
             onPress={() => setActive('option2')}>
-            <Text style={styles.text}>Delivered</Text>
+            <Text style={globalStyles.textSMGreyDark}>Delivered</Text>
           </TouchableOpacity>
         </View>
 
@@ -142,7 +150,7 @@ const ScreenOrder = () => {
                 flexDirection: 'row',
               }}>
               <SortIcon width={20} height={20}></SortIcon>
-              <Text>Sort</Text>
+              <Text style={globalStyles.textSMGreyDark}>Sort</Text>
             </View>
             <View
               style={{
@@ -152,7 +160,7 @@ const ScreenOrder = () => {
                 padding: 10,
                 flexDirection: 'row',
               }}>
-              <Text>Date</Text>
+              <Text style={globalStyles.textSMGreyDark}>Date</Text>
               <DownIcon width={20} height={20}></DownIcon>
             </View>
             <View
@@ -163,7 +171,7 @@ const ScreenOrder = () => {
                 padding: 10,
                 flexDirection: 'row',
               }}>
-              <Text>Date Range</Text>
+              <Text style={globalStyles.textSMGreyDark}>Date Range</Text>
               <DownIcon width={20} height={20}></DownIcon>
             </View>
             <View
@@ -174,7 +182,7 @@ const ScreenOrder = () => {
                 padding: 10,
                 flexDirection: 'row',
               }}>
-              <Text>Listing Type</Text>
+              <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
               <DownIcon width={20} height={20}></DownIcon>
             </View>
           </ScrollView>
@@ -285,10 +293,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
   },
 });

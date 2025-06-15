@@ -88,41 +88,41 @@ const ScreenProfileAccount = ({navigation}) => {
             </View>
           </View>
           <View style={{flexDirection: 'row', justifyContent: 'center'}}>
-            <Text style={globalStyles.textMDGrayDark}>olla@gmail.com</Text>
+            <Text style={globalStyles.textMDGreyDark}>olla@gmail.com</Text>
           </View>
 
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               Owner name
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               First name
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               Last name
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               Contact number
             </Text>
             <PhoneInput required />
           </View>
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               Garden / company name
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
               Country
             </Text>
             <InputDropdown

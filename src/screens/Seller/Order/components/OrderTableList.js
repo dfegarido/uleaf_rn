@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView, Image} from 'react-native';
+import {globalStyles} from '../../../../assets/styles/styles';
 
 const COLUMN_WIDTH = 120;
 
@@ -11,7 +12,15 @@ const OrderTableList = ({headers = [], data = [{}]}) => {
         <View style={[styles.row, {backgroundColor: '#E4E7E9'}]}>
           {headers.map((header, index) => (
             <View key={index} style={styles.cell}>
-              <Text style={styles.headerText}>{header}</Text>
+              <Text
+                style={[
+                  index == 0
+                    ? globalStyles.textMDGreyDark
+                    : globalStyles.textMDGreyLight,
+                  index == 0 && globalStyles.textBold,
+                ]}>
+                {header}
+              </Text>
             </View>
           ))}
         </View>
@@ -28,18 +37,20 @@ const OrderTableList = ({headers = [], data = [{}]}) => {
               />
             </View>
             <View style={styles.cell}>
-              <Text style={{fontWeight: 'bold', paddingBottom: 10}}>
+              <Text style={[globalStyles.textSMGreyDark, {paddingBottom: 10}]}>
                 {dataparse.transNo}
               </Text>
-              <Text>Ordered: {dataparse.ordered}</Text>
+              <Text style={globalStyles.textSMGreyLight}>
+                Ordered: {dataparse.ordered}
+              </Text>
             </View>
             <View style={styles.cell}>
-              <Text style={{fontWeight: 'bold', paddingBottom: 10}}>
+              <Text style={[globalStyles.textSMGreyDark, {paddingBottom: 10}]}>
                 {dataparse.plantCode}
               </Text>
             </View>
             <View style={styles.cell}>
-              <Text style={{fontWeight: 'bold', paddingBottom: 10}}>
+              <Text style={[globalStyles.textSMGreyDark, {paddingBottom: 10}]}>
                 {dataparse.plantName}
               </Text>
               <Text>{dataparse.subPlantName}</Text>
@@ -67,10 +78,14 @@ const OrderTableList = ({headers = [], data = [{}]}) => {
               </View>
             </View>
             <View style={styles.cell}>
-              <Text>{dataparse.quantity}</Text>
+              <Text style={globalStyles.textMDGreyDark}>
+                {dataparse.quantity}
+              </Text>
             </View>
             <View style={styles.cell}>
-              <Text>{dataparse.totalPrice}</Text>
+              <Text style={globalStyles.textMDGreyDark}>
+                {dataparse.totalPrice}
+              </Text>
             </View>
           </View>
         ))}

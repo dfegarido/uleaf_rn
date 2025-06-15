@@ -7,27 +7,31 @@ import {
   StyleSheet,
   Platform,
   PermissionsAndroid,
+  Alert,
 } from 'react-native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {globalStyles} from '../../assets/styles/styles';
 
-// 🔐 Request permissions only on Android
+// ✅ Platform-aware, version-safe permission request
 async function requestPermissions() {
-  if (Platform.OS === 'android') {
-    const cameraPermission = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.CAMERA,
-    );
+  if (Platform.OS !== 'android') return true;
 
-    const storagePermission = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-    );
+  const sdkInt = parseInt(Platform.Version, 10);
+  const permissions = [PermissionsAndroid.PERMISSIONS.CAMERA];
 
-    return (
-      cameraPermission === PermissionsAndroid.RESULTS.GRANTED &&
-      storagePermission === PermissionsAndroid.RESULTS.GRANTED
-    );
+  if (sdkInt >= 33) {
+    permissions.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES);
+  } else {
+    permissions.push(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
   }
-  return true; // iOS doesn't require runtime permission here
+
+  const granted = await PermissionsAndroid.requestMultiple(permissions);
+
+  const allGranted = Object.values(granted).every(
+    result => result === PermissionsAndroid.RESULTS.GRANTED,
+  );
+
+  return allGranted;
 }
 
 const ImagePickerModal = ({onImagePicked}) => {
@@ -36,6 +40,10 @@ const ImagePickerModal = ({onImagePicked}) => {
   const handleCamera = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
+      Alert.alert(
+        'Permission Denied',
+        'Camera or media access was not granted.',
+      );
       setModalVisible(false);
       return;
     }
@@ -48,7 +56,14 @@ const ImagePickerModal = ({onImagePicked}) => {
     });
   };
 
-  const handleGallery = () => {
+  const handleGallery = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Media access was not granted.');
+      setModalVisible(false);
+      return;
+    }
+
     launchImageLibrary(
       {
         mediaType: 'photo',
@@ -86,10 +101,14 @@ const ImagePickerModal = ({onImagePicked}) => {
           onPressOut={() => setModalVisible(false)}>
           <View style={styles.modalContainer}>
             <TouchableOpacity style={styles.option} onPress={handleCamera}>
-              <Text style={styles.optionText}>📷 Take Photo</Text>
+              <Text style={[styles.optionText, globalStyles.textMDAccentDark]}>
+                📷 Take Photo
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.option} onPress={handleGallery}>
-              <Text style={styles.optionText}>🖼️ Choose from Library</Text>
+              <Text style={[styles.optionText, globalStyles.textMDAccentDark]}>
+                🖼️ Choose from Library
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Text style={styles.cancelText}>Cancel</Text>
@@ -119,7 +138,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   optionText: {
-    fontSize: 18,
     textAlign: 'center',
   },
   cancelText: {

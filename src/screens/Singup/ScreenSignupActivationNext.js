@@ -13,7 +13,7 @@ const ScreenSignupActivationCode = ({navigation}) => {
       <View style={styles.mainContainer}>
         <Text
           style={[
-            globalStyles.textXXLPrimaryDark,
+            globalStyles.textXXLGreyDark,
             {textAlign: 'center', fontWeight: 'bold'},
           ]}>
           Enter activation code

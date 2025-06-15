@@ -24,8 +24,12 @@ const ListingTable = ({
   data = [{}],
   onEditPressFilter,
   onPressDiscount,
+  onPressUpdateStock,
   module,
   navigateToListAction,
+  onPressTableListPin,
+  onPressRemoveDiscountPost,
+  onNavigateToDetail,
 }) => {
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -40,60 +44,34 @@ const ListingTable = ({
       <View>
         {/* Header */}
         <View style={[styles.row, {backgroundColor: '#E4E7E9'}]}>
-          {headers.map((header, index) => {
-            if (index === 0) {
-              return (
-                <View
-                  key={index}
-                  style={{
-                    width: 100,
-                    padding: 10,
-                    borderColor: '#ccc',
-                    borderBottomWidth: 1,
-                  }}>
-                  <Text style={styles.headerText}>{header}</Text>
-                </View>
-              );
-            }
-            if (index === 2) {
-              return (
-                <View
-                  key={index}
-                  style={{
-                    width: 80,
-                    padding: 10,
-                    borderColor: '#ccc',
-                    borderBottomWidth: 1,
-                  }}>
-                  <Text style={styles.headerText}>{header}</Text>
-                </View>
-              );
-            }
-            if (index === 7) {
-              return (
-                <View
-                  key={index}
-                  style={{
-                    width: 180,
-                    padding: 10,
-                    borderColor: '#ccc',
-                    borderBottomWidth: 1,
-                  }}>
-                  <Text style={styles.headerText}>{header}</Text>
-                </View>
-              );
-            }
-            return (
-              <View key={index} style={styles.cell}>
-                <Text style={styles.headerText}>{header}</Text>
-              </View>
-            );
-          })}
+          {headers.map((header, index) => (
+            <View
+              key={index + header}
+              style={[
+                styles.cell,
+                index === 0 && {width: 100},
+                index === 2 && {width: 80},
+                index === 7 && {width: 180},
+                {padding: 10, borderColor: '#ccc', borderBottomWidth: 1},
+              ]}>
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  index === 0 ? globalStyles.textBold : {},
+                ]}>
+                {header}
+              </Text>
+            </View>
+          ))}
         </View>
 
         {/* Rows */}
-        {data.map((dataparse, index) => (
-          <View style={styles.row} key={index}>
+        {data.map((listing, index) => (
+          <TouchableOpacity
+            style={styles.row}
+            key={listing.id + index}
+            onPress={() => onNavigateToDetail(listing.plantCode)}>
+            {/* Image and Checkbox */}
             <View
               style={{
                 width: 100,
@@ -104,52 +82,67 @@ const ListingTable = ({
               <Image
                 style={styles.image}
                 source={{
-                  uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
+                  uri:
+                    listing.imagePrimary ||
+                    listing.image ||
+                    'https://via.placeholder.com/80x80.png?text=No+Image',
                 }}
               />
               <View style={{position: 'absolute', top: 15, left: 15}}>
                 {module === 'MAIN' ? (
                   <InputCheckBox
                     label=""
-                    checked={selectedIds.includes(dataparse.id)}
+                    checked={selectedIds.includes(listing.id)}
                     onChange={() => navigateToListAction()}
                   />
                 ) : (
-                  <InputCheckBox
-                    label=""
-                    checked={selectedIds.includes(dataparse.id)}
-                    onChange={() => toggleCheckbox(dataparse.id)}
-                  />
+                  listing.status != 'Out of Stock' && (
+                    <InputCheckBox
+                      label=""
+                      checked={selectedIds.includes(listing.id)}
+                      onChange={() => toggleCheckbox(listing.id)}
+                    />
+                  )
                 )}
               </View>
             </View>
 
+            {/* Genus + Species + Status */}
             <View style={styles.cell}>
-              <Text style={{fontWeight: 'bold', paddingBottom: 5}}>
-                {dataparse.plantName}
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  globalStyles.textBold,
+                  {paddingBottom: 5},
+                ]}>
+                {listing.genus} {listing.species}
               </Text>
-              <Text style={{fontWeight: 'bold', paddingBottom: 5}}>
-                {dataparse.subPlantName}
-                {dataparse.statusCode}
+              <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 5}]}>
+                {listing.variegation}
               </Text>
-              <StatusBadge statusCode={dataparse.statusCode} />
+              <StatusBadge statusCode={listing.status} />
             </View>
 
-            <View
+            {/* Pin Tag */}
+            <TouchableOpacity
               style={{
                 width: 70,
                 padding: 10,
                 borderColor: '#ccc',
                 borderBottomWidth: 1,
-              }}>
-              {dataparse.isPin == 0 ? (
-                <IconPin width={20} height={20} />
-              ) : (
+              }}
+              onPress={() =>
+                onPressTableListPin(listing.plantCode, listing.pinTag)
+              }>
+              {listing.pinTag ? (
                 <IconAccentPin width={20} height={20} />
+              ) : (
+                <IconPin width={20} height={20} />
               )}
-            </View>
+            </TouchableOpacity>
 
-            {dataparse.listingCode !== 'L1' ? (
+            {/* Listing Type */}
+            {listing.listingType !== 'L1' ? (
               <View style={styles.cell}>
                 <View
                   style={[
@@ -160,17 +153,17 @@ const ListingTable = ({
                       paddingHorizontal: 10,
                     },
                   ]}>
-                  <Text style={{color: '#fff'}}>{dataparse.listingType}</Text>
+                  <Text style={{color: '#fff'}}>{listing.listingType}</Text>
                 </View>
               </View>
             ) : (
               <View style={styles.cell}></View>
             )}
 
+            {/* Pot Size Variation (single value or null) */}
             <View style={styles.cell}>
-              {dataparse.potSize.map((parsePotSize, indexPot) => (
+              {listing.potSize ? (
                 <View
-                  key={parsePotSize}
                   style={[
                     styles.badge,
                     {
@@ -180,37 +173,58 @@ const ListingTable = ({
                       marginBottom: 10,
                     },
                   ]}>
-                  <Text style={{color: '#000'}}>{parsePotSize}</Text>
+                  <Text style={{color: '#000'}}>{listing.potSize}</Text>
                 </View>
-              ))}
+              ) : (
+                <Text style={globalStyles.textSMGreyLight}></Text>
+              )}
             </View>
 
-            {dataparse.discountPrice !== '' ? (
+            {/* Available Quantity */}
+            {listing.discountPrice && listing.discountPrice !== '' ? (
               <View style={[styles.cell, {flexDirection: 'row'}]}>
                 <Text style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
-                  {dataparse.price}
+                  {listing.localCurrencySymbol}
+                  {listing.discountPrice}
                 </Text>
                 <Text style={[styles.strikeText, globalStyles.textMDGreyLight]}>
-                  {dataparse.price}
+                  {listing.localCurrencySymbol}
+                  {listing.localPrice}
                 </Text>
               </View>
             ) : (
               <View style={[styles.cell, {flexDirection: 'row'}]}>
                 <Text style={globalStyles.textMDGreyLight}>
-                  {dataparse.price}
+                  {listing.localCurrencySymbol}
+                  {listing.localPrice}
                 </Text>
               </View>
             )}
 
+            {/* Available Quantity */}
             <View style={styles.cell}>
-              <Text>{dataparse.quantity}</Text>
-              {dataparse.listingCode !== 'L1' && (
-                <TouchableOpacity>
+              <Text style={globalStyles.textSMGreyDark}>
+                {listing.availableQty}
+              </Text>
+              {listing.listingType !== 'Single Plant' && (
+                <TouchableOpacity
+                  onPress={() =>
+                    onPressUpdateStock({
+                      pressCode: listing.listingType,
+                      id: listing.id,
+                    })
+                  }>
                   <Text style={{color: 'red', marginTop: 10}}>Add Stock</Text>
                 </TouchableOpacity>
               )}
             </View>
 
+            {/* Sold Quantity */}
+            {/* <View style={styles.cell}>
+              <Text>{listing.soldQty}</Text>
+            </View> */}
+
+            {/* Seller Name */}
             <View
               style={{
                 width: 180,
@@ -218,8 +232,8 @@ const ListingTable = ({
                 borderColor: '#ccc',
                 borderBottomWidth: 1,
               }}>
-              {dataparse.discountPercentage !== '' ? (
-                <>
+              {listing.discountPercent && listing.discountPercent !== '' ? (
+                <View>
                   <View
                     style={{
                       flexDirection: 'row',
@@ -227,44 +241,48 @@ const ListingTable = ({
                     }}>
                     <BadgeWithTransparentNotch
                       borderRadius={10}
-                      text={dataparse.discountPercentage}
+                      text={listing.discountPercent + '%' + ' OFF'}
                       height={30}
                       width={80}
                     />
                     <TouchableOpacity
                       onPress={() =>
                         onEditPressFilter({
-                          pressCode: dataparse.listingCode,
-                          id: dataparse.id,
+                          pressCode: listing.listingType,
+                          id: listing.id,
                         })
                       }>
                       <IconMenu width={20} height={20} />
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity style={{paddingTop: 10}}>
+                  <TouchableOpacity
+                    style={{paddingTop: 10}}
+                    onPress={() =>
+                      onPressRemoveDiscountPost(listing.plantCode)
+                    }>
                     <Text style={globalStyles.textMDAccent}>Remove</Text>
                   </TouchableOpacity>
-                </>
+                </View>
               ) : (
                 <View
                   style={{
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                   }}>
-                  <TouchableOpacity style={{flexDirection: 'row'}}>
+                  <TouchableOpacity
+                    style={{flexDirection: 'row', alignItems: 'center'}}
+                    onPress={() => onPressDiscount({id: listing.id})}>
                     <IconDiscountList width={20} height={20} />
-                    <TouchableOpacity
-                      onPress={() => onPressDiscount({id: dataparse.id})}>
-                      <Text style={globalStyles.textSMAccent}>
-                        Apply Discount
-                      </Text>
-                    </TouchableOpacity>
+                    <Text style={[globalStyles.textSMAccent, {marginLeft: 5}]}>
+                      Apply Discount
+                    </Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     onPress={() =>
                       onEditPressFilter({
-                        pressCode: dataparse.listingCode,
-                        id: dataparse.id,
+                        pressCode: listing.listingType,
+                        id: listing.id,
                       })
                     }>
                     <IconMenu width={20} height={20} />
@@ -272,7 +290,7 @@ const ListingTable = ({
                 </View>
               )}
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
     </ScrollView>
@@ -288,9 +306,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderColor: '#ccc',
     borderBottomWidth: 1,
-  },
-  headerText: {
-    fontWeight: 'bold',
   },
   image: {
     width: 80,

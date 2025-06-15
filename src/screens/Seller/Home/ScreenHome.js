@@ -14,6 +14,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import BusinessPerformance from './components/BusinessPerformance';
+import {CustomSalesChart} from '../../../components/Charts';
 
 import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 
@@ -23,8 +24,16 @@ import MyStoreIcon from '../../../assets/images/mystore.svg';
 import PayoutsIcon from '../../../assets/images/payouts.svg';
 import MessageIcon from '../../../assets/images/messages.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import {globalStyles} from '../../../assets/styles/styles';
 
 const screenHeight = Dimensions.get('window').height;
+
+const chartData = [
+  {week: 'MAR 24\nMAR 30', total: 60, sold: 15, amount: 75},
+  {week: 'MAR 17\nMAR 23', total: 60, sold: 30, amount: 80},
+  {week: 'MAR 10\nMAR 16', total: 80, sold: 40, amount: 95},
+  {week: 'MAR 03\nMAR 09', total: 65, sold: 35, amount: 80},
+];
 
 const ScreenHome = ({navigation}) => {
   const insets = useSafeAreaInsets();
@@ -66,6 +75,7 @@ const ScreenHome = ({navigation}) => {
             </View>
           </View>
         </View>
+        {/* Search and Icons */}
 
         {/* Top Navigation */}
         <View style={styles.topNav}>
@@ -73,13 +83,16 @@ const ScreenHome = ({navigation}) => {
             style={styles.topNavItem}
             onPress={handlePressMyStore}>
             <MyStoreIcon width={40} height={40} />
-            <Text style={styles.topNavText}>My Store</Text>
+            <Text
+              style={[globalStyles.textSMGreyLight, globalStyles.textSemiBold]}>
+              My Store
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.topNavItem}
             onPress={() => navigation.navigate('ScreenPayout')}>
             <PayoutsIcon width={40} height={40} />
-            <Text style={styles.topNavText}>Payouts</Text>
+            <Text style={globalStyles.textSMGreyLight}>Payouts</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.topNavItem}>
             <View style={styles.msgIcon}>
@@ -88,9 +101,10 @@ const ScreenHome = ({navigation}) => {
                 <Text style={styles.msgBadgeText}>23</Text>
               </View>
             </View>
-            <Text style={styles.topNavText}>Messages</Text>
+            <Text style={globalStyles.textSMGreyLight}>Messages</Text>
           </TouchableOpacity>
         </View>
+        {/* Top Navigation */}
 
         <View
           style={{
@@ -110,30 +124,125 @@ const ScreenHome = ({navigation}) => {
               alignItems: 'flex-start',
             }}>
             <View style={styles.cardBlack}>
-              <Text style={styles.cardLabel}>Total Sales</Text>
-              <Text style={styles.cardValue}>$53,753</Text>
-              <Text style={styles.cardSubValue}>
-                +12,492 from previous week
+              <Text
+                style={[
+                  globalStyles.textSMWhite,
+                  globalStyles.textBold,
+                  {paddingBottom: 10},
+                ]}>
+                Total Sales
               </Text>
+              <Text
+                style={[
+                  globalStyles.textXXLWhite,
+                  globalStyles.textBold,
+                  {paddingBottom: 10},
+                ]}>
+                $53,753
+              </Text>
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <Text
+                  style={[globalStyles.textSMWhite, globalStyles.textSemiBold]}>
+                  +12,492
+                </Text>
+                <Text
+                  style={[
+                    globalStyles.textSMGreyLight,
+                    globalStyles.textSemiBold,
+                  ]}>
+                  from previous week
+                </Text>
+              </View>
+
               <Text style={styles.greenTag}>+36%</Text>
             </View>
 
             <View style={styles.cardWhite}>
-              <Text style={styles.cardLabel}>Plant Sold</Text>
-              <Text style={[styles.cardValue, {color: '#202325'}]}>2,384</Text>
-              <Text style={styles.redTag}>-243 from previous week</Text>
+              <Text
+                style={[
+                  globalStyles.textSMGreyLight,
+                  globalStyles.textBold,
+                  {paddingBottom: 10},
+                ]}>
+                Plants Sold
+              </Text>
+              <Text
+                style={[
+                  globalStyles.textXXLGreyDark,
+                  globalStyles.textBold,
+                  {paddingBottom: 10},
+                ]}>
+                2,384
+              </Text>
+
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <Text
+                  style={[
+                    globalStyles.textSMGreyDark,
+                    globalStyles.textSemiBold,
+                  ]}>
+                  -243
+                </Text>
+                <Text
+                  style={[
+                    globalStyles.textSMGreyLight,
+                    globalStyles.textSemiBold,
+                  ]}>
+                  from previous week
+                </Text>
+              </View>
+
+              <Text style={styles.redPercentTag}>-12%</Text>
             </View>
 
             <View style={styles.cardWhite}>
-              <Text style={styles.cardLabel}>Plant Listed</Text>
-              <Text style={[styles.cardValue, {color: '#202325'}]}>2,384</Text>
-              <Text style={styles.redTag}>-243 from previous week</Text>
+              <Text
+                style={[
+                  globalStyles.textSMGreyLight,
+                  globalStyles.textBold,
+                  {paddingBottom: 10},
+                ]}>
+                Plants Listed
+              </Text>
+              <Text
+                style={[
+                  globalStyles.textXXLGreyDark,
+                  globalStyles.textBold,
+                  {paddingBottom: 10},
+                ]}>
+                8,034
+              </Text>
+
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <Text
+                  style={[
+                    globalStyles.textSMGreyDark,
+                    globalStyles.textSemiBold,
+                  ]}>
+                  645
+                </Text>
+                <Text
+                  style={[
+                    globalStyles.textSMGreyLight,
+                    globalStyles.textSemiBold,
+                  ]}>
+                  added this week
+                </Text>
+              </View>
             </View>
           </ScrollView>
+          {/* Stats Cards */}
 
           {/* News Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Latest News & Events</Text>
+            <Text
+              style={[
+                globalStyles.textMDGreyDark,
+                globalStyles.textBold,
+                {paddingBottom: 10},
+              ]}>
+              Latest News & Events
+            </Text>
           </View>
           <ScrollView
             horizontal
@@ -151,7 +260,14 @@ const ScreenHome = ({navigation}) => {
                   uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
                 }}
               />
-              <Text style={styles.bannerCaption}>News or Event Title Here</Text>
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  globalStyles.textSemiBold,
+                  {paddingTop: 10},
+                ]}>
+                News or Event Title Here
+              </Text>
             </View>
             <View style={{width: 316}}>
               <Image
@@ -160,7 +276,14 @@ const ScreenHome = ({navigation}) => {
                   uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
                 }}
               />
-              <Text style={styles.bannerCaption}>News or Event Title Here</Text>
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  globalStyles.textSemiBold,
+                  {paddingTop: 10},
+                ]}>
+                News or Event Title Here
+              </Text>
             </View>
             <View style={{width: 316}}>
               <Image
@@ -169,12 +292,24 @@ const ScreenHome = ({navigation}) => {
                   uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
                 }}
               />
-              <Text style={styles.bannerCaption}>News or Event Title Here</Text>
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  globalStyles.textSemiBold,
+                  {paddingTop: 10},
+                ]}>
+                News or Event Title Here
+              </Text>
             </View>
           </ScrollView>
+          {/* News Section */}
 
           {/* Business Performance */}
           <BusinessPerformance />
+          <View style={{marginBottom: 30}}>
+            <CustomSalesChart chartData={chartData} />
+          </View>
+          {/* Business Performance */}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -252,12 +387,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#fff',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
   cardBlack: {
     height: 135,
+    width: 224,
     backgroundColor: '#000',
     borderRadius: 10,
     padding: 16,
@@ -269,26 +401,23 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     borderWidth: 1,
     height: 135,
+    width: 224,
     borderRadius: 10,
     padding: 16,
     flex: 1,
   },
-  cardLabel: {
-    color: '#202325',
-    fontSize: 12,
-  },
-  cardValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  cardSubValue: {
-    color: '#ccc',
-    fontSize: 12,
-    marginTop: 4,
-  },
   greenTag: {
     backgroundColor: '#23C16B',
+    position: 'absolute',
+    color: '#FFF',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    fontSize: 14,
+    marginTop: 8,
+    right: 10,
+  },
+  redPercentTag: {
+    backgroundColor: '#FF5247',
     position: 'absolute',
     color: '#FFF',
     borderRadius: 10,
@@ -305,38 +434,11 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 24,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
   banner: {
     width: '100%',
     height: 150,
     borderRadius: 12,
     backgroundColor: '#ccc',
-  },
-  bannerCaption: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#444',
-  },
-  performanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  performanceBox: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  performanceValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  performanceDate: {
-    fontSize: 12,
-    color: '#777',
   },
   stickyHeader: {
     backgroundColor: '#DFECDF',

@@ -12,7 +12,6 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../../assets/styles/styles';
-import {InputBox} from '../../../components/Input';
 import PayoutPlantCard from './components/PayoutPlantCard';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -114,9 +113,9 @@ const ScreenPayoutDetails = ({navigation, route}) => {
               marginBottom: 20,
               marginHorizontal: 20,
             }}>
-            <Text style={globalStyles.textMDGrayDark}>Total Receivable</Text>
+            <Text style={globalStyles.textMDGreyDark}>Total Receivable</Text>
 
-            <Text style={[globalStyles.textXXLGrayDark, {paddingTop: 10}]}>
+            <Text style={[globalStyles.textXXLGreyDark, {paddingTop: 10}]}>
               $10000000
             </Text>
 
@@ -133,17 +132,17 @@ const ScreenPayoutDetails = ({navigation, route}) => {
             }}>
             <View style={{flexDirection: 'column', width: '30%'}}>
               <Text style={globalStyles.textSMGreyLight}>Payout date</Text>
-              <Text style={globalStyles.textMDGrayDark}>Payout date</Text>
+              <Text style={globalStyles.textMDGreyDark}>Payout date</Text>
             </View>
             <View style={{flexDirection: 'column', width: '70%'}}>
               <Text style={globalStyles.textSMGreyLight}>Sales period</Text>
-              <Text style={globalStyles.textMDGrayDark}>
+              <Text style={globalStyles.textMDGreyDark}>
                 Jun-22-2025 to Jun-28-2025
               </Text>
             </View>
           </View>
           <View style={{marginHorizontal: 20, marginVertical: 20}}>
-            <Text style={globalStyles.textMDGrayDark}>Order Summary</Text>
+            <Text style={globalStyles.textMDGreyDark}>Order Summary</Text>
           </View>
           <FlatList
             scrollEnabled={false}

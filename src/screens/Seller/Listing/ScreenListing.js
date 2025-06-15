@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,12 @@ import {
   Dimensions,
   SafeAreaView,
   StatusBar,
+  KeyboardAvoidingView,
+  RefreshControl,
+  Modal,
+  ActivityIndicator,
+  Alert,
+  Image,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -20,6 +26,22 @@ import ListingActionSheet from './components/ListingActionSheetEdit';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
 import {InputGroupAddon} from '../../../components/InputGroupAddon';
+import {
+  getManageListingApi,
+  postListingPinActionApi,
+  getSortApi,
+  getGenusApi,
+  getVariegationApi,
+  getListingTypeApi,
+  postListingUpdateStockActionApi,
+  postListingApplyDiscountActionApi,
+  postListingRemoveDiscountActionApi,
+} from '../../../components/Api';
+import {getApp} from '@react-native-firebase/app';
+import {getAuth} from '@react-native-firebase/auth';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+import {useIsFocused} from '@react-navigation/native';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
@@ -28,6 +50,7 @@ import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
 import DollarIcon from '../../../assets/icons/greylight/dollar.svg';
+import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -42,11 +65,11 @@ const FilterTabs = [
     badgeCount: '',
   },
   {
-    filterKey: 'InActive',
+    filterKey: 'Inactive',
     badgeCount: '',
   },
   {
-    filterKey: 'Discount',
+    filterKey: 'Discounted',
     badgeCount: '',
   },
   {
@@ -73,62 +96,263 @@ const headers = [
   'Quantity',
   'Discount',
 ];
-const dataTable = [
-  {
-    id: 1,
-    image: '',
-    plantName: 'Ficus Iyrata',
-    subPlantName: 'Ficus Iyrata',
-    isPin: 1,
-    status: '',
-    statusCode: 'LS1',
-    listingCode: 'L1',
-    listingType: '',
-    potSize: ['2"'],
-    price: '$14',
-    discountPrice: '',
-    discountPercentage: '',
-    quantity: '1',
-  },
-  {
-    id: 2,
-    image: '',
-    plantName: 'Monstera deliciosa',
-    subPlantName: 'Albo Variegata',
-    isPin: 0,
-    status: '',
-    statusCode: 'LS2',
-    listingCode: 'L2',
-    listingType: "Grower's choice",
-    potSize: ['2"-4"', '5"-8"'],
-    price: '$14',
-    discountPrice: '$7',
-    discountPercentage: '15% OFF',
-    quantity: '1',
-  },
-  {
-    id: 3,
-    image: '',
-    plantName: 'Ficus Iyrata',
-    subPlantName: 'Ficus Iyrata',
-    isPin: 1,
-    status: '',
-    statusCode: 'LS3',
-    listingCode: 'L3',
-    listingType: 'Wholesale',
-    potSize: ['2"-4"', '5"-8"'],
-    price: '$14',
-    discountPrice: '',
-    discountPercentage: '',
-    quantity: '1',
-  },
-];
+
+const imageMap = {
+  all: require('../../../assets/images/manage-all.png'),
+  active: require('../../../assets/images/manage-active.png'),
+  inactive: require('../../../assets/images/manage-inactive.png'),
+  discounted: require('../../../assets/images/manage-discounted.png'),
+  scheduled: require('../../../assets/images/manage-scheduled.png'),
+  expired: require('../../../assets/images/manage-expired.png'),
+  outofstock: require('../../../assets/images/manage-out_of_stock.png'),
+};
 
 const ScreenListing = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const app = getApp();
+  const auth = getAuth(app);
+  const [search, setSearch] = useState('');
+  const [dataTable, setDataTable] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('All');
-  const [activeFilterShow, setActiveFilterShow] = useState('');
+  const normalizeKey = key => key.toLowerCase().replace(/\s+/g, '');
+
+  // List table
+  const [refreshing, setRefreshing] = useState(false);
+
+  // ✅ Your loadData (unchanged)
+  const [nextToken, setNextToken] = useState('');
+  const [nextTokenParam, setNextTokenParam] = useState('');
+  const loadData = async (
+    filterMine,
+    sortBy,
+    genus,
+    variegation,
+    listingType,
+    status,
+    discount,
+    limit,
+    plant,
+    nextPageToken,
+  ) => {
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const getManageListingApiData = await getManageListingApi(
+      filterMine,
+      sortBy,
+      genus,
+      variegation,
+      listingType,
+      status,
+      discount,
+      limit,
+      plant,
+      nextPageToken,
+    );
+
+    if (!getManageListingApiData?.success) {
+      throw new Error(
+        getManageListingApiData?.message || 'Login verification failed.',
+      );
+    }
+
+    // console.log(getManageListingApiData.listings[0]);
+    // console.log(getManageListingApiData?.nextPageToken);
+    setNextToken(getManageListingApiData?.nextPageToken);
+    // setDataTable(getManageListingApiData?.listings || []);
+    setDataTable(
+      prev =>
+        nextTokenParam
+          ? [...prev, ...(getManageListingApiData?.listings || [])] // append
+          : getManageListingApiData?.listings || [], // replace
+    );
+    // console.log(dataTable);
+  };
+
+  // ✅ Error-handling wrapper
+  const fetchData = async () => {
+    try {
+      // setErrorMessage('');
+      await loadData(
+        true,
+        reusableSort,
+        reusableGenus,
+        reusableVariegation,
+        reusableListingType,
+        activeTab,
+        isDiscounted,
+        10,
+        search,
+        nextTokenParam,
+      );
+    } catch (error) {
+      console.log('Error in fetchData:', error.message);
+
+      Alert.alert('Listing', error.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // ✅ Fetch on mount
+  const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
+  // useEffect(() => {
+  //   setLoading(true);
+  //   fetchData();
+  //   setLoading(false);
+  // }, [isInitialFetchRefresh]);
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) {
+      setLoading(true);
+      fetchData();
+      setLoading(false);
+    }
+  }, [isInitialFetchRefresh, isFocused]);
+
+  // ✅ Pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    setNextToken('');
+    setNextTokenParam('');
+    fetchData();
+  };
+  // List table
+
+  // Load more
+  useEffect(() => {
+    if (nextTokenParam) {
+      setLoading(true);
+      fetchData();
+      setTimeout(() => {
+        setLoading(false); // or setLoading(false)
+      }, 500);
+    }
+  }, [nextTokenParam]);
+
+  const onPressLoadMore = () => {
+    if (nextToken != nextTokenParam) {
+      setNextTokenParam(nextToken);
+    }
+  };
+  // Load more
+
+  // For dropdown
+  const [sortOptions, setSortOptions] = useState([]);
+  const [genusOptions, setGenusOptions] = useState([]);
+  const [variegationOptions, setVariegationOptions] = useState([]);
+  const [listingTypeOptions, setListingTypeOptions] = useState([]);
+
+  useEffect(() => {
+    const fetchDataDropdown = async () => {
+      try {
+        // Then fetch main data (if it depends on the above)
+        // Parallel fetches
+        await Promise.all([
+          loadSortByData(),
+          loadGenusData(),
+          loadVariegationData(),
+          loadListingTypeData(),
+        ]);
+      } catch (error) {
+        console.log('Error in dropdown:', error);
+      }
+    };
+
+    fetchDataDropdown();
+  }, []);
+
+  const loadSortByData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getSortApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load sort api');
+    }
+
+    let localSortData = res.data.map(item => ({
+      label: item.name,
+      value: item.name,
+    }));
+
+    setSortOptions(localSortData);
+  };
+
+  const loadGenusData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getGenusApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load genus api');
+    }
+
+    let localGenusData = res.data.map(item => ({
+      label: item.name,
+      value: item.name,
+    }));
+
+    setGenusOptions(localGenusData);
+  };
+
+  const loadVariegationData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getVariegationApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load variegation api');
+    }
+
+    let localVariegationData = res.data.map(item => ({
+      label: item.name,
+      value: item.name,
+    }));
+
+    setVariegationOptions(localVariegationData);
+  };
+
+  const loadListingTypeData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getListingTypeApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load listing type api');
+    }
+
+    let localListingTypeData = res.data.map(item => ({
+      label: item.name,
+      value: item.name,
+    }));
+    // console.log(localListingTypeData);
+    setListingTypeOptions(localListingTypeData);
+  };
+  // For dropdown
+
+  // For reusable action sheet
+  const [reusableSort, setReusableSort] = useState('');
+  const [reusableGenus, setReusableGenus] = useState([]);
+  const [reusableVariegation, setReusableVariegation] = useState([]);
+  const [reusableListingType, setReusableListingType] = useState([]);
+  // For reusable action sheet
 
   useFocusEffect(() => {
     StatusBar.setBarStyle('dark-content');
@@ -139,8 +363,18 @@ const ScreenListing = ({navigation}) => {
   //   navigation.navigate('ScreenMyStoreDetail', data);
   // };
 
+  const [activeTab, setActiveTab] = useState('All');
+  const [isDiscounted, setIsDiscounted] = useState(false);
+  const [activeFilterShow, setActiveFilterShow] = useState('');
+
   const onTabPressItem = ({pressTab}) => {
+    // console.log(pressTab);
     setActiveTab(pressTab);
+    setIsDiscounted(false);
+    setNextToken('');
+    setNextTokenParam('');
+    if (pressTab == 'Discounted') setIsDiscounted(true);
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
   const [code, setCode] = useState(null);
@@ -158,17 +392,71 @@ const ScreenListing = ({navigation}) => {
 
   const onEditPressFilter = ({pressCode, id}) => {
     let selectedItem = dataTable.find(item => item.id === id);
+    // console.log(selectedItem);
     setselectedItemStockUpdate(selectedItem);
     setActionSheetCode(pressCode);
     setActionShowSheet(true);
   };
 
+  // Add stocks
+  const [quantities, setQuantities] = useState({});
+  useEffect(() => {
+    if (Array.isArray(selectedItemStockUpdate?.variations)) {
+      const initialQuantities = {};
+      selectedItemStockUpdate.variations.forEach(variation => {
+        initialQuantities[variation.id] =
+          variation.availableQty?.toString() || '';
+      });
+      setQuantities(initialQuantities);
+    } else if (selectedItemStockUpdate?.potSize) {
+      setQuantities({
+        single: selectedItemStockUpdate.availableQty?.toString() || '',
+      });
+    }
+  }, [selectedItemStockUpdate]);
+
   const [showSheetUpdateStocks, setShowSheetUpdateStocks] = useState(false);
 
-  const onPressUpdateStockShow = () => {
+  const onPressUpdateStockShow = ({id}) => {
+    let selectedItem = dataTable.find(item => item.id === id);
+    setselectedItemStockUpdate(selectedItem);
     setShowSheetUpdateStocks(!showSheetUpdateStocks);
   };
 
+  const onPressUpdateStockPost = async () => {
+    setLoading(true);
+    try {
+      const {variations, plantCode} = selectedItemStockUpdate;
+
+      // Extract pot sizes and map their IDs to corresponding quantities from qtyMap
+      const potSizes = variations.map(variation => variation.potSize);
+      const selectedQuantity = variations.map(
+        variation => quantities[variation.id]?.toString() || '0', // default to '0' if missing
+      );
+
+      const response = await postListingUpdateStockActionApi(
+        plantCode,
+        potSizes,
+        selectedQuantity,
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post stock update failed.');
+      }
+      setNextToken('');
+      setNextTokenParam('');
+      fetchData();
+    } catch (error) {
+      console.log('Error updating stock:', error.message);
+      Alert.alert('Update stocks', error.message);
+    }
+    setLoading(false);
+  };
+  // Add stocks
+
+  // Apply discount
+  const [discountPercentageSheet, setDiscountPercentageSheet] = useState(false);
+  const [discountPriceSheet, setDiscountPriceSheet] = useState(false);
   const [showSheetDiscount, setShowSheetDiscount] = useState(false);
 
   const onPressDiscount = ({id}) => {
@@ -177,153 +465,289 @@ const ScreenListing = ({navigation}) => {
     setShowSheetDiscount(!showSheetDiscount);
   };
 
-  const [discountPercentageSheet, setDiscountPercentageSheet] = useState(false);
-  const [discountPriceSheet, setDiscountPriceSheet] = useState(false);
+  const onPressUpdateApplyDiscountPost = async () => {
+    setLoading(true);
+    try {
+      const {plantCode} = selectedItemStockUpdate;
+
+      const response = await postListingApplyDiscountActionApi(
+        [plantCode],
+        discountPriceSheet,
+        discountPercentageSheet,
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post stock update failed.');
+      }
+      setDiscountPercentageSheet('');
+      setDiscountPriceSheet('');
+      setShowSheetDiscount(!showSheetDiscount);
+      setNextToken('');
+      setNextTokenParam('');
+      fetchData();
+    } catch (error) {
+      console.log('Error updating discount:', error.message);
+      Alert.alert('Update discount', error.message);
+    }
+    setLoading(false);
+  };
+
+  const onPressRemoveDiscountPost = async plantCode => {
+    setLoading(true);
+    try {
+      const response = await postListingRemoveDiscountActionApi([plantCode]);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post stock update failed.');
+      }
+      setNextToken('');
+      setNextTokenParam('');
+      fetchData();
+    } catch (error) {
+      console.log('Error remove discount:', error.message);
+      Alert.alert('Remove discount', error.message);
+    }
+    setLoading(false);
+  };
+  // Apply discount
 
   const onPressCheck = () => {
-    navigation.navigate('ScreenListingAction', {dataTable: dataTable});
+    // navigation.navigate('ScreenListingAction', {
+    //   dataTable: dataTable,
+    //   activeTab: activeTab,
+    // });
+
+    navigation.navigate('ScreenListingAction', {
+      onGoBack: setIsInitialFetchRefresh(prev => !prev),
+      dataTable: dataTable,
+      activeTab: activeTab,
+    });
+  };
+
+  const onNavigateToDetail = plantCode => {
+    navigation.navigate('ScreenListingDetail', {
+      onGoBack: setIsInitialFetchRefresh(prev => !prev),
+      plantCode: plantCode,
+    });
+  };
+
+  const onPressTableListPin = async (plantCode, pinTag) => {
+    try {
+      const updatedPinTag = !pinTag;
+
+      const response = await postListingPinActionApi(plantCode, updatedPinTag);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post pin failed.');
+      }
+
+      setDataTable(prev =>
+        prev.map(item =>
+          item.plantCode === plantCode
+            ? {...item, pinTag: updatedPinTag}
+            : item,
+        ),
+      );
+    } catch (error) {
+      console.log('Error pin table action:', error.message);
+      Alert.alert('Pin item', error.message);
+    }
   };
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-      <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
-        stickyHeaderIndices={[0]}>
-        {/* Search and Icons */}
-        <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
-          <View style={styles.header}>
-            <View style={{flex: 1}}>
-              <InputGroupLeftIcon
-                IconLeftComponent={SearchIcon}
-                placeholder={'Search'}
-              />
-            </View>
-
-            <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.iconButton}>
-                <LiveIcon width={40} height={40} />
-                {/* <Text style={styles.liveTag}>LIVE</Text> */}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.iconButton,
-                  {
-                    borderWidth: 1,
-                    borderColor: '#CDD3D4',
-                    padding: 10,
-                    borderRadius: 10,
-                  },
-                ]}>
-                <PinIcon width={20} height={20} />
-              </TouchableOpacity>
-            </View>
+      {/* Search and Icons */}
+      <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
+        <View style={styles.header}>
+          <View style={{flex: 1}}>
+            <InputGroupLeftIcon
+              IconLeftComponent={SearchIcon}
+              placeholder={'Search'}
+            />
           </View>
-          {/* Filter Tabs */}
-          <TabFilter
-            tabFilters={FilterTabs}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            onPressTab={onTabPressItem}
-          />
-          {/* Filter Tabs */}
+
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton}>
+              <LiveIcon width={40} height={40} />
+              {/* <Text style={styles.liveTag}>LIVE</Text> */}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.iconButton,
+                {
+                  borderWidth: 1,
+                  borderColor: '#CDD3D4',
+                  padding: 10,
+                  borderRadius: 10,
+                },
+              ]}>
+              <PinIcon width={20} height={20} />
+            </TouchableOpacity>
+          </View>
         </View>
-        {/* Search and Icons */}
+        {/* Filter Tabs */}
+        <TabFilter
+          tabFilters={FilterTabs}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onPressTab={onTabPressItem}
+        />
+        {/* Filter Tabs */}
+      </View>
+      {/* Search and Icons */}
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        style={[styles.container, {paddingTop: insets.top}]}
+        // stickyHeaderIndices={[0]}
+      >
+        {loading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
 
         <View
           style={{
             backgroundColor: '#fff',
             minHeight: screenHeight * 0.9,
           }}>
-          {/* Filter Cards */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{flexGrow: 0, paddingVertical: 20, paddingHorizontal: 20}} // ✅ prevents extra vertical space
-            contentContainerStyle={{
-              flexDirection: 'row',
-              gap: 10,
-              alignItems: 'flex-start',
-            }}>
-            <TouchableOpacity onPress={() => onPressFilter('SORT')}>
-              <View
+          {dataTable && dataTable.length > 0 ? (
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
+                  flexGrow: 0,
+                  paddingVertical: 20,
+                  paddingHorizontal: 20,
+                }} // ✅ prevents extra vertical space
+                contentContainerStyle={{
                   flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'flex-start',
                 }}>
-                <SortIcon width={20} height={20}></SortIcon>
-                <Text>Sort</Text>
-              </View>
-            </TouchableOpacity>
+                <TouchableOpacity onPress={() => onPressFilter('SORT')}>
+                  <View
+                    style={{
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: '#CDD3D4',
+                      padding: 10,
+                      flexDirection: 'row',
+                    }}>
+                    <SortIcon width={20} height={20}></SortIcon>
+                    <Text style={globalStyles.textSMGreyDark}>Sort</Text>
+                  </View>
+                </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  flexDirection: 'row',
-                }}>
-                <Text>Genus</Text>
-                <DownIcon width={20} height={20}></DownIcon>
-              </View>
-            </TouchableOpacity>
+                <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
+                  <View
+                    style={{
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: '#CDD3D4',
+                      padding: 10,
+                      flexDirection: 'row',
+                    }}>
+                    <Text style={globalStyles.textSMGreyDark}>Genus</Text>
+                    <DownIcon width={20} height={20}></DownIcon>
+                  </View>
+                </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  flexDirection: 'row',
-                }}>
-                <Text>Variegation</Text>
-                <DownIcon width={20} height={20}></DownIcon>
-              </View>
-            </TouchableOpacity>
+                <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
+                  <View
+                    style={{
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: '#CDD3D4',
+                      padding: 10,
+                      flexDirection: 'row',
+                    }}>
+                    <Text style={globalStyles.textSMGreyDark}>Variegation</Text>
+                    <DownIcon width={20} height={20}></DownIcon>
+                  </View>
+                </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  flexDirection: 'row',
-                  marginRight: 30,
-                }}>
-                <Text>Listing Type</Text>
-                <DownIcon width={20} height={20}></DownIcon>
+                <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
+                  <View
+                    style={{
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: '#CDD3D4',
+                      padding: 10,
+                      flexDirection: 'row',
+                      marginRight: 30,
+                    }}>
+                    <Text style={globalStyles.textSMGreyDark}>
+                      Listing Type
+                    </Text>
+                    <DownIcon width={20} height={20}></DownIcon>
+                  </View>
+                </TouchableOpacity>
+              </ScrollView>
+              <View style={styles.contents}>
+                <ListingTable
+                  headers={headers}
+                  data={dataTable}
+                  onEditPressFilter={onEditPressFilter}
+                  onPressDiscount={onPressDiscount}
+                  onPressUpdateStock={onPressUpdateStockShow}
+                  module={'MAIN'}
+                  navigateToListAction={onPressCheck}
+                  style={{}}
+                  onPressTableListPin={onPressTableListPin}
+                  onPressRemoveDiscountPost={onPressRemoveDiscountPost}
+                  onNavigateToDetail={onNavigateToDetail}
+                />
+                <TouchableOpacity
+                  onPress={() => onPressLoadMore()}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    marginTop: 10,
+                    marginBottom: 50,
+                  }}>
+                  <Text style={globalStyles.textLGAccent}>Load More</Text>
+                  <ArrowDownIcon width={25} height={20} />
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          </ScrollView>
-          {/* Filter Cards */}
-          {/* Contents */}
-          <View style={styles.contents}>
-            <ListingTable
-              headers={headers}
-              data={dataTable}
-              onEditPressFilter={onEditPressFilter}
-              onPressDiscount={onPressDiscount}
-              module={'MAIN'}
-              navigateToListAction={onPressCheck}
-              style={{}}
-            />
-          </View>
+            </>
+          ) : (
+            <View style={{alignItems: 'center', paddingTop: 150, flex: 1}}>
+              <Image
+                source={imageMap[normalizeKey(activeTab)]}
+                style={{width: 300, height: 300, resizeMode: 'contain'}}
+              />
+            </View>
+          )}
 
           <ReusableActionSheet
             code={code}
             visible={showSheet}
             onClose={() => setShowSheet(false)}
+            sortOptions={sortOptions}
+            genusOptions={genusOptions}
+            variegationOptions={variegationOptions}
+            listingTypeOptions={listingTypeOptions}
+            sortValue={reusableSort}
+            sortChange={setReusableSort}
+            genusValue={reusableGenus}
+            genusChange={setReusableGenus}
+            variegationValue={reusableVariegation}
+            variegationChange={setReusableVariegation}
+            listingTypeValue={reusableListingType}
+            listingTypeChange={setReusableListingType}
           />
           <ListingActionSheet
             code={actionSheetCode}
             visible={showActionSheet}
-            onClose={() => setActionSheetCode(false)}
+            onClose={() => setActionShowSheet(false)}
             onPressUpdateStockShow={onPressUpdateStockShow}
             showSheetUpdateStocks={showSheetUpdateStocks}
           />
@@ -340,29 +764,68 @@ const ScreenListing = ({navigation}) => {
             </View>
 
             <View style={{paddingHorizontal: 20}}>
-              {selectedItemStockUpdate &&
-                selectedItemStockUpdate.potSize.map(
-                  (selectedItemStockUpdateParse, index) => (
-                    <View key={index} style={{marginTop: 10}}>
-                      <Text
-                        style={[
-                          globalStyles.textLGGreyDark,
-                          {paddingBottom: 10},
-                        ]}>
-                        Pot size: {selectedItemStockUpdateParse}
-                      </Text>
-                      <Text
-                        style={[
-                          globalStyles.textLGGreyDark,
-                          {paddingBottom: 10},
-                        ]}>
-                        Current Quantity
-                      </Text>
-                      <InputBox placeholder={'Quantity'} />
-                    </View>
-                  ),
-                )}
+              {Array.isArray(selectedItemStockUpdate.variations) &&
+              selectedItemStockUpdate.variations.length > 0 ? (
+                selectedItemStockUpdate.variations.map((variation, index) => (
+                  <View key={variation.id || index} style={{marginTop: 10}}>
+                    <Text
+                      style={[
+                        globalStyles.textLGGreyDark,
+                        {paddingBottom: 10},
+                      ]}>
+                      Pot size: {variation.potSize || 'N/A'}
+                    </Text>
+                    <Text
+                      style={[
+                        globalStyles.textLGGreyDark,
+                        {paddingBottom: 10},
+                      ]}>
+                      Current Quantity
+                    </Text>
+                    <InputBox
+                      placeholder="Quantity"
+                      value={quantities[variation.id] || ''}
+                      setValue={text =>
+                        setQuantities(prev => ({...prev, [variation.id]: text}))
+                      }
+                    />
+                  </View>
+                ))
+              ) : selectedItemStockUpdate.potSize ? (
+                <View style={{marginTop: 10}}>
+                  <Text
+                    style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                    Pot size: {selectedItemStockUpdate.potSize}
+                  </Text>
+                  <Text
+                    style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                    Current Quantity
+                  </Text>
+                  <InputBox
+                    placeholder="Quantity"
+                    value={quantities.single || ''}
+                    setValue={text =>
+                      setQuantities(prev => ({...prev, single: text}))
+                    }
+                  />
+                </View>
+              ) : null}
             </View>
+            <TouchableOpacity
+              onPress={() => onPressUpdateStockPost()}
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                paddingHorizontal: 20,
+                width: '100%',
+                paddingBottom: 10,
+              }}>
+              <View style={globalStyles.primaryButton}>
+                <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                  Update Stocks
+                </Text>
+              </View>
+            </TouchableOpacity>
           </ActionSheet>
 
           <ActionSheet
@@ -410,7 +873,8 @@ const ScreenListing = ({navigation}) => {
                   bottom: 0,
                   paddingHorizontal: 20,
                   width: '100%',
-                }}>
+                }}
+                onPress={onPressUpdateApplyDiscountPost}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -474,7 +938,7 @@ const styles = StyleSheet.create({
   contents: {
     // paddingHorizontal: 20,
     backgroundColor: '#fff',
-    minHeight: screenHeight,
+    // minHeight: screenHeight,
   },
   image: {
     width: 166,
@@ -504,5 +968,11 @@ const styles = StyleSheet.create({
   sheetTitle: {
     color: '#202325',
     fontSize: 18,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

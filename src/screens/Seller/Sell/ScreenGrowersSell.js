@@ -1,4 +1,4 @@
-import React, {useLayoutEffect, useState} from 'react';
+import React, {useLayoutEffect, useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Dimensions,
   ScrollView,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import {globalStyles} from '../../../assets/styles/styles';
 import {
@@ -17,6 +18,19 @@ import {
 } from '../../../components/Input';
 import {ImagePickerModal} from '../../../components/ImagePicker';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
+import {
+  // getGenusApi,
+  getSpeciesApi,
+  getVariegationApi,
+  getSellGenusApi,
+  getSellSpeciesApi,
+  getSellVariegationApi,
+} from '../../../components/Api';
+import {getApp} from '@react-native-firebase/app';
+import {getAuth} from '@react-native-firebase/auth';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
@@ -24,9 +38,17 @@ import PlusIcon from '../../../assets/icons/white/plus-regular.svg';
 import EditNoteIcon from '../../../assets/icons/greydark/edit-note.svg';
 import TrashRedIcon from '../../../assets/icons/red/trash.svg';
 
+const potSizes = [
+  {label: '2"-4"', description: '5 - 11 cm'},
+  {label: '5"-8"', description: '12 - 20 cm'},
+];
+
 const screenWidth = Dimensions.get('window').width;
 
-const ScreenSingleWholesale = ({navigation}) => {
+const ScreenGrowersSell = ({navigation}) => {
+  const app = getApp();
+  const auth = getAuth(app);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -37,6 +59,119 @@ const ScreenSingleWholesale = ({navigation}) => {
     });
   }, [navigation]);
 
+  // Dropdown
+  const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
+  const [dropdownOptionSpecies, setDropdownOptionSpecies] = useState([]);
+  const [dropdownOptionVariegation, setDropdownOptionVariegation] = useState(
+    [],
+  );
+  const loadGenusData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const getGenusApiData = await getSellGenusApi();
+    // Check if API indicates failure
+    if (!getGenusApiData?.success) {
+      throw new Error(getGenusApiData?.message || 'Failed to load genus');
+    }
+
+    console.log;
+    // Extract sort option names as label/value pairs
+    let localGenusData = getGenusApiData.data;
+    // Set options
+    setDropdownOptionGenus(localGenusData);
+  };
+
+  const loadSpeciesData = async genus => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    // const getSpeciesApiData = await getSellSpeciesApi(genus);
+    const getSpeciesApiData = await getSpeciesApi(genus);
+    // Check if API indicates failure
+    if (!getSpeciesApiData?.success) {
+      throw new Error(getSpeciesApiData?.message || 'Failed to load species');
+    }
+    // Extract sort option names as label/value pairs
+    let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    // Set options
+    setDropdownOptionSpecies(localSpeciesData);
+  };
+
+  const loadVariegationData = async (genus, species) => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const getVariegationApiData = await getVariegationApi(genus, species);
+    // const getVariegationApiData = await getSellVariegationApi(genus, species);
+    // Check if API indicates failure
+    if (!getVariegationApiData?.success) {
+      throw new Error(
+        getVariegationApiData?.message || 'Failed to load variegation',
+      );
+    }
+    // Extract sort option names as label/value pairs
+    let localVariegationData = getVariegationApiData.data.map(
+      item => item.name,
+    );
+    // Set options
+    setDropdownOptionVariegation(localVariegationData);
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const currentUser = auth.currentUser;
+
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdToken();
+          await loadGenusData(token);
+        } catch (error) {
+          console.log('Error get listing:', error);
+        }
+      } else {
+        console.log('No user is logged in');
+      }
+    };
+
+    fetchData();
+  }, []);
+  // Dropdown
+
+  // Dropdown Genus
+  const handleGenusChange = async genus => {
+    setSelectedGenus(genus);
+    console.log('Selected Genus:', genus);
+
+    try {
+      await loadSpeciesData(genus); // fetch and update species dropdown
+    } catch (error) {
+      console.error('Error loading species data:', error.message);
+      // Optionally show error to user
+    }
+  };
+  // Dropdown Genus
+
+  // Dropdown Species
+  const handleSpeciesChange = async species => {
+    setSelectedSpecies(species);
+    console.log('Selected species:', species);
+
+    try {
+      await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
+    } catch (error) {
+      console.error('Error loading species data:', error.message);
+      // Optionally show error to user
+    }
+  };
+  // Dropdown Species
+
   const [showSheet, setShowSheet] = useState(false);
   const [selectedGenus, setSelectedGenus] = useState('');
   const [selectedSpecies, setSelectedSpecies] = useState('');
@@ -45,7 +180,7 @@ const ScreenSingleWholesale = ({navigation}) => {
   const [isChecked, setIsChecked] = useState(false);
   const [images, setImages] = useState([]);
   const [imagesPotSize, setImagesPotSize] = useState([]);
-  const [selectedPotSize, setSelectPotSize] = useState('1');
+  const [selectedPotSize, setSelectPotSize] = useState('2"-4"');
   const [selectedMeasure, setSelectMeasure] = useState('below');
   const [potPrice, setPotPrice] = useState('');
   const [potQuantity, setPotQuantity] = useState('');
@@ -57,10 +192,6 @@ const ScreenSingleWholesale = ({navigation}) => {
   const onpressSelectAboveBelow = ({measure}) => setSelectMeasure(measure);
 
   const openSheet = sheetOpen => setShowSheet(!sheetOpen);
-
-  const onPressPublish = () => {
-    console.log('publish');
-  };
 
   const onPressPublishNurseryDrop = () => {
     console.log('publish nursery drop');
@@ -76,7 +207,7 @@ const ScreenSingleWholesale = ({navigation}) => {
     };
 
     if (!newPotSize.image || !newPotSize.price || !newPotSize.quantity) {
-      alert('Please complete all pot size fields.');
+      Alert.alert('Please complete all pot size fields.');
       return;
     }
 
@@ -120,6 +251,103 @@ const ScreenSingleWholesale = ({navigation}) => {
     setPotSizeList(updatedList);
   };
 
+  // Form validation
+  const validateForm = () => {
+    let errors = [];
+
+    if (!selectedGenus) errors.push('Genus is required.');
+    if (!selectedSpecies) errors.push('Species is required.');
+    if (!selectedVariegation) errors.push('Variegation is required.');
+    if (isChecked && !selectedMutation)
+      errors.push('Mutation type must be selected.');
+    if (images.length === 0) errors.push('At least one image is required.');
+    if (potSizeList.length === 0)
+      errors.push('At least one pot size is required.');
+
+    // Check each pot entry for required fields
+    potSizeList.forEach((item, index) => {
+      if (!item.price || isNaN(item.price))
+        errors.push(`Pot size ${index + 1}: valid local price is required.`);
+      if (!item.size) errors.push(`Pot size ${index + 1}: size is required.`);
+      if (!item.quantity || isNaN(item.quantity))
+        errors.push(`Pot size ${index + 1}: valid quantity is required.`);
+      if (!item.measure)
+        errors.push(`Pot size ${index + 1}: height is required.`);
+    });
+
+    return errors;
+  };
+  // Form validation
+
+  // Publish Now
+  const onPressPublish = async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
+      return;
+    }
+
+    try {
+      // Upload main listing images
+      const uploadedMainImageUrls = [];
+      for (const uri of images) {
+        const firebaseUrl = await uploadImageToFirebase(uri);
+        uploadedMainImageUrls.push(firebaseUrl);
+      }
+
+      // Upload variation images
+      const uploadedPotSizeList = await Promise.all(
+        potSizeList.map(async item => {
+          const imageUrl = await uploadImageToFirebase(item.image);
+          return {
+            ...item,
+            image: imageUrl,
+          };
+        }),
+      );
+
+      // Build JSON payload
+      const data = {
+        listingType: "Grower's Choice",
+        genus: selectedGenus || null,
+        species: selectedSpecies || null,
+        variegation: selectedVariegation || null,
+        isMutation: isChecked,
+        mutation: isChecked ? selectedMutation : null,
+        imagePrimary:
+          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
+        imageCollection: uploadedMainImageUrls.slice(1),
+        potSize: null,
+        localPrice: null,
+        approximateHeight: null,
+        status: 'Active',
+        publishType: 'Publish Now',
+        variation: uploadedPotSizeList.map(item => ({
+          imagePrimary: item.image,
+          potSize: item.size,
+          localPrice: Number(item.price),
+          availableQty: Number(item.quantity),
+          approximateHeight:
+            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
+        })),
+      };
+
+      console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
+
+      // TODO: Replace this with your actual API call
+      // await submitListing(data);
+
+      Alert.alert('Publish Now', 'Listing published successfully!');
+    } catch (error) {
+      console.error('Upload or submission failed:', error);
+      Alert.alert(
+        'Publish Now',
+        'Failed to upload images or submit listing. Please try again.',
+      );
+    }
+  };
+  // Publish Now
+
   return (
     <ScrollView style={styles.mainContent}>
       {/* ...Genus, Species, Variegation, Request... */}
@@ -129,9 +357,9 @@ const ScreenSingleWholesale = ({navigation}) => {
             Genus
           </Text>
           <InputDropdown
-            options={['Option 1', 'Option 2', 'Option 3']}
+            options={dropdownOptionGenus}
             selectedOption={selectedGenus}
-            onSelect={setSelectedGenus}
+            onSelect={handleGenusChange}
             placeholder="Choose an option"
           />
         </View>
@@ -140,9 +368,9 @@ const ScreenSingleWholesale = ({navigation}) => {
             Species
           </Text>
           <InputDropdown
-            options={['Option 1', 'Option 2', 'Option 3']}
+            options={dropdownOptionSpecies}
             selectedOption={selectedSpecies}
-            onSelect={setSelectedSpecies}
+            onSelect={handleSpeciesChange}
             placeholder="Choose an option"
           />
         </View>
@@ -151,13 +379,13 @@ const ScreenSingleWholesale = ({navigation}) => {
             Variegation
           </Text>
           <InputDropdown
-            options={['Option 1', 'Option 2', 'Option 3']}
+            options={dropdownOptionVariegation}
             selectedOption={selectedVariegation}
             onSelect={setSelectedVariegation}
             placeholder="Choose an option"
           />
         </View>
-        <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 5}]}>
+        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
           Can't find genus or specie name?
         </Text>
         <TouchableOpacity
@@ -171,7 +399,7 @@ const ScreenSingleWholesale = ({navigation}) => {
       </View>
       {/* Mutations */}
       <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 5}]}>
+        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
           Is this is a mutation?
         </Text>
         <InputCheckBox
@@ -196,7 +424,7 @@ const ScreenSingleWholesale = ({navigation}) => {
 
       {/* Main Image Upload */}
       <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 5}]}>
+        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
           Picture/s
         </Text>
         {images.length > 0 && (
@@ -217,7 +445,7 @@ const ScreenSingleWholesale = ({navigation}) => {
 
       {/* Add Pot Size */}
       <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 10}]}>
+        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
           Pot Size
         </Text>
         {/* Display saved pot sizes */}
@@ -249,9 +477,7 @@ const ScreenSingleWholesale = ({navigation}) => {
                     resizeMode="cover"
                   />
                   <View style={{marginLeft: 10, justifyContent: 'center'}}>
-                    <Text style={globalStyles.textLGGreyDark}>
-                      {item.size === 1 ? `2"-4"` : `5"-8"`}
-                    </Text>
+                    <Text style={globalStyles.textLGGreyDark}>{item.size}</Text>
                     <Text style={globalStyles.textLGGreyLight}>
                       {item.quantity} in stocks
                     </Text>
@@ -332,7 +558,7 @@ const ScreenSingleWholesale = ({navigation}) => {
               onPress={onPressPublishNurseryDrop}
               style={globalStyles.secondaryButtonAccent}>
               <Text style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                Publish to nursery drop
+                Publish on Nursery Drop
               </Text>
             </TouchableOpacity>
           </View>
@@ -345,12 +571,12 @@ const ScreenSingleWholesale = ({navigation}) => {
         onClose={() => setShowSheet(false)}
         heightPercent={'80%'}>
         <ScrollView style={{padding: 20}} showsVerticalScrollIndicator>
-          <Text style={[globalStyles.textXLPrimaryDark, {paddingBottom: 30}]}>
+          <Text style={[globalStyles.textXLGreyDark, {paddingBottom: 30}]}>
             Add pot size
           </Text>
 
           {/* Pot image */}
-          <Text style={[globalStyles.textMDGrayDark, {paddingBottom: 5}]}>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
             Select picture
           </Text>
           {imagesPotSize.length > 0 && (
@@ -369,7 +595,7 @@ const ScreenSingleWholesale = ({navigation}) => {
           </Text>
 
           {/* Size options */}
-          <Text style={[globalStyles.textMDGrayDark, {marginTop: 20}]}>
+          <Text style={[globalStyles.textMDGreyDark, {marginTop: 20}]}>
             Pot Size
           </Text>
           <View
@@ -378,21 +604,19 @@ const ScreenSingleWholesale = ({navigation}) => {
               justifyContent: 'space-between',
               marginVertical: 10,
             }}>
-            {[1, 2].map(size => (
+            {potSizes.map((pot, index) => (
               <TouchableOpacity
-                key={size}
-                onPress={() => onpressSelectPotsize({size})}>
+                key={index}
+                onPress={() => onpressSelectPotsize(pot.label)}>
                 <View
                   style={
-                    selectedPotSize == size
+                    selectedPotSize === pot.label
                       ? styles.cardSelectionSelected
                       : styles.cardSelection
                   }>
-                  <Text style={globalStyles.textMDGrayDark}>
-                    {size == 1 ? `2"-4"` : `5"-8"`}
-                  </Text>
+                  <Text style={globalStyles.textMDGreyDark}>{pot.label}</Text>
                   <Text style={globalStyles.textSMGreyLight}>
-                    {size == 1 ? '5 - 11 cm' : '12 - 20 cm'}
+                    {pot.description}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -416,6 +640,9 @@ const ScreenSingleWholesale = ({navigation}) => {
             setValue={setPotQuantity}
             placeholder={'Enter quantity'}
           />
+          <Text style={globalStyles.textSMGreyLight}>
+            e.g, 5 quantity is equal to 50 plants
+          </Text>
 
           {/* Height selection */}
           <Text style={[globalStyles.textLGGreyDark, {paddingTop: 20}]}>
@@ -437,7 +664,7 @@ const ScreenSingleWholesale = ({navigation}) => {
                       ? styles.cardSelectionSelectedMeasure
                       : styles.cardSelectionMeasure
                   }>
-                  <Text style={globalStyles.textMDGrayDark}>
+                  <Text style={globalStyles.textMDGreyDark}>
                     {measure === 'below'
                       ? 'Below 12 inches'
                       : 'Above 12 inches'}
@@ -524,4 +751,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ScreenSingleWholesale;
+export default ScreenGrowersSell;
