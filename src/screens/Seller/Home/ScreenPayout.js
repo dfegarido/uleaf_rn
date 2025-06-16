@@ -71,7 +71,7 @@ const ScreenPayout = ({navigation, route}) => {
                   globalStyles.textLGGreyDark,
                   {textAlign: 'center', paddingRight: 20},
                 ]}>
-                Payout
+                Payouts
               </Text>
             </View>
           </View>
@@ -88,7 +88,7 @@ const ScreenPayout = ({navigation, route}) => {
               flexDirection: 'column',
               marginBottom: 20,
             }}>
-            <Text style={globalStyles.textMDWhite}>Total Receivable</Text>
+            <Text style={globalStyles.textMDWhite}>Total Receivables</Text>
 
             <Text style={[globalStyles.textXLWhite, {paddingTop: 10}]}>
               $10000000

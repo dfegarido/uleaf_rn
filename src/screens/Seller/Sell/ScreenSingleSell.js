@@ -29,6 +29,7 @@ import {
   postSellSinglePlantApi,
   getMutationApi,
   getListingDetails,
+  postSellUpdateApi,
 } from '../../../components/Api';
 import {getApp} from '@react-native-firebase/app';
 import {getAuth} from '@react-native-firebase/auth';
@@ -470,7 +471,12 @@ const ScreenSingleSell = ({navigation, route}) => {
   // Save as draft
 
   // Details
-  const {plantCode = ''} = route?.params ?? {};
+  const {
+    plantCode = '',
+    availableQty,
+    status,
+    publishType,
+  } = route?.params ?? {};
   useEffect(() => {
     if (!plantCode) return; // Skip if plantCode is not set
 
@@ -522,7 +528,65 @@ const ScreenSingleSell = ({navigation, route}) => {
     // setListingData(res.data);
   };
 
-  const onPressUpdate = () => {};
+  const onPressUpdate = async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation', errors.join('\n'));
+      return;
+    }
+    setLoading(true);
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Upload images to Firebase
+      const uploadedUrls = [];
+      for (const uri of images) {
+        const firebaseUrl = await uploadImageToFirebase(uri);
+        uploadedUrls.push(firebaseUrl);
+      }
+
+      // Build final JSON using uploaded URLs
+      const data = {
+        plantCode: plantCode,
+        availableQty: availableQty,
+        listingType: 'Single Plant',
+        genus: selectedGenus || null,
+        species: selectedSpecies || null,
+        variegation: selectedVariegation || null,
+        isMutation: isChecked,
+        mutation: isChecked ? selectedMutation : null,
+        imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+        imageCollection: uploadedUrls,
+        potSize: selectedPotSize,
+        localPrice: localPrice ? parseFloat(localPrice) : null,
+        approximateHeight:
+          selectedMeasure === 'below' ? 'Below 12 inches' : 'Above 12 inches',
+        status: status,
+        publishType: publishType,
+      };
+
+      const response = await postSellUpdateApi(data);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Update listing failed.');
+      }
+
+      // console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
+
+      // TODO: Replace this with your actual API call
+      // await submitListing(data);
+
+      Alert.alert('Update Listing', 'Listing updated successfully!');
+    } catch (error) {
+      console.error('Upload or submission failed:', error);
+      Alert.alert('Update Listing', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   // Details
 
   return (

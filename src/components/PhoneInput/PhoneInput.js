@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
   callingCode: {
     marginLeft: 6,
     fontSize: 16,
+    color: '#000',
   },
   input: {
     flex: 1,

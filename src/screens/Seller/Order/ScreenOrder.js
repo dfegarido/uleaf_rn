@@ -92,7 +92,7 @@ const ScreenOrder = () => {
             <View style={{flex: 1}}>
               <InputGroupLeftIcon
                 IconLeftComponent={SearchIcon}
-                placeholder={'Search'}
+                placeholder={'Search I Leaf U'}
               />
             </View>
             <View style={styles.headerIcons}>

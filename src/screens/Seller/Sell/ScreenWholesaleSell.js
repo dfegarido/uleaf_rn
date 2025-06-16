@@ -30,6 +30,7 @@ import {
   postSellWholesaleOrGrowersPlantApi,
   getMutationApi,
   getListingDetails,
+  postSellUpdateApi,
 } from '../../../components/Api';
 import {getApp} from '@react-native-firebase/app';
 import {getAuth} from '@react-native-firebase/auth';
@@ -56,14 +57,16 @@ const ScreenSingleWholesale = ({navigation, route}) => {
   const [loading, setLoading] = useState(false);
 
   useLayoutEffect(() => {
+    if (plantCode) return; // If plantCode is set, do not show Save button
+
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={() => onPressSave()} color="#000">
+        <TouchableOpacity onPress={onPressSave} color="#000">
           <Text style={globalStyles.textLGAccent}>Save</Text>
         </TouchableOpacity>
       ),
     });
-  }, [navigation]);
+  }, [navigation, plantCode]);
 
   // Dropdown
   const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
@@ -528,7 +531,13 @@ const ScreenSingleWholesale = ({navigation, route}) => {
   // Save as draft
 
   // Details
-  const {plantCode = ''} = route?.params ?? {};
+  const {
+    plantCode = '',
+    availableQty,
+    status,
+    publishType,
+  } = route?.params ?? {};
+
   useEffect(() => {
     if (!plantCode) return; // Skip if plantCode is not set
 
@@ -579,7 +588,76 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     setPotSizeList(newPotSize);
   };
 
-  const onPressUpdate = () => {};
+  const onPressUpdate = async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
+      return;
+    }
+    setLoading(true);
+    try {
+      // Upload main listing images
+      const uploadedMainImageUrls = [];
+      for (const uri of images) {
+        const firebaseUrl = await uploadImageToFirebase(uri);
+        uploadedMainImageUrls.push(firebaseUrl);
+      }
+
+      // Upload variation images
+      const uploadedPotSizeList = await Promise.all(
+        potSizeList.map(async item => {
+          const imageUrl = await uploadImageToFirebase(item.image);
+          return {
+            ...item,
+            image: imageUrl,
+          };
+        }),
+      );
+
+      // Build JSON payload
+      const data = {
+        plantCode: plantCode,
+        listingType: 'Wholesale',
+        genus: selectedGenus || null,
+        species: selectedSpecies || null,
+        variegation: selectedVariegation || null,
+        isMutation: isChecked,
+        mutation: isChecked ? selectedMutation : null,
+        imagePrimary:
+          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
+        imageCollection: uploadedMainImageUrls,
+        potSize: null,
+        localPrice: null,
+        approximateHeight: null,
+        status: status,
+        publishType: publishType,
+        variation: uploadedPotSizeList.map(item => ({
+          imagePrimary: item.image,
+          potSize: item.size,
+          localPrice: Number(item.price),
+          availableQty: Number(item.quantity),
+          approximateHeight:
+            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
+        })),
+      };
+
+      const response = await postSellUpdateApi(data);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Update listing failed.');
+      }
+
+      // TODO: Replace this with your actual API call
+      // await submitListing(data);
+
+      Alert.alert('Update Listing', 'Listing updated successfully!');
+    } catch (error) {
+      console.error('Upload or submission failed:', error);
+      Alert.alert('Update Listing', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   // Details
 
   return (
@@ -791,17 +869,22 @@ const ScreenSingleWholesale = ({navigation, route}) => {
         <View style={{paddingTop: 30}}>
           <TouchableOpacity
             style={globalStyles.primaryButton}
-            onPress={onPressPublish}>
-            <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
+            onPress={plantCode ? onPressUpdate : onPressPublish}>
+            <Text style={globalStyles.primaryButtonText}>
+              {plantCode ? 'Update Listing' : 'Publish Now'}
+            </Text>
           </TouchableOpacity>
           <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-            <TouchableOpacity
-              onPress={onPressPublishNurseryDrop}
-              style={globalStyles.secondaryButtonAccent}>
-              <Text style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                Publish on Nursery Drop
-              </Text>
-            </TouchableOpacity>
+            {!plantCode && (
+              <TouchableOpacity
+                onPress={onPressPublishNurseryDrop}
+                style={globalStyles.secondaryButtonAccent}>
+                <Text
+                  style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
+                  Publish on Nursery Drop
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>

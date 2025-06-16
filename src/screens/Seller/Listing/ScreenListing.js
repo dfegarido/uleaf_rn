@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -355,8 +356,10 @@ const ScreenListing = ({navigation}) => {
   // For reusable action sheet
 
   useFocusEffect(() => {
-    StatusBar.setBarStyle('dark-content');
-    StatusBar.setBackgroundColor('#fff');
+    if (Platform.OS === 'android') {
+      StatusBar.setBarStyle('dark-content');
+      StatusBar.setBackgroundColor('#fff');
+    }
   });
 
   // const onPressItem = ({data}) => {
@@ -562,7 +565,7 @@ const ScreenListing = ({navigation}) => {
           <View style={{flex: 1}}>
             <InputGroupLeftIcon
               IconLeftComponent={SearchIcon}
-              placeholder={'Search'}
+              placeholder={'Search I Leaf U'}
             />
           </View>
 

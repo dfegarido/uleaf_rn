@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -65,8 +66,10 @@ const ScreenListingAction = ({navigation, route}) => {
   // console.log(dataTable[0]);
 
   useFocusEffect(() => {
-    StatusBar.setBarStyle('light-content');
-    StatusBar.setBackgroundColor('#202325');
+    if (Platform.OS === 'android') {
+      StatusBar.setBarStyle('light-content');
+      StatusBar.setBackgroundColor('#202325');
+    }
   });
 
   // Select

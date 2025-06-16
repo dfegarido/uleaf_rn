@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
   Image,
+  Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -23,8 +24,10 @@ const ScreenProfileAccount = ({navigation}) => {
   const insets = useSafeAreaInsets();
 
   useFocusEffect(() => {
-    StatusBar.setBarStyle('dark-content');
-    StatusBar.setBackgroundColor('#fff');
+    if (Platform.OS === 'android') {
+      StatusBar.setBarStyle('dark-content');
+      StatusBar.setBackgroundColor('#fff');
+    }
   });
 
   const [selectedCountry, setSelectedCountry] = useState('');
@@ -35,9 +38,7 @@ const ScreenProfileAccount = ({navigation}) => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-      <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
-        stickyHeaderIndices={[0]}>
+      <ScrollView style={[styles.container, {paddingTop: insets.top}]}>
         {/* Search and Icons */}
         <View style={styles.stickyHeader}>
           <View style={styles.header}>
@@ -93,37 +94,38 @@ const ScreenProfileAccount = ({navigation}) => {
 
           <View style={{paddingTop: 20}}>
             <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-              Owner name
+              Owner name <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
             <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-              First name
+              First name <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
             <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-              Last name
+              Last name <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
             <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-              Contact number
+              Contact number <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <PhoneInput required />
           </View>
           <View style={{paddingTop: 20}}>
             <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-              Garden / company name
+              Garden / company name{' '}
+              <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox placeholder={''} />
           </View>
           <View style={{paddingTop: 20}}>
             <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-              Country
+              Country <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputDropdown
               options={['Option 1', 'Option 2', 'Option 3']}
@@ -134,7 +136,7 @@ const ScreenProfileAccount = ({navigation}) => {
           </View>
           <View style={{paddingVertical: 20}}>
             <TouchableOpacity style={globalStyles.primaryButton}>
-              <Text style={globalStyles.primaryButtonText}>Update</Text>
+              <Text style={globalStyles.primaryButtonText}>Update Acount</Text>
             </TouchableOpacity>
           </View>
         </View>

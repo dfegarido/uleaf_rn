@@ -1,18 +1,21 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
-export const postSellSinglePlantApi = async postData => {
+export const postSellUpdateApi = async postData => {
   try {
     const token = await getStoredAuthToken();
 
     console.log(JSON.stringify(postData));
-    const response = await fetch('https://addlisting-nstilwgvua-uc.a.run.app', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      'https://updatelisting-nstilwgvua-uc.a.run.app/',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(postData),
       },
-      body: JSON.stringify(postData),
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -21,7 +24,7 @@ export const postSellSinglePlantApi = async postData => {
 
     return await response.json();
   } catch (error) {
-    console.log('postSellSinglePlantApi error:', error.message);
+    console.log('postSellUpdateApi error:', error.message);
     throw error;
   }
 };

@@ -10,6 +10,7 @@ import {
   Dimensions,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -39,8 +40,10 @@ const ScreenHome = ({navigation}) => {
   const insets = useSafeAreaInsets();
 
   useFocusEffect(() => {
-    StatusBar.setBarStyle('dark-content');
-    StatusBar.setBackgroundColor('#DFECDF');
+    if (Platform.OS === 'android') {
+      StatusBar.setBarStyle('light-content');
+      StatusBar.setBackgroundColor('#DFECDF');
+    }
   });
 
   const handlePressMyStore = () => {
@@ -58,7 +61,7 @@ const ScreenHome = ({navigation}) => {
             <View style={{flex: 1}}>
               <InputGroupLeftIcon
                 IconLeftComponent={SearchIcon}
-                placeholder={'Search'}
+                placeholder={'Search I Leaf U'}
               />
             </View>
 

@@ -26,3 +26,4 @@ export {getDateFilterApi} from './getDateFilterApi';
 export {getHomeSummaryApi} from './getHomeSummaryApi';
 export {getHomeEventsApi} from './getHomeEventsApi';
 export {getHomePayoutListingApi} from './getHomePayoutListingApi';
+export {postSellUpdateApi} from './postSellUpdateApi';

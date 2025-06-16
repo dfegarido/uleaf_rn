@@ -1,5 +1,11 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import ActionSheet from '../ActionSheet/ActionSheet';
 import {RadioButton} from '../RadioButton';
 import IconEx from '../../assets/icons/greylight/x-regular.svg';
@@ -25,6 +31,8 @@ const ReusableActionSheet = ({
   listingTypeChange,
 }) => {
   const resetSelection = () => variegationChange([]);
+  const resetGenusSelection = () => genusChange([]);
+  const resetListingTypeSelection = () => listingTypeChange([]);
 
   const renderSheetContent = () => {
     switch (code) {
@@ -33,7 +41,7 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'50%'}>
+            heightPercent={'35%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Sort</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
@@ -83,24 +91,25 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'60%'}>
+            heightPercent={'35%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Genus</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-
-            <CheckBoxGroup
-              options={genusOptions}
-              selectedValues={genusValue}
-              onChange={genusChange}
-              optionStyle={{
-                justifyContent: 'space-between',
-                paddingHorizontal: 20,
-                paddingBottom: 10,
-              }}
-            />
+            <ScrollView>
+              <CheckBoxGroup
+                options={genusOptions}
+                selectedValues={genusValue}
+                onChange={genusChange}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 10,
+                }}
+              />
+            </ScrollView>
             <View
               style={{
                 flexDirection: 'row',
@@ -111,11 +120,17 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                style={{
-                  paddingHorizontal: 20,
-                  alignSelf: 'stretch',
-                  width: '100%',
-                }}>
+                onPress={resetGenusSelection}
+                style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={{width: '45%'}}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -131,20 +146,20 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'60%'}>
+            heightPercent={'35%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Variegation</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <View>
+            <ScrollView>
               <SelectableItemList
                 options={variegationOptions}
                 selectedValues={variegationValue}
                 onSelectionChange={variegationChange}
               />
-            </View>
+            </ScrollView>
             <View
               style={{
                 flexDirection: 'row',
@@ -212,11 +227,17 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                style={{
-                  paddingHorizontal: 20,
-                  alignSelf: 'stretch',
-                  width: '100%',
-                }}>
+                onPress={resetListingTypeSelection}
+                style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={{width: '45%'}}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -20,8 +21,10 @@ const ScreenProfileRequest = ({navigation}) => {
   const insets = useSafeAreaInsets();
 
   useFocusEffect(() => {
-    StatusBar.setBarStyle('dark-content');
-    StatusBar.setBackgroundColor('#fff');
+    if (Platform.OS === 'android') {
+      StatusBar.setBarStyle('dark-content');
+      StatusBar.setBackgroundColor('#fff');
+    }
   });
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
