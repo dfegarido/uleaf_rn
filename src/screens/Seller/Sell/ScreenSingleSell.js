@@ -79,6 +79,8 @@ const ScreenSingleSell = ({navigation, route}) => {
     [],
   );
   const [dropdownOptionMutation, setDropdownOptionMutation] = useState([]);
+  const [dropdownVariegationDisable, setdropdownVariegationDisable] =
+    useState(false);
 
   const loadGenusData = async () => {
     let netState = await NetInfo.fetch();
@@ -91,8 +93,6 @@ const ScreenSingleSell = ({navigation, route}) => {
     if (!getGenusApiData?.success) {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
-
-    console.log;
     // Extract sort option names as label/value pairs
     let localGenusData = getGenusApiData.data;
     // Set options
@@ -105,14 +105,17 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
-    // const getSpeciesApiData = await getSellSpeciesApi(genus);
-    const getSpeciesApiData = await getSpeciesApi(genus);
+    const getSpeciesApiData = await getSellSpeciesApi(genus);
+    // console.log(getSpeciesApiData.data);
+    // const getSpeciesApiData = await getSpeciesApi(genus);
     // Check if API indicates failure
     if (!getSpeciesApiData?.success) {
       throw new Error(getSpeciesApiData?.message || 'Failed to load species');
     }
     // Extract sort option names as label/value pairs
-    let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    setSelectedSpecies('');
+    let localSpeciesData = getSpeciesApiData.data;
     // Set options
     setDropdownOptionSpecies(localSpeciesData);
   };
@@ -123,8 +126,8 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
-    const getVariegationApiData = await getVariegationApi(genus, species);
-    // const getVariegationApiData = await getSellVariegationApi(genus, species);
+    // const getVariegationApiData = await getVariegationApi(genus, species);
+    const getVariegationApiData = await getSellVariegationApi(genus, species);
     // Check if API indicates failure
     if (!getVariegationApiData?.success) {
       throw new Error(
@@ -132,8 +135,13 @@ const ScreenSingleSell = ({navigation, route}) => {
       );
     }
     // Extract sort option names as label/value pairs
-    let localVariegationData = getVariegationApiData.data.map(
-      item => item.name,
+    // let localVariegationData = getVariegationApiData.data.map(
+    //   item => item.name,
+    // );
+    let localVariegationData = getVariegationApiData.data;
+    setSelectedVariegation('');
+    setdropdownVariegationDisable(
+      getVariegationApiData.data.length == 0 ? true : false,
     );
     // Set options
     setDropdownOptionVariegation(localVariegationData);
@@ -151,7 +159,7 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error(getMutationApiData?.message || 'Failed to load genus');
     }
 
-    console.log(getMutationApiData.data);
+    // console.log(getMutationApiData.data);
     // Extract sort option names as label/value pairs
     let localMutationData = getMutationApiData.data.map(item => item.name);
     // Set options
@@ -182,13 +190,14 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [selectedGenus, setSelectedGenus] = useState('');
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    console.log('Selected Genus:', genus);
-
+    setLoading(true);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
+    } finally {
+      setLoading(false);
     }
   };
   // Dropdown Genus
@@ -197,13 +206,14 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [selectedSpecies, setSelectedSpecies] = useState('');
   const handleSpeciesChange = async species => {
     setSelectedSpecies(species);
-    console.log('Selected species:', species);
-
+    setLoading(true);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
+    } finally {
+      setLoading(false);
     }
   };
   // Dropdown Species
@@ -556,6 +566,7 @@ const ScreenSingleSell = ({navigation, route}) => {
             selectedOption={selectedVariegation}
             onSelect={setSelectedVariegation}
             placeholder="Choose an option"
+            disabled={dropdownVariegationDisable}
           />
         </View>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>

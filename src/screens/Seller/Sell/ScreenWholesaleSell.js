@@ -72,6 +72,8 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     [],
   );
   const [dropdownOptionMutation, setDropdownOptionMutation] = useState([]);
+  const [dropdownVariegationDisable, setdropdownVariegationDisable] =
+    useState(false);
 
   const loadGenusData = async () => {
     let netState = await NetInfo.fetch();
@@ -84,8 +86,6 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     if (!getGenusApiData?.success) {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
-
-    console.log;
     // Extract sort option names as label/value pairs
     let localGenusData = getGenusApiData.data;
     // Set options
@@ -98,14 +98,17 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
-    // const getSpeciesApiData = await getSellSpeciesApi(genus);
-    const getSpeciesApiData = await getSpeciesApi(genus);
+    const getSpeciesApiData = await getSellSpeciesApi(genus);
+    // console.log(getSpeciesApiData.data);
+    // const getSpeciesApiData = await getSpeciesApi(genus);
     // Check if API indicates failure
     if (!getSpeciesApiData?.success) {
       throw new Error(getSpeciesApiData?.message || 'Failed to load species');
     }
     // Extract sort option names as label/value pairs
-    let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    setSelectedSpecies('');
+    let localSpeciesData = getSpeciesApiData.data;
     // Set options
     setDropdownOptionSpecies(localSpeciesData);
   };
@@ -116,8 +119,8 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
-    const getVariegationApiData = await getVariegationApi(genus, species);
-    // const getVariegationApiData = await getSellVariegationApi(genus, species);
+    // const getVariegationApiData = await getVariegationApi(genus, species);
+    const getVariegationApiData = await getSellVariegationApi(genus, species);
     // Check if API indicates failure
     if (!getVariegationApiData?.success) {
       throw new Error(
@@ -125,8 +128,13 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       );
     }
     // Extract sort option names as label/value pairs
-    let localVariegationData = getVariegationApiData.data.map(
-      item => item.name,
+    // let localVariegationData = getVariegationApiData.data.map(
+    //   item => item.name,
+    // );
+    let localVariegationData = getVariegationApiData.data;
+    setSelectedVariegation('');
+    setdropdownVariegationDisable(
+      getVariegationApiData.data.length == 0 ? true : false,
     );
     // Set options
     setDropdownOptionVariegation(localVariegationData);
@@ -173,13 +181,14 @@ const ScreenSingleWholesale = ({navigation, route}) => {
   // Dropdown Genus
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    console.log('Selected Genus:', genus);
-
+    setLoading(true);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
+    } finally {
+      setLoading(false);
     }
   };
   // Dropdown Genus
@@ -187,13 +196,14 @@ const ScreenSingleWholesale = ({navigation, route}) => {
   // Dropdown Species
   const handleSpeciesChange = async species => {
     setSelectedSpecies(species);
-    console.log('Selected species:', species);
-
+    setLoading(true);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
+    } finally {
+      setLoading(false);
     }
   };
   // Dropdown Species
@@ -567,18 +577,6 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     }));
 
     setPotSizeList(newPotSize);
-
-    // setLocalPrice(String(res.data.localPrice ?? ''));
-    // setSelectPotSize(res.data.potSize || null);
-    // setSelectMeasure(
-    //   res.data.approximateHeight === 'Below 12 inches'
-    //     ? 'below'
-    //     : 'above' || null,
-    // );
-
-    // console.log(res.data);
-    // setSwitchActive(res.data.status == 'Active' ? true : false);
-    // setListingData(res.data);
   };
 
   const onPressUpdate = () => {};

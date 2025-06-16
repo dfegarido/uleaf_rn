@@ -10,7 +10,13 @@ import {
 
 import ArrowDownIcon from '../../assets/icons/greylight/caret-down-regular.svg';
 
-const InputDropdown = ({options, onSelect, selectedOption, placeholder}) => {
+const InputDropdown = ({
+  options,
+  onSelect,
+  selectedOption,
+  placeholder,
+  disabled = false,
+}) => {
   const [visible, setVisible] = useState(false);
 
   const handleSelect = option => {
@@ -21,12 +27,23 @@ const InputDropdown = ({options, onSelect, selectedOption, placeholder}) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={styles.dropdown}
-        onPress={() => setVisible(true)}>
-        <Text style={styles.dropdownText}>
+        style={[styles.dropdown, disabled && styles.dropdownDisabled]}
+        onPress={() => {
+          if (!disabled) setVisible(true);
+        }}
+        activeOpacity={disabled ? 1 : 0.7}>
+        <Text
+          style={[
+            styles.dropdownText,
+            disabled && styles.dropdownTextDisabled,
+          ]}>
           {selectedOption || placeholder || 'Select an option'}
         </Text>
-        <ArrowDownIcon width={20} height={20} style={styles.icon} />
+        <ArrowDownIcon
+          width={20}
+          height={20}
+          style={[styles.icon, disabled && styles.iconDisabled]}
+        />
       </TouchableOpacity>
 
       <Modal
@@ -57,9 +74,7 @@ const InputDropdown = ({options, onSelect, selectedOption, placeholder}) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    // marginVertical: 10,
-  },
+  container: {},
   dropdown: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -68,9 +83,21 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 8,
     backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  dropdownDisabled: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#ddd',
   },
   dropdownText: {
     color: '#333',
+  },
+  dropdownTextDisabled: {
+    color: '#aaa',
+  },
+  icon: {},
+  iconDisabled: {
+    tintColor: '#aaa',
   },
   modalOverlay: {
     flex: 1,
