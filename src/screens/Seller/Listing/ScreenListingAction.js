@@ -529,19 +529,19 @@ const ScreenListingAction = ({navigation, route}) => {
             )}
 
             {/* Publish now */}
-            {/* {activeTab === 'Scheduled' && ( */}
-            <TouchableOpacity
-              onPress={() =>
-                setPublishNowModalVisible(!publishNowModalVisible)
-              }>
-              <View style={{padding: 10, flexDirection: 'row'}}>
-                <PublishIcon width={20} height={20} />
-                <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                  Publish
-                </Text>
-              </View>
-            </TouchableOpacity>
-            {/* )} */}
+            {activeTab === 'Scheduled' && (
+              <TouchableOpacity
+                onPress={() =>
+                  setPublishNowModalVisible(!publishNowModalVisible)
+                }>
+                <View style={{padding: 10, flexDirection: 'row'}}>
+                  <PublishIcon width={20} height={20} />
+                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
+                    Publish
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Renew */}
             {activeTab === 'Expired' && (

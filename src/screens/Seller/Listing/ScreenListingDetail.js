@@ -29,6 +29,7 @@ import {InputBox} from '../../../components/Input';
 
 import {
   postListingPublishNowActionApi,
+  postListingPublishNurseryDropActionApi,
   postListingActivateActionApi,
   postListingDeactivateActionApi,
   postListingUpdateStockActionApi,
@@ -151,6 +152,8 @@ const ScreenListingDetail = ({navigation, route}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post publish now failed.');
       }
+
+      Alert.alert('Publish Now', 'Listing published now successfully!');
     } catch (error) {
       console.log('Error publish now action:', error.message);
       Alert.alert('Publish now', error.message);
@@ -159,6 +162,40 @@ const ScreenListingDetail = ({navigation, route}) => {
     // Proceed with API call or action here
   };
   // Publish now action
+
+  // Publish nursery action
+  const onPressPublishNursery = async () => {
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    setLoading(true);
+    let localPlantCode = [plantCode];
+    // console.log([plantCode]);
+    try {
+      const response = await postListingPublishNurseryDropActionApi(
+        localPlantCode,
+      );
+
+      if (!response?.success) {
+        throw new Error(
+          response?.message || 'Post publish in nursery drop failed.',
+        );
+      }
+
+      Alert.alert(
+        'Publish in Nursery Drop',
+        'Listing published in nursery drop successfully!',
+      );
+    } catch (error) {
+      console.log('Error publish in nursery drop action:', error.message);
+      Alert.alert('Publish in nursery drop', error.message);
+    }
+    setLoading(false);
+    // Proceed with API call or action here
+  };
+  // Publish nursery action
 
   // Active action
   const activeAction = async () => {
@@ -599,7 +636,9 @@ const ScreenListingDetail = ({navigation, route}) => {
                       <TouchableOpacity
                         style={{flexDirection: 'row', paddingTop: 25}}
                         onPress={() =>
-                          setPublishNurseryModalVisible(!renewModalVisible)
+                          setPublishNurseryModalVisible(
+                            !publishNurseryModalVisible,
+                          )
                         }>
                         <EditNoteIcon width={20} height={20} />
                         <Text
@@ -609,6 +648,21 @@ const ScreenListingDetail = ({navigation, route}) => {
                       </TouchableOpacity>
                     </>
                   )}
+
+                  {listingData?.status &&
+                    listingData?.status == 'Scheduled' && (
+                      <TouchableOpacity
+                        style={{flexDirection: 'row', paddingTop: 10}}
+                        onPress={() =>
+                          setPublishNowModalVisible(!publishNowModalVisible)
+                        }>
+                        <PublishIcon width={25} height={25} />
+                        <Text
+                          style={[globalStyles.textMDAccent, {paddingLeft: 5}]}>
+                          Publish
+                        </Text>
+                      </TouchableOpacity>
+                    )}
 
                   {listingData?.status && listingData?.status == 'Expired' && (
                     <TouchableOpacity
@@ -814,14 +868,14 @@ const ScreenListingDetail = ({navigation, route}) => {
 
       <ConfirmPublishNursery
         visible={publishNurseryModalVisible}
-        onConfirm={onPressPublishNow}
+        onConfirm={onPressPublishNursery}
         onCancel={() => setPublishNurseryModalVisible(false)}
       />
 
       <ConfirmRenew
         visible={renewModalVisible}
         onPublishNow={onPressPublishNow}
-        onPublishNurseryDrop={onPressPublishNow}
+        onPublishNurseryDrop={onPressPublishNursery}
         onCancel={() => setRenewModalVisible(false)}
       />
 

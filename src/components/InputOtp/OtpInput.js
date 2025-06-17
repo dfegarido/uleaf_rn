@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View,
   TextInput,
@@ -14,6 +14,21 @@ import {
 const OtpInput = ({length = 4, onChangeOtp}) => {
   const inputs = useRef([]);
   const [otpArray, setOtpArray] = useState(Array(length).fill(''));
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleChange = (text, index) => {
     if (text !== '' && !/^[0-9]$/.test(text)) return;
@@ -67,7 +82,7 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
           ))}
         </View>
 
-        {Platform.OS === 'ios' && (
+        {Platform.OS === 'ios' && isKeyboardVisible && (
           <View style={styles.doneBar}>
             <TouchableOpacity onPress={dismissKeyboard}>
               <Text style={styles.doneText}>Done</Text>
