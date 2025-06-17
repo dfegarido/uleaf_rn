@@ -62,10 +62,10 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
 };
 
 const styles = StyleSheet.create({
-  keyboardAvoid: {
-    flex: 1,
-    justifyContent: 'center',
-  },
+  // keyboardAvoid: {
+  //   flex: 1,
+  //   justifyContent: 'center',
+  // },
   container: {
     flexDirection: 'row',
     gap: 10,
