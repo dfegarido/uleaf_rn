@@ -61,7 +61,8 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardAvoid}>
+        // style={styles.keyboardAvoid}
+      >
         <View style={styles.container}>
           {[...Array(length)].map((_, i) => (
             <TextInput
