@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import {useIsFocused} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import DiscountBadge from '../../../components/DiscountBadge/DiscountBadge';
 import {getListingDetails} from '../../../components/Api';
@@ -20,11 +21,18 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {CustomSwitch} from '../../../components/Switch';
 import ConfirmRenew from './components/ConfirmRenew';
+import ConfirmPublishNow from './components/ConfirmPublishNow';
+import ConfirmPublishNursery from './components/ConfirmPublishNursery';
+import ListingActionSheet from './components/ListingActionSheetEdit';
+import ActionSheet from '../../../components/ActionSheet/ActionSheet';
+import {InputBox} from '../../../components/Input';
 
 import {
   postListingPublishNowActionApi,
   postListingActivateActionApi,
   postListingDeactivateActionApi,
+  postListingUpdateStockActionApi,
+  postListingDeleteApi,
 } from '../../../components/Api';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -40,6 +48,9 @@ import StoreIcon from '../../../assets/icons/greylight/storefront-regular.svg';
 import CalendarIcon from '../../../assets/icons/greylight/calendar-blank-regular.svg';
 import EditIcon from '../../../assets/icons/greydark/note-edit.svg';
 import RenewIcon from '../../../assets/icons/accent/arrow-clockwise-regular.svg';
+import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
+import PublishIcon from '../../../assets/icons/accent/box-arrow-up-regular.svg';
+import EditNoteIcon from '../../../assets/icons/accent/note-edit.svg';
 
 import BackgroundCarousel from '../../../components/BackgroundCarousel';
 
@@ -63,6 +74,7 @@ const ScreenListingDetail = ({navigation, route}) => {
   const {plantCode} = route.params;
 
   // ✅ Fetch on mount
+  const isFocused = useIsFocused();
   useEffect(() => {
     setLoading(true);
     const fetchData = async () => {
@@ -76,7 +88,7 @@ const ScreenListingDetail = ({navigation, route}) => {
     };
 
     fetchData();
-  }, [plantCode]);
+  }, [plantCode, isFocused]);
 
   const loadListingData = async plantCode => {
     let netState = await NetInfo.fetch();
@@ -92,7 +104,7 @@ const ScreenListingDetail = ({navigation, route}) => {
       throw new Error(res?.message || 'Failed to load sort api');
     }
 
-    // console.log(res.data);
+    console.log(res.data);
     setSwitchActive(res.data.status == 'Active' ? true : false);
     setListingData(res.data);
   };
@@ -118,7 +130,9 @@ const ScreenListingDetail = ({navigation, route}) => {
 
   // Confirm
   const [renewModalVisible, setRenewModalVisible] = useState(false);
-
+  const [publishNowModalVisible, setPublishNowModalVisible] = useState(false);
+  const [publishNurseryModalVisible, setPublishNurseryModalVisible] =
+    useState(false);
   // Confirm
 
   // Publish now action
@@ -129,9 +143,10 @@ const ScreenListingDetail = ({navigation, route}) => {
     }
 
     setLoading(true);
-
+    let localPlantCode = [plantCode];
+    // console.log([plantCode]);
     try {
-      const response = await postListingPublishNowActionApi([plantCode]);
+      const response = await postListingPublishNowActionApi(localPlantCode);
 
       if (!response?.success) {
         throw new Error(response?.message || 'Post publish now failed.');
@@ -185,6 +200,82 @@ const ScreenListingDetail = ({navigation, route}) => {
   };
   // Deactive action
 
+  const [showActionSheet, setActionShowSheet] = useState(false);
+
+  // Update stocks
+  const [showSheetUpdateStocks, setShowSheetUpdateStocks] = useState(false);
+  const [quantities, setQuantities] = useState({});
+
+  useEffect(() => {
+    if (!listingData) return;
+
+    if (
+      Array.isArray(listingData.variations) &&
+      listingData.variations.length > 0
+    ) {
+      const initialQuantities = {};
+      listingData.variations.forEach(variation => {
+        initialQuantities[variation.id] =
+          variation.availableQty?.toString() || '';
+      });
+      setQuantities(initialQuantities);
+    } else if (listingData.potSize) {
+      setQuantities({
+        single: listingData.availableQty?.toString() || '',
+      });
+    }
+  }, [listingData]); // <-- include this if you want it to re-run when listingData changes
+
+  const onPressUpdateStockPost = async () => {
+    setLoading(true);
+    try {
+      // Extract pot sizes and map their IDs to corresponding quantities from qtyMap
+      const potSizes = listingData?.variations.map(
+        variation => variation.potSize,
+      );
+      const selectedQuantity = listingData?.variations.map(
+        variation => quantities[variation.id]?.toString() || '0', // default to '0' if missing
+      );
+
+      const response = await postListingUpdateStockActionApi(
+        plantCode,
+        potSizes,
+        selectedQuantity,
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post stock update failed.');
+      }
+
+      await loadListingData(plantCode);
+    } catch (error) {
+      console.log('Error updating stock:', error.message);
+      Alert.alert('Update stocks', error.message);
+    } finally {
+      setLoading(false);
+      setActionShowSheet(false);
+      setShowSheetUpdateStocks(false);
+    }
+  };
+  // Update stocks
+
+  // Delete Item
+  const onPressDelete = async () => {
+    try {
+      const response = await postListingDeleteApi(plantCode);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post pin failed.');
+      }
+
+      Alert.alert('Delete Listing', 'Listing deleted successfully!');
+    } catch (error) {
+      console.log('Error pin table action:', error.message);
+      Alert.alert('Delete item', error.message);
+    }
+  };
+  // Delete Item
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       {loading && (
@@ -228,7 +319,7 @@ const ScreenListingDetail = ({navigation, route}) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => navigation.goBack()}
+              onPress={() => setActionShowSheet(true)}
               style={[
                 styles.iconButton,
                 {
@@ -275,6 +366,11 @@ const ScreenListingDetail = ({navigation, route}) => {
                     }
                     if (listingData?.listingType == 'Wholesale') {
                       navigation.navigate('ScreenWholesaleSell', {
+                        plantCode: listingData?.plantCode,
+                      });
+                    }
+                    if (listingData?.listingType == "Grower's Choice") {
+                      navigation.navigate('ScreenGrowersSell', {
                         plantCode: listingData?.plantCode,
                       });
                     }
@@ -448,7 +544,18 @@ const ScreenListingDetail = ({navigation, route}) => {
                     <View>
                       <Text
                         style={[globalStyles.textMDGreyDark, {paddingLeft: 5}]}>
-                        Published
+                        {listingData?.status && listingData?.status == 'Active'
+                          ? 'Published'
+                          : listingData?.status}
+                      </Text>
+                      <Text
+                        style={[
+                          globalStyles.textXSGreyLight,
+                          {paddingLeft: 5},
+                        ]}>
+                        {listingData?.status && listingData?.status == 'Active'
+                          ? ''
+                          : listingData?.publishType}
                       </Text>
                     </View>
                   </View>
@@ -462,7 +569,7 @@ const ScreenListingDetail = ({navigation, route}) => {
                       </Text>
                       <Text
                         style={[
-                          globalStyles.textMDGreyLight,
+                          globalStyles.textXSGreyLight,
                           {paddingLeft: 5},
                         ]}>
                         Expiration Date
@@ -479,14 +586,28 @@ const ScreenListingDetail = ({navigation, route}) => {
                     alignItems: 'flex-end',
                   }}>
                   {listingData?.status && listingData?.status == 'Active' && (
-                    <View>
-                      <CustomSwitch
-                        label=""
-                        value={switchActive}
-                        onValueChange={toggleSwitch}
-                        labelPosition="left"
-                      />
-                    </View>
+                    <>
+                      <View>
+                        <CustomSwitch
+                          label=""
+                          value={switchActive}
+                          onValueChange={toggleSwitch}
+                          labelPosition="left"
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={{flexDirection: 'row', paddingTop: 25}}
+                        onPress={() =>
+                          setPublishNurseryModalVisible(!renewModalVisible)
+                        }>
+                        <EditNoteIcon width={20} height={20} />
+                        <Text
+                          style={[globalStyles.textMDAccent, {paddingLeft: 5}]}>
+                          Update
+                        </Text>
+                      </TouchableOpacity>
+                    </>
                   )}
 
                   {listingData?.status && listingData?.status == 'Expired' && (
@@ -507,6 +628,61 @@ const ScreenListingDetail = ({navigation, route}) => {
           {/* Status Information */}
 
           {/* Pot size Information */}
+          <View
+            style={{
+              borderBottomColor: '#E4E7E9',
+              borderBottomWidth: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 20,
+            }}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+              Pot Size
+            </Text>
+
+            <View
+              style={[
+                styles.badge,
+                {
+                  backgroundColor: '#E4E7E9',
+                  alignSelf: 'flex-start',
+                  paddingHorizontal: 10,
+                  marginBottom: 10,
+                },
+              ]}>
+              <Text style={{color: '#000'}}>{listingData?.potSize ?? ''}</Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              borderBottomColor: '#E4E7E9',
+              borderBottomWidth: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 20,
+            }}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+              Approximate Height
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                width: '100%',
+                marginBottom: 10,
+                padding: 10,
+              }}>
+              <InchesIcon width={20} height={20} />
+              <View>
+                <Text style={[globalStyles.textMDGreyDark, {paddingLeft: 10}]}>
+                  {listingData?.approximateHeight ?? ''}
+                </Text>
+                <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
+                  {listingData?.potSize ?? ''}
+                </Text>
+              </View>
+            </View>
+          </View>
+
           {Array.isArray(listingData?.variations) &&
             listingData.variations.length > 0 && (
               <View
@@ -520,7 +696,8 @@ const ScreenListingDetail = ({navigation, route}) => {
                   style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
                   Pot Size
                 </Text>
-                {listingData.variations.map((item, index) => {
+
+                {listingData?.variations.map((item, index) => {
                   const potSize = item.potSize || 'No Pot Size';
                   const price =
                     item?.localCurrencySymbol + ' ' + item?.localPrice;
@@ -558,9 +735,15 @@ const ScreenListingDetail = ({navigation, route}) => {
                             paddingLeft: 10,
                           },
                         ]}>
-                        <Text style={globalStyles.textMDGreyDark}>
-                          {potSize}
-                        </Text>
+                        <View style={{flexDirection: 'column'}}>
+                          <Text style={globalStyles.textMDGreyDark}>
+                            {potSize}
+                          </Text>
+                          <Text style={globalStyles.textMDGreyDark}>
+                            {item?.availableQty} in stock
+                          </Text>
+                        </View>
+
                         <Text style={globalStyles.textMDGreyDark}>{price}</Text>
                       </View>
                     </View>
@@ -623,12 +806,113 @@ const ScreenListingDetail = ({navigation, route}) => {
       </ScrollView>
       {/* Foreground ScrollView Content */}
 
+      <ConfirmPublishNow
+        visible={publishNowModalVisible}
+        onConfirm={onPressPublishNow}
+        onCancel={() => setPublishNowModalVisible(false)}
+      />
+
+      <ConfirmPublishNursery
+        visible={publishNurseryModalVisible}
+        onConfirm={onPressPublishNow}
+        onCancel={() => setPublishNurseryModalVisible(false)}
+      />
+
       <ConfirmRenew
         visible={renewModalVisible}
         onPublishNow={onPressPublishNow}
         onPublishNurseryDrop={onPressPublishNow}
         onCancel={() => setRenewModalVisible(false)}
       />
+
+      <ListingActionSheet
+        code={listingData?.listingType}
+        visible={showActionSheet}
+        onClose={() => setActionShowSheet(false)}
+        onPressUpdateStockShow={setShowSheetUpdateStocks}
+        showSheetUpdateStocks={showSheetUpdateStocks}
+        onPressEdit={() => {
+          if (listingData?.listingType == 'Single Plant') {
+            navigation.navigate('ScreenSingleSell', {
+              plantCode: listingData?.plantCode,
+            });
+          }
+          if (listingData?.listingType == 'Wholesale') {
+            navigation.navigate('ScreenWholesaleSell', {
+              plantCode: listingData?.plantCode,
+            });
+          }
+        }}
+        onPressDelete={onPressDelete}
+      />
+
+      <ActionSheet
+        visible={showSheetUpdateStocks}
+        onClose={() => setShowSheetUpdateStocks(false)}
+        heightPercent={'50%'}>
+        <View style={styles.sheetTitleContainer}>
+          <Text style={styles.sheetTitle}>Update Stocks</Text>
+          <TouchableOpacity onPress={() => setShowSheetUpdateStocks(false)}>
+            <ExIcon width={20} height={20} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={{paddingHorizontal: 20}}>
+          {Array.isArray(listingData?.variations) &&
+          listingData?.variations.length > 0 ? (
+            listingData?.variations.map((variation, index) => (
+              <View key={variation.id || index} style={{marginTop: 10}}>
+                <Text
+                  style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                  Pot size: {variation.potSize || 'N/A'}
+                </Text>
+                <Text
+                  style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                  Current Quantity
+                </Text>
+                <InputBox
+                  placeholder="Quantity"
+                  value={quantities[variation.id] || ''}
+                  setValue={text =>
+                    setQuantities(prev => ({...prev, [variation.id]: text}))
+                  }
+                />
+              </View>
+            ))
+          ) : listingData?.potSize ? (
+            <View style={{marginTop: 10}}>
+              <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                Pot size: {listingData?.potSize}
+              </Text>
+              <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                Current Quantity
+              </Text>
+              <InputBox
+                placeholder="Quantity"
+                value={quantities.single || ''}
+                setValue={text =>
+                  setQuantities(prev => ({...prev, single: text}))
+                }
+              />
+            </View>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          onPress={() => onPressUpdateStockPost()}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            paddingHorizontal: 20,
+            width: '100%',
+            paddingBottom: 10,
+          }}>
+          <View style={globalStyles.primaryButton}>
+            <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+              Update Stocks
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </ActionSheet>
     </SafeAreaView>
   );
 };
@@ -688,6 +972,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sheetTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+  },
+  sheetTitle: {
+    color: '#202325',
+    fontSize: 18,
   },
 });
 

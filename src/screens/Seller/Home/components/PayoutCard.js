@@ -13,21 +13,26 @@ const PayoutCard = ({item}) => {
       <View style={[styles.statusTag, statusStyles[item.status]]}>
         <Text style={styles.statusText}>{item.status}</Text>
       </View>
+      <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+        <View>
+          <Text style={[globalStyles.textSMGreyDark]}>{item.payoutDate}</Text>
+          <Text style={styles.label}>Payout date</Text>
 
-      {item.reference && (
-        <Text style={globalStyles.textMDGreyLight}>Ref # {item.reference}</Text>
-      )}
-
-      <Text style={[globalStyles.textLGGreyDark, globalStyles.textBold]}>
-        ${item.amount.toLocaleString()}
-      </Text>
-      <Text style={styles.label}>Total amount</Text>
-
-      <Text style={[globalStyles.textSMGreyDark]}>{item.payoutDate}</Text>
-      <Text style={styles.label}>Payout date</Text>
-
-      <Text style={[globalStyles.textSMGreyDark]}>{item.salesPeriod}</Text>
-      <Text style={styles.label}>Sales period</Text>
+          <Text style={[globalStyles.textSMGreyDark]}>{item.salesPeriod}</Text>
+          <Text style={styles.label}>Sales period</Text>
+        </View>
+        <View style={styles.headerRight}>
+          {item.reference && (
+            <Text style={globalStyles.textMDGreyLight}>
+              Ref # {item.reference}
+            </Text>
+          )}
+          <Text style={[globalStyles.textLGGreyDark, globalStyles.textBold]}>
+            ${item.amount.toLocaleString()}
+          </Text>
+          <Text style={styles.label}>Total amount</Text>
+        </View>
+      </View>
     </View>
   );
 };
@@ -64,15 +69,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
-  reference: {
-    fontSize: 12,
-    color: '#555',
-    marginBottom: 6,
-  },
-  amount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 4,
+  headerRight: {
+    alignItems: 'flex-end',
+    marginBottom: 4,
   },
   label: {
     fontSize: 12,

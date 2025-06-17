@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import {useIsFocused} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {globalStyles} from '../../../assets/styles/styles';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
@@ -32,6 +33,7 @@ const screenWidth = Dimensions.get('window').width;
 
 const ScreenSell = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
 
   useFocusEffect(() => {
     StatusBar.setBarStyle('dark-content');
@@ -63,8 +65,9 @@ const ScreenSell = ({navigation}) => {
   const [loading, setLoading] = useState(false);
 
   // Most love
+  const [mostLoveData, setMostLoveData] = useState([]);
   useEffect(() => {
-    // setLoading(true);
+    setLoading(true);
     const fetchData = async () => {
       try {
         await loadListingData();
@@ -76,8 +79,8 @@ const ScreenSell = ({navigation}) => {
       }
     };
 
-    // fetchData();
-  }, []);
+    fetchData();
+  }, [isFocused]);
 
   const loadListingData = async () => {
     let netState = await NetInfo.fetch();
@@ -90,8 +93,14 @@ const ScreenSell = ({navigation}) => {
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load sort api');
     }
-
-    console.log(res.data);
+    const LocalBuyerWishlist = res.listings.map(item => ({
+      uri: item.imagePrimary,
+      title: `${item.genus} ${item.species}`,
+      description: `${item.variegation}`,
+      percentage: `${item.loveCountPercent}%`,
+    }));
+    // console.log(res.listings);
+    setMostLoveData(LocalBuyerWishlist);
   };
   // Most love
 
@@ -185,7 +194,7 @@ const ScreenSell = ({navigation}) => {
           <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
             Buyers Wishlist
           </Text>
-          <CarouselSell />
+          <CarouselSell plantItems={mostLoveData} />
         </View>
 
         <ActionSheet

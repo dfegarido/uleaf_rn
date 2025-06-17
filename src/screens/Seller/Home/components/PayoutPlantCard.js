@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, Image, StyleSheet} from 'react-native';
+import {globalStyles} from '../../../../assets/styles/styles';
 
 const PayoutPlantCard = ({plant}) => {
   return (
@@ -7,11 +8,19 @@ const PayoutPlantCard = ({plant}) => {
       <Image source={{uri: plant.image}} style={styles.image} />
       <View style={styles.infoContainer}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>Plant genus species name</Text>
-          <Text style={styles.price}>${plant.price.toLocaleString()}</Text>
+          <Text style={globalStyles.textSMGreyDark}>
+            Plant genus species name
+          </Text>
+
+          <Text style={globalStyles.textSMGreyDark}>
+            ${plant.price.toLocaleString()}
+          </Text>
         </View>
-        <Text style={styles.subText}>{plant.code}</Text>
-        <Text style={styles.subText}>{plant.quantity}x</Text>
+
+        <View style={styles.titleRow}>
+          <Text style={styles.subText}>{plant.code}</Text>
+          <Text style={styles.subText}>{plant.quantity}x</Text>
+        </View>
 
         <View style={styles.bottomRow}>
           {plant.tag && (
@@ -77,14 +86,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tag: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#202325',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
   },
   tagText: {
     fontSize: 12,
-    color: '#333',
+    color: '#fff',
   },
   size: {
     fontSize: 13,

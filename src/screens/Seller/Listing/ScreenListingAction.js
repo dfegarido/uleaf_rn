@@ -15,13 +15,10 @@ import {
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 import {globalStyles} from '../../../assets/styles/styles';
-import TabFilter from '../../../components/TabFilter/TabFilter';
 import ListingTable from './components/ListingTableAction';
-import ListingActionSheet from './components/ListingActionSheetEdit';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
-import {InputBox, InputCheckBox} from '../../../components/Input';
+import {InputCheckBox} from '../../../components/Input';
 import {InputGroupAddon} from '../../../components/InputGroupAddon';
 import ConfirmRemoveDiscount from './components/ConfirmRemoveDiscount';
 import ConfirmPublishNow from './components/ConfirmPublishNow';
@@ -34,6 +31,7 @@ import {
   postListingRemoveDiscountActionApi,
   postListingPublishNowActionApi,
   postListingApplyDiscountActionApi,
+  postListingPublishNurseryDropActionApi,
 } from '../../../components/Api';
 
 import BackIcon from '../../../assets/icons/white/caret-left-regular.svg';
@@ -302,6 +300,68 @@ const ScreenListingAction = ({navigation, route}) => {
   };
   // Publish now action
 
+  // Publish nursery action
+  const onPressPublishNurseryDrop = async () => {
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    setLoading(true);
+    const selectedItems = dataTable.filter(item =>
+      selectedIds.includes(item.id),
+    );
+
+    // Step 1: Validation - ensure all are currently active
+    const notActiveItems = selectedItems.filter(
+      item => item.status.toLowerCase() !== 'scheduled',
+    );
+
+    // if (notActiveItems.length > 0) {
+    //   Alert.alert('Validation', 'Some selected listings are not scheduled');
+    //  setLoading(false);
+    //   return;
+    // }
+
+    if (selectedItems.length == 0) {
+      Alert.alert('Validation', 'No plant/s selected');
+      setLoading(false);
+      return;
+    }
+
+    // Step 2: Collect the plantCodes (or use id if not present)
+    const selectedPlantCodes = selectedItems.map(
+      item => item.plantCode ?? item.id,
+    );
+
+    console.log(
+      'Publish in Nursery Drop listings with codes:',
+      selectedPlantCodes,
+    );
+
+    try {
+      const response = await postListingPublishNurseryDropActionApi(
+        selectedPlantCodes,
+      );
+
+      if (!response?.success) {
+        throw new Error(
+          response?.message || 'Post publish in nursery drop failed.',
+        );
+      }
+
+      // Navigate back
+      route.params?.onGoBack?.();
+      navigation.goBack();
+    } catch (error) {
+      console.log('Error publish in nursery drop action:', error.message);
+      Alert.alert('Publish in Nursery Drop', error.message);
+    }
+    setLoading(false);
+    // Proceed with API call or action here
+  };
+  // Publish nursery action
+
   // Apply discount action
   const [showSheetDiscount, setShowSheetDiscount] = useState(false);
   const [discountPercentageSheet, setDiscountPercentageSheet] = useState(false);
@@ -469,19 +529,19 @@ const ScreenListingAction = ({navigation, route}) => {
             )}
 
             {/* Publish now */}
-            {activeTab === 'Scheduled' && (
-              <TouchableOpacity
-                onPress={() =>
-                  setPublishNowModalVisible(!publishNowModalVisible)
-                }>
-                <View style={{padding: 10, flexDirection: 'row'}}>
-                  <PublishIcon width={20} height={20} />
-                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                    Publish
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+            {/* {activeTab === 'Scheduled' && ( */}
+            <TouchableOpacity
+              onPress={() =>
+                setPublishNowModalVisible(!publishNowModalVisible)
+              }>
+              <View style={{padding: 10, flexDirection: 'row'}}>
+                <PublishIcon width={20} height={20} />
+                <Text style={{marginHorizontal: 5, color: '#fff'}}>
+                  Publish
+                </Text>
+              </View>
+            </TouchableOpacity>
+            {/* )} */}
 
             {/* Renew */}
             {activeTab === 'Expired' && (
@@ -589,7 +649,7 @@ const ScreenListingAction = ({navigation, route}) => {
           <ConfirmRenew
             visible={renewModalVisible}
             onPublishNow={onPressPublishNow}
-            onPublishNurseryDrop={onPressPublishNow}
+            onPublishNurseryDrop={onPressPublishNurseryDrop}
             onCancel={() => setRenewModalVisible(false)}
           />
         </View>

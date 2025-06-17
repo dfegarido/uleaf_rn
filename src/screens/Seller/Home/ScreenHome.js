@@ -1,4 +1,4 @@
-import React, {useCallback} from 'react';
+import React, {useEffect, useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,20 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import BusinessPerformance from './components/BusinessPerformance';
 import {CustomSalesChart} from '../../../components/Charts';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+import {useIsFocused} from '@react-navigation/native';
+import {roundNumber} from '../../../utils/roundNumber';
+import HomeDurationDropdown from './components/HomeDurationDropdown';
+import {formatDateMonthDay} from '../../../utils/formatDateMonthDay';
+import {formatCurrency} from '../../../utils/formatCurrency';
+
+import {
+  getHomeSummaryApi,
+  getHomeEventsApi,
+  getHomeBusinessPerformanceApi,
+  getDateFilterApi,
+} from '../../../components/Api';
 
 import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 
@@ -38,10 +52,11 @@ const chartData = [
 
 const ScreenHome = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(false);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
-      StatusBar.setBarStyle('light-content');
+      StatusBar.setBarStyle('dark-content');
       StatusBar.setBackgroundColor('#DFECDF');
     }
   });
@@ -49,6 +64,189 @@ const ScreenHome = ({navigation}) => {
   const handlePressMyStore = () => {
     navigation.navigate('ScreenMyStore');
   };
+
+  // Fetch on mount
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchData = async () => {
+      try {
+        if (!isMounted) return;
+        setLoading(true);
+
+        await Promise.all([
+          loadSalesData(),
+          loadEventsData(),
+          loadDurationDropdownData(),
+          loadSalesPerformanceData(),
+        ]);
+      } catch (error) {
+        console.error('Error loading data:', error.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    if (isFocused) {
+      fetchData();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isFocused]);
+
+  // Sales summary
+  const [totalSales, setTotalSales] = useState();
+  const [plantSold, setPlantSold] = useState();
+  const [plantListed, setPlantListed] = useState();
+  const loadSalesData = async () => {
+    const netState = await NetInfo.fetch();
+
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getHomeSummaryApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load summary API.');
+    }
+
+    // console.log(res);
+    setTotalSales(res.stats.currency);
+    setPlantSold(res.stats.plantsSold);
+    setPlantListed(res.stats.listingsCreated);
+  };
+  // Sales summary
+
+  // Events
+  const [eventData, setEventData] = useState();
+  const loadEventsData = async () => {
+    const netState = await NetInfo.fetch();
+
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getHomeEventsApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load events API.');
+    }
+
+    // console.log(res);
+    setEventData(res?.data);
+  };
+  // Events
+
+  // Sales Performance
+  const [businessPerformanceTable, setBusinessPerformanceTable] = useState([]);
+  const [chartData, setChartData] = useState([]);
+
+  const loadSalesPerformanceData = async () => {
+    const netState = await NetInfo.fetch();
+
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(
+      () => getHomeBusinessPerformanceApi(dropdownDuration),
+      3,
+      1000,
+    );
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load events API.');
+    }
+
+    const localChartData = res.data.map(item => ({
+      week: item.rangeLabel, // or convert to "MMM DD\nMMM DD" format if needed
+      total: item.totalListed,
+      sold: item.sold,
+      amount: item.earnings?.amount || 0,
+    }));
+    setChartData(localChartData);
+
+    const mapped = res.data.map(item => ({
+      header: item.rangeLabel,
+      earnings: item.earnings?.amount || 0,
+      sold: item.sold,
+      totalListed: item.totalListed,
+      sellThroughRate:
+        item.totalListed > 0
+          ? ((item.sold / item.totalListed) * 100).toFixed(2) + '%'
+          : '0.00%',
+    }));
+
+    const businessPerformanceData = {
+      headers: mapped.map(i => i.header),
+      rows: [
+        {
+          label: 'Total Sales',
+          values: mapped.map(i => formatCurrency(i.earnings)),
+        },
+        {
+          label: 'Plants Sold',
+          values: mapped.map(i => String(i.sold)),
+        },
+        {
+          label: 'Plants Listed',
+          values: mapped.map(i => String(i.totalListed)),
+        },
+        {
+          label: 'Sell-through Rate',
+          values: mapped.map(i => i.sellThroughRate),
+        },
+      ],
+    };
+    setBusinessPerformanceTable(businessPerformanceData);
+    // console.log(businessPerformanceData);
+    // setEventData(res?.data);
+  };
+  // Sales Performance
+
+  // Dropdown
+  const [dropdownDurationOption, setDropdownDurationOption] = useState([]);
+  const [dropdownDuration, setDropdownDuration] = useState('Weekly');
+
+  const handleDropdownDuration = value => {
+    setBusinessPerformanceTable([]);
+    setChartData([]);
+    setDropdownDuration(value);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        await loadSalesPerformanceData();
+      } catch (error) {
+        console.error('Error loading data:', error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  };
+
+  const loadDurationDropdownData = async () => {
+    const netState = await NetInfo.fetch();
+
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getDateFilterApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load events API.');
+    }
+
+    let localDropdownVal = res.data.map(item => item.name);
+    setDropdownDurationOption(localDropdownVal);
+    // console.log(res);
+  };
+  // Dropdown
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
@@ -141,12 +339,12 @@ const ScreenHome = ({navigation}) => {
                   globalStyles.textBold,
                   {paddingBottom: 10},
                 ]}>
-                $53,753
+                {totalSales?.symbol ?? 'PHP'} {totalSales?.thisWeek ?? '0'}
               </Text>
               <View style={{flexDirection: 'row', gap: 10}}>
                 <Text
                   style={[globalStyles.textSMWhite, globalStyles.textSemiBold]}>
-                  +12,492
+                  {totalSales?.lastWeek ?? '0'}
                 </Text>
                 <Text
                   style={[
@@ -157,7 +355,9 @@ const ScreenHome = ({navigation}) => {
                 </Text>
               </View>
 
-              <Text style={styles.greenTag}>+36%</Text>
+              <Text style={styles.greenTag}>
+                {roundNumber(totalSales?.percentChange) ?? '0'}%
+              </Text>
             </View>
 
             <View style={styles.cardWhite}>
@@ -175,7 +375,7 @@ const ScreenHome = ({navigation}) => {
                   globalStyles.textBold,
                   {paddingBottom: 10},
                 ]}>
-                2,384
+                {plantSold?.thisWeek ?? 0}
               </Text>
 
               <View style={{flexDirection: 'row', gap: 10}}>
@@ -184,7 +384,7 @@ const ScreenHome = ({navigation}) => {
                     globalStyles.textSMGreyDark,
                     globalStyles.textSemiBold,
                   ]}>
-                  -243
+                  {plantSold?.difference ?? 0}
                 </Text>
                 <Text
                   style={[
@@ -195,7 +395,9 @@ const ScreenHome = ({navigation}) => {
                 </Text>
               </View>
 
-              <Text style={styles.redPercentTag}>-12%</Text>
+              <Text style={styles.redPercentTag}>
+                {roundNumber(plantSold?.percentChange) ?? 0}%
+              </Text>
             </View>
 
             <View style={styles.cardWhite}>
@@ -213,7 +415,7 @@ const ScreenHome = ({navigation}) => {
                   globalStyles.textBold,
                   {paddingBottom: 10},
                 ]}>
-                8,034
+                {(plantListed?.lastWeek ?? 0) + (plantListed?.thisWeek ?? 0)}
               </Text>
 
               <View style={{flexDirection: 'row', gap: 10}}>
@@ -222,7 +424,7 @@ const ScreenHome = ({navigation}) => {
                     globalStyles.textSMGreyDark,
                     globalStyles.textSemiBold,
                   ]}>
-                  645
+                  {plantListed?.thisWeek ?? 0}
                 </Text>
                 <Text
                   style={[
@@ -250,65 +452,58 @@ const ScreenHome = ({navigation}) => {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={{flexGrow: 0}} // ✅ prevents extra vertical space
+            style={{flexGrow: 0}}
             contentContainerStyle={{
               flexDirection: 'row',
               gap: 10,
               alignItems: 'flex-start',
             }}>
-            <View style={{width: 316}}>
-              <Image
-                style={styles.banner}
-                source={{
-                  uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
+            {eventData?.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => {
+                  // Optional: handle link navigation
+                  // Linking.openURL(item.link);
                 }}
-              />
-              <Text
-                style={[
-                  globalStyles.textSMGreyDark,
-                  globalStyles.textSemiBold,
-                  {paddingTop: 10},
-                ]}>
-                News or Event Title Here
-              </Text>
-            </View>
-            <View style={{width: 316}}>
-              <Image
-                style={styles.banner}
-                source={{
-                  uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
-                }}
-              />
-              <Text
-                style={[
-                  globalStyles.textSMGreyDark,
-                  globalStyles.textSemiBold,
-                  {paddingTop: 10},
-                ]}>
-                News or Event Title Here
-              </Text>
-            </View>
-            <View style={{width: 316}}>
-              <Image
-                style={styles.banner}
-                source={{
-                  uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
-                }}
-              />
-              <Text
-                style={[
-                  globalStyles.textSMGreyDark,
-                  globalStyles.textSemiBold,
-                  {paddingTop: 10},
-                ]}>
-                News or Event Title Here
-              </Text>
-            </View>
+                style={{width: 316}}>
+                <Image
+                  style={styles.banner}
+                  source={{uri: item.image}}
+                  resizeMode="cover"
+                />
+                <Text
+                  style={[
+                    globalStyles.textSMGreyDark,
+                    globalStyles.textSemiBold,
+                    {paddingTop: 10},
+                  ]}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
           {/* News Section */}
 
           {/* Business Performance */}
-          <BusinessPerformance />
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingTop: 20,
+            }}>
+            <Text style={[globalStyles.textMDGreyDark, globalStyles.textBold]}>
+              Business performance
+            </Text>
+            <HomeDurationDropdown
+              options={dropdownDurationOption}
+              selectedOption={dropdownDuration}
+              onSelect={handleDropdownDuration}
+              placeholder="Choose an option"
+            />
+          </View>
+
+          <BusinessPerformance data={businessPerformanceTable} />
           <View style={{marginBottom: 30}}>
             <CustomSalesChart chartData={chartData} />
           </View>

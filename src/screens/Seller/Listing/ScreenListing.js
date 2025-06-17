@@ -17,7 +17,7 @@ import {
   Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 import {globalStyles} from '../../../assets/styles/styles';
 import TabFilter from '../../../components/TabFilter/TabFilter';
@@ -37,12 +37,11 @@ import {
   postListingUpdateStockActionApi,
   postListingApplyDiscountActionApi,
   postListingRemoveDiscountActionApi,
+  postListingDeleteApi,
 } from '../../../components/Api';
-import {getApp} from '@react-native-firebase/app';
-import {getAuth} from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {useIsFocused} from '@react-navigation/native';
+import {InputSearch} from '../../../components/InputGroup/Left';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
@@ -110,8 +109,6 @@ const imageMap = {
 
 const ScreenListing = ({navigation}) => {
   const insets = useSafeAreaInsets();
-  const app = getApp();
-  const auth = getAuth(app);
   const [search, setSearch] = useState('');
   const [dataTable, setDataTable] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -200,18 +197,15 @@ const ScreenListing = ({navigation}) => {
 
   // ✅ Fetch on mount
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
-  // useEffect(() => {
-  //   setLoading(true);
-  //   fetchData();
-  //   setLoading(false);
-  // }, [isInitialFetchRefresh]);
   const isFocused = useIsFocused();
 
   useEffect(() => {
     if (isFocused) {
       setLoading(true);
       fetchData();
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+      }, 1000);
     }
   }, [isInitialFetchRefresh, isFocused]);
 
@@ -223,6 +217,25 @@ const ScreenListing = ({navigation}) => {
     fetchData();
   };
   // List table
+
+  // Search
+  const handleSearchSubmit = () => {
+    // This is triggered when user presses "Search" on keyboard
+    if (search.trim() === '') {
+      return;
+    }
+
+    setNextToken('');
+    setNextTokenParam('');
+    fetchData();
+  };
+
+  const handleFilterView = () => {
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+  // Search
 
   // Load more
   useEffect(() => {
@@ -557,15 +570,38 @@ const ScreenListing = ({navigation}) => {
     }
   };
 
+  // Delete Item
+  const onPressDelete = async () => {
+    try {
+      let plantCode = selectedItemStockUpdate?.plantCode;
+      const response = await postListingDeleteApi(plantCode);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post pin failed.');
+      }
+
+      setNextToken('');
+      setNextTokenParam('');
+      fetchData();
+    } catch (error) {
+      console.log('Error pin table action:', error.message);
+      Alert.alert('Delete item', error.message);
+    }
+  };
+  // Delete Item
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       {/* Search and Icons */}
       <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
         <View style={styles.header}>
           <View style={{flex: 1}}>
-            <InputGroupLeftIcon
-              IconLeftComponent={SearchIcon}
-              placeholder={'Search I Leaf U'}
+            <InputSearch
+              placeholder="Search I Leaf U"
+              value={search}
+              onChangeText={setSearch}
+              onSubmitEditing={handleSearchSubmit}
+              showClear={true} // shows an 'X' icon to clear
             />
           </View>
 
@@ -746,13 +782,20 @@ const ScreenListing = ({navigation}) => {
             variegationChange={setReusableVariegation}
             listingTypeValue={reusableListingType}
             listingTypeChange={setReusableListingType}
+            handleSearchSubmit={handleFilterView}
           />
           <ListingActionSheet
             code={actionSheetCode}
             visible={showActionSheet}
             onClose={() => setActionShowSheet(false)}
-            onPressUpdateStockShow={onPressUpdateStockShow}
-            showSheetUpdateStocks={showSheetUpdateStocks}
+            onPressUpdateStockShow={setShowSheetUpdateStocks}
+            onPressEdit={() =>
+              navigation.navigate('ScreenListingDetail', {
+                onGoBack: setIsInitialFetchRefresh(prev => !prev),
+                plantCode: selectedItemStockUpdate.plantCode,
+              })
+            }
+            onPressDelete={onPressDelete}
           />
 
           <ActionSheet

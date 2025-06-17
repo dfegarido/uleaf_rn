@@ -29,6 +29,7 @@ const ReusableActionSheet = ({
   variegationChange,
   listingTypeValue,
   listingTypeChange,
+  handleSearchSubmit,
 }) => {
   const resetSelection = () => variegationChange([]);
   const resetGenusSelection = () => genusChange([]);
@@ -71,6 +72,7 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
+                onPress={handleSearchSubmit}
                 style={{
                   paddingHorizontal: 20,
                   alignSelf: 'stretch',
@@ -130,7 +132,9 @@ const ReusableActionSheet = ({
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={{width: '45%'}}>
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>

@@ -3,7 +3,7 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 export const postListingPublishNowActionApi = async plantCodes => {
   try {
     const token = await getStoredAuthToken();
-
+    // console.log(JSON.stringify({plantCodes}));
     const response = await fetch('https://publishnow-nstilwgvua-uc.a.run.app', {
       method: 'POST',
       headers: {

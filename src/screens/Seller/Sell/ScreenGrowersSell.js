@@ -9,6 +9,8 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {globalStyles} from '../../../assets/styles/styles';
 import {
@@ -25,6 +27,10 @@ import {
   getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
+  postSellWholesaleOrGrowersPlantApi,
+  getMutationApi,
+  getListingDetails,
+  postSellUpdateApi,
 } from '../../../components/Api';
 import {getApp} from '@react-native-firebase/app';
 import {getAuth} from '@react-native-firebase/auth';
@@ -45,19 +51,22 @@ const potSizes = [
 
 const screenWidth = Dimensions.get('window').width;
 
-const ScreenGrowersSell = ({navigation}) => {
+const ScreenGrowersSell = ({navigation, route}) => {
   const app = getApp();
   const auth = getAuth(app);
+  const [loading, setLoading] = useState(false);
 
   useLayoutEffect(() => {
+    if (plantCode) return; // If plantCode is set, do not show Save button
+
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={() => alert('Edit Profile')} color="#000">
+        <TouchableOpacity onPress={onPressSave} color="#000">
           <Text style={globalStyles.textLGAccent}>Save</Text>
         </TouchableOpacity>
       ),
     });
-  }, [navigation]);
+  }, [navigation, plantCode]);
 
   // Dropdown
   const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
@@ -65,6 +74,10 @@ const ScreenGrowersSell = ({navigation}) => {
   const [dropdownOptionVariegation, setDropdownOptionVariegation] = useState(
     [],
   );
+  const [dropdownOptionMutation, setDropdownOptionMutation] = useState([]);
+  const [dropdownVariegationDisable, setdropdownVariegationDisable] =
+    useState(false);
+
   const loadGenusData = async () => {
     let netState = await NetInfo.fetch();
     if (!netState.isConnected || !netState.isInternetReachable) {
@@ -76,8 +89,6 @@ const ScreenGrowersSell = ({navigation}) => {
     if (!getGenusApiData?.success) {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
-
-    console.log;
     // Extract sort option names as label/value pairs
     let localGenusData = getGenusApiData.data;
     // Set options
@@ -90,14 +101,17 @@ const ScreenGrowersSell = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
-    // const getSpeciesApiData = await getSellSpeciesApi(genus);
-    const getSpeciesApiData = await getSpeciesApi(genus);
+    const getSpeciesApiData = await getSellSpeciesApi(genus);
+    // console.log(getSpeciesApiData.data);
+    // const getSpeciesApiData = await getSpeciesApi(genus);
     // Check if API indicates failure
     if (!getSpeciesApiData?.success) {
       throw new Error(getSpeciesApiData?.message || 'Failed to load species');
     }
     // Extract sort option names as label/value pairs
-    let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    setSelectedSpecies('');
+    let localSpeciesData = getSpeciesApiData.data;
     // Set options
     setDropdownOptionSpecies(localSpeciesData);
   };
@@ -108,8 +122,8 @@ const ScreenGrowersSell = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
-    const getVariegationApiData = await getVariegationApi(genus, species);
-    // const getVariegationApiData = await getSellVariegationApi(genus, species);
+    // const getVariegationApiData = await getVariegationApi(genus, species);
+    const getVariegationApiData = await getSellVariegationApi(genus, species);
     // Check if API indicates failure
     if (!getVariegationApiData?.success) {
       throw new Error(
@@ -117,11 +131,35 @@ const ScreenGrowersSell = ({navigation}) => {
       );
     }
     // Extract sort option names as label/value pairs
-    let localVariegationData = getVariegationApiData.data.map(
-      item => item.name,
+    // let localVariegationData = getVariegationApiData.data.map(
+    //   item => item.name,
+    // );
+    let localVariegationData = getVariegationApiData.data;
+    setSelectedVariegation('');
+    setdropdownVariegationDisable(
+      getVariegationApiData.data.length == 0 ? true : false,
     );
     // Set options
     setDropdownOptionVariegation(localVariegationData);
+  };
+
+  const loadMutationData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const getMutationApiData = await getMutationApi();
+    // Check if API indicates failure
+    if (!getMutationApiData?.success) {
+      throw new Error(getMutationApiData?.message || 'Failed to load genus');
+    }
+
+    console.log(getMutationApiData.data);
+    // Extract sort option names as label/value pairs
+    let localMutationData = getMutationApiData.data.map(item => item.name);
+    // Set options
+    setDropdownOptionMutation(localMutationData);
   };
 
   useEffect(() => {
@@ -130,8 +168,7 @@ const ScreenGrowersSell = ({navigation}) => {
 
       if (currentUser) {
         try {
-          const token = await currentUser.getIdToken();
-          await loadGenusData(token);
+          await Promise.all([loadGenusData(), loadMutationData()]);
         } catch (error) {
           console.log('Error get listing:', error);
         }
@@ -147,13 +184,14 @@ const ScreenGrowersSell = ({navigation}) => {
   // Dropdown Genus
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    console.log('Selected Genus:', genus);
-
+    setLoading(true);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
+    } finally {
+      setLoading(false);
     }
   };
   // Dropdown Genus
@@ -161,13 +199,14 @@ const ScreenGrowersSell = ({navigation}) => {
   // Dropdown Species
   const handleSpeciesChange = async species => {
     setSelectedSpecies(species);
-    console.log('Selected species:', species);
-
+    setLoading(true);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
+    } finally {
+      setLoading(false);
     }
   };
   // Dropdown Species
@@ -188,14 +227,10 @@ const ScreenGrowersSell = ({navigation}) => {
 
   const handleImagePicked = uris => setImages(uris);
   const handleImagePickedPotSize = uris => setImagesPotSize(uris);
-  const onpressSelectPotsize = ({size}) => setSelectPotSize(size);
+  const onpressSelectPotsize = size => setSelectPotSize(size);
   const onpressSelectAboveBelow = ({measure}) => setSelectMeasure(measure);
 
   const openSheet = sheetOpen => setShowSheet(!sheetOpen);
-
-  const onPressPublishNurseryDrop = () => {
-    console.log('publish nursery drop');
-  };
 
   const onPressSavePotSize = () => {
     const newPotSize = {
@@ -221,7 +256,7 @@ const ScreenGrowersSell = ({navigation}) => {
 
     setShowSheet(false);
     setImagesPotSize([]);
-    setSelectPotSize('1');
+    setSelectPotSize('2"-4"');
     setPotPrice('');
     setPotQuantity('');
     setSelectMeasure('below');
@@ -286,7 +321,7 @@ const ScreenGrowersSell = ({navigation}) => {
       Alert.alert('Validation Error', errors.join('\n'));
       return;
     }
-
+    setLoading(true);
     try {
       // Upload main listing images
       const uploadedMainImageUrls = [];
@@ -308,7 +343,7 @@ const ScreenGrowersSell = ({navigation}) => {
 
       // Build JSON payload
       const data = {
-        listingType: "Grower's Choice",
+        listingType: "Grower's choice",
         genus: selectedGenus || null,
         species: selectedSpecies || null,
         variegation: selectedVariegation || null,
@@ -316,7 +351,7 @@ const ScreenGrowersSell = ({navigation}) => {
         mutation: isChecked ? selectedMutation : null,
         imagePrimary:
           uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
-        imageCollection: uploadedMainImageUrls.slice(1),
+        imageCollection: uploadedMainImageUrls,
         potSize: null,
         localPrice: null,
         approximateHeight: null,
@@ -332,7 +367,11 @@ const ScreenGrowersSell = ({navigation}) => {
         })),
       };
 
-      console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
+      const response = await postSellWholesaleOrGrowersPlantApi(data);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Publish now failed.');
+      }
 
       // TODO: Replace this with your actual API call
       // await submitListing(data);
@@ -340,16 +379,296 @@ const ScreenGrowersSell = ({navigation}) => {
       Alert.alert('Publish Now', 'Listing published successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
-      Alert.alert(
-        'Publish Now',
-        'Failed to upload images or submit listing. Please try again.',
-      );
+      Alert.alert('Publish Now', error.message);
+    } finally {
+      setLoading(false);
     }
   };
   // Publish Now
 
+  // Publish on Nursery Drop
+  const onPressPublishNurseryDrop = async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
+      return;
+    }
+    setLoading(true);
+    try {
+      // Upload main listing images
+      const uploadedMainImageUrls = [];
+      for (const uri of images) {
+        const firebaseUrl = await uploadImageToFirebase(uri);
+        uploadedMainImageUrls.push(firebaseUrl);
+      }
+
+      // Upload variation images
+      const uploadedPotSizeList = await Promise.all(
+        potSizeList.map(async item => {
+          const imageUrl = await uploadImageToFirebase(item.image);
+          return {
+            ...item,
+            image: imageUrl,
+          };
+        }),
+      );
+
+      // Build JSON payload
+      const data = {
+        listingType: "Grower's choice",
+        genus: selectedGenus || null,
+        species: selectedSpecies || null,
+        variegation: selectedVariegation || null,
+        isMutation: isChecked,
+        mutation: isChecked ? selectedMutation : null,
+        imagePrimary:
+          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
+        imageCollection: uploadedMainImageUrls,
+        potSize: null,
+        localPrice: null,
+        approximateHeight: null,
+        status: 'Scheduled',
+        publishType: 'Publish on Nursery Drop',
+        variation: uploadedPotSizeList.map(item => ({
+          imagePrimary: item.image,
+          potSize: item.size,
+          localPrice: Number(item.price),
+          availableQty: Number(item.quantity),
+          approximateHeight:
+            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
+        })),
+      };
+
+      const response = await postSellWholesaleOrGrowersPlantApi(data);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Publish on nursery drop failed.');
+      }
+
+      // TODO: Replace this with your actual API call
+      // await submitListing(data);
+
+      Alert.alert('Publish on Nursery Drop', 'Listing published successfully!');
+    } catch (error) {
+      console.error('Upload or submission failed:', error);
+      Alert.alert('Publish on Nursery Drop', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Publish on Nursery Drop
+
+  // Save as draft
+  const onPressSave = async () => {
+    // const errors = validateForm();
+    // if (errors.length > 0) {
+    //   Alert.alert('Validation Error', errors.join('\n'));
+    //   return;
+    // }
+    setLoading(true);
+    try {
+      // Upload main listing images
+      const uploadedMainImageUrls = [];
+      for (const uri of images) {
+        const firebaseUrl = await uploadImageToFirebase(uri);
+        uploadedMainImageUrls.push(firebaseUrl);
+      }
+
+      // Upload variation images
+      const uploadedPotSizeList = await Promise.all(
+        potSizeList.map(async item => {
+          const imageUrl = await uploadImageToFirebase(item.image);
+          return {
+            ...item,
+            image: imageUrl,
+          };
+        }),
+      );
+
+      // Build JSON payload
+      const data = {
+        listingType: "Grower's choice",
+        genus: selectedGenus || null,
+        species: selectedSpecies || null,
+        variegation: selectedVariegation || null,
+        isMutation: isChecked,
+        mutation: isChecked ? selectedMutation : null,
+        imagePrimary:
+          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
+        imageCollection: uploadedMainImageUrls,
+        potSize: null,
+        localPrice: null,
+        approximateHeight: null,
+        status: 'Draft',
+        publishType: '',
+        variation: uploadedPotSizeList.map(item => ({
+          imagePrimary: item.image,
+          potSize: item.size,
+          localPrice: Number(item.price),
+          availableQty: Number(item.quantity),
+          approximateHeight:
+            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
+        })),
+      };
+
+      const response = await postSellWholesaleOrGrowersPlantApi(data);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Publish now failed.');
+      }
+
+      // TODO: Replace this with your actual API call
+      // await submitListing(data);
+
+      Alert.alert('Publish Now', 'Listing published successfully!');
+    } catch (error) {
+      console.error('Upload or submission failed:', error);
+      Alert.alert('Publish Now', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Save as draft
+
+  // Details
+  const {
+    plantCode = '',
+    availableQty,
+    status,
+    publishType,
+  } = route?.params ?? {};
+
+  useEffect(() => {
+    if (!plantCode) return; // Skip if plantCode is not set
+
+    setLoading(true);
+
+    const fetchDetailed = async () => {
+      try {
+        await loadListingDetail(plantCode);
+      } catch (error) {
+        console.log('Fetching details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDetailed();
+  }, [plantCode]);
+
+  const loadListingDetail = async plantCode => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    console.log(plantCode);
+
+    const res = await retryAsync(() => getListingDetails(plantCode), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load sort api');
+    }
+    console.log(res.data.localPrice || '');
+    setSelectedGenus(res.data.genus || null);
+    setSelectedSpecies(res.data.species || null);
+    setSelectedVariegation(res.data.variegation || null);
+    setIsChecked(!!res.data.isMutation);
+    setSelectedMutation(res.data.mutation || null);
+    setImages(res.data.imageCollection || []);
+
+    const newPotSize = res.data.variations.map(variation => ({
+      image: variation.imagePrimary ?? null,
+      size: variation.potSize ?? '',
+      price: variation.localPrice ?? 0,
+      quantity: variation.availableQty ?? 0,
+      measure: variation.approximateHeight ?? '', // if 'measure' refers to height
+    }));
+
+    setPotSizeList(newPotSize);
+  };
+
+  const onPressUpdate = async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
+      return;
+    }
+    setLoading(true);
+    try {
+      // Upload main listing images
+      const uploadedMainImageUrls = [];
+      for (const uri of images) {
+        const firebaseUrl = await uploadImageToFirebase(uri);
+        uploadedMainImageUrls.push(firebaseUrl);
+      }
+
+      // Upload variation images
+      const uploadedPotSizeList = await Promise.all(
+        potSizeList.map(async item => {
+          const imageUrl = await uploadImageToFirebase(item.image);
+          return {
+            ...item,
+            image: imageUrl,
+          };
+        }),
+      );
+
+      // Build JSON payload
+      const data = {
+        plantCode: plantCode,
+        listingType: "Grower's choice",
+        genus: selectedGenus || null,
+        species: selectedSpecies || null,
+        variegation: selectedVariegation || null,
+        isMutation: isChecked,
+        mutation: isChecked ? selectedMutation : null,
+        imagePrimary:
+          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
+        imageCollection: uploadedMainImageUrls,
+        potSize: null,
+        localPrice: null,
+        approximateHeight: null,
+        status: status,
+        publishType: publishType,
+        variation: uploadedPotSizeList.map(item => ({
+          imagePrimary: item.image,
+          potSize: item.size,
+          localPrice: Number(item.price),
+          availableQty: Number(item.quantity),
+          approximateHeight:
+            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
+        })),
+      };
+
+      const response = await postSellUpdateApi(data);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Update listing failed.');
+      }
+
+      // TODO: Replace this with your actual API call
+      // await submitListing(data);
+
+      Alert.alert('Update Listing', 'Listing updated successfully!');
+    } catch (error) {
+      console.error('Upload or submission failed:', error);
+      Alert.alert('Update Listing', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Details
+
   return (
     <ScrollView style={styles.mainContent}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       {/* ...Genus, Species, Variegation, Request... */}
       <View style={styles.formContainer}>
         <View style={[{paddingBottom: 10}]}>
@@ -414,7 +733,7 @@ const ScreenGrowersSell = ({navigation}) => {
             Please select one that best discribes the mutated plant
           </Text>
           <InputDropdown
-            options={['Option 1', 'Option 2', 'Option 3']}
+            options={dropdownOptionMutation}
             selectedOption={selectedMutation}
             onSelect={setSelectedMutation}
             placeholder="Choose an option"
@@ -550,17 +869,22 @@ const ScreenGrowersSell = ({navigation}) => {
         <View style={{paddingTop: 30}}>
           <TouchableOpacity
             style={globalStyles.primaryButton}
-            onPress={onPressPublish}>
-            <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
+            onPress={plantCode ? onPressUpdate : onPressPublish}>
+            <Text style={globalStyles.primaryButtonText}>
+              {plantCode ? 'Update Listing' : 'Publish Now'}
+            </Text>
           </TouchableOpacity>
           <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-            <TouchableOpacity
-              onPress={onPressPublishNurseryDrop}
-              style={globalStyles.secondaryButtonAccent}>
-              <Text style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                Publish on Nursery Drop
-              </Text>
-            </TouchableOpacity>
+            {!plantCode && (
+              <TouchableOpacity
+                onPress={onPressPublishNurseryDrop}
+                style={globalStyles.secondaryButtonAccent}>
+                <Text
+                  style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
+                  Publish on Nursery Drop
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -748,6 +1072,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     width: 0.5 * screenWidth - 25,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -1,19 +1,18 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
-export const getHomeBusinessPerformanceApi = async interval => {
+export const postListingPublishNurseryDropActionApi = async plantCodes => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://getlistingreport-nstilwgvua-uc.a.run.app',
+      'https://publishonnurserydrop-nstilwgvua-uc.a.run.app/',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // use token from AsyncStorage
+          Authorization: `Bearer ${token}`,
         },
-
-        body: JSON.stringify({interval}),
+        body: JSON.stringify({plantCodes}),
       },
     );
 
@@ -22,10 +21,9 @@ export const getHomeBusinessPerformanceApi = async interval => {
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    const json = await response.json();
-    return json;
+    return await response.json();
   } catch (error) {
-    console.log('getHomeBusinessPerformanceApi error:', error.message);
+    console.log('postListingPublishNurseryDropActionApi error:', error.message);
     throw error;
   }
 };

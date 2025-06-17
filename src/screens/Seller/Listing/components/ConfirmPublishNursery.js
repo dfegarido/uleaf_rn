@@ -10,7 +10,7 @@ import {
 
 const {width} = Dimensions.get('window');
 
-const ConfirmPublishNow = ({visible, onConfirm, onCancel}) => {
+const ConfirmPublishNursery = ({visible, onConfirm, onCancel}) => {
   return (
     <Modal
       transparent
@@ -20,14 +20,10 @@ const ConfirmPublishNow = ({visible, onConfirm, onCancel}) => {
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.contentContainer}>
-            <Text style={styles.title}>Ready to publish?</Text>
-
-            <Text style={styles.message}>
-              Confirm your update and publish your listing to make it live.
-            </Text>
+            <Text style={styles.title}>Update listing to publish</Text>
 
             <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
-              <Text style={styles.confirmText}>Yes, publish now</Text>
+              <Text style={styles.confirmText}>Publish to nursery drop</Text>
             </TouchableOpacity>
           </View>
           <View style={[styles.contentContainer, {marginTop: 10}]}>
@@ -41,7 +37,7 @@ const ConfirmPublishNow = ({visible, onConfirm, onCancel}) => {
   );
 };
 
-export default ConfirmPublishNow;
+export default ConfirmPublishNursery;
 
 const styles = StyleSheet.create({
   overlay: {
@@ -73,15 +69,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     color: '#000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    paddingVertical: 10,
   },
   message: {
     fontSize: 15,
     color: '#555',
     textAlign: 'center',
-    paddingVertical: 10,
-
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
     paddingVertical: 10,
   },
   confirmButton: {
