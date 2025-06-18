@@ -72,6 +72,13 @@ const ScreenHome = ({navigation}) => {
 
     const fetchData = async () => {
       try {
+        const netState = await NetInfo.fetch();
+
+        if (!netState.isConnected || !netState.isInternetReachable) {
+          Alert('Network Information', 'No internet connection.');
+          return;
+        }
+
         if (!isMounted) return;
         setLoading(true);
 
@@ -102,12 +109,6 @@ const ScreenHome = ({navigation}) => {
   const [plantSold, setPlantSold] = useState();
   const [plantListed, setPlantListed] = useState();
   const loadSalesData = async () => {
-    const netState = await NetInfo.fetch();
-
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
     const res = await retryAsync(() => getHomeSummaryApi(), 3, 1000);
 
     if (!res?.success) {
@@ -124,12 +125,6 @@ const ScreenHome = ({navigation}) => {
   // Events
   const [eventData, setEventData] = useState();
   const loadEventsData = async () => {
-    const netState = await NetInfo.fetch();
-
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
     const res = await retryAsync(() => getHomeEventsApi(), 3, 1000);
 
     if (!res?.success) {
@@ -146,12 +141,6 @@ const ScreenHome = ({navigation}) => {
   const [chartData, setChartData] = useState([]);
 
   const loadSalesPerformanceData = async () => {
-    const netState = await NetInfo.fetch();
-
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
     const res = await retryAsync(
       () => getHomeBusinessPerformanceApi(dropdownDuration),
       3,
