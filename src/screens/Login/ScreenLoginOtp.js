@@ -14,6 +14,7 @@ import {getAuth} from '@react-native-firebase/auth';
 import {
   postSellerPinCodeApi,
   postSellerAfterSignInApi,
+  getProfileInfoApi,
 } from '../../components/Api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AuthContext} from '../../auth/AuthProvider';
@@ -22,7 +23,7 @@ const ScreenLoginOtp = ({navigation}) => {
   const [pin, setPin] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [idToken, setIdToken] = useState('');
-  const {setIsLoggedIn} = useContext(AuthContext);
+  const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
 
   const postData = async token => {
@@ -50,7 +51,7 @@ const ScreenLoginOtp = ({navigation}) => {
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
-
+    console.log('User Here:' + JSON.stringify(user));
     if (user) {
       setCurrentUser(user);
       user.getIdToken().then(token => {
@@ -61,26 +62,54 @@ const ScreenLoginOtp = ({navigation}) => {
     }
   }, []);
 
+  // const handlePressLogin = async () => {
+  //   if (pin.length !== 4) {
+  //     Alert.alert('Invalid Code', 'Please enter the 4-digit code.');
+  //     return;
+  //   } else {
+  //     try {
+  //       if (idToken != '') {
+  //         setLoading(true);
+  //         await postData(idToken); // Pass token directly here
+  //         console.log('User logged in with ID Token:', idToken);
+  //         // TODO: Use this token with your backend API or save session
+
+  //         await AsyncStorage.setItem('authToken', idToken);
+  //         setIsLoggedIn(true);
+  //       }
+  //     } catch (error) {
+  //       Alert.alert('Token', error.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  // };
+
   const handlePressLogin = async () => {
     if (pin.length !== 4) {
       Alert.alert('Invalid Code', 'Please enter the 4-digit code.');
       return;
-    } else {
-      try {
-        if (idToken != '') {
-          setLoading(true);
-          await postData(idToken); // Pass token directly here
-          console.log('User logged in with ID Token:', idToken);
-          // TODO: Use this token with your backend API or save session
+    }
 
-          await AsyncStorage.setItem('authToken', idToken);
-          setIsLoggedIn(true);
+    try {
+      if (idToken !== '') {
+        setLoading(true);
+        await postData(idToken);
+
+        await AsyncStorage.setItem('authToken', idToken);
+        setIsLoggedIn(true);
+
+        // ✅ Fetch and store user profile info after successful login
+        const profile = await getProfileInfoApi();
+        if (profile?.success) {
+          setUserInfo(profile);
+          await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
         }
-      } catch (error) {
-        Alert.alert('Token', error.message);
-      } finally {
-        setLoading(false);
       }
+    } catch (error) {
+      Alert.alert('Token', error.message);
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -51,7 +51,7 @@ const CarouselSell = ({plantItems = []}) => {
             </View>
           </View>
         )}
-        autoPlay={true}
+        autoPlay={plantItems.length > 1}
         pagingEnabled={true}
         snapEnabled={true}
       />

@@ -87,12 +87,13 @@ const ListingActionSheet = ({
                 marginVertical: 20,
                 flexDirection: 'column',
               }}>
-              <View
+              <TouchableOpacity
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
                   paddingBottom: 20,
-                }}>
+                }}
+                onPress={onPressEdit}>
                 <View style={{flexDirection: 'row'}}>
                   <IconNote width={20} height={20} />
                   <Text style={{paddingLeft: 10, color: '#393D40'}}>
@@ -102,7 +103,7 @@ const ListingActionSheet = ({
                 <View>
                   <IconRight width={20} height={20} />
                 </View>
-              </View>
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => onPressUpdateStockShow()}
                 style={{

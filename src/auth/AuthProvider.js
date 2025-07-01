@@ -8,13 +8,18 @@ export const AuthContext = createContext();
 export const AuthProvider = ({children}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
-        // console.log('auth context:' + token);
         setIsLoggedIn(!!token);
+
+        const storedUserInfo = await AsyncStorage.getItem('userInfo');
+        if (storedUserInfo) {
+          setUserInfo(JSON.parse(storedUserInfo));
+        }
       } catch (e) {
         console.log('Error checking login status', e);
       } finally {
@@ -31,9 +36,11 @@ export const AuthProvider = ({children}) => {
     const auth = getAuth();
 
     try {
-      await signOut(auth); // Updated logout with modular API
+      await signOut(auth);
       await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('userInfo');
       setIsLoggedIn(false);
+      setUserInfo(null);
     } catch (e) {
       console.log('Logout error:', e);
     } finally {
@@ -41,7 +48,6 @@ export const AuthProvider = ({children}) => {
     }
   };
 
-  // ✅ Track token changes and update AsyncStorage automatically
   useEffect(() => {
     const auth = getAuth();
 
@@ -55,6 +61,8 @@ export const AuthProvider = ({children}) => {
         }
       } else {
         await AsyncStorage.removeItem('authToken');
+        await AsyncStorage.removeItem('userInfo');
+        setUserInfo(null);
       }
     });
 
@@ -63,7 +71,14 @@ export const AuthProvider = ({children}) => {
 
   return (
     <AuthContext.Provider
-      value={{isLoggedIn, setIsLoggedIn, isLoading, logout}}>
+      value={{
+        isLoggedIn,
+        setIsLoggedIn,
+        isLoading,
+        logout,
+        userInfo,
+        setUserInfo,
+      }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,6 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Modal,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {
@@ -16,11 +18,21 @@ import {
 import {getApp} from '@react-native-firebase/app';
 import {getAuth, signInWithEmailAndPassword} from '@react-native-firebase/auth';
 import {postSellerAfterSignInApi} from '../../components/Api';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useHeaderHeight} from '@react-navigation/elements';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
 
+const screenWidth = Dimensions.get('window').width;
+const screenHeight = Dimensions.get('window').height;
+
 const ScreenLoginForm = ({navigation}) => {
+  const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
+  const adjustedHeight =
+    screenHeight - insets.top - insets.bottom - headerHeight;
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -86,74 +98,80 @@ const ScreenLoginForm = ({navigation}) => {
   };
 
   return (
-    <View style={styles.mainContent}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
+    <ScrollView>
+      <View
+        style={[
+          styles.mainContent,
+          {height: adjustedHeight, width: screenWidth},
+        ]}>
+        {loading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
 
-      <View style={styles.mainContainer}>
-        <Text style={[globalStyles.title]}>Welcome back!</Text>
-        <Text style={[globalStyles.textXXLGreyDark, styles.subtTitle]}>
-          Log in to your account
-        </Text>
-
-        <View style={{paddingTop: 30}}>
-          <InputGroupLeftIcon
-            IconLeftComponent={EmailIcon}
-            placeholder={'Email'}
-            value={formData.email}
-            onChangeText={text => setFormData({...formData, email: text})}
-          />
-          {validateErrors.email && (
-            <Text style={globalStyles.textXSRed}>{validateErrors.email}</Text>
-          )}
-        </View>
-
-        <View style={{paddingTop: 30}}>
-          <InputPasswordLeftIcon
-            IconLeftComponent={PasswordIcon}
-            value={formData.password}
-            onChangeText={text => setFormData({...formData, password: text})}
-          />
-          {validateErrors.password && (
-            <Text style={globalStyles.textXSRed}>
-              {validateErrors.password}
-            </Text>
-          )}
-        </View>
-
-        <View style={{paddingTop: 20}}>
-          <Text style={[globalStyles.textLGAccent, {textAlign: 'right'}]}>
-            Forgot password?
+        <View style={styles.mainContainer}>
+          <Text style={[globalStyles.title]}>Welcome back!</Text>
+          <Text style={[globalStyles.textXXLGreyDark, styles.subtTitle]}>
+            Log in to your account
           </Text>
-        </View>
 
-        <View style={styles.buttonContainer}>
-          <View style={styles.loginAccountContainer}>
-            <Text style={{color: '#000', textAlign: 'center'}}>
-              By clicking login, you agree to the I LEAF U's{' '}
-            </Text>
-            <TouchableOpacity>
-              <Text style={{color: '#699E73'}}>Terms & Conditions</Text>
-            </TouchableOpacity>
-            <Text style={{color: '#000'}}> and </Text>
-            <TouchableOpacity>
-              <Text style={{color: '#699E73'}}>Privacy Policy</Text>
-            </TouchableOpacity>
+          <View style={{paddingTop: 30}}>
+            <InputGroupLeftIcon
+              IconLeftComponent={EmailIcon}
+              placeholder={'Email'}
+              value={formData.email}
+              onChangeText={text => setFormData({...formData, email: text})}
+            />
+            {validateErrors.email && (
+              <Text style={globalStyles.textXSRed}>{validateErrors.email}</Text>
+            )}
           </View>
 
-          <TouchableOpacity
-            style={globalStyles.primaryButton}
-            onPress={handlePressLogin}>
-            <Text style={globalStyles.primaryButtonText}>Login</Text>
-          </TouchableOpacity>
+          <View style={{paddingTop: 30}}>
+            <InputPasswordLeftIcon
+              IconLeftComponent={PasswordIcon}
+              value={formData.password}
+              onChangeText={text => setFormData({...formData, password: text})}
+            />
+            {validateErrors.password && (
+              <Text style={globalStyles.textXSRed}>
+                {validateErrors.password}
+              </Text>
+            )}
+          </View>
+
+          <View style={{paddingTop: 20}}>
+            <Text style={[globalStyles.textLGAccent, {textAlign: 'right'}]}>
+              Forgot password?
+            </Text>
+          </View>
+
+          <View style={styles.buttonContainer}>
+            <View style={styles.loginAccountContainer}>
+              <Text style={{color: '#000', textAlign: 'center'}}>
+                By clicking login, you agree to the I LEAF U's{' '}
+              </Text>
+              <TouchableOpacity>
+                <Text style={{color: '#699E73'}}>Terms & Conditions</Text>
+              </TouchableOpacity>
+              <Text style={{color: '#000'}}> and </Text>
+              <TouchableOpacity>
+                <Text style={{color: '#699E73'}}>Privacy Policy</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={globalStyles.primaryButton}
+              onPress={handlePressLogin}>
+              <Text style={globalStyles.primaryButtonText}>Login</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 

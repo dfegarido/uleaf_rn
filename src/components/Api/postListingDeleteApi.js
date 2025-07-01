@@ -3,16 +3,17 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 export const postListingDeleteApi = async plantCodes => {
   try {
     const token = await getStoredAuthToken();
+    const params = new URLSearchParams();
+    params.append('plantCode', plantCodes);
 
     const response = await fetch(
-      'https://deletelistingbyplantcode-nstilwgvua-uc.a.run.app',
+      `https://deletelistingbyplantcode-nstilwgvua-uc.a.run.app?${params.toString()}`,
       {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({plantCodes}),
       },
     );
 

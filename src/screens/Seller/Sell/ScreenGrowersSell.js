@@ -1,4 +1,10 @@
-import React, {useLayoutEffect, useState, useEffect} from 'react';
+import React, {
+  useLayoutEffect,
+  useState,
+  useEffect,
+  useRef,
+  useContext,
+} from 'react';
 import {
   View,
   Text,
@@ -11,6 +17,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import {globalStyles} from '../../../assets/styles/styles';
 import {
@@ -37,6 +44,8 @@ import {getAuth} from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
+import SellConfirmDraft from './components/SellConfirmDraft';
+import {AuthContext} from '../../../auth/AuthProvider';
 
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
@@ -51,21 +60,30 @@ const potSizes = [
 
 const screenWidth = Dimensions.get('window').width;
 
+import {useNavigationState} from '@react-navigation/native';
+
 const ScreenGrowersSell = ({navigation, route}) => {
   const app = getApp();
   const auth = getAuth(app);
   const [loading, setLoading] = useState(false);
 
-  useLayoutEffect(() => {
-    if (plantCode) return; // If plantCode is set, do not show Save button
+  const routes = useNavigationState(state => state.routes);
+  const previousRoute = routes[routes.length - 2]; // Previous screen
+  const isFromDuplicateSell = previousRoute?.name === 'ScreenDuplicateSell';
+  const isFromDraftSell = previousRoute?.name === 'ScreenDraftSell';
 
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity onPress={onPressSave} color="#000">
-          <Text style={globalStyles.textLGAccent}>Save</Text>
-        </TouchableOpacity>
-      ),
-    });
+  const {userInfo} = useContext(AuthContext);
+
+  useLayoutEffect(() => {
+    if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={onPressSave} color="#000">
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        ),
+      });
+    }
   }, [navigation, plantCode]);
 
   // Dropdown
@@ -136,9 +154,10 @@ const ScreenGrowersSell = ({navigation, route}) => {
     // );
     let localVariegationData = getVariegationApiData.data;
     setSelectedVariegation('');
-    setdropdownVariegationDisable(
-      getVariegationApiData.data.length == 0 ? true : false,
-    );
+    // setdropdownVariegationDisable(
+    //   getVariegationApiData.data.length == 0 ? true : false,
+    // );
+    setSelectedVariegation(getVariegationApiData.data[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
   };
@@ -164,17 +183,17 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const currentUser = auth.currentUser;
+      // const currentUser = auth.currentUser;
 
-      if (currentUser) {
-        try {
-          await Promise.all([loadGenusData(), loadMutationData()]);
-        } catch (error) {
-          console.log('Error get listing:', error);
-        }
-      } else {
-        console.log('No user is logged in');
+      // if (currentUser) {
+      try {
+        await Promise.all([loadGenusData(), loadMutationData()]);
+      } catch (error) {
+        console.log('Error get listing:', error);
       }
+      //   } else {
+      //     console.log('No user is logged in');
+      //   }
     };
 
     fetchData();
@@ -232,7 +251,12 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
   const openSheet = sheetOpen => setShowSheet(!sheetOpen);
 
+  const [userCurrency, setUserCurrency] = useState('');
+
   const onPressSavePotSize = () => {
+    console.log(userInfo);
+    setUserCurrency(userInfo?.currencySymbol ?? '');
+
     const newPotSize = {
       image: imagesPotSize?.[0] ?? null,
       size: selectedPotSize,
@@ -292,7 +316,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
     if (!selectedGenus) errors.push('Genus is required.');
     if (!selectedSpecies) errors.push('Species is required.');
-    if (!selectedVariegation) errors.push('Variegation is required.');
+    // if (!selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
     if (images.length === 0) errors.push('At least one image is required.');
@@ -447,8 +471,11 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
       // TODO: Replace this with your actual API call
       // await submitListing(data);
-
-      Alert.alert('Publish on Nursery Drop', 'Listing published successfully!');
+      isManuallyNavigating.current = true;
+      showAlertSuccess(
+        'Publish on Nursery Drop',
+        'Listing published on nursery drop successfully!',
+      );
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish on Nursery Drop', error.message);
@@ -490,14 +517,14 @@ const ScreenGrowersSell = ({navigation, route}) => {
         listingType: "Grower's choice",
         genus: selectedGenus || null,
         species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
+        // variegation: selectedVariegation || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
         imagePrimary:
           uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
         imageCollection: uploadedMainImageUrls,
         potSize: null,
-        localPrice: null,
+        localPrice: 0,
         approximateHeight: null,
         status: 'Draft',
         publishType: '',
@@ -520,7 +547,8 @@ const ScreenGrowersSell = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
 
-      Alert.alert('Publish Now', 'Listing published successfully!');
+      isManuallyNavigating.current = true;
+      showAlertSuccess('Save Listing', 'Listing saved successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish Now', error.message);
@@ -650,7 +678,8 @@ const ScreenGrowersSell = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
 
-      Alert.alert('Update Listing', 'Listing updated successfully!');
+      isManuallyNavigating.current = true;
+      showAlertSuccess('Update Listing', 'Listing updated successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Update Listing', error.message);
@@ -659,6 +688,83 @@ const ScreenGrowersSell = ({navigation, route}) => {
     }
   };
   // Details
+
+  // Confirm
+  const [onGobackModalVisible, setOnGobackModalVisible] = useState(false);
+  // Confirm
+
+  // On go back
+  const [blockNavEvent, setBlockNavEvent] = useState(null); // for delayed navigation
+
+  const isManuallyNavigating = useRef(false);
+
+  useEffect(() => {
+    if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+      const unsubscribeNav = navigation.addListener('beforeRemove', e => {
+        if (isManuallyNavigating.current) {
+          // Allow navigation without confirmation
+          return;
+        }
+
+        if (onGobackModalVisible) {
+          return;
+        }
+
+        e.preventDefault(); // Block default behavior
+        setBlockNavEvent(e);
+        setOnGobackModalVisible(true);
+      });
+
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          if (onGobackModalVisible) return true;
+
+          setOnGobackModalVisible(true);
+          return true;
+        },
+      );
+
+      return () => {
+        unsubscribeNav();
+        backHandler.remove();
+      };
+    }
+  }, [navigation, onGobackModalVisible]);
+
+  const handleConfirmExit = () => {
+    setOnGobackModalVisible(false);
+    if (blockNavEvent) {
+      blockNavEvent?.preventDefault(); // just in case
+      blockNavEvent?.target && navigation.dispatch(blockNavEvent.data.action); // proceed with original back
+    } else {
+      navigation.goBack(); // fallback
+    }
+  };
+
+  const handleCancelExit = () => {
+    setOnGobackModalVisible(false);
+    setBlockNavEvent(null);
+  };
+  // On go back
+
+  // Show success alert
+  const showAlertSuccess = (titleText, messageText) => {
+    Alert.alert(
+      titleText,
+      messageText,
+      [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(), // 👈 Go back to the previous screen
+        },
+      ],
+      {
+        cancelable: false, // 🔒 Prevent dismiss on outside tap or back button
+      },
+    );
+  };
+  // Show success alert
 
   return (
     <ScrollView style={styles.mainContent}>
@@ -673,7 +779,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
       <View style={styles.formContainer}>
         <View style={[{paddingBottom: 10}]}>
           <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Genus
+            Genus <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputDropdown
             options={dropdownOptionGenus}
@@ -684,7 +790,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
         </View>
         <View style={[{paddingBottom: 10}]}>
           <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Species
+            Species <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputDropdown
             options={dropdownOptionSpecies}
@@ -695,17 +801,18 @@ const ScreenGrowersSell = ({navigation, route}) => {
         </View>
         <View style={[{paddingBottom: 20}]}>
           <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Variegation
+            Variegation <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputDropdown
             options={dropdownOptionVariegation}
             selectedOption={selectedVariegation}
             onSelect={setSelectedVariegation}
             placeholder="Choose an option"
+            disabled={dropdownVariegationDisable}
           />
         </View>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Can't find genus or specie name?
+          Can't find genus or species name?
         </Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('ScreenProfileRequest')}>
@@ -744,7 +851,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
       {/* Main Image Upload */}
       <View style={styles.formContainer}>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Picture/s
+          Picture/s <Text style={globalStyles.textXSRed}>*</Text>
         </Text>
         {images.length > 0 && (
           <FlatList
@@ -756,7 +863,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
             horizontal
           />
         )}
-        <ImagePickerModal onImagePicked={handleImagePicked} />
+        <ImagePickerModal onImagePicked={handleImagePicked} limit={1} />
         <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
           Take a photo(camera) or select from your library
         </Text>
@@ -765,7 +872,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
       {/* Add Pot Size */}
       <View style={styles.formContainer}>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-          Pot Size
+          Pot Size <Text style={globalStyles.textXSRed}>*</Text>
         </Text>
         {/* Display saved pot sizes */}
         {potSizeList.length > 0 && (
@@ -813,7 +920,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
                       globalStyles.textLGGreyLight,
                       {paddingHorizontal: 5, paddingTop: 10},
                     ]}>
-                    USD {item.price}
+                    {userCurrency} {item.price}
                   </Text>
                   <View
                     style={{
@@ -867,25 +974,37 @@ const ScreenGrowersSell = ({navigation, route}) => {
       {/* Publish buttons */}
       <View style={styles.formContainer}>
         <View style={{paddingTop: 30}}>
-          <TouchableOpacity
-            style={globalStyles.primaryButton}
-            onPress={plantCode ? onPressUpdate : onPressPublish}>
-            <Text style={globalStyles.primaryButtonText}>
-              {plantCode ? 'Update Listing' : 'Publish Now'}
-            </Text>
-          </TouchableOpacity>
-          <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-            {!plantCode && (
+          {isFromDuplicateSell == false &&
+            !plantCode == false &&
+            isFromDraftSell == false && (
               <TouchableOpacity
-                onPress={onPressPublishNurseryDrop}
-                style={globalStyles.secondaryButtonAccent}>
-                <Text
-                  style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                  Publish on Nursery Drop
+                style={globalStyles.primaryButton}
+                onPress={onPressUpdate}>
+                <Text style={globalStyles.primaryButtonText}>
+                  Update Listing
                 </Text>
               </TouchableOpacity>
             )}
-          </View>
+          {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+            <>
+              <TouchableOpacity
+                style={globalStyles.primaryButton}
+                onPress={onPressPublish}>
+                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                <TouchableOpacity
+                  onPress={onPressPublishNurseryDrop}
+                  style={globalStyles.secondaryButtonAccent}>
+                  <Text
+                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
+                    Publish on Nursery Drop
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </View>
 
@@ -901,7 +1020,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
           {/* Pot image */}
           <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-            Select picture
+            Select picture <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           {imagesPotSize.length > 0 && (
             <FlatList
@@ -913,14 +1032,17 @@ const ScreenGrowersSell = ({navigation, route}) => {
               horizontal
             />
           )}
-          <ImagePickerModal onImagePicked={handleImagePickedPotSize} />
+          <ImagePickerModal
+            onImagePicked={handleImagePickedPotSize}
+            limit={1}
+          />
           <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
             Take a photo(camera) or select from your library
           </Text>
 
           {/* Size options */}
           <Text style={[globalStyles.textMDGreyDark, {marginTop: 20}]}>
-            Pot Size
+            Pot Size <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <View
             style={{
@@ -949,7 +1071,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
           {/* Price and Quantity */}
           <Text style={[globalStyles.textLGGreyDark, {paddingTop: 10}]}>
-            Local Price
+            Local Price <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputBox
             value={potPrice}
@@ -957,20 +1079,17 @@ const ScreenGrowersSell = ({navigation, route}) => {
             placeholder={'Enter price'}
           />
           <Text style={[globalStyles.textLGGreyDark, {paddingTop: 10}]}>
-            Quantity
+            Quantity <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputBox
             value={potQuantity}
             setValue={setPotQuantity}
             placeholder={'Enter quantity'}
           />
-          <Text style={globalStyles.textSMGreyLight}>
-            e.g, 5 quantity is equal to 50 plants
-          </Text>
 
           {/* Height selection */}
           <Text style={[globalStyles.textLGGreyDark, {paddingTop: 20}]}>
-            Approximate Height
+            Approximate Height <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <View
             style={{
@@ -991,10 +1110,10 @@ const ScreenGrowersSell = ({navigation, route}) => {
                   <Text style={globalStyles.textMDGreyDark}>
                     {measure === 'below'
                       ? 'Below 12 inches'
-                      : 'Above 12 inches'}
+                      : '12 Inches & above'}
                   </Text>
                   <Text style={globalStyles.textSMGreyLight}>
-                    {measure === 'below' ? '<30 cm' : '>30 cm'}
+                    {measure === 'below' ? '<30 cm' : '>=30 cm'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1014,6 +1133,12 @@ const ScreenGrowersSell = ({navigation, route}) => {
           </TouchableOpacity>
         </View>
       </ActionSheet>
+      <SellConfirmDraft
+        visible={onGobackModalVisible}
+        onConfirm={onPressSave}
+        onExit={handleConfirmExit}
+        onCancel={handleCancelExit}
+      />
     </ScrollView>
   );
 };

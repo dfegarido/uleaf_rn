@@ -17,6 +17,7 @@ import {
   ScreenDeliveryReceived,
   ScreenDeliveryMissing,
   ScreenDeliveryCasualty,
+  ScreenDeliveryAction,
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
@@ -436,6 +437,11 @@ const MainStack = () => {
         component={ScreenDeliveryCasualty}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
+      <Stack.Screen
+        name="ScreenDeliveryAction"
+        component={ScreenDeliveryAction}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
       <Stack.Screen
         name="ScreenPayout"
@@ -497,7 +503,7 @@ function MainTabNavigator() {
                 <View
                   style={{
                     position: 'absolute',
-                    bottom: 2,
+                    bottom: 8,
                     width: 70,
                     height: 70,
                     backgroundColor: 'transparent', // Adjust background color if needed

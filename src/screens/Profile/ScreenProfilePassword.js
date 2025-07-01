@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useContext} from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,17 @@ import {
   ScrollView,
   SafeAreaView,
   Dimensions,
+  Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {InputPassword} from '../../components/Input';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../utils/utils';
+
+import {postProfileUpdatePasswordApi} from '../../components/Api';
 
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 import CheckIcon from '../../assets/icons/white/check-regular.svg';
@@ -22,12 +29,12 @@ const screenHeight = Dimensions.get('window').height;
 
 const ScreenProfilePassword = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(false);
+  const {logout} = useContext(AuthContext);
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const passwordCriteria = {
     minLength: newPassword.length >= 8,
@@ -40,8 +47,46 @@ const ScreenProfilePassword = ({navigation}) => {
     Object.values(passwordCriteria).every(Boolean) &&
     newPassword === confirmPassword;
 
+  // Update
+  const onPressUpdate = async () => {
+    setLoading(true);
+
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        Alert.alert('Network', 'No internet connection.');
+        throw new Error('No internet connection.');
+      }
+
+      const response = await postProfileUpdatePasswordApi(
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Update password failed.');
+      }
+      logout();
+      Alert.alert('Export', 'Password updated successfully!');
+    } catch (error) {
+      console.log('Update password:', error.message);
+      Alert.alert('Update password', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Update
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <View style={{flex: 1}}>
         <ScrollView
           style={[styles.container, {paddingTop: insets.top}]}
@@ -77,7 +122,9 @@ const ScreenProfilePassword = ({navigation}) => {
                 Current password
               </Text>
               <InputPassword
-                placeholder={'Enter current password'}></InputPassword>
+                placeholder={'Enter current password'}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}></InputPassword>
             </View>
 
             {/* New Password */}
@@ -85,7 +132,10 @@ const ScreenProfilePassword = ({navigation}) => {
               <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
                 New password
               </Text>
-              <InputPassword placeholder={'Enter new password'}></InputPassword>
+              <InputPassword
+                placeholder={'Enter new password'}
+                value={newPassword}
+                onChangeText={setNewPassword}></InputPassword>
             </View>
 
             {/* Password Rules */}
@@ -112,7 +162,9 @@ const ScreenProfilePassword = ({navigation}) => {
                 Confirm password
               </Text>
               <InputPassword
-                placeholder={'Enter confirm password'}></InputPassword>
+                placeholder={'Enter confirm password'}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}></InputPassword>
             </View>
           </View>
         </ScrollView>
@@ -120,7 +172,11 @@ const ScreenProfilePassword = ({navigation}) => {
         {/* Button always at the bottom */}
         <View style={{padding: 20, backgroundColor: '#fff'}}>
           <TouchableOpacity
-            style={[globalStyles.primaryButton]}
+            onPress={() => onPressUpdate()}
+            style={[
+              globalStyles.primaryButton,
+              !allValid && styles.disabledButton, // Add disabled style conditionally
+            ]}
             disabled={!allValid}>
             <Text style={styles.buttonText}>Update Password</Text>
           </TouchableOpacity>
@@ -215,6 +271,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc', // Gray out when disabled
+    opacity: 0.6,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
