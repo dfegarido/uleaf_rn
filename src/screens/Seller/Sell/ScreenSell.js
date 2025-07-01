@@ -93,13 +93,16 @@ const ScreenSell = ({navigation}) => {
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load sort api');
     }
-    const LocalBuyerWishlist = res.listings.map(item => ({
-      uri: item.imagePrimary,
-      title: `${item.genus} ${item.species}`,
-      description: `${item.variegation}`,
-      percentage: `${item.loveCountPercent}%`,
-    }));
-    // console.log(res.listings);
+    const LocalBuyerWishlist = Array.isArray(res.listings)
+      ? res.listings.map(item => ({
+          uri: item.imagePrimary ?? '',
+          title: `${item.genus ?? ''} ${item.species ?? ''}`.trim(),
+          description: item.variegation ?? '',
+          percentage:
+            item.loveCountPercent != null ? `${item.loveCountPercent}%` : '0%',
+        }))
+      : [];
+    console.log(res.listings);
     setMostLoveData(LocalBuyerWishlist);
   };
   // Most love
@@ -144,7 +147,7 @@ const ScreenSell = ({navigation}) => {
                   alignItems: 'center',
                 }}>
                 <SinglePlantIcon width={42} height={52}></SinglePlantIcon>
-                <Text style={[globalStyles.textLGAccentDark, {paddingTop: 10}]}>
+                <Text style={[globalStyles.textMDAccentDark, {paddingTop: 10}]}>
                   Single Plant
                 </Text>
               </TouchableOpacity>
@@ -158,8 +161,14 @@ const ScreenSell = ({navigation}) => {
                   alignItems: 'center',
                 }}>
                 <GrowerPlantIcon width={42} height={52}></GrowerPlantIcon>
-                <Text style={[globalStyles.textLGAccentDark, {paddingTop: 10}]}>
-                  Grower's choice
+                <Text
+                  style={[
+                    globalStyles.textMDAccentDark,
+                    {
+                      paddingTop: 10,
+                    },
+                  ]}>
+                  Grower's Choice
                 </Text>
               </TouchableOpacity>
             </View>
@@ -174,7 +183,7 @@ const ScreenSell = ({navigation}) => {
               <WholeSalePlantIcon></WholeSalePlantIcon>
               <Text
                 style={[
-                  globalStyles.textLGAccentDark,
+                  globalStyles.textMDAccentDark,
                   {paddingTop: 10, textAlign: 'center'},
                 ]}>
                 Wholesale
@@ -191,9 +200,12 @@ const ScreenSell = ({navigation}) => {
         </View>
 
         <View style={{paddingTop: 30}}>
-          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-            Buyers Wishlist
-          </Text>
+          {mostLoveData.length != 0 && (
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
+              Buyers Wish List
+            </Text>
+          )}
+
           <CarouselSell plantItems={mostLoveData} />
         </View>
 
@@ -202,29 +214,6 @@ const ScreenSell = ({navigation}) => {
           onClose={() => setShowSheet(false)}
           heightPercent={'25%'}>
           <View style={{padding: 20}}>
-            <TouchableOpacity onPress={handlePressDuplicate}>
-              <View
-                style={{
-                  borderColor: '#CDD3D4',
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                }}>
-                <View style={{flexDirection: 'row'}}>
-                  <DuplicateIcon width={50} height={50}></DuplicateIcon>
-                  <View style={{flexDirection: 'column'}}>
-                    <Text
-                      style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
-                      Duplicate an existing listing
-                    </Text>
-                    <Text
-                      style={[globalStyles.textMDGreyLight, {paddingLeft: 4}]}>
-                      Start with a similar listing to save time
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
             <TouchableOpacity onPress={handlePressDraft}>
               <View
                 style={{
@@ -232,7 +221,6 @@ const ScreenSell = ({navigation}) => {
                   borderWidth: 1,
                   borderRadius: 10,
                   padding: 10,
-                  marginTop: 10,
                 }}>
                 <View style={{flexDirection: 'row'}}>
                   <DraftIcon width={50} height={50}></DraftIcon>
@@ -244,6 +232,30 @@ const ScreenSell = ({navigation}) => {
                     <Text
                       style={[globalStyles.textMDGreyLight, {paddingLeft: 4}]}>
                       Finalize edit and publish
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handlePressDuplicate}>
+              <View
+                style={{
+                  borderColor: '#CDD3D4',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                  marginTop: 10,
+                }}>
+                <View style={{flexDirection: 'row'}}>
+                  <DuplicateIcon width={50} height={50}></DuplicateIcon>
+                  <View style={{flexDirection: 'column'}}>
+                    <Text
+                      style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
+                      Duplicate an existing listing
+                    </Text>
+                    <Text
+                      style={[globalStyles.textMDGreyLight, {paddingLeft: 4}]}>
+                      Start with a similar listing to save time
                     </Text>
                   </View>
                 </View>

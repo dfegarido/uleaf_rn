@@ -7,9 +7,8 @@ import {
   Keyboard,
 } from 'react-native';
 
-// Import your SVG icons
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
-import CloseIcon from '../../../assets/icons/greylight/x-regular.svg'; // Use an "X" or clear icon
+import CloseIcon from '../../../assets/icons/greylight/x-regular.svg';
 
 const InputSearch = ({
   placeholder,
@@ -21,13 +20,28 @@ const InputSearch = ({
   showClear = false,
 }) => {
   const handleClear = () => {
-    onChangeText('');
+    const clearedText = '';
+    onChangeText(clearedText);
     Keyboard.dismiss();
+    if (onSubmitEditing) {
+      onSubmitEditing({nativeEvent: {text: clearedText}}); // Pass empty text as expected
+    }
+  };
+
+  const handleSearch = () => {
+    if (onSubmitEditing) {
+      onSubmitEditing({nativeEvent: {text: value}}); // Pass current input value
+    } else {
+      Keyboard.dismiss();
+    }
   };
 
   return (
     <View style={styles.inputContainer}>
-      <SearchIcon width={20} height={20} style={styles.icon} />
+      <TouchableOpacity onPress={handleSearch}>
+        <SearchIcon width={20} height={20} style={styles.icon} />
+      </TouchableOpacity>
+
       <TextInput
         style={styles.input}
         placeholder={placeholder}
@@ -38,6 +52,7 @@ const InputSearch = ({
         returnKeyType={returnKeyType}
         onBlur={onBlur}
       />
+
       {showClear && value.length > 0 && (
         <TouchableOpacity onPress={handleClear}>
           <CloseIcon width={18} height={18} style={styles.clearIcon} />

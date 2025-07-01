@@ -15,7 +15,9 @@ const PayoutCard = ({item}) => {
       </View>
       <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
         <View>
-          <Text style={[globalStyles.textSMGreyDark]}>{item.payoutDate}</Text>
+          <Text style={[globalStyles.textSMGreyDark]}>
+            {item?.payoutDate ?? ''}
+          </Text>
           <Text style={styles.label}>Payout date</Text>
 
           <Text style={[globalStyles.textSMGreyDark]}>{item.salesPeriod}</Text>
@@ -24,11 +26,12 @@ const PayoutCard = ({item}) => {
         <View style={styles.headerRight}>
           {item.reference && (
             <Text style={globalStyles.textMDGreyLight}>
-              Ref # {item.reference}
+              Ref # {item?.reference ?? ''}
             </Text>
           )}
           <Text style={[globalStyles.textLGGreyDark, globalStyles.textBold]}>
-            ${item.amount.toLocaleString()}
+            {item?.totalReceivableAmountCurrencySymbol}
+            {item?.totalReceivableAmountLocal?.toLocaleString()}
           </Text>
           <Text style={styles.label}>Total amount</Text>
         </View>

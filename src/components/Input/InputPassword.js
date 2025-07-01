@@ -1,9 +1,9 @@
 import React, {useState} from 'react';
 import {View, TextInput, TouchableOpacity, StyleSheet} from 'react-native';
 import IconEyeOpen from '../../assets/icons/greydark/eye-regular.svg';
-import IconEyeClose from '../../assets/icons/greydark/eye-closed-regular';
+import IconEyeClose from '../../assets/icons/greydark/eye-closed-regular.svg'; // make sure the .svg extension is added here
 
-const InputPassword = ({placeholder}) => {
+const InputPassword = ({placeholder, value, onChangeText}) => {
   const [secureText, setSecureText] = useState(true);
 
   const toggleSecure = () => {
@@ -17,12 +17,14 @@ const InputPassword = ({placeholder}) => {
         placeholder={placeholder}
         secureTextEntry={secureText}
         placeholderTextColor="#aaa"
+        value={value}
+        onChangeText={onChangeText}
       />
-      <TouchableOpacity onPress={toggleSecure} style={styles.iconLeft}>
+      <TouchableOpacity onPress={toggleSecure} style={styles.iconRight}>
         {secureText ? (
-          <IconEyeOpen width={20} height={20}></IconEyeOpen>
+          <IconEyeOpen width={20} height={20} />
         ) : (
-          <IconEyeClose width={20} height={20}></IconEyeClose>
+          <IconEyeClose width={20} height={20} />
         )}
       </TouchableOpacity>
     </View>
@@ -36,15 +38,14 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 8,
-    paddingLeft: 10, // to make room for the icon on the left
-    paddingRight: 10,
+    paddingLeft: 10,
+    paddingRight: 40, // room for icon
     height: 50,
-    // margin: 10,
+    position: 'relative',
   },
-  iconLeft: {
+  iconRight: {
     position: 'absolute',
     right: 10,
-    zIndex: 1,
   },
   input: {
     flex: 1,

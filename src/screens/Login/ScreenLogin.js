@@ -64,7 +64,7 @@ const ScreenLogin = ({navigation}) => {
       <View style={styles.mainContainer}>
         <Image
           source={require('../../assets/images/login-logo.png')} // local image file
-          style={{width: 300, height: 300}}
+          style={{width: 350, height: 350}}
         />
       </View>
       <View style={styles.buttonContainer}>
@@ -77,7 +77,7 @@ const ScreenLogin = ({navigation}) => {
           style={globalStyles.secondaryButton}
           onPress={handlePressCreateAccountCode}>
           <Text style={globalStyles.secondaryButtonButtonText}>
-            Signup with Code
+            Sign-up with a code
           </Text>
         </TouchableOpacity>
         <View style={styles.loginAccountContainer}>
@@ -99,7 +99,8 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    justifyContent: 'center',
+    paddingTop: 100,
+    // justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#DFECDF',
     // borderTopLeftRadius: 10,

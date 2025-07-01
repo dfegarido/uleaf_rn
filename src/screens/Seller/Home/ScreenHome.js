@@ -11,6 +11,9 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -43,12 +46,12 @@ import {globalStyles} from '../../../assets/styles/styles';
 
 const screenHeight = Dimensions.get('window').height;
 
-const chartData = [
-  {week: 'MAR 24\nMAR 30', total: 60, sold: 15, amount: 75},
-  {week: 'MAR 17\nMAR 23', total: 60, sold: 30, amount: 80},
-  {week: 'MAR 10\nMAR 16', total: 80, sold: 40, amount: 95},
-  {week: 'MAR 03\nMAR 09', total: 65, sold: 35, amount: 80},
-];
+// const chartData = [
+//   {week: 'MAR 24\nMAR 30', total: 60, sold: 15, amount: 75},
+//   {week: 'MAR 17\nMAR 23', total: 60, sold: 30, amount: 80},
+//   {week: 'MAR 10\nMAR 16', total: 80, sold: 40, amount: 95},
+//   {week: 'MAR 03\nMAR 09', total: 65, sold: 35, amount: 80},
+// ];
 
 const ScreenHome = ({navigation}) => {
   const insets = useSafeAreaInsets();
@@ -86,10 +89,10 @@ const ScreenHome = ({navigation}) => {
           loadSalesData(),
           loadEventsData(),
           loadDurationDropdownData(),
-          loadSalesPerformanceData(),
+          loadSalesPerformanceData('Weekly'),
         ]);
       } catch (error) {
-        console.error('Error loading data:', error.message);
+        console.log('Error loading data:', error.message);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -140,9 +143,9 @@ const ScreenHome = ({navigation}) => {
   const [businessPerformanceTable, setBusinessPerformanceTable] = useState([]);
   const [chartData, setChartData] = useState([]);
 
-  const loadSalesPerformanceData = async () => {
+  const loadSalesPerformanceData = async duration => {
     const res = await retryAsync(
-      () => getHomeBusinessPerformanceApi(dropdownDuration),
+      () => getHomeBusinessPerformanceApi(duration),
       3,
       1000,
     );
@@ -192,7 +195,9 @@ const ScreenHome = ({navigation}) => {
       ],
     };
     setBusinessPerformanceTable(businessPerformanceData);
-    // console.log(businessPerformanceData);
+
+    console.log(localChartData);
+    // console.log(res.data);
     // setEventData(res?.data);
   };
   // Sales Performance
@@ -202,13 +207,13 @@ const ScreenHome = ({navigation}) => {
   const [dropdownDuration, setDropdownDuration] = useState('Weekly');
 
   const handleDropdownDuration = value => {
-    setBusinessPerformanceTable([]);
-    setChartData([]);
+    // setBusinessPerformanceTable([]);
+    // setChartData([]);
     setDropdownDuration(value);
+    setLoading(true);
     const fetchData = async () => {
       try {
-        setLoading(true);
-        await loadSalesPerformanceData();
+        await loadSalesPerformanceData(value);
       } catch (error) {
         console.error('Error loading data:', error.message);
       } finally {
@@ -239,6 +244,13 @@ const ScreenHome = ({navigation}) => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <ScrollView
         style={[styles.container, {paddingTop: insets.top}]}
         stickyHeaderIndices={[0]}>
@@ -494,7 +506,7 @@ const ScreenHome = ({navigation}) => {
 
           <BusinessPerformance data={businessPerformanceTable} />
           <View style={{marginBottom: 30}}>
-            <CustomSalesChart chartData={chartData} />
+            <CustomSalesChart data={chartData} isMonthly={false} />
           </View>
           {/* Business Performance */}
         </View>
@@ -631,5 +643,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#DFECDF',
     zIndex: 10,
     paddingTop: 12,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -8,7 +8,6 @@ import {
   Dimensions,
   SafeAreaView,
   StatusBar,
-  KeyboardAvoidingView,
   RefreshControl,
   Modal,
   ActivityIndicator,
@@ -51,6 +50,7 @@ import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
 import DollarIcon from '../../../assets/icons/greylight/dollar.svg';
 import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
+import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -87,7 +87,7 @@ const FilterTabs = [
 ];
 
 const headers = [
-  'Listing',
+  'Listings',
   'Plant Name & Status',
   'Pin',
   'Listing Type',
@@ -131,6 +131,7 @@ const ScreenListing = ({navigation}) => {
     discount,
     limit,
     plant,
+    pinTag,
     nextPageToken,
   ) => {
     const netState = await NetInfo.fetch();
@@ -148,6 +149,7 @@ const ScreenListing = ({navigation}) => {
       discount,
       limit,
       plant,
+      pinTag,
       nextPageToken,
     );
 
@@ -167,7 +169,7 @@ const ScreenListing = ({navigation}) => {
           ? [...prev, ...(getManageListingApiData?.listings || [])] // append
           : getManageListingApiData?.listings || [], // replace
     );
-    // console.log(dataTable);
+    // console.log(JSON.stringify(dataTable));
   };
 
   // ✅ Error-handling wrapper
@@ -184,6 +186,7 @@ const ScreenListing = ({navigation}) => {
         isDiscounted,
         10,
         search,
+        pinSearch,
         nextTokenParam,
       );
     } catch (error) {
@@ -218,16 +221,27 @@ const ScreenListing = ({navigation}) => {
   };
   // List table
 
+  // Pin search
+  const [pinSearch, setPinSearch] = useState(false);
+
+  const onPressPinSearch = paramPinSearch => {
+    setPinSearch(paramPinSearch);
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+  // Pin search
+
   // Search
-  const handleSearchSubmit = () => {
-    // This is triggered when user presses "Search" on keyboard
-    if (search.trim() === '') {
-      return;
-    }
+  const handleSearchSubmit = e => {
+    const searchText = e.nativeEvent.text;
+    setSearch(searchText);
+    console.log('Searching for:', searchText);
+    // trigger your search logic here
 
     setNextToken('');
     setNextTokenParam('');
-    fetchData();
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
   const handleFilterView = () => {
@@ -465,8 +479,9 @@ const ScreenListing = ({navigation}) => {
     } catch (error) {
       console.log('Error updating stock:', error.message);
       Alert.alert('Update stocks', error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
   // Add stocks
 
@@ -482,6 +497,23 @@ const ScreenListing = ({navigation}) => {
   };
 
   const onPressUpdateApplyDiscountPost = async () => {
+    // Validation: only one of the two should be filled
+    const isPriceFilled =
+      discountPriceSheet !== '' && discountPriceSheet !== null;
+    const isPercentageFilled =
+      discountPercentageSheet !== '' && discountPercentageSheet !== null;
+
+    if (
+      (isPriceFilled && isPercentageFilled) ||
+      (!isPriceFilled && !isPercentageFilled)
+    ) {
+      Alert.alert(
+        'Invalid Input',
+        'Please fill **either** Discount Price or Discount Percentage, not both or none.',
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const {plantCode} = selectedItemStockUpdate;
@@ -495,6 +527,7 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post stock update failed.');
       }
+
       setDiscountPercentageSheet('');
       setDiscountPriceSheet('');
       setShowSheetDiscount(!showSheetDiscount);
@@ -503,9 +536,10 @@ const ScreenListing = ({navigation}) => {
       fetchData();
     } catch (error) {
       console.log('Error updating discount:', error.message);
-      Alert.alert('Update discount', error.message);
+      Alert.alert('Update Discount', error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const onPressRemoveDiscountPost = async plantCode => {
@@ -522,8 +556,9 @@ const ScreenListing = ({navigation}) => {
     } catch (error) {
       console.log('Error remove discount:', error.message);
       Alert.alert('Remove discount', error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
   // Apply discount
 
@@ -548,6 +583,7 @@ const ScreenListing = ({navigation}) => {
   };
 
   const onPressTableListPin = async (plantCode, pinTag) => {
+    setLoading(true);
     try {
       const updatedPinTag = !pinTag;
 
@@ -557,21 +593,27 @@ const ScreenListing = ({navigation}) => {
         throw new Error(response?.message || 'Post pin failed.');
       }
 
-      setDataTable(prev =>
-        prev.map(item =>
-          item.plantCode === plantCode
-            ? {...item, pinTag: updatedPinTag}
-            : item,
-        ),
-      );
+      // setDataTable(prev =>
+      //   prev.map(item =>
+      //     item.plantCode === plantCode
+      //       ? {...item, pinTag: updatedPinTag}
+      //       : item,
+      //   ),
+      // );
+      setNextToken('');
+      setNextTokenParam('');
+      fetchData();
     } catch (error) {
       console.log('Error pin table action:', error.message);
       Alert.alert('Pin item', error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Delete Item
   const onPressDelete = async () => {
+    setLoading(true);
     try {
       let plantCode = selectedItemStockUpdate?.plantCode;
       const response = await postListingDeleteApi(plantCode);
@@ -586,6 +628,8 @@ const ScreenListing = ({navigation}) => {
     } catch (error) {
       console.log('Error pin table action:', error.message);
       Alert.alert('Delete item', error.message);
+    } finally {
+      setLoading(false);
     }
   };
   // Delete Item
@@ -619,8 +663,13 @@ const ScreenListing = ({navigation}) => {
                   padding: 10,
                   borderRadius: 10,
                 },
-              ]}>
-              <PinIcon width={20} height={20} />
+              ]}
+              onPress={() => onPressPinSearch(!pinSearch)}>
+              {pinSearch ? (
+                <PinAccentIcon width={20} height={20} />
+              ) : (
+                <PinIcon width={20} height={20} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -631,6 +680,76 @@ const ScreenListing = ({navigation}) => {
           setActiveTab={setActiveTab}
           onPressTab={onTabPressItem}
         />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{
+            flexGrow: 0,
+            paddingVertical: 20,
+            paddingHorizontal: 20,
+          }} // ✅ prevents extra vertical space
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+          }}>
+          <TouchableOpacity onPress={() => onPressFilter('SORT')}>
+            <View
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: '#CDD3D4',
+                padding: 10,
+                flexDirection: 'row',
+              }}>
+              <SortIcon width={20} height={20}></SortIcon>
+              <Text style={globalStyles.textSMGreyDark}>Sort</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
+            <View
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: '#CDD3D4',
+                padding: 10,
+                flexDirection: 'row',
+              }}>
+              <Text style={globalStyles.textSMGreyDark}>Genus</Text>
+              <DownIcon width={20} height={20}></DownIcon>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
+            <View
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: '#CDD3D4',
+                padding: 10,
+                flexDirection: 'row',
+              }}>
+              <Text style={globalStyles.textSMGreyDark}>Variegation</Text>
+              <DownIcon width={20} height={20}></DownIcon>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
+            <View
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: '#CDD3D4',
+                padding: 10,
+                flexDirection: 'row',
+                marginRight: 30,
+              }}>
+              <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
+              <DownIcon width={20} height={20}></DownIcon>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
         {/* Filter Tabs */}
       </View>
       {/* Search and Icons */}
@@ -652,82 +771,10 @@ const ScreenListing = ({navigation}) => {
         <View
           style={{
             backgroundColor: '#fff',
-            minHeight: screenHeight * 0.9,
+            minHeight: dataTable.length != 0 && screenHeight * 0.9,
           }}>
           {dataTable && dataTable.length > 0 ? (
             <>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{
-                  flexGrow: 0,
-                  paddingVertical: 20,
-                  paddingHorizontal: 20,
-                }} // ✅ prevents extra vertical space
-                contentContainerStyle={{
-                  flexDirection: 'row',
-                  gap: 10,
-                  alignItems: 'flex-start',
-                }}>
-                <TouchableOpacity onPress={() => onPressFilter('SORT')}>
-                  <View
-                    style={{
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: '#CDD3D4',
-                      padding: 10,
-                      flexDirection: 'row',
-                    }}>
-                    <SortIcon width={20} height={20}></SortIcon>
-                    <Text style={globalStyles.textSMGreyDark}>Sort</Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
-                  <View
-                    style={{
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: '#CDD3D4',
-                      padding: 10,
-                      flexDirection: 'row',
-                    }}>
-                    <Text style={globalStyles.textSMGreyDark}>Genus</Text>
-                    <DownIcon width={20} height={20}></DownIcon>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
-                  <View
-                    style={{
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: '#CDD3D4',
-                      padding: 10,
-                      flexDirection: 'row',
-                    }}>
-                    <Text style={globalStyles.textSMGreyDark}>Variegation</Text>
-                    <DownIcon width={20} height={20}></DownIcon>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
-                  <View
-                    style={{
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: '#CDD3D4',
-                      padding: 10,
-                      flexDirection: 'row',
-                      marginRight: 30,
-                    }}>
-                    <Text style={globalStyles.textSMGreyDark}>
-                      Listing Type
-                    </Text>
-                    <DownIcon width={20} height={20}></DownIcon>
-                  </View>
-                </TouchableOpacity>
-              </ScrollView>
               <View style={styles.contents}>
                 <ListingTable
                   headers={headers}
@@ -758,7 +805,7 @@ const ScreenListing = ({navigation}) => {
               </View>
             </>
           ) : (
-            <View style={{alignItems: 'center', paddingTop: 150, flex: 1}}>
+            <View style={{alignItems: 'center', paddingTop: 80, flex: 1}}>
               <Image
                 source={imageMap[normalizeKey(activeTab)]}
                 style={{width: 300, height: 300, resizeMode: 'contain'}}
@@ -885,7 +932,7 @@ const ScreenListing = ({navigation}) => {
                   <ExIcon width={20} height={20} />
                 </TouchableOpacity>
               </View>
-              <View style={{marginHorizontal: 20}}>
+              <ScrollView style={{marginHorizontal: 20}}>
                 <View>
                   <Text
                     style={[globalStyles.textMDGreyLight, {paddingBottom: 10}]}>
@@ -912,22 +959,26 @@ const ScreenListing = ({navigation}) => {
                     placeholder="Enter percentage"
                   />
                 </View>
-              </View>
-              <TouchableOpacity
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  paddingHorizontal: 20,
-                  width: '100%',
-                }}
-                onPress={onPressUpdateApplyDiscountPost}>
-                <View style={globalStyles.primaryButton}>
-                  <Text
-                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
-                    Apply Discount
-                  </Text>
+                <View style={{paddingTop: 20}}>
+                  <TouchableOpacity
+                    style={{
+                      // position: 'absolute',
+                      // bottom: 0,
+                      width: '100%',
+                    }}
+                    onPress={onPressUpdateApplyDiscountPost}>
+                    <View style={globalStyles.primaryButton}>
+                      <Text
+                        style={[
+                          globalStyles.textMDWhite,
+                          {textAlign: 'center'},
+                        ]}>
+                        Apply Discount
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              </ScrollView>
             </View>
           </ActionSheet>
         </View>

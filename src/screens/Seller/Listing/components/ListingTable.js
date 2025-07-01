@@ -142,7 +142,7 @@ const ListingTable = ({
             </TouchableOpacity>
 
             {/* Listing Type */}
-            {listing.listingType !== 'L1' ? (
+            {listing.listingType != 'Single Plant' ? (
               <View style={styles.cell}>
                 <View
                   style={[
@@ -162,26 +162,224 @@ const ListingTable = ({
 
             {/* Pot Size Variation (single value or null) */}
             <View style={styles.cell}>
-              {listing.potSize ? (
-                <View
-                  style={[
-                    styles.badge,
-                    {
-                      backgroundColor: '#E4E7E9',
-                      alignSelf: 'flex-start',
-                      paddingHorizontal: 10,
-                      marginBottom: 10,
-                    },
-                  ]}>
-                  <Text style={{color: '#000'}}>{listing.potSize}</Text>
-                </View>
-              ) : (
-                <Text style={globalStyles.textSMGreyLight}></Text>
-              )}
+              {(() => {
+                // Initialize an empty array
+                let finalPotSizes = [];
+
+                // Priority 1: Try from variations
+                if (
+                  Array.isArray(listing.variations) &&
+                  listing.variations.length > 0
+                ) {
+                  const variation = listing.variations[0];
+
+                  if (Array.isArray(variation.potSize)) {
+                    finalPotSizes = variation.potSize;
+                  } else if (typeof variation.potSize === 'string') {
+                    finalPotSizes = [variation.potSize];
+                  }
+                }
+
+                // Priority 2: Fallback to listing.potSize
+                if (
+                  finalPotSizes.length === 0 &&
+                  (Array.isArray(listing.potSize) ||
+                    typeof listing.potSize === 'string')
+                ) {
+                  finalPotSizes = Array.isArray(listing.potSize)
+                    ? listing.potSize
+                    : [listing.potSize];
+                }
+
+                return finalPotSizes.map((parsePotSize, index2) => (
+                  <View
+                    key={`${index}-${index2}`}
+                    style={[
+                      styles.badgeContainer,
+                      {
+                        marginRight: 4,
+                        marginBottom: 4,
+                        alignSelf: 'flex-start',
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.badge,
+                        globalStyles.textMDGreyDark,
+                        {backgroundColor: '#E4E7E9', paddingHorizontal: 10},
+                      ]}>
+                      {parsePotSize}
+                    </Text>
+                  </View>
+                ));
+              })()}
             </View>
 
-            {/* Available Quantity */}
-            {listing.discountPrice && listing.discountPrice !== '' ? (
+            {/* Price */}
+            {/* {(() => {
+              let totalLocalPrice = 0;
+              let totalDiscountPrice = 0;
+              let hasDiscount = false;
+              let finalCurrencySymbol = listing.localCurrencySymbol || '';
+
+              const parseSafeFloat = val => {
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : num;
+              };
+
+              const isNonEmpty = val =>
+                val !== null &&
+                val !== undefined &&
+                typeof val === 'string' &&
+                val.trim() !== '';
+
+              if (
+                Array.isArray(listing.variations) &&
+                listing.variations.length > 0
+              ) {
+                listing.variations.forEach(variation => {
+                  const localPrice = parseSafeFloat(variation.localPrice);
+                  const discountPrice = isNonEmpty(variation.localPriceNew)
+                    ? parseSafeFloat(variation.localPriceNew)
+                    : 0;
+
+                  totalLocalPrice += localPrice;
+
+                  if (discountPrice > 0) {
+                    totalDiscountPrice += discountPrice;
+                    hasDiscount = true;
+                  } else {
+                    totalDiscountPrice += localPrice;
+                  }
+
+                  if (variation.localCurrencySymbol) {
+                    finalCurrencySymbol = variation.localCurrencySymbol;
+                  }
+                });
+              } else {
+                const localPrice = parseSafeFloat(listing.localPrice);
+                const discountPrice = isNonEmpty(listing.localPriceNew)
+                  ? parseSafeFloat(listing.localPriceNew)
+                  : 0;
+
+                totalLocalPrice = localPrice;
+                totalDiscountPrice =
+                  discountPrice > 0 ? discountPrice : localPrice;
+                hasDiscount = discountPrice > 0;
+              }
+
+              if (hasDiscount) {
+                return (
+                  <View style={[styles.cell, {flexDirection: 'row'}]}>
+                    <Text
+                      style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
+                      {finalCurrencySymbol}
+                      {totalDiscountPrice.toFixed(2)}
+                    </Text>
+                    <Text
+                      style={[styles.strikeText, globalStyles.textMDGreyLight]}>
+                      {finalCurrencySymbol}
+                      {totalLocalPrice.toFixed(2)}
+                    </Text>
+                  </View>
+                );
+              } else {
+                return (
+                  <View style={[styles.cell, {flexDirection: 'row'}]}>
+                    <Text style={globalStyles.textMDGreyLight}>
+                      {finalCurrencySymbol}
+                      {totalLocalPrice.toFixed(2)}
+                    </Text>
+                  </View>
+                );
+              }
+            })()} */}
+
+            {(() => {
+              let totalLocalPrice = 0;
+              let totalLocalPriceNew = 0;
+              let hasNewPrice = false;
+              let finalCurrencySymbol = listing.localCurrencySymbol || '';
+
+              const parseSafeFloat = val => {
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : num;
+              };
+
+              const isNonEmpty = val =>
+                val !== null &&
+                val !== undefined &&
+                (typeof val === 'number' ||
+                  (typeof val === 'string' && val.trim() !== ''));
+
+              if (
+                Array.isArray(listing.variations) &&
+                listing.variations.length > 0
+              ) {
+                listing.variations.forEach(variation => {
+                  const localPrice = parseSafeFloat(variation.localPrice);
+                  const localPriceNew = isNonEmpty(variation.localPriceNew)
+                    ? parseSafeFloat(variation.localPriceNew)
+                    : 0;
+
+                  totalLocalPrice += localPrice;
+
+                  if (localPriceNew > 0) {
+                    totalLocalPriceNew += localPriceNew;
+                    hasNewPrice = true;
+                  } else {
+                    totalLocalPriceNew += localPrice;
+                  }
+
+                  if (variation.localCurrencySymbol) {
+                    finalCurrencySymbol = variation.localCurrencySymbol;
+                  }
+                });
+              } else {
+                const localPrice = parseSafeFloat(listing.localPrice);
+                const localPriceNew = isNonEmpty(listing.localPriceNew)
+                  ? parseSafeFloat(listing.localPriceNew)
+                  : 0;
+
+                totalLocalPrice = localPrice;
+                totalLocalPriceNew =
+                  localPriceNew > 0 ? localPriceNew : localPrice;
+                hasNewPrice = localPriceNew > 0;
+
+                if (listing.localCurrencySymbol) {
+                  finalCurrencySymbol = listing.localCurrencySymbol;
+                }
+              }
+
+              return (
+                <View style={[styles.cell, {flexDirection: 'row'}]}>
+                  {hasNewPrice ? (
+                    <>
+                      <Text
+                        style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
+                        {finalCurrencySymbol}
+                        {totalLocalPriceNew.toFixed(2)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.strikeText,
+                          globalStyles.textMDGreyLight,
+                        ]}>
+                        {finalCurrencySymbol}
+                        {totalLocalPrice.toFixed(2)}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={globalStyles.textMDGreyLight}>
+                      {finalCurrencySymbol}
+                      {totalLocalPrice.toFixed(2)}
+                    </Text>
+                  )}
+                </View>
+              );
+            })()}
+
+            {/* {listing.discountPrice && listing.discountPrice !== '' ? (
               <View style={[styles.cell, {flexDirection: 'row'}]}>
                 <Text style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
                   {listing.localCurrencySymbol}
@@ -199,7 +397,7 @@ const ListingTable = ({
                   {listing.localPrice}
                 </Text>
               </View>
-            )}
+            )} */}
 
             {/* Available Quantity */}
             <View style={styles.cell}>
@@ -260,8 +458,37 @@ const ListingTable = ({
                     onPress={() =>
                       onPressRemoveDiscountPost(listing.plantCode)
                     }>
-                    <Text style={globalStyles.textMDAccent}>Remove</Text>
+                    <Text style={globalStyles.textMDAccent}>
+                      Remove Discount
+                    </Text>
                   </TouchableOpacity>
+                </View>
+              ) : listing.discountPrice && listing.discountPrice !== '' ? (
+                <View>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                    }}>
+                    <TouchableOpacity
+                      style={{paddingTop: 10}}
+                      onPress={() =>
+                        onPressRemoveDiscountPost(listing.plantCode)
+                      }>
+                      <Text style={globalStyles.textMDAccent}>
+                        Remove Discount
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        onEditPressFilter({
+                          pressCode: listing.listingType,
+                          id: listing.id,
+                        })
+                      }>
+                      <IconMenu width={20} height={20} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : (
                 <View

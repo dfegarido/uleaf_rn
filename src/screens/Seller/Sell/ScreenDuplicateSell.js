@@ -1,4 +1,4 @@
-import React, {useLayoutEffect} from 'react';
+import React, {useEffect, useState, useLayoutEffect} from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,19 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useIsFocused} from '@react-navigation/native';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+import {globalStyles} from '../../../assets/styles/styles';
+import {getManageListingApi} from '../../../components/Api';
+
+import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
 const COLUMN_WIDTH = 150;
 
@@ -21,51 +31,39 @@ const headers = [
   'Quantity',
 ];
 
-const data = [
-  {
-    image: '',
-    plantName: 'Ficus Iyrata',
-    subPlantName: 'Ficus Iyrata',
-    status: '',
-    listingCode: 'L1',
-    listingType: '',
-    potSize: ['2"'],
-    price: '$14',
-    quantity: '1',
-  },
-  {
-    image: '',
-    plantName: 'Monstera deliciosa',
-    subPlantName: 'Albo Variegata',
-    status: '',
-    listingCode: 'L2',
-    listingType: "Grower's choice",
-    potSize: ['2"-4"', '5"-8"'],
-    price: '$14',
-    quantity: '1',
-  },
-  {
-    image: '',
-    plantName: 'Ficus Iyrata',
-    subPlantName: 'Ficus Iyrata',
-    status: '',
-    listingCode: 'L3',
-    listingType: 'Wholesale',
-    potSize: ['2"-4"', '5"-8"'],
-    price: '$14',
-    quantity: '1',
-  },
-];
-
 const ScreenDuplicateSell = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState([]);
+  const [nextToken, setNextToken] = useState('');
+  const [nextTokenParam, setNextTokenParam] = useState('');
+  const isFocused = useIsFocused();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  // ✅ Pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    setNextToken('');
+    setNextTokenParam('');
+    const fetchData = async () => {
+      try {
+        await loadListingData();
+      } catch (error) {
+        console.log('Fetching details:', error);
+      } finally {
+        setRefreshing(false);
+      }
+    };
+
+    fetchData();
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
           onPress={() => alert('Edit Profile')}
-          color="#000"
           style={{
             borderColor: '#ccc',
             padding: 10,
@@ -77,81 +75,262 @@ const ScreenDuplicateSell = ({navigation}) => {
       ),
     });
   }, [navigation]);
+
+  useEffect(() => {
+    setLoading(true);
+    const fetchData = async () => {
+      try {
+        await loadListingData();
+      } catch (error) {
+        console.log('Fetching details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isFocused]);
+
+  const loadListingData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(
+      () =>
+        getManageListingApi(
+          true,
+          'Newest',
+          [],
+          [],
+          '',
+          'All',
+          false,
+          10,
+          '',
+          false,
+          nextTokenParam,
+        ),
+      3,
+      1000,
+    );
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load listings');
+    }
+    setNextToken(res.nextPageToken);
+    setData(
+      prev =>
+        nextTokenParam
+          ? [...prev, ...(res?.listings || [])] // append
+          : res?.listings || [], // replace
+    );
+    // setData(res.listings || []);
+  };
+
+  // Load more
+  useEffect(() => {
+    if (nextTokenParam) {
+      setLoading(true);
+      loadListingData();
+      setTimeout(() => {
+        setLoading(false); // or setLoading(false)
+      }, 500);
+    }
+  }, [nextTokenParam]);
+
+  const onPressLoadMore = () => {
+    if (nextToken != nextTokenParam) {
+      console.log('click more');
+      setNextTokenParam(nextToken);
+    }
+  };
+  // Load more
+
   return (
     <View style={[styles.mainContent, {paddingTop: insets.top}]}>
-      <View style={styles.mainContainer}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
+      <ScrollView
+        style={styles.mainContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }>
         <ScrollView horizontal>
           <View>
             {/* Header */}
-            <View
-              style={[
-                styles.row,
-                {
-                  backgroundColor: '#E4E7E9',
-                },
-              ]}>
+            <View style={[styles.row, {backgroundColor: '#E4E7E9'}]}>
               {headers.map((header, index) => (
-                <View key={index} style={styles.cell}>
-                  <Text style={styles.headerText}>{header}</Text>
+                <View
+                  key={index + header}
+                  style={[
+                    styles.cell,
+                    index === 0 && {width: 120},
+                    index === 1 && {width: 150},
+                    index === 2 && {width: 150},
+                    index === 3 && {width: 100},
+                  ]}>
+                  <Text
+                    style={[
+                      globalStyles.textSMGreyDark,
+                      index === 0 ? globalStyles.textBold : {},
+                    ]}>
+                    {header}
+                  </Text>
                 </View>
               ))}
             </View>
+
             {/* Rows */}
-            {data.map((dataparse, index) => (
-              <View style={styles.row} key={index}>
-                <View style={styles.cell}>
+            {data.map((item, rowIndex) => (
+              <TouchableOpacity
+                style={styles.row}
+                key={rowIndex}
+                onPress={() => {
+                  if (item?.listingType == 'Single Plant') {
+                    navigation.navigate('ScreenSingleSell', {
+                      plantCode: item?.plantCode,
+                    });
+                  }
+                  if (item?.listingType == 'Wholesale') {
+                    navigation.navigate('ScreenWholesaleSell', {
+                      plantCode: item?.plantCode,
+                    });
+                  }
+                  if (item?.listingType == "Grower's choice") {
+                    navigation.navigate('ScreenGrowersSell', {
+                      plantCode: item?.plantCode,
+                    });
+                  }
+                }}>
+                {/* Image */}
+                <View style={[styles.cell, {width: 120}]}>
                   <Image
                     style={styles.image}
                     source={{
-                      uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
+                      uri:
+                        item.imagePrimary || 'https://via.placeholder.com/80',
                     }}
                   />
                 </View>
-                <View style={styles.cell}>
-                  <Text style={{fontWeight: 'bold', paddingBottom: 10}}>
-                    {dataparse.plantName}
+
+                {/* Plant Name & Status */}
+                <View style={[styles.cell, {width: 150}]}>
+                  <Text
+                    style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+                    {item.genus} {item.species}
                   </Text>
-                  <Text>{dataparse.subPlantName}</Text>
+                  <Text style={globalStyles.textMDGreyLight}>
+                    {item.status || '—'}
+                  </Text>
                 </View>
-                <View style={styles.cell}>
-                  <View style={[styles.badgeContainer]}>
-                    {dataparse.listingType && (
+
+                {/* Listing Type */}
+                <View
+                  style={[styles.cell, {width: 150, alignItems: 'flex-start'}]}>
+                  <View style={styles.badgeContainer}>
+                    {item.listingType != 'Single Plant' && (
                       <Text
                         style={[
                           styles.badge,
                           {color: '#fff', backgroundColor: '#000'},
                         ]}>
-                        {dataparse.listingType}
+                        {item.listingType}
                       </Text>
                     )}
                   </View>
                 </View>
-                <View style={styles.cell}>
-                  {dataparse.potSize.map((datapotsize, index) => (
-                    <View key={index} style={[styles.badgeContainer]}>
-                      {datapotsize && (
+
+                {/* Pot Size */}
+                <View
+                  style={[styles.cell, {width: 100, alignItems: 'flex-start'}]}>
+                  {(() => {
+                    // Initialize an empty array
+                    let finalPotSizes = [];
+
+                    // Priority 1: Try from variations
+                    if (
+                      Array.isArray(item.variations) &&
+                      item.variations.length > 0
+                    ) {
+                      const variation = item.variations[0];
+
+                      if (Array.isArray(variation.potSize)) {
+                        finalPotSizes = variation.potSize;
+                      } else if (typeof variation.potSize === 'string') {
+                        finalPotSizes = [variation.potSize];
+                      }
+                    }
+
+                    // Priority 2: Fallback to item.potSize
+                    if (
+                      finalPotSizes.length === 0 &&
+                      (Array.isArray(item.potSize) ||
+                        typeof item.potSize === 'string')
+                    ) {
+                      finalPotSizes = Array.isArray(item.potSize)
+                        ? item.potSize
+                        : [item.potSize];
+                    }
+
+                    return finalPotSizes.map((parsePotSize, index2) => (
+                      <View
+                        key={`${rowIndex}-${index2}`}
+                        style={[
+                          styles.badgeContainer,
+                          {marginRight: 4, marginBottom: 4},
+                        ]}>
                         <Text
                           style={[
                             styles.badge,
-                            {color: '#000', backgroundColor: '#E4E7E9'},
+                            globalStyles.textMDGreyDark,
+                            {backgroundColor: '#E4E7E9'},
                           ]}>
-                          {datapotsize}
+                          {parsePotSize}
                         </Text>
-                      )}
-                    </View>
-                  ))}
+                      </View>
+                    ));
+                  })()}
                 </View>
-                <View style={styles.cell}>
-                  <Text>{dataparse.totalPrice}</Text>
+
+                {/* Price */}
+                <View style={[styles.cell, {width: COLUMN_WIDTH}]}>
+                  <Text style={globalStyles.textMDGreyDark}>
+                    {item.localCurrencySymbol || '₱'}
+                    {item.localPrice != null ? item.localPrice : '0'}
+                  </Text>
                 </View>
-                <View style={styles.cell}>
-                  <Text>{dataparse.quantity}</Text>
+
+                {/* Quantity */}
+                <View style={[styles.cell, {width: COLUMN_WIDTH}]}>
+                  <Text style={globalStyles.textMDGreyDark}>
+                    {item.availableQty != null ? item.availableQty : '0'}
+                  </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </ScrollView>
-      </View>
+        <TouchableOpacity
+          onPress={() => onPressLoadMore()}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            marginTop: 10,
+            marginBottom: 50,
+          }}>
+          <Text style={globalStyles.textLGAccent}>Load More</Text>
+          <ArrowDownIcon width={25} height={20} />
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
@@ -163,8 +342,6 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    // justifyContent: 'center',
-    // alignItems: 'center',
     backgroundColor: '#fff',
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
@@ -177,9 +354,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderColor: '#ccc',
     borderBottomWidth: 1,
-  },
-  headerText: {
-    fontWeight: 'bold',
   },
   image: {
     width: 80,
@@ -196,6 +370,13 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     borderRadius: 10,
     borderWidth: 1,
+  },
+
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
