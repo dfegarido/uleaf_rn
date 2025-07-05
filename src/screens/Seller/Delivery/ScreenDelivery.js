@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,8 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
-  Alert,
   Modal,
-  ActivityIndicator,
-  RefreshControl,
+  Animated,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -46,6 +44,11 @@ import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import DeliverTableList from './components/DeliverTableList';
 import DeliverActionSheetEdit from './components/DeliverActionSheetEdit';
 
+// Export modal icons
+import ExportPdfIcon from '../../../assets/export/export-pdf.svg';
+import ExportXlsIcon from '../../../assets/export/export-xls.svg';
+
+import OrderTableList from '../Order/components/OrderTableList';
 const screenHeight = Dimensions.get('window').height;
 
 const headers = [
@@ -69,6 +72,12 @@ const dateOptions = [
 const ScreenDelivery = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState('option1');
+  const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+  
+  // Animation values
+  const [backgroundOpacity] = useState(new Animated.Value(0));
+  const [slideAnimation] = useState(new Animated.Value(300));
+  
   const isActive = key => active === key;
   const [loading, setLoading] = useState(false);
   const [dataTable, setDataTable] = useState([]);
@@ -91,6 +100,41 @@ const ScreenDelivery = ({navigation}) => {
     };
 
     fetchData();
+  };
+
+  // Function to open modal with animations
+  const openModal = () => {
+    setIsExportModalVisible(true);
+    Animated.parallel([
+      Animated.timing(backgroundOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(slideAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  // Function to close modal with animations
+  const closeModal = () => {
+    Animated.parallel([
+      Animated.timing(backgroundOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+      Animated.timing(slideAnimation, {
+        toValue: 300,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      setIsExportModalVisible(false);
+    });
   };
 
   useFocusEffect(() => {
@@ -562,7 +606,7 @@ const ScreenDelivery = ({navigation}) => {
                 </Text>
               </View>
               <TouchableOpacity
-                onPress={() => onPressExport()}
+                onPress={openModal}
                 style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                 <ShareIcon width={20} height={20}></ShareIcon>
                 <Text style={{color: '#539461', fontSize: 16, paddingLeft: 5}}>
@@ -726,30 +770,76 @@ const ScreenDelivery = ({navigation}) => {
         </View>
       </ScrollView>
 
-      <OrderActionSheet
-        code={code}
-        visible={showSheet}
-        onClose={() => setShowSheet(false)}
-        sortOptions={sortOptions}
-        dateOptions={dateOptions}
-        listingTypeOptions={listingTypeOptions}
-        sortValue={reusableSort}
-        dateValue={reusableDate}
-        sortChange={setReusableSort}
-        dateChange={setReusableDate}
-        listingTypeValue={reusableListingType}
-        listingTypeChange={setReusableListingType}
-        handleSearchSubmit={handleFilterView}
-        handleSearchSubmitRange={handleSearchSubmitRange}
-      />
+      {/* Export Modal */}
+      <Modal
+        transparent={true}
+        visible={isExportModalVisible}
+        onRequestClose={closeModal}>
+        <Animated.View 
+          style={[
+            styles.modalOverlay,
+            {
+              backgroundColor: backgroundOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.5)'],
+              }),
+            },
+          ]}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={closeModal}
+          />
+          <Animated.View 
+            style={[
+              styles.modalContainer,
+              {
+                transform: [{ translateY: slideAnimation }],
+              },
+            ]}>
+            {/* Modal Indicator */}
+            <View style={styles.modalIndicatorContainer}>
+              <View style={styles.modalIndicator} />
+            </View>
 
-      <DeliverActionSheetEdit
-        visible={showActionSheet}
-        onClose={() => setActionShowSheet(false)}
-        onPressDeliverToHub={onPressDeliverToHub}
-        onPressMissing={onPressMissing}
-        onPressCasualty={onPressCasualty}
-      />
+            {/* Modal Content */}
+            <View style={styles.modalContent}>
+              {/* Export QR Code Option */}
+              <TouchableOpacity
+                style={styles.exportOption}
+                onPress={() => {
+                  // Navigate to Export QR Code screen
+                  closeModal();
+                  navigation.navigate('ScreenExportQR');
+                }}>
+                <View style={styles.exportIcon}>
+                  <ExportPdfIcon width={48} height={48} />
+                </View>
+                <View style={styles.exportTextContainer}>
+                  <Text style={styles.exportTitle}>Export QR Code</Text>
+                  <Text style={styles.exportSubtitle}>PDF File</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Export Delivery Details Option */}
+              <TouchableOpacity
+                style={styles.exportOption}
+                onPress={() => {
+                  // Handle delivery details export
+                  console.log('Export Delivery Details');
+                  closeModal();
+                }}>
+                <View style={styles.exportIcon}>
+                  <ExportXlsIcon width={48} height={48} />
+                </View>
+                <View style={styles.exportTextContainer}>
+                  <Text style={styles.exportTitle}>Export Delivery Details</Text>
+                  <Text style={styles.exportSubtitle}>Spreadsheet File</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -835,7 +925,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
   },
-
   containerTab: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -859,10 +948,96 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
   },
-  loadingOverlay: {
+  // Modal Styles
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    position: 'relative',
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    width: Dimensions.get('window').width,
+    height: 254,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingBottom: 34,
+  },
+  modalIndicatorContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    width: '100%',
+    height: 24,
     alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  modalIndicator: {
+    position: 'absolute',
+    width: 48,
+    height: 4,
+    backgroundColor: '#E4E7E9',
+    borderRadius: 100,
+    top: '33.33%',
+  },
+  modalContent: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingTop: 8,
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    gap: 12,
+    width: '100%',
+    height: 196,
+  },
+  exportOption: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    gap: 16,
+    width: '100%',
+    height: 80,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    alignSelf: 'stretch',
+  },
+  exportIcon: {
+    width: 48,
+    height: 48,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportTextContainer: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    gap: 4,
+    flex: 1,
+    height: 43,
+  },
+  exportTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+    color: '#202325',
+    alignSelf: 'stretch',
+  },
+  exportSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 17,
+    color: '#647276',
+    alignSelf: 'stretch',
   },
 });
