@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import React, {useContext} from 'react';
 import {
   StyleSheet,
@@ -10,6 +11,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {AuthContext} from '../../auth/AuthProvider';
+import BuyerTabNavigator from './BuyerTabNavigator';
 
 import {
   ScreenDelivery,
@@ -74,6 +76,10 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// true = buyer tab navigator
+// false = seller tab navigator
+const IS_DEVELOPMENT_MODE = false;
 
 const DeliveryStack = () => (
   <Stack.Navigator>
@@ -582,6 +588,23 @@ function MainTabNavigator() {
   );
 }
 
+// const AppNavigation = () => {
+//   const {isLoggedIn, isLoading} = useContext(AuthContext);
+//
+//   if (isLoading) {
+//     return (
+//       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+//         <ActivityIndicator size="large" />
+//       </View>
+//     );
+//   }
+//   return (
+//     <NavigationContainer>
+//       {isLoggedIn ? <MainStack /> : <AuthStack />}
+//     </NavigationContainer>
+//   );
+// };
+
 const AppNavigation = () => {
   const {isLoggedIn, isLoading} = useContext(AuthContext);
 
@@ -594,7 +617,15 @@ const AppNavigation = () => {
   }
   return (
     <NavigationContainer>
-      {isLoggedIn ? <MainStack /> : <AuthStack />}
+      {isLoggedIn ? (
+        IS_DEVELOPMENT_MODE ? (
+          <BuyerTabNavigator />
+        ) : (
+          <MainStack />
+        )
+      ) : (
+        <AuthStack />
+      )}
     </NavigationContainer>
   );
 };
