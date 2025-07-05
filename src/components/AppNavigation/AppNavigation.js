@@ -17,6 +17,7 @@ import {
   ScreenDeliveryReceived,
   ScreenDeliveryMissing,
   ScreenDeliveryCasualty,
+  ScreenExportQR,
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
@@ -73,6 +74,41 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+const DeliveryStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen
+      name="ScreenDelivery"
+      component={ScreenDelivery}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryHub"
+      component={ScreenDeliveryHub}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryReceived"
+      component={ScreenDeliveryReceived}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryMissing"
+      component={ScreenDeliveryMissing}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryCasualty"
+      component={ScreenDeliveryCasualty}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenExportQR"
+      component={ScreenExportQR}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+  </Stack.Navigator>
+);
 
 const AuthStack = () => {
   return (
@@ -417,27 +453,6 @@ const MainStack = () => {
       />
 
       <Stack.Screen
-        name="ScreenDeliveryHub"
-        component={ScreenDeliveryHub}
-        options={{headerShown: false, animation: 'slide_from_right'}}
-      />
-      <Stack.Screen
-        name="ScreenDeliveryReceived"
-        component={ScreenDeliveryReceived}
-        options={{headerShown: false, animation: 'slide_from_right'}}
-      />
-      <Stack.Screen
-        name="ScreenDeliveryMissing"
-        component={ScreenDeliveryMissing}
-        options={{headerShown: false, animation: 'slide_from_right'}}
-      />
-      <Stack.Screen
-        name="ScreenDeliveryCasualty"
-        component={ScreenDeliveryCasualty}
-        options={{headerShown: false, animation: 'slide_from_right'}}
-      />
-
-      <Stack.Screen
         name="ScreenPayout"
         component={ScreenPayout}
         options={{headerShown: false, animation: 'slide_from_right'}}
@@ -536,7 +551,7 @@ function MainTabNavigator() {
       <Tab.Screen name="Listings" component={ScreenListing} />
       <Tab.Screen name="Sell" component={ScreenSell} />
       <Tab.Screen name="Order" component={ScreenOrder} />
-      <Tab.Screen name="Delivery" component={ScreenDelivery} />
+      <Tab.Screen name="Delivery" component={DeliveryStack} />
     </Tab.Navigator>
   );
 }
