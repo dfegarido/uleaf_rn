@@ -12,6 +12,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
+import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 
 import {
   ScreenDelivery,
@@ -80,6 +81,9 @@ const Tab = createBottomTabNavigator();
 // true = buyer tab navigator
 // false = seller tab navigator
 const IS_DEVELOPMENT_MODE = true;
+
+// Set to true to bypass directly to BuyerProfileScreen for testing
+const BYPASS_TO_BUYER_PROFILE = true;
 
 const DeliveryStack = () => (
   <Stack.Navigator>
@@ -589,6 +593,22 @@ const AppNavigation = () => {
       </View>
     );
   }
+
+  // Bypass directly to BuyerProfileScreen for testing
+  if (BYPASS_TO_BUYER_PROFILE) {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator>
+          <Stack.Screen
+            name="BuyerProfileScreen"
+            component={BuyerProfileScreen}
+            options={{headerShown: false}}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
   return (
     <NavigationContainer>
       {isLoggedIn ? (
