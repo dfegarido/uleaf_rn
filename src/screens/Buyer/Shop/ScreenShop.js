@@ -1,104 +1,475 @@
-import React from 'react';
+/* eslint-disable react-native/no-inline-styles */
+import React, {useState} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
-import {globalStyles} from '../../../assets/styles/styles';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
+import AvatarIcon from '../../../assets/images/avatar.svg';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
+import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
+import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
+import PromoBadge from '../../../components/PromoBadge/PromoBadge';
+import PriceTagIcon from '../../../assets/buyer-icons/tag-bold.svg';
+import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
+import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
+import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
+import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
+import WholesaleIcon from '../../../assets/buyer-icons/wholesale-plants-icon.svg';
+import {
+  genus1,
+  genus2,
+  genus3,
+  genus4,
+  genus5,
+  genus6,
+  genus7,
+  genus8,
+} from '../../../assets/buyer-icons/png';
+
+import {InfoCard} from '../../../components/InfoCards';
 
 const ScreenShop = ({navigation}) => {
+  const filterOptions = [
+    {label: 'Sort', leftIcon: SortIcon},
+    {label: 'Price', rightIcon: DownIcon},
+    {label: 'Genus', rightIcon: DownIcon},
+    {label: 'Variegation', rightIcon: DownIcon},
+    {label: 'Country', rightIcon: DownIcon},
+    {label: 'Shipping Index', rightIcon: DownIcon},
+    {label: 'Acclimation Index', rightIcon: DownIcon},
+    {label: 'Listing Type', rightIcon: DownIcon},
+  ];
+
+  const promoBadges = [
+    {label: 'Price Drop', icon: PriceDropIcon},
+    {label: 'New Arrivals', icon: NewArrivalsIcon},
+    {label: 'Latest Nursery Drop', icon: LeavesIcon},
+    {label: 'Below $20', icon: PriceTagIcon},
+    {label: 'Unicorn', icon: UnicornIcon},
+    {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
+  ];
+
+  const onGrowersPress = () => {
+    console.log('Growers Pressed');
+  };
+  const onWholesalePress = () => {
+    console.log('Wholesale Pressed');
+  };
+
+  const imageData = [
+    {
+      src: require('../../../assets/buyer-icons/png/image-1.png'),
+      label: 'Deals, Rewards & News',
+    },
+    {
+      src: require('../../../assets/buyer-icons/png/image-2.png'),
+      label: 'Deals, Rewards & News',
+    },
+    {
+      src: require('../../../assets/buyer-icons/png/image-3.png'),
+      label: 'Deals, Rewards & News',
+    },
+  ];
+
+  const genusData = [
+    {
+      src: genus1,
+      label: 'Alocasia',
+    },
+    {
+      src: genus2,
+      label: 'Anthurium',
+    },
+    {
+      src: genus3,
+      label: 'Begonia',
+    },
+    {
+      src: genus4,
+      label: 'Hoya',
+    },
+    {
+      src: genus5,
+      label: 'Monstera',
+    },
+    {
+      src: genus6,
+      label: 'Scindapsus',
+    },
+    {
+      src: genus7,
+      label: 'Syngonium',
+    },
+    {
+      src: genus8,
+      label: 'Philodendron',
+    },
+    {
+      src: genus1,
+      label: 'Others',
+    },
+  ];
+
+  const HEADER_HEIGHT = 50;
+
   return (
-    <View style={styles.container}>
-      <Text style={[globalStyles.title, styles.title]}>Shop</Text>
-      <ScrollView style={styles.content}>
-        <Text style={styles.subtitle}>Welcome to the Plant Shop!</Text>
-        <Text style={styles.description}>
-          Browse and discover amazing plants from local sellers.
-        </Text>
-        
-        <View style={styles.featuredSection}>
-          <Text style={styles.sectionTitle}>Featured Plants</Text>
-          <View style={styles.productGrid}>
-            {[1, 2, 3, 4].map((item) => (
-              <TouchableOpacity key={item} style={styles.productCard}>
-                <View style={styles.productImage} />
-                <Text style={styles.productName}>Plant {item}</Text>
-                <Text style={styles.productPrice}>$29.99</Text>
-              </TouchableOpacity>
-            ))}
+    <>
+      <View style={styles.stickyHeader}>
+        <View style={styles.header}>
+          <View style={{flex: 1}}>
+            <InputGroupLeftIcon
+              IconLeftComponent={SearchIcon}
+              placeholder={'Search I Leaf U'}
+            />
+          </View>
+
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton}>
+              <Wishicon width={40} height={40} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('ScreenProfile')}>
+              <AvatarIcon width={40} height={40} />
+            </TouchableOpacity>
           </View>
         </View>
+      </View>
+      <ScrollView
+        style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
+        contentContainerStyle={{paddingBottom: 80}}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{flexGrow: 0, paddingVertical: 15}}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+            paddingHorizontal: 10,
+          }}>
+          {filterOptions.map((option, idx) => (
+            <View
+              key={option.label}
+              style={{
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#CDD3D4',
+                padding: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+              {option.leftIcon && (
+                <option.leftIcon
+                  width={20}
+                  height={20}
+                  style={{marginRight: 4}}
+                />
+              )}
+              <Text>{option.label}</Text>
+              {option.rightIcon && (
+                <option.rightIcon
+                  width={20}
+                  height={20}
+                  style={{marginLeft: 4}}
+                />
+              )}
+            </View>
+          ))}
+        </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{flexGrow: 0, paddingVertical: 1}}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 6,
+            alignItems: 'flex-start',
+            paddingHorizontal: 9,
+          }}>
+          {promoBadges.map(badge => (
+            <PromoBadge
+              key={badge.label}
+              icon={badge.icon}
+              label={badge.label}
+              style={{marginRight: 5}}
+            />
+          ))}
+        </ScrollView>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 10,
+            paddingHorizontal: 8,
+            paddingVertical: 10,
+          }}>
+          <InfoCard
+            title={"Grower's\nChoice"}
+            subtitle="Explore"
+            IconComponent={GrowersIcon}
+            backgroundColor="#C9F0FF"
+            onPress={onGrowersPress}
+          />
+          <InfoCard
+            title={'Wholesale\nPlants'}
+            subtitle="Browse"
+            IconComponent={WholesaleIcon}
+            backgroundColor="#ECFCE5"
+            onPress={onWholesalePress}
+          />
+        </View>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: '#393D40',
+          }}>
+          Deals, Rewards & Latest News
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+            paddingHorizontal: 10,
+          }}
+          style={{flexGrow: 0}}>
+          {imageData.map((item, idx) => (
+            <View key={idx} style={{width: 275}}>
+              <Image
+                source={item.src}
+                style={{width: 260, height: 120, borderRadius: 16}}
+              />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '900',
+                  color: '#393D40',
+                  marginTop: 4,
+                  textAlign: 'left',
+                  paddingHorizontal: 5,
+                }}>
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: '#393D40',
+            marginTop: 10,
+          }}>
+          Browse Plants by Genus
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            paddingHorizontal: 12,
+            marginTop: 10,
+          }}>
+          {genusData.map((item, idx) => (
+            <View
+              key={idx}
+              style={{
+                width: '30%',
+                marginBottom: 18,
+                alignItems: 'center',
+              }}>
+              <Image
+                source={item.src}
+                style={{
+                  width: 110,
+                  height: 110,
+                  borderRadius: 12,
+                  marginBottom: 6,
+                }}
+                resizeMode="cover"
+              />
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '500',
+                  color: '#393D40',
+                  textAlign: 'center',
+                }}>
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </View>
       </ScrollView>
-    </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  body: {
     flex: 1,
     backgroundColor: '#fff',
   },
-  title: {
-    padding: 20,
-    paddingBottom: 10,
-  },
-  content: {
+  container: {
     flex: 1,
-    paddingHorizontal: 20,
+    // padding: 16,
+    backgroundColor: '#DFECDF',
   },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 30,
-  },
-  featuredSection: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  productGrid: {
+  header: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 18,
   },
-  productCard: {
-    width: '48%',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
+  search: {
+    flex: 1,
+    backgroundColor: '#f1f1f1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  headerIcons: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  productImage: {
-    width: 80,
+  iconButton: {
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  liveTag: {
+    color: 'red',
+    fontSize: 10,
+    marginTop: -4,
+  },
+  topNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  topNavItem: {
+    backgroundColor: '#fff',
+    borderColor: '#C0DAC2',
+    borderWidth: 1,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
     height: 80,
-    backgroundColor: '#ddd',
-    borderRadius: 40,
-    marginBottom: 10,
   },
-  productName: {
+  topNavText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  msgIcon: {
+    position: 'relative',
+  },
+  msgBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: 'red',
+    borderRadius: 10,
+    paddingHorizontal: 4,
+  },
+  msgBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+  },
+  cardBlack: {
+    height: 135,
+    width: 224,
+    backgroundColor: '#000',
+    borderRadius: 10,
+    padding: 16,
+    flex: 1,
+    marginRight: 8,
+  },
+  cardWhite: {
+    backgroundColor: '#f7f7f7',
+    borderColor: '#CDD3D4',
+    borderWidth: 1,
+    height: 135,
+    width: 224,
+    borderRadius: 10,
+    padding: 16,
+    flex: 1,
+  },
+  greenTag: {
+    backgroundColor: '#23C16B',
+    position: 'absolute',
+    color: '#FFF',
+    borderRadius: 10,
+    paddingHorizontal: 5,
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    marginTop: 8,
+    right: 10,
   },
-  productPrice: {
-    fontSize: 16,
-    color: '#699E73',
-    fontWeight: 'bold',
+  redPercentTag: {
+    backgroundColor: '#FF5247',
+    position: 'absolute',
+    color: '#FFF',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    fontSize: 14,
+    marginTop: 8,
+    right: 10,
+  },
+  redTag: {
+    color: '#FF5252',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  section: {
+    marginTop: 24,
+  },
+  banner: {
+    width: '100%',
+    height: 150,
+    borderRadius: 12,
+    backgroundColor: '#ccc',
+  },
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingTop: 12,
+    backgroundColor: '#fff',
+  },
+  filterButton: {
+    backgroundColor: '#fff',
+    borderColor: '#C0DAC2',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  filterButtonText: {
+    color: '#393D40',
+    fontSize: 15,
   },
 });
-
 export default ScreenShop;
