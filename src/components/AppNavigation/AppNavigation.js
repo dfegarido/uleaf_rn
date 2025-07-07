@@ -79,7 +79,7 @@ const Tab = createBottomTabNavigator();
 
 // true = buyer tab navigator
 // false = seller tab navigator
-const IS_DEVELOPMENT_MODE = false;
+const IS_DEVELOPMENT_MODE = true;
 
 const DeliveryStack = () => (
   <Stack.Navigator>
