@@ -80,10 +80,10 @@ const Tab = createBottomTabNavigator();
 
 // true = buyer tab navigator
 // false = seller tab navigator
-const IS_DEVELOPMENT_MODE = true;
+const IS_DEVELOPMENT_MODE = false;
 
 // Set to true to bypass directly to BuyerProfileScreen for testing
-const BYPASS_TO_BUYER_PROFILE = true;
+const BYPASS_TO_BUYER_PROFILE = false;
 
 const DeliveryStack = () => (
   <Stack.Navigator>
