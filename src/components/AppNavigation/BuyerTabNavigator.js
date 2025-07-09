@@ -7,6 +7,11 @@ import {Text, View, StyleSheet} from 'react-native';
 
 // Import buyer screens
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
+import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
+import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
+import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
+import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
+import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 
@@ -40,7 +45,6 @@ function BuyerTabNavigator() {
           let labelStyle = focused
             ? styles.focusedLabel
             : styles.unfocusedLabel;
-
           return (
             <Text style={[{color}, labelStyle, styles.customLabel]}>
               {route.name}
@@ -69,14 +73,10 @@ function BuyerTabNavigator() {
                     bottom: 3,
                     width: 70,
                     height: 70,
-                    backgroundColor: 'transparent', // Adjust background color if needed
+                    backgroundColor: 'transparent',
                     justifyContent: 'center',
                     alignItems: 'center',
                     shadowColor: '#000',
-                    // shadowOffset: {width: 0, height: 4},
-                    // shadowOpacity: 0.3,
-                    // shadowRadius: 4,
-                    // elevation: 5,
                   }}>
                   <BuyerIcon width={80} height={80} />
                 </View>
@@ -96,24 +96,15 @@ function BuyerTabNavigator() {
           }
         },
         headerShown: false,
-      })}>
-      <Tab.Screen
-        name="Live"
-        component={() => <PlaceholderScreen title="Lives" />}
-      />
-      <Tab.Screen
-        name="Cart"
-        component={() => <PlaceholderScreen title="Shopping Cart" />}
-      />
+      })}
+    >
       <Tab.Screen name="Shop" component={ScreenShop} />
-      <Tab.Screen
-        name="Orders"
-        component={() => <PlaceholderScreen title="My Orders" />}
-      />
-      <Tab.Screen
-        name="Chat"
-        component={() => <PlaceholderScreen title="Chat" />}
-      />
+      <Tab.Screen name="Profile" component={BuyerProfileScreen} />
+      <Tab.Screen name="AccountInformationScreen" component={AccountInformationScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="AddressBookScreen" component={AddressBookScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="AddNewAddressScreen" component={AddNewAddressScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="UpdateAddressScreen" component={UpdateAddressScreen} options={{ tabBarButton: () => null }} />
+      {/* Add other tabs as needed */}
     </Tab.Navigator>
   );
 }
