@@ -13,6 +13,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
+import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 
 import {
   ScreenDelivery,
@@ -74,6 +75,9 @@ import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import SellIcon from '../../assets/icontabs/sell.svg';
 
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
+import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
+import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -629,6 +633,26 @@ const AppNavigation = () => {
             name="BuyerProfileScreen"
             component={BuyerProfileScreen}
             options={{headerShown: false}}
+          />
+          <Stack.Screen
+            name="AccountInformationScreen"
+            component={AccountInformationScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="AddressBookScreen"
+            component={AddressBookScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="UpdateAddressScreen"
+            component={UpdateAddressScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="AddNewAddressScreen"
+            component={AddNewAddressScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
           />
         </Stack.Navigator>
       </NavigationContainer>
