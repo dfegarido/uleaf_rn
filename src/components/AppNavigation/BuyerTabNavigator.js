@@ -13,6 +13,8 @@ import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInforma
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
+import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
+import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 
@@ -52,7 +54,7 @@ function BuyerTabNavigator() {
       />
       <Stack.Screen
         name="ScreenProfile"
-        component={ScreenProfile}
+        component={BuyerProfileScreen}
         options={{headerShown: false}}
       />
     </Stack.Navigator>
@@ -122,13 +124,16 @@ function BuyerTabs() {
         headerShown: false,
       })}
     >
+      <Tab.Screen name="Live" component={LiveScreen} />
+      <Tab.Screen name="Cart" component={() => <PlaceholderScreen title="Cart" />} />
       <Tab.Screen name="Shop" component={ScreenShop} />
-      <Tab.Screen name="Profile" component={BuyerProfileScreen} />
+      <Tab.Screen name="Orders" component={ScreenOrders} />
+      <Tab.Screen name="Chat" component={() => <PlaceholderScreen title="Chat" />} />
+      <Tab.Screen name="Profile" component={BuyerProfileScreen} options={{ tabBarButton: () => null }} />
       <Tab.Screen name="AccountInformationScreen" component={AccountInformationScreen} options={{ tabBarButton: () => null }} />
       <Tab.Screen name="AddressBookScreen" component={AddressBookScreen} options={{ tabBarButton: () => null }} />
       <Tab.Screen name="AddNewAddressScreen" component={AddNewAddressScreen} options={{ tabBarButton: () => null }} />
       <Tab.Screen name="UpdateAddressScreen" component={UpdateAddressScreen} options={{ tabBarButton: () => null }} />
-      {/* Add other tabs as needed */}
     </Tab.Navigator>
   );
 }
