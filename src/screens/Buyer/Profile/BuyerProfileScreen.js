@@ -201,7 +201,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<PasswordIcon width={24} height={24} fill="#556065" />}
             title="Password"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('UpdatePasswordScreen')}
           />
         </View>
 
