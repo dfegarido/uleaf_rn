@@ -3,6 +3,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {Text, View, StyleSheet} from 'react-native';
 
 // Import buyer screens
@@ -24,10 +25,11 @@ import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selecte
 import ChatIcon from '../../assets/icontabs/buyer-tabs/chat-solid.svg';
 import ChatIconSelected from '../../assets/icontabs/buyer-tabs/chat-icon-selected.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
+import {ScreenOrders} from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
-// Temporary placeholder screens for development
 const PlaceholderScreen = ({title}) => (
   <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
     <Text style={{fontSize: 20, fontWeight: 'bold'}}>{title}</Text>
@@ -36,6 +38,28 @@ const PlaceholderScreen = ({title}) => (
 );
 
 function BuyerTabNavigator() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="BuyerTabs"
+        component={BuyerTabs}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenWishlist"
+        component={ScreenWishlist}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenProfile"
+        component={ScreenProfile}
+        options={{headerShown: false}}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function BuyerTabs() {
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
@@ -106,6 +130,25 @@ function BuyerTabNavigator() {
       <Tab.Screen name="UpdateAddressScreen" component={UpdateAddressScreen} options={{ tabBarButton: () => null }} />
       {/* Add other tabs as needed */}
     </Tab.Navigator>
+  );
+}
+
+const ShopStack = createNativeStackNavigator();
+
+function ShopStackScreen() {
+  return (
+    <ShopStack.Navigator>
+      <ShopStack.Screen
+        name="ScreenShop"
+        component={ScreenShop}
+        options={{headerShown: false}}
+      />
+      <ShopStack.Screen
+        name="ScreenWishlist"
+        component={ScreenWishlist}
+        options={{headerShown: false}}
+      />
+    </ShopStack.Navigator>
   );
 }
 
