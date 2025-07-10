@@ -14,6 +14,7 @@ import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
+import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';  
 
 import {
   ScreenDelivery,
@@ -654,6 +655,11 @@ const AppNavigation = () => {
             component={AddNewAddressScreen}
             options={{headerShown: false, animation: 'slide_from_right'}}
           />
+          <Stack.Screen
+            name="UpdatePasswordScreen"
+            component={UpdatePasswordScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}} 
+           />
         </Stack.Navigator>
       </NavigationContainer>
     );
