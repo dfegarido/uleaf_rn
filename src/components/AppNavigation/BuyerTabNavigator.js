@@ -8,9 +8,11 @@ import {Text, View, StyleSheet} from 'react-native';
 
 // Import buyer screens
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
-import ScreenCart from '../../screens/Buyer/Cart/ScreenCart';
-import {ScreenWishlist} from '../../screens/Buyer/Shop';
-import {ScreenProfile} from '../../screens/Profile';
+import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
+import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
+import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
+import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
+import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 
@@ -67,7 +69,6 @@ function BuyerTabs() {
           let labelStyle = focused
             ? styles.focusedLabel
             : styles.unfocusedLabel;
-
           return (
             <Text style={[{color}, labelStyle, styles.customLabel]}>
               {route.name}
@@ -119,18 +120,15 @@ function BuyerTabs() {
           }
         },
         headerShown: false,
-      })}>
-      <Tab.Screen
-        name="Live"
-        component={() => <PlaceholderScreen title="Lives" />}
-      />
-      <Tab.Screen name="Cart" component={ScreenCart} />
-      <Tab.Screen name="Shop" component={ShopStackScreen} />
-      <Tab.Screen name="Orders" component={ScreenOrders} />
-      <Tab.Screen
-        name="Chat"
-        component={() => <PlaceholderScreen title="Chat" />}
-      />
+      })}
+    >
+      <Tab.Screen name="Shop" component={ScreenShop} />
+      <Tab.Screen name="Profile" component={BuyerProfileScreen} />
+      <Tab.Screen name="AccountInformationScreen" component={AccountInformationScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="AddressBookScreen" component={AddressBookScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="AddNewAddressScreen" component={AddNewAddressScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="UpdateAddressScreen" component={UpdateAddressScreen} options={{ tabBarButton: () => null }} />
+      {/* Add other tabs as needed */}
     </Tab.Navigator>
   );
 }
