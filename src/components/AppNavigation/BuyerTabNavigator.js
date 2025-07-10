@@ -3,10 +3,14 @@
 /* eslint-disable react/no-unstable-nested-components */
 import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {Text, View, StyleSheet} from 'react-native';
 
 // Import buyer screens
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
+import ScreenCart from '../../screens/Buyer/Cart/ScreenCart';
+import {ScreenWishlist} from '../../screens/Buyer/Shop';
+import {ScreenProfile} from '../../screens/Profile';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 
@@ -19,10 +23,11 @@ import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selecte
 import ChatIcon from '../../assets/icontabs/buyer-tabs/chat-solid.svg';
 import ChatIconSelected from '../../assets/icontabs/buyer-tabs/chat-icon-selected.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
+import {ScreenOrders} from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
-// Temporary placeholder screens for development
 const PlaceholderScreen = ({title}) => (
   <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
     <Text style={{fontSize: 20, fontWeight: 'bold'}}>{title}</Text>
@@ -31,6 +36,28 @@ const PlaceholderScreen = ({title}) => (
 );
 
 function BuyerTabNavigator() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="BuyerTabs"
+        component={BuyerTabs}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenWishlist"
+        component={ScreenWishlist}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenProfile"
+        component={ScreenProfile}
+        options={{headerShown: false}}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function BuyerTabs() {
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
@@ -69,14 +96,10 @@ function BuyerTabNavigator() {
                     bottom: 3,
                     width: 70,
                     height: 70,
-                    backgroundColor: 'transparent', // Adjust background color if needed
+                    backgroundColor: 'transparent',
                     justifyContent: 'center',
                     alignItems: 'center',
                     shadowColor: '#000',
-                    // shadowOffset: {width: 0, height: 4},
-                    // shadowOpacity: 0.3,
-                    // shadowRadius: 4,
-                    // elevation: 5,
                   }}>
                   <BuyerIcon width={80} height={80} />
                 </View>
@@ -101,20 +124,33 @@ function BuyerTabNavigator() {
         name="Live"
         component={() => <PlaceholderScreen title="Lives" />}
       />
-      <Tab.Screen
-        name="Cart"
-        component={() => <PlaceholderScreen title="Shopping Cart" />}
-      />
-      <Tab.Screen name="Shop" component={ScreenShop} />
-      <Tab.Screen
-        name="Orders"
-        component={() => <PlaceholderScreen title="My Orders" />}
-      />
+      <Tab.Screen name="Cart" component={ScreenCart} />
+      <Tab.Screen name="Shop" component={ShopStackScreen} />
+      <Tab.Screen name="Orders" component={ScreenOrders} />
       <Tab.Screen
         name="Chat"
         component={() => <PlaceholderScreen title="Chat" />}
       />
     </Tab.Navigator>
+  );
+}
+
+const ShopStack = createNativeStackNavigator();
+
+function ShopStackScreen() {
+  return (
+    <ShopStack.Navigator>
+      <ShopStack.Screen
+        name="ScreenShop"
+        component={ScreenShop}
+        options={{headerShown: false}}
+      />
+      <ShopStack.Screen
+        name="ScreenWishlist"
+        component={ScreenWishlist}
+        options={{headerShown: false}}
+      />
+    </ShopStack.Navigator>
   );
 }
 

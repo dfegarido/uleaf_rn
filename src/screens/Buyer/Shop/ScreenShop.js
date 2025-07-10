@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,10 @@ import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
 import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
 import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
 import WholesaleIcon from '../../../assets/buyer-icons/wholesale-plants-icon.svg';
+import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
+import ThailandIcon from '../../../assets/buyer-icons/thailand-flag.svg';
+import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
+import DropDownIcon from '../../../assets/buyer-icons/drop-down.svg';
 import {
   genus1,
   genus2,
@@ -35,6 +39,80 @@ import {
 } from '../../../assets/buyer-icons/png';
 
 import {InfoCard} from '../../../components/InfoCards';
+import ScreenWishlist from './ScreenWishlist';
+import {PlantItemCard} from '../../../components/PlantItemCard';
+
+const countryData = [
+  {
+    src: ThailandIcon,
+    label: 'Thailand',
+  },
+  {
+    src: IndonesiaIcon,
+    label: 'Indonesia',
+  },
+  {
+    src: PhilippinesIcon,
+    label: 'Philippines',
+  },
+];
+
+const browseMorePlantsData = [
+  {
+    id: 1,
+    flag: ThailandIcon,
+    title: 'Ficus lyrata',
+    subtitle: 'Inner Variegated',
+    price: '$65.27',
+    likes: '5K',
+    isWishlisted: false,
+  },
+  {
+    id: 2,
+    flag: ThailandIcon,
+    title: 'Ficus lyrata',
+    subtitle: 'Inner Variegated',
+    price: '$65.27',
+    likes: '5K',
+    isWishlisted: false,
+  },
+  {
+    id: 3,
+    flag: ThailandIcon,
+    title: 'Ficus lyrata',
+    subtitle: 'Inner Variegated',
+    price: '$65.27',
+    likes: '5K',
+    isWishlisted: false,
+  },
+  {
+    id: 4,
+    flag: ThailandIcon,
+    title: 'Ficus lyrata',
+    subtitle: 'Inner Variegated',
+    price: '$65.27',
+    likes: '5K',
+    isWishlisted: false,
+  },
+  {
+    id: 5,
+    flag: ThailandIcon,
+    title: 'Ficus lyrata',
+    subtitle: 'Inner Variegated',
+    price: '$65.27',
+    likes: '5K',
+    isWishlisted: false,
+  },
+  {
+    id: 6,
+    flag: ThailandIcon,
+    title: 'Ficus lyrata',
+    subtitle: 'Inner Variegated',
+    price: '$65.27',
+    likes: '5K',
+    isWishlisted: false,
+  },
+];
 
 const ScreenShop = ({navigation}) => {
   const filterOptions = [
@@ -118,7 +196,12 @@ const ScreenShop = ({navigation}) => {
     },
   ];
 
-  const HEADER_HEIGHT = 50;
+  const HEADER_HEIGHT = 110;
+
+  const scrollViewRef = useRef(null);
+
+  const [browseMorePlants, setBrowseMorePlants] =
+    useState(browseMorePlantsData);
 
   return (
     <>
@@ -132,7 +215,9 @@ const ScreenShop = ({navigation}) => {
           </View>
 
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate(ScreenWishlist)}>
               <Wishicon width={40} height={40} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -142,14 +227,11 @@ const ScreenShop = ({navigation}) => {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-      <ScrollView
-        style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
-        contentContainerStyle={{paddingBottom: 80}}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={{flexGrow: 0, paddingVertical: 15}}
+          ref={scrollViewRef}
+          style={{flexGrow: 0, paddingVertical: 4}}
           contentContainerStyle={{
             flexDirection: 'row',
             gap: 10,
@@ -164,6 +246,7 @@ const ScreenShop = ({navigation}) => {
                 borderWidth: 1,
                 borderColor: '#CDD3D4',
                 padding: 8,
+                marginTop: 5,
                 flexDirection: 'row',
                 alignItems: 'center',
               }}>
@@ -185,6 +268,11 @@ const ScreenShop = ({navigation}) => {
             </View>
           ))}
         </ScrollView>
+      </View>
+      <ScrollView
+        ref={scrollViewRef}
+        style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
+        contentContainerStyle={{paddingBottom: 170}}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -204,7 +292,6 @@ const ScreenShop = ({navigation}) => {
             />
           ))}
         </ScrollView>
-
         <View
           style={{
             flexDirection: 'row',
@@ -316,6 +403,94 @@ const ScreenShop = ({navigation}) => {
             </View>
           ))}
         </View>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: '#393D40',
+            marginTop: 10,
+          }}>
+          Explore Plants by Country
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'flex-start',
+            gap: 5,
+            paddingHorizontal: 12,
+            marginTop: 8,
+          }}>
+          {countryData.map((item, idx) => (
+            <TouchableOpacity
+              key={idx}
+              onPress={() => console.log(item.label)}
+              style={{
+                width: 110,
+                height: 79,
+                borderWidth: 1,
+                borderColor: '#E3E6E8',
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                marginRight: 10,
+                backgroundColor: '#fff',
+              }}>
+              <item.src width={40} height={40} resizeMode="cover" />
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '900',
+                  color: '#393D40',
+                }}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: '900',
+            color: '#393D40',
+            marginTop: 15,
+            marginLeft: 12,
+          }}>
+          Browse More Plants
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 1,
+            justifyContent: 'center',
+          }}>
+          {browseMorePlants.map((plant, idx) => (
+            <PlantItemCard
+              key={plant.id}
+              flag={plant.flag}
+              title={plant.title}
+              subtitle={plant.subtitle}
+              price={plant.price}
+              likes={plant.likes}
+              isWishlisted={plant.isWishlisted}
+              onWishlistPress={() => {
+                setBrowseMorePlants(prev =>
+                  prev.map((p, i) =>
+                    i === idx ? {...p, isWishlisted: !p.isWishlisted} : p,
+                  ),
+                );
+              }}
+            />
+          ))}
+        </View>
+        <View style={{width: '100%', alignItems: 'center', marginTop: 15}}>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <Text style={styles.loadMoreText}>Load More</Text>
+            <DropDownIcon width={16.5} height={9} />
+          </View>
+        </View>
       </ScrollView>
     </>
   );
@@ -335,7 +510,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 13,
   },
   search: {
     flex: 1,
@@ -470,6 +645,12 @@ const styles = StyleSheet.create({
   filterButtonText: {
     color: '#393D40',
     fontSize: 15,
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#539461',
+    marginRight: 8,
   },
 });
 export default ScreenShop;

@@ -1,3 +1,5 @@
+/* eslint-disable react/self-closing-comp */
+/* eslint-disable react-native/no-inline-styles */
 import React, {useState, useRef, useEffect} from 'react';
 import {
   View,
@@ -87,11 +89,11 @@ const ScreenDelivery = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState('option1');
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
-  
+
   // Animation values
   const [backgroundOpacity] = useState(new Animated.Value(0));
   const [slideAnimation] = useState(new Animated.Value(300));
-  
+
   const isActive = key => active === key;
 
   // Function to open modal with animations
@@ -368,7 +370,7 @@ const ScreenDelivery = ({navigation}) => {
         transparent={true}
         visible={isExportModalVisible}
         onRequestClose={closeModal}>
-        <Animated.View 
+        <Animated.View
           style={[
             styles.modalOverlay,
             {
@@ -378,15 +380,12 @@ const ScreenDelivery = ({navigation}) => {
               }),
             },
           ]}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            onPress={closeModal}
-          />
-          <Animated.View 
+          <TouchableOpacity style={styles.modalBackdrop} onPress={closeModal} />
+          <Animated.View
             style={[
               styles.modalContainer,
               {
-                transform: [{ translateY: slideAnimation }],
+                transform: [{translateY: slideAnimation}],
               },
             ]}>
             {/* Modal Indicator */}
@@ -425,7 +424,9 @@ const ScreenDelivery = ({navigation}) => {
                   <ExportXlsIcon width={48} height={48} />
                 </View>
                 <View style={styles.exportTextContainer}>
-                  <Text style={styles.exportTitle}>Export Delivery Details</Text>
+                  <Text style={styles.exportTitle}>
+                    Export Delivery Details
+                  </Text>
                   <Text style={styles.exportSubtitle}>Spreadsheet File</Text>
                 </View>
               </TouchableOpacity>

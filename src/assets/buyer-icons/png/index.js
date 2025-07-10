@@ -11,6 +11,12 @@ import genus6 from './scindapsus.png';
 import genus7 from './syngonium.png';
 import genus8 from './philodendron.png';
 
+import plant1 from './ficus-lyrata.png';
+
+import wishlist1 from './wishlist-plant1.png';
+
+import thFlag from './TH.png';
+
 export {
   banner1,
   banner2,
@@ -23,4 +29,7 @@ export {
   genus6,
   genus7,
   genus8,
+  plant1,
+  wishlist1,
+  thFlag,
 };
