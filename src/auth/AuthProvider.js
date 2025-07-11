@@ -1,9 +1,18 @@
 // AuthContext.js
-import React, {createContext, useState, useEffect} from 'react';
+import React, {createContext, useState, useEffect, useContext} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getAuth, signOut, onIdTokenChanged} from '@react-native-firebase/auth';
 
 export const AuthContext = createContext();
+
+// Custom hook to use the AuthContext
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider = ({children}) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +87,7 @@ export const AuthProvider = ({children}) => {
         logout,
         userInfo,
         setUserInfo,
+        user: userInfo, // Add user property that references userInfo
       }}>
       {children}
     </AuthContext.Provider>

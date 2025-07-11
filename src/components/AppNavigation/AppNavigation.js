@@ -158,6 +158,11 @@ const AuthStack = () => {
         })}
       />
       <Stack.Screen
+        name="BuyerTabs"
+        component={BuyerTabNavigator}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
         name="LoginOtp"
         component={ScreenLoginOtp}
         options={({navigation}) => ({

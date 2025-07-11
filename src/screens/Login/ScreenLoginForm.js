@@ -97,6 +97,14 @@ const ScreenLoginForm = ({navigation}) => {
     }
   };
 
+  const handlePressBuyerBypass = () => {
+    // Navigate directly to buyer screens without authentication
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'BuyerTabs' }],
+    });
+  };
+
   return (
     <ScrollView>
       <View
@@ -167,6 +175,15 @@ const ScreenLoginForm = ({navigation}) => {
               style={globalStyles.primaryButton}
               onPress={handlePressLogin}>
               <Text style={globalStyles.primaryButtonText}>Login</Text>
+            </TouchableOpacity>
+
+            {/* Buyer Bypass Button for Development */}
+            <TouchableOpacity
+              style={[globalStyles.secondaryButtonAccent, {marginTop: 10}]}
+              onPress={handlePressBuyerBypass}>
+              <Text style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
+                Go to Buyer Screen (Dev Mode)
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
