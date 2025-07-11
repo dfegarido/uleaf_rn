@@ -56,7 +56,6 @@ import DeliverActionSheetEdit from './components/DeliverActionSheetEdit';
 import ExportPdfIcon from '../../../assets/export/export-pdf.svg';
 import ExportXlsIcon from '../../../assets/export/export-xls.svg';
 
-import OrderTableList from '../Order/components/OrderTableList';
 const screenHeight = Dimensions.get('window').height;
 
 const headers = [
