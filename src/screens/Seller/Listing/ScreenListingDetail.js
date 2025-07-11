@@ -34,6 +34,7 @@ import {
   postListingDeactivateActionApi,
   postListingUpdateStockActionApi,
   postListingDeleteApi,
+  postListingPinActionApi,
 } from '../../../components/Api';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -52,6 +53,7 @@ import RenewIcon from '../../../assets/icons/accent/arrow-clockwise-regular.svg'
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
 import PublishIcon from '../../../assets/icons/accent/box-arrow-up-regular.svg';
 import EditNoteIcon from '../../../assets/icons/accent/note-edit.svg';
+import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 
 import BackgroundCarousel from '../../../components/BackgroundCarousel';
 
@@ -66,6 +68,8 @@ const images = [
 const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
 
+import {useNavigationState} from '@react-navigation/native';
+
 const ScreenListingDetail = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef(null);
@@ -73,6 +77,10 @@ const ScreenListingDetail = ({navigation, route}) => {
   const [listingData, setListingData] = useState(null);
 
   const {plantCode} = route.params;
+
+  const routes = useNavigationState(state => state.routes);
+  const previousRoute = routes[routes.length - 2]; // Previous screen
+  // console.log('Previous Route Here: ', previousRoute.name);
 
   // ✅ Fetch on mount
   const isFocused = useIsFocused();
@@ -406,7 +414,7 @@ const ScreenListingDetail = ({navigation, route}) => {
                         plantCode: listingData?.plantCode,
                       });
                     }
-                    if (listingData?.listingType == "Grower's Choice") {
+                    if (listingData?.listingType == "Grower's choice") {
                       navigation.navigate('ScreenGrowersSell', {
                         plantCode: listingData?.plantCode,
                       });
@@ -490,13 +498,24 @@ const ScreenListingDetail = ({navigation, route}) => {
                 </Text>
                 <QuestionIcon widht={30} height={30}></QuestionIcon>
               </View>
-              <View style={{flexDirection: 'row'}}>
-                <PinIcon widht={25} height={25}></PinIcon>
+              <TouchableOpacity
+                style={{flexDirection: 'row'}}
+                onPress={() =>
+                  onPressTableListPin(listingData.plantCode, listingData.pinTag)
+                }>
+                {listingData?.pinTag ? (
+                  <PinAccentIcon width={25} height={25} />
+                ) : (
+                  <PinIcon width={25} height={25} />
+                )}
                 <Text
-                  style={[globalStyles.textMDGreyLight, {paddingRight: 10}]}>
+                  style={[
+                    globalStyles.textMDGreyLight,
+                    {paddingLeft: 5, paddingRight: 10},
+                  ]}>
                   Pin
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
           {/* Count Information */}
@@ -682,60 +701,67 @@ const ScreenListingDetail = ({navigation, route}) => {
           {/* Status Information */}
 
           {/* Pot size Information */}
-          <View
-            style={{
-              borderBottomColor: '#E4E7E9',
-              borderBottomWidth: 1,
-              paddingVertical: 10,
-              paddingHorizontal: 20,
-            }}>
-            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
-              Pot Size
-            </Text>
-
-            <View
-              style={[
-                styles.badge,
-                {
-                  backgroundColor: '#E4E7E9',
-                  alignSelf: 'flex-start',
-                  paddingHorizontal: 10,
-                  marginBottom: 10,
-                },
-              ]}>
-              <Text style={{color: '#000'}}>{listingData?.potSize ?? ''}</Text>
-            </View>
-          </View>
-
-          <View
-            style={{
-              borderBottomColor: '#E4E7E9',
-              borderBottomWidth: 1,
-              paddingVertical: 10,
-              paddingHorizontal: 20,
-            }}>
-            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
-              Approximate Height
-            </Text>
+          {listingData?.potSize ? (
             <View
               style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                width: '100%',
-                marginBottom: 10,
-                padding: 10,
+                borderBottomColor: '#E4E7E9',
+                borderBottomWidth: 1,
+                paddingVertical: 10,
+                paddingHorizontal: 20,
               }}>
-              <InchesIcon width={20} height={20} />
-              <View>
-                <Text style={[globalStyles.textMDGreyDark, {paddingLeft: 10}]}>
-                  {listingData?.approximateHeight ?? ''}
-                </Text>
-                <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
-                  {listingData?.potSize ?? ''}
-                </Text>
+              <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                Pot Size
+              </Text>
+
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: '#E4E7E9',
+                    alignSelf: 'flex-start',
+                    paddingHorizontal: 10,
+                    marginBottom: 10,
+                  },
+                ]}>
+                <Text style={{color: '#000'}}>{listingData.potSize}</Text>
               </View>
             </View>
-          </View>
+          ) : null}
+
+          {/* Approximate Height Section */}
+          {listingData?.approximateHeight ? (
+            <View
+              style={{
+                borderBottomColor: '#E4E7E9',
+                borderBottomWidth: 1,
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+              }}>
+              <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                Approximate Height
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  width: '100%',
+                  marginBottom: 10,
+                  padding: 10,
+                }}>
+                <InchesIcon width={20} height={20} />
+                <View>
+                  <Text
+                    style={[globalStyles.textMDGreyDark, {paddingLeft: 10}]}>
+                    {listingData.approximateHeight}
+                  </Text>
+                  <Text
+                    style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
+                    {listingData.potSize}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
 
           {Array.isArray(listingData?.variations) &&
             listingData.variations.length > 0 && (
@@ -893,6 +919,11 @@ const ScreenListingDetail = ({navigation, route}) => {
           }
           if (listingData?.listingType == 'Wholesale') {
             navigation.navigate('ScreenWholesaleSell', {
+              plantCode: listingData?.plantCode,
+            });
+          }
+          if (listingData?.listingType == "Grower's choice") {
+            navigation.navigate('ScreenGrowersSell', {
               plantCode: listingData?.plantCode,
             });
           }

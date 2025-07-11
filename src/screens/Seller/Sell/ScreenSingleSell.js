@@ -1,4 +1,4 @@
-import React, {useLayoutEffect, useState, useEffect} from 'react';
+import React, {useLayoutEffect, useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import {globalStyles} from '../../../assets/styles/styles';
 import {
@@ -36,6 +37,7 @@ import {getAuth} from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
+import SellConfirmDraft from './components/SellConfirmDraft';
 
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
@@ -50,27 +52,34 @@ const heightOptions = [
     value: 'below',
   },
   {
-    label: 'Above 12 inches',
-    subLabel: '>30 cm',
+    label: '12 Inches & above',
+    subLabel: '>=30 cm',
     value: 'above',
   },
 ];
+
+import {useNavigationState} from '@react-navigation/native';
 
 const ScreenSingleSell = ({navigation, route}) => {
   const app = getApp();
   const auth = getAuth(app);
   const [loading, setLoading] = useState(false);
 
-  useLayoutEffect(() => {
-    if (plantCode) return; // If plantCode is set, do not show Save button
+  const routes = useNavigationState(state => state.routes);
+  const previousRoute = routes[routes.length - 2]; // Previous screen
+  const isFromDuplicateSell = previousRoute?.name === 'ScreenDuplicateSell';
+  const isFromDraftSell = previousRoute?.name === 'ScreenDraftSell';
 
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity onPress={onPressSave} color="#000">
-          <Text style={globalStyles.textLGAccent}>Save</Text>
-        </TouchableOpacity>
-      ),
-    });
+  useLayoutEffect(() => {
+    if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={onPressSave} color="#000">
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        ),
+      });
+    }
   }, [navigation, plantCode]);
 
   // Dropdown
@@ -141,9 +150,10 @@ const ScreenSingleSell = ({navigation, route}) => {
     // );
     let localVariegationData = getVariegationApiData.data;
     setSelectedVariegation('');
-    setdropdownVariegationDisable(
-      getVariegationApiData.data.length == 0 ? true : false,
-    );
+    // setdropdownVariegationDisable(
+    //   getVariegationApiData.data.length != 0 ? true : false,
+    // );
+    setSelectedVariegation(getVariegationApiData.data[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
   };
@@ -206,6 +216,8 @@ const ScreenSingleSell = ({navigation, route}) => {
   // Dropdown Species
   const [selectedSpecies, setSelectedSpecies] = useState('');
   const handleSpeciesChange = async species => {
+    // setdropdownVariegationDisable(false);
+    setSelectedVariegation('');
     setSelectedSpecies(species);
     setLoading(true);
     try {
@@ -226,8 +238,13 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [isChecked, setIsChecked] = useState(false);
   const [images, setImages] = useState([]);
   const handleImagePicked = uris => {
-    setImages(uris); // This is an array of image URIs
-    console.log(uris);
+    setImages(prevImages => [...prevImages, ...uris]); // Append new images
+    console.log('Appended URIs:', uris);
+  };
+  const removeImage = indexToRemove => {
+    setImages(prevImages =>
+      prevImages.filter((_, index) => index !== indexToRemove),
+    );
   };
   const [selectedPotSize, setSelectPotSize] = useState('2"');
   const [selectedMeasure, setSelectMeasure] = useState('below');
@@ -334,8 +351,8 @@ const ScreenSingleSell = ({navigation, route}) => {
 
       // TODO: Replace this with your actual API call
       // await submitListing(data);
-
-      Alert.alert('Publish Now', 'Listing published successfully!');
+      isManuallyNavigating.current = true;
+      showAlertSuccess('Publish Now', 'Listing published successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish Now', error.message);
@@ -397,7 +414,8 @@ const ScreenSingleSell = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
 
-      Alert.alert(
+      isManuallyNavigating.current = true;
+      showAlertSuccess(
         'Publish on Nursery Drop',
         'Listing published on nursery drop successfully!',
       );
@@ -426,6 +444,8 @@ const ScreenSingleSell = ({navigation, route}) => {
 
       // Upload images to Firebase
       const uploadedUrls = [];
+
+      console.log(uploadedUrls);
       for (const uri of images) {
         const firebaseUrl = await uploadImageToFirebase(uri);
         uploadedUrls.push(firebaseUrl);
@@ -442,7 +462,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
         imageCollection: uploadedUrls,
         potSize: selectedPotSize,
-        localPrice: localPrice ? parseFloat(localPrice) : null,
+        localPrice: localPrice ? parseFloat(localPrice) : 0,
         approximateHeight:
           selectedMeasure === 'below' ? 'Below 12 inches' : 'Above 12 inches',
         status: 'Draft',
@@ -460,10 +480,11 @@ const ScreenSingleSell = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
 
-      Alert.alert('Save', 'Listing saved successfully!');
+      isManuallyNavigating.current = true;
+      showAlertSuccess('Save Listing', 'Listing saved successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
-      Alert.alert('Save', error.message);
+      Alert.alert('Save Listing', error.message);
     } finally {
       setLoading(false);
     }
@@ -477,6 +498,7 @@ const ScreenSingleSell = ({navigation, route}) => {
     status,
     publishType,
   } = route?.params ?? {};
+
   useEffect(() => {
     if (!plantCode) return; // Skip if plantCode is not set
 
@@ -579,7 +601,8 @@ const ScreenSingleSell = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
 
-      Alert.alert('Update Listing', 'Listing updated successfully!');
+      isManuallyNavigating.current = true;
+      showAlertSuccess('Update Listing', 'Listing updated successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Update Listing', error.message);
@@ -588,6 +611,83 @@ const ScreenSingleSell = ({navigation, route}) => {
     }
   };
   // Details
+
+  // Confirm
+  const [onGobackModalVisible, setOnGobackModalVisible] = useState(false);
+  // Confirm
+
+  // On go back
+  const [blockNavEvent, setBlockNavEvent] = useState(null); // for delayed navigation
+
+  const isManuallyNavigating = useRef(false);
+
+  useEffect(() => {
+    if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+      const unsubscribeNav = navigation.addListener('beforeRemove', e => {
+        if (isManuallyNavigating.current) {
+          // Allow navigation without confirmation
+          return;
+        }
+
+        if (onGobackModalVisible) {
+          return;
+        }
+
+        e.preventDefault(); // Block default behavior
+        setBlockNavEvent(e);
+        setOnGobackModalVisible(true);
+      });
+
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          if (onGobackModalVisible) return true;
+
+          setOnGobackModalVisible(true);
+          return true;
+        },
+      );
+
+      return () => {
+        unsubscribeNav();
+        backHandler.remove();
+      };
+    }
+  }, [navigation, onGobackModalVisible]);
+
+  const handleConfirmExit = () => {
+    setOnGobackModalVisible(false);
+    if (blockNavEvent) {
+      blockNavEvent?.preventDefault(); // just in case
+      blockNavEvent?.target && navigation.dispatch(blockNavEvent.data.action); // proceed with original back
+    } else {
+      navigation.goBack(); // fallback
+    }
+  };
+
+  const handleCancelExit = () => {
+    setOnGobackModalVisible(false);
+    setBlockNavEvent(null);
+  };
+  // On go back
+
+  // Show success alert
+  const showAlertSuccess = (titleText, messageText) => {
+    Alert.alert(
+      titleText,
+      messageText,
+      [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(), // 👈 Go back to the previous screen
+        },
+      ],
+      {
+        cancelable: false, // 🔒 Prevent dismiss on outside tap or back button
+      },
+    );
+  };
+  // Show success alert
 
   return (
     <ScrollView style={styles.mainContent}>
@@ -601,7 +701,7 @@ const ScreenSingleSell = ({navigation, route}) => {
       <View style={styles.formContainer}>
         <View style={[{paddingBottom: 10}]}>
           <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Genus
+            Genus <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputDropdown
             options={dropdownOptionGenus}
@@ -612,7 +712,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         </View>
         <View style={[{paddingBottom: 10}]}>
           <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Species
+            Species <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputDropdown
             options={dropdownOptionSpecies}
@@ -623,7 +723,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         </View>
         <View style={[{paddingBottom: 20}]}>
           <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Variegation
+            Variegation <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
           <InputDropdown
             options={dropdownOptionVariegation}
@@ -634,7 +734,7 @@ const ScreenSingleSell = ({navigation, route}) => {
           />
         </View>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Can't find genus or specie name?
+          Can't find genus or species name?
         </Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('ScreenProfileRequest')}>
@@ -671,7 +771,7 @@ const ScreenSingleSell = ({navigation, route}) => {
       </View>
       <View style={styles.formContainer}>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Picture/s
+          Picture/s <Text style={globalStyles.textXSRed}>*</Text>
         </Text>
         {images.length > 0 && (
           <>
@@ -679,20 +779,30 @@ const ScreenSingleSell = ({navigation, route}) => {
             <FlatList
               data={images}
               keyExtractor={(uri, index) => index.toString()}
-              renderItem={({item}) => (
-                <Image source={{uri: item}} style={styles.image} />
-              )}
               horizontal
+              renderItem={({item, index}) => (
+                <View style={styles.imageContainer}>
+                  <Image source={{uri: item}} style={styles.image} />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeImage(index)}>
+                    <Text style={styles.removeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             />
           </>
         )}
+
         <ImagePickerModal onImagePicked={handleImagePicked} />
         <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
           Take a photo(camera) or select from your library
         </Text>
       </View>
       <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGreyDark]}>Pot Size</Text>
+        <Text style={[globalStyles.textMDGreyDark]}>
+          Pot Size <Text style={globalStyles.textXSRed}>*</Text>
+        </Text>
         <View
           style={{
             flexDirection: 'row',
@@ -704,7 +814,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         <View>
           <View style={{marginTop: 10}}>
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
-              Local Price
+              Local Price <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox
               placeholder={'Enter price'}
@@ -712,7 +822,9 @@ const ScreenSingleSell = ({navigation, route}) => {
               setValue={setLocalPrice}></InputBox>
           </View>
           <View style={{marginTop: 10}}>
-            <Text style={globalStyles.textLGGreyDark}>Approximate Height</Text>
+            <Text style={globalStyles.textLGGreyDark}>
+              Approximate Height <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
             <View
               style={{
                 flexDirection: 'row',
@@ -723,31 +835,49 @@ const ScreenSingleSell = ({navigation, route}) => {
             </View>
           </View>
           <Text style={[globalStyles.textSMGreyLight, {paddingTop: 10}]}>
-            For shipping calculation use.
+            For shipping costs calculations only.
           </Text>
         </View>
         <View style={{paddingTop: 30}}>
-          <TouchableOpacity
-            style={globalStyles.primaryButton}
-            onPress={plantCode ? onPressUpdate : onPressPublish}>
-            <Text style={globalStyles.primaryButtonText}>
-              {plantCode ? 'Update Listing' : 'Publish Now'}
-            </Text>
-          </TouchableOpacity>
-          <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-            {!plantCode && (
+          {isFromDuplicateSell == false &&
+            !plantCode == false &&
+            isFromDraftSell == false && (
               <TouchableOpacity
-                onPress={onPressPublishNurseryDrop}
-                style={globalStyles.secondaryButtonAccent}>
-                <Text
-                  style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                  Publish on Nursery Drop
+                style={globalStyles.primaryButton}
+                onPress={onPressUpdate}>
+                <Text style={globalStyles.primaryButtonText}>
+                  Update Listing
                 </Text>
               </TouchableOpacity>
             )}
-          </View>
+          {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+            <>
+              <TouchableOpacity
+                style={globalStyles.primaryButton}
+                onPress={onPressPublish}>
+                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                <TouchableOpacity
+                  onPress={onPressPublishNurseryDrop}
+                  style={globalStyles.secondaryButtonAccent}>
+                  <Text
+                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
+                    Publish on Nursery Drop
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </View>
+      <SellConfirmDraft
+        visible={onGobackModalVisible}
+        onConfirm={onPressSave}
+        onExit={handleConfirmExit}
+        onCancel={handleCancelExit}
+      />
     </ScrollView>
   );
 };
@@ -812,6 +942,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 5,
+    right: 15,
+    backgroundColor: '#eee',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  removeButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
 

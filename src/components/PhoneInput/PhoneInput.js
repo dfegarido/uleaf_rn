@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -23,18 +23,63 @@ const countries = [
     flag: '🇺🇸',
   },
   {
-    name: 'India',
-    code: 'IN',
-    callingCode: '+91',
-    flag: '🇮🇳',
+    name: 'Thailand',
+    code: 'TH',
+    callingCode: '+66',
+    flag: '🇹🇭',
   },
-  // Add more as needed
+  {
+    name: 'Japan',
+    code: 'JP',
+    callingCode: '+81',
+    flag: '🇯🇵',
+  },
+  {
+    name: 'South Korea',
+    code: 'KR',
+    callingCode: '+82',
+    flag: '🇰🇷',
+  },
+  {
+    name: 'China',
+    code: 'CN',
+    callingCode: '+86',
+    flag: '🇨🇳',
+  },
+  {
+    name: 'Indonesia',
+    code: 'ID',
+    callingCode: '+62',
+    flag: '🇮🇩',
+  },
 ];
 
-const PhoneInput = () => {
+const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Detect and set country from initialPhoneNumber
+  useEffect(() => {
+    if (initialPhoneNumber) {
+      const found = countries.find(c =>
+        initialPhoneNumber.startsWith(c.callingCode),
+      );
+      if (found) {
+        setSelectedCountry(found);
+        setPhoneNumber(initialPhoneNumber.replace(found.callingCode, ''));
+      } else {
+        setPhoneNumber(initialPhoneNumber);
+      }
+    }
+  }, [initialPhoneNumber]);
+
+  // Update parent with final full number
+  useEffect(() => {
+    if (onChange) {
+      onChange(selectedCountry.callingCode + phoneNumber);
+    }
+  }, [selectedCountry, phoneNumber]);
 
   const onSelectCountry = country => {
     setSelectedCountry(country);
@@ -60,7 +105,6 @@ const PhoneInput = () => {
         />
       </View>
 
-      {/* Country picker modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modal}>
@@ -117,6 +161,7 @@ const styles = StyleSheet.create({
   },
   flag: {
     fontSize: 20,
+    color: '#000',
   },
   callingCode: {
     marginLeft: 6,
@@ -126,6 +171,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
+    color: '#000',
   },
   modalContainer: {
     flex: 1,
@@ -147,6 +193,7 @@ const styles = StyleSheet.create({
   countryText: {
     marginLeft: 10,
     fontSize: 16,
+    color: '#000',
   },
   closeButton: {
     marginTop: 10,

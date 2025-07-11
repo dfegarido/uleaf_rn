@@ -22,6 +22,7 @@ import {
   ScreenDeliveryReceived,
   ScreenDeliveryMissing,
   ScreenDeliveryCasualty,
+  ScreenDeliveryAction,
   ScreenExportQR,
 } from '../../screens/Seller/Delivery';
 import {
@@ -155,6 +156,11 @@ const AuthStack = () => {
           },
           headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
         })}
+      />
+      <Stack.Screen
+        name="BuyerTabs"
+        component={BuyerTabNavigator}
+        options={{headerShown: false, animation: 'slide_from_right'}}
       />
       <Stack.Screen
         name="LoginOtp"
@@ -468,6 +474,32 @@ const MainStack = () => {
       />
 
       <Stack.Screen
+        name="ScreenDeliveryHub"
+        component={ScreenDeliveryHub}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="ScreenDeliveryReceived"
+        component={ScreenDeliveryReceived}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="ScreenDeliveryMissing"
+        component={ScreenDeliveryMissing}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="ScreenDeliveryCasualty"
+        component={ScreenDeliveryCasualty}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="ScreenDeliveryAction"
+        component={ScreenDeliveryAction}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
         name="ScreenPayout"
         component={ScreenPayout}
         options={{headerShown: false, animation: 'slide_from_right'}}
@@ -527,7 +559,7 @@ function MainTabNavigator() {
                 <View
                   style={{
                     position: 'absolute',
-                    bottom: 2,
+                    bottom: 8,
                     width: 70,
                     height: 70,
                     backgroundColor: 'transparent', // Adjust background color if needed

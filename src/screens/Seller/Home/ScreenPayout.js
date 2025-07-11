@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
+import {useIsFocused} from '@react-navigation/native';
 import {
   View,
   Text,
@@ -8,47 +9,117 @@ import {
   SafeAreaView,
   ScrollView,
   FlatList,
+  Modal,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../../assets/styles/styles';
 import PayoutCard from './components/PayoutCard';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+
+import {getHomePayoutListingApi} from '../../../components/Api';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
-import AvatarIcon from '../../../assets/images/avatar.svg';
-
-const payoutData = [
-  {
-    status: 'Receivable',
-    amount: 80177,
-    payoutDate: 'Jun-29-2025',
-    salesPeriod: 'Jun-22-2025 to Jun 28-2025',
-  },
-  {
-    status: 'Receivable',
-    amount: 51753,
-    payoutDate: 'Jun-22-2025',
-    salesPeriod: 'Jun-15-2025 to Jun 21-2025',
-  },
-  {
-    status: 'Paid',
-    reference: 'SK092364',
-    amount: 176216,
-    payoutDate: 'Mar-15-2025',
-    salesPeriod: 'Jun-08-2025 to Jun 14-2025',
-  },
-];
+import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
 const ScreenPayout = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(false);
 
   useFocusEffect(() => {
     StatusBar.setBarStyle('dark-content');
     StatusBar.setBackgroundColor('#fff');
   });
+
+  const isFocused = useIsFocused();
+
+  const [data, setData] = useState([]);
+  const [totalReceivables, setTotalReceivables] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
+  const [dataCount, setDataCount] = useState(0);
+  const [nextToken, setNextToken] = useState('');
+  const [nextTokenParam, setNextTokenParam] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    const fetchData = async () => {
+      try {
+        await loadListingData();
+      } catch (error) {
+        console.log('Fetching details:', error);
+      } finally {
+        setRefreshing(false);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isFocused, isInitialFetchRefresh]);
+
+  const loadListingData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(
+      () => getHomePayoutListingApi(nextTokenParam),
+      3,
+      1000,
+    );
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load sort api');
+    }
+
+    // console.log(res);
+    setNextToken(res?.nextPageToken);
+    setTotalReceivables(res?.totalReceivable);
+    setData(
+      prev =>
+        nextTokenParam
+          ? [...prev, ...(res?.data || [])] // append
+          : res?.data || [], // replace
+    );
+  };
+
+  // ✅ Pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+  // ✅ Pull-to-refresh
+
+  // Load more
+  useEffect(() => {
+    if (nextTokenParam) {
+      setLoading(true);
+      loadListingData();
+      setTimeout(() => {
+        setLoading(false); // or setLoading(false)
+      }, 500);
+    }
+  }, [nextTokenParam]);
+
+  const onPressLoadMore = () => {
+    if (nextToken != nextTokenParam) {
+      setNextTokenParam(nextToken);
+    }
+  };
+  // Load more
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         style={[styles.container, {paddingTop: insets.top}]}
         stickyHeaderIndices={[0]}>
         {/* Search and Icons */}
@@ -91,13 +162,13 @@ const ScreenPayout = ({navigation, route}) => {
             <Text style={globalStyles.textMDWhite}>Total Receivables</Text>
 
             <Text style={[globalStyles.textXLWhite, {paddingTop: 10}]}>
-              $10000000
+              {data[0]?.totalReceivableAmountCurrencySymbol} {totalReceivables}
             </Text>
           </View>
 
           <FlatList
             scrollEnabled={false}
-            data={payoutData}
+            data={data}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({item}) => (
               <TouchableOpacity
@@ -109,6 +180,21 @@ const ScreenPayout = ({navigation, route}) => {
             )}
             contentContainerStyle={{paddingBottom: 20}}
           />
+          {data.length == 10 && (
+            <TouchableOpacity
+              onPress={() => onPressLoadMore()}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                marginTop: 300,
+                marginBottom: 50,
+              }}>
+              <Text style={globalStyles.textLGAccent}>Load More</Text>
+              <ArrowDownIcon width={25} height={20} />
+            </TouchableOpacity>
+          )}
         </View>
         {/* Main Content */}
       </ScrollView>
