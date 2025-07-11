@@ -17,6 +17,8 @@ import {
   Animated,
   Alert,
   PermissionsAndroid,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';

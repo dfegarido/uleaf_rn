@@ -23,6 +23,7 @@ import {
   ScreenDeliveryMissing,
   ScreenDeliveryCasualty,
   ScreenDeliveryAction,
+  ScreenExportQR,
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
