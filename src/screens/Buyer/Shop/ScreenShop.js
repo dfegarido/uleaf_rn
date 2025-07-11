@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useFocusEffect} from '@react-navigation/native';
+import {useAuth} from '../../../auth/AuthProvider';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
@@ -115,6 +118,27 @@ const browseMorePlantsData = [
 ];
 
 const ScreenShop = ({navigation}) => {
+  const {user} = useAuth();
+
+  // Log auth token and user info when Shop tab is accessed
+  useFocusEffect(
+    React.useCallback(() => {
+      const logAuthInfo = async () => {
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          console.log('=== SHOP TAB ACCESS ===');
+          console.log('Auth Token:', token);
+          console.log('Firebase User:', user);
+          console.log('========================');
+        } catch (error) {
+          console.error('Error getting auth token:', error);
+        }
+      };
+      
+      logAuthInfo();
+    }, [user])
+  );
+
   const filterOptions = [
     {label: 'Sort', leftIcon: SortIcon},
     {label: 'Price', rightIcon: DownIcon},
