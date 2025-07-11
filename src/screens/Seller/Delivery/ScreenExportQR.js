@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -10,78 +10,613 @@ import {
   Dimensions,
   FlatList,
   Image,
+  ActivityIndicator,
+  Alert,
+  Linking,
+  PermissionsAndroid,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNFS from 'react-native-fs';
+import PushNotification from 'react-native-push-notification';
+import FileViewer from 'react-native-file-viewer';
 
 // Import icons - using a placeholder for the back arrow and action icon
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import DownloadIcon from '../../../assets/icons/accent/download.svg';
 
-const qrCodeData = [
-  {
-    date: 'July 05, 2025',
-    page: '1 of 2',
-    qrcodes: [
-      {id: '1', code: 'PLANT-001'},
-      {id: '2', code: 'PLANT-002'},
-      {id: '3', code: 'PLANT-003'},
-      {id: '4', code: 'PLANT-004'},
-      {id: '5', code: 'PLANT-005'},
-      {id: '6', code: 'PLANT-006'},
-      {id: '7', code: 'PLANT-007'},
-      {id: '8', code: 'PLANT-008'},
-      {id: '9', code: 'PLANT-009'},
-      {id: '10', code: 'PLANT-010'},
-      {id: '11', code: 'PLANT-011'},
-      {id: '12', code: 'PLANT-012'},
-      {id: '13', code: 'PLANT-013'},
-      {id: '14', code: 'PLANT-014'},
-      {id: '15', code: 'PLANT-015'},
-      {id: '16', code: 'PLANT-016'},
-      {id: '17', code: 'PLANT-017'},
-      {id: '18', code: 'PLANT-018'},
-      {id: '19', code: 'PLANT-019'},
-      {id: '20', code: 'PLANT-020'},
-    ],
-  },
-  {
-    date: 'July 06, 2025',
-    page: '2 of 2',
-    qrcodes: [
-      {id: '21', code: 'PLANT-021'},
-      {id: '22', code: 'PLANT-022'},
-      {id: '23', code: 'PLANT-023'},
-      {id: '24', code: 'PLANT-024'},
-      {id: '25', code: 'PLANT-025'},
-      {id: '26', code: 'PLANT-026'},
-      {id: '27', code: 'PLANT-027'},
-      {id: '28', code: 'PLANT-028'},
-      {id: '29', code: 'PLANT-029'},
-      {id: '30', code: 'PLANT-030'},
-      {id: '31', code: 'PLANT-031'},
-      {id: '32', code: 'PLANT-032'},
-      {id: '33', code: 'PLANT-033'},
-      {id: '34', code: 'PLANT-034'},
-      {id: '35', code: 'PLANT-035'},
-      {id: '36', code: 'PLANT-036'},
-      {id: '37', code: 'PLANT-037'},
-      {id: '38', code: 'PLANT-038'},
-      {id: '39', code: 'PLANT-039'},
-      {id: '40', code: 'PLANT-040'},
-    ],
-  },
-];
-
 const ScreenExportQR = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const [qrCodeData, setQrCodeData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
-  useFocusEffect(() => {
+  // Function to request storage permission (Android)
+  const requestStoragePermission = async () => {
     if (Platform.OS === 'android') {
-      StatusBar.setBarStyle('dark-content');
-      StatusBar.setBackgroundColor('#fff');
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          {
+            title: 'Storage Permission Required',
+            message: 'This app needs access to storage to download files',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
     }
-  });
+    return true;
+  };
+
+  // Function to configure push notifications
+  const configurePushNotifications = () => {
+    PushNotification.configure({
+      onRegister: function (token) {
+        console.log('TOKEN:', token);
+      },
+      
+      onNotification: function(notification) {
+        console.log('Notification received:', notification);
+        console.log('User interaction:', notification.userInteraction);
+        console.log('Action:', notification.action);
+        console.log('UserInfo:', notification.userInfo);
+        console.log('Data:', notification.data);
+        
+        // Handle notification tap
+        if (notification.userInteraction) {
+          // Get file path from either userInfo or data
+          const filePath = notification.userInfo?.filePath || 
+                           notification.data?.filePath || 
+                           notification.filePath;
+          
+          console.log('Extracted file path:', filePath);
+          
+          if (filePath) {
+            console.log('Opening file from notification:', filePath);
+            // Small delay to ensure app is in foreground
+            setTimeout(() => {
+              openFile(filePath);
+            }, 500);
+          } else {
+            console.log('No file path found in notification');
+          }
+        }
+        
+        // Required for iOS to complete the notification processing
+        if (notification.finish && typeof notification.finish === 'function') {
+          notification.finish('noData');
+        }
+      },
+      
+      onAction: function (notification) {
+        console.log('ACTION:', notification.action);
+        console.log('NOTIFICATION:', notification);
+        
+        // Handle action button clicks
+        if (notification.action === 'Open') {
+          const filePath = notification.userInfo?.filePath || notification.data?.filePath;
+          if (filePath) {
+            console.log('Opening file from action:', filePath);
+            openFile(filePath);
+          }
+        }
+      },
+      
+      // (optional) Called when Registered Action is pressed and invokeApp is false, if true onNotification will be called (Android)
+      onRegistrationError: function(err) {
+        console.error(err.message, err);
+      },
+      
+      // IOS ONLY (optional): default: all - Permissions to register.
+      permissions: {
+        alert: true,
+        badge: true,
+        sound: true,
+      },
+      
+      // Should the initial notification be popped automatically
+      // default: true
+      popInitialNotification: true,
+      
+      // (optional) default: true
+      // - Specified if permissions (ios) and token (android and ios) will requested or not,
+      // - if not, you must call PushNotification.requestPermissions() later
+      // - if you are not using remote notification or do not have Firebase installed, use this:
+      //     requestPermissions: Platform.OS === 'ios'
+      requestPermissions: Platform.OS === 'ios',
+    });
+
+    // Create notification channel for Android
+    if (Platform.OS === 'android') {
+      PushNotification.createChannel(
+        {
+          channelId: 'ileafu_channel',
+          channelName: 'iLeafU Notifications',
+          channelDescription: 'Notifications for iLeafU app',
+          playSound: false,
+          soundName: 'default',
+          importance: 4,
+          vibrate: true,
+        },
+        (created) => console.log(`createChannel returned '${created}'`)
+      );
+    }
+  };
+
+  // Function to open file safely
+  const openFile = async (filePath) => {
+    try {
+      const fileExists = await RNFS.exists(filePath);
+      if (!fileExists) {
+        Alert.alert('File Not Found', 'The downloaded file could not be found.');
+        return;
+      }
+
+      console.log('Opening file:', filePath);
+
+      // Try using FileViewer first (better cross-platform support)
+      try {
+        await FileViewer.open(filePath, {
+          displayName: 'QR Codes PDF',
+          showOpenWithDialog: true,
+          showAppsSuggestions: true,
+        });
+      } catch (fileViewerError) {
+        console.log('FileViewer failed, trying alternative methods:', fileViewerError);
+        
+        // Fallback to platform-specific methods
+        if (Platform.OS === 'android') {
+          // For Android, try using intent to open PDF
+          const intent = `content://com.android.externalstorage.documents/document/primary:Download/${filePath.split('/').pop()}`;
+          Linking.openURL(intent).catch(() => {
+            // Fallback to file:// protocol
+            Linking.openURL(`file://${filePath}`).catch(() => {
+              Alert.alert(
+                'Cannot Open File', 
+                'Unable to open the PDF file. Please use a file manager to locate and open the file.',
+                [
+                  {
+                    text: 'Open File Manager',
+                    onPress: () => Linking.openURL('content://com.android.externalstorage.documents/document/primary:Download'),
+                  },
+                  {
+                    text: 'OK',
+                    style: 'cancel'
+                  }
+                ]
+              );
+            });
+          });
+        } else {
+          // For iOS
+          Linking.openURL(`file://${filePath}`).catch(() => {
+            Alert.alert('Cannot Open File', 'Unable to open the PDF file.');
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      Alert.alert('Error', 'Failed to open the file.');
+    }
+  };
+
+  // Initialize notifications on component mount
+  useEffect(() => {
+    configurePushNotifications();
+  }, []);
+
+  // Function to handle download
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      
+      // Request storage permission
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Denied', 'Storage permission is required to download files.');
+        return;
+      }
+      
+      // Get the auth token from AsyncStorage
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `QR_Codes_${timestamp}.pdf`;
+      
+      // Define download path with better Android support
+      let downloadPath;
+      if (Platform.OS === 'ios') {
+        downloadPath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+      } else {
+        // For Android, use External Storage Directory if available, fallback to Download Directory
+        const externalDir = RNFS.ExternalStorageDirectoryPath;
+        if (externalDir) {
+          downloadPath = `${externalDir}/Download/${fileName}`;
+          // Ensure the Download directory exists
+          await RNFS.mkdir(`${externalDir}/Download`).catch(() => {});
+        } else {
+          downloadPath = `${RNFS.DownloadDirectoryPath}/${fileName}`;
+        }
+      }
+
+      console.log('Download path:', downloadPath);
+
+      const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Check if the response is a PDF or contains download information
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/pdf')) {
+        // Handle direct PDF download
+        const downloadResult = await RNFS.downloadFile({
+          fromUrl: response.url,
+          toFile: downloadPath,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }).promise;
+
+        if (downloadResult.statusCode === 200) {
+          await handleDownloadSuccess(downloadPath, fileName);
+        } else {
+          throw new Error('Download failed');
+        }
+      } else {
+        // Handle JSON response that might contain download URL
+        const data = await response.json();
+        console.log('API Response:', data);
+        
+        if (data.downloadUrl) {
+          // Download from the provided URL
+          const downloadResult = await RNFS.downloadFile({
+            fromUrl: data.downloadUrl,
+            toFile: downloadPath,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }).promise;
+
+          if (downloadResult.statusCode === 200) {
+            await handleDownloadSuccess(downloadPath, fileName);
+          } else {
+            throw new Error('Download failed');
+          }
+        } else {
+          // If no download URL, treat as success but no file to download
+          Alert.alert(
+            'Success', 
+            'QR codes processed successfully, but no PDF was generated.',
+            [
+              {
+                text: 'OK',
+                style: 'default'
+              }
+            ]
+          );
+        }
+      }
+      
+    } catch (err) {
+      console.error('Error downloading QR codes:', err);
+      
+      // Show error notification
+      PushNotification.localNotification({
+        channelId: 'ileafu_channel',
+        title: 'Download Failed',
+        message: 'QR Codes download failed. Please try again.',
+      });
+
+      Alert.alert(
+        'Download Failed', 
+        `Failed to download QR codes: ${err.message}`,
+        [
+          {
+            text: 'Try Again',
+            onPress: handleDownload,
+            style: 'default'
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // Function to handle successful download
+  const handleDownloadSuccess = async (downloadPath, fileName) => {
+    try {
+      // Verify file exists
+      const fileExists = await RNFS.exists(downloadPath);
+      if (!fileExists) {
+        throw new Error('File was not saved properly');
+      }
+
+      // Get file stats to verify it's not empty
+      const fileStat = await RNFS.stat(downloadPath);
+      if (fileStat.size === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+
+      console.log(`File downloaded successfully: ${downloadPath}, Size: ${fileStat.size} bytes`);
+
+      // Show push notification
+      PushNotification.localNotification({
+        channelId: 'ileafu_channel',
+        title: 'Download Complete',
+        message: `QR Codes PDF downloaded successfully. Tap to open.`,
+        subText: `File saved to: ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder`,
+        bigText: `QR Codes PDF has been downloaded successfully.\nFile saved to: ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder\nTap this notification to open the file.`,
+        largeIcon: "ic_launcher", // (optional) default: "ic_launcher"
+        smallIcon: "ic_notification", // (optional) default: "ic_notification" with fallback for "ic_launcher"
+        color: '#539461', // (optional) default: system default
+        vibrate: true, // (optional) default: true
+        vibration: 300, // vibration length in milliseconds, ignored if vibrate=false, default: 1000
+        tag: 'pdf_download', // (optional) add tag to message
+        group: 'downloads', // (optional) add group to message
+        ongoing: false, // (optional) set whether this is an "ongoing" notification
+        priority: 'high', // (optional) set notification priority, default: high
+        visibility: 'public', // (optional) set notification visibility, default: private
+        importance: 'high', // (optional) set notification importance, default: high
+        autoCancel: true, // (optional) default: true
+        invokeApp: true, // (optional) This enable click on notification to bring back the application to foreground or stay in background, default: true
+        userInfo: { 
+          filePath: downloadPath,
+          action: 'download_complete'
+        },
+        data: {
+          filePath: downloadPath,
+          action: 'download_complete'
+        }
+      });
+
+      Alert.alert(
+        'Download Complete',
+        `PDF file has been saved to your ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder\n\nFile: ${fileName}`,
+        [
+          {
+            text: 'Open File',
+            onPress: () => openFile(downloadPath),
+          },
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error verifying download:', error);
+      throw error;
+    }
+  };
+
+  // Function to fetch QR code data from API
+  const fetchQRCodeData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get the auth token from AsyncStorage
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator/orders', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      // Transform API data to match the expected format
+      const transformedData = transformApiData(data);
+      setQrCodeData(transformedData);
+      
+    } catch (err) {
+      console.error('Error fetching QR code data:', err);
+      setError(err.message);
+      Alert.alert('Error', 'Failed to load QR code data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Transform API data to match the UI structure
+  const transformApiData = (apiData) => {
+    // Check if the API returns data in 'data' key instead of 'orders'
+    const ordersArray = apiData?.data || apiData?.orders || apiData;
+    
+    if (!ordersArray || !Array.isArray(ordersArray)) {
+      return [];
+    }
+
+    // Group orders by date and organize into pages
+    const groupedByDate = {};
+    
+    ordersArray.forEach((order, orderIndex) => {
+      
+      const date = new Date(order.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: '2-digit'
+      });
+      
+      if (!groupedByDate[date]) {
+        groupedByDate[date] = [];
+      }
+
+      // Add QR code from the order (note: it's qrCode, not qrCodes)
+      if (order.qrCode && order.qrCode.content) {
+        const qrContent = order.qrCode.content;
+        
+        groupedByDate[date].push({
+          id: order.qrCode.id || order.qrCode.qrCodeId || qrContent.orderId,
+          plantCode: qrContent.plantCode,
+          trxNumber: qrContent.trxNumber,
+          orderId: qrContent.orderId,
+          genus: qrContent.genus,
+          species: qrContent.species,
+          variegation: qrContent.variegation,
+          gardenOrCompanyName: qrContent.gardenOrCompanyName,
+          sellerName: qrContent.sellerName,
+          orderQty: qrContent.orderQty,
+          localPrice: qrContent.localPrice,
+          localPriceCurrency: qrContent.localPriceCurrency,
+          deliveryStatus: qrContent.deliveryStatus,
+          generatedAt: qrContent.generatedAt,
+          dataUrl: order.qrCode.dataUrl, // QR code image data URL
+          orderStatus: order.status,
+          createdAt: order.createdAt,
+        });
+      } else if (order.qrCode) {
+        // Fallback for older format without content wrapper
+        groupedByDate[date].push({
+          id: order.qrCode.id || order.qrCode.qrCodeId,
+          plantCode: order.qrCode.plantCode || order.qrCode.code || order.qrCode.qrCodeId,
+          trxNumber: order.trxNumber || order.transactionNumber || order.orderId,
+          dataUrl: order.qrCode.dataUrl,
+          orderId: order.orderId,
+          orderStatus: order.status,
+          createdAt: order.createdAt,
+        });
+      } else {
+        // No QR codes found in this order
+      }
+    });
+
+    // Convert to pages with pagination (20 items per page)
+    const pages = [];
+    const itemsPerPage = 20;
+    
+    Object.entries(groupedByDate).forEach(([date, items], pageIndex) => {
+      // Split items into chunks of 20
+      for (let i = 0; i < items.length; i += itemsPerPage) {
+        const chunk = items.slice(i, i + itemsPerPage);
+        const pageNumber = Math.floor(i / itemsPerPage) + 1;
+        const totalPages = Math.ceil(items.length / itemsPerPage);
+        
+        pages.push({
+          date: date,
+          page: `${pageNumber} of ${totalPages}`,
+          qrcodes: chunk,
+          createdAt: chunk[0]?.createdAt || new Date().toISOString(),
+        });
+      }
+    });
+
+    return pages;
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (Platform.OS === 'android') {
+        StatusBar.setBarStyle('dark-content');
+        StatusBar.setBackgroundColor('#fff');
+      }
+      
+      // Fetch data when screen comes into focus
+      fetchQRCodeData();
+    }, [])
+  );
+
+  const formatGeneratedDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric'
+      }) + ' ' + date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      return 'Unknown';
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.controls}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}>
+              <BackIcon width={24} height={24} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Export QR Code</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loadingText}>Loading QR codes...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || qrCodeData.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.controls}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}>
+              <BackIcon width={24} height={24} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Export QR Code</Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {error ? 'Failed to load QR codes' : 'No QR codes available'}
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchQRCodeData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -103,8 +638,19 @@ const ScreenExportQR = ({navigation}) => {
             </View>
 
             {/* Action Button */}
-            <TouchableOpacity style={styles.actionButton}>
-              <DownloadIcon width={24} height={24} />
+            <TouchableOpacity 
+              style={[
+                styles.actionButton,
+                downloading && styles.actionButtonDisabled
+              ]}
+              onPress={handleDownload}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <ActivityIndicator size="small" color="#666" />
+              ) : (
+                <DownloadIcon width={24} height={24} />
+              )}
             </TouchableOpacity>
 
             {/* Profile - Hidden by default */}
@@ -139,10 +685,10 @@ const ScreenExportQR = ({navigation}) => {
                 <View style={styles.detailsContainer}>
                   <View style={styles.dateContainer}>
                     <Text style={styles.dateLabel}>Date generated:</Text>
-                    <Text style={styles.dateText}>Jun-22-2025 08:11PM</Text>
+                    <Text style={styles.dateText}>{formatGeneratedDate(pageData.createdAt)}</Text>
                   </View>
                   <View style={styles.pageInfoContainer}>
-                    <Text style={styles.pageText}>Page {pageData.page.split(' ')[0]}</Text>
+                    <Text style={styles.pageText}>Page {pageData.page}</Text>
                   </View>
                 </View>
                 <View style={styles.qrListContainer}>
@@ -170,10 +716,14 @@ const ScreenExportQR = ({navigation}) => {
                         <View style={styles.qrItemContent}>
                           <View style={styles.qrContentInner}>
                             <Image
-                              source={require('../../../assets/images/qr-code.png')}
+                              source={
+                                item.dataUrl 
+                                  ? { uri: item.dataUrl }
+                                  : require('../../../assets/images/qr-code.png')
+                              }
                               style={styles.qrCodeImage}
                             />
-                            <Text style={styles.plantCode}>{item.code}</Text>
+                            <Text style={styles.plantCode}>{item.plantCode}</Text>
                           </View>
                         </View>
                       </View>
@@ -254,6 +804,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
   profileButton: {
     flexDirection: 'row',
@@ -423,8 +976,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   qrCodeImage: {
-    width: 55, // Scaled for mobile
-    height: 55, // Scaled for mobile
+    width: 50, // Slightly smaller to fit both text lines
+    height: 50, // Slightly smaller to fit both text lines
     flex: 0,
   },
   plantCode: {
@@ -436,5 +989,50 @@ const styles = StyleSheet.create({
     color: '#202325',
     alignSelf: 'stretch',
     flex: 0,
+  },
+  trxNumber: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 7, // Slightly smaller than plant code
+    lineHeight: 9,
+    textAlign: 'center',
+    color: '#666666', // Lighter color to differentiate from plant code
+    alignSelf: 'stretch',
+    flex: 0,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
