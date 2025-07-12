@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,38 @@ import {
   TouchableOpacity,
   StatusBar,
   TextInput,
+  Dimensions,
 } from 'react-native';
 
 // Import SVG icons
-import SearchIcon from '../../../assets/iconnav/search.svg';
-import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import AvatarIcon from '../../../assets/images/avatar.svg';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
+import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
+
+// Get screen dimensions with proper 2-column layout calculation
+const getScreenDimensions = () => {
+  const {width: screenWidth} = Dimensions.get('window');
+  const HORIZONTAL_PADDING = 30; // 15px on each side
+  const GAP = 12; // Gap between columns
+  const MIN_CARD_WIDTH = 140; // Minimum card width for small screens
+  const MAX_CARD_WIDTH = 200; // Maximum card width for large screens
+  
+  // Calculate available width for content
+  const availableWidth = screenWidth - HORIZONTAL_PADDING;
+  
+  // Calculate card width for exactly 2 columns with gap
+  let cardWidth = (availableWidth - GAP) / 2;
+  
+  // Ensure card width is within acceptable bounds
+  cardWidth = Math.max(MIN_CARD_WIDTH, Math.min(MAX_CARD_WIDTH, cardWidth));
+  
+  return {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH: cardWidth, availableWidth};
+};
+
+// Initialize with current dimensions
+let {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH, availableWidth} = getScreenDimensions();
 
 // Mock data for live streams
 const liveStreams = [
@@ -42,27 +67,27 @@ const liveStreams = [
   {
     id: 4,
     title: 'Orchid Repotting Guide',
-    thumbnail: require('../../../assets/images/wish1.png'),
+    thumbnail: require('../../../assets/images/plant1.png'),
     isLive: false,
     viewers: 678,
   },
   {
     id: 5,
     title: 'Succulent Arrangements',
-    thumbnail: require('../../../assets/images/wish2.png'),
+    thumbnail: require('../../../assets/images/plant2.png'),
     isLive: false,
     viewers: 234,
   },
   {
     id: 6,
     title: 'Indoor Garden Setup',
-    thumbnail: require('../../../assets/images/wish3.png'),
+    thumbnail: require('../../../assets/images/plant3.png'),
     isLive: false,
     viewers: 567,
   },
 ];
 
-const LiveVideoCard = ({stream}) => {
+const LiveVideoCard = ({stream, cardWidth, index}) => {
   const formatViewers = (count) => {
     if (count >= 1000) {
       return `${(count / 1000).toFixed(1)}k`;
@@ -70,12 +95,22 @@ const LiveVideoCard = ({stream}) => {
     return count.toString();
   };
 
+  const cardHeight = cardWidth * 1.6; // Maintain aspect ratio
+  
+  // Add right margin only to left column items (even indices)
+  const isLeftColumn = index % 2 === 0;
+  const cardStyle = {
+    width: cardWidth,
+    marginRight: isLeftColumn ? GAP : 0,
+    marginBottom: 16,
+  };
+
   return (
-    <TouchableOpacity style={styles.videoCard}>
-      <View style={styles.videoContainer}>
+    <TouchableOpacity style={[styles.videoCard, cardStyle]}>
+      <View style={[styles.videoContainer, {width: cardWidth, height: cardHeight}]}>
         <ImageBackground
           source={stream.thumbnail}
-          style={styles.thumbnail}
+          style={[styles.thumbnail, {width: cardWidth, height: cardHeight}]}
           imageStyle={styles.thumbnailImage}>
           <View style={styles.overlay}>
             {stream.isLive && (
@@ -91,8 +126,8 @@ const LiveVideoCard = ({stream}) => {
           </View>
         </ImageBackground>
       </View>
-      <View style={styles.details}>
-        <Text style={styles.title} numberOfLines={2}>
+      <View style={[styles.details, {width: cardWidth}]}>
+        <Text style={[styles.title, {width: cardWidth}]} numberOfLines={2}>
           {stream.title}
         </Text>
       </View>
@@ -100,53 +135,87 @@ const LiveVideoCard = ({stream}) => {
   );
 };
 
-const LiveHeader = () => {
+const LiveHeader = ({navigation}) => {
   const [searchText, setSearchText] = useState('');
 
   return (
     <View style={styles.header}>
-      <View style={styles.controls}>
-        <View style={styles.searchContainer}>
-          <View style={styles.searchField}>
-            <View style={styles.textField}>
-              <SearchIcon width={24} height={24} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search I Leaf U"
-                placeholderTextColor="#647276"
-                value={searchText}
-                onChangeText={setSearchText}
-                multiline={false}
-                numberOfLines={1}
-              />
-            </View>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.profileContainer}>
-          <View style={styles.avatar}>
-            <AvatarIcon width={32} height={32} />
-            <View style={styles.badge}>
-              <View style={styles.badgeDot} />
-            </View>
-          </View>
+      <View style={{flex: 1}}>
+        <InputGroupLeftIcon
+          IconLeftComponent={SearchIcon}
+          placeholder={'Search I Leaf U'}
+          value={searchText}
+          onChangeText={setSearchText}
+        />
+      </View>
+
+      <View style={styles.headerIcons}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => navigation.navigate('ScreenProfile')}>
+          <AvatarIcon width={40} height={40} />
         </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-const LiveScreen = () => {
+const LiveScreen = ({navigation}) => {
+  const [dimensions, setDimensions] = useState(getScreenDimensions());
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({window}) => {
+      const newDimensions = getScreenDimensions();
+      setDimensions(newDimensions);
+      // Update global variables for StyleSheet
+      screenWidth = newDimensions.screenWidth;
+      HORIZONTAL_PADDING = newDimensions.HORIZONTAL_PADDING;
+      GAP = newDimensions.GAP;
+      CARD_WIDTH = newDimensions.CARD_WIDTH;
+    });
+
+    return () => subscription?.remove();
+  }, []);
+
+  const dynamicStyles = StyleSheet.create({
+    plantsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'flex-start',
+      alignContent: 'flex-start',
+      paddingHorizontal: 15,
+      paddingTop: 12,
+      paddingBottom: 16,
+      justifyContent: 'center',
+    },
+    videoCard: {
+      width: dimensions.CARD_WIDTH,
+      marginBottom: 8,
+    },
+    videoContainer: {
+      width: dimensions.CARD_WIDTH,
+      height: dimensions.CARD_WIDTH * 1.6,
+      marginBottom: 10,
+    },
+    thumbnail: {
+      width: dimensions.CARD_WIDTH,
+      height: dimensions.CARD_WIDTH * 1.6,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <LiveHeader />
+      <LiveHeader navigation={navigation} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
-        <View style={styles.plantsContainer}>
-          {liveStreams.map((stream) => (
-            <LiveVideoCard key={stream.id} stream={stream} />
+        <View style={[styles.plantsContainer, dynamicStyles.plantsContainer]}>
+          {liveStreams.map((stream, index) => (
+            <LiveVideoCard key={stream.id} stream={stream} cardWidth={dimensions.CARD_WIDTH} index={index} />
           ))}
         </View>
       </ScrollView>
@@ -175,21 +244,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingTop: 12,
     paddingBottom: 16,
-    gap: 24,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   videoCard: {
-    width: 166,
     marginBottom: 8,
   },
   videoContainer: {
-    width: 166,
-    height: 264,
     marginBottom: 10,
   },
   thumbnail: {
-    width: 166,
-    height: 264,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -246,11 +309,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   details: {
-    width: 166,
     gap: 6,
   },
   title: {
-    width: 166,
     height: 40,
     fontFamily: 'Inter',
     fontStyle: 'normal',
@@ -262,85 +323,21 @@ const styles = StyleSheet.create({
   },
   // Header styles
   header: {
-    width: '100%',
-    height: 58,
-    minHeight: 58,
-    backgroundColor: '#FFFFFF',
-  },
-  controls: {
     flexDirection: 'row',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 6,
+    paddingHorizontal: 13,
+    paddingTop: 12,
     paddingBottom: 12,
-    gap: 10,
-    width: '100%',
-    height: 58,
+    backgroundColor: '#FFFFFF',
   },
-  searchContainer: {
-    flex: 1,
-    height: 40,
-  },
-  searchField: {
-    width: '100%',
-    height: 40,
-    justifyContent: 'center',
-  },
-  textField: {
+  headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-    height: 40,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
   },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#202325',
-    textAlignVertical: 'center',
-    includeFontPadding: false,
-    paddingVertical: 0,
-  },
-  profileContainer: {
-    width: 40,
-    height: 40,
+  iconButton: {
+    marginHorizontal: 4,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 1000,
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E7522F',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
 });
 
