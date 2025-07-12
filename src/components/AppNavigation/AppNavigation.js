@@ -1,11 +1,11 @@
 /* eslint-disable react/no-unstable-nested-components */
 import React, {useContext} from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
-  View,
-  ActivityIndicator,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -17,10 +17,26 @@ import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInforma
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 
 import {
+  ChatScreen,
+} from '../../screens/ChatScreen';
+
+import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+
+import {
+  ScreenLogin,
+  ScreenLoginForm,
+  ScreenLoginOtp,
+} from '../../screens/Login';
+import {
+  ScreenProfile,
+  ScreenProfileAccount,
+  ScreenProfileChatAdmin,
+  ScreenProfilePassword,
+  ScreenProfileProblem,
+  ScreenProfileRequest,
+} from '../../screens/Profile';
+import {
   ScreenDelivery,
-  ScreenDeliveryHub,
-  ScreenDeliveryReceived,
-  ScreenDeliveryMissing,
   ScreenDeliveryCasualty,
   ScreenDeliveryAction,
   ScreenExportQR,
@@ -37,25 +53,20 @@ import {
   ScreenListingAction,
   ScreenListingDetail,
 } from '../../screens/Seller/Listing/';
-import {
-  ScreenLogin,
-  ScreenLoginForm,
-  ScreenLoginOtp,
-} from '../../screens/Login';
 import ScreenOrder from '../../screens/Seller/Order/ScreenOrder';
 import {
+  ScreenDraftSell,
+  ScreenDuplicateSell,
+  ScreenGrowersSell,
   ScreenSell,
   ScreenSingleSell,
   ScreenWholesaleSell,
-  ScreenGrowersSell,
-  ScreenDuplicateSell,
-  ScreenDraftSell,
 } from '../../screens/Seller/Sell';
 import {
   ScreenSignup,
-  ScreenSignupNext,
   ScreenSignupActivationCode,
   ScreenSignupActivationCodeNext,
+  ScreenSignupNext,
 } from '../../screens/Singup';
 import {
   ScreenProfile,
@@ -67,14 +78,14 @@ import {
 } from '../../screens/Profile';
 import {ScreenTerms, ScreenPrivacy} from '../../screens/Legal';
 
-import HomeIcon from '../../assets/icontabs/home.svg';
-import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
-import DeliveryIcon from '../../assets/icontabs/delivery.svg';
 import DeliveryIconSelected from '../../assets/icontabs/box-solid.svg';
-import ListingIcon from '../../assets/icontabs/listing.svg';
-import ListingIconSelected from '../../assets/icontabs/leaf-solid.svg';
-import OrderIcon from '../../assets/icontabs/order.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
+import DeliveryIcon from '../../assets/icontabs/delivery.svg';
+import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
+import HomeIcon from '../../assets/icontabs/home.svg';
+import ListingIconSelected from '../../assets/icontabs/leaf-solid.svg';
+import ListingIcon from '../../assets/icontabs/listing.svg';
+import OrderIcon from '../../assets/icontabs/order.svg';
 import SellIcon from '../../assets/icontabs/sell.svg';
 
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -553,6 +564,18 @@ const MainStack = () => {
       <Stack.Screen
         name="ScreenPayout"
         component={ScreenPayout}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
+        name="ChatScreen"
+        component={ChatScreen}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
+        name="MessagesScreen"
+        component={MessagesScreen}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
 
