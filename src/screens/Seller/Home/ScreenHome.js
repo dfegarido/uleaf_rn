@@ -1,45 +1,42 @@
-import React, {useEffect, useState, useCallback} from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Image,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  Platform,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useFocusEffect} from '@react-navigation/native';
-import BusinessPerformance from './components/BusinessPerformance';
-import {CustomSalesChart} from '../../../components/Charts';
 import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
-import {useIsFocused} from '@react-navigation/native';
-import {roundNumber} from '../../../utils/roundNumber';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import {
+  Dimensions,
+  Image,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomSalesChart } from '../../../components/Charts';
+import { formatCurrency } from '../../../utils/formatCurrency';
+import { roundNumber } from '../../../utils/roundNumber';
+import { retryAsync } from '../../../utils/utils';
+import BusinessPerformance from './components/BusinessPerformance';
 import HomeDurationDropdown from './components/HomeDurationDropdown';
-import {formatDateMonthDay} from '../../../utils/formatDateMonthDay';
-import {formatCurrency} from '../../../utils/formatCurrency';
 
 import {
-  getHomeSummaryApi,
-  getHomeEventsApi,
-  getHomeBusinessPerformanceApi,
   getDateFilterApi,
+  getHomeBusinessPerformanceApi,
+  getHomeEventsApi,
+  getHomeSummaryApi,
 } from '../../../components/Api';
 
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
+import { InputGroupLeftIcon } from '../../../components/InputGroup/Left';
 
-import LiveIcon from '../../../assets/images/live.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
+import LiveIcon from '../../../assets/images/live.svg';
+import MessageIcon from '../../../assets/images/messages.svg';
 import MyStoreIcon from '../../../assets/images/mystore.svg';
 import PayoutsIcon from '../../../assets/images/payouts.svg';
-import MessageIcon from '../../../assets/images/messages.svg';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import {globalStyles} from '../../../assets/styles/styles';
+import { globalStyles } from '../../../assets/styles/styles';
 
 const screenHeight = Dimensions.get('window').height;
 
@@ -284,7 +281,9 @@ const ScreenHome = ({navigation}) => {
             <PayoutsIcon width={40} height={40} />
             <Text style={globalStyles.textSMGreyLight}>Payouts</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.topNavItem}>
+          <TouchableOpacity
+            style={styles.topNavItem}
+            onPress={() => navigation.navigate('MessagesScreen')}>
             <View style={styles.msgIcon}>
               <MessageIcon width={40} height={40} />
               <View style={styles.msgBadge}>
