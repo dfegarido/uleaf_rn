@@ -8,23 +8,21 @@ import EditIcon from '../../../assets/EditIcon';
 const AddressBookScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
-      {/* Navigation Header */}
-      <View style={styles.navigationHeader}>
-        <View style={styles.statusBar} />
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <LeftIcon width={24} height={24} fill="#393D40" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Address Book</Text>
-          <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddNewAddressScreen')}>
-            <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <Path d="M12 5V19" stroke="#393D40" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <Path d="M5 12H19" stroke="#393D40" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </Svg>
-          </TouchableOpacity>
-        </View>
+      {/* Header - Same as WishList Screen */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Address Book</Text>
+        <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddNewAddressScreen')}>
+          <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <Path d="M12 5V19" stroke="#393D40" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <Path d="M5 12H19" stroke="#393D40" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </Svg>
+        </TouchableOpacity>
       </View>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.addressSection}>
           {/* Address List 1 */}
           <View style={styles.addressList}>
@@ -130,49 +128,20 @@ const AddressBookScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    width: '100%',
-    height: 812,
-    backgroundColor: '#FFFFFF',
     flex: 1,
-    alignSelf: 'center',
-  },
-  navigationHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 106,
     backgroundColor: '#FFFFFF',
-    zIndex: 2,
-    flexDirection: 'column',
   },
-  statusBar: {
-    width: 375,
-    height: 24,
-  },
-  headerContent: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    height: 58,
-    width: '100%',
-    marginTop: 0,
-    paddingHorizontal: 16,
-  },
-  backButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontWeight: '700',
     fontSize: 18,
-    lineHeight: 24,
-    textAlign: 'center',
+    fontWeight: '700',
     color: '#202325',
   },
   addButton: {
@@ -188,15 +157,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     marginRight: 15, // Align with address list icons
-  },
-  content: {
-    flex: 1,
-    width: '100%',
-    minHeight: 812,
-    paddingTop: 106,
-    paddingBottom: 34,
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
   },
   addressSection: {
     flexDirection: 'column',

@@ -13,6 +13,8 @@ import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInforma
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
+import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
+import ReportProblemScreen from '../../screens/Buyer/Profile/ReportProblemScreen';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
 
@@ -134,6 +136,8 @@ function BuyerTabs() {
       <Tab.Screen name="AddressBookScreen" component={AddressBookScreen} options={{ tabBarButton: () => null }} />
       <Tab.Screen name="AddNewAddressScreen" component={AddNewAddressScreen} options={{ tabBarButton: () => null }} />
       <Tab.Screen name="UpdateAddressScreen" component={UpdateAddressScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="UpdatePasswordScreen" component={UpdatePasswordScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen name="ReportProblemScreen" component={ReportProblemScreen} options={{ tabBarButton: () => null }} />
     </Tab.Navigator>
   );
 }

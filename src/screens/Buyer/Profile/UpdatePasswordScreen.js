@@ -3,6 +3,29 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 import Svg, { Path } from 'react-native-svg';
+
+// Eye Icon Component (placeholder - replace with your Figma SVG)
+const EyeIcon = ({width = 24, height = 24, fill = "#647276"}) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 4.5C7 4.5 2.73 7.61 1 12C2.73 16.39 7 19.5 12 19.5S21.27 16.39 23 12C21.27 7.61 17 4.5 12 4.5ZM12 17C9.24 17 7 14.76 7 12S9.24 7 12 7S17 9.24 17 12S14.76 17 12 17ZM12 9C10.34 9 9 10.34 9 12S10.34 15 12 15S15 13.66 15 12S13.66 9 12 9Z"
+      fill={fill}
+    />
+  </Svg>
+);
+
+// Password Strength Icon Component (from Figma SVG)
+const PasswordStrengthIcon = ({width = 20, height = 10, fill = "#7F8D91"}) => (
+  <Svg width={width} height={height} viewBox="0 0 20 10" fill="none">
+    <Path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M0.528843 0.166565C0.851062 -0.0937184 1.32327 -0.0435098 1.58356 0.278709C2.11306 0.934207 2.79114 1.65229 3.63213 2.30733C3.64585 2.31724 3.65916 2.32756 3.67203 2.33826C5.21214 3.52686 7.29271 4.49999 10.0001 4.49999C12.7075 4.49999 14.7881 3.52687 16.3282 2.33827C16.3411 2.32757 16.3544 2.31724 16.3681 2.30732C17.2091 1.65229 17.8872 0.934204 18.4167 0.278709C18.677 -0.0435098 19.1492 -0.0937184 19.4714 0.166565C19.7936 0.426849 19.8438 0.899061 19.5836 1.22128C19.1041 1.81485 18.5037 2.46692 17.7742 3.09337L19.6513 6.37786C19.8568 6.73748 19.7319 7.19563 19.3723 7.40116C19.0126 7.60668 18.5545 7.48176 18.349 7.12213L16.5709 4.01087C15.6125 4.65497 14.4893 5.21497 13.1898 5.57522L13.7399 8.87672C13.808 9.28531 13.532 9.67171 13.1234 9.7398C12.7148 9.80788 12.3284 9.53185 12.2603 9.12327L11.7201 5.88086C11.1734 5.95812 10.6003 5.99999 10.0001 5.99999C9.39996 5.99999 8.82686 5.95812 8.2802 5.88086L7.73993 9.12327C7.67185 9.53185 7.28544 9.80788 6.87686 9.7398C6.46828 9.67171 6.19225 9.28531 6.26033 8.87672L6.81045 5.57522C5.511 5.21497 4.38776 4.65497 3.42937 4.01087L1.65129 7.12213C1.44576 7.48176 0.987617 7.60668 0.62799 7.40116C0.268363 7.19563 0.143439 6.73748 0.348966 6.37786L2.22604 3.09337C1.49654 2.46692 0.896177 1.81485 0.416699 1.22128C0.156415 0.899061 0.206624 0.426849 0.528843 0.166565Z"
+      fill={fill}
+    />
+  </Svg>
+);
+
 // Custom Checkmark Icon Component (from Figma SVG)
 const CheckmarkIcon = ({width = 24, height = 24}) => (
   <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
@@ -29,17 +52,14 @@ const UpdatePasswordScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Navigation Header */}
-      <View style={styles.navigationHeader}>
-        <View style={styles.statusBar} />
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <LeftIcon width={24} height={24} fill="#393D40" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Update Password</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Update Password</Text>
+        <View style={{ width: 40 }} />
       </View>
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Current Password */}
         <View style={styles.inputSection}>
           <View style={styles.inputFieldWrap}>
@@ -53,6 +73,9 @@ const UpdatePasswordScreen = ({ navigation }) => {
                 onChangeText={setCurrentPassword}
                 secureTextEntry
               />
+              <TouchableOpacity style={styles.iconContainer}>
+                <EyeIcon width={24} height={24} fill="#647276" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -69,6 +92,9 @@ const UpdatePasswordScreen = ({ navigation }) => {
                 onChangeText={setNewPassword}
                 secureTextEntry
               />
+              <TouchableOpacity style={styles.iconContainer}>
+                <PasswordStrengthIcon width={20} height={10} fill="#7F8D91" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -120,6 +146,9 @@ const UpdatePasswordScreen = ({ navigation }) => {
                 onChangeText={setConfirmPassword}
                 secureTextEntry
               />
+              <TouchableOpacity style={styles.iconContainer}>
+                <EyeIcon width={24} height={24} fill="#647276" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -140,60 +169,20 @@ const UpdatePasswordScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    width: '100%',
-    height: 812,
-    backgroundColor: '#FFFFFF',
     flex: 1,
-    alignSelf: 'stretch',
-  },
-  navigationHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 106,
     backgroundColor: '#FFFFFF',
-    zIndex: 2,
-    flexDirection: 'column',
   },
-  statusBar: {
-    width: '100%',
-    height: 24,
-  },
-  headerContent: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    height: 58,
-    width: '100%',
-    marginTop: 0,
-    paddingHorizontal: 24,
-    alignSelf: 'center',
-  },
-  backButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   headerTitle: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontWeight: '700',
     fontSize: 18,
-    lineHeight: 24,
-    textAlign: 'center',
+    fontWeight: '700',
     color: '#202325',
-  },
-  content: {
-    flex: 1,
-    width: '100%',
-    minHeight: 812,
-    paddingTop: 106,
-    paddingBottom: 34,
-    alignSelf: 'stretch',
-    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     alignItems: 'flex-start',
@@ -260,6 +249,12 @@ const styles = StyleSheet.create({
     color: '#202325',
     height: 24,
     padding: 0,
+  },
+  iconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   passwordGuideBox: {
     width: 327,

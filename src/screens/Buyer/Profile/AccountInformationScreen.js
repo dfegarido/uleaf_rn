@@ -66,24 +66,16 @@ const AccountInformationScreen = ({navigation}) => {
     <View style={styles.container}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      {/* Navigation Header */}
-      <View style={styles.navigationHeader}>
-        {/* Status Bar Area */}
-        <View style={styles.statusBar} />
-        
-        {/* Header Content */}
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}>
-            <LeftIcon width={24} height={24} fill="#393D40" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Account Information</Text>
-        </View>
+      {/* Header - Same as WishList Screen */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Account Information</Text>
+        <View style={styles.headerRight} />
       </View>
 
-      {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Form */}
         <View style={styles.form}>
           {/* Avatar Section */}
@@ -184,63 +176,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    width: '100%',
-    position: 'relative',
   },
-  navigationHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 106,
-    backgroundColor: '#FFFFFF',
-    zIndex: 2,
-    flexDirection: 'column',
-  },
-  statusBar: {
-    width: '100%',
-    height: 24, 
-  },
-  headerContent: {
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    height: 58,
-    width: '100%',
-    marginTop: 0,
     paddingHorizontal: 16,
-  },
-  backButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '700',
     fontSize: 18,
-    lineHeight: 24,
-    textAlign: 'center',
+    fontWeight: '700',
     color: '#202325',
   },
-  content: {
-    flex: 1,
-    width: '100%',
-    paddingTop: 106,
-    paddingBottom: 34,
+  headerRight: {
+    width: 24,
+    height: 24,
   },
   form: {
     backgroundColor: '#FFFFFF',
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'flex-start', 
+    justifyContent: 'flex-start',
     padding: 0,
     width: 375,
     minWidth: 375,
     maxWidth: 375,
-    alignSelf: 'center', 
+    alignSelf: 'center',
     flexGrow: 0,
   },
   avatarSection: {

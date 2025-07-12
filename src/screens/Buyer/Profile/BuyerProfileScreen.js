@@ -95,20 +95,18 @@ const BuyerProfileScreen = (props) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
+      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      {/* Header */}
+      {/* Header - Exactly like WishList Screen */}
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}>
-            <LeftIcon width={24} height={24} fill="#393D40" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter} />
+        <View style={styles.headerRight} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.nameSection}>
@@ -239,7 +237,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ReportIcon width={24} height={24} fill="#556065" />}
             title="Report a Problem"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('ReportProblemScreen')}
           />
 
           <MenuItem
@@ -285,38 +283,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 106,
-    minHeight: 106,
-    backgroundColor: '#DFECDF',
-    zIndex: 1,
-  },
-  headerRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    height: 58,
-    width: '100%',
-    marginTop: 24,
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#DFECDF',
   },
-  backButton: {
-    width: 24,
+  headerCenter: {
+    flex: 1, // Takes up the center space
+  },
+  headerRight: {
+    width: 24, // Same width as back button for balance
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-    marginTop: 106,
-    paddingTop: 0,
-    width: '100%',
   },
   profileSection: {
     backgroundColor: '#DFECDF',
-    paddingTop: 4,
+    paddingTop: 24,
     paddingHorizontal: 24,
     paddingBottom: 24,
     gap: 10,

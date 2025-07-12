@@ -42,17 +42,14 @@ const AddNewAddressScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Navigation Header */}
-      <View style={styles.navigationHeader}>
-        <View style={styles.statusBar} />
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <LeftIcon width={24} height={24} fill="#393D40" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add New Address</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Add New Address</Text>
+        <View style={{ width: 40 }} />
       </View>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* State */}
         <View style={styles.inputSection}>
           <View style={styles.inputFieldWrap}>
@@ -217,68 +214,25 @@ const AddNewAddressScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    width: '100%',
-    height: 812,
-    backgroundColor: '#FFFFFF',
     flex: 1,
-    alignSelf: 'stretch',
-  },
-  navigationHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 106,
     backgroundColor: '#FFFFFF',
-    zIndex: 2,
-    flexDirection: 'column',
   },
-  statusBar: {
-    width: '100%',
-    height: 24,
-  },
-  headerContent: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    height: 58,
-    width: 375,
-    marginTop: 0,
-    paddingHorizontal: 24,
-    alignSelf: 'center',
-  },
-  backButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   headerTitle: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontWeight: '700',
     fontSize: 18,
-    lineHeight: 24,
-    textAlign: 'center',
+    fontWeight: '700',
     color: '#202325',
-  },
-  content: {
-    flex: 1,
-    width: '100%',
-    minHeight: 812,
-    paddingTop: 106,
-    paddingBottom: 34,
-    alignSelf: 'stretch',
-    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     alignItems: 'center',
     width: '100%',
-    minHeight: '100%',
-    flexGrow: 1,
     paddingBottom: 34,
-    paddingTop: 0,
   },
   inputSection: {
     flexDirection: 'column',
