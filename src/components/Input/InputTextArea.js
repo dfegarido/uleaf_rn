@@ -9,6 +9,7 @@ const InputTextArea = ({text, setText, lines, height}) => {
           styles.textArea,
           {
             height: height,
+            color: '#000',
           },
         ]}
         multiline={true}

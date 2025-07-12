@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useContext } from 'react';
+/* eslint-disable react/no-unstable-nested-components */
 import {
   ActivityIndicator,
   StyleSheet,
@@ -10,6 +11,10 @@ import {
   View,
 } from 'react-native';
 import { AuthContext } from '../../auth/AuthProvider';
+import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
+import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
+import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
+import BuyerTabNavigator from './BuyerTabNavigator';
 
 import {
   ChatScreen,
@@ -32,10 +37,12 @@ import {
 } from '../../screens/Profile';
 import {
   ScreenDelivery,
+  ScreenDeliveryAction,
   ScreenDeliveryCasualty,
   ScreenDeliveryHub,
   ScreenDeliveryMissing,
   ScreenDeliveryReceived,
+  ScreenExportQR,
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
@@ -76,9 +83,54 @@ import OrderIcon from '../../assets/icontabs/order.svg';
 import SellIcon from '../../assets/icontabs/sell.svg';
 
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
+import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
+import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// true = buyer tab navigator
+// false = seller tab navigator
+const IS_DEVELOPMENT_MODE = false;
+
+// Set to true to bypass directly to BuyerProfileScreen for testing
+const BYPASS_TO_BUYER_PROFILE = false;
+
+const DeliveryStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen
+      name="ScreenDelivery"
+      component={ScreenDelivery}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryHub"
+      component={ScreenDeliveryHub}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryReceived"
+      component={ScreenDeliveryReceived}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryMissing"
+      component={ScreenDeliveryMissing}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenDeliveryCasualty"
+      component={ScreenDeliveryCasualty}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenExportQR"
+      component={ScreenExportQR}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+  </Stack.Navigator>
+);
 
 const AuthStack = () => {
   return (
@@ -110,6 +162,11 @@ const AuthStack = () => {
           },
           headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
         })}
+      />
+      <Stack.Screen
+        name="BuyerTabs"
+        component={BuyerTabNavigator}
+        options={{headerShown: false, animation: 'slide_from_right'}}
       />
       <Stack.Screen
         name="LoginOtp"
@@ -442,6 +499,11 @@ const MainStack = () => {
         component={ScreenDeliveryCasualty}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
+      <Stack.Screen
+        name="ScreenDeliveryAction"
+        component={ScreenDeliveryAction}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
 
       <Stack.Screen
         name="ScreenPayout"
@@ -515,7 +577,7 @@ function MainTabNavigator() {
                 <View
                   style={{
                     position: 'absolute',
-                    bottom: 2,
+                    bottom: 8,
                     width: 70,
                     height: 70,
                     backgroundColor: 'transparent', // Adjust background color if needed
@@ -554,10 +616,27 @@ function MainTabNavigator() {
       <Tab.Screen name="Listings" component={ScreenListing} />
       <Tab.Screen name="Sell" component={ScreenSell} />
       <Tab.Screen name="Order" component={ScreenOrder} />
-      <Tab.Screen name="Delivery" component={ScreenDelivery} />
+      <Tab.Screen name="Delivery" component={DeliveryStack} />
     </Tab.Navigator>
   );
 }
+
+// const AppNavigation = () => {
+//   const {isLoggedIn, isLoading} = useContext(AuthContext);
+//
+//   if (isLoading) {
+//     return (
+//       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+//         <ActivityIndicator size="large" />
+//       </View>
+//     );
+//   }
+//   return (
+//     <NavigationContainer>
+//       {isLoggedIn ? <MainStack /> : <AuthStack />}
+//     </NavigationContainer>
+//   );
+// };
 
 const AppNavigation = () => {
   const {isLoggedIn, isLoading} = useContext(AuthContext);
@@ -569,9 +648,58 @@ const AppNavigation = () => {
       </View>
     );
   }
+
+  // Bypass directly to BuyerProfileScreen for testing
+  if (BYPASS_TO_BUYER_PROFILE) {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator>
+          <Stack.Screen
+            name="BuyerProfileScreen"
+            component={BuyerProfileScreen}
+            options={{headerShown: false}}
+          />
+          <Stack.Screen
+            name="AccountInformationScreen"
+            component={AccountInformationScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="AddressBookScreen"
+            component={AddressBookScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="UpdateAddressScreen"
+            component={UpdateAddressScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="AddNewAddressScreen"
+            component={AddNewAddressScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="UpdatePasswordScreen"
+            component={UpdatePasswordScreen}
+            options={{headerShown: false, animation: 'slide_from_right'}} 
+           />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
   return (
     <NavigationContainer>
-      {isLoggedIn ? <MainStack /> : <AuthStack />}
+      {isLoggedIn ? (
+        IS_DEVELOPMENT_MODE ? (
+          <BuyerTabNavigator />
+        ) : (
+          <MainStack />
+        )
+      ) : (
+        <AuthStack />
+      )}
     </NavigationContainer>
   );
 };

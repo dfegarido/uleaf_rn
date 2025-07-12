@@ -100,7 +100,7 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView>
+            <ScrollView style={{marginBottom: 60}}>
               <CheckBoxGroup
                 options={genusOptions}
                 selectedValues={genusValue}
@@ -120,6 +120,7 @@ const ReusableActionSheet = ({
                 position: 'absolute',
                 bottom: 10,
                 width: '100%',
+                backgroundColor: '#fff',
               }}>
               <TouchableOpacity
                 onPress={resetGenusSelection}
@@ -157,7 +158,7 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView>
+            <ScrollView style={{marginBottom: 60}}>
               <SelectableItemList
                 options={variegationOptions}
                 selectedValues={variegationValue}
@@ -182,7 +183,9 @@ const ReusableActionSheet = ({
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={{width: '45%'}}>
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -241,7 +244,9 @@ const ReusableActionSheet = ({
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={{width: '45%'}}>
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>

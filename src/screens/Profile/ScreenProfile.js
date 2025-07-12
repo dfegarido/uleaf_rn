@@ -1,4 +1,4 @@
-import React, {useContext} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {AuthContext} from '../../auth/AuthProvider';
+import {useIsFocused} from '@react-navigation/native';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../utils/utils';
+
+import {getProfileInfoApi} from '../../components/Api';
 
 import ProfileIcon from '../../assets/icons/greydark/profile.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
@@ -21,8 +28,53 @@ import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 
 const ScreenProfile = ({navigation}) => {
   const {logout} = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({});
+
+  // ✅ Fetch on mount
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    setLoading(true);
+    const fetchData = async () => {
+      try {
+        await loadListingData();
+      } catch (error) {
+        console.log('Fetching details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isFocused]);
+
+  const loadListingData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getProfileInfoApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load sort api');
+    }
+
+    console.log(res);
+    setData(res);
+  };
+  // ✅ Fetch on mount
+
   return (
     <ScrollView style={styles.container} stickyHeaderIndices={[0]}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <View
         style={[
           styles.stickyHeader,
@@ -58,8 +110,10 @@ const ScreenProfile = ({navigation}) => {
           <View style={styles.avatar} />
         </View>
         <View>
-          <Text style={globalStyles.textLGGreyDark}>Olla Holic</Text>
-          <Text style={styles.status}>● Active</Text>
+          <Text style={globalStyles.textLGGreyDark}>
+            {data?.gardenOrCompanyName}
+          </Text>
+          <Text style={styles.status}>{data?.status}</Text>
         </View>
       </View>
 
@@ -70,7 +124,7 @@ const ScreenProfile = ({navigation}) => {
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenProfileAccount')}>
+            onPress={() => navigation.navigate('ScreenProfileAccount', data)}>
             <View style={styles.menuLeft}>
               <ProfileIcon width={20} height={20} />
               <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
@@ -228,6 +282,12 @@ const styles = StyleSheet.create({
   logoutText: {
     color: '#000',
     fontWeight: '600',
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

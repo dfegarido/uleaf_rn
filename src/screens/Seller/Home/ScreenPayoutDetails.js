@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -9,53 +9,18 @@ import {
   ScrollView,
   FlatList,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import {globalStyles} from '../../../assets/styles/styles';
 import PayoutPlantCard from './components/PayoutPlantCard';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+import {getHomePayoutDetailsApi} from '../../../components/Api';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
-import AvatarIcon from '../../../assets/images/avatar.svg';
-
-const DATA = [
-  {
-    id: '1',
-    image: 'https://via.placeholder.com/60',
-    price: 1234,
-    quantity: 1,
-    code: 'AA#####',
-    size: '2"',
-    tag: null,
-  },
-  {
-    id: '2',
-    image: 'https://via.placeholder.com/60',
-    price: 2236,
-    quantity: 20,
-    code: 'AA#####',
-    size: '2"–4"',
-    tag: 'Wholesale',
-  },
-  {
-    id: '3',
-    image: 'https://via.placeholder.com/60',
-    price: 833,
-    quantity: 3,
-    code: 'AA#####',
-    size: '5"–8"',
-    tag: "Grower's Choice",
-  },
-  {
-    id: '4',
-    image: 'https://via.placeholder.com/60',
-    price: 1234,
-    quantity: 1,
-    code: 'AA#####',
-    size: '2"',
-    tag: null,
-  },
-];
 
 const ScreenPayoutDetails = ({navigation, route}) => {
   const statusStyles = {
@@ -64,32 +29,78 @@ const ScreenPayoutDetails = ({navigation, route}) => {
   };
   const insets = useSafeAreaInsets();
 
-  const {status} = route.params;
-
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
       StatusBar.setBarStyle('dark-content');
       StatusBar.setBackgroundColor('#fff');
     }
   });
+
+  const [loading, setLoading] = useState(false);
+  const [listingData, setListingData] = useState(null);
+  const [totalReceivables, setTotalReceivables] = useState('');
+
+  const {workWeek, status} = route.params;
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    setLoading(true);
+    const fetchData = async () => {
+      try {
+        await loadListingData(workWeek);
+      } catch (error) {
+        console.log('Fetching details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [workWeek, isFocused]);
+
+  const loadListingData = async workWeek => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(
+      () => getHomePayoutDetailsApi(workWeek),
+      3,
+      1000,
+    );
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load sort api');
+    }
+
+    console.log(JSON.stringify(res.data));
+    setTotalReceivables(res?.data[0]?.totalReceivableAmountLocal);
+    setListingData(res?.data);
+  };
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <ScrollView
         style={[styles.container, {paddingTop: insets.top}]}
         stickyHeaderIndices={[0]}>
-        {/* Search and Icons */}
+        {/* Header */}
         <View style={styles.stickyHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               style={{
-                // padding: 5,
-                // backgroundColor: '#fff',
                 flexDirection: 'row',
                 justifyContent: 'flex-start',
                 alignItems: 'flex-start',
               }}>
-              <LeftIcon width={30} hegiht={30} />
+              <LeftIcon width={30} height={30} />
             </TouchableOpacity>
             <View style={{flex: 1}}>
               <Text
@@ -102,10 +113,9 @@ const ScreenPayoutDetails = ({navigation, route}) => {
             </View>
           </View>
         </View>
-        {/* Search and Icons */}
 
         {/* Main Content */}
-        <View style={{}}>
+        <View>
           <View
             style={{
               backgroundColor: '#fff',
@@ -116,17 +126,20 @@ const ScreenPayoutDetails = ({navigation, route}) => {
               marginBottom: 20,
               marginHorizontal: 20,
             }}>
-            <Text style={globalStyles.textMDGreyDark}>Total Receivable</Text>
-
-            <Text style={[globalStyles.textXXLGreyDark, {paddingTop: 10}]}>
-              $10000000
+            <Text style={globalStyles.textMDGreyDark}>
+              {status == 'Paid'
+                ? 'Total Receivable Amount'
+                : 'Total Receivable'}
             </Text>
-
+            <Text style={[globalStyles.textXXLGreyDark, {paddingTop: 10}]}>
+              {totalReceivables}
+            </Text>
             <View
               style={[styles.statusTag, statusStyles[status], {marginTop: 10}]}>
               <Text style={styles.statusText}>{status}</Text>
             </View>
           </View>
+
           <View
             style={{
               backgroundColor: '#F5F6F6',
@@ -135,7 +148,13 @@ const ScreenPayoutDetails = ({navigation, route}) => {
             }}>
             <View style={{flexDirection: 'column', width: '30%'}}>
               <Text style={globalStyles.textSMGreyLight}>Payout date</Text>
-              <Text style={globalStyles.textMDGreyDark}>Payout date</Text>
+              <Text style={globalStyles.textMDGreyDark}>
+                {listingData?.[0]?.details?.[0]?.payoutDate
+                  ? new Date(
+                      listingData[0].details[0].payoutDate,
+                    ).toDateString()
+                  : 'N/A'}
+              </Text>
             </View>
             <View style={{flexDirection: 'column', width: '70%'}}>
               <Text style={globalStyles.textSMGreyLight}>Sales period</Text>
@@ -144,19 +163,31 @@ const ScreenPayoutDetails = ({navigation, route}) => {
               </Text>
             </View>
           </View>
+
           <View style={{marginHorizontal: 20, marginVertical: 20}}>
             <Text style={globalStyles.textMDGreyDark}>Order Summary</Text>
           </View>
+
           <FlatList
             scrollEnabled={false}
-            data={DATA}
-            keyExtractor={item => item.id}
-            renderItem={({item}) => <PayoutPlantCard plant={item} />}
+            data={listingData?.[0]?.details || []}
+            keyExtractor={(item, index) => `${item.trxNumber}-${index}`}
+            renderItem={({item}) => (
+              <PayoutPlantCard
+                plant={{
+                  id: item.trxNumber,
+                  image: item.imagePrimary,
+                  price: item.localPrice,
+                  quantity: item.orderQty,
+                  code: item.plantCode,
+                  size: item.potSizeVariation + '"',
+                  tag: item.listingType,
+                }}
+              />
+            )}
           />
         </View>
-        {/* Main Content */}
       </ScrollView>
-      {/* Button always at the bottom */}
     </SafeAreaView>
   );
 };
@@ -201,6 +232,12 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '600',
     fontSize: 12,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

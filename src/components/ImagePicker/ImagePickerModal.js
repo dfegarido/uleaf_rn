@@ -34,7 +34,7 @@ async function requestPermissions() {
   return allGranted;
 }
 
-const ImagePickerModal = ({onImagePicked}) => {
+const ImagePickerModal = ({onImagePicked, limit = 0}) => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const handleCamera = async () => {
@@ -67,7 +67,7 @@ const ImagePickerModal = ({onImagePicked}) => {
     launchImageLibrary(
       {
         mediaType: 'photo',
-        selectionLimit: 0,
+        selectionLimit: limit, // ✅ use the provided limit (0 means unlimited)
       },
       response => {
         setModalVisible(false);
@@ -101,12 +101,12 @@ const ImagePickerModal = ({onImagePicked}) => {
           onPressOut={() => setModalVisible(false)}>
           <View style={styles.modalContainer}>
             <TouchableOpacity style={styles.option} onPress={handleCamera}>
-              <Text style={[styles.optionText, globalStyles.textMDAccentDark]}>
+              <Text style={[styles.optionText, globalStyles.textMDGreyDark]}>
                 📷 Take Photo
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.option} onPress={handleGallery}>
-              <Text style={[styles.optionText, globalStyles.textMDAccentDark]}>
+              <Text style={[styles.optionText, globalStyles.textMDGreyDark]}>
                 🖼️ Choose from Library
               </Text>
             </TouchableOpacity>

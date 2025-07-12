@@ -10,6 +10,7 @@ export const getManageListingApi = async (
   discount,
   limit,
   plant,
+  pinTag,
   nextPageToken,
 ) => {
   try {
@@ -31,6 +32,7 @@ export const getManageListingApi = async (
     params.append('discount', String(discount ?? ''));
     params.append('limit', limit ?? '');
     params.append('plant', plant ?? '');
+    params.append('pinTag', pinTag ?? false);
     params.append('nextPageToken', nextPageToken ?? '');
 
     console.log(params.toString());

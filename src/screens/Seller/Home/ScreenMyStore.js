@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
-  TextInput,
+  RefreshControl,
   Image,
   ScrollView,
   StyleSheet,
@@ -12,6 +12,8 @@ import {
   StatusBar,
   Alert,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -22,6 +24,7 @@ import {ReusableActionSheet} from '../../../components/ReusableActionSheet';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {useIsFocused} from '@react-navigation/native';
+import {InputSearch} from '../../../components/InputGroup/Left';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
@@ -32,6 +35,7 @@ import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import HeartIcon from '../../../assets/icons/greydark/heart-solid.svg';
+import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
 import {
   getSortApi,
@@ -39,57 +43,14 @@ import {
   getVariegationApi,
   getListingTypeApi,
   getManageListingApi,
+  postListingPinActionApi,
 } from '../../../components/Api';
 
 const screenHeight = Dimensions.get('window').height;
 
-const data = [
-  {
-    id: 1,
-    image: '',
-    plantName: 'Ficus Irata',
-    subPlantName: 'Albo Variegata',
-    listingCode: 'L1',
-    listingType: 'Single Plant',
-    potSize: ['2"'],
-    price: '$299',
-    discountPercent: '',
-    discountPrice: '',
-    heartCount: '5.3k',
-    isPin: 1,
-  },
-  {
-    id: 2,
-    image: '',
-    plantName: 'Aloe vera',
-    subPlantName: 'Albo Variegata',
-    listingCode: 'L2',
-    listingType: "Grower's choice",
-    potSize: ['2"-4"', '5"-8"'],
-    price: '$299',
-    discountPercent: '15% OFF',
-    discountPrice: '$24',
-    heartCount: '5.3k',
-    isPin: 0,
-  },
-  {
-    id: 3,
-    image: '',
-    plantName: 'Aloe vera ',
-    subPlantName: 'Albo Variegata',
-    listingCode: 'L3',
-    listingType: 'Wholesale',
-    potSize: ['2"-4"', '5"-8"'],
-    price: '$299',
-    discountPercent: '',
-    discountPrice: '',
-    heartCount: '5.3k',
-    isPin: 0,
-  },
-];
-
 const ScreenMyStore = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const [search, setSearch] = useState('');
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -118,12 +79,21 @@ const ScreenMyStore = ({navigation}) => {
   const [reusableGenus, setReusableGenus] = useState([]);
   const [reusableVariegation, setReusableVariegation] = useState([]);
   const [reusableListingType, setReusableListingType] = useState([]);
+  const handleFilterView = () => {
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
   // For reusable action sheet
 
   // List table
   const [refreshing, setRefreshing] = useState(false);
 
   // ✅ Your loadData (unchanged)
+  const [nextToken, setNextToken] = useState('');
+  const [nextTokenParam, setNextTokenParam] = useState('');
+  const [totalDataCount, setTotalDataCount] = useState(0);
+
   const loadData = async (
     filterMine,
     sortBy,
@@ -134,6 +104,7 @@ const ScreenMyStore = ({navigation}) => {
     discount,
     limit,
     plant,
+    pinTag,
     nextPageToken,
   ) => {
     const netState = await NetInfo.fetch();
@@ -151,6 +122,7 @@ const ScreenMyStore = ({navigation}) => {
       discount,
       limit,
       plant,
+      pinTag,
       nextPageToken,
     );
 
@@ -160,8 +132,18 @@ const ScreenMyStore = ({navigation}) => {
       );
     }
 
-    console.log(getManageListingApiData);
-    setDataTable(getManageListingApiData?.listings || []);
+    // console.log(getManageListingApiData.listings[0]);
+    // console.log(getManageListingApiData?.nextPageToken);
+    setNextToken(getManageListingApiData?.nextPageToken);
+    setTotalDataCount(getManageListingApiData?.total);
+    // setDataTable(getManageListingApiData?.listings || []);
+    setDataTable(
+      prev =>
+        nextTokenParam
+          ? [...prev, ...(getManageListingApiData?.listings || [])] // append
+          : getManageListingApiData?.listings || [], // replace
+    );
+    console.log(dataTable?.variations);
   };
 
   // ✅ Error-handling wrapper
@@ -174,11 +156,12 @@ const ScreenMyStore = ({navigation}) => {
         reusableGenus,
         reusableVariegation,
         reusableListingType,
-        'All',
+        'Active',
         false,
         10,
-        '',
-        null,
+        search,
+        pinSearch,
+        nextTokenParam,
       );
     } catch (error) {
       console.log('Error in fetchData:', error.message);
@@ -191,27 +174,69 @@ const ScreenMyStore = ({navigation}) => {
 
   // ✅ Fetch on mount
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
-  // useEffect(() => {
-  //   setLoading(true);
-  //   fetchData();
-  //   setLoading(false);
-  // }, [isInitialFetchRefresh]);
   const isFocused = useIsFocused();
 
   useEffect(() => {
     if (isFocused) {
       setLoading(true);
       fetchData();
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+      }, 1000);
     }
   }, [isInitialFetchRefresh, isFocused]);
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
+    setNextToken('');
+    setNextTokenParam('');
     fetchData();
   };
   // List table
+
+  // Pin search
+  const [pinSearch, setPinSearch] = useState(false);
+
+  const onPressPinSearch = paramPinSearch => {
+    setPinSearch(paramPinSearch);
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+  // Pin search
+
+  // Search
+  const handleSearchSubmit = e => {
+    const searchText = e.nativeEvent.text;
+    setSearch(searchText);
+    console.log('Searching for:', searchText);
+    // trigger your search logic here
+
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+  // Search
+
+  // Load more
+  useEffect(() => {
+    if (nextTokenParam) {
+      setLoading(true);
+      fetchData();
+      setTimeout(() => {
+        setLoading(false); // or setLoading(false)
+      }, 500);
+    }
+  }, [nextTokenParam]);
+
+  const onPressLoadMore = () => {
+    if (nextToken != nextTokenParam) {
+      console.log('click more');
+      setNextTokenParam(nextToken);
+    }
+  };
+  // Load more
 
   // For dropdown
   const [sortOptions, setSortOptions] = useState([]);
@@ -319,166 +344,216 @@ const ScreenMyStore = ({navigation}) => {
   };
   // For dropdown
 
+  // Pin Action
+  const onPressTableListPin = async (plantCode, pinTag) => {
+    setLoading(true);
+    try {
+      const updatedPinTag = !pinTag;
+
+      const response = await postListingPinActionApi(plantCode, updatedPinTag);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post pin failed.');
+      }
+
+      setNextToken('');
+      setNextTokenParam('');
+      fetchData();
+    } catch (error) {
+      console.log('Error pin table action:', error.message);
+      Alert.alert('Pin item', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Pin Action
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-      <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
-        stickyHeaderIndices={[0]}>
-        {/* Search and Icons */}
-        <View style={[styles.stickyHeader]}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={{
-                // padding: 5,
-                // backgroundColor: '#fff',
-                flexDirection: 'row',
-                justifyContent: 'flex-start',
-                alignItems: 'flex-start',
-              }}>
-              <LeftIcon width={30} hegiht={30} />
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
+
+      {/* Search and Icons */}
+      <View style={[styles.stickyHeader]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={{
+              // padding: 5,
+              // backgroundColor: '#fff',
+              flexDirection: 'row',
+              justifyContent: 'flex-start',
+              alignItems: 'flex-start',
+            }}>
+            <LeftIcon width={30} hegiht={30} />
+          </TouchableOpacity>
+
+          <View style={{flex: 1}}>
+            <InputSearch
+              placeholder="Search I Leaf U"
+              value={search}
+              onChangeText={setSearch}
+              onSubmitEditing={handleSearchSubmit}
+              showClear={true} // shows an 'X' icon to clear
+            />
+          </View>
+
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton}>
+              <LiveIcon width={40} height={40} />
+              {/* <Text style={styles.liveTag}>LIVE</Text> */}
             </TouchableOpacity>
-
-            <View style={{flex: 1}}>
-              <InputGroupLeftIcon
-                IconLeftComponent={SearchIcon}
-                placeholder={'Search I Leaf U'}
-              />
-            </View>
-
-            <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.iconButton}>
-                <LiveIcon width={40} height={40} />
-                {/* <Text style={styles.liveTag}>LIVE</Text> */}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.iconButton,
-                  {
-                    borderWidth: 1,
-                    borderColor: '#CDD3D4',
-                    padding: 10,
-                    borderRadius: 10,
-                  },
-                ]}>
+            <TouchableOpacity
+              style={[
+                styles.iconButton,
+                {
+                  borderWidth: 1,
+                  borderColor: '#CDD3D4',
+                  padding: 10,
+                  borderRadius: 10,
+                },
+              ]}
+              onPress={() => onPressPinSearch(!pinSearch)}>
+              {pinSearch ? (
+                <PinAccentIcon width={20} height={20} />
+              ) : (
                 <PinIcon width={20} height={20} />
-              </TouchableOpacity>
-            </View>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
+      </View>
+      {/* Filter Cards */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{flexGrow: 0, paddingVertical: 10, paddingHorizontal: 20}} // ✅ prevents extra vertical space
+        contentContainerStyle={{
+          flexDirection: 'row',
+          gap: 10,
+          alignItems: 'flex-start',
+        }}>
+        <TouchableOpacity onPress={() => onPressFilter('SORT')}>
+          <View
+            style={{
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: '#CDD3D4',
+              padding: 10,
+              flexDirection: 'row',
+            }}>
+            <SortIcon width={20} height={20}></SortIcon>
+            <Text style={globalStyles.textSMGreyDark}>Sort</Text>
+          </View>
+        </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
+          <View
+            style={{
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: '#CDD3D4',
+              padding: 10,
+              flexDirection: 'row',
+            }}>
+            <Text style={globalStyles.textSMGreyDark}>Genus</Text>
+            <DownIcon width={20} height={20}></DownIcon>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
+          <View
+            style={{
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: '#CDD3D4',
+              padding: 10,
+              flexDirection: 'row',
+            }}>
+            <Text style={globalStyles.textSMGreyDark}>Variegation</Text>
+            <DownIcon width={20} height={20}></DownIcon>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
+          <View
+            style={{
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: '#CDD3D4',
+              padding: 10,
+              flexDirection: 'row',
+              marginRight: 30,
+            }}>
+            <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
+            <DownIcon width={20} height={20}></DownIcon>
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
+      {/* Filter Cards */}
+
+      {/* Contents */}
+      <ScrollView
+        style={[styles.container, {paddingTop: insets.top}]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }>
         <View
           style={{
             backgroundColor: '#fff',
             minHeight: screenHeight * 0.9,
           }}>
-          {/* Filter Cards */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{flexGrow: 0, paddingVertical: 10, paddingHorizontal: 20}} // ✅ prevents extra vertical space
-            contentContainerStyle={{
-              flexDirection: 'row',
-              gap: 10,
-              alignItems: 'flex-start',
-            }}>
-            <TouchableOpacity onPress={() => onPressFilter('SORT')}>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  flexDirection: 'row',
-                }}>
-                <SortIcon width={20} height={20}></SortIcon>
-                <Text style={globalStyles.textSMGreyDark}>Sort</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  flexDirection: 'row',
-                }}>
-                <Text style={globalStyles.textSMGreyDark}>Genus</Text>
-                <DownIcon width={20} height={20}></DownIcon>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  flexDirection: 'row',
-                }}>
-                <Text style={globalStyles.textSMGreyDark}>Variegation</Text>
-                <DownIcon width={20} height={20}></DownIcon>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  flexDirection: 'row',
-                  marginRight: 30,
-                }}>
-                <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
-                <DownIcon width={20} height={20}></DownIcon>
-              </View>
-            </TouchableOpacity>
-          </ScrollView>
-          {/* Filter Cards */}
           {/* Contents */}
           <View style={styles.contents}>
             <View style={{paddingBottom: 10}}>
               <Text
                 style={[globalStyles.textSMGreyLight, {textAlign: 'right'}]}>
-                632 plant(s)
+                {totalDataCount} plant(s)
               </Text>
 
               {/* List */}
               <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
-                {data.map((dataparse, index) => (
+                {dataTable.map((dataparse, index) => (
                   <TouchableOpacity
+                    key={index}
                     style={{
                       flexDirection: 'column',
                       padding: 5,
                       width: '50%',
                     }}
-                    onPress={() => onPressItem({data: dataparse})}
-                    key={index}>
+                    onPress={() => onPressItem({data: dataparse})}>
                     <View>
-                      <View>
+                      {/* Image + Discount + Heart */}
+                      <View style={{position: 'relative'}}>
                         <Image
                           style={styles.image}
                           source={{
-                            uri: 'https://via.placeholder.com/350x150.png?text=Spring+Plant+Fair',
+                            uri:
+                              dataparse.imagePrimary ||
+                              'https://via.placeholder.com/350x150.png?text=No+Image',
                           }}
+                          resizeMode="cover"
                         />
-                        {dataparse.discountPercent != '' && (
-                          <View style={{position: 'absolute', bottom: 10}}>
-                            <View style={{backgroundColor: 'transparent'}}>
-                              <BadgeWithTransparentNotch
-                                borderRadius={10}
-                                text={dataparse.discountPercent}
-                                height={30}
-                                width={80}
-                              />
-                            </View>
+
+                        {/* Discount Badge */}
+                        {dataparse.discountPercent ? (
+                          <View
+                            style={{position: 'absolute', bottom: 10, left: 5}}>
+                            <BadgeWithTransparentNotch
+                              borderRadius={10}
+                              text={dataparse.discountPercent + '% OFF'}
+                              height={30}
+                              width={80}
+                            />
                           </View>
-                        )}
+                        ) : null}
+
+                        {/* Heart Count */}
                         <View
                           style={{position: 'absolute', bottom: 10, right: 5}}>
                           <View
@@ -487,30 +562,56 @@ const ScreenMyStore = ({navigation}) => {
                               padding: 5,
                               borderRadius: 10,
                               flexDirection: 'row',
+                              alignItems: 'center',
                             }}>
-                            <HeartIcon width={20} height={20}></HeartIcon>
+                            <HeartIcon width={20} height={20} />
                             <Text style={globalStyles.textSMGreyDark}>
-                              {dataparse.heartCount}
+                              {dataparse.wishListCount ?? 0}
                             </Text>
                           </View>
                         </View>
+
+                        {/* Listing Type */}
+                        {dataparse.listingType != 'Single Plant' ? (
+                          <View
+                            style={{position: 'absolute', top: 10, left: 5}}>
+                            <View
+                              style={{
+                                backgroundColor: '#202325',
+                                padding: 5,
+                                borderRadius: 10,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                              }}>
+                              <Text style={globalStyles.textSMWhite}>
+                                {dataparse.listingType ?? ''}
+                              </Text>
+                            </View>
+                          </View>
+                        ) : null}
                       </View>
 
+                      {/* Plant Name + Pin */}
                       <View
                         style={{
-                          flex: 1,
                           flexDirection: 'row',
                           justifyContent: 'space-between',
-                          width: '100%',
+                          alignItems: 'center',
+                          marginTop: 8,
                         }}>
-                        <View style={{width: '50%'}}>
-                          <Text style={globalStyles.textMDGreyDark}>
-                            {dataparse.plantName}
-                          </Text>
-                        </View>
-
-                        <TouchableOpacity>
-                          {dataparse.isPin == 1 ? (
+                        <Text style={[globalStyles.textMDGreyDark, {flex: 1}]}>
+                          {`${dataparse.genus ?? ''} ${
+                            dataparse.species ?? ''
+                          }`}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() =>
+                            onPressTableListPin(
+                              dataparse.plantCode,
+                              dataparse.pinTag,
+                            )
+                          }>
+                          {dataparse.pinTag ? (
                             <PinAccentIcon width={20} height={20} />
                           ) : (
                             <PinIcon width={20} height={20} />
@@ -518,66 +619,98 @@ const ScreenMyStore = ({navigation}) => {
                         </TouchableOpacity>
                       </View>
 
+                      {/* Sub Plant Name */}
                       <Text
-                        style={[
-                          globalStyles.textMDGreyLight,
-                          {paddingTop: 10},
-                        ]}>
-                        {dataparse.subPlantName}
+                        style={[globalStyles.textMDGreyLight, {paddingTop: 4}]}>
+                        {dataparse.variegation || dataparse.mutation || ''}
                       </Text>
-                      <View style={{flexDirection: 'row', paddingTop: 10}}>
-                        {dataparse.potSize.map((parsePotSize, index2) => (
-                          <View
-                            style={[styles.badgeContainer]}
-                            key={index + index2}>
-                            <Text
+
+                      {/* Pot Sizes */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          flexWrap: 'wrap',
+                          marginTop: 6,
+                        }}>
+                        {(() => {
+                          // Initialize an empty array
+                          let finalPotSizes = [];
+
+                          // Priority 1: Try from variations
+                          if (
+                            Array.isArray(dataparse.variations) &&
+                            dataparse.variations.length > 0
+                          ) {
+                            const variation = dataparse.variations[0];
+
+                            if (Array.isArray(variation.potSize)) {
+                              finalPotSizes = variation.potSize;
+                            } else if (typeof variation.potSize === 'string') {
+                              finalPotSizes = [variation.potSize];
+                            }
+                          }
+
+                          // Priority 2: Fallback to dataparse.potSize
+                          if (
+                            finalPotSizes.length === 0 &&
+                            (Array.isArray(dataparse.potSize) ||
+                              typeof dataparse.potSize === 'string')
+                          ) {
+                            finalPotSizes = Array.isArray(dataparse.potSize)
+                              ? dataparse.potSize
+                              : [dataparse.potSize];
+                          }
+
+                          return finalPotSizes.map((parsePotSize, index2) => (
+                            <View
+                              key={`${index}-${index2}`}
                               style={[
-                                styles.badge,
-                                globalStyles.textMDGreyDark,
-                                {
-                                  backgroundColor: '#E4E7E9',
-                                },
+                                styles.badgeContainer,
+                                {marginRight: 4, marginBottom: 4},
                               ]}>
-                              {parsePotSize}
-                            </Text>
-                          </View>
-                        ))}
+                              <Text
+                                style={[
+                                  styles.badge,
+                                  globalStyles.textMDGreyDark,
+                                  {backgroundColor: '#E4E7E9'},
+                                ]}>
+                                {parsePotSize}
+                              </Text>
+                            </View>
+                          ));
+                        })()}
                       </View>
-                      <View style={{flexDirection: 'row'}}>
-                        {dataparse.discountPrice != '' ? (
-                          <Text
-                            style={[
-                              globalStyles.textMDAccent,
-                              {
-                                paddingTop: 10,
-                                paddingRight: 10,
-                                fontWeight: 'bold',
-                              },
-                            ]}>
-                            {dataparse.price}
-                          </Text>
-                        ) : (
+
+                      {/* Price + Strike-through if discounted */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                        }}>
+                        <Text
+                          style={[
+                            dataparse.discountPrice
+                              ? globalStyles.textMDAccent
+                              : globalStyles.textMDGreyDark,
+                            {
+                              paddingRight: 10,
+                              fontWeight: 'bold',
+                            },
+                          ]}>
+                          {dataparse.localCurrencySymbol}
+                          {dataparse.localPrice?.toFixed(2) ?? '0.00'}
+                        </Text>
+
+                        {!isNaN(parseFloat(dataparse.discountPrice)) ? (
                           <Text
                             style={[
                               globalStyles.textMDGreyDark,
-                              {
-                                paddingTop: 10,
-                                paddingRight: 10,
-                                fontWeight: 'bold',
-                              },
+                              styles.strikeText,
                             ]}>
-                            {dataparse.price}
+                            {dataparse.localCurrencySymbol}
+                            {parseFloat(dataparse.discountPrice).toFixed(2)}
                           </Text>
-                        )}
-
-                        <Text
-                          style={[
-                            globalStyles.textMDGreyDark,
-                            styles.strikeText,
-                            {paddingTop: 10},
-                          ]}>
-                          {dataparse.discountPrice}
-                        </Text>
+                        ) : null}
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -585,6 +718,19 @@ const ScreenMyStore = ({navigation}) => {
               </View>
             </View>
           </View>
+          <TouchableOpacity
+            onPress={() => onPressLoadMore()}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              marginTop: 10,
+              marginBottom: 50,
+            }}>
+            <Text style={globalStyles.textLGAccent}>Load More</Text>
+            <ArrowDownIcon width={25} height={20} />
+          </TouchableOpacity>
         </View>
 
         <ReusableActionSheet
@@ -603,6 +749,7 @@ const ScreenMyStore = ({navigation}) => {
           variegationChange={setReusableVariegation}
           listingTypeValue={reusableListingType}
           listingTypeChange={setReusableListingType}
+          handleSearchSubmit={handleFilterView}
         />
       </ScrollView>
     </SafeAreaView>
@@ -678,5 +825,12 @@ const styles = StyleSheet.create({
   strikeText: {
     textDecorationLine: 'line-through', // This adds the line in the middle
     color: 'black',
+  },
+
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
