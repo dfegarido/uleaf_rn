@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { default as React, default as React, useEffect, useState } from 'react';
+import { default as React, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
