@@ -63,7 +63,7 @@ const liveStreams = [
 ];
 
 const LiveVideoCard = ({stream}) => {
-  const formatViewers = (count) => {
+  const formatViewers = count => {
     if (count >= 1000) {
       return `${(count / 1000).toFixed(1)}k`;
     }
@@ -86,7 +86,9 @@ const LiveVideoCard = ({stream}) => {
             )}
             <View style={styles.viewersContainer}>
               <SocialIcon width={16} height={16} />
-              <Text style={styles.viewerCount}>{formatViewers(stream.viewers)}</Text>
+              <Text style={styles.viewerCount}>
+                {formatViewers(stream.viewers)}
+              </Text>
             </View>
           </View>
         </ImageBackground>
@@ -112,7 +114,7 @@ const LiveHeader = () => {
               <SearchIcon width={24} height={24} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search I Leaf U"
+                placeholder="Search ileafU"
                 placeholderTextColor="#647276"
                 value={searchText}
                 onChangeText={setSearchText}
@@ -145,7 +147,7 @@ const LiveScreen = () => {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
         <View style={styles.plantsContainer}>
-          {liveStreams.map((stream) => (
+          {liveStreams.map(stream => (
             <LiveVideoCard key={stream.id} stream={stream} />
           ))}
         </View>

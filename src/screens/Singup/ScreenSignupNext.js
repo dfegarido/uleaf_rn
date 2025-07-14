@@ -37,7 +37,7 @@ const ScreenSignup = ({navigation}) => {
           </TouchableOpacity>
           <View style={[styles.loginAccountContainer, {marginTop: 10}]}>
             <Text style={{color: '#000', textAlign: 'center'}}>
-              By clicking login, you agree to the I LEAF U's{' '}
+              By clicking login, you agree to the ileafU's{' '}
             </Text>
             <TouchableOpacity>
               <Text style={{color: '#699E73'}}>Terms & Conditions</Text>

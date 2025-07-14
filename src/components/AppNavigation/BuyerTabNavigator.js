@@ -28,6 +28,7 @@ import ChatIcon from '../../assets/icontabs/buyer-tabs/chat-solid.svg';
 import ChatIconSelected from '../../assets/icontabs/buyer-tabs/chat-icon-selected.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
 import {ScreenOrders} from '../../screens/Buyer/Orders';
+import {ScreenCart} from '../../screens/Buyer/Cart';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -122,18 +123,40 @@ function BuyerTabs() {
           }
         },
         headerShown: false,
-      })}
-    >
+      })}>
       <Tab.Screen name="Live" component={LiveScreen} />
-      <Tab.Screen name="Cart" component={() => <PlaceholderScreen title="Cart" />} />
+      <Tab.Screen name="Cart" component={ScreenCart} />
       <Tab.Screen name="Shop" component={ScreenShop} />
       <Tab.Screen name="Orders" component={ScreenOrders} />
-      <Tab.Screen name="Chat" component={() => <PlaceholderScreen title="Chat" />} />
-      <Tab.Screen name="Profile" component={BuyerProfileScreen} options={{ tabBarButton: () => null }} />
-      <Tab.Screen name="AccountInformationScreen" component={AccountInformationScreen} options={{ tabBarButton: () => null }} />
-      <Tab.Screen name="AddressBookScreen" component={AddressBookScreen} options={{ tabBarButton: () => null }} />
-      <Tab.Screen name="AddNewAddressScreen" component={AddNewAddressScreen} options={{ tabBarButton: () => null }} />
-      <Tab.Screen name="UpdateAddressScreen" component={UpdateAddressScreen} options={{ tabBarButton: () => null }} />
+      <Tab.Screen
+        name="Chat"
+        component={() => <PlaceholderScreen title="Chat" />}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={BuyerProfileScreen}
+        options={{tabBarButton: () => null}}
+      />
+      <Tab.Screen
+        name="AccountInformationScreen"
+        component={AccountInformationScreen}
+        options={{tabBarButton: () => null}}
+      />
+      <Tab.Screen
+        name="AddressBookScreen"
+        component={AddressBookScreen}
+        options={{tabBarButton: () => null}}
+      />
+      <Tab.Screen
+        name="AddNewAddressScreen"
+        component={AddNewAddressScreen}
+        options={{tabBarButton: () => null}}
+      />
+      <Tab.Screen
+        name="UpdateAddressScreen"
+        component={UpdateAddressScreen}
+        options={{tabBarButton: () => null}}
+      />
     </Tab.Navigator>
   );
 }
