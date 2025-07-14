@@ -87,7 +87,7 @@ const Tab = createBottomTabNavigator();
 
 // true = buyer tab navigator
 // false = seller tab navigator
-const IS_DEVELOPMENT_MODE = false;
+const IS_DEVELOPMENT_MODE = true;
 
 // Set to true to bypass directly to BuyerProfileScreen for testing
 const BYPASS_TO_BUYER_PROFILE = false;

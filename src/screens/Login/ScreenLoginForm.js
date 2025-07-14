@@ -86,6 +86,9 @@ const ScreenLoginForm = ({navigation}) => {
 
         if (user) {
           const localIdToken = await user.getIdToken();
+          console.log('ID Token:', localIdToken);
+          console.log('Token length:', localIdToken.length);
+          console.log('User UID:', user.uid);
           await loadData(localIdToken);
           navigation.navigate('LoginOtp');
         }
