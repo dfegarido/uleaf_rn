@@ -641,7 +641,7 @@ const ScreenListing = ({navigation}) => {
         <View style={styles.header}>
           <View style={{flex: 1}}>
             <InputSearch
-              placeholder="Search I Leaf U"
+              placeholder="Search ileafU"
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearchSubmit}

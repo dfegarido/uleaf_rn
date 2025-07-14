@@ -234,7 +234,7 @@ const ScreenShop = ({navigation}) => {
           <View style={{flex: 1}}>
             <InputGroupLeftIcon
               IconLeftComponent={SearchIcon}
-              placeholder={'Search I Leaf U'}
+              placeholder={'Search ileafU'}
             />
           </View>
 
