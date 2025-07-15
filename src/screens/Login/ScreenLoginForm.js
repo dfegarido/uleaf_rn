@@ -88,6 +88,7 @@ const ScreenLoginForm = ({navigation}) => {
 
         if (user) {
           const localIdToken = await user.getIdToken();
+          console.log('Token:', localIdToken);
           const userData = await loadData(localIdToken);
           await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
           navigation.navigate('LoginOtp');

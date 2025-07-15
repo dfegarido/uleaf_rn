@@ -9,6 +9,7 @@ import {
   TextInput,
 } from 'react-native';
 import Svg, {Path} from 'react-native-svg';
+import { useNavigation } from '@react-navigation/native';
 
 // Import icons
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -56,7 +57,9 @@ const DropdownIcon = () => (
   </Svg>
 );
 
-const AccountInformationScreen = ({navigation}) => {
+const AccountInformationScreen = () => {
+  const navigation = useNavigation();
+  
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -66,20 +69,15 @@ const AccountInformationScreen = ({navigation}) => {
     <View style={styles.container}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      {/* Navigation Header */}
-      <View style={styles.navigationHeader}>
-        {/* Status Bar Area */}
-        <View style={styles.statusBar} />
-        
-        {/* Header Content */}
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}>
-            <LeftIcon width={24} height={24} fill="#393D40" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Account Information</Text>
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Account Information</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Content */}
@@ -184,51 +182,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    width: '100%',
-    position: 'relative',
   },
-  navigationHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 106,
-    backgroundColor: '#FFFFFF',
-    zIndex: 2,
-    flexDirection: 'column',
-  },
-  statusBar: {
-    width: '100%',
-    height: 24, 
-  },
-  headerContent: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 58,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
     width: '100%',
-    marginTop: 0,
-    paddingHorizontal: 16,
+    height: 60,
   },
   backButton: {
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerTitle: {
-    flex: 1,
     fontFamily: 'Inter',
     fontStyle: 'normal',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 24,
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 22,
     textAlign: 'center',
     color: '#202325',
+    flex: 1,
+  },
+  spacer: {
+    width: 24,
+    height: 24,
   },
   content: {
     flex: 1,
     width: '100%',
-    paddingTop: 106,
     paddingBottom: 34,
   },
   form: {
