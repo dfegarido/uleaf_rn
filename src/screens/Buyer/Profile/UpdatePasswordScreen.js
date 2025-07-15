@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 import Svg, { Path } from 'react-native-svg';
@@ -19,7 +20,8 @@ const CheckmarkIcon = ({width = 24, height = 24}) => (
   </Svg>
 );
 
-const UpdatePasswordScreen = ({ navigation }) => {
+const UpdatePasswordScreen = () => {
+  const navigation = useNavigation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,16 +30,13 @@ const UpdatePasswordScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Navigation Header */}
-      <View style={styles.navigationHeader}>
-        <View style={styles.statusBar} />
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <LeftIcon width={24} height={24} fill="#393D40" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Update Password</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Update Password</Text>
+        <View style={styles.spacer} />
       </View>
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Current Password */}
@@ -140,42 +139,28 @@ const UpdatePasswordScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    width: '100%',
-    height: 812,
-    backgroundColor: '#FFFFFF',
     flex: 1,
-    alignSelf: 'stretch',
-  },
-  navigationHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 106,
     backgroundColor: '#FFFFFF',
-    zIndex: 2,
-    flexDirection: 'column',
   },
-  statusBar: {
-    width: '100%',
-    height: 24,
-  },
-  headerContent: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 58,
-    width: '100%',
-    marginTop: 0,
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    height: 60,
   },
   backButton: {
     width: 24,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  spacer: {
+    width: 24,
+    height: 24,
   },
   headerTitle: {
     flex: 1,
@@ -189,8 +174,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     width: '100%',
-    minHeight: 812,
-    paddingTop: 106,
     paddingBottom: 34,
     alignSelf: 'stretch',
     backgroundColor: '#FFFFFF',
@@ -198,7 +181,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     alignItems: 'flex-start',
     width: '100%',
-    minHeight: 812,
     flexGrow: 1,
     paddingBottom: 34,
     paddingTop: 0,
