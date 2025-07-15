@@ -22,7 +22,7 @@ import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
 import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
 import PromoBadge from '../../../components/PromoBadge/PromoBadge';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
-import {selectedCard} from '../../../assets/buyer-icons/png';
+// import {selectedCard} from '../../../assets/buyer-icons/png';
 
 const CartHeader = () => {
   const promoBadges = [

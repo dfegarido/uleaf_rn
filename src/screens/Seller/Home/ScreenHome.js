@@ -2,8 +2,10 @@ import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,

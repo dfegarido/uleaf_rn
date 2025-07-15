@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useState} from 'react';
 import {
   View,
@@ -55,6 +56,7 @@ const ScreenLoginForm = ({navigation}) => {
           postSellerAfterSignInApiData?.message || 'Login verification failed.',
         );
       }
+      return postSellerAfterSignInApiData
     } catch (error) {
       throw new Error(error.message || 'Failed to load seller data.');
     }
@@ -86,10 +88,8 @@ const ScreenLoginForm = ({navigation}) => {
 
         if (user) {
           const localIdToken = await user.getIdToken();
-          console.log('ID Token:', localIdToken);
-          console.log('Token length:', localIdToken.length);
-          console.log('User UID:', user.uid);
-          await loadData(localIdToken);
+          const userData = await loadData(localIdToken);
+          await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
           navigation.navigate('LoginOtp');
         }
       } catch (error) {
@@ -180,15 +180,6 @@ const ScreenLoginForm = ({navigation}) => {
               style={globalStyles.primaryButton}
               onPress={handlePressLogin}>
               <Text style={globalStyles.primaryButtonText}>Login</Text>
-            </TouchableOpacity>
-
-            {/* Buyer Bypass Button for Development */}
-            <TouchableOpacity
-              style={[globalStyles.secondaryButtonAccent, {marginTop: 10}]}
-              onPress={handlePressBuyerBypass}>
-              <Text style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                Go to Buyer Screen (Dev Mode)
-              </Text>
             </TouchableOpacity>
           </View>
         </View>
