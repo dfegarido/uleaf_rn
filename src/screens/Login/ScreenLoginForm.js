@@ -59,7 +59,7 @@ const ScreenLoginForm = ({navigation}) => {
           postSellerAfterSignInApiData?.message || 'Login verification failed.',
         );
       }
-      return postSellerAfterSignInApiData
+      return postSellerAfterSignInApiData;
     } catch (error) {
       throw new Error(error.message || 'Failed to load seller data.');
     }
@@ -162,7 +162,7 @@ const ScreenLoginForm = ({navigation}) => {
           <View style={styles.buttonContainer}>
             <View style={styles.loginAccountContainer}>
               <Text style={{color: '#000', textAlign: 'center'}}>
-                By clicking login, you agree to the I LEAF U's{' '}
+                By clicking login, you agree to the ileafU's{' '}
               </Text>
               <TouchableOpacity>
                 <Text style={{color: '#699E73'}}>Terms & Conditions</Text>
