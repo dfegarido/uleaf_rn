@@ -25,21 +25,28 @@ const getScreenDimensions = () => {
   const GAP = 12; // Gap between columns
   const MIN_CARD_WIDTH = 140; // Minimum card width for small screens
   const MAX_CARD_WIDTH = 200; // Maximum card width for large screens
-  
+
   // Calculate available width for content
   const availableWidth = screenWidth - HORIZONTAL_PADDING;
-  
+
   // Calculate card width for exactly 2 columns with gap
   let cardWidth = (availableWidth - GAP) / 2;
-  
+
   // Ensure card width is within acceptable bounds
   cardWidth = Math.max(MIN_CARD_WIDTH, Math.min(MAX_CARD_WIDTH, cardWidth));
-  
-  return {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH: cardWidth, availableWidth};
+
+  return {
+    screenWidth,
+    HORIZONTAL_PADDING,
+    GAP,
+    CARD_WIDTH: cardWidth,
+    availableWidth,
+  };
 };
 
 // Initialize with current dimensions
-let {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH, availableWidth} = getScreenDimensions();
+let {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH, availableWidth} =
+  getScreenDimensions();
 
 // Mock data for live streams
 const liveStreams = [
@@ -88,7 +95,7 @@ const liveStreams = [
 ];
 
 const LiveVideoCard = ({stream, cardWidth, index}) => {
-  const formatViewers = (count) => {
+  const formatViewers = count => {
     if (count >= 1000) {
       return `${(count / 1000).toFixed(1)}k`;
     }
@@ -96,7 +103,7 @@ const LiveVideoCard = ({stream, cardWidth, index}) => {
   };
 
   const cardHeight = cardWidth * 1.6; // Maintain aspect ratio
-  
+
   // Add right margin only to left column items (even indices)
   const isLeftColumn = index % 2 === 0;
   const cardStyle = {
@@ -107,7 +114,8 @@ const LiveVideoCard = ({stream, cardWidth, index}) => {
 
   return (
     <TouchableOpacity style={[styles.videoCard, cardStyle]}>
-      <View style={[styles.videoContainer, {width: cardWidth, height: cardHeight}]}>
+      <View
+        style={[styles.videoContainer, {width: cardWidth, height: cardHeight}]}>
         <ImageBackground
           source={stream.thumbnail}
           style={[styles.thumbnail, {width: cardWidth, height: cardHeight}]}
@@ -145,7 +153,7 @@ const LiveHeader = ({navigation}) => {
       <View style={{flex: 1}}>
         <InputGroupLeftIcon
           IconLeftComponent={SearchIcon}
-          placeholder={'Search I Leaf U'}
+          placeholder={'Search ileafU'}
           value={searchText}
           onChangeText={setSearchText}
         />
@@ -217,7 +225,12 @@ const LiveScreen = ({navigation}) => {
         showsVerticalScrollIndicator={false}>
         <View style={[styles.plantsContainer, dynamicStyles.plantsContainer]}>
           {liveStreams.map((stream, index) => (
-            <LiveVideoCard key={stream.id} stream={stream} cardWidth={dimensions.CARD_WIDTH} index={index} />
+            <LiveVideoCard
+              key={stream.id}
+              stream={stream}
+              cardWidth={dimensions.CARD_WIDTH}
+              index={index}
+            />
           ))}
         </View>
       </ScrollView>
