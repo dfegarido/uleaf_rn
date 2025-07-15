@@ -17,7 +17,7 @@ import wishlist1 from './wishlist-plant1.png';
 
 import thFlag from './TH.png';
 
-// import selectedCard from './selected-card.png';
+import selectedCard from './selected-card.png';
 export {
   banner1,
   banner2,
@@ -33,5 +33,5 @@ export {
   plant1,
   wishlist1,
   thFlag,
-  // selectedCard,
+  selectedCard,
 };

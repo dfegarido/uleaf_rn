@@ -70,6 +70,7 @@ function BuyerTabNavigator() {
 function BuyerTabs() {
   return (
     <Tab.Navigator
+      initialRouteName="Shop"
       screenOptions={({route}) => ({
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: '#539461',
