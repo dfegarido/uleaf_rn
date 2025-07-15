@@ -1,11 +1,14 @@
 import React from 'react';
-import {View, TextInput, StyleSheet} from 'react-native';
+import {View, TextInput, StyleSheet, TouchableOpacity} from 'react-native';
 
 const InputPasswordLeftIcon = ({
   IconLeftComponent,
   placeholder,
   value,
   onChangeText,
+  secureTextEntry = true,
+  rightIcon,
+  onRightIconPress,
 }) => {
   return (
     <View style={styles.inputContainer}>
@@ -16,10 +19,15 @@ const InputPasswordLeftIcon = ({
         style={styles.input}
         placeholder={'Password'}
         placeholderTextColor="#888"
-        secureTextEntry={true}
+        secureTextEntry={secureTextEntry}
         value={value}
         onChangeText={onChangeText}
       />
+      {rightIcon && (
+        <TouchableOpacity onPress={onRightIconPress} style={styles.rightIcon}>
+          {rightIcon}
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -44,6 +52,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#000',
+  },
+  rightIcon: {
+    marginLeft: 8,
+    padding: 4,
   },
 });
 
