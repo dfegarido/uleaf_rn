@@ -13,6 +13,11 @@ import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInforma
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
+import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
+import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
+import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
+import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
+import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
@@ -63,8 +68,63 @@ function BuyerTabNavigator() {
         component={MessagesScreen}
         options={{headerShown: false}}
       />
+      <Stack.Screen
+        name="AccountInformationScreen"
+        component={AccountInformationScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="AddressBookScreen"
+        component={AddressBookScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="AddNewAddressScreen"
+        component={AddNewAddressScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="UpdateAddressScreen"
+        component={UpdateAddressScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="UpdatePasswordScreen"
+        component={UpdatePasswordScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ReportAProblemScreen"
+        component={ReportAProblemScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="InviteFriendsScreen"
+        component={InviteFriendsScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="TermsOfUseScreen"
+        component={TermsOfUseScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="PrivacyPolicyScreen"
+        component={PrivacyPolicyScreen}
+        options={{headerShown: false}}
+      />
     </Stack.Navigator>
   );
+}
+
+// Component to handle Profile tab navigation
+function ProfileTabScreen({navigation}) {
+  React.useEffect(() => {
+    // Navigate to the ScreenProfile stack screen when this tab is focused
+    navigation.navigate('ScreenProfile');
+  }, [navigation]);
+  
+  return null; // This component doesn't render anything
 }
 
 function BuyerTabs() {
@@ -126,6 +186,22 @@ function BuyerTabs() {
               ) : (
                 <ChatIcon width={size} height={size} />
               );
+            case 'Profile':
+              return (
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 3,
+                    width: 70,
+                    height: 70,
+                    backgroundColor: 'transparent',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                  }}>
+                  <BuyerIcon width={80} height={80} />
+                </View>
+              );
           }
         },
         headerShown: false,
@@ -140,28 +216,7 @@ function BuyerTabs() {
       />
       <Tab.Screen
         name="Profile"
-        component={BuyerProfileScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="AccountInformationScreen"
-        component={AccountInformationScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="AddressBookScreen"
-        component={AddressBookScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="AddNewAddressScreen"
-        component={AddNewAddressScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="UpdateAddressScreen"
-        component={UpdateAddressScreen}
-        options={{tabBarButton: () => null}}
+        component={ProfileTabScreen}
       />
     </Tab.Navigator>
   );

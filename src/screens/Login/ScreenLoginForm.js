@@ -24,6 +24,8 @@ import {useHeaderHeight} from '@react-navigation/elements';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
+import EyeClosedIcon from '../../assets/icons/greydark/eye-closed-regular.svg';
+import EyeOpenIcon from '../../assets/icons/greydark/eye-regular.svg';
 
 const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
@@ -40,6 +42,7 @@ const ScreenLoginForm = ({navigation}) => {
   });
   const [loading, setLoading] = useState(false);
   const [validateErrors, setValidateErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const requiredFields = ['email', 'password'];
 
@@ -88,6 +91,7 @@ const ScreenLoginForm = ({navigation}) => {
 
         if (user) {
           const localIdToken = await user.getIdToken();
+          console.log('Token:', localIdToken);
           const userData = await loadData(localIdToken);
           await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
           navigation.navigate('LoginOtp');
@@ -138,6 +142,9 @@ const ScreenLoginForm = ({navigation}) => {
               IconLeftComponent={PasswordIcon}
               value={formData.password}
               onChangeText={text => setFormData({...formData, password: text})}
+              secureTextEntry={!showPassword}
+              rightIcon={showPassword ? <EyeOpenIcon width={20} height={20} /> : <EyeClosedIcon width={20} height={20} />}
+              onRightIconPress={() => setShowPassword(!showPassword)}
             />
             {validateErrors.password && (
               <Text style={globalStyles.textXSRed}>
