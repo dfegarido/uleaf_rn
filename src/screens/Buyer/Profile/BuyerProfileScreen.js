@@ -299,7 +299,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<EnvelopeIcon width={24} height={24} fill="#556065" />}
             title="Invite Friends"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('InviteFriendsScreen')}
           />
 
           <MenuItem
@@ -318,7 +318,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ReportIcon width={24} height={24} fill="#556065" />}
             title="Report a Problem"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('ReportAProblemScreen')}
           />
 
           <MenuItem
@@ -346,13 +346,13 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
             title="Terms of Use"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('TermsOfUseScreen')}
           />
 
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
             title="Privacy Policy"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('PrivacyPolicyScreen')}
           />
         </View>
 
