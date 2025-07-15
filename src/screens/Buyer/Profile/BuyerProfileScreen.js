@@ -245,7 +245,16 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ChatIcon width={24} height={24} fill="#556065" />}
             title="Chat with Us"
-            onPress={() => {}}
+            onPress={() => {
+              // Navigate to support chat
+              const supportChatParams = {
+                avatarUrl: null,
+                name: "Support Team",
+                id: "support-chat",
+                participants: ["support-admin", "current-user-id"]
+              };
+              navigation.navigate('ChatScreen', supportChatParams);
+            }}
           />
         </View>
 

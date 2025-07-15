@@ -15,6 +15,8 @@ import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
+import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+import {ChatScreen} from '../../screens/ChatScreen';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 
@@ -33,13 +35,6 @@ import {ScreenCart} from '../../screens/Buyer/Cart';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const PlaceholderScreen = ({title}) => (
-  <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-    <Text style={{fontSize: 20, fontWeight: 'bold'}}>{title}</Text>
-    <Text style={{marginTop: 10, color: '#666'}}>Coming Soon</Text>
-  </View>
-);
-
 function BuyerTabNavigator() {
   return (
     <Stack.Navigator>
@@ -56,6 +51,16 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="ScreenProfile"
         component={BuyerProfileScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ChatScreen"
+        component={ChatScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="MessagesScreen"
+        component={MessagesScreen}
         options={{headerShown: false}}
       />
     </Stack.Navigator>
@@ -130,7 +135,7 @@ function BuyerTabs() {
       <Tab.Screen name="Orders" component={ScreenOrders} />
       <Tab.Screen
         name="Chat"
-        component={() => <PlaceholderScreen title="Chat" />}
+        component={MessagesScreen}
       />
       <Tab.Screen
         name="Profile"
