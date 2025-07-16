@@ -1,34 +1,42 @@
 /* eslint-disable react-native/no-inline-styles */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable react/no-unstable-nested-components */
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {Text, View, StyleSheet} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 // Import buyer screens
-import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
-import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
-import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
-import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
-import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
-import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
-import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
+import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
+import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
+import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
+import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
+import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
+import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
+import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
+import {
+  LiveBroadcastScreen,
+} from '../../screens/Live';
+
+import {
+  BuyerLiveStreamScreen,
+} from '../../screens/Buyer/Live';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 
-import OrderIcon from '../../assets/icontabs/order.svg';
-import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
-import CartIcon from '../../assets/icontabs/buyer-tabs/cart-solid.svg';
-import CartIconSelected from '../../assets/icontabs/buyer-tabs/cart-icon-selected.svg';
-import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
-import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selected.svg';
-import ChatIcon from '../../assets/icontabs/buyer-tabs/chat-solid.svg';
-import ChatIconSelected from '../../assets/icontabs/buyer-tabs/chat-icon-selected.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
-import {ScreenOrders} from '../../screens/Buyer/Orders';
-import {ScreenCart} from '../../screens/Buyer/Cart';
+import CartIconSelected from '../../assets/icontabs/buyer-tabs/cart-icon-selected.svg';
+import CartIcon from '../../assets/icontabs/buyer-tabs/cart-solid.svg';
+import ChatIconSelected from '../../assets/icontabs/buyer-tabs/chat-icon-selected.svg';
+import ChatIcon from '../../assets/icontabs/buyer-tabs/chat-solid.svg';
+import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selected.svg';
+import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
+import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
+import OrderIcon from '../../assets/icontabs/order.svg';
+import { ScreenCart } from '../../screens/Buyer/Cart';
+import { ScreenOrders } from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -58,11 +66,24 @@ function BuyerTabNavigator() {
         component={BuyerProfileScreen}
         options={{headerShown: false}}
       />
+
+      <Stack.Screen
+        name="BuyerLiveStreamScreen"
+        component={BuyerLiveStreamScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="LiveBroadcastScreen"
+        component={LiveBroadcastScreen}
+        options={{headerShown: false}}
+      />
     </Stack.Navigator>
   );
 }
 
 function BuyerTabs() {
+  const navigation = useNavigation();
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
@@ -118,7 +139,7 @@ function BuyerTabs() {
               return focused ? (
                 <ChatIconSelected width={size} height={size} />
               ) : (
-                <ChatIcon width={size} height={size} />
+                <ChatIcon onPress={() => navigation.navigate('LiveBroadcastScreen')} width={size} height={size} />
               );
           }
         },
