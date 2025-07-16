@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useState} from 'react';
 import {
   View,
@@ -23,6 +24,8 @@ import {useHeaderHeight} from '@react-navigation/elements';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
+import EyeClosedIcon from '../../assets/icons/greydark/eye-closed-regular.svg';
+import EyeOpenIcon from '../../assets/icons/greydark/eye-regular.svg';
 
 const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
@@ -39,6 +42,7 @@ const ScreenLoginForm = ({navigation}) => {
   });
   const [loading, setLoading] = useState(false);
   const [validateErrors, setValidateErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const requiredFields = ['email', 'password'];
 
@@ -55,6 +59,7 @@ const ScreenLoginForm = ({navigation}) => {
           postSellerAfterSignInApiData?.message || 'Login verification failed.',
         );
       }
+      return postSellerAfterSignInApiData
     } catch (error) {
       throw new Error(error.message || 'Failed to load seller data.');
     }
@@ -86,10 +91,9 @@ const ScreenLoginForm = ({navigation}) => {
 
         if (user) {
           const localIdToken = await user.getIdToken();
-          console.log('ID Token:', localIdToken);
-          console.log('Token length:', localIdToken.length);
-          console.log('User UID:', user.uid);
-          await loadData(localIdToken);
+          console.log('Token:', localIdToken);
+          const userData = await loadData(localIdToken);
+          await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
           navigation.navigate('LoginOtp');
         }
       } catch (error) {
@@ -98,14 +102,6 @@ const ScreenLoginForm = ({navigation}) => {
         setLoading(false);
       }
     }
-  };
-
-  const handlePressBuyerBypass = () => {
-    // Navigate directly to buyer screens without authentication
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'BuyerTabs' }],
-    });
   };
 
   return (
@@ -146,6 +142,9 @@ const ScreenLoginForm = ({navigation}) => {
               IconLeftComponent={PasswordIcon}
               value={formData.password}
               onChangeText={text => setFormData({...formData, password: text})}
+              secureTextEntry={!showPassword}
+              rightIcon={showPassword ? <EyeOpenIcon width={20} height={20} /> : <EyeClosedIcon width={20} height={20} />}
+              onRightIconPress={() => setShowPassword(!showPassword)}
             />
             {validateErrors.password && (
               <Text style={globalStyles.textXSRed}>
@@ -178,15 +177,6 @@ const ScreenLoginForm = ({navigation}) => {
               style={globalStyles.primaryButton}
               onPress={handlePressLogin}>
               <Text style={globalStyles.primaryButtonText}>Login</Text>
-            </TouchableOpacity>
-
-            {/* Buyer Bypass Button for Development */}
-            <TouchableOpacity
-              style={[globalStyles.secondaryButtonAccent, {marginTop: 10}]}
-              onPress={handlePressBuyerBypass}>
-              <Text style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                Go to Buyer Screen (Dev Mode)
-              </Text>
             </TouchableOpacity>
           </View>
         </View>

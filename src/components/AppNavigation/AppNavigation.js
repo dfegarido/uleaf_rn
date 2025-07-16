@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import React, {useContext} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -40,6 +40,9 @@ import {
   ScreenDeliveryCasualty,
   ScreenDeliveryAction,
   ScreenExportQR,
+  ScreenDeliveryHub,
+  ScreenDeliveryReceived,
+  ScreenDeliveryMissing,
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
@@ -83,16 +86,11 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-
-// true = buyer tab navigator
-// false = seller tab navigator
-const IS_DEVELOPMENT_MODE = true;
-
-// Set to true to bypass directly to BuyerProfileScreen for testing
-const BYPASS_TO_BUYER_PROFILE = false;
 
 const DeliveryStack = () => (
   <Stack.Navigator>
@@ -636,7 +634,34 @@ function MainTabNavigator() {
 // };
 
 const AppNavigation = () => {
-  const {isLoggedIn, isLoading} = useContext(AuthContext);
+  const {isLoggedIn, isLoading, userInfo} = useContext(AuthContext);
+  const [asyncUserInfo, setAsyncUserInfo] = useState(null);
+
+  // Get userInfo and userType from AsyncStorage
+  useEffect(() => {
+    const getUserInfoFromStorage = async () => {
+
+        console.log('Reading userInfo from AsyncStorage...');
+        
+        // Try to get userInfo first
+        const storedUserInfo = await AsyncStorage.getItem('userInfo');
+        console.log('Raw stored userInfo:', storedUserInfo);
+        
+        if (storedUserInfo) {
+          const parsed = JSON.parse(storedUserInfo);
+          setAsyncUserInfo(parsed);
+          console.log('AsyncStorage userInfo parsed:', JSON.stringify(parsed, null, 2));
+        }
+    };
+
+    if (isLoggedIn) {
+      console.log('User is logged in, fetching userInfo from AsyncStorage');
+      getUserInfoFromStorage();
+    } else {
+      console.log('User is not logged in, skipping AsyncStorage fetch');
+      setAsyncUserInfo(null);
+    }
+  }, [isLoggedIn]);
 
   if (isLoading) {
     return (
@@ -646,50 +671,18 @@ const AppNavigation = () => {
     );
   }
 
-  // Bypass directly to BuyerProfileScreen for testing
-  if (BYPASS_TO_BUYER_PROFILE) {
-    return (
-      <NavigationContainer>
-        <Stack.Navigator>
-          <Stack.Screen
-            name="BuyerProfileScreen"
-            component={BuyerProfileScreen}
-            options={{headerShown: false}}
-          />
-          <Stack.Screen
-            name="AccountInformationScreen"
-            component={AccountInformationScreen}
-            options={{headerShown: false, animation: 'slide_from_right'}}
-          />
-          <Stack.Screen
-            name="AddressBookScreen"
-            component={AddressBookScreen}
-            options={{headerShown: false, animation: 'slide_from_right'}}
-          />
-          <Stack.Screen
-            name="UpdateAddressScreen"
-            component={UpdateAddressScreen}
-            options={{headerShown: false, animation: 'slide_from_right'}}
-          />
-          <Stack.Screen
-            name="AddNewAddressScreen"
-            component={AddNewAddressScreen}
-            options={{headerShown: false, animation: 'slide_from_right'}}
-          />
-          <Stack.Screen
-            name="UpdatePasswordScreen"
-            component={UpdatePasswordScreen}
-            options={{headerShown: false, animation: 'slide_from_right'}}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-    );
-  }
+  // Determine navigation based on user type
+  // Use context userInfo first, fallback to AsyncStorage userInfo
+  const currentUserInfo = userInfo || asyncUserInfo;
+  
+  // Extract userType from currentUserInfo with multiple fallbacks
+  const userType = currentUserInfo?.user?.userType || 'seller'; // Default to seller if no userType found  
+  const isBuyer = userType === 'buyer';
 
   return (
     <NavigationContainer>
       {isLoggedIn ? (
-        IS_DEVELOPMENT_MODE ? (
+        isBuyer ? (
           <BuyerTabNavigator />
         ) : (
           <MainStack />

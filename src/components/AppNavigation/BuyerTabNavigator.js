@@ -13,9 +13,17 @@ import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInforma
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
+import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
+import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
+import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
+import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
+import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
+import { ChatScreen } from '../../screens/ChatScreen';
+import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+
 import {
   LiveBroadcastScreen,
 } from '../../screens/Live';
@@ -41,13 +49,6 @@ import { ScreenOrders } from '../../screens/Buyer/Orders';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const PlaceholderScreen = ({title}) => (
-  <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-    <Text style={{fontSize: 20, fontWeight: 'bold'}}>{title}</Text>
-    <Text style={{marginTop: 10, color: '#666'}}>Coming Soon</Text>
-  </View>
-);
-
 function BuyerTabNavigator() {
   return (
     <Stack.Navigator>
@@ -66,26 +67,89 @@ function BuyerTabNavigator() {
         component={BuyerProfileScreen}
         options={{headerShown: false}}
       />
-
+      <Stack.Screen
+        name="ChatScreen"
+        component={ChatScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="MessagesScreen"
+        component={MessagesScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="AccountInformationScreen"
+        component={AccountInformationScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="AddressBookScreen"
+        component={AddressBookScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="AddNewAddressScreen"
+        component={AddNewAddressScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="UpdateAddressScreen"
+        component={UpdateAddressScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="UpdatePasswordScreen"
+        component={UpdatePasswordScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ReportAProblemScreen"
+        component={ReportAProblemScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="InviteFriendsScreen"
+        component={InviteFriendsScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="TermsOfUseScreen"
+        component={TermsOfUseScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="PrivacyPolicyScreen"
+        component={PrivacyPolicyScreen}
+        options={{headerShown: false}}
+      />
       <Stack.Screen
         name="BuyerLiveStreamScreen"
         component={BuyerLiveStreamScreen}
         options={{headerShown: false}}
       />
-
       <Stack.Screen
         name="LiveBroadcastScreen"
         component={LiveBroadcastScreen}
-        options={{headerShown: false}}
       />
     </Stack.Navigator>
   );
+}
+
+// Component to handle Profile tab navigation
+function ProfileTabScreen({navigation}) {
+  React.useEffect(() => {
+    // Navigate to the ScreenProfile stack screen when this tab is focused
+    navigation.navigate('ScreenProfile');
+  }, [navigation]);
+  
+  return null; // This component doesn't render anything
 }
 
 function BuyerTabs() {
   const navigation = useNavigation();
   return (
     <Tab.Navigator
+      initialRouteName="Shop"
       screenOptions={({route}) => ({
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: '#539461',
@@ -141,6 +205,22 @@ function BuyerTabs() {
               ) : (
                 <ChatIcon onPress={() => navigation.navigate('LiveBroadcastScreen')} width={size} height={size} />
               );
+            case 'Profile':
+              return (
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 3,
+                    width: 70,
+                    height: 70,
+                    backgroundColor: 'transparent',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                  }}>
+                  <BuyerIcon width={80} height={80} />
+                </View>
+              );
           }
         },
         headerShown: false,
@@ -151,32 +231,11 @@ function BuyerTabs() {
       <Tab.Screen name="Orders" component={ScreenOrders} />
       <Tab.Screen
         name="Chat"
-        component={() => <PlaceholderScreen title="Chat" />}
+        component={MessagesScreen}
       />
       <Tab.Screen
         name="Profile"
-        component={BuyerProfileScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="AccountInformationScreen"
-        component={AccountInformationScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="AddressBookScreen"
-        component={AddressBookScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="AddNewAddressScreen"
-        component={AddNewAddressScreen}
-        options={{tabBarButton: () => null}}
-      />
-      <Tab.Screen
-        name="UpdateAddressScreen"
-        component={UpdateAddressScreen}
-        options={{tabBarButton: () => null}}
+        component={ProfileTabScreen}
       />
     </Tab.Navigator>
   );
