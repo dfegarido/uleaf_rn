@@ -1,0 +1,121 @@
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  PermissionsAndroid,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {
+  ChannelProfileType,
+  ClientRoleType,
+  createAgoraRtcEngine,
+  RtcSurfaceView,
+} from 'react-native-agora';
+
+const APP_ID = '21933735957640729e77e09a0b02f7f1';
+const TOKEN = '007eJxTYNg7P++EmeUEt80WNcIZwev2Ti3eoBFlITJz4qGvrd+KbF4pMBgZWhobmxubWpqam5kYmBtZppqbpxpYJhokGRilmacZTlEozWgIZGS4WrSFiZEBAkF8VobSnNTENAYGADzMHyY='; // your token here
+const CHANNEL_NAME = 'uleaf';
+
+const LiveBroadcastScreen = ({navigation}) => {
+  const rtcEngineRef = useRef(null);
+  const [joined, setJoined] = useState(false);
+
+  useEffect(() => {
+    const startBroadcast = async () => {
+      if (Platform.OS === 'android') {
+        await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+      }
+
+      const rtc = createAgoraRtcEngine();
+      rtcEngineRef.current = rtc;
+      rtc.initialize({
+        appId: APP_ID,
+        channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+      });
+
+      rtc.registerEventHandler({
+        onJoinChannelSuccess: () => {
+          console.log('✅ Joined Channel as Broadcaster');
+          setJoined(true);
+        },
+        onError: (err) => {
+          console.error('❌ Agora Error:', err);
+        },
+      });
+
+      rtc.enableVideo();
+      rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+      rtc.startPreview();
+
+      rtcEngineRef.current = rtc;
+      console.log("rtcEngineRef", rtcEngineRef);
+      
+      rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {});
+    };
+
+    startBroadcast();
+
+    return () => {
+      rtcEngineRef.current?.leaveChannel();
+      rtcEngineRef.current?.release();
+    };
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      {joined && (
+        <RtcSurfaceView
+          style={styles.video}
+          canvas={{ uid: 0, isLocal: true }} // ✅ THIS IS THE FIX
+          zOrderMediaOverlay={true}
+        />
+      )}
+      <View style={styles.overlay}>
+        <Text style={styles.label}>🔴 LIVE</Text>
+        <Text style={styles.productName}>Premium Watch</Text>
+        <Text style={styles.productPrice}>₱1,199 <Text style={styles.oldPrice}>₱1,799</Text></Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.buyButton}>
+          <Text style={styles.buyText}>End Live</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+export default LiveBroadcastScreen;
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  video: { flex: 1 },
+  overlay: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: '#ffffffdd',
+    padding: 16,
+    borderRadius: 12,
+  },
+  label: { fontSize: 14, color: 'red', marginBottom: 6 },
+  productName: { fontSize: 18, fontWeight: 'bold' },
+  productPrice: { fontSize: 16, color: '#e53935' },
+  oldPrice: {
+    textDecorationLine: 'line-through',
+    color: '#999',
+    marginLeft: 6,
+  },
+  buyButton: {
+    marginTop: 12,
+    backgroundColor: '#ff5252',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buyText: { color: '#fff', fontWeight: 'bold' },
+  backButton: {marginRight: 12},
+});

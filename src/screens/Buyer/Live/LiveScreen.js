@@ -1,22 +1,21 @@
-import React, {useState, useEffect} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  ImageBackground,
-  TouchableOpacity,
-  StatusBar,
-  TextInput,
   Dimensions,
+  ImageBackground,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 // Import SVG icons
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import AvatarIcon from '../../../assets/images/avatar.svg';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import AvatarIcon from '../../../assets/images/avatar.svg';
+import { InputGroupLeftIcon } from '../../../components/InputGroup/Left';
 
 // Get screen dimensions with proper 2-column layout calculation
 const getScreenDimensions = () => {
@@ -94,8 +93,8 @@ const liveStreams = [
   },
 ];
 
-const LiveVideoCard = ({stream, cardWidth, index}) => {
-  const formatViewers = count => {
+const LiveVideoCard = ({navigation, stream, cardWidth, index}) => {
+  const formatViewers = (count) => {
     if (count >= 1000) {
       return `${(count / 1000).toFixed(1)}k`;
     }
@@ -113,9 +112,8 @@ const LiveVideoCard = ({stream, cardWidth, index}) => {
   };
 
   return (
-    <TouchableOpacity style={[styles.videoCard, cardStyle]}>
-      <View
-        style={[styles.videoContainer, {width: cardWidth, height: cardHeight}]}>
+    <TouchableOpacity onPress={() => navigation.navigate('BuyerLiveStreamScreen')} style={[styles.videoCard, cardStyle]}>
+      <View style={[styles.videoContainer, {width: cardWidth, height: cardHeight}]}>
         <ImageBackground
           source={stream.thumbnail}
           style={[styles.thumbnail, {width: cardWidth, height: cardHeight}]}
@@ -225,12 +223,7 @@ const LiveScreen = ({navigation}) => {
         showsVerticalScrollIndicator={false}>
         <View style={[styles.plantsContainer, dynamicStyles.plantsContainer]}>
           {liveStreams.map((stream, index) => (
-            <LiveVideoCard
-              key={stream.id}
-              stream={stream}
-              cardWidth={dimensions.CARD_WIDTH}
-              index={index}
-            />
+            <LiveVideoCard navigation={navigation} key={stream.id} stream={stream} cardWidth={dimensions.CARD_WIDTH} index={index} />
           ))}
         </View>
       </ScrollView>
