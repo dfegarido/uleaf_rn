@@ -117,22 +117,12 @@ function BuyerTabNavigator() {
   );
 }
 
-// Component to handle Profile tab navigation
-function ProfileTabScreen({navigation}) {
-  React.useEffect(() => {
-    // Navigate to the ScreenProfile stack screen when this tab is focused
-    navigation.navigate('ScreenProfile');
-  }, [navigation]);
-  
-  return null; // This component doesn't render anything
-}
-
 function BuyerTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Shop"
       screenOptions={({route}) => ({
-        tabBarStyle: (route.name === 'ChatScreen' || route.name === 'MessagesScreen' || route.name === 'Chat') ? { display: 'none' } : styles.tabBar,
+        tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused
@@ -186,22 +176,6 @@ function BuyerTabs() {
               ) : (
                 <ChatIcon width={size} height={size} />
               );
-            case 'Profile':
-              return (
-                <View
-                  style={{
-                    position: 'absolute',
-                    bottom: 3,
-                    width: 70,
-                    height: 70,
-                    backgroundColor: 'transparent',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#000',
-                  }}>
-                  <BuyerIcon width={80} height={80} />
-                </View>
-              );
           }
         },
         headerShown: false,
@@ -214,44 +188,7 @@ function BuyerTabs() {
         name="Chat"
         component={MessagesScreen}
       />
-      <Tab.Screen
-        name="ChatScreen"
-        component={ChatScreen}
-        options={{
-          tabBarButton: () => null,
-        }}
-      />
-      <Tab.Screen
-        name="MessagesScreen"
-        component={MessagesScreen}
-        options={{
-          tabBarButton: () => null,
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileTabScreen}
-      />
     </Tab.Navigator>
-  );
-}
-
-const ShopStack = createNativeStackNavigator();
-
-function ShopStackScreen() {
-  return (
-    <ShopStack.Navigator>
-      <ShopStack.Screen
-        name="ScreenShop"
-        component={ScreenShop}
-        options={{headerShown: false}}
-      />
-      <ShopStack.Screen
-        name="ScreenWishlist"
-        component={ScreenWishlist}
-        options={{headerShown: false}}
-      />
-    </ShopStack.Navigator>
   );
 }
 
