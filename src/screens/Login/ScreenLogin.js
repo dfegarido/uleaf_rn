@@ -42,10 +42,15 @@ const ScreenLogin = ({navigation}) => {
     fetchData();
   }, []);
 
-  const handlePressCreateAccount = () => {
-    navigation.navigate('Signup');
-  };
+  // const handlePressCreateAccount = () => {
+  //   navigation.navigate('Signup');
+  // };
 
+  const handlePressCreateAccount = () => {
+    navigation.navigate('BuyerAuthStack', {
+      screen: 'BuyerSignup',
+    });
+  };
   const handlePressLogin = () => {
     navigation.navigate('LoginForm');
   };
