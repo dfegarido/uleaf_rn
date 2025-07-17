@@ -16,9 +16,7 @@ import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 
-import {
-  ChatScreen,
-} from '../../screens/ChatScreen';
+import {ChatScreen} from '../../screens/ChatScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
@@ -96,7 +94,13 @@ import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import BuyerSignupActivationCode from '../../screens/BuyerSignup/BuyerSignupLocation';
+import BuyerSignup from '../../screens/BuyerSignup/BuyerSignup';
+import BuyerSignupLocation from '../../screens/BuyerSignup/BuyerSignupLocation';
+import {
+  BuyerCompleteYourAccount,
+  BuyerGettingToKnow,
+} from '../../screens/BuyerSignup';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -199,9 +203,9 @@ const AuthStack = () => {
         name="Signup"
         component={ScreenSignup}
         options={({navigation}) => ({
-          headerShown: true, // Ensure the header is shown
-          title: '', // Optionally hide the header title
-          animation: 'slide_from_right', // Screen transition animation
+          headerShown: true,
+          title: '',
+          animation: 'slide_from_right',
           headerLeft: () => (
             <TouchableOpacity
               onPress={() =>
@@ -749,18 +753,20 @@ const AppNavigation = () => {
   // Get userInfo and userType from AsyncStorage
   useEffect(() => {
     const getUserInfoFromStorage = async () => {
+      console.log('Reading userInfo from AsyncStorage...');
 
-        console.log('Reading userInfo from AsyncStorage...');
-        
-        // Try to get userInfo first
-        const storedUserInfo = await AsyncStorage.getItem('userInfo');
-        console.log('Raw stored userInfo:', storedUserInfo);
-        
-        if (storedUserInfo) {
-          const parsed = JSON.parse(storedUserInfo);
-          setAsyncUserInfo(parsed);
-          console.log('AsyncStorage userInfo parsed:', JSON.stringify(parsed, null, 2));
-        }
+      // Try to get userInfo first
+      const storedUserInfo = await AsyncStorage.getItem('userInfo');
+      console.log('Raw stored userInfo:', storedUserInfo);
+
+      if (storedUserInfo) {
+        const parsed = JSON.parse(storedUserInfo);
+        setAsyncUserInfo(parsed);
+        console.log(
+          'AsyncStorage userInfo parsed:',
+          JSON.stringify(parsed, null, 2),
+        );
+      }
     };
 
     if (isLoggedIn) {
@@ -783,9 +789,9 @@ const AppNavigation = () => {
   // Determine navigation based on user type
   // Use context userInfo first, fallback to AsyncStorage userInfo
   const currentUserInfo = userInfo || asyncUserInfo;
-  
+
   // Extract userType from currentUserInfo with multiple fallbacks
-  const userType = currentUserInfo?.user?.userType || 'seller'; // Default to seller if no userType found  
+  const userType = currentUserInfo?.user?.userType || 'seller'; // Default to seller if no userType found
   const isBuyer = userType === 'buyer';
 
   return (
