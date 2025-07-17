@@ -645,7 +645,7 @@ function MainTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: (route.name === 'ChatScreen' || route.name === 'MessagesScreen') ? { display: 'none' } : styles.tabBar,
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused
@@ -793,6 +793,14 @@ const AppNavigation = () => {
   // Extract userType from currentUserInfo with multiple fallbacks
   const userType = currentUserInfo?.user?.userType || 'seller'; // Default to seller if no userType found
   const isBuyer = userType === 'buyer';
+
+  // Debug logging
+  console.log('=== NAVIGATION DECISION ===');
+  console.log('currentUserInfo:', currentUserInfo);
+  console.log('userType:', userType);
+  console.log('isBuyer:', isBuyer);
+  console.log('isLoggedIn:', isLoggedIn);
+  console.log('========================');
 
   return (
     <NavigationContainer>
