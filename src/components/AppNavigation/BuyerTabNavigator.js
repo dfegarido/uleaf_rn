@@ -132,7 +132,7 @@ function BuyerTabs() {
     <Tab.Navigator
       initialRouteName="Shop"
       screenOptions={({route}) => ({
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: (route.name === 'ChatScreen' || route.name === 'MessagesScreen' || route.name === 'Chat') ? { display: 'none' } : styles.tabBar,
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused
@@ -213,6 +213,20 @@ function BuyerTabs() {
       <Tab.Screen
         name="Chat"
         component={MessagesScreen}
+      />
+      <Tab.Screen
+        name="ChatScreen"
+        component={ChatScreen}
+        options={{
+          tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen
+        name="MessagesScreen"
+        component={MessagesScreen}
+        options={{
+          tabBarButton: () => null,
+        }}
       />
       <Tab.Screen
         name="Profile"

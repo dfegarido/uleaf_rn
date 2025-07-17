@@ -27,15 +27,19 @@ const ScreenLoginOtp = ({navigation}) => {
   const [loading, setLoading] = useState(false);
 
   const postData = async token => {
-    // If this throws, it must be caught outside
-    const response = await postSellerPinCodeApi(token, pin);
-
-    // Optionally validate response success
-    if (!response.success) {
-      throw new Error(response.error || 'Verification failed.');
+    // Try seller PIN validation first (might work for both)
+    try {
+      const response = await postSellerPinCodeApi(token, pin);
+      if (!response.success) {
+        throw new Error(response.error || 'Verification failed.');
+      }
+      console.log('PIN validation successful:', response);
+      return response;
+    } catch (error) {
+      console.log('Seller PIN validation failed:', error.message);
+      // For now, still throw the error since we don't have buyer-specific PIN validation
+      throw error;
     }
-
-    console.log('After Submit:', response);
   };
 
   const postRequestPinData = async token => {
@@ -104,6 +108,11 @@ const ScreenLoginOtp = ({navigation}) => {
         if (profile?.success) {
           setUserInfo(profile);
           await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
+          
+          // Log user type for debugging
+          console.log('User type detected:', profile?.user?.userType);
+        } else {
+          console.log('Profile fetch failed, user type unknown');
         }
       }
     } catch (error) {
