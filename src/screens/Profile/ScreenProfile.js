@@ -111,9 +111,11 @@ const ScreenProfile = ({navigation}) => {
         </View>
         <View>
           <Text style={globalStyles.textLGGreyDark}>
-            {data?.gardenOrCompanyName}
+            {data?.firstName && data?.lastName 
+              ? `${data.firstName} ${data.lastName}` 
+              : data?.gardenOrCompanyName || 'User Name'}
           </Text>
-          <Text style={styles.status}>{data?.status}</Text>
+          <Text style={styles.status}>@{data?.username || data?.email?.split('@')[0] || 'username'}</Text>
         </View>
       </View>
 

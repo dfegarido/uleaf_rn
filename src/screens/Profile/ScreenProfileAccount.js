@@ -49,7 +49,13 @@ const ScreenProfileAccount = ({navigation, route}) => {
     success,
     timestamp,
     uid,
-  } = route.params;
+    username, // Add username field
+    // Handle additional fields that might be in the data
+    address,
+    city,
+    state,
+    zipCode,
+  } = route.params || {};
 
   const [firstNameState, setFirstNameState] = useState(firstName);
   const [lastNameState, setLastNameState] = useState(lastName);
@@ -58,6 +64,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
   const [gardenOrCompanyNameState, setGardenOrCompanyNameState] =
     useState(gardenOrCompanyName);
   const [countryState, setCountryState] = useState(country);
+  const [usernameState, setUsernameState] = useState(username);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -74,6 +81,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
 
     if (!firstNameState) errors.push('First name is required.');
     if (!lastNameState) errors.push('Last name is required.');
+    if (!usernameState) errors.push('Username is required.');
     if (!finalPhone) errors.push('Contact number is required.');
     if (!gardenOrCompanyNameState)
       errors.push('Garden/company name is required.');
@@ -202,6 +210,16 @@ const ScreenProfileAccount = ({navigation, route}) => {
               placeholder={''}
               value={lastNameState}
               setValue={setLastNameState}
+            />
+          </View>
+          <View style={{paddingTop: 20}}>
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
+              Username <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputBox
+              placeholder={''}
+              value={usernameState}
+              setValue={setUsernameState}
             />
           </View>
           <View style={{paddingTop: 20}}>

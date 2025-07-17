@@ -7,7 +7,7 @@ const ShippingCreditsIcon = ({width = 24, height = 24, fill = "white"}) => (
     />
   </Svg>
 );
-import React, {useContext} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,15 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {AuthContext} from '../../../auth/AuthProvider';
 import Svg, {Path} from 'react-native-svg';
+import {useIsFocused} from '@react-navigation/native';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+import {getProfileInfoApi} from '../../../components/Api';
 
 // Import icons (you'll need to add these to your assets)
 import ProfileIcon from '../../../assets/icons/greydark/profile.svg';
@@ -174,9 +180,52 @@ const Divider = () => <View style={styles.divider} />;
 const BuyerProfileScreen = (props) => {
   const navigation = useNavigation();
   const {logout} = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({});
+
+  // ✅ Fetch on mount
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    setLoading(true);
+    const fetchData = async () => {
+      try {
+        await loadProfileData();
+      } catch (error) {
+        console.log('Fetching profile details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isFocused]);
+
+  const loadProfileData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getProfileInfoApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load profile api');
+    }
+
+    console.log('Profile data:', res);
+    setData(res);
+  };
 
   return (
     <View style={styles.container}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
 
       {/* Header */}
@@ -199,9 +248,15 @@ const BuyerProfileScreen = (props) => {
             </View>
             <View style={styles.information}>
               <View style={styles.nameRow}>
-                <Text style={styles.nameText}>Olla Holic</Text>
+                <Text style={styles.nameText}>
+                  {data?.firstName && data?.lastName 
+                    ? `${data.firstName} ${data.lastName}` 
+                    : data?.gardenOrCompanyName || 'User Name'}
+                </Text>
               </View>
-              <Text style={styles.usernameText}>@olla</Text>
+              <Text style={styles.usernameText}>
+                @{data?.username || data?.email?.split('@')[0] || 'username'}
+              </Text>
             </View>
           </View>
         </View>
@@ -728,6 +783,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'stretch',
     flex: 1,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

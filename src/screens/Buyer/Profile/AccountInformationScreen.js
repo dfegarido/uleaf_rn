@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect, useContext} from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,15 @@ import {
   ScrollView,
   StatusBar,
   TextInput,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, {Path} from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
+import {getProfileInfoApi} from '../../../components/Api';
+import {AuthContext} from '../../../auth/AuthProvider';
 
 // Import icons
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -59,14 +65,64 @@ const DropdownIcon = () => (
 
 const AccountInformationScreen = () => {
   const navigation = useNavigation();
+  const {userInfo} = useContext(AuthContext);
+  const isFocused = useIsFocused();
   
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({});
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [email] = useState('olla@gmail.com');
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    const fetchData = async () => {
+      try {
+        await loadProfileData();
+      } catch (error) {
+        console.log('Fetching profile details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isFocused]);
+
+  const loadProfileData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getProfileInfoApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load profile api');
+    }
+
+    console.log('Profile data:', res);
+    setData(res);
+    
+    // Populate form fields with fetched data
+    setFirstName(res.firstName || '');
+    setLastName(res.lastName || '');
+    setUsername(res.username || '');
+    setPhoneNumber(res.contactNumber || '');
+    setEmail(res.email || '');
+  };
 
   return (
     <View style={styles.container}>
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
@@ -129,6 +185,24 @@ const AccountInformationScreen = () => {
                   value={lastName}
                   onChangeText={setLastName}
                   placeholder="Doe"
+                  placeholderTextColor="#202325"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Username */}
+          <View style={styles.inputSection}>
+            <View style={styles.inputField}>
+              <Text style={styles.inputLabel}>
+                Username <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
+              <View style={styles.textField}>
+                <TextInput
+                  style={styles.textInput}
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="username123"
                   placeholderTextColor="#202325"
                 />
               </View>
@@ -481,6 +555,12 @@ const styles = StyleSheet.create({
     bottom: 8,
     backgroundColor: '#202325',
     borderRadius: 100,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
