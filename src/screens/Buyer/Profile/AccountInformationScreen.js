@@ -14,7 +14,7 @@ import Svg, {Path} from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {getProfileInfoApi} from '../../../components/Api';
+import {getProfileInfoApi, postBuyerUpdateInfoApi} from '../../../components/Api';
 import {AuthContext} from '../../../auth/AuthProvider';
 
 // Import icons
@@ -72,9 +72,21 @@ const AccountInformationScreen = () => {
   const [data, setData] = useState({});
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [username, setUsername] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('+1');
   const [email, setEmail] = useState('');
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // Track original values to detect changes
+  const [originalData, setOriginalData] = useState({});
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const countryOptions = [
+    { code: '+1', country: 'US', flag: '🇺🇸' },
+    { code: '+63', country: 'PH', flag: '🇵🇭' },
+    { code: '+66', country: 'TH', flag: '🇹🇭' },
+    { code: '+62', country: 'ID', flag: '🇮🇩' },
+  ];
 
   useEffect(() => {
     setLoading(true);
@@ -91,6 +103,28 @@ const AccountInformationScreen = () => {
     fetchData();
   }, [isFocused]);
 
+  // Check for changes in form fields
+  useEffect(() => {
+    if (Object.keys(originalData).length === 0) return; // Wait for original data to be loaded
+    
+    const currentData = {
+      firstName,
+      lastName,
+      phoneNumber,
+      countryCode
+    };
+    
+    const originalComparison = {
+      firstName: originalData.firstName,
+      lastName: originalData.lastName,
+      phoneNumber: originalData.phoneNumber,
+      countryCode: originalData.countryCode
+    };
+    
+    const hasFormChanges = JSON.stringify(currentData) !== JSON.stringify(originalComparison);
+    setHasChanges(hasFormChanges);
+  }, [firstName, lastName, phoneNumber, countryCode, originalData]);
+
   const loadProfileData = async () => {
     let netState = await NetInfo.fetch();
     if (!netState.isConnected || !netState.isInternetReachable) {
@@ -106,12 +140,85 @@ const AccountInformationScreen = () => {
     console.log('Profile data:', res);
     setData(res);
     
+    // Store original data for comparison
+    const originalValues = {
+      firstName: res.firstName || '',
+      lastName: res.lastName || '',
+      phoneNumber: res.contactNumber || '',
+      countryCode: res.countryCode || '+1',
+      email: res.email || ''
+    };
+    setOriginalData(originalValues);
+    
     // Populate form fields with fetched data
-    setFirstName(res.firstName || '');
-    setLastName(res.lastName || '');
-    setUsername(res.username || '');
-    setPhoneNumber(res.contactNumber || '');
-    setEmail(res.email || '');
+    setFirstName(originalValues.firstName);
+    setLastName(originalValues.lastName);
+    setPhoneNumber(originalValues.phoneNumber);
+    setCountryCode(originalValues.countryCode);
+    setEmail(originalValues.email);
+    
+    // Reset changes flag
+    setHasChanges(false);
+  };
+
+  const validateForm = () => {
+    let errors = [];
+
+    if (!firstName.trim()) errors.push('First name is required.');
+    if (!lastName.trim()) errors.push('Last name is required.');
+    if (!phoneNumber.trim()) errors.push('Contact number is required.');
+
+    return errors;
+  };
+
+  const handleSave = async () => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      alert('Validation Error: ' + errors.join(' '));
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        alert('No internet connection.');
+        throw new Error('No internet connection.');
+      }
+
+      const response = await postBuyerUpdateInfoApi(
+        firstName.trim(),
+        lastName.trim(),
+        countryCode,
+        phoneNumber.trim(),
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Update account failed.');
+      }
+
+      alert('Account updated successfully!');
+      
+      // Reset changes flag and update original data
+      setHasChanges(false);
+      const updatedOriginalData = {
+        firstName,
+        lastName,
+        phoneNumber,
+        countryCode,
+        email
+      };
+      setOriginalData(updatedOriginalData);
+      
+      // Refresh the data after successful update
+      await loadProfileData();
+    } catch (error) {
+      console.log('Update Account:', error.message);
+      alert('Update failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -166,8 +273,8 @@ const AccountInformationScreen = () => {
                   style={styles.textInput}
                   value={firstName}
                   onChangeText={setFirstName}
-                  placeholder="John"
-                  placeholderTextColor="#202325"
+                  placeholder="Enter first name"
+                  placeholderTextColor="#888888"
                 />
               </View>
             </View>
@@ -184,26 +291,8 @@ const AccountInformationScreen = () => {
                   style={styles.textInput}
                   value={lastName}
                   onChangeText={setLastName}
-                  placeholder="Doe"
-                  placeholderTextColor="#202325"
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Username */}
-          <View style={styles.inputSection}>
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>
-                Username <Text style={styles.requiredAsterisk}>*</Text>
-              </Text>
-              <View style={styles.textField}>
-                <TextInput
-                  style={styles.textInput}
-                  value={username}
-                  onChangeText={setUsername}
-                  placeholder="username123"
-                  placeholderTextColor="#202325"
+                  placeholder="Enter last name"
+                  placeholderTextColor="#888888"
                 />
               </View>
             </View>
@@ -214,18 +303,23 @@ const AccountInformationScreen = () => {
             <View style={styles.inputField}>
               <Text style={styles.inputLabel}>Contact Number</Text>
               <View style={styles.phoneField}>
-                <View style={styles.countryCode}>
+                <TouchableOpacity 
+                  style={styles.countryCode}
+                  onPress={() => setShowCountryPicker(true)}
+                >
                   <View style={styles.countrySection}>
-                    <USFlagIcon />
+                    <Text style={styles.flagEmoji}>
+                      {countryOptions.find(c => c.code === countryCode)?.flag || '🇺🇸'}
+                    </Text>
                   </View>
-                  <Text style={styles.codeText}>+1</Text>
+                  <Text style={styles.codeText}>{countryCode}</Text>
                   <DropdownIcon />
-                </View>
+                </TouchableOpacity>
                 <TextInput
                   style={styles.phoneInput}
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="123-456-7890"
                   placeholderTextColor="#202325"
                   keyboardType="phone-pad"
                 />
@@ -235,14 +329,60 @@ const AccountInformationScreen = () => {
 
           {/* Action Button */}
           <View style={styles.actionSection}>
-            <TouchableOpacity style={styles.saveButton}>
+            <TouchableOpacity 
+              style={[
+                styles.saveButton,
+                !hasChanges && styles.saveButtonDisabled
+              ]} 
+              onPress={handleSave}
+              disabled={!hasChanges}
+            >
               <View style={styles.buttonTextContainer}>
-                <Text style={styles.buttonText}>Update Account</Text>
+                <Text style={[
+                  styles.buttonText,
+                  !hasChanges && styles.buttonTextDisabled
+                ]}>
+                  Update Account
+                </Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
+
+      {/* Country Picker Modal */}
+      <Modal 
+        visible={showCountryPicker} 
+        transparent 
+        animationType="slide"
+        onRequestClose={() => setShowCountryPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Country Code</Text>
+            {countryOptions.map((option) => (
+              <TouchableOpacity
+                key={option.code}
+                style={styles.countryOption}
+                onPress={() => {
+                  setCountryCode(option.code);
+                  setShowCountryPicker(false);
+                }}
+              >
+                <Text style={styles.flagEmoji}>{option.flag}</Text>
+                <Text style={styles.countryText}>{option.country}</Text>
+                <Text style={styles.codeText}>{option.code}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={() => setShowCountryPicker(false)}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Home Indicator */}
       <View style={styles.homeIndicator}>
@@ -478,6 +618,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#202325',
   },
+  flagEmoji: {
+    fontSize: 20,
+  },
   phoneInput: {
     width: 216,
     height: 22,
@@ -512,9 +655,12 @@ const styles = StyleSheet.create({
     width: 327,
     height: 48,
     minHeight: 48,
-    backgroundColor: '#C0DAC2',
+    backgroundColor: '#539461',
     borderRadius: 12,
     alignSelf: 'stretch',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#C4C4C4',
   },
   buttonTextContainer: {
     flexDirection: 'row',
@@ -537,6 +683,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     alignItems: 'center',
     display: 'flex',
+  },
+  buttonTextDisabled: {
+    color: '#888888',
   },
   homeIndicator: {
     position: 'absolute',
@@ -561,6 +710,52 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    minWidth: 280,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#202325',
+  },
+  countryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E7E9',
+  },
+  countryText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: '#202325',
+  },
+  cancelButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#E4E7E9',
+    borderRadius: 8,
+  },
+  cancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#202325',
   },
 });
 

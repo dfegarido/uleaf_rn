@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -49,7 +49,6 @@ const ScreenProfileAccount = ({navigation, route}) => {
     success,
     timestamp,
     uid,
-    username, // Add username field
     // Handle additional fields that might be in the data
     address,
     city,
@@ -64,7 +63,10 @@ const ScreenProfileAccount = ({navigation, route}) => {
   const [gardenOrCompanyNameState, setGardenOrCompanyNameState] =
     useState(gardenOrCompanyName);
   const [countryState, setCountryState] = useState(country);
-  const [usernameState, setUsernameState] = useState(username);
+
+  // Track original values to detect changes
+  const [originalData, setOriginalData] = useState({});
+  const [hasChanges, setHasChanges] = useState(false);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -75,13 +77,48 @@ const ScreenProfileAccount = ({navigation, route}) => {
 
   const [selectedCountry, setSelectedCountry] = useState('');
 
+  // Set up original data and track changes
+  useEffect(() => {
+    const originalValues = {
+      firstName: firstName || '',
+      lastName: lastName || '',
+      contactNumber: contactNumber || '',
+      gardenOrCompanyName: gardenOrCompanyName || '',
+      country: country || ''
+    };
+    setOriginalData(originalValues);
+  }, [firstName, lastName, contactNumber, gardenOrCompanyName, country]);
+
+  // Check for changes in form fields
+  useEffect(() => {
+    if (Object.keys(originalData).length === 0) return; // Wait for original data to be loaded
+    
+    const currentData = {
+      firstName: firstNameState,
+      lastName: lastNameState,
+      contactNumber: finalPhone || contactNumberState,
+      gardenOrCompanyName: gardenOrCompanyNameState,
+      country: countryState
+    };
+    
+    const originalComparison = {
+      firstName: originalData.firstName,
+      lastName: originalData.lastName,
+      contactNumber: originalData.contactNumber,
+      gardenOrCompanyName: originalData.gardenOrCompanyName,
+      country: originalData.country
+    };
+    
+    const hasFormChanges = JSON.stringify(currentData) !== JSON.stringify(originalComparison);
+    setHasChanges(hasFormChanges);
+  }, [firstNameState, lastNameState, finalPhone, contactNumberState, gardenOrCompanyNameState, countryState, originalData]);
+
   // Form validation
   const validateForm = () => {
     let errors = [];
 
     if (!firstNameState) errors.push('First name is required.');
     if (!lastNameState) errors.push('Last name is required.');
-    if (!usernameState) errors.push('Username is required.');
     if (!finalPhone) errors.push('Contact number is required.');
     if (!gardenOrCompanyNameState)
       errors.push('Garden/company name is required.');
@@ -120,6 +157,17 @@ const ScreenProfileAccount = ({navigation, route}) => {
       }
 
       Alert.alert('Update Account', 'Account updated successfully!');
+      
+      // Reset changes flag and update original data
+      setHasChanges(false);
+      const updatedOriginalData = {
+        firstName: firstNameState,
+        lastName: lastNameState,
+        contactNumber: finalPhone || contactNumberState,
+        gardenOrCompanyName: gardenOrCompanyNameState,
+        country: countryState
+      };
+      setOriginalData(updatedOriginalData);
     } catch (error) {
       console.log('Update Account:', error.message);
       Alert.alert('Update Account', error.message);
@@ -197,7 +245,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
               First name <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox
-              placeholder={''}
+              placeholder={'Enter first name'}
               value={firstNameState}
               setValue={setFirstNameState}
             />
@@ -207,19 +255,9 @@ const ScreenProfileAccount = ({navigation, route}) => {
               Last name <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox
-              placeholder={''}
+              placeholder={'Enter last name'}
               value={lastNameState}
               setValue={setLastNameState}
-            />
-          </View>
-          <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-              Username <Text style={globalStyles.textXSRed}>*</Text>
-            </Text>
-            <InputBox
-              placeholder={''}
-              value={usernameState}
-              setValue={setUsernameState}
             />
           </View>
           <View style={{paddingTop: 20}}>
@@ -238,7 +276,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
               <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
             <InputBox
-              placeholder={''}
+              placeholder={'Enter garden or company name'}
               value={gardenOrCompanyNameState}
               setValue={setGardenOrCompanyNameState}
             />
@@ -261,9 +299,18 @@ const ScreenProfileAccount = ({navigation, route}) => {
           </View>
           <View style={{paddingVertical: 20}}>
             <TouchableOpacity
-              style={globalStyles.primaryButton}
-              onPress={onPressUpdate}>
-              <Text style={globalStyles.primaryButtonText}>Update Acount</Text>
+              style={[
+                globalStyles.primaryButton,
+                !hasChanges && styles.buttonDisabled
+              ]}
+              onPress={onPressUpdate}
+              disabled={!hasChanges}>
+              <Text style={[
+                globalStyles.primaryButtonText,
+                !hasChanges && styles.buttonTextDisabled
+              ]}>
+                Update Account
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -301,6 +348,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#C4C4C4',
+  },
+  buttonTextDisabled: {
+    color: '#888888',
   },
 });
 
