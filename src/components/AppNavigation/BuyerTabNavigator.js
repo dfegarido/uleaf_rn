@@ -17,12 +17,12 @@ import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import {
-  LiveBroadcastScreen,
-} from '../../screens/Live';
-
-import {
   BuyerLiveStreamScreen,
 } from '../../screens/Buyer/Live';
+
+import {
+  LiveBroadcastScreen,
+} from '../../screens/Live';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 

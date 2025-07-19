@@ -261,7 +261,7 @@ const ScreenHome = ({navigation}) => {
             </View>
 
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.iconButton}>
+              <TouchableOpacity onPress={() => navigation.navigate('LiveBroadcastScreen')} style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}
               </TouchableOpacity>
