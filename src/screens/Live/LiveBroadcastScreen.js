@@ -15,8 +15,8 @@ import {
 } from 'react-native-agora';
 
 const APP_ID = '21933735957640729e77e09a0b02f7f1';
-const TOKEN = '007eJxTYNg7P++EmeUEt80WNcIZwev2Ti3eoBFlITJz4qGvrd+KbF4pMBgZWhobmxubWpqam5kYmBtZppqbpxpYJhokGRilmacZTlEozWgIZGS4WrSFiZEBAkF8VobSnNTENAYGADzMHyY='; // your token here
-const CHANNEL_NAME = 'uleaf';
+const TOKEN = '007eJxTYOjdYPP9VUjF9qfPn6575RipZbcggj+znmme85/dDWK2azsUGIwMLY2NzY1NLU3NzUwMzI0sU83NUw0sEw2SDIzSzNMMPydWZTQEMjLMaaxkZGSAQBCfjaE0JzUxzYSBAQDPsiBi'; // your token here
+const CHANNEL_NAME = 'uleaf4';
 
 const LiveBroadcastScreen = ({navigation}) => {
   const rtcEngineRef = useRef(null);
@@ -50,12 +50,12 @@ const LiveBroadcastScreen = ({navigation}) => {
 
       rtc.enableVideo();
       rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+      rtc.setupLocalVideo({ uid: 0, renderMode: 1 });
       rtc.startPreview();
+      rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {});
+
 
       rtcEngineRef.current = rtc;
-      console.log("rtcEngineRef", rtcEngineRef);
-      
-      rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {});
     };
 
     startBroadcast();
@@ -71,7 +71,7 @@ const LiveBroadcastScreen = ({navigation}) => {
       {joined && (
         <RtcSurfaceView
           style={styles.video}
-          canvas={{ uid: 0, isLocal: true }} // ✅ THIS IS THE FIX
+          canvas={{ uid: 0 }}
           zOrderMediaOverlay={true}
         />
       )}

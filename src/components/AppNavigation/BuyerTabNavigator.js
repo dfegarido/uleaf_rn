@@ -25,12 +25,12 @@ import { ChatScreen } from '../../screens/ChatScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 import {
-  LiveBroadcastScreen,
-} from '../../screens/Live';
-
-import {
   BuyerLiveStreamScreen,
 } from '../../screens/Buyer/Live';
+
+import {
+  LiveBroadcastScreen,
+} from '../../screens/Live';
 
 // Import tab icons (you can reuse existing icons or create new ones)
 
@@ -127,6 +127,7 @@ function BuyerTabNavigator() {
         component={BuyerLiveStreamScreen}
         options={{headerShown: false}}
       />
+
       <Stack.Screen
         name="LiveBroadcastScreen"
         component={LiveBroadcastScreen}

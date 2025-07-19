@@ -1,5 +1,8 @@
 /* eslint-disable react/no-unstable-nested-components */
-import React, {useContext, useEffect, useState} from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -7,20 +10,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {NavigationContainer} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {AuthContext} from '../../auth/AuthProvider';
+import { AuthContext } from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
-import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
-import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
-import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 
 import {
   ChatScreen,
 } from '../../screens/ChatScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+
+import {
+  LiveBroadcastScreen,
+} from '../../screens/Live';
 
 import {
   ScreenLogin,
@@ -37,12 +38,12 @@ import {
 } from '../../screens/Profile';
 import {
   ScreenDelivery,
-  ScreenDeliveryCasualty,
   ScreenDeliveryAction,
-  ScreenExportQR,
+  ScreenDeliveryCasualty,
   ScreenDeliveryHub,
-  ScreenDeliveryReceived,
   ScreenDeliveryMissing,
+  ScreenDeliveryReceived,
+  ScreenExportQR,
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
@@ -82,11 +83,8 @@ import ListingIcon from '../../assets/icontabs/listing.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
 import SellIcon from '../../assets/icontabs/sell.svg';
 
-import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
-import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
-import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
-import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 
 
 const Stack = createNativeStackNavigator();
@@ -516,6 +514,11 @@ const MainStack = () => {
         name="MessagesScreen"
         component={MessagesScreen}
         options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
+        name="LiveBroadcastScreen"
+        component={LiveBroadcastScreen}
       />
 
       <Stack.Screen
