@@ -123,7 +123,7 @@ const ScreenSell = ({navigation}) => {
               globalStyles.textXLGreyDark,
               {textAlign: 'left', paddingTop: 5},
             ]}>
-            Sell Plant
+            Sell a Plant
           </Text>
           <TouchableOpacity onPress={() => openSheet(showSheet)}>
             <Text style={globalStyles.textMDAccent}>Existing Listing</Text>
@@ -148,7 +148,7 @@ const ScreenSell = ({navigation}) => {
                 }}>
                 <SinglePlantIcon width={42} height={52}></SinglePlantIcon>
                 <Text style={[globalStyles.textMDAccentDark, {paddingTop: 10}]}>
-                  Single Plant
+                  Solo Stunners
                 </Text>
               </TouchableOpacity>
             </View>

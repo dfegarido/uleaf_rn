@@ -336,7 +336,7 @@ const ScreenDeliveryReceived = ({navigation}) => {
           <View style={{flex: 1}}>
             <InputGroupLeftIcon
               IconLeftComponent={SearchIcon}
-              placeholder={'Search I Leaf U'}
+              placeholder={'Search ileafU'}
             />
           </View>
           <View style={styles.headerIcons}>

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {View, TextInput, StyleSheet, TouchableOpacity} from 'react-native';
+import EyeIcon from '../.../../../../assets/icons/greydark/eye-regular.svg';
+import EyeClosedIcon from '../../../assets/icons/greydark/eye-closed-regular.svg';
 
 const InputPasswordLeftIcon = ({
   IconLeftComponent,
@@ -10,6 +12,7 @@ const InputPasswordLeftIcon = ({
   rightIcon,
   onRightIconPress,
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
   return (
     <View style={styles.inputContainer}>
       {IconLeftComponent && (
@@ -17,17 +20,19 @@ const InputPasswordLeftIcon = ({
       )}
       <TextInput
         style={styles.input}
-        placeholder={'Password'}
+        placeholder={placeholder || 'Password'}
         placeholderTextColor="#888"
-        secureTextEntry={secureTextEntry}
+        secureTextEntry={!showPassword}
         value={value}
         onChangeText={onChangeText}
       />
-      {rightIcon && (
-        <TouchableOpacity onPress={onRightIconPress} style={styles.rightIcon}>
-          {rightIcon}
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity onPress={() => setShowPassword(v => !v)}>
+        {showPassword ? (
+          <EyeClosedIcon width={20} height={20} style={styles.icon} />
+        ) : (
+          <EyeIcon width={20} height={20} style={styles.icon} />
+        )}
+      </TouchableOpacity>
     </View>
   );
 };

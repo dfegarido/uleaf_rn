@@ -136,16 +136,6 @@ function BuyerTabNavigator() {
   );
 }
 
-// Component to handle Profile tab navigation
-function ProfileTabScreen({navigation}) {
-  React.useEffect(() => {
-    // Navigate to the ScreenProfile stack screen when this tab is focused
-    navigation.navigate('ScreenProfile');
-  }, [navigation]);
-  
-  return null; // This component doesn't render anything
-}
-
 function BuyerTabs() {
   const navigation = useNavigation();
   return (
@@ -206,22 +196,6 @@ function BuyerTabs() {
               ) : (
                 <ChatIcon onPress={() => navigation.navigate('LiveBroadcastScreen')} width={size} height={size} />
               );
-            case 'Profile':
-              return (
-                <View
-                  style={{
-                    position: 'absolute',
-                    bottom: 3,
-                    width: 70,
-                    height: 70,
-                    backgroundColor: 'transparent',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#000',
-                  }}>
-                  <BuyerIcon width={80} height={80} />
-                </View>
-              );
           }
         },
         headerShown: false,
@@ -234,30 +208,7 @@ function BuyerTabs() {
         name="Chat"
         component={MessagesScreen}
       />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileTabScreen}
-      />
     </Tab.Navigator>
-  );
-}
-
-const ShopStack = createNativeStackNavigator();
-
-function ShopStackScreen() {
-  return (
-    <ShopStack.Navigator>
-      <ShopStack.Screen
-        name="ScreenShop"
-        component={ScreenShop}
-        options={{headerShown: false}}
-      />
-      <ShopStack.Screen
-        name="ScreenWishlist"
-        component={ScreenWishlist}
-        options={{headerShown: false}}
-      />
-    </ShopStack.Navigator>
   );
 }
 

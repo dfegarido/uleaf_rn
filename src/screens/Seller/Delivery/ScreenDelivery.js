@@ -175,35 +175,46 @@ const ScreenDelivery = ({navigation}) => {
       // Request storage permission if needed
       const hasPermission = await requestStoragePermission();
       if (!hasPermission) {
-        Alert.alert('Permission Required', 'Storage permission is required to download files.');
+        Alert.alert(
+          'Permission Required',
+          'Storage permission is required to download files.',
+        );
         return;
       }
 
       // Get auth token
       const authToken = await AsyncStorage.getItem('authToken');
       if (!authToken) {
-        Alert.alert('Error', 'Authentication token not found. Please log in again.');
+        Alert.alert(
+          'Error',
+          'Authentication token not found. Please log in again.',
+        );
         return;
       }
 
       // Show loading alert
-      Alert.alert('Downloading...', 'Please wait while we prepare your Excel file.');
+      Alert.alert(
+        'Downloading...',
+        'Please wait while we prepare your Excel file.',
+      );
 
       // Generate filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const fileName = `delivery-details-${timestamp}.xlsx`;
-      
+
       // Define download path
-      const downloadPath = Platform.OS === 'ios' 
-        ? `${RNFS.DocumentDirectoryPath}/${fileName}`
-        : `${RNFS.DownloadDirectoryPath}/${fileName}`;
+      const downloadPath =
+        Platform.OS === 'ios'
+          ? `${RNFS.DocumentDirectoryPath}/${fileName}`
+          : `${RNFS.DownloadDirectoryPath}/${fileName}`;
 
       // Download file directly using RNFS
       const downloadResult = await RNFS.downloadFile({
-        fromUrl: 'https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator/export/excel',
+        fromUrl:
+          'https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator/export/excel',
         toFile: downloadPath,
         headers: {
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
       }).promise;
 
@@ -213,7 +224,7 @@ const ScreenDelivery = ({navigation}) => {
           channelId: 'ileafu_channel',
           title: 'Download Complete',
           message: `Excel file saved: ${fileName}`,
-          userInfo: { filePath: downloadPath },
+          userInfo: {filePath: downloadPath},
           actions: ['Open File'],
           invokeApp: true,
           group: 'file_download',
@@ -227,31 +238,34 @@ const ScreenDelivery = ({navigation}) => {
           'Download Complete',
           `Excel file has been saved to your Downloads folder: ${fileName}`,
           [
-            { text: 'OK', style: 'default' },
+            {text: 'OK', style: 'default'},
             {
               text: 'Open File',
               style: 'default',
               onPress: () => {
-                FileViewer.open(downloadPath)
-                  .catch(error => {
-                    Alert.alert('Error', 'Could not open the file.');
-                  });
+                FileViewer.open(downloadPath).catch(error => {
+                  Alert.alert('Error', 'Could not open the file.');
+                });
               },
             },
-          ]
+          ],
         );
       } else {
-        throw new Error(`Download failed with status: ${downloadResult.statusCode}`);
+        throw new Error(
+          `Download failed with status: ${downloadResult.statusCode}`,
+        );
       }
-
     } catch (error) {
       console.error('Error downloading Excel file:', error);
-      Alert.alert('Download Failed', 'Failed to download Excel file. Please try again.');
+      Alert.alert(
+        'Download Failed',
+        'Failed to download Excel file. Please try again.',
+      );
     }
   };
 
   // Function to open file
-  const openFile = (filePath) => {
+  const openFile = filePath => {
     console.log('Opening file:', filePath);
     FileViewer.open(filePath)
       .then(() => {
@@ -259,7 +273,10 @@ const ScreenDelivery = ({navigation}) => {
       })
       .catch(error => {
         console.error('Error opening file:', error);
-        Alert.alert('Error', 'Could not open the file. Please check your file manager.');
+        Alert.alert(
+          'Error',
+          'Could not open the file. Please check your file manager.',
+        );
       });
   };
 
@@ -269,23 +286,24 @@ const ScreenDelivery = ({navigation}) => {
       onRegister: function (token) {
         console.log('TOKEN:', token);
       },
-      
-      onNotification: function(notification) {
+
+      onNotification: function (notification) {
         console.log('Notification received:', notification);
         console.log('User interaction:', notification.userInteraction);
         console.log('Action:', notification.action);
         console.log('UserInfo:', notification.userInfo);
         console.log('Data:', notification.data);
-        
+
         // Handle notification tap
         if (notification.userInteraction) {
           // Get file path from either userInfo or data
-          const filePath = notification.userInfo?.filePath || 
-                           notification.data?.filePath || 
-                           notification.filePath;
-          
+          const filePath =
+            notification.userInfo?.filePath ||
+            notification.data?.filePath ||
+            notification.filePath;
+
           console.log('Extracted file path:', filePath);
-          
+
           if (filePath) {
             console.log('Opening file from notification:', filePath);
             // Small delay to ensure app is in foreground
@@ -296,24 +314,25 @@ const ScreenDelivery = ({navigation}) => {
             console.log('No file path found in notification');
           }
         }
-        
+
         // Required for iOS to complete the notification processing
         if (notification.finish && typeof notification.finish === 'function') {
           notification.finish('noData');
         }
       },
-      
+
       onAction: function (notification) {
         console.log('ACTION:', notification.action);
         console.log('ACTION notification:', notification);
-        
+
         if (notification.action === 'Open File') {
-          const filePath = notification.userInfo?.filePath || 
-                           notification.data?.filePath ||
-                           notification.filePath;
-          
+          const filePath =
+            notification.userInfo?.filePath ||
+            notification.data?.filePath ||
+            notification.filePath;
+
           console.log('Action: Opening file from path:', filePath);
-          
+
           if (filePath) {
             setTimeout(() => {
               openFile(filePath);
@@ -321,13 +340,13 @@ const ScreenDelivery = ({navigation}) => {
           }
         }
       },
-      
+
       permissions: {
         alert: true,
         badge: true,
         sound: true,
       },
-      
+
       popInitialNotification: true,
       requestPermissions: Platform.OS === 'ios',
     });
@@ -344,7 +363,7 @@ const ScreenDelivery = ({navigation}) => {
           importance: 4,
           vibrate: true,
         },
-        (created) => console.log(`createChannel returned '${created}'`)
+        created => console.log(`createChannel returned '${created}'`),
       );
     }
   };
@@ -702,7 +721,7 @@ const ScreenDelivery = ({navigation}) => {
           <View style={{flex: 1}}>
             <InputGroupLeftIcon
               IconLeftComponent={SearchIcon}
-              placeholder={'Search I Leaf U'}
+              placeholder={'Search ileafU'}
             />
           </View>
           <View style={styles.headerIcons}>

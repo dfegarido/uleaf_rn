@@ -32,6 +32,7 @@ const ChatScreen = ({navigation, route}) => {
     const q = query(collection(db, 'messages'), orderBy('timestamp', 'asc'));
     const unsubscribe = onSnapshot(q, snapshot => {
       const messagesFirestore = snapshot.docs.map(doc => ({
+        id: doc.id,
         chatId: id,
         ...doc.data(),
       }));
@@ -81,7 +82,7 @@ const ChatScreen = ({navigation, route}) => {
       {/* Chat Messages */}
       <FlatList
         data={messages}
-        keyExtractor={item => item.id}
+        keyExtractor={(item, index) => item.id || `message-${index}`}
         renderItem={({item, index}) => {
           if (item.type === 'date') {
             return <DateSeparator text={item.text} />;
