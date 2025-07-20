@@ -145,7 +145,7 @@ const ScreenListing = ({navigation}) => {
       genus,
       variegation,
       listingType,
-      status,
+      status == 'Discounted' ? 'All' : status,
       discount,
       limit,
       plant,
