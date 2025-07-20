@@ -260,7 +260,7 @@ const ScreenHome = ({navigation}) => {
             <View style={{flex: 1}}>
               <InputGroupLeftIcon
                 IconLeftComponent={SearchIcon}
-                placeholder={'Search I Leaf U'}
+                placeholder={'Search ileafU'}
               />
             </View>
 
@@ -494,7 +494,7 @@ const ScreenHome = ({navigation}) => {
               paddingTop: 20,
             }}>
             <Text style={[globalStyles.textMDGreyDark, globalStyles.textBold]}>
-              Business performance
+              {dropdownDuration + ' Sales Performance'}
             </Text>
             <HomeDurationDropdown
               options={dropdownDurationOption}

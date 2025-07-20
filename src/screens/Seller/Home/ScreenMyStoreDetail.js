@@ -84,7 +84,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
       throw new Error(res?.message || 'Failed to load sort api');
     }
 
-    // console.log(res.data);
+    console.log(res.data);
     setListingData(res.data);
   };
   // ✅ Fetch on mount
@@ -282,7 +282,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
               paddingTop: 20,
               paddingHorizontal: 20,
             }}>
-            <Text
+            {/* <Text
               style={[
                 listingData?.discountPrice
                   ? globalStyles.textXXLGAccent
@@ -302,7 +302,94 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                 {listingData?.localCurrencySymbol}
                 {parseFloat(listingData?.discountPrice).toFixed(2)}
               </Text>
-            ) : null}
+            ) : null} */}
+
+            {(() => {
+              let totalLocalPrice = 0;
+              let totalLocalPriceNew = 0;
+              let hasNewPrice = false;
+              let finalCurrencySymbol = listingData?.localCurrencySymbol || '';
+
+              const parseSafeFloat = val => {
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : num;
+              };
+
+              const isNonEmpty = val =>
+                val !== null &&
+                val !== undefined &&
+                (typeof val === 'number' ||
+                  (typeof val === 'string' && val.trim() !== ''));
+
+              if (
+                Array.isArray(listingData?.variations) &&
+                listingData?.variations.length > 0
+              ) {
+                listingData?.variations.forEach(variation => {
+                  const localPrice = parseSafeFloat(variation.localPrice);
+                  const localPriceNew = isNonEmpty(variation.localPriceNew)
+                    ? parseSafeFloat(variation.localPriceNew) !=
+                      parseSafeFloat(variation.localPrice)
+                      ? parseSafeFloat(variation.localPriceNew)
+                      : 0
+                    : 0;
+                  // console.log(variation);
+                  totalLocalPrice += localPrice;
+
+                  if (localPriceNew > 0) {
+                    totalLocalPriceNew += localPriceNew;
+                    hasNewPrice = true;
+                  } else {
+                    totalLocalPriceNew += localPrice;
+                  }
+
+                  if (variation.localCurrencySymbol) {
+                    finalCurrencySymbol = variation.localCurrencySymbol;
+                  }
+                });
+              } else {
+                const localPrice = parseSafeFloat(listingData?.localPrice);
+                const localPriceNew = isNonEmpty(listingData?.localPriceNew)
+                  ? parseSafeFloat(listingData?.localPriceNew)
+                  : 0;
+                // console.log('Single: ' + JSON.stringify(listingData?));
+                totalLocalPrice = localPrice;
+                totalLocalPriceNew = localPriceNew;
+                localPriceNew > 0 ? localPriceNew : localPrice;
+                hasNewPrice = localPriceNew > 0;
+
+                if (listingData?.localCurrencySymbol) {
+                  finalCurrencySymbol = listingData?.localCurrencySymbol;
+                }
+              }
+
+              return (
+                <View style={[styles.cell, {flexDirection: 'row'}]}>
+                  {hasNewPrice ? (
+                    <>
+                      <Text
+                        style={[globalStyles.textLGAccent, {paddingRight: 10}]}>
+                        {finalCurrencySymbol}
+                        {totalLocalPriceNew.toFixed(2)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.strikeText,
+                          globalStyles.textLGGreyLight,
+                        ]}>
+                        {finalCurrencySymbol}
+                        {totalLocalPrice.toFixed(2)}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={globalStyles.textLGGreyLight}>
+                      {finalCurrencySymbol}
+                      {totalLocalPrice.toFixed(2)}
+                    </Text>
+                  )}
+                </View>
+              );
+            })()}
           </View>
 
           {/* Pot size Information */}

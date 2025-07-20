@@ -9,17 +9,18 @@ const PayoutPlantCard = ({plant}) => {
       <View style={styles.infoContainer}>
         <View style={styles.titleRow}>
           <Text style={globalStyles.textSMGreyDark}>
-            Plant genus species name
+            {plant.genus} {plant.species}
           </Text>
 
           <Text style={globalStyles.textSMGreyDark}>
-            ${plant.price.toLocaleString()}
+            {plant.currencySymbol}
+            {plant.price.toLocaleString()}
           </Text>
         </View>
 
         <View style={styles.titleRow}>
           <Text style={styles.subText}>{plant.code}</Text>
-          <Text style={styles.subText}>{plant.quantity}x</Text>
+          <Text style={styles.subText}>{plant.quantity}</Text>
         </View>
 
         <View style={styles.bottomRow}>

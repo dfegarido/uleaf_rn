@@ -22,6 +22,7 @@ import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import OrderActionSheet from './components/OrderActionSheet';
+import {InputSearch} from '../../../components/InputGroup/Left';
 
 import {
   getOrderListingApi,
@@ -74,6 +75,7 @@ const ScreenOrder = ({navigation}) => {
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
   const isFocused = useIsFocused();
   const [dataCount, setDataCount] = useState(0);
+  const [search, setSearch] = useState('');
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
@@ -118,6 +120,7 @@ const ScreenOrder = ({navigation}) => {
           nextTokenParam,
           reusableStartDate,
           reusableEndDate,
+          search,
         ),
       3,
       1000,
@@ -171,6 +174,17 @@ const ScreenOrder = ({navigation}) => {
     console.log(formattedStart, formattedEnd);
     setReusableStartDate(formattedStart);
     setReusableEndDate(formattedEnd);
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+
+  const handleSearchSubmit = e => {
+    const searchText = e.nativeEvent.text;
+    setSearch(searchText);
+    console.log('Searching for:', searchText);
+    // trigger your search logic here
+
     setNextToken('');
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -276,9 +290,16 @@ const ScreenOrder = ({navigation}) => {
       <View style={styles.stickyHeader}>
         <View style={styles.header}>
           <View style={{flex: 1}}>
-            <InputGroupLeftIcon
+            {/* <InputGroupLeftIcon
               IconLeftComponent={SearchIcon}
               placeholder={'Search I Leaf U'}
+            /> */}
+            <InputSearch
+              placeholder="Search ileafU"
+              value={search}
+              onChangeText={setSearch}
+              onSubmitEditing={handleSearchSubmit}
+              showClear={true} // shows an 'X' icon to clear
             />
           </View>
           <View style={styles.headerIcons}>

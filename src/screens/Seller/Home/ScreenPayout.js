@@ -76,7 +76,7 @@ const ScreenPayout = ({navigation, route}) => {
       throw new Error(res?.message || 'Failed to load sort api');
     }
 
-    // console.log(res);
+    console.log(res);
     setNextToken(res?.nextPageToken);
     setTotalReceivables(res?.totalReceivable);
     setData(

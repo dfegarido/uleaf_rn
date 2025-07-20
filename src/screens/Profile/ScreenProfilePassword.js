@@ -17,6 +17,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {InputPassword} from '../../components/Input';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../utils/utils';
+import {AuthContext} from '../../auth/AuthProvider';
 
 import {postProfileUpdatePasswordApi} from '../../components/Api';
 

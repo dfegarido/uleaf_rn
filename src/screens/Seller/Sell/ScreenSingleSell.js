@@ -52,7 +52,7 @@ const heightOptions = [
     value: 'below',
   },
   {
-    label: '12 Inches & above',
+    label: '12 inches & above',
     subLabel: '>=30 cm',
     value: 'above',
   },
@@ -70,11 +70,11 @@ const ScreenSingleSell = ({navigation, route}) => {
   const isFromDuplicateSell = previousRoute?.name === 'ScreenDuplicateSell';
   const isFromDraftSell = previousRoute?.name === 'ScreenDraftSell';
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
       navigation.setOptions({
         headerRight: () => (
-          <TouchableOpacity onPress={onPressSave} color="#000">
+          <TouchableOpacity onPress={() => onPressSave()} color="#000">
             <Text style={globalStyles.textLGAccent}>Save</Text>
           </TouchableOpacity>
         ),
@@ -293,7 +293,7 @@ const ScreenSingleSell = ({navigation, route}) => {
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
     if (images.length === 0) errors.push('At least one image is required.');
-    if (!localPrice || isNaN(localPrice))
+    if (!localPrice || isNaN(localPrice) || localPrice == 0)
       errors.push('Valid local price is required.');
     if (!selectedPotSize) errors.push('Pot size is required.');
     if (!selectedMeasure) errors.push('Approximate height is required.');
@@ -536,7 +536,9 @@ const ScreenSingleSell = ({navigation, route}) => {
     setSelectedVariegation(res.data.variegation || null);
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
-    setImages(res.data.imageCollection || []);
+    if (isFromDuplicateSell == false) {
+      setImages(res.data.imageCollection || []);
+    }
     setLocalPrice(String(res.data.localPrice ?? ''));
     setSelectPotSize(res.data.potSize || null);
     setSelectMeasure(
@@ -545,12 +547,12 @@ const ScreenSingleSell = ({navigation, route}) => {
         : 'above' || null,
     );
 
-    // console.log(res.data);
+    console.log(res.data);
     // setSwitchActive(res.data.status == 'Active' ? true : false);
     // setListingData(res.data);
   };
 
-  const onPressUpdate = async () => {
+  const onPressUpdate = async (paramStatus) => {
     const errors = validateForm();
     if (errors.length > 0) {
       Alert.alert('Validation', errors.join('\n'));
@@ -586,10 +588,10 @@ const ScreenSingleSell = ({navigation, route}) => {
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
           selectedMeasure === 'below' ? 'Below 12 inches' : 'Above 12 inches',
-        status: status,
-        publishType: publishType,
+        status: isFromDraftSell == false && isFromDuplicateSell == false ? status : paramStatus,
+        publishType: isFromDraftSell == false && isFromDuplicateSell == false ? publishType :  paramStatus == 'Active' ? 'Publish Now' : 'Publish on Nursery Drop',
       };
-
+      // console.log(data);
       const response = await postSellUpdateApi(data);
 
       if (!response?.success) {
@@ -747,7 +749,7 @@ const ScreenSingleSell = ({navigation, route}) => {
       </View>
       <View style={styles.formContainer}>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Is this is a mutation?
+          Is this a mutation?
         </Text>
         <View>
           <InputCheckBox
@@ -844,13 +846,36 @@ const ScreenSingleSell = ({navigation, route}) => {
             isFromDraftSell == false && (
               <TouchableOpacity
                 style={globalStyles.primaryButton}
-                onPress={onPressUpdate}>
+                onPress={() => onPressUpdate('')}>
                 <Text style={globalStyles.primaryButtonText}>
                   Update Listing
                 </Text>
               </TouchableOpacity>
             )}
-          {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+
+          {(isFromDuplicateSell || isFromDraftSell) && (
+            <>
+              <TouchableOpacity
+                style={globalStyles.primaryButton}
+                onPress={() => onPressUpdate('Active')}>
+                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                <TouchableOpacity
+                  onPress={() => onPressUpdate('Scheduled')}
+                  style={globalStyles.secondaryButtonAccent}>
+                  <Text
+                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
+                    Publish on Nursery Drop
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+
+          {(isFromDuplicateSell == false && !plantCode && isFromDraftSell == false) && (
             <>
               <TouchableOpacity
                 style={globalStyles.primaryButton}

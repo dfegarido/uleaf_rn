@@ -25,6 +25,7 @@ import {globalStyles} from '../../../assets/styles/styles';
 import OrderActionSheet from '../Order/components/OrderActionSheet';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {InputSearch} from '../../../components/InputGroup/Left';
 
 import {
   getOrderListingApi,
@@ -54,44 +55,6 @@ const headers = [
   'Pot Size',
   'Quantity',
   'Total Price',
-];
-const data = [
-  {
-    image: '',
-    transNo: 'BB######',
-    ordered: 'Apr-23-2025',
-    plantCode: 'AA#####',
-    plantName: 'Zamioculcas zamiifolia',
-    subPlantName: 'Albo Variegata',
-    listingType: 'Single Plant',
-    potSize: '2" - 4"',
-    quantity: '1',
-    totalPrice: '$1,238',
-  },
-  {
-    image: '',
-    transNo: 'BB######',
-    ordered: 'Apr-23-2025',
-    plantCode: 'AA#####',
-    plantName: 'Zamioculcas zamiifolia',
-    subPlantName: 'Albo Variegata',
-    listingType: 'Single Plant',
-    potSize: '2" - 4"',
-    quantity: '1',
-    totalPrice: '$1,238',
-  },
-  {
-    image: '',
-    transNo: 'BB######',
-    ordered: 'Apr-23-2025',
-    plantCode: 'AA#####',
-    plantName: 'Zamioculcas zamiifolia',
-    subPlantName: 'Albo Variegata',
-    listingType: 'Single Plant',
-    potSize: '2" - 4"',
-    quantity: '1',
-    totalPrice: '$1,238',
-  },
 ];
 
 const dateOptions = [
@@ -139,6 +102,7 @@ const ScreenDeliveryHub = ({navigation}) => {
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
   const isFocused = useIsFocused();
   const [dataCount, setDataCount] = useState(0);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -173,6 +137,7 @@ const ScreenDeliveryHub = ({navigation}) => {
           nextTokenParam,
           reusableStartDate,
           reusableEndDate,
+          search,
         ),
       3,
       1000,
@@ -226,6 +191,17 @@ const ScreenDeliveryHub = ({navigation}) => {
     console.log(formattedStart, formattedEnd);
     setReusableStartDate(formattedStart);
     setReusableEndDate(formattedEnd);
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+
+  const handleSearchSubmit = e => {
+    const searchText = e.nativeEvent.text;
+    setSearch(searchText);
+    console.log('Searching for:', searchText);
+    // trigger your search logic here
+
     setNextToken('');
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -336,9 +312,12 @@ const ScreenDeliveryHub = ({navigation}) => {
             <LeftIcon width={30} hegiht={30} />
           </TouchableOpacity>
           <View style={{flex: 1}}>
-            <InputGroupLeftIcon
-              IconLeftComponent={SearchIcon}
-              placeholder={'Search I Leaf U'}
+            <InputSearch
+              placeholder="Search ileafU"
+              value={search}
+              onChangeText={setSearch}
+              onSubmitEditing={handleSearchSubmit}
+              showClear={true} // shows an 'X' icon to clear
             />
           </View>
           <View style={styles.headerIcons}>

@@ -54,6 +54,8 @@ const countries = [
   },
 ];
 
+import DownIcon from '../../assets/icons/greylight/caret-down-regular.svg';
+
 const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
@@ -94,6 +96,7 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
           onPress={() => setModalVisible(true)}>
           <Text style={styles.flag}>{selectedCountry.flag}</Text>
           <Text style={styles.callingCode}>{selectedCountry.callingCode}</Text>
+          <DownIcon width={20} height={20} />
         </TouchableOpacity>
 
         <TextInput

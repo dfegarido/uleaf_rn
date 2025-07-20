@@ -1,19 +1,16 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
-export const getListingDetails = async plantCode => {
+export const getSortStoreApi = async () => {
   try {
     const token = await getStoredAuthToken();
-    const params = new URLSearchParams();
-    params.append('plantCode', plantCode);
-    console.log(`https://getlisting-nstilwgvua-uc.a.run.app?${params.toString()}`);
 
     const response = await fetch(
-      `https://getlisting-nstilwgvua-uc.a.run.app?${params.toString()}`,
+      'https://getsortstoredropdown-nstilwgvua-uc.a.run.app/',
       {
-        method: 'GET',
+        method: 'GET', // or 'POST' if your function expects a body
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`, // Pass token in Authorization header
         },
       },
     );
@@ -26,7 +23,7 @@ export const getListingDetails = async plantCode => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getListingDetails error:', error.message);
-    throw error;
+    console.log('getSortStoreApi error:', error.message);
+    throw error; // optionally rethrow for use in UI
   }
 };

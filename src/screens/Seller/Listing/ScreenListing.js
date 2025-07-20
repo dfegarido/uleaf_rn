@@ -486,8 +486,8 @@ const ScreenListing = ({navigation}) => {
   // Add stocks
 
   // Apply discount
-  const [discountPercentageSheet, setDiscountPercentageSheet] = useState(false);
-  const [discountPriceSheet, setDiscountPriceSheet] = useState(false);
+  const [discountPercentageSheet, setDiscountPercentageSheet] = useState();
+  const [discountPriceSheet, setDiscountPriceSheet] = useState();
   const [showSheetDiscount, setShowSheetDiscount] = useState(false);
 
   const onPressDiscount = ({id}) => {
@@ -499,9 +499,13 @@ const ScreenListing = ({navigation}) => {
   const onPressUpdateApplyDiscountPost = async () => {
     // Validation: only one of the two should be filled
     const isPriceFilled =
-      discountPriceSheet !== '' && discountPriceSheet !== null;
+      discountPriceSheet !== undefined &&
+      discountPriceSheet !== '' &&
+      discountPriceSheet !== null;
     const isPercentageFilled =
-      discountPercentageSheet !== '' && discountPercentageSheet !== null;
+      discountPercentageSheet !== undefined &&
+      discountPercentageSheet !== null &&
+      discountPercentageSheet !== '';
 
     if (
       (isPriceFilled && isPercentageFilled) ||
@@ -641,7 +645,7 @@ const ScreenListing = ({navigation}) => {
         <View style={styles.header}>
           <View style={{flex: 1}}>
             <InputSearch
-              placeholder="Search I Leaf U"
+              placeholder="Search ileafU"
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearchSubmit}

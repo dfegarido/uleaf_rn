@@ -101,7 +101,7 @@ const ScreenLoginForm = ({navigation}) => {
     // Navigate directly to buyer screens without authentication
     navigation.reset({
       index: 0,
-      routes: [{ name: 'BuyerTabs' }],
+      routes: [{name: 'BuyerTabs'}],
     });
   };
 
@@ -162,11 +162,13 @@ const ScreenLoginForm = ({navigation}) => {
               <Text style={{color: '#000', textAlign: 'center'}}>
                 By clicking login, you agree to the I LEAF U's{' '}
               </Text>
-              <TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ScreenTerms')}>
                 <Text style={{color: '#699E73'}}>Terms & Conditions</Text>
               </TouchableOpacity>
               <Text style={{color: '#000'}}> and </Text>
-              <TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ScreenPrivacy')}>
                 <Text style={{color: '#699E73'}}>Privacy Policy</Text>
               </TouchableOpacity>
             </View>

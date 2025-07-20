@@ -49,19 +49,19 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-
-            <RadioButton
-              options={sortOptions}
-              selected={sortValue}
-              onSelect={sortChange}
-              containerStyle={{marginTop: 20}}
-              optionStyle={{
-                justifyContent: 'space-between',
-                paddingHorizontal: 20,
-                paddingBottom: 10,
-              }}
-            />
-
+            <ScrollView style={{marginBottom: 60}}>
+              <RadioButton
+                options={sortOptions}
+                selected={sortValue}
+                onSelect={sortChange}
+                containerStyle={{marginTop: 20}}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 10,
+                }}
+              />
+            </ScrollView>
             <View
               style={{
                 flexDirection: 'row',

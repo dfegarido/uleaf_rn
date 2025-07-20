@@ -186,7 +186,9 @@ const ScreenProfile = ({navigation}) => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Legal</Text>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('ScreenTerms')}>
             <View style={styles.menuLeft}>
               <EnvelopeIcon width={20} height={20} />
               <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
@@ -195,7 +197,9 @@ const ScreenProfile = ({navigation}) => {
             </View>
             <RightIcon width={20} height={20} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('ScreenPrivacy')}>
             <View style={styles.menuLeft}>
               <EnvelopeIcon width={20} height={20} />
               <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>

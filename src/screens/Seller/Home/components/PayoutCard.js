@@ -16,7 +16,7 @@ const PayoutCard = ({item}) => {
       <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
         <View>
           <Text style={[globalStyles.textSMGreyDark]}>
-            {item?.payoutDate ?? ''}
+            {item?.payOutDate ?? ''}
           </Text>
           <Text style={styles.label}>Payout date</Text>
 
@@ -24,9 +24,9 @@ const PayoutCard = ({item}) => {
           <Text style={styles.label}>Sales period</Text>
         </View>
         <View style={styles.headerRight}>
-          {item.reference && (
+          {item.referenceNumber && (
             <Text style={globalStyles.textMDGreyLight}>
-              Ref # {item?.reference ?? ''}
+              Ref # {item?.referenceNumber ?? ''}
             </Text>
           )}
           <Text style={[globalStyles.textLGGreyDark, globalStyles.textBold]}>

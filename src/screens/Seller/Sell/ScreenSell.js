@@ -56,9 +56,11 @@ const ScreenSell = ({navigation}) => {
     navigation.navigate('ScreenGrowersSell');
   };
   const handlePressDuplicate = () => {
+    setShowSheet(false);
     navigation.navigate('ScreenDuplicateSell');
   };
   const handlePressDraft = () => {
+    setShowSheet(false);
     navigation.navigate('ScreenDraftSell');
   };
 
@@ -253,10 +255,20 @@ const ScreenSell = ({navigation}) => {
                       style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
                       Duplicate an existing listing
                     </Text>
-                    <Text
-                      style={[globalStyles.textMDGreyLight, {paddingLeft: 4}]}>
-                      Start with a similar listing to save time
-                    </Text>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        flexWrap: 'wrap',
+                        maxWidth: 300,
+                      }}>
+                      <Text
+                        style={[
+                          globalStyles.textMDGreyLight,
+                          {paddingLeft: 4, flexShrink: 1},
+                        ]}>
+                        Start with a similar listing to save time
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>

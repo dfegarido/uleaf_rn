@@ -44,6 +44,7 @@ import {
   getListingTypeApi,
   getManageListingApi,
   postListingPinActionApi,
+  getSortStoreApi,
 } from '../../../components/Api';
 
 const screenHeight = Dimensions.get('window').height;
@@ -269,7 +270,7 @@ const ScreenMyStore = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
-    const res = await retryAsync(() => getSortApi(), 3, 1000);
+    const res = await retryAsync(() => getSortStoreApi(), 3, 1000);
 
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load sort api');
@@ -395,7 +396,7 @@ const ScreenMyStore = ({navigation}) => {
 
           <View style={{flex: 1}}>
             <InputSearch
-              placeholder="Search I Leaf U"
+              placeholder="Search ileafU"
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearchSubmit}
@@ -682,7 +683,108 @@ const ScreenMyStore = ({navigation}) => {
                       </View>
 
                       {/* Price + Strike-through if discounted */}
-                      <View
+
+                      {(() => {
+                        let totalLocalPrice = 0;
+                        let totalLocalPriceNew = 0;
+                        let hasNewPrice = false;
+                        let finalCurrencySymbol =
+                          dataparse?.localCurrencySymbol || '';
+
+                        const parseSafeFloat = val => {
+                          const num = parseFloat(val);
+                          return isNaN(num) ? 0 : num;
+                        };
+
+                        const isNonEmpty = val =>
+                          val !== null &&
+                          val !== undefined &&
+                          (typeof val === 'number' ||
+                            (typeof val === 'string' && val.trim() !== ''));
+
+                        if (
+                          Array.isArray(dataparse?.variations) &&
+                          dataparse?.variations.length > 0
+                        ) {
+                          dataparse?.variations.forEach(variation => {
+                            const localPrice = parseSafeFloat(
+                              variation.localPrice,
+                            );
+                            const localPriceNew = isNonEmpty(
+                              variation.localPriceNew,
+                            )
+                              ? parseSafeFloat(variation.localPriceNew) !=
+                                parseSafeFloat(variation.localPrice)
+                                ? parseSafeFloat(variation.localPriceNew)
+                                : 0
+                              : 0;
+                            console.log(variation);
+                            totalLocalPrice += localPrice;
+                            if (localPriceNew > 0) {
+                              totalLocalPriceNew += localPriceNew;
+                              hasNewPrice = true;
+                            } else {
+                              totalLocalPriceNew += localPrice;
+                            }
+
+                            if (variation.localCurrencySymbol) {
+                              finalCurrencySymbol =
+                                variation.localCurrencySymbol;
+                            }
+                          });
+                        } else {
+                          const localPrice = parseSafeFloat(
+                            dataparse?.localPrice,
+                          );
+                          const localPriceNew = isNonEmpty(
+                            dataparse?.localPriceNew,
+                          )
+                            ? parseSafeFloat(dataparse?.localPriceNew)
+                            : 0;
+
+                          totalLocalPrice = localPrice;
+                          totalLocalPriceNew = localPriceNew;
+                          localPriceNew > 0 ? localPriceNew : localPrice;
+                          hasNewPrice = localPriceNew > 0;
+
+                          if (dataparse?.localCurrencySymbol) {
+                            finalCurrencySymbol =
+                              dataparse?.localCurrencySymbol;
+                          }
+                        }
+
+                        return (
+                          <View style={[styles.cell, {flexDirection: 'row'}]}>
+                            {hasNewPrice ? (
+                              <>
+                                <Text
+                                  style={[
+                                    globalStyles.textMDAccent,
+                                    {paddingRight: 10},
+                                  ]}>
+                                  {finalCurrencySymbol}
+                                  {totalLocalPriceNew.toFixed(2)}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.strikeText,
+                                    globalStyles.textMDGreyLight,
+                                  ]}>
+                                  {finalCurrencySymbol}
+                                  {totalLocalPrice.toFixed(2)}
+                                </Text>
+                              </>
+                            ) : (
+                              <Text style={globalStyles.textMDGreyLight}>
+                                {finalCurrencySymbol}
+                                {totalLocalPrice.toFixed(2)}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })()}
+
+                      {/* <View
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
@@ -711,7 +813,7 @@ const ScreenMyStore = ({navigation}) => {
                             {parseFloat(dataparse.discountPrice).toFixed(2)}
                           </Text>
                         ) : null}
-                      </View>
+                      </View> */}
                     </View>
                   </TouchableOpacity>
                 ))}

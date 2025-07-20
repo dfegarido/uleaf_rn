@@ -414,7 +414,7 @@ const ScreenListingDetail = ({navigation, route}) => {
                         plantCode: listingData?.plantCode,
                       });
                     }
-                    if (listingData?.listingType == "Grower's choice") {
+                    if (listingData?.listingType == "Grower's Choice") {
                       navigation.navigate('ScreenGrowersSell', {
                         plantCode: listingData?.plantCode,
                       });
@@ -922,7 +922,7 @@ const ScreenListingDetail = ({navigation, route}) => {
               plantCode: listingData?.plantCode,
             });
           }
-          if (listingData?.listingType == "Grower's choice") {
+          if (listingData?.listingType == "Grower's Choice") {
             navigation.navigate('ScreenGrowersSell', {
               plantCode: listingData?.plantCode,
             });

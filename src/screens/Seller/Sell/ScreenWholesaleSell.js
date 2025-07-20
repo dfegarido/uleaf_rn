@@ -74,11 +74,11 @@ const ScreenSingleWholesale = ({navigation, route}) => {
 
   const {userInfo} = useContext(AuthContext);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
       navigation.setOptions({
         headerRight: () => (
-          <TouchableOpacity onPress={onPressSave} color="#000">
+          <TouchableOpacity onPress={() => onPressSave()} color="#000">
             <Text style={globalStyles.textLGAccent}>Save</Text>
           </TouchableOpacity>
         ),
@@ -244,7 +244,15 @@ const ScreenSingleWholesale = ({navigation, route}) => {
   const [potQuantity, setPotQuantity] = useState('');
   const [potSizeList, setPotSizeList] = useState([]);
 
-  const handleImagePicked = uris => setImages(uris);
+  const handleImagePicked = uris => {
+    setImages(prevImages => [...prevImages, ...uris]); // Append new images
+    console.log('Appended URIs:', uris);
+  };
+  const removeImage = indexToRemove => {
+    setImages(prevImages =>
+      prevImages.filter((_, index) => index !== indexToRemove),
+    );
+  };
   const handleImagePickedPotSize = uris => setImagesPotSize(uris);
   const onpressSelectPotsize = size => setSelectPotSize(size);
   const onpressSelectAboveBelow = ({measure}) => setSelectMeasure(measure);
@@ -267,6 +275,16 @@ const ScreenSingleWholesale = ({navigation, route}) => {
 
     if (!newPotSize.image || !newPotSize.price || !newPotSize.quantity) {
       Alert.alert('Please complete all pot size fields.');
+      return;
+    }
+
+    if (newPotSize.price === 0) {
+      Alert.alert('Invalid Price', 'Price cannot be zero.');
+      return;
+    }
+
+    if (newPotSize.quantity === 0) {
+      Alert.alert('Invalid Quantity', 'Quantity cannot be zero.');
       return;
     }
 
@@ -604,7 +622,9 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     setSelectedVariegation(res.data.variegation || null);
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
-    setImages(res.data.imageCollection || []);
+    if (isFromDuplicateSell == false) {
+      setImages(res.data.imageCollection || []);
+    }
 
     const newPotSize = res.data.variations.map(variation => ({
       image: variation.imagePrimary ?? null,
@@ -617,7 +637,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     setPotSizeList(newPotSize);
   };
 
-  const onPressUpdate = async () => {
+  const onPressUpdate = async paramStatus => {
     const errors = validateForm();
     if (errors.length > 0) {
       Alert.alert('Validation Error', errors.join('\n'));
@@ -658,8 +678,16 @@ const ScreenSingleWholesale = ({navigation, route}) => {
         potSize: null,
         localPrice: null,
         approximateHeight: null,
-        status: status,
-        publishType: publishType,
+        status:
+          isFromDraftSell == false && isFromDuplicateSell == false
+            ? status
+            : paramStatus,
+        publishType:
+          isFromDraftSell == false && isFromDuplicateSell == false
+            ? publishType
+            : paramStatus == 'Active'
+            ? 'Publish Now'
+            : 'Publish on Nursery Drop',
         variation: uploadedPotSizeList.map(item => ({
           imagePrimary: item.image,
           potSize: item.size,
@@ -827,7 +855,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       {/* Mutations */}
       <View style={styles.formContainer}>
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Is this is a mutation?
+          Is this a mutation?
         </Text>
         <InputCheckBox
           label="Yes"
@@ -858,8 +886,15 @@ const ScreenSingleWholesale = ({navigation, route}) => {
           <FlatList
             data={images}
             keyExtractor={(uri, index) => index.toString()}
-            renderItem={({item}) => (
-              <Image source={{uri: item}} style={styles.image} />
+            renderItem={({item, index}) => (
+              <View style={styles.imageContainer}>
+                <Image source={{uri: item}} style={styles.image} />
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeImage(index)}>
+                  <Text style={styles.removeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             )}
             horizontal
           />
@@ -980,23 +1015,24 @@ const ScreenSingleWholesale = ({navigation, route}) => {
             isFromDraftSell == false && (
               <TouchableOpacity
                 style={globalStyles.primaryButton}
-                onPress={onPressUpdate}>
+                onPress={() => onPressUpdate('')}>
                 <Text style={globalStyles.primaryButtonText}>
                   Update Listing
                 </Text>
               </TouchableOpacity>
             )}
-          {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+
+          {(isFromDuplicateSell || isFromDraftSell) && (
             <>
               <TouchableOpacity
                 style={globalStyles.primaryButton}
-                onPress={onPressPublish}>
+                onPress={() => onPressUpdate('Active')}>
                 <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
               </TouchableOpacity>
 
               <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
                 <TouchableOpacity
-                  onPress={onPressPublishNurseryDrop}
+                  onPress={() => onPressUpdate('Scheduled')}
                   style={globalStyles.secondaryButtonAccent}>
                   <Text
                     style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
@@ -1006,6 +1042,34 @@ const ScreenSingleWholesale = ({navigation, route}) => {
               </View>
             </>
           )}
+
+          {isFromDuplicateSell == false &&
+            !plantCode &&
+            isFromDraftSell == false && (
+              <>
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={onPressPublish}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Publish Now
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                  <TouchableOpacity
+                    onPress={onPressPublishNurseryDrop}
+                    style={globalStyles.secondaryButtonAccent}>
+                    <Text
+                      style={[
+                        globalStyles.textLGAccent,
+                        {textAlign: 'center'},
+                      ]}>
+                      Publish on Nursery Drop
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
         </View>
       </View>
 
@@ -1114,7 +1178,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
                   <Text style={globalStyles.textMDGreyDark}>
                     {measure === 'below'
                       ? 'Below 12 inches'
-                      : '12 Inches & above'}
+                      : '12 inches & above'}
                   </Text>
                   <Text style={globalStyles.textSMGreyLight}>
                     {measure === 'below' ? '<30 cm' : '>=30 cm'}
@@ -1123,8 +1187,12 @@ const ScreenSingleWholesale = ({navigation, route}) => {
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={[globalStyles.textSMGreyLight, {paddingTop: 10}]}>
-            For shipping calculation use.
+          <Text
+            style={[
+              globalStyles.textSMGreyLight,
+              {paddingTop: 10, paddingBottom: 30},
+            ]}>
+            For shipping costs calculations only.
           </Text>
         </ScrollView>
 
@@ -1207,6 +1275,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 5,
+    right: 15,
+    backgroundColor: '#eee',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  removeButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
 

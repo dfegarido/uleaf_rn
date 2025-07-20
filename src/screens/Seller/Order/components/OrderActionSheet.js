@@ -216,7 +216,7 @@ const OrderActionSheet = ({
         const renderCalendar = getDaysArray(currentMonth, currentYear);
 
         return (
-          <ActionSheet visible={visible} onClose={onClose} heightPercent="60%">
+          <ActionSheet visible={visible} onClose={onClose} heightPercent="80%">
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Date Range</Text>
               <TouchableOpacity onPress={() => onClose(true)}>

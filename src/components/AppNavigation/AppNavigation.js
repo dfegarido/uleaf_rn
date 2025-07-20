@@ -14,7 +14,7 @@ import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
-import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';  
+import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 
 import {
   ScreenDelivery,
@@ -65,6 +65,7 @@ import {
   ScreenProfileRequest,
   ScreenProfileChatAdmin,
 } from '../../screens/Profile';
+import {ScreenTerms, ScreenPrivacy} from '../../screens/Legal';
 
 import HomeIcon from '../../assets/icontabs/home.svg';
 import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
@@ -277,6 +278,56 @@ const AuthStack = () => {
           headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
         })}
       />
+
+      <Stack.Screen
+        name="ScreenTerms"
+        component={ScreenTerms}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Terms of Use', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+
+      <Stack.Screen
+        name="ScreenPrivacy"
+        component={ScreenPrivacy}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Privacy Policy', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
     </Stack.Navigator>
   );
 };
@@ -343,7 +394,7 @@ const MainStack = () => {
         component={ScreenGrowersSell}
         options={({navigation}) => ({
           headerShown: true, // Ensure the header is shown
-          title: "Grower's choice", // Optionally hide the header title
+          title: "Grower's Choice", // Optionally hide the header title
           headerTitleAlign: 'center',
           animation: 'slide_from_right', // Screen transition animation
           headerLeft: () => (
@@ -510,6 +561,56 @@ const MainStack = () => {
         component={ScreenPayoutDetails}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
+
+      <Stack.Screen
+        name="ScreenTerms"
+        component={ScreenTerms}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Terms of Use', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+
+      <Stack.Screen
+        name="ScreenPrivacy"
+        component={ScreenPrivacy}
+        options={({navigation}) => ({
+          headerShown: true, // Ensure the header is shown
+          title: 'Privacy Policy', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
     </Stack.Navigator>
   );
 };
@@ -664,8 +765,8 @@ const AppNavigation = () => {
           <Stack.Screen
             name="UpdatePasswordScreen"
             component={UpdatePasswordScreen}
-            options={{headerShown: false, animation: 'slide_from_right'}} 
-           />
+            options={{headerShown: false, animation: 'slide_from_right'}}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     );

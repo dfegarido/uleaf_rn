@@ -9,6 +9,7 @@ export const getOrderListingApi = async (
   nextPageToken,
   startDate,
   endDate,
+  search,
 ) => {
   try {
     const token = await getStoredAuthToken();
@@ -24,6 +25,7 @@ export const getOrderListingApi = async (
     );
     params.append('startDate', startDate ?? '');
     params.append('endDate', endDate ?? '');
+    params.append('plant', search ?? '');
     params.append('nextPageToken', nextPageToken ?? '');
 
     console.log(params.toString());

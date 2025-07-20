@@ -1,20 +1,18 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
-export const getListingDetails = async plantCode => {
+export const postPayoutExportApi = async workWeek => {
   try {
     const token = await getStoredAuthToken();
-    const params = new URLSearchParams();
-    params.append('plantCode', plantCode);
-    console.log(`https://getlisting-nstilwgvua-uc.a.run.app?${params.toString()}`);
 
     const response = await fetch(
-      `https://getlisting-nstilwgvua-uc.a.run.app?${params.toString()}`,
+      'https://listpayoutdetailexport-nstilwgvua-uc.a.run.app/',
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`, // use token from AsyncStorage
         },
+        body: JSON.stringify({workWeek}),
       },
     );
 
@@ -26,7 +24,7 @@ export const getListingDetails = async plantCode => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getListingDetails error:', error.message);
+    console.log('postPayoutExportApi error:', error.message);
     throw error;
   }
 };

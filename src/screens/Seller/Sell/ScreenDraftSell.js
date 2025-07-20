@@ -106,7 +106,7 @@ const ScreenDraftSell = ({navigation}) => {
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load listings');
     }
-    console.log(res);
+    // console.log(res);
     setNextToken(res.nextPageToken);
     setData(
       prev =>
@@ -192,7 +192,7 @@ const ScreenDraftSell = ({navigation}) => {
                       plantCode: item?.plantCode,
                     });
                   }
-                  if (item?.listingType == "Grower's choice") {
+                  if (item?.listingType == "Grower's Choice") {
                     navigation.navigate('ScreenGrowersSell', {
                       plantCode: item?.plantCode,
                     });

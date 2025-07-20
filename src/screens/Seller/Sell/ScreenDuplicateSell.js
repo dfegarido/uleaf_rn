@@ -17,6 +17,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {globalStyles} from '../../../assets/styles/styles';
 import {getManageListingApi} from '../../../components/Api';
+import StatusBadge from '../Listing/components/ListingStatusBadge';
 
 import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
@@ -203,7 +204,7 @@ const ScreenDuplicateSell = ({navigation}) => {
                       plantCode: item?.plantCode,
                     });
                   }
-                  if (item?.listingType == "Grower's choice") {
+                  if (item?.listingType == "Grower's Choice") {
                     navigation.navigate('ScreenGrowersSell', {
                       plantCode: item?.plantCode,
                     });
@@ -226,9 +227,7 @@ const ScreenDuplicateSell = ({navigation}) => {
                     style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
                     {item.genus} {item.species}
                   </Text>
-                  <Text style={globalStyles.textMDGreyLight}>
-                    {item.status || '—'}
-                  </Text>
+                  <StatusBadge statusCode={item.status} />
                 </View>
 
                 {/* Listing Type */}

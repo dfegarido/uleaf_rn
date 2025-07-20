@@ -299,7 +299,7 @@ const ListingTable = ({
               let totalLocalPrice = 0;
               let totalLocalPriceNew = 0;
               let hasNewPrice = false;
-              let finalCurrencySymbol = listing.localCurrencySymbol || '';
+              let finalCurrencySymbol = listing?.localCurrencySymbol || '';
 
               const parseSafeFloat = val => {
                 const num = parseFloat(val);
@@ -313,15 +313,18 @@ const ListingTable = ({
                   (typeof val === 'string' && val.trim() !== ''));
 
               if (
-                Array.isArray(listing.variations) &&
-                listing.variations.length > 0
+                Array.isArray(listing?.variations) &&
+                listing?.variations.length > 0
               ) {
-                listing.variations.forEach(variation => {
+                listing?.variations.forEach(variation => {
                   const localPrice = parseSafeFloat(variation.localPrice);
                   const localPriceNew = isNonEmpty(variation.localPriceNew)
-                    ? parseSafeFloat(variation.localPriceNew)
+                    ? parseSafeFloat(variation.localPriceNew) !=
+                      parseSafeFloat(variation.localPrice)
+                      ? parseSafeFloat(variation.localPriceNew)
+                      : 0
                     : 0;
-
+                  // console.log(variation);
                   totalLocalPrice += localPrice;
 
                   if (localPriceNew > 0) {
@@ -336,18 +339,18 @@ const ListingTable = ({
                   }
                 });
               } else {
-                const localPrice = parseSafeFloat(listing.localPrice);
-                const localPriceNew = isNonEmpty(listing.localPriceNew)
-                  ? parseSafeFloat(listing.localPriceNew)
+                const localPrice = parseSafeFloat(listing?.localPrice);
+                const localPriceNew = isNonEmpty(listing?.localPriceNew)
+                  ? parseSafeFloat(listing?.localPriceNew)
                   : 0;
-
+                // console.log('Single: ' + JSON.stringify(listing?));
                 totalLocalPrice = localPrice;
-                totalLocalPriceNew =
-                  localPriceNew > 0 ? localPriceNew : localPrice;
+                totalLocalPriceNew = localPriceNew;
+                localPriceNew > 0 ? localPriceNew : localPrice;
                 hasNewPrice = localPriceNew > 0;
 
-                if (listing.localCurrencySymbol) {
-                  finalCurrencySymbol = listing.localCurrencySymbol;
+                if (listing?.localCurrencySymbol) {
+                  finalCurrencySymbol = listing?.localCurrencySymbol;
                 }
               }
 

@@ -17,7 +17,7 @@ export const getSellDraftListingApi = async (limit, nextPageToken) => {
         },
       },
     );
-
+      console.log(response.json());
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
