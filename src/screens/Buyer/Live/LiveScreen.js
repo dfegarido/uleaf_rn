@@ -131,7 +131,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
   };
 
   // Fixed dimensions based on CSS specifications
-  const cardHeight = 264; // Fixed height from CSS
+  const cardHeight = 312; // Total height from CSS: 264px (video) + 8px (gap) + 40px (details) = 312px
   const thumbnailWidth = 166; // Fixed width from CSS
   const thumbnailHeight = 264; // Fixed height from CSS
 
@@ -142,8 +142,8 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
   const cardStyle = {
     width: thumbnailWidth,
     height: cardHeight,
-    marginRight: isLeftColumn ? 12 : 0, // 12px gap between columns
-    marginBottom: 16,
+    marginRight: isLeftColumn ? 13 : 0, // 13px gap between columns as per CSS
+    marginBottom: 24, // 24px vertical gap as per CSS
   };
 
   return (
@@ -151,38 +151,52 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
       onPress={() => navigation.navigate('BuyerLiveStreamScreen')} 
       style={[styles.videoCard, cardStyle]}
     >
-      <View style={styles.thumbnailContainer}>
-        <ImageBackground
-          source={stream.thumbnail}
-          style={[styles.thumbnail, {width: thumbnailWidth, height: thumbnailHeight}]}
-          imageStyle={styles.thumbnailImage}
-        >
-          {/* Status + Viewer overlay at top */}
-          <View style={styles.topOverlay}>
-            {stream.isLive && (
-              <View style={styles.liveStatusLeft}>
-                <LiveIcon width={16} height={16} />
-                <Text style={styles.liveLabel}>Live</Text>
+      {/* Video container */}
+      <View style={styles.videoContainer}>
+        <View style={styles.thumbnailContainer}>
+          <ImageBackground
+            source={stream.thumbnail}
+            style={[styles.thumbnail, {width: thumbnailWidth, height: thumbnailHeight}]}
+            imageStyle={styles.thumbnailImage}
+          >
+            {/* Status + Viewer overlay at top */}
+            <View style={styles.topOverlay}>
+              {stream.isLive ? (
+                <View style={styles.liveStatusLeft}>
+                  <LiveIcon width={16} height={16} />
+                  <Text style={styles.liveLabel}>Live</Text>
+                </View>
+              ) : (
+                <View style={styles.emptySpace} />
+              )}
+              <View style={styles.viewersContainer}>
+                <SocialIcon width={16} height={16} />
+                <Text style={styles.viewerCount}>
+                  {formatViewers(stream.viewers)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Date Time overlay at bottom - only for non-live streams */}
+            {!stream.isLive && (
+              <View style={styles.bottomOverlay}>
+                <View style={styles.dateContainer}>
+                  <CalendarWhiteIcon width={16} height={16} />
+                  <Text style={styles.dateText}>Dec-15 12:00AM</Text>
+                </View>
               </View>
             )}
-            <View style={styles.viewersContainer}>
-              <SocialIcon width={16} height={16} />
-              <Text style={styles.viewerCount}>
-                {formatViewers(stream.viewers)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Date Time overlay at bottom - only for non-live streams */}
-          {!stream.isLive && (
-            <View style={styles.bottomOverlay}>
-              <View style={styles.dateContainer}>
-                <CalendarWhiteIcon width={16} height={16} />
-                <Text style={styles.dateText}>Dec-15 12:00AM</Text>
-              </View>
-            </View>
-          )}
-        </ImageBackground>
+          </ImageBackground>
+        </View>
+      </View>
+      
+      {/* Title section */}
+      <View style={styles.titleDetails}>
+        <View style={styles.titleContainer}>
+          <Text style={styles.titleText} numberOfLines={2}>
+            {stream.title}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -267,8 +281,8 @@ const LiveScreen = ({navigation}) => {
       flexWrap: 'wrap',
       alignItems: 'flex-start',
       alignContent: 'flex-start',
-      paddingHorizontal: 15,
       paddingTop: 12,
+      paddingHorizontal: 15,
       paddingBottom: 16,
       justifyContent: 'center',
     },
@@ -323,8 +337,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'flex-start',
     alignContent: 'flex-start',
-    paddingHorizontal: 15,
     paddingTop: 12,
+    paddingHorizontal: 15,
     paddingBottom: 16,
     justifyContent: 'center',
   },
@@ -332,10 +346,17 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     padding: 0,
-    gap: 10,
+    width: 166,
+    height: 312, // Updated to match CSS specifications
+    marginBottom: 16,
+  },
+  videoContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
     width: 166,
     height: 264,
-    marginBottom: 16,
+    marginBottom: 8, // 8px gap as per CSS
   },
   thumbnailContainer: {
     position: 'relative',
@@ -389,6 +410,11 @@ const styles = StyleSheet.create({
     minHeight: 22,
     backgroundColor: '#539461',
     borderRadius: 8,
+  },
+  emptySpace: {
+    width: 64,
+    height: 24,
+    // Empty space to maintain layout when no live status
   },
   liveStatus: {
     flexDirection: 'row',
@@ -459,6 +485,33 @@ const styles = StyleSheet.create({
     width: 108,
     height: 20,
   },
+  // Title section styles
+  titleDetails: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 166,
+    height: 40,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 166,
+    height: 40,
+    alignSelf: 'stretch',
+  },
+  titleText: {
+    width: 166,
+    height: 40,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '900',
+    fontSize: 14,
+    lineHeight: 19.6, // 140% of 14px = 19.6px
+    color: '#202325',
+    flex: 1,
+  },
   // Header styles
   header: {
     flexDirection: 'row',
@@ -520,7 +573,7 @@ const styles = StyleSheet.create({
   tabTitle: {
     fontFamily: 'Inter',
     fontStyle: 'normal',
-    fontWeight: '500',
+    fontWeight: '700',
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'center',
@@ -528,7 +581,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   activeTabTitle: {
-    fontWeight: '600',
+    fontWeight: '900',
     color: '#202325',
   },
   tabIndicator: {
