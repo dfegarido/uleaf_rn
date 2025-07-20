@@ -133,13 +133,23 @@ function BuyerTabs() {
               return focused ? (
                 <ChatIconSelected width={size} height={size} />
               ) : (
-                <ChatIcon onPress={() => navigation.navigate('LiveBroadcastScreen')} width={size} height={size} />
+                <ChatIcon width={size} height={size} />
               );
           }
         },
         headerShown: false,
       })}>
-      <Tab.Screen name="Live" component={LiveScreen} />
+      <Tab.Screen
+        name="Live"
+        component={LiveScreen}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            // Always go to BuyerLiveStreamScreen - it handles the logic internally
+            navigation.navigate('BuyerLiveStreamScreen');
+          },
+        })}
+      />
       <Tab.Screen name="Cart" component={ScreenCart} />
       <Tab.Screen name="Shop" component={ScreenShop} />
       <Tab.Screen name="Orders" component={ScreenOrders} />

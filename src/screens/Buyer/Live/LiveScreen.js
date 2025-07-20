@@ -13,6 +13,7 @@ import {
 // Import SVG icons
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
+import CalendarWhiteIcon from '../../../assets/buyer-icons/calendar-white.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import { InputGroupLeftIcon } from '../../../components/InputGroup/Left';
@@ -91,9 +92,37 @@ const liveStreams = [
     isLive: false,
     viewers: 567,
   },
+  {
+    id: 7,
+    title: 'Snake Plant Care Workshop',
+    thumbnail: require('../../../assets/images/plant1.png'),
+    isLive: true,
+    viewers: 892,
+  },
+  {
+    id: 8,
+    title: 'Pothos Propagation Tips',
+    thumbnail: require('../../../assets/images/plant2.png'),
+    isLive: true,
+    viewers: 1567,
+  },
+  {
+    id: 9,
+    title: 'Air Plant Collection Tour',
+    thumbnail: require('../../../assets/images/plant3.png'),
+    isLive: true,
+    viewers: 743,
+  },
+  {
+    id: 10,
+    title: 'Calathea Care Secrets',
+    thumbnail: require('../../../assets/images/plant1.png'),
+    isLive: true,
+    viewers: 456,
+  },
 ];
 
-const LiveVideoCard = ({navigation, stream, cardWidth, index}) => {
+const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
   const formatViewers = (count) => {
     if (count >= 1000) {
       return `${(count / 1000).toFixed(1)}k`;
@@ -101,26 +130,37 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index}) => {
     return count.toString();
   };
 
-  const cardHeight = cardWidth * 1.6; // Maintain aspect ratio
+  // Fixed dimensions based on CSS specifications
+  const cardHeight = 264; // Fixed height from CSS
+  const thumbnailWidth = 166; // Fixed width from CSS
+  const thumbnailHeight = 264; // Fixed height from CSS
 
-  // Add right margin only to left column items (even indices)
+  // Calculate if this item should be in the left column
+  // For 2-column layout: left column items have even indices (0, 2, 4, ...)
   const isLeftColumn = index % 2 === 0;
+  
   const cardStyle = {
-    width: cardWidth,
-    marginRight: isLeftColumn ? GAP : 0,
+    width: thumbnailWidth,
+    height: cardHeight,
+    marginRight: isLeftColumn ? 12 : 0, // 12px gap between columns
     marginBottom: 16,
   };
 
   return (
-    <TouchableOpacity onPress={() => navigation.navigate('BuyerLiveStreamScreen')} style={[styles.videoCard, cardStyle]}>
-      <View style={[styles.videoContainer, {width: cardWidth, height: cardHeight}]}>
+    <TouchableOpacity 
+      onPress={() => navigation.navigate('BuyerLiveStreamScreen')} 
+      style={[styles.videoCard, cardStyle]}
+    >
+      <View style={styles.thumbnailContainer}>
         <ImageBackground
           source={stream.thumbnail}
-          style={[styles.thumbnail, {width: cardWidth, height: cardHeight}]}
-          imageStyle={styles.thumbnailImage}>
-          <View style={styles.overlay}>
+          style={[styles.thumbnail, {width: thumbnailWidth, height: thumbnailHeight}]}
+          imageStyle={styles.thumbnailImage}
+        >
+          {/* Status + Viewer overlay at top */}
+          <View style={styles.topOverlay}>
             {stream.isLive && (
-              <View style={styles.liveStatus}>
+              <View style={styles.liveStatusLeft}>
                 <LiveIcon width={16} height={16} />
                 <Text style={styles.liveLabel}>Live</Text>
               </View>
@@ -132,12 +172,17 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index}) => {
               </Text>
             </View>
           </View>
+
+          {/* Date Time overlay at bottom - only for non-live streams */}
+          {!stream.isLive && (
+            <View style={styles.bottomOverlay}>
+              <View style={styles.dateContainer}>
+                <CalendarWhiteIcon width={16} height={16} />
+                <Text style={styles.dateText}>Dec-15 12:00AM</Text>
+              </View>
+            </View>
+          )}
         </ImageBackground>
-      </View>
-      <View style={[styles.details, {width: cardWidth}]}>
-        <Text style={[styles.title, {width: cardWidth}]} numberOfLines={2}>
-          {stream.title}
-        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -168,8 +213,39 @@ const LiveHeader = ({navigation}) => {
   );
 };
 
+const LiveTabs = ({activeTab, setActiveTab}) => {
+  return (
+    <View style={styles.tabsContainer}>
+      <View style={styles.tabsContent}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'recaps' && styles.activeTab]}
+          onPress={() => setActiveTab('recaps')}>
+          <View style={styles.tabContent}>
+            <Text style={[styles.tabTitle, activeTab === 'recaps' && styles.activeTabTitle]}>
+              Live Recaps
+            </Text>
+          </View>
+          <View style={[styles.tabIndicator, activeTab === 'recaps' && styles.activeTabIndicator]} />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'upcoming' && styles.activeTab]}
+          onPress={() => setActiveTab('upcoming')}>
+          <View style={styles.tabContent}>
+            <Text style={[styles.tabTitle, activeTab === 'upcoming' && styles.activeTabTitle]}>
+              Upcoming
+            </Text>
+          </View>
+          <View style={[styles.tabIndicator, activeTab === 'upcoming' && styles.activeTabIndicator]} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
 const LiveScreen = ({navigation}) => {
   const [dimensions, setDimensions] = useState(getScreenDimensions());
+  const [activeTab, setActiveTab] = useState('recaps');
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({window}) => {
@@ -196,34 +272,32 @@ const LiveScreen = ({navigation}) => {
       paddingBottom: 16,
       justifyContent: 'center',
     },
-    videoCard: {
-      width: dimensions.CARD_WIDTH,
-      marginBottom: 8,
-    },
-    videoContainer: {
-      width: dimensions.CARD_WIDTH,
-      height: dimensions.CARD_WIDTH * 1.6,
-      marginBottom: 10,
-    },
-    thumbnail: {
-      width: dimensions.CARD_WIDTH,
-      height: dimensions.CARD_WIDTH * 1.6,
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
   });
+
+  // Filter streams based on active tab
+  const filteredStreams = activeTab === 'recaps' 
+    ? liveStreams.filter(stream => !stream.isLive) 
+    : liveStreams.filter(stream => stream.isLive);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <LiveHeader navigation={navigation} />
+      <LiveTabs activeTab={activeTab} setActiveTab={setActiveTab} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
         <View style={[styles.plantsContainer, dynamicStyles.plantsContainer]}>
-          {liveStreams.map((stream, index) => (
-            <LiveVideoCard navigation={navigation} key={stream.id} stream={stream} cardWidth={dimensions.CARD_WIDTH} index={index} />
+          {filteredStreams.map((stream, index) => (
+            <LiveVideoCard 
+              navigation={navigation} 
+              key={stream.id} 
+              stream={stream} 
+              cardWidth={166} 
+              index={index} 
+              totalItems={filteredStreams.length}
+            />
           ))}
         </View>
       </ScrollView>
@@ -255,12 +329,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoCard: {
-    marginBottom: 8,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 10,
+    width: 166,
+    height: 264,
+    marginBottom: 16,
   },
-  videoContainer: {
-    marginBottom: 10,
+  thumbnailContainer: {
+    position: 'relative',
+    width: 166,
+    height: 264,
   },
   thumbnail: {
+    width: 166,
+    height: 264,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -268,66 +352,112 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#F5F5F5',
   },
-  overlay: {
+  topOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     padding: 8,
     gap: 8,
+    width: 166,
     height: 40,
+    left: 0,
+    top: 0,
+    zIndex: 1,
+  },
+  bottomOverlay: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    gap: 8,
+    width: 166,
+    height: 40,
+    left: 0,
+    top: 224, // 264 - 40 = 224
+    zIndex: 2,
+  },
+  liveStatusLeft: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    gap: 4,
+    width: 64,
+    height: 24,
+    minHeight: 22,
+    backgroundColor: '#539461',
+    borderRadius: 8,
   },
   liveStatus: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
     paddingVertical: 2,
+    paddingHorizontal: 8,
     gap: 4,
+    width: 64,
+    height: 24,
+    minHeight: 22,
     backgroundColor: '#539461',
     borderRadius: 8,
-    minHeight: 24,
   },
   liveLabel: {
     fontFamily: 'Inter',
+    fontStyle: 'normal',
     fontWeight: '600',
     fontSize: 14,
     lineHeight: 20,
     color: '#FFFFFF',
+    width: 28,
+    height: 20,
   },
   viewersContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
     paddingVertical: 2,
+    paddingHorizontal: 8,
     gap: 4,
-    backgroundColor: 'rgba(32, 35, 37, 0.6)',
-    borderRadius: 8,
+    width: 68,
+    height: 24,
     minHeight: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.64)',
+    borderRadius: 8,
   },
   viewerCount: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#FFFFFF',
-  },
-  details: {
-    gap: 6,
-  },
-  title: {
-    height: 40,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '600',
     fontSize: 14,
-    lineHeight: 20, // 140% of 14px
-    color: '#202325',
-    flexGrow: 1,
+    lineHeight: 20,
+    color: '#FFFFFF',
+    width: 32,
+    height: 20,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    gap: 4,
+    width: 144,
+    height: 24,
+    minHeight: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.64)',
+    borderRadius: 8,
+  },
+  dateText: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#FFFFFF',
+    width: 108,
+    height: 20,
   },
   // Header styles
   header: {
@@ -346,6 +476,71 @@ const styles = StyleSheet.create({
   iconButton: {
     marginHorizontal: 4,
     alignItems: 'center',
+  },
+  // Tab styles
+  tabsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingTop: 8,
+    paddingHorizontal: 15,
+    paddingBottom: 0,
+    gap: 24,
+    height: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+  },
+  tabsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    height: 40,
+    flex: 1,
+  },
+  tab: {
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 0,
+    gap: 12,
+    width: 140,
+    height: 40,
+    minHeight: 40,
+  },
+  tabContent: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 0,
+    width: '100%',
+    height: 24,
+  },
+  tabTitle: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: '#647276',
+    width: '100%',
+  },
+  activeTabTitle: {
+    fontWeight: '600',
+    color: '#202325',
+  },
+  tabIndicator: {
+    width: 140,
+    height: 3,
+    maxHeight: 3,
+    backgroundColor: '#FFFFFF',
+    opacity: 0,
+  },
+  activeTabIndicator: {
+    backgroundColor: '#202325',
+    opacity: 1,
   },
 });
 

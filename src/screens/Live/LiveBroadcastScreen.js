@@ -14,13 +14,38 @@ import {
   RtcSurfaceView,
 } from 'react-native-agora';
 
-const APP_ID = '21933735957640729e77e09a0b02f7f1';
-const TOKEN = '007eJxTYOjdYPP9VUjF9qfPn6575RipZbcggj+znmme85/dDWK2azsUGIwMLY2NzY1NLU3NzUwMzI0sU83NUw0sEw2SDIzSzNMMPydWZTQEMjLMaaxkZGSAQBCfjaE0JzUxzYSBAQDPsiBi'; // your token here
+const APP_ID = '77bffba08cc144228a447e99bae16ec1';
+const TOKEN = "007eJxTYNCU6kqdJ5U0i8f9wbfvjZtXd7zXSP98w7z2xJyeK9kMzeoKDObmSWlpSYkGFsnJhiYmRkYWiSYm5qmWlkmJqYZmqcmGe5fUZDQEMjKsCTzAwAiFID4bQ2lOamKaCQMDAN91IZY="; // your token here
 const CHANNEL_NAME = 'uleaf4';
 
 const LiveBroadcastScreen = ({navigation}) => {
   const rtcEngineRef = useRef(null);
   const [joined, setJoined] = useState(false);
+  const [token, setToken] = useState(TOKEN);
+
+  // Function to fetch new token and rejoin channel
+  const fetchTokenAndRejoin = async () => {
+    try {
+      // In a real app, you would fetch a new token from your server
+      // For now, we'll simulate by using the same token but this is where
+      // you would make an API call to get a fresh token
+      console.log('⚠️ Token expired, fetching new token');
+      
+      // For demonstration, using the same token
+      const newToken = "007eJxTYNCU6kqdJ5U0i8f9wbfvjZtXd7zXSP98w7z2xJyeK9kMzeoKDObmSWlpSYkGFsnJhiYmRkYWiSYm5qmWlkmJqYZmqcmGe5fUZDQEMjKsCTzAwAiFID4bQ2lOamKaCQMDAN91IZY=";
+      
+      // Update token state
+      setToken(newToken);
+      
+      // Rejoin channel with the new token
+      if (rtcEngineRef.current) {
+        console.log('🔄 Rejoining channel with new token');
+        rtcEngineRef.current.renewToken(newToken);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching new token:', error);
+    }
+  };
 
   useEffect(() => {
     const startBroadcast = async () => {
@@ -43,8 +68,20 @@ const LiveBroadcastScreen = ({navigation}) => {
           console.log('✅ Joined Channel as Broadcaster');
           setJoined(true);
         },
+        onTokenPrivilegeWillExpire: () => {
+          console.log('⚠️ Token privilege will expire');
+          fetchTokenAndRejoin();
+        },
+        onConnectionStateChanged: (state, reason) => {
+          console.log('🔌 Connection state changed:', { state, reason });
+        },
         onError: (err) => {
           console.error('❌ Agora Error:', err);
+          
+          // Error code 109 is token expired
+          if (err === 109) {
+            fetchTokenAndRejoin();
+          }
         },
       });
 
@@ -52,7 +89,19 @@ const LiveBroadcastScreen = ({navigation}) => {
       rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
       rtc.setupLocalVideo({ uid: 0, renderMode: 1 });
       rtc.startPreview();
-      rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {});
+      
+      console.log('🔴 Starting broadcast with token:', token.substring(0, 20) + '...');
+      console.log('🔄 Channel name:', CHANNEL_NAME);
+      
+      // First ensure we're not already in the channel
+      try {
+        rtc.leaveChannel();
+      } catch (e) {
+        // Ignore if not already in channel
+      }
+      
+      // Join with new token
+      rtc.joinChannel(token, CHANNEL_NAME, 0, {});
 
 
       rtcEngineRef.current = rtc;

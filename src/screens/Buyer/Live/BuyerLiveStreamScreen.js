@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   PermissionsAndroid,
@@ -13,7 +14,8 @@ import {
 import {
   ChannelProfileType,
   ClientRoleType,
-  createAgoraRtcEngine
+  createAgoraRtcEngine,
+  RtcSurfaceView
 } from 'react-native-agora';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
@@ -23,15 +25,18 @@ import ShopIcon from '../../../assets/live-icon/shop.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 
-const APP_ID = '21933735957640729e77e09a0b02f7f1';
-const TOKEN = '007eJxTYOjdYPP9VUjF9qfPn6575RipZbcggj+znmme85/dDWK2azsUGIwMLY2NzY1NLU3NzUwMzI0sU83NUw0sEw2SDIzSzNMMPydWZTQEMjLMaaxkZGSAQBCfjaE0JzUxzYSBAQDPsiBi'; // your token here
+const APP_ID = '77bffba08cc144228a447e99bae16ec1';
+// Note: You should generate a new token from Agora console if this one is expired
+const TOKEN = "007eJxTYNCU6kqdJ5U0i8f9wbfvjZtXd7zXSP98w7z2xJyeK9kMzeoKDObmSWlpSYkGFsnJhiYmRkYWiSYm5qmWlkmJqYZmqcmGe5fUZDQEMjKsCTzAwAiFID4bQ2lOamKaCQMDAN91IZY="; // your token here
 const CHANNEL_NAME = 'uleaf4';
 
 const BuyerLiveStreamScreen = ({navigation}) => {
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
-  const [remoteUid, setRemoteUid] = useState(0);
+  const [remoteUid, setRemoteUid] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
+  const [error, setError] = useState(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   // Mocked chat messages
   const chatData = [
@@ -55,38 +60,119 @@ const BuyerLiveStreamScreen = ({navigation}) => {
         appId: APP_ID,
         channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
+      
+      // Additional configuration for video
+      rtc.enableVideo();
+      
+      // Set default video encoder configuration for better quality
+      rtc.setVideoEncoderConfiguration({
+        dimensions: {
+          width: 640,
+          height: 360
+        },
+        frameRate: 15,
+        bitrate: 800
+      });
+      
+      // Enable dual stream mode for better performance
+      rtc.enableDualStreamMode(true);
+      
+      // Set audio profile
+      rtc.setAudioProfile({
+        profile: 0, // Standard
+        scenario: 1 // Game Streaming
+      });
   
       rtc.registerEventHandler({
-        onJoinChannelSuccess: () => {
-          console.log('✅ Joined Channel as viewer');
+        onJoinChannelSuccess: (connection, elapsed) => {
+          console.log('✅ Joined Channel as viewer:', connection, 'Elapsed:', elapsed);
           setJoined(true);
         },
-        onUserJoined: (uid) => {
-          console.log('👤 Remote user joined:', uid);
-          rtc.setupRemoteVideo({ uid: uid.localUid, renderMode: 1 }); // ✅
-          setRemoteUid(uid.localUid);
-          setViewerCount((prev) => prev + 1);
+        onUserJoined: (connection, remoteUid) => {
+          console.log('👤 Remote user joined:', connection, 'uid:', remoteUid);
+          
+          try {
+            // Setup remote video with different parameters
+            rtcEngineRef.current.setupRemoteVideo({
+              uid: remoteUid,
+              renderMode: 1, // FIT mode
+              mirrorMode: 0  // No mirror
+            });
+            
+            // Subscribe to this remote user's video stream
+            rtcEngineRef.current.setRemoteVideoStreamType(remoteUid, 0); // 0 = high stream
+            
+            setRemoteUid(remoteUid);
+            setViewerCount((prev) => prev + 1);
+            
+            console.log('Remote video setup complete for UID:', remoteUid);
+          } catch (err) {
+            console.error('Error setting up remote video:', err);
+            setError('Error setting up remote video: ' + err.message);
+          }
         },
-        onUserOffline: (uid, reason) => {
-          console.log('Broadcaster left:', uid);
+        onUserOffline: (connection, remoteUid) => {
+          console.log('Broadcaster left:', remoteUid);
           setRemoteUid(null);
-          setJoined(false);
+          setSessionEnded(true);
           setViewerCount((prev) => Math.max(prev - 1, 0));
+          navigation.navigate('Live');
         },
         onRemoteVideoStateChanged: (uid, state, reason, elapsed) => {
           console.log('📹 Remote video state:', { uid, state, reason, elapsed });
+          
+          // Handle different video states
+          if (state === 0) { // STOPPED
+            console.log('Remote video STOPPED for uid:', uid);
+          } else if (state === 1) { // STARTING
+            console.log('Remote video STARTING for uid:', uid);
+          } else if (state === 2) { // DECODING
+            console.log('Remote video DECODING for uid:', uid);
+          } else if (state === 3) { // FROZEN
+            console.log('Remote video FROZEN for uid:', uid);
+          }
         },
         onError: (err) => {
           console.error('❌ Agora Error:', err);
+          setError('Agora Error: ' + (err.message || err));
         },
+        onRemoteVideoStats: (stats) => {
+          console.log('📊 Remote Video Stats:', stats);
+        },
+        onRemoteAudioStats: (stats) => {
+          console.log('🔊 Remote Audio Stats:', stats);
+        },
+        onWarning: (warn) => {
+          console.warn('⚠️ Agora Warning:', warn);
+        },
+        onConnectionStateChanged: (state, reason) => {
+          console.log('🔌 Connection state changed:', state, 'reason:', reason);
+        }
 
       });
       
       rtc.enableVideo();
       rtc.setClientRole(ClientRoleType.ClientRoleAudience);
       
-      rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {});
-      rtcEngineRef.current = rtc;
+      // Log to help with debugging
+      console.log('Joining channel:', CHANNEL_NAME);
+      console.log('Using token:', TOKEN ? 'Token provided' : 'No token');
+      
+      try {
+        // Join the channel with specific options
+        rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {
+          autoSubscribeVideo: true,
+          autoSubscribeAudio: true,
+          publishLocalAudio: false,
+          publishLocalVideo: false
+        });
+        
+        console.log('joinChannel called successfully');
+        rtcEngineRef.current = rtc;
+      } catch (err) {
+        console.error('Error joining channel:', err);
+        setError('Failed to join channel: ' + err.message);
+      }
     }
 
     startAgora();
@@ -94,44 +180,75 @@ const BuyerLiveStreamScreen = ({navigation}) => {
     return () => {
       const engine = rtcEngineRef.current;
       if (engine) {
+        console.log('Leaving channel and releasing Agora engine');
         engine.leaveChannel();
+        engine.unregisterEventHandler();
         engine.release();
         rtcEngineRef.current = null;
       }
     };
   }, []);
 
+  useEffect(() => {
+    // Timeout if no broadcaster is found
+    if (joined && !remoteUid && !sessionEnded) {
+      const timer = setTimeout(() => {
+        // Re-check remoteUid before navigating
+        if (!remoteUid) {
+          console.log('No broadcaster found after 8 seconds. Navigating to Live screen.');
+          navigation.navigate('Live');
+        }
+      }, 8000); // 8 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [joined, remoteUid, navigation, sessionEnded]);
+
   return (
      <View style={styles.container}>
       <View style={styles.stream}>
         {joined && remoteUid ? (
-        <RtcSurfaceView
+          <RtcSurfaceView
             style={styles.video}
-            canvas={{ uid: remoteUid }}
+            canvas={{
+              uid: remoteUid,
+              renderMode: 1, // FIT mode
+              mirrorMode: 0  // No mirror
+            }}
             zOrderMediaOverlay={true}
           />
         ) : (
-          <Text style={styles.connectingText}>Connecting to live stream...</Text>
+          <View style={styles.connectingContainer}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.connectingText}>
+              {error ? 
+                `Error: ${error}` : 
+                (joined ? "Waiting for broadcaster to start stream..." : "Connecting to live stream...")}
+            </Text>
+          </View>
         )}
-
       </View>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <BackSolidIcon width={24} height={24} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.topAction}>
-          <TouchableOpacity style={styles.guide}>
-                <GuideIcon width={19} height={19} />
-                <Text style={styles.guideText}>Guide</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.liveViewer}>
-                <ViewersIcon width={24} height={24} />
-                <Text style={styles.liveViewerText}>232</Text>
-          </TouchableOpacity>
-        </View>
-
-      </View>
-      <View style={styles.actionBar}>
+      
+      {/* Only show UI components when stream is active */}
+      {joined && remoteUid && (
+        <>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <BackSolidIcon width={24} height={24} color="#333" />
+            </TouchableOpacity>
+            <View style={styles.topAction}>
+              <TouchableOpacity style={styles.guide}>
+                    <GuideIcon width={19} height={19} />
+                    <Text style={styles.guideText}>Guide</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.liveViewer}>
+                    <ViewersIcon width={24} height={24} />
+                    <Text style={styles.liveViewerText}>{viewerCount}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.actionBar}>
         <View style={styles.social}>
           <View style={styles.comments}>
             <FlatList
@@ -197,7 +314,9 @@ const BuyerLiveStreamScreen = ({navigation}) => {
               </TouchableOpacity>
             </View>
         </View>
-      </View>
+          </View>
+        </>
+      )}
     </View>
   );
 };
@@ -228,8 +347,14 @@ const styles = StyleSheet.create({
     ...baseFont,
     fontWeight: '500',
     fontSize: 16,
-    marginTop: 200,
     alignSelf: 'center',
+    marginTop: 16,
+  },
+  connectingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#444',
   },
   topBar: {
     flexDirection: 'row',
