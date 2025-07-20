@@ -1,19 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal, FlatList, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal, FlatList, Alert, ActivityIndicator } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import DropdownIcon from '../../../assets/icons/greydark/dropdown-arrow.svg';
 import TrashIcon from '../../../assets/icons/greydark/trash-regular.svg';
+import RedBinIcon from '../../../assets/buyer-icons/red-bin.svg';
+import XRegularIcon from '../../../assets/icons/greylight/x-regular.svg';
+import { updateAddressBookEntryApi, deleteAddressBookEntryApi } from '../../../components/Api';
 
 const UpdateAddressScreen = () => {
   const navigation = useNavigation();
-  const [state, setState] = useState('Illinois');
-  const [city, setCity] = useState('Springfield');
-  const [zip, setZip] = useState('');
-  const [address, setAddress] = useState('');
+  const route = useRoute();
+  const { address: addressData } = route.params || {};
+  
+  // Initialize state with existing address data
+  const [state, setState] = useState(addressData?.state || 'Illinois');
+  const [city, setCity] = useState(addressData?.city || 'Springfield');
+  const [zip, setZip] = useState(addressData?.zipCode || '');
+  const [address, setAddress] = useState(addressData?.address || '');
   const [stateModalVisible, setStateModalVisible] = useState(false);
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  
+  // Store original values to detect changes
+  const [originalData] = useState({
+    state: addressData?.state || 'Illinois',
+    city: addressData?.city || 'Springfield',
+    zip: addressData?.zipCode || '',
+    address: addressData?.address || ''
+  });
+
+  // Check for changes whenever any field updates
+  useEffect(() => {
+    const changed = 
+      state !== originalData.state ||
+      city !== originalData.city ||
+      zip !== originalData.zip ||
+      address !== originalData.address;
+    setHasChanges(changed);
+  }, [state, city, zip, address, originalData]);
   
   const states = [
     'Illinois',
@@ -35,6 +62,66 @@ const UpdateAddressScreen = () => {
     'Michigan': ['Detroit', 'Grand Rapids', 'Lansing', 'Flint', 'Ann Arbor'],
     'Ohio': ['Columbus', 'Cleveland', 'Cincinnati', 'Toledo', 'Akron'],
     'Pennsylvania': ['Philadelphia', 'Pittsburgh', 'Harrisburg', 'Allentown', 'Erie']
+  };
+
+  // Save changes function
+  const handleSaveChanges = async () => {
+    if (!zip || !address) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updateData = {
+        state,
+        city,
+        zipCode: zip,
+        address,
+      };
+
+      const response = await updateAddressBookEntryApi(
+        addressData?.entryId || addressData?.id,
+        updateData
+      );
+
+      if (response?.success) {
+        Alert.alert('Success', 'Address updated successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        throw new Error(response?.message || 'Failed to update address');
+      }
+    } catch (error) {
+      console.log('Error updating address:', error);
+      Alert.alert('Error', 'Failed to update address. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete address function
+  const handleDeleteAddress = async () => {
+    setLoading(true);
+    try {
+      const response = await deleteAddressBookEntryApi(
+        addressData?.entryId || addressData?.id
+      );
+
+      if (response?.success) {
+        Alert.alert('Success', 'Address deleted successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        throw new Error(response?.message || 'Failed to delete address');
+      }
+    } catch (error) {
+      console.log('Error deleting address:', error);
+      Alert.alert('Error', 'Failed to delete address. Please try again.');
+    } finally {
+      setLoading(false);
+      setDeleteModalVisible(false);
+    }
   };
 
   return (
@@ -186,11 +273,16 @@ const UpdateAddressScreen = () => {
           <TouchableOpacity 
             style={[
               styles.saveBtn, 
-              (!zip || !address) ? styles.saveBtnDisabled : styles.saveBtnEnabled
+              (!zip || !address || !hasChanges || loading) ? styles.saveBtnDisabled : styles.saveBtnEnabled
             ]} 
-            disabled={!zip || !address}
+            disabled={!zip || !address || !hasChanges || loading}
+            onPress={handleSaveChanges}
           >
-            <Text style={styles.saveBtnText}>Save Changes</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.saveBtnText}>Save Changes</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -213,22 +305,28 @@ const UpdateAddressScreen = () => {
         >
           <View style={styles.deleteModalContainer}>
             <View style={styles.deleteModalContent}>
-              <View style={styles.deleteModalHeader}>
-                <Text style={styles.deleteModalTitle}>Confirm delete address?</Text>
-              </View>
-              
-              <TouchableOpacity 
-                style={styles.deleteActionButton}
-                onPress={() => {
-                  // Add delete logic here
-                  setDeleteModalVisible(false);
-                  navigation.goBack();
-                }}
-              >
-                <View style={styles.textWrapper}>
-                  <Text style={styles.deleteButtonText}>Yes, delete</Text>
+              <View style={styles.popover}>
+                <View style={styles.deleteModalHeader}>
+                  <Text style={styles.deleteModalTitle}>Delete address</Text>
                 </View>
-              </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.deleteActionButton}
+                  onPress={handleDeleteAddress}
+                  disabled={loading}
+                >
+                  <View style={styles.textWrapper}>
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#E7522F" />
+                    ) : (
+                      <>
+                        <Text style={styles.deleteButtonText}>Delete</Text>
+                        <RedBinIcon width={24} height={24} style={styles.iconRight} />
+                      </>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
               
               <TouchableOpacity 
                 style={styles.cancelActionButton}
@@ -236,6 +334,7 @@ const UpdateAddressScreen = () => {
               >
                 <View style={styles.textWrapper}>
                   <Text style={styles.cancelButtonText}>Back</Text>
+                  <XRegularIcon width={24} height={24} style={styles.iconRight} />
                 </View>
               </TouchableOpacity>
             </View>
@@ -527,46 +626,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteModalContent: {
-    width: 340,
-    height: 158,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
     padding: 0,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    position: 'relative',
+    width: 340,
+    height: 158,
+    flex: 0,
+    order: 0,
+    alignSelf: 'stretch',
+    flexGrow: 0,
+  },
+  popover: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingTop: 16,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+    width: 340,
+    height: 102,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
+    order: 0,
+    flexGrow: 0,
   },
   deleteModalHeader: {
-    width: 340,
-    paddingTop: 16,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    gap: 8,
+    width: 340,
     height: 38,
-    borderBottomWidth: 1,
-    borderBottomColor: '#CDD3D4',
+    flex: 0,
+    order: 0,
+    flexGrow: 0,
   },
   deleteModalTitle: {
-    width: '100%',
+    width: 292,
     height: 22,
     fontFamily: 'Inter',
-    fontWeight: '600',
+    fontStyle: 'normal',
+    fontWeight: '700',
     fontSize: 16,
-    lineHeight: 22, // 140% of 16px
+    lineHeight: 22.4, // 140% of 16px
+    display: 'flex',
     alignItems: 'center',
     textAlign: 'center',
     color: '#202325',
+    flex: 0,
+    order: 0,
+    alignSelf: 'stretch',
+    flexGrow: 0,
+  },
+  actionSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 340,
+    height: 48,
+    flex: 0,
+    order: 1,
+    flexGrow: 0,
   },
   deleteActionButton: {
+    display: 'flex',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -577,8 +708,13 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderTopWidth: 1,
     borderTopColor: '#CDD3D4',
+    flex: 0,
+    order: 1,
+    alignSelf: 'stretch',
+    flexGrow: 0,
   },
   cancelActionButton: {
+    display: 'flex',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -589,29 +725,67 @@ const styles = StyleSheet.create({
     minHeight: 48,
     backgroundColor: '#F5F6F6',
     borderRadius: 12,
+    marginTop: 8,
+    flex: 0,
+    order: 1,
+    alignSelf: 'stretch',
+    flexGrow: 0,
   },
   textWrapper: {
+    display: 'flex',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
     gap: 8,
+    width: '100%',
+    height: 16,
+    flex: 0,
+    order: 2,
+    flexGrow: 0,
+    position: 'relative',
   },
   deleteButtonText: {
+    width: 51,
+    height: 16,
     fontFamily: 'Inter',
-    fontWeight: '600',
+    fontStyle: 'normal',
+    fontWeight: '700',
     fontSize: 16,
     lineHeight: 16,
-    color: '#539461',
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    color: '#E7522F',
+    flex: 0,
+    order: 0,
+    flexGrow: 0,
   },
   cancelButtonText: {
+    width: 39,
+    height: 16,
     fontFamily: 'Inter',
-    fontWeight: '600',
+    fontStyle: 'normal',
+    fontWeight: '700',
     fontSize: 16,
     lineHeight: 16,
+    display: 'flex',
+    alignItems: 'center',
     color: '#393D40',
-    textAlign: 'center',
+    flex: 0,
+    order: 0,
+    flexGrow: 0,
+  },
+  iconRight: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    right: 16,
+    top: '50%',
+    marginTop: -12,
+    flex: 0,
+    order: 4,
+    flexGrow: 0,
+    zIndex: 4,
   },
 });
 

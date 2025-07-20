@@ -17,13 +17,18 @@ import {
   StatusBar,
   Modal,
   ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import {AuthContext} from '../../../auth/AuthProvider';
 import Svg, {Path} from 'react-native-svg';
 import {useIsFocused} from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {getProfileInfoApi} from '../../../components/Api';
+import {
+  getBuyerProfileApi,
+  getAddressBookEntriesApi,
+} from '../../../components/Api';
 
 // Import icons (you'll need to add these to your assets)
 import ProfileIcon from '../../../assets/icons/greydark/profile.svg';
@@ -179,27 +184,60 @@ const Divider = () => <View style={styles.divider} />;
 
 const BuyerProfileScreen = (props) => {
   const navigation = useNavigation();
-  const {logout} = useContext(AuthContext);
+  const {logout, userInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState({});
+  const [addressBookCount, setAddressBookCount] = useState(0);
+  const [profileStats, setProfileStats] = useState({
+    leafPoints: 0,
+    plantCredits: 0,
+    shippingCredits: 0,
+    buddyRequests: 0,
+  });
 
   // ✅ Fetch on mount
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    setLoading(true);
-    const fetchData = async () => {
-      try {
-        await loadProfileData();
-      } catch (error) {
-        console.log('Fetching profile details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    if (isFocused) {
+      loadAllProfileData();
+    }
   }, [isFocused]);
+
+  const loadAllProfileData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadProfileData(),
+        loadAddressBookCount(),
+        loadProfileStats(),
+      ]);
+    } catch (error) {
+      console.log('Error loading profile data:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load profile information. Please check your connection and try again.',
+        [
+          { text: 'Retry', onPress: () => loadAllProfileData() },
+          { text: 'OK', style: 'cancel' },
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadAllProfileData();
+    } catch (error) {
+      console.log('Error refreshing profile:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const loadProfileData = async () => {
     let netState = await NetInfo.fetch();
@@ -207,14 +245,49 @@ const BuyerProfileScreen = (props) => {
       throw new Error('No internet connection.');
     }
 
-    const res = await retryAsync(() => getProfileInfoApi(), 3, 1000);
+    const res = await retryAsync(() => getBuyerProfileApi(), 3, 1000);
 
     if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load profile api');
+      throw new Error(res?.message || 'Failed to load profile data');
     }
 
-    console.log('Profile data:', res);
-    setData(res);
+    console.log('Profile data loaded:', res);
+    setData(res.user || res);
+  };
+
+  const loadAddressBookCount = async () => {
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        console.log('No internet connection for address book');
+        return;
+      }
+
+      const res = await retryAsync(() => getAddressBookEntriesApi(), 3, 1000);
+      
+      if (res?.success && res?.addresses) {
+        setAddressBookCount(res.addresses.length);
+        console.log('Address book count loaded:', res.addresses.length);
+      }
+    } catch (error) {
+      console.log('Error loading address book count:', error);
+      // Don't throw error for address book as it's not critical
+    }
+  };
+
+  const loadProfileStats = async () => {
+    try {
+      // For now, using mock data since we don't have specific APIs for these
+      // In a real app, these would come from separate API endpoints
+      setProfileStats({
+        leafPoints: 120,
+        plantCredits: 85,
+        shippingCredits: 45,
+        buddyRequests: 2,
+      });
+    } catch (error) {
+      console.log('Error loading profile stats:', error);
+    }
   };
 
   return (
@@ -239,7 +312,18 @@ const BuyerProfileScreen = (props) => {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#699E73']}
+            tintColor="#699E73"
+          />
+        }
+      >
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.nameSection}>
@@ -269,13 +353,13 @@ const BuyerProfileScreen = (props) => {
             contentContainerStyle={styles.creditScrollContainer}>
             <CreditCard
               title="My Leaf Points"
-              value="120"
+              value={profileStats.leafPoints.toString()}
               color="#539461"
               icon={<LeafIcon width={24} height={24} fill="#FFFFFF" />}
             />
             <CreditCard
               title="My Plant Credits"
-              value="120"
+              value={profileStats.plantCredits.toString()}
               color="#6B4EFF"
               hasArrow
               icon={<PlantCreditsIcon width={24} height={24} fill="#FFFFFF" />}
@@ -283,7 +367,7 @@ const BuyerProfileScreen = (props) => {
             />
             <CreditCard
               title="My Shipping Credits"
-              value="120"
+              value={profileStats.shippingCredits.toString()}
               color="#48A7F8"
               hasArrow
               icon={<ShippingCreditsIcon width={24} height={24} fill="#FFFFFF" />}
@@ -299,7 +383,7 @@ const BuyerProfileScreen = (props) => {
               <View style={styles.requestsRow}>
                 <Text style={styles.requestsText}>Joiner request(s)</Text>
                 <View style={styles.notificationBadge}>
-                  <Text style={styles.badgeText}>2</Text>
+                  <Text style={styles.badgeText}>{profileStats.buddyRequests}</Text>
                 </View>
               </View>
             </View>
@@ -322,6 +406,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<EnvelopeIcon width={24} height={24} fill="#556065" />}
             title="My Address Book"
+            rightText={addressBookCount > 0 ? `${addressBookCount} address${addressBookCount !== 1 ? 'es' : ''}` : ''}
             onPress={() => navigation.navigate('AddressBookScreen')}
           />
 
