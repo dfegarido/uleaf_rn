@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, TextInput, StyleSheet} from 'react-native';
+import {View, Text, TextInput, StyleSheet, TouchableOpacity} from 'react-native';
 
 const US_COUNTRY = {
   name: 'United States',
@@ -34,9 +34,9 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
       <View style={styles.inputContainer}>
         <TouchableOpacity
           style={styles.countryPicker}
-          onPress={() => setModalVisible(true)}>
-          <Text style={styles.flag}>{selectedCountry.flag}</Text>
-          <Text style={styles.callingCode}>{selectedCountry.callingCode}</Text>
+          onPress={() => {}}>
+          <Text style={styles.flag}>{US_COUNTRY.flag}</Text>
+          <Text style={styles.callingCode}>{US_COUNTRY.callingCode}</Text>
           <DownIcon width={20} height={20} />
         </TouchableOpacity>
 
