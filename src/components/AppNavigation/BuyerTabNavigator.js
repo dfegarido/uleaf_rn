@@ -14,6 +14,7 @@ import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
+import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import {
@@ -83,6 +84,12 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="AccountInformationScreen"
         component={AccountInformationScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="UpdatePasswordScreen"
+        component={UpdatePasswordScreen}
         options={{headerShown: false}}
       />
 

@@ -8,11 +8,10 @@ export const postProfileUpdatePasswordApi = async (
   try {
     const token = await getStoredAuthToken();
 
-    const status = 'Inactive';
     const response = await fetch(
-      'https://updatesupplierpassword-nstilwgvua-uc.a.run.app',
+      'https://us-central1-i-leaf-u.cloudfunctions.net/updateBuyerPassword',
       {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,

@@ -42,6 +42,7 @@ export {postProfileUpdateInfoApi} from './postProfileUpdateInfoApi';
 export {getSortStoreApi} from './getSortStoreApi';
 export {postPayoutExportApi} from './postPayoutExportApi';
 export {getBuyerProfileApi} from './getBuyerProfileApi';
+export {postBuyerUpdateInfoApi} from './postBuyerUpdateInfoApi';
 export {getAddressBookEntriesApi} from './getAddressBookEntriesApi';
 export {createAddressBookEntryApi} from './createAddressBookEntryApi';
 export {updateAddressBookEntryApi} from './updateAddressBookEntryApi';
