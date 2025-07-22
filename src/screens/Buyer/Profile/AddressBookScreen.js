@@ -48,6 +48,7 @@ const AddressBookScreen = () => {
       if (res?.success && res?.data) {
         setAddresses(res.data);
         console.log('Addresses loaded:', res.data);
+        console.log('First address structure:', res.data[0]);
       } else {
         console.log('Failed to load addresses:', res?.message);
       }
@@ -76,6 +77,13 @@ const AddressBookScreen = () => {
 
   const toggleDefaultAddress = async (addressId, currentDefault) => {
     try {
+      console.log('Toggling default address - ID:', addressId, 'Current default:', currentDefault);
+      
+      // Validate addressId
+      if (!addressId) {
+        throw new Error('Address ID is missing');
+      }
+
       // First, if setting as default, unset all other defaults
       if (!currentDefault) {
         const updatedAddresses = addresses.map(addr => ({
@@ -217,7 +225,12 @@ const AddressBookScreen = () => {
                           </Text>
                         </View>
                         <TouchableOpacity
-                          onPress={() => toggleDefaultAddress(address.entryId || address.id, address.isDefault)}
+                          onPress={() => {
+                            const addressId = address.entryId || address.id;
+                            console.log('Toggle button pressed - Address:', address);
+                            console.log('Using address ID:', addressId);
+                            toggleDefaultAddress(addressId, address.isDefault);
+                          }}
                         >
                           <View style={[
                             styles.switchWrap,

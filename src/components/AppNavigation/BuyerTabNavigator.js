@@ -63,6 +63,30 @@ function BuyerTabNavigator() {
       />
 
       <Stack.Screen
+        name="AddressBookScreen"
+        component={AddressBookScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="AddNewAddressScreen"
+        component={AddNewAddressScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="UpdateAddressScreen"
+        component={UpdateAddressScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="AccountInformationScreen"
+        component={AccountInformationScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
         name="BuyerLiveStreamScreen"
         component={BuyerLiveStreamScreen}
         options={{headerShown: false}}
