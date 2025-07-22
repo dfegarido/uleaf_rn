@@ -218,41 +218,12 @@ const ScreenExportQR = ({navigation}) => {
     try {
       setDownloading(true);
       
-      // Request storage permission
-      const hasPermission = await requestStoragePermission();
-      if (!hasPermission) {
-        Alert.alert('Permission Denied', 'Storage permission is required to download files.');
-        return;
-      }
-      
       // Get the auth token from AsyncStorage
       const token = await AsyncStorage.getItem('authToken');
       
       if (!token) {
         throw new Error('No authentication token found');
       }
-
-      // Generate filename with timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `QR_Codes_${timestamp}.pdf`;
-      
-      // Define download path with better Android support
-      let downloadPath;
-      if (Platform.OS === 'ios') {
-        downloadPath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
-      } else {
-        // For Android, use External Storage Directory if available, fallback to Download Directory
-        const externalDir = RNFS.ExternalStorageDirectoryPath;
-        if (externalDir) {
-          downloadPath = `${externalDir}/Download/${fileName}`;
-          // Ensure the Download directory exists
-          await RNFS.mkdir(`${externalDir}/Download`).catch(() => {});
-        } else {
-          downloadPath = `${RNFS.DownloadDirectoryPath}/${fileName}`;
-        }
-      }
-
-      console.log('Download path:', downloadPath);
 
       const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator', {
         method: 'GET',
@@ -263,87 +234,56 @@ const ScreenExportQR = ({navigation}) => {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Handle different HTTP status codes with user-friendly messages
+        if (response.status === 404) {
+          throw new Error('No QR codes available for download at this time.');
+        } else if (response.status === 401) {
+          throw new Error('Your session has expired. Please log in again.');
+        } else if (response.status === 403) {
+          throw new Error('You do not have permission to download QR codes.');
+        } else if (response.status === 500) {
+          throw new Error('Server error. Please try again later.');
+        } else {
+          throw new Error('Unable to download QR codes. Please try again.');
+        }
       }
 
-      // Check if the response is a PDF or contains download information
-      const contentType = response.headers.get('content-type');
+      const data = await response.json();
       
-      if (contentType && contentType.includes('application/pdf')) {
-        // Handle direct PDF download
-        const downloadResult = await RNFS.downloadFile({
-          fromUrl: response.url,
-          toFile: downloadPath,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }).promise;
-
-        if (downloadResult.statusCode === 200) {
-          await handleDownloadSuccess(downloadPath, fileName);
+      // Check if the response indicates no orders found
+      if (!data.success || data.error) {
+        if (data.error && data.error.includes('No orders found')) {
+          throw new Error('No QR codes available for download at this time.');
         } else {
-          throw new Error('Download failed');
-        }
-      } else {
-        // Handle JSON response that might contain download URL
-        const data = await response.json();
-        console.log('API Response:', data);
-        
-        if (data.downloadUrl) {
-          // Download from the provided URL
-          const downloadResult = await RNFS.downloadFile({
-            fromUrl: data.downloadUrl,
-            toFile: downloadPath,
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }).promise;
-
-          if (downloadResult.statusCode === 200) {
-            await handleDownloadSuccess(downloadPath, fileName);
-          } else {
-            throw new Error('Download failed');
-          }
-        } else {
-          // If no download URL, treat as success but no file to download
-          Alert.alert(
-            'Success', 
-            'QR codes processed successfully, but no PDF was generated.',
-            [
-              {
-                text: 'OK',
-                style: 'default'
-              }
-            ]
-          );
+          throw new Error(data.error || 'Unable to download QR codes. Please try again.');
         }
       }
+
+      // If we get here, the API call was successful
+      Alert.alert('Success', 'QR codes PDF sent to your email');
       
     } catch (err) {
       console.error('Error downloading QR codes:', err);
       
-      // Show error notification
-      PushNotification.localNotification({
-        channelId: 'ileafu_channel',
-        title: 'Download Failed',
-        message: 'QR Codes download failed. Please try again.',
-      });
+      // Provide user-friendly error messages
+      let userFriendlyMessage;
+      
+      if (err.message.includes('No authentication token')) {
+        userFriendlyMessage = 'Please log in again to download QR codes.';
+      } else if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
+        userFriendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (err.message.startsWith('No QR codes available') || 
+                 err.message.startsWith('Your session has expired') ||
+                 err.message.startsWith('You do not have permission') ||
+                 err.message.startsWith('Server error') ||
+                 err.message.startsWith('Unable to download')) {
+        // These are already user-friendly messages
+        userFriendlyMessage = err.message;
+      } else {
+        userFriendlyMessage = 'Unable to download QR codes. Please try again.';
+      }
 
-      Alert.alert(
-        'Download Failed', 
-        `Failed to download QR codes: ${err.message}`,
-        [
-          {
-            text: 'Try Again',
-            onPress: handleDownload,
-            style: 'default'
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          }
-        ]
-      );
+      Alert.alert('Download Failed', userFriendlyMessage);
     } finally {
       setDownloading(false);
     }
@@ -438,18 +378,63 @@ const ScreenExportQR = ({navigation}) => {
       });
 
       if (!response.ok) {
+        // Handle 404 specifically for no orders found
+        if (response.status === 404) {
+          setQrCodeData([]);
+          setError('No QR codes found for the current period.');
+          return; // Don't show alert for 404, just set the error state
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      
+      // Check if API response indicates no orders
+      if (!data.success && data.error && data.error.includes('No orders found')) {
+        setQrCodeData([]);
+        setError('No QR codes found for the current period.');
+        return; // Don't show alert, just set the error state
+      }
+      
       // Transform API data to match the expected format
       const transformedData = transformApiData(data);
-      setQrCodeData(transformedData);
+      
+      // Check if no orders were found after transformation
+      if (transformedData.length === 0) {
+        setQrCodeData([]);
+        setError('No QR codes found for the current period.');
+      } else {
+        setQrCodeData(transformedData);
+        setError(null); // Clear any previous errors
+      }
       
     } catch (err) {
       console.error('Error fetching QR code data:', err);
-      setError(err.message);
-      Alert.alert('Error', 'Failed to load QR code data. Please try again.');
+      
+      // Provide user-friendly error messages instead of raw API responses
+      let userFriendlyMessage;
+      
+      if (err.message.includes('No authentication token')) {
+        userFriendlyMessage = 'Please log in again to view QR codes.';
+      } else if (err.message.includes('HTTP error! status: 401')) {
+        userFriendlyMessage = 'Your session has expired. Please log in again.';
+      } else if (err.message.includes('HTTP error! status: 403')) {
+        userFriendlyMessage = 'You do not have permission to view QR codes.';
+      } else if (err.message.includes('HTTP error! status: 404')) {
+        userFriendlyMessage = 'No QR codes found for your account.';
+      } else if (err.message.includes('HTTP error! status: 500')) {
+        userFriendlyMessage = 'Server error. Please try again later.';
+      } else if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
+        userFriendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else {
+        userFriendlyMessage = 'Unable to load QR codes. Please try again.';
+      }
+      
+      setError(userFriendlyMessage);
+      // Only show alert for actual errors, not for "no orders found" scenarios
+      if (!err.message.includes('HTTP error! status: 404')) {
+        Alert.alert('Error', userFriendlyMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -608,7 +593,7 @@ const ScreenExportQR = ({navigation}) => {
         </View>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
-            {error ? 'Failed to load QR codes' : 'No QR codes available'}
+            {error || 'No QR codes available for this period'}
           </Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchQRCodeData}>
             <Text style={styles.retryButtonText}>Retry</Text>
