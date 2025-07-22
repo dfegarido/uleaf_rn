@@ -15,6 +15,11 @@ import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
+import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
+import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
+import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
+import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
+import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import {
@@ -102,6 +107,36 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="LiveBroadcastScreen"
         component={LiveBroadcastScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="InviteFriendsScreen"
+        component={InviteFriendsScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="TermsOfUseScreen"
+        component={TermsOfUseScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="ReportAProblemScreen"
+        component={ReportAProblemScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="PrivacyPolicyScreen"
+        component={PrivacyPolicyScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="ChatScreen"
+        component={ChatScreen}
         options={{headerShown: false}}
       />
     </Stack.Navigator>

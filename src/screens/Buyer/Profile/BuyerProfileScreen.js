@@ -433,7 +433,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
             title="My Orders"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Orders')}
           />
 
           <MenuItem
@@ -445,7 +445,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ReportIcon width={24} height={24} fill="#556065" />}
             title="My Wishlist"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('ScreenWishlist')}
           />
         </View>
 

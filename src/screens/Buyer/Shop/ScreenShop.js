@@ -239,7 +239,7 @@ const ScreenShop = ({navigation}) => {
           <View style={styles.headerIcons}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => navigation.navigate(ScreenWishlist)}>
+              onPress={() => navigation.navigate('ScreenWishlist')}>
               <Wishicon width={40} height={40} />
             </TouchableOpacity>
             <TouchableOpacity
