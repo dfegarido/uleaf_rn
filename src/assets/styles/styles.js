@@ -280,3 +280,141 @@ export const globalStyles = StyleSheet.create({
   },
   // Card
 });
+
+// Add a function to get component styles based on color scheme
+export const getComponentStyles = (colorScheme = 'light') => {
+  // All styles are now static, matching the original light mode
+  return {
+    container: {
+      flexGrow: 1,
+      padding: 24,
+      backgroundColor: colors.bgPrimaryLight,
+    },
+    step: {
+      color: '#888',
+      fontSize: 16,
+      marginBottom: 8,
+    },
+    title: {
+      textAlign: 'center',
+      fontSize: 28,
+      color: '#000',
+      fontWeight: 'bold',
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '500',
+      marginTop: 16,
+      color: colors.primaryDark,
+    },
+    required: {
+      color: '#E53935',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 8,
+      fontSize: 16,
+      backgroundColor: '#fafafa',
+      color: colors.primaryDark,
+    },
+    helper: {
+      color: '#888',
+      fontSize: 13,
+      marginTop: 4,
+    },
+    passwordRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    eyeIcon: {
+      position: 'absolute',
+      right: 10,
+      bottom: 8,
+      padding: 8,
+    },
+    passwordStrengthBox: {
+      borderWidth: 1,
+      borderColor: '#eee',
+      borderRadius: 10,
+      padding: 12,
+      marginTop: 12,
+      marginBottom: 8,
+      backgroundColor: '#fafafa',
+    },
+    strengthBarContainer: {
+      height: 6,
+      backgroundColor: '#eee',
+      borderRadius: 3,
+      marginBottom: 8,
+      overflow: 'hidden',
+    },
+    strengthBar: {
+      height: 6,
+      borderRadius: 3,
+    },
+    strengthText: {
+      fontSize: 14,
+      fontWeight: '500',
+      marginBottom: 8,
+      color: '#388E3C',
+    },
+    requirementRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    requirementText: {
+      marginLeft: 8,
+      fontSize: 14,
+      color: colors.primaryDark,
+    },
+    checkboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+    },
+    checkboxText: {
+      marginLeft: 8,
+      fontSize: 14,
+      flex: 1,
+      flexWrap: 'wrap',
+      color: colors.primaryDark,
+    },
+    link: {
+      color: colors.accent,
+      textDecorationLine: 'none',
+      fontWeight: '800',
+    },
+    button: {
+      height: 48,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: colors.primaryLight,
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    errorText: {
+      color: '#FF5247',
+      marginTop: 8,
+    },
+    successText: {
+      color: '#4CAF50',
+      marginTop: 8,
+    },
+  };
+};

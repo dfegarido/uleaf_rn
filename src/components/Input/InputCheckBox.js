@@ -39,6 +39,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginLeft: 5,
+    color: '#393D40',
   },
 });
 

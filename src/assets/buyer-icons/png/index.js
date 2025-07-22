@@ -18,6 +18,10 @@ import wishlist1 from './wishlist-plant1.png';
 import thFlag from './TH.png';
 
 import selectedCard from './selected-card.png';
+
+import event1 from './event_1.jpg';
+import event2 from './event_2.jpg';
+
 export {
   banner1,
   banner2,
@@ -34,4 +38,6 @@ export {
   wishlist1,
   thFlag,
   selectedCard,
+  event1,
+  event2,
 };
