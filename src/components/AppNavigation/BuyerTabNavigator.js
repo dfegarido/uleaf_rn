@@ -24,6 +24,8 @@ import {
   LiveBroadcastScreen,
 } from '../../screens/Live';
 
+import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+
 // Import tab icons (you can reuse existing icons or create new ones)
 
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';

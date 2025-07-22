@@ -70,14 +70,6 @@ import {
   ScreenSignupActivationCodeNext,
   ScreenSignupNext,
 } from '../../screens/Singup';
-import {
-  ScreenProfile,
-  ScreenProfileAccount,
-  ScreenProfileProblem,
-  ScreenProfilePassword,
-  ScreenProfileRequest,
-  ScreenProfileChatAdmin,
-} from '../../screens/Profile';
 import {ScreenTerms, ScreenPrivacy} from '../../screens/Legal';
 
 import DeliveryIconSelected from '../../assets/icontabs/box-solid.svg';
@@ -89,6 +81,8 @@ import ListingIconSelected from '../../assets/icontabs/leaf-solid.svg';
 import ListingIcon from '../../assets/icontabs/listing.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
 import SellIcon from '../../assets/icontabs/sell.svg';
+
+import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BuyerSignupActivationCode from '../../screens/BuyerSignup/BuyerSignupLocation';
