@@ -12,6 +12,7 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  FlatList,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -20,6 +21,7 @@ import {InputBox} from '../../components/Input';
 import {PhoneInput} from '../../components/PhoneInput';
 import {InputDropdown} from '../../components/Input';
 import NetInfo from '@react-native-community/netinfo';
+import {ImagePickerNoButton} from '../../components/ImagePicker';
 
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 import CameraIcon from '../../assets/icons/accent/camera.svg';
@@ -84,7 +86,8 @@ const ScreenProfileAccount = ({navigation, route}) => {
       lastName: lastName || '',
       contactNumber: contactNumber || '',
       gardenOrCompanyName: gardenOrCompanyName || '',
-      country: country || ''
+      country: country || '',
+      isImageChange: isImageChange,
     };
     setOriginalData(originalValues);
   }, [firstName, lastName, contactNumber, gardenOrCompanyName, country]);
@@ -92,26 +95,38 @@ const ScreenProfileAccount = ({navigation, route}) => {
   // Check for changes in form fields
   useEffect(() => {
     if (Object.keys(originalData).length === 0) return; // Wait for original data to be loaded
-    
+
     const currentData = {
       firstName: firstNameState,
       lastName: lastNameState,
       contactNumber: finalPhone || contactNumberState,
       gardenOrCompanyName: gardenOrCompanyNameState,
-      country: countryState
+      country: countryState,
+      isImageChange: isImageChange,
     };
-    
+
     const originalComparison = {
       firstName: originalData.firstName,
       lastName: originalData.lastName,
       contactNumber: originalData.contactNumber,
       gardenOrCompanyName: originalData.gardenOrCompanyName,
-      country: originalData.country
+      country: originalData.country,
+      isImageChange: originalData.isImageChange,
     };
-    
-    const hasFormChanges = JSON.stringify(currentData) !== JSON.stringify(originalComparison);
+
+    const hasFormChanges =
+      JSON.stringify(currentData) !== JSON.stringify(originalComparison);
     setHasChanges(hasFormChanges);
-  }, [firstNameState, lastNameState, finalPhone, contactNumberState, gardenOrCompanyNameState, countryState, originalData]);
+  }, [
+    firstNameState,
+    lastNameState,
+    finalPhone,
+    contactNumberState,
+    gardenOrCompanyNameState,
+    countryState,
+    originalData,
+    isImageChange,
+  ]);
 
   // Form validation
   const validateForm = () => {
@@ -157,7 +172,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
       }
 
       Alert.alert('Update Account', 'Account updated successfully!');
-      
+
       // Reset changes flag and update original data
       setHasChanges(false);
       const updatedOriginalData = {
@@ -165,7 +180,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
         lastName: lastNameState,
         contactNumber: finalPhone || contactNumberState,
         gardenOrCompanyName: gardenOrCompanyNameState,
-        country: countryState
+        country: countryState,
       };
       setOriginalData(updatedOriginalData);
     } catch (error) {
@@ -176,6 +191,16 @@ const ScreenProfileAccount = ({navigation, route}) => {
     }
   };
   // Update
+
+  // Profile Image
+  const [images, setImages] = useState([]);
+  const [isImageChange, setIsImageChange] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const handleImagePicked = uris => {
+    setIsImageChange(true);
+    setImages(uris);
+    console.log(uris);
+  };
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
@@ -218,12 +243,24 @@ const ScreenProfileAccount = ({navigation, route}) => {
         <View style={{marginHorizontal: 20}}>
           <View style={{flexDirection: 'row', justifyContent: 'center'}}>
             <View style={{position: 'relative'}}>
-              <Image
-                source={require('../../assets/images/AvatarBig.png')}
-                style={styles.image}
-                resizeMode="contain"
-              />
-              <View
+              {images?.[0] ? (
+                // Show picked image
+                <Image
+                  source={{uri: images[0]}}
+                  style={styles.image}
+                  resizeMode="contain"
+                />
+              ) : (
+                // Show default image
+                <Image
+                  source={require('../../assets/images/AvatarBig.png')}
+                  style={styles.image}
+                  resizeMode="contain"
+                />
+              )}
+
+              <TouchableOpacity
+                onPress={() => setModalVisible(true)}
                 style={{
                   position: 'absolute',
                   bottom: 5,
@@ -232,8 +269,14 @@ const ScreenProfileAccount = ({navigation, route}) => {
                   padding: 10,
                   borderRadius: 20,
                 }}>
+                <ImagePickerNoButton
+                  visible={modalVisible}
+                  onRequestClose={() => setModalVisible(false)}
+                  onImagePicked={handleImagePicked}
+                  limit={1}
+                />
                 <CameraIcon width={20} height={20} />
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
           <View style={{flexDirection: 'row', justifyContent: 'center'}}>
@@ -301,14 +344,15 @@ const ScreenProfileAccount = ({navigation, route}) => {
             <TouchableOpacity
               style={[
                 globalStyles.primaryButton,
-                !hasChanges && styles.buttonDisabled
+                !hasChanges && styles.buttonDisabled,
               ]}
               onPress={onPressUpdate}
               disabled={!hasChanges}>
-              <Text style={[
-                globalStyles.primaryButtonText,
-                !hasChanges && styles.buttonTextDisabled
-              ]}>
+              <Text
+                style={[
+                  globalStyles.primaryButtonText,
+                  !hasChanges && styles.buttonTextDisabled,
+                ]}>
                 Update Account
               </Text>
             </TouchableOpacity>
@@ -354,6 +398,14 @@ const styles = StyleSheet.create({
   },
   buttonTextDisabled: {
     color: '#888888',
+  },
+  image: {
+    width: 100,
+    height: 100,
+    marginRight: 10,
+    borderWidth: 1,
+    borderRadius: 100,
+    backgroundColor: '#eee',
   },
 });
 
