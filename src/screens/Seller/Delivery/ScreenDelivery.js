@@ -173,95 +173,20 @@ const ScreenDelivery = ({navigation}) => {
   // Function to download Excel file
   const downloadExcelFile = async () => {
     try {
-      // Request storage permission if needed
-      const hasPermission = await requestStoragePermission();
-      if (!hasPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Storage permission is required to download files.',
-        );
-        return;
+      setLoading(true);
+      
+      const response = await getDeliveryExportApi();
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Export failed.');
       }
 
-      // Get auth token
-      const authToken = await AsyncStorage.getItem('authToken');
-      if (!authToken) {
-        Alert.alert(
-          'Error',
-          'Authentication token not found. Please log in again.',
-        );
-        return;
-      }
-
-      // Show loading alert
-      Alert.alert(
-        'Downloading...',
-        'Please wait while we prepare your Excel file.',
-      );
-
-      // Generate filename with timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `delivery-details-${timestamp}.xlsx`;
-
-      // Define download path
-      const downloadPath =
-        Platform.OS === 'ios'
-          ? `${RNFS.DocumentDirectoryPath}/${fileName}`
-          : `${RNFS.DownloadDirectoryPath}/${fileName}`;
-
-      // Download file directly using RNFS
-      const downloadResult = await RNFS.downloadFile({
-        fromUrl:
-          'https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator/export/excel',
-        toFile: downloadPath,
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      }).promise;
-
-      if (downloadResult.statusCode === 200) {
-        // Show success notification
-        PushNotification.localNotification({
-          channelId: 'ileafu_channel',
-          title: 'Download Complete',
-          message: `Excel file saved: ${fileName}`,
-          userInfo: {filePath: downloadPath},
-          actions: ['Open File'],
-          invokeApp: true,
-          group: 'file_download',
-          importance: 'high',
-          vibrate: true,
-          playSound: true,
-        });
-
-        // Show success alert with option to open file
-        Alert.alert(
-          'Download Complete',
-          `Excel file has been saved to your Downloads folder: ${fileName}`,
-          [
-            {text: 'OK', style: 'default'},
-            {
-              text: 'Open File',
-              style: 'default',
-              onPress: () => {
-                FileViewer.open(downloadPath).catch(error => {
-                  Alert.alert('Error', 'Could not open the file.');
-                });
-              },
-            },
-          ],
-        );
-      } else {
-        throw new Error(
-          `Download failed with status: ${downloadResult.statusCode}`,
-        );
-      }
+      Alert.alert('Export', 'Excel file sent to your email');
     } catch (error) {
-      console.error('Error downloading Excel file:', error);
-      Alert.alert(
-        'Download Failed',
-        'Failed to download Excel file. Please try again.',
-      );
+      console.log('Export:', error.message);
+      Alert.alert('Export', "No Orders found");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -587,7 +512,7 @@ const ScreenDelivery = ({navigation}) => {
         throw new Error(response?.message || 'Export failed.');
       }
 
-      Alert.alert('Export', 'Delivery list exported successfully!');
+      Alert.alert('Export', 'Excel file sent to your email');
     } catch (error) {
       console.log('Export:', error.message);
       Alert.alert('Export', error.message);

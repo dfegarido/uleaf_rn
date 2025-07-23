@@ -39,6 +39,8 @@ import {
   genus6,
   genus7,
   genus8,
+  event1,
+  event2,
 } from '../../../assets/buyer-icons/png';
 
 import {InfoCard} from '../../../components/InfoCards';
@@ -134,9 +136,9 @@ const ScreenShop = ({navigation}) => {
           console.error('Error getting auth token:', error);
         }
       };
-      
+
       logAuthInfo();
-    }, [user])
+    }, [user]),
   );
 
   const filterOptions = [
@@ -168,15 +170,11 @@ const ScreenShop = ({navigation}) => {
 
   const imageData = [
     {
-      src: require('../../../assets/buyer-icons/png/image-1.png'),
+      src: event1,
       label: 'Deals, Rewards & News',
     },
     {
-      src: require('../../../assets/buyer-icons/png/image-2.png'),
-      label: 'Deals, Rewards & News',
-    },
-    {
-      src: require('../../../assets/buyer-icons/png/image-3.png'),
+      src: event2,
       label: 'Deals, Rewards & News',
     },
   ];
