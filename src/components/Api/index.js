@@ -47,3 +47,4 @@ export {getAddressBookEntriesApi} from './getAddressBookEntriesApi';
 export {createAddressBookEntryApi} from './createAddressBookEntryApi';
 export {updateAddressBookEntryApi} from './updateAddressBookEntryApi';
 export {deleteAddressBookEntryApi} from './deleteAddressBookEntryApi';
+export {uploadProfilePhotoApi} from './uploadProfilePhotoApi';

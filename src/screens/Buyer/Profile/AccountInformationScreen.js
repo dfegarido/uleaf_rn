@@ -9,13 +9,18 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {getProfileInfoApi, postBuyerUpdateInfoApi} from '../../../components/Api';
+import {getProfileInfoApi, postBuyerUpdateInfoApi, uploadProfilePhotoApi} from '../../../components/Api';
 import {AuthContext} from '../../../auth/AuthProvider';
+import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 
 // Import icons
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -76,6 +81,11 @@ const AccountInformationScreen = () => {
   const [countryCode, setCountryCode] = useState('+1');
   const [email, setEmail] = useState('');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // Profile photo states
+  const [profilePhotoUri, setProfilePhotoUri] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
 
   // Track original values to detect changes
   const [originalData, setOriginalData] = useState({});
@@ -157,6 +167,11 @@ const AccountInformationScreen = () => {
     setCountryCode(originalValues.countryCode);
     setEmail(originalValues.email);
     
+    // Set profile photo if available
+    if (res.profilePhotoUrl) {
+      setProfilePhotoUri(res.profilePhotoUrl);
+    }
+    
     // Reset changes flag
     setHasChanges(false);
   };
@@ -169,6 +184,99 @@ const AccountInformationScreen = () => {
     if (!phoneNumber.trim()) errors.push('Contact number is required.');
 
     return errors;
+  };
+
+  // Request permissions for camera and photo library
+  const requestPermissions = async () => {
+    if (Platform.OS !== 'android') return true;
+
+    const sdkInt = parseInt(Platform.Version, 10);
+    const permissions = [PermissionsAndroid.PERMISSIONS.CAMERA];
+
+    if (sdkInt >= 33) {
+      permissions.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES);
+    } else {
+      permissions.push(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
+    }
+
+    const granted = await PermissionsAndroid.requestMultiple(permissions);
+
+    const allGranted = Object.values(granted).every(
+      result => result === PermissionsAndroid.RESULTS.GRANTED,
+    );
+
+    return allGranted;
+  };
+
+  // Handle camera selection
+  const handleCamera = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      Alert.alert(
+        'Permission Denied',
+        'Camera or media access was not granted.',
+      );
+      setShowImagePicker(false);
+      return;
+    }
+
+    launchCamera({mediaType: 'photo', quality: 1}, response => {
+      setShowImagePicker(false);
+      if (response.didCancel || response.errorCode) return;
+      const uri = response.assets?.[0]?.uri;
+      if (uri) {
+        handlePhotoUpload(uri);
+      }
+    });
+  };
+
+  // Handle gallery selection
+  const handleGallery = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Media access was not granted.');
+      setShowImagePicker(false);
+      return;
+    }
+
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        selectionLimit: 1,
+      },
+      response => {
+        setShowImagePicker(false);
+        if (response.didCancel || response.errorCode) return;
+        const uri = response.assets?.[0]?.uri;
+        if (uri) {
+          handlePhotoUpload(uri);
+        }
+      },
+    );
+  };
+
+  // Handle photo selection and upload
+  const handlePhotoUpload = async (imageUri) => {
+    if (!imageUri) return;
+
+    setUploadingPhoto(true);
+
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        Alert.alert('Error', 'No internet connection.');
+        return;
+      }
+
+      await uploadProfilePhotoApi(imageUri);
+      setProfilePhotoUri(imageUri);
+      Alert.alert('Success', 'Profile photo updated successfully!');
+    } catch (error) {
+      console.log('Photo upload error:', error);
+      Alert.alert('Error', error.message || 'Failed to upload photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleSave = async () => {
@@ -250,9 +358,24 @@ const AccountInformationScreen = () => {
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              <AvatarIcon width={96} height={96} />
+              {profilePhotoUri ? (
+                <Image 
+                  source={{ uri: profilePhotoUri }} 
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <AvatarIcon width={96} height={96} />
+              )}
+              {uploadingPhoto && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="large" color="#539461" />
+                </View>
+              )}
             </View>
-            <TouchableOpacity style={styles.editButton}>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => setShowImagePicker(true)}
+            >
               <EditIcon />
             </TouchableOpacity>
           </View>
@@ -388,6 +511,34 @@ const AccountInformationScreen = () => {
       <View style={styles.homeIndicator}>
         <View style={styles.gestureBar} />
       </View>
+
+      {/* Image Picker Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={showImagePicker}
+        onRequestClose={() => setShowImagePicker(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPressOut={() => setShowImagePicker(false)}>
+          <View style={styles.modalContainer}>
+            <TouchableOpacity style={styles.modalOption} onPress={handleCamera}>
+              <Text style={styles.modalOptionText}>
+                📷 Take Photo
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalOption} onPress={handleGallery}>
+              <Text style={styles.modalOptionText}>
+                🖼️ Choose from Library
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowImagePicker(false)}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -465,6 +616,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     position: 'relative',
     zIndex: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 48,
   },
   editButton: {
     position: 'absolute',
@@ -756,6 +926,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#202325',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalOption: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalOptionText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#202325',
+  },
+  modalCancelText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
   },
 });
 
