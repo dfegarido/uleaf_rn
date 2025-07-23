@@ -1,42 +1,99 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, TextInput, StyleSheet, TouchableOpacity} from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  StyleSheet,
+} from 'react-native';
 
-const US_COUNTRY = {
-  name: 'United States',
-  code: 'US',
-  callingCode: '+1',
-  flag: '🇺🇸',
-};
-
-import DownIcon from '../../assets/icons/greylight/caret-down-regular.svg';
+const countries = [
+  {
+    name: 'Philippines',
+    code: 'PH',
+    callingCode: '+63',
+    flag: '🇵🇭',
+  },
+  {
+    name: 'United States',
+    code: 'US',
+    callingCode: '+1',
+    flag: '🇺🇸',
+  },
+  {
+    name: 'Thailand',
+    code: 'TH',
+    callingCode: '+66',
+    flag: '🇹🇭',
+  },
+  {
+    name: 'Japan',
+    code: 'JP',
+    callingCode: '+81',
+    flag: '🇯🇵',
+  },
+  {
+    name: 'South Korea',
+    code: 'KR',
+    callingCode: '+82',
+    flag: '🇰🇷',
+  },
+  {
+    name: 'China',
+    code: 'CN',
+    callingCode: '+86',
+    flag: '🇨🇳',
+  },
+  {
+    name: 'Indonesia',
+    code: 'ID',
+    callingCode: '+62',
+    flag: '🇮🇩',
+  },
+];
 
 const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState(countries[0]);
+  const [modalVisible, setModalVisible] = useState(false);
 
+  // Detect and set country from initialPhoneNumber
   useEffect(() => {
     if (initialPhoneNumber) {
-      if (initialPhoneNumber.startsWith(US_COUNTRY.callingCode)) {
-        setPhoneNumber(initialPhoneNumber.replace(US_COUNTRY.callingCode, ''));
+      const found = countries.find(c =>
+        initialPhoneNumber.startsWith(c.callingCode),
+      );
+      if (found) {
+        setSelectedCountry(found);
+        setPhoneNumber(initialPhoneNumber.replace(found.callingCode, ''));
       } else {
         setPhoneNumber(initialPhoneNumber);
       }
     }
   }, [initialPhoneNumber]);
 
+  // Update parent with final full number
   useEffect(() => {
     if (onChange) {
-      onChange(US_COUNTRY.callingCode + phoneNumber);
+      onChange(selectedCountry.callingCode + phoneNumber);
     }
-  }, [phoneNumber, onChange]);
+  }, [selectedCountry, phoneNumber]);
+
+  const onSelectCountry = country => {
+    setSelectedCountry(country);
+    setModalVisible(false);
+  };
 
   return (
     <View>
       <View style={styles.inputContainer}>
         <TouchableOpacity
           style={styles.countryPicker}
-          onPress={() => {}}>
-          <Text style={styles.flag}>{US_COUNTRY.flag}</Text>
-          <Text style={styles.callingCode}>{US_COUNTRY.callingCode}</Text>
+          onPress={() => setModalVisible(true)}>
+          <Text style={styles.flag}>{selectedCountry.flag}</Text>
+          <Text style={styles.callingCode}>{selectedCountry.callingCode}</Text>
           <DownIcon width={20} height={20} />
         </TouchableOpacity>
 
@@ -49,6 +106,34 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
           onChangeText={text => setPhoneNumber(text.replace(/[^0-9]/g, ''))}
         />
       </View>
+
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalContainer}>
+          <View style={styles.modal}>
+            <FlatList
+              data={countries}
+              keyExtractor={item => item.code}
+              renderItem={({item}) => (
+                <TouchableOpacity
+                  style={styles.countryItem}
+                  onPress={() => onSelectCountry(item)}>
+                  <Text style={styles.flag}>{item.flag}</Text>
+                  <Text style={styles.countryText}>
+                    {item.name} ({item.callingCode})
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              style={styles.closeButton}>
+              <Text style={{textAlign: 'center', fontWeight: 'bold'}}>
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
