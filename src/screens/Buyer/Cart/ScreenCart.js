@@ -104,8 +104,9 @@ const CartComponent = ({
   flagIcon,
   checked,
   onRemove,
+  onPress,
 }) => (
-  <View style={styles.cartCard}>
+  <TouchableOpacity style={styles.cartCard} onPress={onPress}>
     <View style={styles.cartTopCard}>
       <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
         <View
@@ -144,7 +145,7 @@ const CartComponent = ({
     <View style={styles.cartFooterRow}>
       <Text style={styles.cartFooterText}>🚚 {shippingInfo}</Text>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const cartItems = Array.from({length: 10}).map((_, i) => ({
@@ -156,10 +157,23 @@ const cartItems = Array.from({length: 10}).map((_, i) => ({
   flightInfo: 'Plant Flight May-30',
   shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
   flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
-  checked: true,
 }));
 
 const ScreenCart = () => {
+  const [selectedItems, setSelectedItems] = useState(new Set());
+
+  const toggleItemSelection = itemId => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <View style={styles.container}>
       <CartHeader />
@@ -177,8 +191,9 @@ const ScreenCart = () => {
             flightInfo={item.flightInfo}
             shippingInfo={item.shippingInfo}
             flagIcon={item.flagIcon}
-            checked={item.checked}
+            checked={selectedItems.has(item.id)}
             onRemove={() => {}}
+            onPress={() => toggleItemSelection(item.id)}
           />
         ))}
       </ScrollView>

@@ -1,8 +1,8 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useContext, useEffect, useState } from 'react';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {NavigationContainer} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import React, {useContext, useEffect, useState} from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -10,16 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AuthContext } from '../../auth/AuthProvider';
+import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
 import {ChatScreen} from '../../screens/ChatScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
-import {
-  LiveBroadcastScreen,
-} from '../../screens/Live';
+import {LiveBroadcastScreen} from '../../screens/Live';
 
 import {
   ScreenLogin,
@@ -92,6 +90,8 @@ import {
   BuyerCompleteYourAccount,
   BuyerGettingToKnow,
 } from '../../screens/BuyerSignup';
+import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
+import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -331,6 +331,86 @@ const AuthStack = () => {
           },
           headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
         })}
+      />
+      <Stack.Screen
+        name="BuyerAuthStack"
+        component={BuyerAuthStack}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="TermsOfUseScreen"
+        component={TermsOfUseScreen}
+        options={({navigation}) => ({
+          headerShown: false,
+          title: 'Terms of Use',
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 0,
+          },
+          headerShadowVisible: false,
+        })}
+      />
+      <Stack.Screen
+        name="PrivacyPolicyScreen"
+        component={PrivacyPolicyScreen}
+        options={({navigation}) => ({
+          headerShown: false,
+          title: 'Privacy Policy',
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 0,
+          },
+          headerShadowVisible: false,
+        })}
+      />
+    </Stack.Navigator>
+  );
+};
+
+const BuyerAuthStack = () => {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="BuyerSignup"
+        component={BuyerSignup}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="BuyerSignupLocation"
+        component={BuyerSignupLocation}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="BuyerGettingToKnow"
+        component={BuyerGettingToKnow}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="BuyerCompleteYourAccount"
+        component={BuyerCompleteYourAccount}
+        options={{headerShown: false, animation: 'slide_from_right'}}
       />
     </Stack.Navigator>
   );
@@ -641,7 +721,10 @@ function MainTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
-        tabBarStyle: (route.name === 'ChatScreen' || route.name === 'MessagesScreen') ? { display: 'none' } : styles.tabBar,
+        tabBarStyle:
+          route.name === 'ChatScreen' || route.name === 'MessagesScreen'
+            ? {display: 'none'}
+            : styles.tabBar,
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused
@@ -662,20 +745,17 @@ function MainTabNavigator() {
 
           switch (route.name) {
             case 'Home':
-              Icon = HomeIcon;
               return focused ? (
                 <HomeIconSelected width={size} height={size} />
               ) : (
                 <HomeIcon width={size} height={size} />
               );
-              break;
             case 'Listings':
               return focused ? (
                 <ListingIconSelected width={size} height={size} />
               ) : (
                 <ListingIcon width={size} height={size} />
               );
-              break;
             case 'Sell':
               return (
                 <View
@@ -688,29 +768,22 @@ function MainTabNavigator() {
                     justifyContent: 'center',
                     alignItems: 'center',
                     shadowColor: '#000',
-                    // shadowOffset: {width: 0, height: 4},
-                    // shadowOpacity: 0.3,
-                    // shadowRadius: 4,
-                    // elevation: 5,
                   }}>
                   <SellIcon width={80} height={80} />
                 </View>
               );
-              break;
             case 'Order':
               return focused ? (
                 <OrderIconSelected width={size} height={size} />
               ) : (
                 <OrderIcon width={size} height={size} />
               );
-              break;
             case 'Delivery':
               return focused ? (
                 <DeliveryIconSelected width={size} height={size} />
               ) : (
                 <DeliveryIcon width={size} height={size} />
               );
-              break;
           }
         },
 

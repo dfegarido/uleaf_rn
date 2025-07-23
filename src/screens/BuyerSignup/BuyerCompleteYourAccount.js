@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   Linking,
+  useColorScheme,
 } from 'react-native';
 
 import CheckBox from '@react-native-community/checkbox';
@@ -16,6 +17,9 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import {useNavigation} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {postBuyerSignupApi} from '../../components/Api/postBuyerSignupApi';
+import {globalStyles, getComponentStyles} from '../../assets/styles/styles';
+import ValidIcon from '../../assets/buyer-icons/valid.svg';
+import NotValidIcon from '../../assets/buyer-icons/not-valid.svg';
 
 const PASSWORD_REQUIREMENTS = [
   {
@@ -38,6 +42,8 @@ const PASSWORD_REQUIREMENTS = [
 
 export default function BuyerCompleteYourAccount() {
   const navigation = useNavigation();
+  const colorScheme = useColorScheme() || 'light';
+  const styles = getComponentStyles(colorScheme);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [retypePassword, setRetypePassword] = useState('');
@@ -64,9 +70,12 @@ export default function BuyerCompleteYourAccount() {
       signupData.password = password;
       const result = await postBuyerSignupApi(signupData);
       if (result.success) {
-        setSuccess(true);
         await AsyncStorage.removeItem('buyerSignupData');
-        // Optionally navigate or show success UI
+        navigation.reset({
+          index: 0,
+          routes: [{name: 'Login'}],
+        });
+        return;
       } else {
         setError(result.error || 'Signup failed');
       }
@@ -94,12 +103,12 @@ export default function BuyerCompleteYourAccount() {
       </Text>
       <TextInput
         style={styles.input}
-        placeholder="Use 4-15 characters with no spaces or symbols."
         value={username}
         onChangeText={setUsername}
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={15}
+        placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
       />
       <Text style={styles.helper}>
         Use 4-15 characters with no spaces or symbols.
@@ -111,11 +120,12 @@ export default function BuyerCompleteYourAccount() {
       <View style={styles.passwordRow}>
         <TextInput
           style={[styles.input, {flex: 1, paddingRight: 40}]}
-          placeholder="Password"
+          placeholder="8@N~!r8HiN6"
           value={password}
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
           autoCapitalize="none"
+          placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
         />
         <TouchableOpacity
           onPress={() => setShowPassword(v => !v)}
@@ -137,7 +147,9 @@ export default function BuyerCompleteYourAccount() {
               {
                 backgroundColor:
                   password.length === 0
-                    ? '#eee'
+                    ? colorScheme === 'dark'
+                      ? '#444'
+                      : '#eee'
                     : isPasswordValid
                     ? '#4CAF50'
                     : '#FFC107',
@@ -159,17 +171,22 @@ export default function BuyerCompleteYourAccount() {
         </Text>
         {PASSWORD_REQUIREMENTS.map((req, idx) => (
           <View key={req.label} style={styles.requirementRow}>
-            <Text
-              style={{
-                color: passwordChecks[idx] ? '#4CAF50' : '#aaa',
-                fontSize: 18,
-              }}>
-              {passwordChecks[idx] ? '✔️' : '○'}
-            </Text>
+            {/* Use SVG icons instead of text for check/circle */}
+            {passwordChecks[idx] ? (
+              <ValidIcon width={20} height={20} style={{marginRight: 6}} />
+            ) : (
+              <NotValidIcon width={20} height={20} style={{marginRight: 6}} />
+            )}
             <Text
               style={[
                 styles.requirementText,
-                {color: passwordChecks[idx] ? '#4CAF50' : '#aaa'},
+                {
+                  color: passwordChecks[idx]
+                    ? '#4CAF50'
+                    : colorScheme === 'dark'
+                    ? '#555'
+                    : '#aaa',
+                },
               ]}>
               {req.label}
             </Text>
@@ -188,6 +205,7 @@ export default function BuyerCompleteYourAccount() {
           onChangeText={setRetypePassword}
           secureTextEntry={!showRetypePassword}
           autoCapitalize="none"
+          placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
         />
         <TouchableOpacity
           onPress={() => setShowRetypePassword(v => !v)}
@@ -201,18 +219,25 @@ export default function BuyerCompleteYourAccount() {
       </View>
 
       <View style={styles.checkboxRow}>
-        <CheckBox value={agree} onValueChange={setAgree} />
+        <CheckBox
+          value={agree}
+          onValueChange={setAgree}
+          tintColors={{
+            true: '#388E3C',
+            false: colorScheme === 'dark' ? '#888' : '#aaa',
+          }}
+        />
         <Text style={styles.checkboxText}>
           I agree to the{' '}
           <Text
             style={styles.link}
-            onPress={() => Linking.openURL('https://example.com/terms')}>
+            onPress={() => navigation.navigate('TermsOfUseScreen')}>
             Terms of Use
           </Text>{' '}
           and{' '}
           <Text
             style={styles.link}
-            onPress={() => Linking.openURL('https://example.com/privacy')}>
+            onPress={() => navigation.navigate('PrivacyPolicyScreen')}>
             Privacy Policy
           </Text>
           .
@@ -230,132 +255,7 @@ export default function BuyerCompleteYourAccount() {
           {loading ? 'Creating...' : 'Create Account'}
         </Text>
       </TouchableOpacity>
-      {error ? <Text style={{color: 'red', marginTop: 8}}>{error}</Text> : null}
-      {success ? (
-        <Text style={{color: 'green', marginTop: 8}}>Signup successful!</Text>
-      ) : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 24,
-    backgroundColor: '#fff',
-  },
-  step: {
-    color: '#888',
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  title: {
-    textAlign: 'center',
-    fontSize: 28,
-    color: '#000',
-    fontWeight: 'bold',
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginTop: 16,
-  },
-  required: {
-    color: '#E53935',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    fontSize: 16,
-    backgroundColor: '#fafafa',
-  },
-  helper: {
-    color: '#888',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  eyeIcon: {
-    position: 'absolute',
-    right: 10,
-    bottom: 8,
-    padding: 8,
-  },
-  passwordStrengthBox: {
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 12,
-    marginBottom: 8,
-    backgroundColor: '#fafafa',
-  },
-  strengthBarContainer: {
-    height: 6,
-    backgroundColor: '#eee',
-    borderRadius: 3,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  strengthBar: {
-    height: 6,
-    borderRadius: 3,
-  },
-  strengthText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#388E3C',
-  },
-  requirementRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  requirementText: {
-    marginLeft: 8,
-    fontSize: 14,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  checkboxText: {
-    marginLeft: 8,
-    fontSize: 14,
-    flex: 1,
-    flexWrap: 'wrap',
-  },
-  link: {
-    color: '#388E3C',
-    textDecorationLine: 'none',
-    fontWeight: '800',
-  },
-  button: {
-    height: 48,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-});

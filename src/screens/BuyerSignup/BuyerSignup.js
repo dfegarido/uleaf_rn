@@ -31,7 +31,7 @@ const BuyerSignup = () => {
         'buyerSignupData',
         JSON.stringify({
           ...prevData,
-          growPlants: selected.length === 1 ? selected[0] : selected,
+          growPlants: selected.join(','),
         }),
       );
     } catch (e) {
