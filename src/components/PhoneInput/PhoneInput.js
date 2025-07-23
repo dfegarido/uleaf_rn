@@ -89,9 +89,11 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
   return (
     <View>
       <View style={styles.inputContainer}>
-        <TouchableOpacity style={styles.countryPicker} onPress={() => {}}>
-          <Text style={styles.flag}>{US_COUNTRY.flag}</Text>
-          <Text style={styles.callingCode}>{US_COUNTRY.callingCode}</Text>
+        <TouchableOpacity
+          style={styles.countryPicker}
+          onPress={() => setModalVisible(true)}>
+          <Text style={styles.flag}>{selectedCountry.flag}</Text>
+          <Text style={styles.callingCode}>{selectedCountry.callingCode}</Text>
           <DownIcon width={20} height={20} />
         </TouchableOpacity>
 
