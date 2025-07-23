@@ -518,6 +518,15 @@ const ScreenMyStore = ({navigation}) => {
               </Text>
 
               {/* List */}
+              {dataTable.length == 0 && (
+                <View style={{alignItems: 'center', paddingTop: 80, flex: 1}}>
+                  <Image
+                    source={require('../../../assets/images/mystore-empty.png')}
+                    style={{width: 300, height: 300, resizeMode: 'contain'}}
+                  />
+                </View>
+              )}
+
               <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
                 {dataTable.map((dataparse, index) => (
                   <TouchableOpacity
