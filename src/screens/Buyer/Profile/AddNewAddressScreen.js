@@ -1,18 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, FlatList, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { createAddressBookEntryApi } from '../../../components/Api';
+import DropdownSelect from '../../../components/Dropdown/DropdownSelect';
+const { fetchUSStates, fetchCitiesForState } = require('../../../utils/locationApi');
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
-import DropdownIcon from '../../../assets/icons/greydark/dropdown-arrow.svg';
+
+console.log('Imports loaded. fetchUSStates:', fetchUSStates);
+console.log('fetchCitiesForState:', fetchCitiesForState);
 
 const AddNewAddressScreen = () => {
   const navigation = useNavigation();
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
+  const [selectedStateData, setSelectedStateData] = useState(null); // Store both name and isoCode
   const [zipCode, setZipCode] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // States and cities from API
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [statesLoading, setStatesLoading] = useState(true);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [loadingMoreStates, setLoadingMoreStates] = useState(false);
+  const [loadingMoreCities, setLoadingMoreCities] = useState(false);
+  const [statesPagination, setStatesPagination] = useState({
+    offset: 0,
+    hasMore: true,
+    totalCount: 0
+  });
+  const [citiesPagination, setCitiesPagination] = useState({
+    offset: 0,
+    hasMore: true,
+    totalCount: 0
+  });
   
   // User info from AsyncStorage
   const [userInfo, setUserInfo] = useState({
@@ -21,29 +44,129 @@ const AddNewAddressScreen = () => {
     contactNumber: ''
   });
   
-  const [stateModalVisible, setStateModalVisible] = useState(false);
-  const [cityModalVisible, setCityModalVisible] = useState(false);
-  
-  const states = [
-    'Illinois',
-    'California',
-    'Texas',
-    'New York',
-    'Florida',
-    'Michigan',
-    'Ohio',
-    'Pennsylvania'
-  ];
-  
-  const cities = {
-    'Illinois': ['Springfield', 'Chicago', 'Aurora', 'Rockford', 'Joliet', 'Naperville'],
-    'California': ['Los Angeles', 'San Francisco', 'San Diego', 'Sacramento', 'San Jose'],
-    'Texas': ['Houston', 'Austin', 'Dallas', 'San Antonio', 'Fort Worth'],
-    'New York': ['New York City', 'Buffalo', 'Rochester', 'Syracuse', 'Albany'],
-    'Florida': ['Miami', 'Orlando', 'Tampa', 'Jacksonville', 'Tallahassee'],
-    'Michigan': ['Detroit', 'Grand Rapids', 'Lansing', 'Flint', 'Ann Arbor'],
-    'Ohio': ['Columbus', 'Cleveland', 'Cincinnati', 'Toledo', 'Akron'],
-    'Pennsylvania': ['Philadelphia', 'Pittsburgh', 'Harrisburg', 'Allentown', 'Erie']
+  // Load states from API
+  useEffect(() => {
+    const loadStates = async () => {
+      try {
+        console.log('Starting to load initial states...');
+        console.log('fetchUSStates function:', fetchUSStates);
+        setStatesLoading(true);
+        const result = await fetchUSStates(0, 10); // Fetch first 10 states
+        console.log('Initial states fetched successfully:', result);
+        setStates(result.data);
+        setStatesPagination({
+          offset: result.data.length,
+          hasMore: result.hasMore,
+          totalCount: result.totalCount
+        });
+      } catch (error) {
+        console.error('Error loading states:', error);
+        Alert.alert('Error', 'Failed to load states. Please try again.');
+      } finally {
+        setStatesLoading(false);
+      }
+    };
+
+    loadStates();
+  }, []);
+
+  // Load more states when reaching end of list
+  const loadMoreStates = async () => {
+    if (!statesPagination.hasMore || loadingMoreStates) {
+      return;
+    }
+
+    try {
+      console.log('Loading more states from offset:', statesPagination.offset);
+      setLoadingMoreStates(true);
+      const result = await fetchUSStates(statesPagination.offset, 10);
+      console.log('More states fetched:', result);
+      
+      setStates(prevStates => {
+        const combined = [...prevStates, ...result.data];
+        // Remove duplicates and sort
+        const unique = [...new Set(combined)];
+        return unique.sort();
+      });
+      
+      setStatesPagination({
+        offset: statesPagination.offset + result.data.length,
+        hasMore: result.hasMore,
+        totalCount: result.totalCount
+      });
+    } catch (error) {
+      console.error('Error loading more states:', error);
+      Alert.alert('Error', 'Failed to load more states. Please try again.');
+    } finally {
+      setLoadingMoreStates(false);
+    }
+  };
+
+  // Load cities when state changes
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!selectedStateData) {
+        setCities([]);
+        setCitiesPagination({
+          offset: 0,
+          hasMore: true,
+          totalCount: 0
+        });
+        return;
+      }
+
+      try {
+        console.log('Loading initial cities for state:', selectedStateData.name, 'isoCode:', selectedStateData.isoCode);
+        setCitiesLoading(true);
+        const result = await fetchCitiesForState(selectedStateData.isoCode, 0, 10); // Use isoCode
+        console.log('Initial cities fetched successfully:', result);
+        setCities(result.data);
+        setCitiesPagination({
+          offset: result.data.length,
+          hasMore: result.hasMore,
+          totalCount: result.totalCount
+        });
+      } catch (error) {
+        console.error('Error loading cities:', error);
+        Alert.alert('Error', 'Failed to load cities. Please try again.');
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+
+    loadCities();
+  }, [selectedStateData]);
+
+  // Load more cities when reaching end of list
+  const loadMoreCities = async () => {
+    if (!citiesPagination.hasMore || loadingMoreCities || !selectedStateData) {
+      return;
+    }
+
+    try {
+      console.log('Loading more cities from offset:', citiesPagination.offset);
+      setLoadingMoreCities(true);
+      const result = await fetchCitiesForState(selectedStateData.isoCode, citiesPagination.offset, 10); // Use isoCode
+      console.log('More cities fetched:', result);
+      
+      setCities(prevCities => {
+        const combined = [...prevCities, ...result.data];
+        // Remove duplicates and sort
+        const unique = [...new Set(combined)];
+        return unique.sort();
+      });
+      
+      setCitiesPagination({
+        offset: citiesPagination.offset + result.data.length,
+        hasMore: result.hasMore,
+        totalCount: result.totalCount
+      });
+    } catch (error) {
+      console.error('Error loading more cities:', error);
+      Alert.alert('Error', 'Failed to load more cities. Please try again.');
+    } finally {
+      setLoadingMoreCities(false);
+    }
   };
 
   // Load user info from AsyncStorage
@@ -138,110 +261,43 @@ const AddNewAddressScreen = () => {
         {/* Form Container */}
         <View style={styles.formContainer}>
           {/* State */}
-          <View style={styles.inputSection}>
-            <View style={styles.inputFieldWrap}>
-              <Text style={styles.inputLabel}>State<Text style={{color: '#E53935'}}>*</Text></Text>
-              <TouchableOpacity 
-                style={styles.textField} 
-                activeOpacity={0.7} 
-                onPress={() => setStateModalVisible(true)}
-              >
-                <Text style={state ? styles.selectedText : styles.placeholderText}>
-                  {state || "Select"}
-                </Text>
-                <View style={styles.dropdownIconContainer}>
-                  <DropdownIcon width={18} height={10} fill="#202325" />
-                </View>
-              </TouchableOpacity>
-              
-              <Modal
-                transparent={true}
-                visible={stateModalVisible}
-                animationType="fade"
-                onRequestClose={() => setStateModalVisible(false)}
-              >
-                <TouchableOpacity 
-                  style={styles.modalOverlay}
-                  activeOpacity={1} 
-                  onPress={() => setStateModalVisible(false)}
-                >
-                  <View style={styles.modalContent}>
-                    <FlatList
-                      data={states}
-                      keyExtractor={(item) => item}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={[styles.stateItem, state === item && styles.selectedStateItem]}
-                          onPress={() => {
-                            setState(item);
-                            setCity('');
-                            setStateModalVisible(false);
-                          }}
-                        >
-                          <Text style={[styles.stateItemText, state === item && styles.selectedStateItemText]}>
-                            {item}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-            </View>
-          </View>
+          <DropdownSelect
+            label="State"
+            placeholder={statesLoading ? "Loading states..." : "Select"}
+            value={state}
+            data={states.map(stateObj => stateObj.name)} // Extract names for display
+            onSelect={(selectedStateName) => {
+              const selectedStateObj = states.find(stateObj => stateObj.name === selectedStateName);
+              setState(selectedStateName);
+              setSelectedStateData(selectedStateObj);
+              setCity(''); // Reset city when state changes
+            }}
+            required={true}
+            disabled={statesLoading}
+            onEndReached={loadMoreStates}
+            loading={loadingMoreStates}
+          />
           
           {/* City */}
-          <View style={styles.inputSection}>
-            <View style={styles.inputFieldWrap}>
-              <Text style={styles.inputLabel}>City<Text style={{color: '#E53935'}}>*</Text></Text>
-              <TouchableOpacity 
-                style={styles.textField} 
-                activeOpacity={0.7} 
-                onPress={() => state ? setCityModalVisible(true) : null}
-                disabled={!state}
-              >
-                <Text style={city ? styles.selectedText : styles.placeholderText}>
-                  {city || (state ? "Select city" : "Select")}
-                </Text>
-                <View style={styles.dropdownIconContainer}>
-                  <DropdownIcon width={18} height={10} fill="#202325" />
-                </View>
-              </TouchableOpacity>
-              
-              <Modal
-                transparent={true}
-                visible={cityModalVisible}
-                animationType="fade"
-                onRequestClose={() => setCityModalVisible(false)}
-              >
-                <TouchableOpacity 
-                  style={styles.modalOverlay}
-                  activeOpacity={1} 
-                  onPress={() => setCityModalVisible(false)}
-                >
-                  <View style={styles.modalContent}>
-                    <FlatList
-                      data={cities[state]}
-                      keyExtractor={(item) => item}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={[styles.stateItem, city === item && styles.selectedStateItem]}
-                          onPress={() => {
-                            setCity(item);
-                            setCityModalVisible(false);
-                          }}
-                        >
-                          <Text style={[styles.stateItemText, city === item && styles.selectedStateItemText]}>
-                            {item}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-            </View>
-          </View>
+          <DropdownSelect
+            label="City"
+            placeholder={
+              citiesLoading 
+                ? "Loading cities..." 
+                : selectedStateData 
+                  ? "Select city" 
+                  : "Select state first"
+            }
+            value={city}
+            data={cities}
+            onSelect={(selectedCity) => {
+              setCity(selectedCity);
+            }}
+            required={true}
+            disabled={!selectedStateData || citiesLoading}
+            onEndReached={loadMoreCities}
+            loading={loadingMoreCities}
+          />
 
           {/* Zip Code */}
           <View style={styles.inputSection}>
@@ -375,17 +431,6 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     flexGrow: 0,
   },
-  addressLineSection: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    gap: 12,
-    width: 375,
-    height: 150,
-    alignSelf: 'stretch',
-    flexGrow: 0,
-  },
   inputFieldWrap: {
     flexDirection: 'column',
     justifyContent: 'center',
@@ -397,6 +442,28 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     flexGrow: 0,
   },
+  inputLabel: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#393D40',
+    width: 327,
+    height: 22,
+    alignSelf: 'stretch',
+    flexGrow: 0,
+  },
+  addressLineSection: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    gap: 12,
+    width: 375,
+    height: 150,
+    alignSelf: 'stretch',
+    flexGrow: 0,
+  },
   addressFieldWrap: {
     flexDirection: 'column',
     justifyContent: 'center',
@@ -405,17 +472,6 @@ const styles = StyleSheet.create({
     gap: 8,
     width: 327,
     height: 126,
-    alignSelf: 'stretch',
-    flexGrow: 0,
-  },
-  inputLabel: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22, // 140% of 16px
-    color: '#393D40',
-    width: 327,
-    height: 22,
     alignSelf: 'stretch',
     flexGrow: 0,
   },
@@ -450,7 +506,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 22, // 140% of 16px
+    lineHeight: 22,
     color: '#202325',
     flex: 1,
     flexGrow: 1,
@@ -459,7 +515,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 22, // 140% of 16px
+    lineHeight: 22,
     color: '#647276',
     flex: 1,
     flexGrow: 1,
@@ -471,39 +527,6 @@ const styles = StyleSheet.create({
     height: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '80%',
-    maxHeight: '60%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-  },
-  stateItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F6F6',
-  },
-  selectedStateItem: {
-    backgroundColor: '#F5F6F6',
-  },
-  stateItemText: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#202325',
-  },
-  selectedStateItemText: {
-    color: '#539461',
-    fontWeight: '600',
   },
   helperText: {
     fontFamily: 'Inter',
