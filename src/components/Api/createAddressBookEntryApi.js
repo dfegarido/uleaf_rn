@@ -1,22 +1,18 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
-export const postProfileUpdatePasswordApi = async (
-  oldPassword,
-  newPassword,
-  confirmPassword,
-) => {
+export const createAddressBookEntryApi = async (addressData) => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/updateBuyerPassword',
+      'https://us-central1-i-leaf-u.cloudfunctions.net/createAddressBookEntry',
       {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({oldPassword, newPassword, confirmPassword}),
+        body: JSON.stringify(addressData),
       },
     );
 
@@ -25,9 +21,10 @@ export const postProfileUpdatePasswordApi = async (
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    return await response.json();
+    const json = await response.json();
+    return json;
   } catch (error) {
-    console.log('postProfileUpdatePasswordApi error:', error.message);
+    console.log('createAddressBookEntryApi error:', error.message);
     throw error;
   }
 };
