@@ -144,7 +144,7 @@ const ScreenMyStore = ({navigation}) => {
           ? [...prev, ...(getManageListingApiData?.listings || [])] // append
           : getManageListingApiData?.listings || [], // replace
     );
-    console.log(dataTable?.variations);
+    // console.log(getManageListingApiData);
   };
 
   // ✅ Error-handling wrapper
@@ -727,7 +727,7 @@ const ScreenMyStore = ({navigation}) => {
                                 ? parseSafeFloat(variation.localPriceNew)
                                 : 0
                               : 0;
-                            console.log(variation);
+                            // console.log(variation);
                             totalLocalPrice += localPrice;
                             if (localPriceNew > 0) {
                               totalLocalPriceNew += localPriceNew;

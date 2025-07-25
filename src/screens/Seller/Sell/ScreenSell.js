@@ -150,7 +150,7 @@ const ScreenSell = ({navigation}) => {
                 }}>
                 <SinglePlantIcon width={42} height={52}></SinglePlantIcon>
                 <Text style={[globalStyles.textMDAccentDark, {paddingTop: 10}]}>
-                  Solo Stunners
+                  Single Plant
                 </Text>
               </TouchableOpacity>
             </View>
