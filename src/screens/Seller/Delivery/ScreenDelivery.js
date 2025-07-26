@@ -1,6 +1,6 @@
 /* eslint-disable react/self-closing-comp */
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useContext} from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import OrderActionSheet from '../Order/components/OrderActionSheet';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {InputSearch} from '../../../components/InputGroup/Left';
+import {AuthContext} from '../../../auth/AuthProvider';
 
 import {
   getOrderListingApi,
@@ -83,6 +84,7 @@ const ScreenDelivery = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState('option1');
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+  const {userInfo} = useContext(AuthContext);
 
   // Animation values
   const [backgroundOpacity] = useState(new Animated.Value(0));
@@ -174,7 +176,7 @@ const ScreenDelivery = ({navigation}) => {
   const downloadExcelFile = async () => {
     try {
       setLoading(true);
-      
+
       const response = await getDeliveryExportApi();
 
       if (!response?.success) {
@@ -184,7 +186,7 @@ const ScreenDelivery = ({navigation}) => {
       Alert.alert('Export', 'Excel file sent to your email');
     } catch (error) {
       console.log('Export:', error.message);
-      Alert.alert('Export', "No Orders found");
+      Alert.alert('Export', 'No Orders found');
     } finally {
       setLoading(false);
     }
@@ -667,14 +669,26 @@ const ScreenDelivery = ({navigation}) => {
             />
           </View>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <LiveIcon width={40} height={40} />
-              {/* <Text style={styles.liveTag}>LIVE</Text> */}
-            </TouchableOpacity>
+            {userInfo.liveFlag != 'No' && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('LiveBroadcastScreen')}
+                style={styles.iconButton}>
+                <LiveIcon width={40} height={40} />
+                {/* <Text style={styles.liveTag}>LIVE</Text> */}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
-              <AvatarIcon width={40} height={40} />
+              {userInfo.profileImage != '' ? (
+                <Image
+                  source={{uri: userInfo.profileImage}}
+                  style={styles.image}
+                  resizeMode="contain"
+                />
+              ) : (
+                <AvatarIcon width={40} height={40} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -1248,5 +1262,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  image: {
+    width: 45,
+    height: 45,
+    borderWidth: 1,
+    borderRadius: 30,
+    backgroundColor: '#C0DAC2',
+    borderColor: '#539461',
   },
 });

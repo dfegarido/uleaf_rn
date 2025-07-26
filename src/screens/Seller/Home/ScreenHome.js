@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
+import React, {useEffect, useState, useContext} from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -13,15 +13,16 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CustomSalesChart } from '../../../components/Charts';
-import { formatCurrency } from '../../../utils/formatCurrency';
-import { roundNumber } from '../../../utils/roundNumber';
-import { retryAsync } from '../../../utils/utils';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {CustomSalesChart} from '../../../components/Charts';
+import {formatCurrency} from '../../../utils/formatCurrency';
+import {roundNumber} from '../../../utils/roundNumber';
+import {retryAsync} from '../../../utils/utils';
 import BusinessPerformance from './components/BusinessPerformance';
 import HomeDurationDropdown from './components/HomeDurationDropdown';
+import {AuthContext} from '../../../auth/AuthProvider';
 
 import {
   getDateFilterApi,
@@ -30,7 +31,7 @@ import {
   getHomeSummaryApi,
 } from '../../../components/Api';
 
-import { InputGroupLeftIcon } from '../../../components/InputGroup/Left';
+import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
@@ -38,7 +39,7 @@ import LiveIcon from '../../../assets/images/live.svg';
 import MessageIcon from '../../../assets/images/messages.svg';
 import MyStoreIcon from '../../../assets/images/mystore.svg';
 import PayoutsIcon from '../../../assets/images/payouts.svg';
-import { globalStyles } from '../../../assets/styles/styles';
+import {globalStyles} from '../../../assets/styles/styles';
 
 const screenHeight = Dimensions.get('window').height;
 
@@ -52,6 +53,8 @@ const screenHeight = Dimensions.get('window').height;
 const ScreenHome = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const {userInfo} = useContext(AuthContext);
+  // console.log(userInfo);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -114,7 +117,7 @@ const ScreenHome = ({navigation}) => {
       throw new Error(res?.message || 'Failed to load summary API.');
     }
 
-    // console.log(res);
+    console.log(res);
     setTotalSales(res.stats.currency);
     setPlantSold(res.stats.plantsSold);
     setPlantListed(res.stats.listingsCreated);
@@ -261,14 +264,26 @@ const ScreenHome = ({navigation}) => {
             </View>
 
             <View style={styles.headerIcons}>
-              <TouchableOpacity onPress={() => navigation.navigate('LiveBroadcastScreen')} style={styles.iconButton}>
-                <LiveIcon width={40} height={40} />
-                {/* <Text style={styles.liveTag}>LIVE</Text> */}
-              </TouchableOpacity>
+              {userInfo.liveFlag != 'No' && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('LiveBroadcastScreen')}
+                  style={styles.iconButton}>
+                  <LiveIcon width={40} height={40} />
+                  {/* <Text style={styles.liveTag}>LIVE</Text> */}
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => navigation.navigate('ScreenProfile')}>
-                <AvatarIcon width={40} height={40} />
+                {userInfo.profileImage != '' ? (
+                  <Image
+                    source={{uri: userInfo.profileImage}}
+                    style={styles.image}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <AvatarIcon width={40} height={40} />
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -647,5 +662,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  image: {
+    width: 45,
+    height: 45,
+    borderWidth: 1,
+    borderRadius: 30,
+    backgroundColor: '#C0DAC2',
+    borderColor: '#539461',
   },
 });

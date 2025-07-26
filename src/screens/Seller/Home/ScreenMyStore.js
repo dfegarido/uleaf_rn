@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useContext} from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {useIsFocused} from '@react-navigation/native';
 import {InputSearch} from '../../../components/InputGroup/Left';
+import {AuthContext} from '../../../auth/AuthProvider';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
@@ -52,6 +53,7 @@ const screenHeight = Dimensions.get('window').height;
 const ScreenMyStore = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
+  const {userInfo} = useContext(AuthContext);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -405,10 +407,14 @@ const ScreenMyStore = ({navigation}) => {
           </View>
 
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <LiveIcon width={40} height={40} />
-              {/* <Text style={styles.liveTag}>LIVE</Text> */}
-            </TouchableOpacity>
+            {userInfo.liveFlag != 'No' && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('LiveBroadcastScreen')}
+                style={styles.iconButton}>
+                <LiveIcon width={40} height={40} />
+                {/* <Text style={styles.liveTag}>LIVE</Text> */}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[
                 styles.iconButton,

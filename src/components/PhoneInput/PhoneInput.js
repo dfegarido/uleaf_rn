@@ -9,6 +9,8 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import DownIcon from '../../assets/icons/greylight/caret-down-regular.svg';
+
 const countries = [
   {
     name: 'Philippines',
