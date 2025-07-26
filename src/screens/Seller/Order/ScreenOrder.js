@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useContext} from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import OrderActionSheet from './components/OrderActionSheet';
 import {InputSearch} from '../../../components/InputGroup/Left';
+import {AuthContext} from '../../../auth/AuthProvider';
 
 import {
   getOrderListingApi,
@@ -69,6 +70,7 @@ const ScreenOrder = ({navigation}) => {
   const [active, setActive] = useState('For Delivery');
   const isActive = key => active === key;
   const [dataTable, setDataTable] = useState([]);
+  const {userInfo} = useContext(AuthContext);
 
   // ✅ Fetch on mount
   const [refreshing, setRefreshing] = useState(false);
@@ -303,14 +305,26 @@ const ScreenOrder = ({navigation}) => {
             />
           </View>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <LiveIcon width={40} height={40} />
-              {/* <Text style={styles.liveTag}>LIVE</Text> */}
-            </TouchableOpacity>
+            {userInfo.liveFlag != 'No' && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('LiveBroadcastScreen')}
+                style={styles.iconButton}>
+                <LiveIcon width={40} height={40} />
+                {/* <Text style={styles.liveTag}>LIVE</Text> */}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
-              <AvatarIcon width={40} height={40} />
+              {userInfo.profileImage != '' ? (
+                <Image
+                  source={{uri: userInfo.profileImage}}
+                  style={styles.image}
+                  resizeMode="contain"
+                />
+              ) : (
+                <AvatarIcon width={40} height={40} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -583,5 +597,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  image: {
+    width: 45,
+    height: 45,
+    borderWidth: 1,
+    borderRadius: 30,
+    backgroundColor: '#C0DAC2',
+    borderColor: '#539461',
   },
 });

@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useContext} from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import {PhoneInput} from '../../components/PhoneInput';
 import {InputDropdown} from '../../components/Input';
 import NetInfo from '@react-native-community/netinfo';
 import {ImagePickerNoButton} from '../../components/ImagePicker';
+import {uploadImageToFirebaseProfile} from '../../utils/uploadImageToFirebaseProfile';
+import {AuthContext} from '../../auth/AuthProvider';
 
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 import CameraIcon from '../../assets/icons/accent/camera.svg';
@@ -29,6 +31,7 @@ import CameraIcon from '../../assets/icons/accent/camera.svg';
 import {postProfileUpdateInfoApi} from '../../components/Api';
 
 const ScreenProfileAccount = ({navigation, route}) => {
+  const {updateProfileImage} = useContext(AuthContext);
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +59,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
     city,
     state,
     zipCode,
+    profileImage,
   } = route.params || {};
 
   const [firstNameState, setFirstNameState] = useState(firstName);
@@ -90,6 +94,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
       isImageChange: isImageChange,
     };
     setOriginalData(originalValues);
+    profileImage != '' && setImages([profileImage]);
   }, [firstName, lastName, contactNumber, gardenOrCompanyName, country]);
 
   // Check for changes in form fields
@@ -116,6 +121,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
 
     const hasFormChanges =
       JSON.stringify(currentData) !== JSON.stringify(originalComparison);
+    console.log('form change: ' + hasFormChanges);
     setHasChanges(hasFormChanges);
   }, [
     firstNameState,
@@ -125,7 +131,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
     gardenOrCompanyNameState,
     countryState,
     originalData,
-    isImageChange,
+    images,
   ]);
 
   // Form validation
@@ -159,12 +165,20 @@ const ScreenProfileAccount = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
+      // Upload images to Firebase
+      const uploadedUrls = [];
+      for (const uri of images) {
+        const firebaseUrl = await uploadImageToFirebaseProfile(uri);
+        uploadedUrls.push(firebaseUrl);
+      }
+
       const response = await postProfileUpdateInfoApi(
         firstNameState,
         lastNameState,
         finalPhone,
         countryState,
         gardenOrCompanyNameState,
+        uploadedUrls.length > 0 ? uploadedUrls[0] : '',
       );
 
       if (!response?.success) {
@@ -172,6 +186,8 @@ const ScreenProfileAccount = ({navigation, route}) => {
       }
 
       Alert.alert('Update Account', 'Account updated successfully!');
+
+      updateProfileImage(uploadedUrls.length > 0 ? uploadedUrls[0] : '');
 
       // Reset changes flag and update original data
       setHasChanges(false);
@@ -181,6 +197,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
         contactNumber: finalPhone || contactNumberState,
         gardenOrCompanyName: gardenOrCompanyNameState,
         country: countryState,
+        isImageChange: false,
       };
       setOriginalData(updatedOriginalData);
     } catch (error) {
@@ -197,9 +214,11 @@ const ScreenProfileAccount = ({navigation, route}) => {
   const [isImageChange, setIsImageChange] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const handleImagePicked = uris => {
-    setIsImageChange(true);
+    setIsImageChange(!isImageChange);
+    // console.log(isImageChange);
+    setHasChanges(true);
     setImages(uris);
-    console.log(uris);
+    // console.log(uris);
   };
 
   return (
@@ -243,7 +262,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
         <View style={{marginHorizontal: 20}}>
           <View style={{flexDirection: 'row', justifyContent: 'center'}}>
             <View style={{position: 'relative'}}>
-              {images?.[0] ? (
+              {images[0] ? (
                 // Show picked image
                 <Image
                   source={{uri: images[0]}}

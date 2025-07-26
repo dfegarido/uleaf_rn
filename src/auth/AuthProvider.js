@@ -78,6 +78,24 @@ export const AuthProvider = ({children}) => {
     return () => unsubscribe();
   }, []);
 
+  const updateProfileImage = async newImage => {
+    try {
+      setUserInfo(prev => {
+        const updatedUserInfo = {
+          ...prev,
+          profileImage: newImage,
+        };
+
+        // Save to AsyncStorage
+        AsyncStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+
+        return updatedUserInfo;
+      });
+    } catch (error) {
+      console.log('Error updating profile image:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -88,6 +106,7 @@ export const AuthProvider = ({children}) => {
         userInfo,
         setUserInfo,
         user: userInfo, // Add user property that references userInfo
+        updateProfileImage,
       }}>
       {children}
     </AuthContext.Provider>

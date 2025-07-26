@@ -27,7 +27,7 @@ import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 
 const ScreenProfile = ({navigation}) => {
-  const {logout} = useContext(AuthContext);
+  const {logout, userInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({});
 
@@ -107,15 +107,25 @@ const ScreenProfile = ({navigation}) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.avatarWrapper}>
-          <View style={styles.avatar} />
+          {userInfo.profileImage != '' ? (
+            <Image
+              source={{uri: userInfo.profileImage}}
+              style={styles.image}
+              resizeMode="contain"
+            />
+          ) : (
+            <AvatarIcon width={40} height={40} />
+          )}
         </View>
         <View>
           <Text style={globalStyles.textLGGreyDark}>
-            {data?.firstName && data?.lastName 
-              ? `${data.firstName} ${data.lastName}` 
+            {data?.firstName && data?.lastName
+              ? `${data.firstName} ${data.lastName}`
               : data?.gardenOrCompanyName || 'User Name'}
           </Text>
-          <Text style={styles.status}>@{data?.username || data?.email?.split('@')[0] || 'username'}</Text>
+          <Text style={styles.status}>
+            @{data?.username || data?.email?.split('@')[0] || 'username'}
+          </Text>
         </View>
       </View>
 
@@ -294,6 +304,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  image: {
+    width: 50,
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 30,
+    backgroundColor: '#C0DAC2',
+    borderColor: '#539461',
   },
 });
 

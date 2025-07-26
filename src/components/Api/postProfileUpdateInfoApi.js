@@ -6,9 +6,20 @@ export const postProfileUpdateInfoApi = async (
   contactNumber,
   country,
   gardenOrCompanyName,
+  profileImage,
 ) => {
   try {
     const token = await getStoredAuthToken();
+    console.log(
+      JSON.stringify({
+        firstName,
+        lastName,
+        contactNumber,
+        country,
+        gardenOrCompanyName,
+        profileImage,
+      }),
+    );
 
     const status = 'Inactive';
     const response = await fetch(
@@ -25,6 +36,7 @@ export const postProfileUpdateInfoApi = async (
           contactNumber,
           country,
           gardenOrCompanyName,
+          profileImage,
         }),
       },
     );
