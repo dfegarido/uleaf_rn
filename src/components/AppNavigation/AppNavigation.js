@@ -13,7 +13,7 @@ import {
 import { AuthContext } from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
-import {ChatScreen} from '../../screens/ChatScreen';
+import { ChatScreen } from '../../screens/ChatScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
@@ -21,6 +21,7 @@ import {
   LiveBroadcastScreen,
 } from '../../screens/Live';
 
+import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
 import {
   ScreenLogin,
   ScreenLoginForm,
@@ -70,7 +71,6 @@ import {
   ScreenSignupActivationCodeNext,
   ScreenSignupNext,
 } from '../../screens/Singup';
-import {ScreenTerms, ScreenPrivacy} from '../../screens/Legal';
 
 import DeliveryIconSelected from '../../assets/icontabs/box-solid.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
@@ -85,13 +85,6 @@ import SellIcon from '../../assets/icontabs/sell.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import BuyerSignupActivationCode from '../../screens/BuyerSignup/BuyerSignupLocation';
-import BuyerSignup from '../../screens/BuyerSignup/BuyerSignup';
-import BuyerSignupLocation from '../../screens/BuyerSignup/BuyerSignupLocation';
-import {
-  BuyerCompleteYourAccount,
-  BuyerGettingToKnow,
-} from '../../screens/BuyerSignup';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
