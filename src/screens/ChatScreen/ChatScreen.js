@@ -7,36 +7,37 @@ import {
   orderBy,
   query,
   Timestamp,
-  updateDoc
+  updateDoc,
+  where
 } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
+import OptionIcon from '../../assets/iconchat/option.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import { AuthContext } from '../../auth/AuthProvider';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
 
 const ChatScreen = ({navigation, route}) => {
-
-  const { avatarUrl, name, id, participants } = route.params;
-  const user = {
-    uid: "QBcGsu0HQYXN5cOowBblxIp8Lqw1",
-    email: "ryanquin.02@gmail.com",
-    name: "Ryan"
-  };
+  const { avatarUrl, name, id, participantIds, participants } = route.params;
+  const {userInfo} = useContext(AuthContext);
+  const flatListRef = useRef(null);
+  const otherUserInfo = participants.filter(i => i.uid !== userInfo.uid)[0];
 
   const [messages, setMessages] = useState([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'messages'), orderBy('timestamp', 'asc'));
+    const q = query(collection(db, 'messages'), 
+    where('chatId', '==', id),
+    orderBy('timestamp', 'asc'));
     const unsubscribe = onSnapshot(q, snapshot => {
       const messagesFirestore = snapshot.docs.map(doc => ({
         id: doc.id,
         chatId: id,
         ...doc.data(),
       }));
-      console.log('zxcvz', messagesFirestore);
       
       setMessages(messagesFirestore);
     });
@@ -44,11 +45,17 @@ const ChatScreen = ({navigation, route}) => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (flatListRef?.current && messages.length > 0) {
+      flatListRef?.current.scrollToEnd({ animated: false });
+    }
+  }, []);
+
   const sendMessage = async newMessage => {
     const messageData = {
       text: newMessage,
-      senderId: user.uid,
-      senderName: user.name,
+      senderId: userInfo.uid,
+      senderName: `${userInfo.firstName} ${userInfo.lastName}`,
       timestamp: Timestamp.now(),
       chatId: id,
     };
@@ -57,7 +64,7 @@ const ChatScreen = ({navigation, route}) => {
     await updateDoc(doc(db, 'chats', id), {
         lastMessage: messageData.text,
         timestamp: messageData.timestamp,
-        unreadBy: arrayUnion(...participants.filter(uid => uid !== user.uid)),
+        unreadBy: arrayUnion(...participantIds.filter(uid => uid !== userInfo.uid)),
     });
         
   };
@@ -71,16 +78,23 @@ const ChatScreen = ({navigation, route}) => {
           style={styles.backButton}>
           <BackSolidIcon size={24} color="#333" />
         </TouchableOpacity>
-        {/* <AvatarIcon size={32} /> */}
-        <Image source={avatarUrl ? { uri: avatarUrl } : require('../../assets/images/AvatarBig.png')} style={styles.avatar} />
+        <View style={styles.userInfo}>
+
+        </View>
+        <Image source={{ uri: avatarUrl || otherUserInfo.avatarUrl }} style={styles.avatar} />
         <View style={{marginLeft: 10}}>
-          <Text style={styles.title}>{name}</Text>
+          <Text style={styles.title}>{name || otherUserInfo.name}</Text>
           <Text style={styles.subtitle}>Active 11m ago</Text>
         </View>
+        <TouchableOpacity style={styles.options} 
+          onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, ...{participants} })}>
+          <OptionIcon />
+        </TouchableOpacity>
       </View>
 
       {/* Chat Messages */}
       <FlatList
+        ref={flatListRef}
         data={messages}
         keyExtractor={(item, index) => item.id || `message-${index}`}
         renderItem={({item, index}) => {
@@ -89,8 +103,8 @@ const ChatScreen = ({navigation, route}) => {
           }
 
           const nextMsg = messages[index + 1];
-          const isMe = item?.senderId === user.uid;
-          const nextMsgIsMe = nextMsg?.senderId === user.uid;
+          const isMe = item?.senderId === userInfo.uid;
+          const nextMsgIsMe = nextMsg?.senderId === userInfo.uid;
           const showAvatar =
             !isMe &&
             (!nextMsg || nextMsgIsMe || nextMsgIsMe !== isMe);
@@ -104,6 +118,11 @@ const ChatScreen = ({navigation, route}) => {
           );
         }}
         contentContainerStyle={{paddingVertical: 10}}
+        onContentSizeChange={() => {
+        if (flatListRef?.current && messages.length > 0) {
+          flatListRef?.current.scrollToEnd({ animated: false });
+        }
+      }}
       />
 
       {/* Input */}
@@ -123,12 +142,19 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   backButton: {marginRight: 12},
+  options: {
+    width: 40,
+    height: 40,
+    marginLeft: 140
+  },
   title: {fontSize: 18, fontWeight: 'bold', color: '#000'},
   subtitle: {fontSize: 12, color: '#666', marginTop: 2},
   avatar: {
     width: 32,
     height: 32,
-    borderRadius: 24,
+    borderColor: '#539461',
+    borderWidth: 1,
+    borderRadius: 1000,
   },
 });
 

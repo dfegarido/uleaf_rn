@@ -1,5 +1,5 @@
 // firebaseHelper.js (React Native Firebase version)
-import {initializeApp, getApps, getApp} from '@react-native-firebase/app';
+import { getApp, getApps, initializeApp } from '@react-native-firebase/app';
 
 export const ensureFirebaseApp = () => {
   if (getApps().length === 0) {
