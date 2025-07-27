@@ -21,6 +21,7 @@ const ReusableActionSheet = ({
   genusOptions,
   variegationOptions,
   listingTypeOptions,
+  priceOptions,
   sortValue,
   sortChange,
   genusValue,
@@ -29,11 +30,14 @@ const ReusableActionSheet = ({
   variegationChange,
   listingTypeValue,
   listingTypeChange,
+  priceValue,
+  priceChange,
   handleSearchSubmit,
 }) => {
   const resetSelection = () => variegationChange([]);
   const resetGenusSelection = () => genusChange([]);
   const resetListingTypeSelection = () => listingTypeChange([]);
+  const resetPriceSelection = () => priceChange('');
 
   const renderSheetContent = () => {
     switch (code) {
@@ -42,14 +46,14 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'35%'}>
+            heightPercent={'40%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Sort</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
+            <View style={{flex: 1, marginBottom: 80}}>
               <RadioButton
                 options={sortOptions}
                 selected={sortValue}
@@ -58,10 +62,10 @@ const ReusableActionSheet = ({
                 optionStyle={{
                   justifyContent: 'space-between',
                   paddingHorizontal: 20,
-                  paddingBottom: 10,
+                  paddingBottom: 15,
                 }}
               />
-            </ScrollView>
+            </View>
             <View
               style={{
                 flexDirection: 'row',
@@ -78,6 +82,65 @@ const ReusableActionSheet = ({
                   alignSelf: 'stretch',
                   width: '100%',
                 }}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ActionSheet>
+        );
+      case 'PRICE':
+        return (
+          <ActionSheet
+            visible={visible}
+            onClose={onClose}
+            heightPercent={'55%'}>
+            <View style={styles.sheetTitleContainer}>
+              <Text style={styles.sheetTitle}>Price Range</Text>
+              <TouchableOpacity onPress={() => onClose(true)}>
+                <IconEx width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+            <View style={{flex: 1, marginBottom: 80}}>
+              <RadioButton
+                options={priceOptions}
+                selected={priceValue}
+                onSelect={priceChange}
+                containerStyle={{marginTop: 20}}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 15,
+                }}
+              />
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+                paddingHorizontal: 20,
+              }}>
+              <TouchableOpacity
+                onPress={resetPriceSelection}
+                style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>

@@ -1,11 +1,11 @@
 /* eslint-disable react-native/no-inline-styles */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable react/no-unstable-nested-components */
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useNavigation } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {useNavigation} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import {StyleSheet, Text, View} from 'react-native';
 
 // Import buyer screens
 import {
@@ -26,11 +26,9 @@ import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 
-import {
-  LiveBroadcastScreen,
-} from '../../screens/Live';
+import {LiveBroadcastScreen} from '../../screens/Live';
 
-import { ChatScreen, ChatSettingsScreen } from '../../screens/ChatScreen';
+
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 // Import tab icons (you can reuse existing icons or create new ones)
@@ -44,8 +42,8 @@ import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selecte
 import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
-import { ScreenCart } from '../../screens/Buyer/Cart';
-import { ScreenOrders } from '../../screens/Buyer/Orders';
+import {ScreenCart} from '../../screens/Buyer/Cart';
+import {ScreenOrders} from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -211,8 +209,8 @@ function BuyerTabs() {
       <Tab.Screen
         name="Live"
         component={LiveScreen}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
+        listeners={({navigation}) => ({
+          tabPress: e => {
             e.preventDefault();
             // Always go to BuyerLiveStreamScreen - it handles the logic internally
             navigation.navigate('BuyerLiveStreamScreen');

@@ -123,7 +123,7 @@ const ScreenSell = ({navigation}) => {
           <Text
             style={[
               globalStyles.textXLGreyDark,
-              {textAlign: 'left', paddingTop: 5},
+              {textAlign: 'left', paddingTop: 5, fontWeight: '800'},
             ]}>
             Sell a Plant
           </Text>
@@ -149,8 +149,12 @@ const ScreenSell = ({navigation}) => {
                   alignItems: 'center',
                 }}>
                 <SinglePlantIcon width={42} height={52}></SinglePlantIcon>
-                <Text style={[globalStyles.textMDAccentDark, {paddingTop: 10}]}>
-                  Single Plant
+                <Text
+                  style={[
+                    globalStyles.textMDAccentDark,
+                    {paddingTop: 10, fontWeight: '800'},
+                  ]}>
+                  Solo Stunners
                 </Text>
               </TouchableOpacity>
             </View>
@@ -168,6 +172,7 @@ const ScreenSell = ({navigation}) => {
                     globalStyles.textMDAccentDark,
                     {
                       paddingTop: 10,
+                      fontWeight: '800',
                     },
                   ]}>
                   Grower's Choice
@@ -186,7 +191,7 @@ const ScreenSell = ({navigation}) => {
               <Text
                 style={[
                   globalStyles.textMDAccentDark,
-                  {paddingTop: 10, textAlign: 'center'},
+                  {paddingTop: 10, textAlign: 'center', fontWeight: '800'},
                 ]}>
                 Wholesale
               </Text>

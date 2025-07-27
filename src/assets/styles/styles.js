@@ -157,6 +157,7 @@ export const globalStyles = StyleSheet.create({
   textXLGreyDark: {
     color: colors.greyDark,
     fontSize: fontSize.xl,
+   
   },
   textXXLGreyDark: {
     color: colors.greyDark,

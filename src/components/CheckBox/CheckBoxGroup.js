@@ -28,14 +28,14 @@ const CheckBoxGroup = ({
           key={index}
           style={[styles.optionContainer, optionStyle]}
           onPress={() => toggleSelection(opt.value)}>
-          <Text style={[globalStyles.textMDGreyDark, labelStyle]}>
-            {opt.label}
-          </Text>
           <View style={[styles.checkBox, boxStyle]}>
             {selectedValues.includes(opt.value) && (
               <View style={[styles.checked, checkStyle]} />
             )}
           </View>
+          <Text style={[globalStyles.textMDGreyDark, labelStyle]}>
+            {opt.label}
+          </Text>
         </TouchableOpacity>
       ))}
     </View>
