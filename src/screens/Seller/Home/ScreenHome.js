@@ -3,6 +3,7 @@ import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import React, {useEffect, useState, useContext} from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Modal,
@@ -264,7 +265,7 @@ const ScreenHome = ({navigation}) => {
             </View>
 
             <View style={styles.headerIcons}>
-              {userInfo.liveFlag != 'No' && (
+              {userInfo?.liveFlag != 'No' && (
                 <TouchableOpacity
                   onPress={() => navigation.navigate('LiveBroadcastScreen')}
                   style={styles.iconButton}>
@@ -275,9 +276,9 @@ const ScreenHome = ({navigation}) => {
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => navigation.navigate('ScreenProfile')}>
-                {userInfo.profileImage != '' ? (
+                {userInfo?.profileImage != '' ? (
                   <Image
-                    source={{uri: userInfo.profileImage}}
+                    source={{uri: userInfo?.profileImage}}
                     style={styles.image}
                     resizeMode="contain"
                   />

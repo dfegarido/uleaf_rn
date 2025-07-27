@@ -48,3 +48,4 @@ export {createAddressBookEntryApi} from './createAddressBookEntryApi';
 export {updateAddressBookEntryApi} from './updateAddressBookEntryApi';
 export {deleteAddressBookEntryApi} from './deleteAddressBookEntryApi';
 export {uploadProfilePhotoApi} from './uploadProfilePhotoApi';
+export {getBrowsePlantByGenusApi} from './getBrowsePlantByGenus';

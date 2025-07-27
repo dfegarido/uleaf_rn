@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import {
   View,
   Text,
@@ -46,6 +46,15 @@ import {
 import {InfoCard} from '../../../components/InfoCards';
 import ScreenWishlist from './ScreenWishlist';
 import {PlantItemCard} from '../../../components/PlantItemCard';
+import {ReusableActionSheet} from '../../../components/ReusableActionSheet';
+import {
+  getSortApi,
+  getGenusApi,
+  getVariegationApi,
+  getBrowsePlantByGenusApi,
+} from '../../../components/Api';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
 
 const countryData = [
   {
@@ -141,6 +150,266 @@ const ScreenShop = ({navigation}) => {
     }, [user]),
   );
 
+  // Filter modal state
+  const [sortOptions, setSortOptions] = useState([]);
+  const [genusOptions, setGenusOptions] = useState([]);
+  const [variegationOptions, setVariegationOptions] = useState([]);
+  const [reusableSort, setReusableSort] = useState('Newest to Oldest');
+  const [reusableGenus, setReusableGenus] = useState([]);
+  const [reusableVariegation, setReusableVariegation] = useState([]);
+  const [code, setCode] = useState(null);
+  const [showSheet, setShowSheet] = useState(false);
+
+  // Price filter state
+  const [priceOptions, setPriceOptions] = useState([
+    {label: '$0 - $20', value: '$0 - $20'},
+    {label: '$21 - $50', value: '$21 - $50'},
+    {label: '$51 - $100', value: '$51 - $100'},
+    {label: '$101 - $200', value: '$101 - $200'},
+    {label: '$201 - $500', value: '$201 - $500'},
+    {label: '$501 +', value: '$501 +'},
+  ]);
+  const [reusablePrice, setReusablePrice] = useState('');
+
+  // Dynamic genus data state
+  const [dynamicGenusData, setDynamicGenusData] = useState([]);
+  const [loadingGenusData, setLoadingGenusData] = useState(true);
+
+  // Load sort, genus, and variegation options on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        await Promise.all([
+          loadSortByData(),
+          loadGenusData(),
+          loadVariegationData(),
+          loadBrowseGenusData(),
+        ]);
+      } catch (error) {
+        console.log('Error loading filter data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Reload genus data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const reloadGenusData = async () => {
+        try {
+          await loadBrowseGenusData();
+        } catch (error) {
+          console.log('Error reloading genus data on focus:', error);
+        }
+      };
+
+      reloadGenusData();
+    }, []),
+  );
+
+  const loadSortByData = async () => {
+    // For buyer shop, use hardcoded sort options that match the UI requirements
+    const buyerSortOptions = [
+      {label: 'Newest to Oldest', value: 'Newest to Oldest'},
+      {label: 'Price Low to High', value: 'Price Low to High'},
+      {label: 'Price High to Low', value: 'Price High to Low'},
+      {label: 'Most Loved', value: 'Most Loved'},
+    ];
+
+    setSortOptions(buyerSortOptions);
+  };
+
+  const loadGenusData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getGenusApi(), 10, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load genus api');
+    }
+
+    let localGenusData = res.data.map(item => ({
+      label: item.name,
+      value: item.name,
+      genusName: item.name,
+      src: genus2,
+      id: item.id,
+      isWishlisted: false,
+      isLiked: false,
+      isViewed: false,
+      isAddedToCart: false,
+      isAddedToWishlist: false,
+    }));
+
+    setGenusOptions(localGenusData);
+  };
+
+  const loadVariegationData = async () => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const res = await retryAsync(() => getVariegationApi(), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load variegation api');
+    }
+
+    let localVariegationData = res.data.map(item => ({
+      label: item.name,
+      value: item.name,
+    }));
+
+    setVariegationOptions(localVariegationData);
+  };
+
+  const loadBrowseGenusData = async () => {
+    try {
+      setLoadingGenusData(true);
+      console.log('Starting to load browse genus data...');
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+      console.log('Network connection verified');
+
+      // Call the browse plants by genus API to get all genera with representative images
+      const browseRes = await retryAsync(
+        () => getBrowsePlantByGenusApi(),
+        3,
+        1000,
+      );
+      console.log('Browse plants API response received:', browseRes);
+
+      if (!browseRes?.success) {
+        throw new Error(
+          browseRes?.message || 'Failed to load browse genus data',
+        );
+      }
+
+      // Ensure we have genus groups data from the API
+      if (
+        !browseRes.genusGroups ||
+        !Array.isArray(browseRes.genusGroups) ||
+        browseRes.genusGroups.length === 0
+      ) {
+        throw new Error('No genus groups data received from API');
+      }
+
+      console.log('Raw genus groups data:', browseRes.genusGroups);
+
+      // Map the API response to the expected format with representative images
+      const genusImages = [
+        genus1,
+        genus2,
+        genus3,
+        genus4,
+        genus5,
+        genus6,
+        genus7,
+        genus8,
+      ];
+
+      const mappedGenusData = browseRes.genusGroups.map((genusGroup, index) => {
+        let imageSource = genusImages[index % genusImages.length]; // Fallback to static image
+
+        // Use the representative image from the API if available
+        if (genusGroup.representativeImage) {
+          imageSource = {uri: genusGroup.representativeImage};
+        }
+
+        return {
+          src: imageSource,
+          label: genusGroup.genus,
+          genusName: genusGroup.genus,
+          plantCount: genusGroup.plantCount,
+          speciesCount: genusGroup.speciesCount,
+          priceRange: genusGroup.priceRange,
+        };
+      });
+
+      console.log(
+        'Successfully loaded dynamic genus data:',
+        mappedGenusData.length,
+        'items',
+      );
+      console.log('Mapped genus data:', mappedGenusData);
+      setDynamicGenusData(mappedGenusData);
+    } catch (error) {
+      console.error('Error loading browse genus data:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+      });
+      // Don't fallback to static data - keep loading state or show error
+      setDynamicGenusData([]);
+      // You could show a user-friendly error message here
+    } finally {
+      setLoadingGenusData(false);
+    }
+  };
+
+  const handleFilterView = () => {
+    // Handle filter application here
+    if (code === 'SORT') {
+      console.log('Applied sort filter:', reusableSort);
+    } else if (code === 'PRICE') {
+      console.log('Applied price filter:', reusablePrice);
+    } else if (code === 'GENUS') {
+      console.log('Applied genus filter:', reusableGenus);
+    } else if (code === 'VARIEGATION') {
+      console.log('Applied variegation filter:', reusableVariegation);
+    }
+    setShowSheet(false);
+  };
+
+  const onPressFilter = pressCode => {
+    setCode(pressCode);
+    setShowSheet(true);
+  };
+
+  const onGenusPress = async genusName => {
+    console.log('Genus pressed:', genusName);
+    try {
+      // Fetch plants for this specific genus using the browse API
+      const browseRes = await getBrowsePlantByGenusApi(genusName);
+      console.log(`Plants for ${genusName}:`, browseRes);
+
+      if (browseRes?.success && browseRes.genusGroups) {
+        // Find the specific genus group
+        const genusGroup = browseRes.genusGroups.find(
+          group => group.genus.toLowerCase() === genusName.toLowerCase(),
+        );
+
+        if (genusGroup) {
+          console.log(`Found genus group for ${genusName}:`, genusGroup);
+          // Navigate to a filtered view with the genus data
+          // For example: navigation.navigate('FilteredPlants', {
+          //   genus: genusName,
+          //   genusGroup: genusGroup
+          // });
+        } else {
+          console.log(`No genus group found for ${genusName}`);
+        }
+      } else {
+        console.log(`No data found for ${genusName}`);
+      }
+    } catch (error) {
+      console.error(`Error fetching plants for ${genusName}:`, error);
+    }
+  };
+
+  const retryLoadGenusData = () => {
+    console.log('Retrying to load genus data...');
+    loadBrowseGenusData();
+  };
+
   const filterOptions = [
     {label: 'Sort', leftIcon: SortIcon},
     {label: 'Price', rightIcon: DownIcon},
@@ -176,45 +445,6 @@ const ScreenShop = ({navigation}) => {
     {
       src: event2,
       label: 'Deals, Rewards & News',
-    },
-  ];
-
-  const genusData = [
-    {
-      src: genus1,
-      label: 'Alocasia',
-    },
-    {
-      src: genus2,
-      label: 'Anthurium',
-    },
-    {
-      src: genus3,
-      label: 'Begonia',
-    },
-    {
-      src: genus4,
-      label: 'Hoya',
-    },
-    {
-      src: genus5,
-      label: 'Monstera',
-    },
-    {
-      src: genus6,
-      label: 'Scindapsus',
-    },
-    {
-      src: genus7,
-      label: 'Syngonium',
-    },
-    {
-      src: genus8,
-      label: 'Philodendron',
-    },
-    {
-      src: genus1,
-      label: 'Others',
     },
   ];
 
@@ -261,8 +491,19 @@ const ScreenShop = ({navigation}) => {
             paddingHorizontal: 10,
           }}>
           {filterOptions.map((option, idx) => (
-            <View
+            <TouchableOpacity
               key={option.label}
+              onPress={() => {
+                if (option.label === 'Sort') {
+                  onPressFilter('SORT');
+                } else if (option.label === 'Price') {
+                  onPressFilter('PRICE');
+                } else if (option.label === 'Genus') {
+                  onPressFilter('GENUS');
+                } else if (option.label === 'Variegation') {
+                  onPressFilter('VARIEGATION');
+                }
+              }}
               style={{
                 borderRadius: 12,
                 borderWidth: 1,
@@ -279,7 +520,9 @@ const ScreenShop = ({navigation}) => {
                   style={{marginRight: 4}}
                 />
               )}
-              <Text>{option.label}</Text>
+              <Text style={{fontSize: 14, fontWeight: '500', color: '#393D40'}}>
+                {option.label}
+              </Text>
               {option.rightIcon && (
                 <option.rightIcon
                   width={20}
@@ -287,7 +530,7 @@ const ScreenShop = ({navigation}) => {
                   style={{marginLeft: 4}}
                 />
               )}
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
@@ -395,35 +638,108 @@ const ScreenShop = ({navigation}) => {
             paddingHorizontal: 12,
             marginTop: 10,
           }}>
-          {genusData.map((item, idx) => (
+          {loadingGenusData ? (
+            // Loading state
+            Array.from({length: 9}).map((_, idx) => (
+              <View
+                key={idx}
+                style={{
+                  width: '30%',
+                  marginBottom: 18,
+                  alignItems: 'center',
+                }}>
+                <View
+                  style={{
+                    width: 110,
+                    height: 110,
+                    borderRadius: 12,
+                    marginBottom: 6,
+                    backgroundColor: '#f0f0f0',
+                  }}
+                />
+                <View
+                  style={{
+                    width: 60,
+                    height: 14,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                  }}
+                />
+              </View>
+            ))
+          ) : dynamicGenusData.length > 0 ? (
+            // Show dynamic data from API
+            dynamicGenusData.map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={{
+                  width: '30%',
+                  marginBottom: 18,
+                  alignItems: 'center',
+                }}
+                onPress={() => onGenusPress(item.genusName)}>
+                <Image
+                  source={item.src}
+                  style={{
+                    width: 110,
+                    height: 110,
+                    borderRadius: 12,
+                    marginBottom: 6,
+                  }}
+                  resizeMode="cover"
+                  onError={() => {
+                    console.log(`Failed to load image for ${item.label}`);
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '800',
+                    color: '#393D40',
+                    textAlign: 'center',
+                    textTransform: 'capitalize',
+                  }}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            // Show error state when no data is available
             <View
-              key={idx}
               style={{
-                width: '30%',
-                marginBottom: 18,
+                width: '100%',
+                padding: 20,
                 alignItems: 'center',
               }}>
-              <Image
-                source={item.src}
-                style={{
-                  width: 110,
-                  height: 110,
-                  borderRadius: 12,
-                  marginBottom: 6,
-                }}
-                resizeMode="cover"
-              />
               <Text
                 style={{
-                  fontSize: 14,
-                  fontWeight: '500',
-                  color: '#393D40',
+                  fontSize: 16,
+                  color: '#666',
                   textAlign: 'center',
+                  marginBottom: 15,
                 }}>
-                {item.label}
+                Unable to load genus data. Please check your connection and try
+                again.
               </Text>
+              <TouchableOpacity
+                onPress={retryLoadGenusData}
+                style={{
+                  backgroundColor: '#539461',
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                }}>
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: '600',
+                  }}>
+                  Retry
+                </Text>
+              </TouchableOpacity>
             </View>
-          ))}
+          )}
         </View>
         <Text
           style={{
@@ -514,6 +830,26 @@ const ScreenShop = ({navigation}) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Sort Filter Modal */}
+      <ReusableActionSheet
+        code={code}
+        visible={showSheet}
+        onClose={() => setShowSheet(false)}
+        sortOptions={sortOptions}
+        genusOptions={genusOptions}
+        variegationOptions={variegationOptions}
+        priceOptions={priceOptions}
+        sortValue={reusableSort}
+        sortChange={setReusableSort}
+        genusValue={reusableGenus}
+        genusChange={setReusableGenus}
+        variegationValue={reusableVariegation}
+        variegationChange={setReusableVariegation}
+        priceValue={reusablePrice}
+        priceChange={setReusablePrice}
+        handleSearchSubmit={handleFilterView}
+      />
     </>
   );
 };
