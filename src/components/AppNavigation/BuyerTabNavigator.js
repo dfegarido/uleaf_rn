@@ -8,6 +8,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 // Import buyer screens
+import {
+  BuyerLiveStreamScreen,
+} from '../../screens/Buyer/Live';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
@@ -22,14 +25,12 @@ import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
-import {
-  BuyerLiveStreamScreen,
-} from '../../screens/Buyer/Live';
 
 import {
   LiveBroadcastScreen,
 } from '../../screens/Live';
 
+import { ChatScreen, ChatSettingsScreen } from '../../screens/ChatScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 // Import tab icons (you can reuse existing icons or create new ones)
@@ -222,6 +223,12 @@ function BuyerTabs() {
       <Tab.Screen name="Shop" component={ScreenShop} />
       <Tab.Screen name="Orders" component={ScreenOrders} />
       <Tab.Screen
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('MessagesScreen');
+          },
+        })}
         name="Chat"
         component={MessagesScreen}
       />

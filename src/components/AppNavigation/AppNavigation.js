@@ -13,12 +13,13 @@ import {
 import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
-import {ChatScreen} from '../../screens/ChatScreen';
+import { ChatScreen } from '../../screens/ChatScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 import {LiveBroadcastScreen} from '../../screens/Live';
 
+import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
 import {
   ScreenLogin,
   ScreenLoginForm,
@@ -68,7 +69,6 @@ import {
   ScreenSignupActivationCodeNext,
   ScreenSignupNext,
 } from '../../screens/Singup';
-import {ScreenTerms, ScreenPrivacy} from '../../screens/Legal';
 
 import DeliveryIconSelected from '../../assets/icontabs/box-solid.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';

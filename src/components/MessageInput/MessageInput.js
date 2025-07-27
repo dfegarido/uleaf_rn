@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
+import AttachIcon from '../../assets/iconchat/attach.svg';
 
 const MessageInput = ({onSend}) => {
   const [message, setMessage] = useState('');
@@ -28,7 +28,7 @@ const MessageInput = ({onSend}) => {
               setMessage('');
             }
           }}>
-          <EmailIcon size={20} />
+          <AttachIcon />
         </TouchableOpacity>
       </View>
     </View>
