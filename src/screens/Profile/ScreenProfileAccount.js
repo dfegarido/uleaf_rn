@@ -267,7 +267,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
                 <Image
                   source={{uri: images[0]}}
                   style={styles.image}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
               ) : (
                 // Show default image

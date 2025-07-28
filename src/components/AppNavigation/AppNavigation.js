@@ -13,13 +13,13 @@ import {
 import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
-import { ChatScreen } from '../../screens/ChatScreen';
+import {ChatScreen} from '../../screens/ChatScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 import {LiveBroadcastScreen} from '../../screens/Live';
 
-import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
+import {ScreenPrivacy, ScreenTerms} from '../../screens/Legal';
 import {
   ScreenLogin,
   ScreenLoginForm,
@@ -53,6 +53,7 @@ import {
   ScreenListing,
   ScreenListingAction,
   ScreenListingDetail,
+  ScreenSearchListing,
 } from '../../screens/Seller/Listing/';
 import ScreenOrder from '../../screens/Seller/Order/ScreenOrder';
 import {
@@ -605,6 +606,12 @@ const MainStack = () => {
       <Stack.Screen
         name="ScreenListingDetail"
         component={ScreenListingDetail}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
+        name="ScreenSearchListing"
+        component={ScreenSearchListing}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
 

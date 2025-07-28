@@ -257,12 +257,33 @@ const ScreenHome = ({navigation}) => {
         {/* Search and Icons */}
         <View style={styles.stickyHeader}>
           <View style={styles.header}>
-            <View style={{flex: 1}}>
-              <InputGroupLeftIcon
+            <TouchableOpacity
+              style={{flex: 1}}
+              onPress={() => navigation.navigate('ScreenSearchListing')}>
+              {/* <InputGroupLeftIcon
                 IconLeftComponent={SearchIcon}
                 placeholder={'Search ileafU'}
-              />
-            </View>
+              /> */}
+              <View
+                style={{
+                  justifyContent: 'center',
+                  // alignItems: 'center',
+                  borderColor: '#ccc',
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  paddingHorizontal: 10,
+                  height: 48,
+                  backgroundColor: '#fff',
+                }}>
+                <View style={{flexDirection: 'row'}}>
+                  <SearchIcon width={20} height={20} />
+                  <Text
+                    style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
+                    Search ileafU
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.headerIcons}>
               {userInfo?.liveFlag != 'No' && (
@@ -280,7 +301,7 @@ const ScreenHome = ({navigation}) => {
                   <Image
                     source={{uri: userInfo?.profileImage}}
                     style={styles.image}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 ) : (
                   <AvatarIcon width={40} height={40} />
