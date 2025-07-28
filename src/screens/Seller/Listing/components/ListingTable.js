@@ -341,7 +341,10 @@ const ListingTable = ({
               } else {
                 const localPrice = parseSafeFloat(listing?.localPrice);
                 const localPriceNew = isNonEmpty(listing?.localPriceNew)
-                  ? parseSafeFloat(listing?.localPriceNew)
+                  ? parseSafeFloat(listing.localPriceNew) !=
+                    parseSafeFloat(listing.localPrice)
+                    ? parseSafeFloat(listing.localPriceNew)
+                    : 0
                   : 0;
                 // console.log('Single: ' + JSON.stringify(listing?));
                 totalLocalPrice = localPrice;

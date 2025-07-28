@@ -320,7 +320,7 @@ const ScreenOrder = ({navigation}) => {
                 <Image
                   source={{uri: userInfo.profileImage}}
                   style={styles.image}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
               ) : (
                 <AvatarIcon width={40} height={40} />
