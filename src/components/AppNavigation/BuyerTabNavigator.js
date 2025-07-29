@@ -138,6 +138,12 @@ function BuyerTabNavigator() {
         component={ChatScreen}
         options={{headerShown: false}}
       />
+
+      <Stack.Screen
+        name="MessagesScreen"
+        component={MessagesScreen}
+        options={{headerShown: false}}
+      />
     </Stack.Navigator>
   );
 }

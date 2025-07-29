@@ -21,29 +21,68 @@ import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
 
 const ChatScreen = ({navigation, route}) => {
-  const { avatarUrl, name, id, participantIds, participants } = route.params;
+  const { avatarUrl, name, id, participantIds = [], participants = [] } = route.params || {};
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
-  const otherUserInfo = participants.filter(i => i.uid !== userInfo.uid)[0];
+  
+  // Make sure participants is an array and has at least one element
+  const otherUserInfo = Array.isArray(participants) && participants.length > 0
+    ? participants.find(p => p.uid !== userInfo?.uid) || participants[0]
+    : null;
 
   const [messages, setMessages] = useState([]);
 
-  useEffect(() => {
-    const q = query(collection(db, 'messages'), 
-    where('chatId', '==', id),
-    orderBy('timestamp', 'asc'));
-    const unsubscribe = onSnapshot(q, snapshot => {
-      const messagesFirestore = snapshot.docs.map(doc => ({
-        id: doc.id,
-        chatId: id,
-        ...doc.data(),
-      }));
-      
-      setMessages(messagesFirestore);
-    });
+  // Helper function for safe avatar display
+  const getAvatarSource = () => {
+    // Always use the default local image for now
+    return require('../../assets/images/AvatarBig.png');
+  };
 
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => {
+    if (!id) {
+      console.error('No chat ID provided');
+      return () => {};
+    }
+    
+    try {
+      const q = query(
+        collection(db, 'messages'), 
+        where('chatId', '==', id),
+        orderBy('timestamp', 'asc')
+      );
+      
+      const unsubscribe = onSnapshot(q, 
+        snapshot => {
+          try {
+            const messagesFirestore = snapshot.docs.map(doc => ({
+              id: doc.id,
+              chatId: id,
+              ...doc.data(),
+            }));
+            
+            setMessages(messagesFirestore);
+            
+            // Scroll to bottom when new messages are loaded
+            setTimeout(() => {
+              if (flatListRef?.current && messagesFirestore.length > 0) {
+                flatListRef?.current.scrollToEnd({ animated: false });
+              }
+            }, 200);
+          } catch (error) {
+            console.error('Error processing message data:', error);
+          }
+        },
+        error => {
+          console.error('Error getting messages:', error);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up messages listener:', error);
+      return () => {};
+    }
+  }, [id]);
 
   useEffect(() => {
     if (flatListRef?.current && messages.length > 0) {
@@ -52,21 +91,44 @@ const ChatScreen = ({navigation, route}) => {
   }, []);
 
   const sendMessage = async newMessage => {
-    const messageData = {
-      text: newMessage,
-      senderId: userInfo.uid,
-      senderName: `${userInfo.firstName} ${userInfo.lastName}`,
-      timestamp: Timestamp.now(),
-      chatId: id,
-    };
+    try {
+      if (!newMessage || !newMessage.trim()) {
+        console.log('Cannot send empty message');
+        return;
+      }
+      
+      if (!id) {
+        console.error('No chat ID found');
+        return;
+      }
+      
+      // Create message data
+      const messageData = {
+        text: newMessage,
+        senderId: userInfo?.uid,
+        senderName: userInfo ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim() : 'User',
+        timestamp: Timestamp.now(),
+        chatId: id,
+      };
 
-    await addDoc(collection(db, 'messages'), messageData);
-    await updateDoc(doc(db, 'chats', id), {
+      // Add message to collection
+      await addDoc(collection(db, 'messages'), messageData);
+      
+      // Get participant IDs to mark as unread, ensuring valid array
+      let unreadParticipants = [];
+      if (Array.isArray(participantIds) && participantIds.length > 0) {
+        unreadParticipants = participantIds.filter(uid => uid && uid !== userInfo?.uid);
+      }
+      
+      // Update chat with last message
+      await updateDoc(doc(db, 'chats', id), {
         lastMessage: messageData.text,
         timestamp: messageData.timestamp,
-        unreadBy: arrayUnion(...participantIds.filter(uid => uid !== userInfo.uid)),
-    });
-        
+        ...(unreadParticipants.length > 0 ? { unreadBy: arrayUnion(...unreadParticipants) } : {})
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   return (
@@ -79,12 +141,14 @@ const ChatScreen = ({navigation, route}) => {
           <BackSolidIcon size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.userInfo}>
-
-        </View>
-        <Image source={{ uri: avatarUrl || otherUserInfo.avatarUrl }} style={styles.avatar} />
-        <View style={{marginLeft: 10}}>
-          <Text style={styles.title}>{name || otherUserInfo.name}</Text>
-          <Text style={styles.subtitle}>Active 11m ago</Text>
+          <Image 
+            source={getAvatarSource()}
+            style={styles.avatar}
+          />
+          <View style={styles.userInfoText}>
+            <Text style={styles.title}>{otherUserInfo?.name || name || "Chat"}</Text>
+            <Text style={styles.subtitle}>Active now</Text>
+          </View>
         </View>
         <TouchableOpacity style={styles.options} 
           onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, ...{participants} })}>
@@ -119,10 +183,17 @@ const ChatScreen = ({navigation, route}) => {
         }}
         contentContainerStyle={{paddingVertical: 10}}
         onContentSizeChange={() => {
-        if (flatListRef?.current && messages.length > 0) {
-          flatListRef?.current.scrollToEnd({ animated: false });
-        }
-      }}
+          setTimeout(() => {
+            if (flatListRef?.current && messages.length > 0) {
+              flatListRef?.current.scrollToEnd({ animated: true });
+            }
+          }, 100);
+        }}
+        onLayout={() => {
+          if (flatListRef?.current && messages.length > 0) {
+            flatListRef?.current.scrollToEnd({ animated: false });
+          }
+        }}
       />
 
       {/* Input */}
@@ -141,11 +212,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#ddd',
   },
-  backButton: {marginRight: 12},
+  backButton: {
+    marginRight: 12,
+  },
+  userInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userInfoText: {
+    marginLeft: 10,
+  },
   options: {
     width: 40,
     height: 40,
-    marginLeft: 140
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {fontSize: 18, fontWeight: 'bold', color: '#000'},
   subtitle: {fontSize: 12, color: '#666', marginTop: 2},
