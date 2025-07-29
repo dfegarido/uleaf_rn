@@ -1,8 +1,11 @@
-import { addDoc, arrayRemove, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
+
+// Pre-load and cache the default avatar image to prevent RCTImageView errors
+const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 import CreateChat from '../../assets/iconchat/new-chat.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
@@ -51,52 +54,124 @@ const MessagesScreen = ({navigation}) => {
   const createChat = async user => {
     setLoading(true);
     setModalVisible(false);
-    let chatData = {
-      participants: [
-        { uid: userInfo.uid, avatarUrl: userInfo.profilePhotoUrl, name: userFullName },
-        { uid: user.uid, avatarUrl: user.avatarUrl, name: user.name }
-      ],
-      participantIds: [userInfo.uid, user.uid],
-      lastMessage: '',
-      timestamp: new Date(),
-      unreadBy: [user.uid],
-      avatarUrl: '',
-      name: '',
-      type: 'private',
-    }
-    const addChat = await addDoc(collection(db, 'chats'), chatData);
-
-    const docRef = doc(db, 'chats', addChat.id);
-    const docSnap = await getDoc(docRef);
-    chatData = {};
-    if (docSnap.exists()) {
-      chatData = { id: docSnap.id, ...docSnap.data() };
+    
+    try {
+      // Validate user data before proceeding
+      if (!user || !user.uid) {
+        throw new Error('Invalid user data');
+      }
+      
+      // Ensure userInfo exists
+      if (!userInfo || !userInfo.uid) {
+        throw new Error('Your user profile is not available');
+      }
+      // First check if a chat already exists with this user
+      const existingChatQuery = query(
+        collection(db, 'chats'),
+        where('participantIds', 'array-contains', userInfo.uid)
+      );
+      
+      const existingChatsSnapshot = await getDocs(existingChatQuery);
+      let existingChat = null;
+      
+      existingChatsSnapshot.forEach(doc => {
+        const chatData = doc.data();
+        if (chatData.participantIds.includes(user.uid)) {
+          existingChat = { id: doc.id, ...chatData };
+        }
+      });
+      
+      // If chat exists, navigate to it
+      if (existingChat) {
+        setLoading(false);
+        navigation.navigate('ChatScreen', existingChat);
+        return;
+      }
+      
+      // Otherwise create a new chat
+      // First make sure we have valid data for all required fields
+      const currentUserAvatar = userInfo.profilePhotoUrl || '';
+      const otherUserAvatar = user.avatarUrl || '';
+      
+      let chatData = {
+        participants: [
+          { 
+            uid: userInfo.uid || '', 
+            avatarUrl: currentUserAvatar || '', // Ensure empty string if null/undefined
+            name: userFullName || 'User' 
+          },
+          { 
+            uid: user.uid || '', 
+            avatarUrl: otherUserAvatar || '', // Ensure empty string if null/undefined
+            name: user.name || 'Contact' 
+          }
+        ],
+        participantIds: [userInfo.uid, user.uid].filter(Boolean), // Remove any undefined/null values
+        lastMessage: '',
+        timestamp: new Date(),
+        unreadBy: [user.uid].filter(Boolean), // Remove any undefined/null values
+        avatarUrl: '',
+        name: '',
+        type: 'private',
+      }
+      
+      console.log('Creating new chat with data:', JSON.stringify(chatData));
+      
+      try {
+        const addChat = await addDoc(collection(db, 'chats'), chatData);
+        console.log('Chat created with ID:', addChat.id);
+        
+        const docRef = doc(db, 'chats', addChat.id);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const newChatData = { id: docSnap.id, ...docSnap.data() };
+          navigation.navigate('ChatScreen', newChatData);
+        } else {
+          throw new Error('Failed to get created chat document');
+        }
+      } catch (firestoreError) {
+        console.error('Firestore error:', firestoreError);
+        Alert.alert(
+          'Error', 
+          'Failed to create chat. There might be an issue with the user data.'
+        );
+      }
+    } catch (error) {
+      console.error('Error creating chat:', error);
+      Alert.alert('Error', 'Failed to create chat. Please try again.');
+    } finally {
       setLoading(false);
-      navigation.navigate('ChatScreen', chatData);
     }
   }
 
   const renderItem = ({ item }) => {
-    const otherUserInfo = item.participants.filter(i => i.uid !== userInfo.uid)[0];
+    // Add null check to handle potential undefined participants
+    const participants = item.participants || [];
+    const otherUserInfo = participants.find(p => p.uid !== userInfo.uid) || {};
     return (
       <TouchableOpacity
         style={styles.chatItem}
         onPress={() => markChatAsRead(item)}
       >
-        <Image source={{ 
-          uri: (item.avatarUrl || otherUserInfo.avatarUrl) }} style={styles.avatar} />
+        <Image 
+          source={DefaultAvatar}
+          style={styles.avatar} 
+        />
         <View style={styles.chatContent}>
           <View style={styles.chatHeader}>
             <View style={styles.chatSubHeader}>
-              <Text style={styles.chatName}>{item.name || otherUserInfo.name}</Text>
-              <Text style={[item.unreadBy.includes(userInfo.uid) ? styles.unreadChatTime : styles.chatTime]}>{moment(item.timestamp.toDate()).fromNow()}</Text>
+              <Text style={styles.chatName}>{item.name || (otherUserInfo && otherUserInfo.name) || 'Unknown'}</Text>
+              <Text style={[item.unreadBy && item.unreadBy.includes(userInfo.uid) ? styles.unreadChatTime : styles.chatTime]}>
+                {item.timestamp ? moment(item.timestamp.toDate()).fromNow() : ''}
+              </Text>
             </View>
             <View style={styles.timeContainer}>
-              {item.unreadBy.includes(userInfo.uid) && <View style={styles.unreadDot} />}
+              {item.unreadBy && item.unreadBy.includes(userInfo.uid) && <View style={styles.unreadDot} />}
             </View>
           </View>
-          <Text numberOfLines={1} style={[item.unreadBy.includes(userInfo.uid) ? styles.unreadChatMessage : styles.chatMessage]}>
-            {item.lastMessage}
+          <Text numberOfLines={1} style={[item.unreadBy && item.unreadBy.includes(userInfo.uid) ? styles.unreadChatMessage : styles.chatMessage]}>
+            {item.lastMessage || ''}
           </Text>
         </View>
       </TouchableOpacity>
@@ -105,13 +180,6 @@ const MessagesScreen = ({navigation}) => {
 
   return (
     <View style={styles.container}>
-      {loading && (
-              <Modal transparent animationType="fade">
-                <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="large" color="#699E73" />
-                </View>
-              </Modal>
-      )}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <BackSolidIcon />
@@ -128,6 +196,13 @@ const MessagesScreen = ({navigation}) => {
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
       />
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#539461" />
+          <Text style={styles.loadingText}>Creating chat...</Text>
+        </View>
+      )}
 
       <NewMessageModal
         visible={modalVisible}
@@ -222,10 +297,21 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    color: '#fff',
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
