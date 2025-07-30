@@ -26,6 +26,7 @@ import ConfirmPublishNursery from './components/ConfirmPublishNursery';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
+import {formatDateMonthDayYear} from '../../../utils/formatDateMonthDayYear';
 
 import {
   postListingPublishNowActionApi,
@@ -534,19 +535,25 @@ const ScreenListingDetail = ({navigation, route}) => {
             <View>
               <Text style={globalStyles.textSMGreyLight}>Created</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {listingData?.createdAt ?? 'No Data'}
+                {listingData?.createdAtFormatted
+                  ? formatDateMonthDayYear(listingData.createdAtFormatted)
+                  : 'No Data'}
               </Text>
             </View>
             <View>
               <Text style={globalStyles.textSMGreyLight}>Published</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {listingData?.publishDate ?? 'No Data'}
+                {listingData?.publishDateFormatted
+                  ? formatDateMonthDayYear(listingData.publishDateFormatted)
+                  : 'No Data'}
               </Text>
             </View>
             <View>
               <Text style={globalStyles.textSMGreyLight}>Modified</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {listingData?.updatedAt ?? 'No Data'}
+                {listingData?.updatedAtFormatted
+                  ? formatDateMonthDayYear(listingData.updatedAtFormatted)
+                  : 'No Data'}
               </Text>
             </View>
           </View>

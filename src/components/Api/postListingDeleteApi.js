@@ -6,6 +6,10 @@ export const postListingDeleteApi = async plantCodes => {
     const params = new URLSearchParams();
     params.append('plantCode', plantCodes);
 
+    console.log(
+      `https://deletelistingbyplantcode-nstilwgvua-uc.a.run.app?${params.toString()}`,
+    );
+
     const response = await fetch(
       `https://deletelistingbyplantcode-nstilwgvua-uc.a.run.app?${params.toString()}`,
       {
