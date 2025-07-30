@@ -25,6 +25,7 @@ import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
+import CheckoutScreen from '../../screens/Buyer/Checkout/CheckoutScreen';
 
 import {LiveBroadcastScreen} from '../../screens/Live';
 
@@ -59,6 +60,11 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="ScreenWishlist"
         component={ScreenWishlist}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="CheckoutScreen"
+        component={CheckoutScreen}
         options={{headerShown: false}}
       />
       <Stack.Screen
@@ -223,7 +229,13 @@ function BuyerTabs() {
           },
         })}
       />
-      <Tab.Screen name="Cart" component={ScreenCart} />
+      <Tab.Screen 
+        name="Cart" 
+        component={ScreenCart}
+        options={{
+          tabBarStyle: { display: 'none' }
+        }}
+      />
       <Tab.Screen name="Shop" component={ScreenShop} />
       <Tab.Screen name="Orders" component={ScreenOrders} />
       <Tab.Screen

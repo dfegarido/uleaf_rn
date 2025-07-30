@@ -10,9 +10,11 @@ import {
   Text,
 } from 'react-native';
 import SearchIcon from '../../../assets/iconnav/search.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import {useNavigation} from '@react-navigation/native';
+import CartBar from '../../../components/CartBar';
 
 import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
 import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
@@ -36,9 +38,18 @@ const CartHeader = () => {
 
   const [searchText, setSearchText] = useState('');
   const navigation = useNavigation();
+  
   return (
     <View style={styles.header}>
       <View style={styles.controls}>
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.navigate('Shop')}>
+          <BackIcon width={24} height={24} />
+        </TouchableOpacity>
+
+        {/* Search */}
         <View style={styles.searchContainer}>
           <View style={styles.searchField}>
             <View style={styles.textField}>
@@ -55,14 +66,18 @@ const CartHeader = () => {
             </View>
           </View>
         </View>
-        <View style={styles.headerIcons}>
+
+        {/* Wishlist Action */}
           <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate('')}>
-            <Wishicon width={40} height={40} />
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Wishlist')}>
+          <Wishicon width={24} height={24} />
           </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.profileContainer}>
+
+        {/* Profile */}
+        <TouchableOpacity 
+          style={styles.profileContainer}
+          onPress={() => navigation.navigate('ScreenProfile')}>
           <View style={styles.avatar}>
             <AvatarIcon width={32} height={32} />
             <View style={styles.badge}>
@@ -71,6 +86,7 @@ const CartHeader = () => {
           </View>
         </TouchableOpacity>
       </View>
+      
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -153,13 +169,14 @@ const cartItems = Array.from({length: 10}).map((_, i) => ({
   image: require('../../../assets/images/plant1.png'),
   name: 'Spinacia Oleracea',
   subtitle: 'Inner Variegated • 2"',
-  price: '65.27',
+  price: 65.27,
   flightInfo: 'Plant Flight May-30',
   shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
   flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
 }));
 
 const ScreenCart = () => {
+  const navigation = useNavigation();
   const [selectedItems, setSelectedItems] = useState(new Set());
 
   const toggleItemSelection = itemId => {
@@ -172,6 +189,56 @@ const ScreenCart = () => {
       }
       return newSet;
     });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === cartItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(cartItems.map(item => item.id)));
+    }
+  };
+
+  const calculateTotalAmount = () => {
+    return cartItems
+      .filter(item => selectedItems.has(item.id))
+      .reduce((total, item) => total + item.price, 0);
+  };
+
+  const calculateDiscountAmount = () => {
+    // Example discount calculation - 10% off if more than 3 items selected
+    const selectedCount = selectedItems.size;
+    if (selectedCount > 3) {
+      return calculateTotalAmount() * 0.1;
+    }
+    return 0;
+  };
+
+  const handleCheckout = () => {
+    const selectedCartItems = cartItems.filter(item => 
+      selectedItems.has(item.id)
+    );
+    
+    // Navigate to checkout screen with selected items
+    navigation.navigate('CheckoutScreen', {
+      cartItems: selectedCartItems,
+      productData: selectedCartItems,
+      useCart: false, // Use false since we're passing mock data, not backend cart
+      totalAmount: calculateTotalAmount(),
+      discountAmount: calculateDiscountAmount(),
+    });
+  };
+
+  const removeItem = (itemId) => {
+    // Remove item from selectedItems if it was selected
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(itemId);
+      return newSet;
+    });
+    
+    // Here you would also remove from cartItems array
+    // For now, we'll just handle the selection state
   };
 
   return (
@@ -187,16 +254,25 @@ const ScreenCart = () => {
             image={item.image}
             name={item.name}
             subtitle={item.subtitle}
-            price={item.price}
+            price={item.price.toFixed(2)}
             flightInfo={item.flightInfo}
             shippingInfo={item.shippingInfo}
             flagIcon={item.flagIcon}
             checked={selectedItems.has(item.id)}
-            onRemove={() => {}}
+            onRemove={() => removeItem(item.id)}
             onPress={() => toggleItemSelection(item.id)}
           />
         ))}
       </ScrollView>
+      
+      <CartBar
+        isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
+        onSelectAllToggle={toggleSelectAll}
+        selectedItemsCount={selectedItems.size}
+        totalAmount={calculateTotalAmount()}
+        discountAmount={calculateDiscountAmount()}
+        onCheckoutPress={handleCheckout}
+      />
     </View>
   );
 };
@@ -230,14 +306,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 58,
   },
+  backButton: {
+    width: 24,
+    height: 24,
+    flex: 0,
+  },
   searchContainer: {
-    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 209,
     height: 40,
+    flex: 1,
   },
   searchField: {
     width: '100%',
     height: 40,
     justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    flex: 0,
   },
   textField: {
     flexDirection: 'row',
@@ -245,55 +336,84 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     gap: 8,
+    width: '100%',
+    height: 40,
+    minHeight: 34,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
+  },
+  searchInput: {
+    width: 145,
+    height: 22,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#647276',
+    flex: 1,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    paddingVertical: 0,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    width: 40,
     height: 40,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#202325',
-    textAlignVertical: 'center',
-    includeFontPadding: false,
-    paddingVertical: 0,
+    flex: 0,
   },
   profileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
     width: 40,
     height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
+    flex: 0,
   },
   avatar: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
     width: 32,
+    minWidth: 32,
     height: 32,
+    minHeight: 32,
     borderRadius: 1000,
     position: 'relative',
+    flex: 0,
   },
   badge: {
     position: 'absolute',
     top: -2,
-    left: -2,
+    right: -2,
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 0,
+    zIndex: 1,
   },
   badgeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 50,
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    left: 1,
+    top: 1,
     backgroundColor: '#E7522F',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    borderRadius: 4,
   },
   cartCard: {
     backgroundColor: '#F5F6F6',
