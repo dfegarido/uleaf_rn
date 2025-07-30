@@ -1,51 +1,168 @@
-import React from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Close from '../../assets/iconchat/close';
-import Search from '../../assets/iconchat/search.svg';
+import React, { useState, useEffect } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const users = [
-  { id: 1, name: 'Jane Smith', avatarUrl: 'https://randomuser.me/api/portraits/women/1.jpg', uid: '1VVqQit6TSR4sBAqCpIKO05VYCB3' },
-  { id: 2, name: 'Ahmad Bading', avatarUrl: 'https://randomuser.me/api/portraits/women/2.jpg', uid: '4DKf9W6njbUjywJ7knOroIVSC3A3' },
-  { id: 3, name: 'Robert Baldoza', avatarUrl: 'https://randomuser.me/api/portraits/men/3.jpg', uid: 'IxsO07FVxxYE5pw944YTEkBt0666' },
-  { id: 4, name: 'John Doe', avatarUrl: 'https://randomuser.me/api/portraits/men/4.jpg', uid: 'IxsO07FVxxYE5pw944YTEkBt0777' },
-  { id: 5, name: 'Alyssa Navarro', avatarUrl: 'https://randomuser.me/api/portraits/women/5.jpg', uid: 'IxsO07FVxxYE5pw944YTEkBt0888' },
-];
+// Pre-load and cache the avatar image to prevent RCTImageView errors
+const AvatarImage = require('../../assets/images/AvatarBig.png');
 
 const NewMessageModal = ({ visible, onClose, onSelect }) => {
+  const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  
+  // Fetch users when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      // Only fetch on initial visibility or when searchText is empty
+      if (users.length === 0 || !searchText.trim()) {
+        fetchUsers(searchText);
+      }
+    }
+  }, [visible]);
+  
+  // Filter users when search text changes
+  useEffect(() => {
+    // Fetch users with search query when searchText changes (with small debounce)
+    const debounceTimeout = setTimeout(() => {
+      fetchUsers(searchText);
+    }, 500); // 500ms debounce
+    
+    return () => clearTimeout(debounceTimeout);
+  }, [searchText]);
+  
+  const fetchUsers = async (query = '') => {
+    try {
+      setLoading(true);
+      
+      // Build URL with query parameter
+      const apiUrl = `https://us-central1-i-leaf-u.cloudfunctions.net/searchUser?query=${query}&userType=buyer&limit=5&offset=0`;
+      console.log('Fetching users from:', apiUrl);
+      // Make API request
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      console.log('Response status:', response);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.success && data.results) {
+        // Map API response to the expected format
+        const formattedUsers = data.results.map(user => ({
+          id: user.id,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          avatarUrl: AvatarImage, // Use pre-loaded image to avoid RCTImageView errors
+          uid: user.id,
+          email: user.email,
+          createdAt: user.createdAt
+        }));
+        
+        setUsers(formattedUsers);
+        setFilteredUsers(formattedUsers);
+        
+        // Log search results info
+        console.log(`Found ${formattedUsers.length} users for query "${query}"`);
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      Alert.alert('Error', 'Failed to load users. Please try again later.');
+      // Set empty users array to prevent issues
+      setUsers([]);
+      setFilteredUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal 
+      visible={visible} 
+      animationType="slide" 
+      transparent
+      onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modal}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>People</Text>
-            <Pressable onPress={onClose}>
-              <Close style={styles.closeIcon} />
+            <Pressable onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeIconText}>✕</Text>
             </Pressable>
           </View>
 
           {/* Search Field */}
           <View style={styles.searchBox}>
-            <Search style={styles.searchIcon} />
+            {/* Use View instead of SVG for search icon */}
+            <View style={styles.searchIconContainer}>
+              <Text style={styles.searchIconText}>🔍</Text>
+            </View>
             <TextInput
               placeholder="Search"
               placeholderTextColor="#647276"
               style={styles.searchInput}
+              value={searchText}
+              onChangeText={setSearchText}
             />
           </View>
 
           {/* List */}
-          <ScrollView contentContainerStyle={styles.userList}>
-            {users.map((user, index) => ( 
-              <TouchableOpacity onPress={() => onSelect(user)} key={user.id} style={[
-                  styles.userItem,
-                  index !== users.length - 1 && styles.userItemBorder
-                ]}>
-                <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-                <Text style={styles.userName}>{user.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#539461" />
+              <Text style={styles.loadingText}>
+                {searchText.trim() ? `Searching for "${searchText}"...` : 'Loading users...'}
+              </Text>
+            </View>
+          ) : filteredUsers.length > 0 ? (
+            <ScrollView contentContainerStyle={styles.userList}>
+              {filteredUsers.map((user, index) => ( 
+                <TouchableOpacity 
+                  onPress={() => {
+                    // Validate user data before passing to onSelect
+                    if (user && user.id) {
+                      // Make sure uid is set
+                      const validatedUser = {
+                        ...user,
+                        uid: user.uid || user.id // Ensure uid is available
+                      };
+                      console.log('Selected user:', validatedUser);
+                      onSelect(validatedUser);
+                    } else {
+                      Alert.alert('Error', 'Invalid user data. Please try again.');
+                    }
+                  }} 
+                  key={user.id || index} 
+                  style={[
+                    styles.userItem,
+                    index !== filteredUsers.length - 1 && styles.userItemBorder
+                  ]}
+                >
+                  {/* <Image 
+                    source={AvatarImage}
+                    style={styles.avatar}
+                    defaultSource={AvatarImage}
+                  /> */}
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>{user.name}</Text>
+                    {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {searchText.trim() ? `No users found for "${searchText}"` : 'No users found'}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -84,6 +201,26 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     tintColor: '#7F8D91',
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  closeIconText: {
+    fontSize: 20,
+    color: '#7F8D91',
+    fontWeight: 'bold',
+  },
+  searchIconContainer: {
+    width: 20,
+    height: 20,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchIconText: {
+    fontSize: 16,
+    color: '#7F8D91',
   },
   searchBox: {
     flexDirection: 'row',
@@ -127,10 +264,41 @@ const styles = StyleSheet.create({
     borderColor: '#539461',
     marginRight: 12,
   },
+  userInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   userName: {
     fontSize: 16,
     fontWeight: '700',
     color: '#202325',
   },
+  userEmail: {
+    fontSize: 12,
+    color: '#647276',
+    marginTop: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#647276',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#647276',
+    textAlign: 'center',
+  }
 });
 

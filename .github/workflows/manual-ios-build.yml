@@ -1,0 +1,47 @@
+name: Manual iOS Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Install Pod dependencies
+        run: cd ios && pod install
+
+      - name: Build iOS App for Simulator
+        run: |
+          xcodebuild build \
+            -workspace ios/iLeafU.xcworkspace \
+            -scheme iLeafU \
+            -sdk iphonesimulator \
+            -configuration Release \
+            -derivedDataPath ios/build
+
+      - name: Package .app file
+        run: |
+          cd ios/build/Build/Products/Release-iphonesimulator
+          zip -r iLeafU-simulator.zip iLeafU.app
+
+      - name: Upload .app Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iLeafU-simulator-app
+          path: ios/build/Build/Products/Release-iphonesimulator/iLeafU-simulator.zip
