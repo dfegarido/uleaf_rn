@@ -27,8 +27,8 @@ const ChatScreen = ({navigation, route}) => {
   
   // Make sure participants is an array and has at least one element
   const otherUserInfo = Array.isArray(participants) && participants.length > 0
-    ? participants.find(p => p.uid !== userInfo?.uid) || participants[0]
-    : null;
+    ? participants.find(p => p?.uid !== userInfo?.uid) || participants[0]
+    : {};
 
   const [messages, setMessages] = useState([]);
 
@@ -52,8 +52,13 @@ const ChatScreen = ({navigation, route}) => {
       );
       
       const unsubscribe = onSnapshot(q, 
+        { includeMetadataChanges: true },
         snapshot => {
           try {
+            // Check if data is from cache or server
+            const source = snapshot.metadata.fromCache ? "cache" : "server";
+            console.log(`Chat messages came from ${source}`);
+            
             const messagesFirestore = snapshot.docs.map(doc => ({
               id: doc.id,
               chatId: id,

@@ -8,3 +8,28 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# Hermes
+-keep class com.facebook.hermes.unicode.** { *; }
+-keep class com.facebook.jni.** { *; }
+
+# Firebase
+-keep class com.google.firebase.** { *; }
+-keep class io.invertase.firebase.** { *; }
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keep public class * extends java.lang.Exception
+
+# React Native
+-keep class com.facebook.react.** { *; }
+
+# Keep ReactNative-SvgTransformer
+-keep class com.horcrux.svg.** { *; }
+
+# Keep native methods
+-keepclassmembers class * {
+    native <methods>;
+}
+
+# Preserve annotation attributes
+-keepattributes *Annotation*

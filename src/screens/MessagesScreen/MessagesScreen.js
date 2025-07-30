@@ -14,7 +14,7 @@ import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 const MessagesScreen = ({navigation}) => {
 
   const {userInfo} = useContext(AuthContext);
-  const userFullName = `${userInfo.firstName} ${userInfo.lastName}`;
+  const userFullName = userInfo ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim() : 'User';
 
   const [messages, setMessages] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -22,24 +22,47 @@ const MessagesScreen = ({navigation}) => {
 
   useEffect(() => {
     setLoading(true);
-    if (!userInfo) return;
+    if (!userInfo || !userInfo.uid) {
+      setLoading(false);
+      return;
+    }
 
-    const q = query(
-      collection(db, 'chats'),
-      where('participantIds', 'array-contains', userInfo.uid),
-      orderBy('timestamp', 'desc')
-    );
+    try {
+      // Create a query with cache-first approach
+      const q = query(
+        collection(db, 'chats'),
+        where('participantIds', 'array-contains', userInfo.uid),
+        orderBy('timestamp', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const chats = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      // Use onSnapshot with includeMetadataChanges to handle both cache and server data
+      const unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+        try {
+          // Check if data is from cache or server
+          const source = snapshot.metadata.fromCache ? "cache" : "server";
+          console.log("Data came from " + source);
+          
+          const chats = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          
+          setMessages(chats);
+        } catch (error) {
+          console.error('Error processing chat data:', error);
+        } finally {
+          setLoading(false);
+        }
+      }, error => {
+        console.error('Firestore subscription error:', error);
+        setLoading(false);
+      });
       
-      setMessages(chats);
-    });
-    setLoading(false);
-    return unsubscribe;
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error setting up chat listener:', error);
+      setLoading(false);
+    }
   }, [userInfo]);
 
 
