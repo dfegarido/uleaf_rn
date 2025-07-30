@@ -350,7 +350,10 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
               } else {
                 const localPrice = parseSafeFloat(listingData?.localPrice);
                 const localPriceNew = isNonEmpty(listingData?.localPriceNew)
-                  ? parseSafeFloat(listingData?.localPriceNew)
+                  ? parseSafeFloat(listingData.localPriceNew) !=
+                    parseSafeFloat(listingData.localPrice)
+                    ? parseSafeFloat(listingData.localPriceNew)
+                    : 0
                   : 0;
                 // console.log('Single: ' + JSON.stringify(listingData?));
                 totalLocalPrice = localPrice;

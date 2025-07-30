@@ -42,6 +42,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {InputSearch} from '../../../components/InputGroup/Left';
 import {AuthContext} from '../../../auth/AuthProvider';
+import ConfirmDelete from './components/ConfirmDelete';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
@@ -635,10 +636,18 @@ const ScreenListing = ({navigation}) => {
       console.log('Error pin table action:', error.message);
       Alert.alert('Delete item', error.message);
     } finally {
+      setActionShowSheet(false);
+      setDeleteModalVisible(false);
       setLoading(false);
     }
   };
   // Delete Item
+
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  const onPressDeleteConfirm = async () => {
+    setDeleteModalVisible(true);
+  };
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
@@ -852,7 +861,7 @@ const ScreenListing = ({navigation}) => {
                 plantCode: selectedItemStockUpdate.plantCode,
               })
             }
-            onPressDelete={onPressDelete}
+            onPressDelete={onPressDeleteConfirm}
           />
 
           <ActionSheet
@@ -949,7 +958,7 @@ const ScreenListing = ({navigation}) => {
                     Discount price
                   </Text>
                   <InputGroupAddon
-                    addonText="USD"
+                    addonText={userInfo?.currencySymbol ?? ''}
                     position="left"
                     value={discountPriceSheet}
                     onChangeText={setDiscountPriceSheet}
@@ -993,6 +1002,11 @@ const ScreenListing = ({navigation}) => {
           </ActionSheet>
         </View>
       </ScrollView>
+      <ConfirmDelete
+        visible={deleteModalVisible}
+        onDelete={onPressDelete}
+        onCancel={() => setDeleteModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };

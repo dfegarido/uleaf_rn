@@ -336,7 +336,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         potSize: selectedPotSize,
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
-          selectedMeasure === 'below' ? 'Below 12 inches' : 'Above 12 inches',
+          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
         status: 'Active',
         publishType: 'Publish Now',
       };
@@ -398,7 +398,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         potSize: selectedPotSize,
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
-          selectedMeasure === 'below' ? 'Below 12 inches' : 'Above 12 inches',
+          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
         status: 'Scheduled',
         publishType: 'Publish on Nursery Drop',
       };
@@ -464,7 +464,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         potSize: selectedPotSize,
         localPrice: localPrice ? parseFloat(localPrice) : 0,
         approximateHeight:
-          selectedMeasure === 'below' ? 'Below 12 inches' : 'Above 12 inches',
+          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
         status: 'Draft',
         publishType: '',
       };
@@ -552,7 +552,7 @@ const ScreenSingleSell = ({navigation, route}) => {
     // setListingData(res.data);
   };
 
-  const onPressUpdate = async (paramStatus) => {
+  const onPressUpdate = async paramStatus => {
     const errors = validateForm();
     if (errors.length > 0) {
       Alert.alert('Validation', errors.join('\n'));
@@ -587,9 +587,17 @@ const ScreenSingleSell = ({navigation, route}) => {
         potSize: selectedPotSize,
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
-          selectedMeasure === 'below' ? 'Below 12 inches' : 'Above 12 inches',
-        status: isFromDraftSell == false && isFromDuplicateSell == false ? status : paramStatus,
-        publishType: isFromDraftSell == false && isFromDuplicateSell == false ? publishType :  paramStatus == 'Active' ? 'Publish Now' : 'Publish on Nursery Drop',
+          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
+        status:
+          isFromDraftSell == false && isFromDuplicateSell == false
+            ? status
+            : paramStatus,
+        publishType:
+          isFromDraftSell == false && isFromDuplicateSell == false
+            ? publishType
+            : paramStatus == 'Active'
+            ? 'Publish Now'
+            : 'Publish on Nursery Drop',
       };
       // console.log(data);
       const response = await postSellUpdateApi(data);
@@ -853,7 +861,7 @@ const ScreenSingleSell = ({navigation, route}) => {
               </TouchableOpacity>
             )}
 
-          {(isFromDuplicateSell || isFromDraftSell) && (
+          {isFromDraftSell == true && (
             <>
               <TouchableOpacity
                 style={globalStyles.primaryButton}
@@ -874,8 +882,35 @@ const ScreenSingleSell = ({navigation, route}) => {
             </>
           )}
 
+          {isFromDuplicateSell == false &&
+            !plantCode &&
+            isFromDraftSell == false && (
+              <>
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={onPressPublish}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Publish Now
+                  </Text>
+                </TouchableOpacity>
 
-          {(isFromDuplicateSell == false && !plantCode && isFromDraftSell == false) && (
+                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                  <TouchableOpacity
+                    onPress={onPressPublishNurseryDrop}
+                    style={globalStyles.secondaryButtonAccent}>
+                    <Text
+                      style={[
+                        globalStyles.textLGAccent,
+                        {textAlign: 'center'},
+                      ]}>
+                      Publish on Nursery Drop
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+          {isFromDuplicateSell == true && (
             <>
               <TouchableOpacity
                 style={globalStyles.primaryButton}
