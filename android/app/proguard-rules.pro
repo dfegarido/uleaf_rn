@@ -33,3 +33,29 @@
 
 # Preserve annotation attributes
 -keepattributes *Annotation*
+
+# Additional ProGuard rules for React Native
+-dontwarn com.facebook.react.**
+-dontwarn com.facebook.hermes.**
+
+# Keep all classes in the main dex file
+-keep class androidx.multidex.** { *; }
+
+# R8 optimization rules
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
+-optimizationpasses 5
+-allowaccessmodification
+-dontpreverify
+
+# Keep WebView JavaScript interfaces
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Keep PayPal SDK if used
+-keep class com.paypal.** { *; }
+-dontwarn com.paypal.**
+
+# React Native Reanimated
+-keep class com.swmansion.reanimated.** { *; }
+-keep class com.facebook.react.turbomodule.** { *; }
