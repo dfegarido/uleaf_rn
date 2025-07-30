@@ -1022,7 +1022,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
               </TouchableOpacity>
             )}
 
-          {(isFromDuplicateSell || isFromDraftSell) && (
+          {isFromDraftSell == true && (
             <>
               <TouchableOpacity
                 style={globalStyles.primaryButton}
@@ -1070,6 +1070,27 @@ const ScreenSingleWholesale = ({navigation, route}) => {
                 </View>
               </>
             )}
+
+          {isFromDuplicateSell == true && (
+            <>
+              <TouchableOpacity
+                style={globalStyles.primaryButton}
+                onPress={onPressPublish}>
+                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                <TouchableOpacity
+                  onPress={onPressPublishNurseryDrop}
+                  style={globalStyles.secondaryButtonAccent}>
+                  <Text
+                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
+                    Publish on Nursery Drop
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </View>
 

@@ -754,7 +754,10 @@ const ScreenMyStore = ({navigation}) => {
                           const localPriceNew = isNonEmpty(
                             dataparse?.localPriceNew,
                           )
-                            ? parseSafeFloat(dataparse?.localPriceNew)
+                            ? parseSafeFloat(dataparse.localPriceNew) !=
+                              parseSafeFloat(dataparse.localPrice)
+                              ? parseSafeFloat(dataparse.localPriceNew)
+                              : 0
                             : 0;
 
                           totalLocalPrice = localPrice;

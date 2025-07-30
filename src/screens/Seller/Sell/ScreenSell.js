@@ -154,7 +154,7 @@ const ScreenSell = ({navigation}) => {
                     globalStyles.textMDAccentDark,
                     {paddingTop: 10, fontWeight: '800'},
                   ]}>
-                  Solo Stunners
+                  Single Plant
                 </Text>
               </TouchableOpacity>
             </View>
