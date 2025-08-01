@@ -53,7 +53,7 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <View style={{flex: 1, marginBottom: 80}}>
+            <ScrollView style={{marginBottom: 60}}>
               <RadioButton
                 options={sortOptions}
                 selected={sortValue}
@@ -65,7 +65,7 @@ const ReusableActionSheet = ({
                   paddingBottom: 15,
                 }}
               />
-            </View>
+            </ScrollView>
             <View
               style={{
                 flexDirection: 'row',
@@ -104,7 +104,7 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <View style={{flex: 1, marginBottom: 80}}>
+            <ScrollView style={{marginBottom: 60}}>
               <RadioButton
                 options={priceOptions}
                 selected={priceValue}
@@ -116,7 +116,7 @@ const ReusableActionSheet = ({
                   paddingBottom: 15,
                 }}
               />
-            </View>
+            </ScrollView>
             <View
               style={{
                 flexDirection: 'row',
