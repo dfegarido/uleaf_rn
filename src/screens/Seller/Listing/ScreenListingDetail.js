@@ -217,7 +217,6 @@ const ScreenListingDetail = ({navigation, route}) => {
     if (!netState.isConnected || !netState.isInternetReachable) {
       throw new Error('No internet connection.');
     }
-
     try {
       const response = await postListingActivateActionApi([plantCode]);
 
