@@ -115,7 +115,7 @@ const ScreenListingDetail = ({navigation, route}) => {
       throw new Error(res?.message || 'Failed to load sort api');
     }
 
-    console.log(res.data);
+    // console.log(res.data);
     setSwitchActive(res.data.status == 'Active' ? true : false);
     setListingData(res.data);
   };
