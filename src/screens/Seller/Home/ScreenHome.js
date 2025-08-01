@@ -297,7 +297,8 @@ const ScreenHome = ({navigation}) => {
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => navigation.navigate('ScreenProfile')}>
-                {userInfo?.profileImage != '' ? (
+                {userInfo?.profileImage != '' &&
+                userInfo?.profileImage != null ? (
                   <Image
                     source={{uri: userInfo?.profileImage}}
                     style={styles.image}

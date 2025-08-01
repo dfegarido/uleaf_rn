@@ -289,12 +289,108 @@ const ScreenDraftSell = ({navigation}) => {
                 </View>
 
                 {/* Price */}
-                <View style={[styles.cell, {width: COLUMN_WIDTH}]}>
+                {/* <View style={[styles.cell, {width: COLUMN_WIDTH}]}>
                   <Text style={globalStyles.textMDGreyDark}>
                     {item.localCurrencySymbol || '₱'}
                     {item.localPrice != null ? item.localPrice : '0'}
                   </Text>
-                </View>
+                </View> */}
+                {(() => {
+                  let totalLocalPrice = 0;
+                  let totalLocalPriceNew = 0;
+                  let hasNewPrice = false;
+                  let finalCurrencySymbol = item?.localCurrencySymbol || '';
+
+                  const parseSafeFloat = val => {
+                    const num = parseFloat(val);
+                    return isNaN(num) ? 0 : num;
+                  };
+
+                  const isNonEmpty = val =>
+                    val !== null &&
+                    val !== undefined &&
+                    (typeof val === 'number' ||
+                      (typeof val === 'string' && val.trim() !== ''));
+
+                  if (
+                    Array.isArray(item?.variations) &&
+                    item?.variations.length > 0
+                  ) {
+                    item?.variations.forEach(variation => {
+                      const localPrice = parseSafeFloat(variation.localPrice);
+                      const localPriceNew = isNonEmpty(variation.localPriceNew)
+                        ? parseSafeFloat(variation.localPriceNew) !=
+                          parseSafeFloat(variation.localPrice)
+                          ? parseSafeFloat(variation.localPriceNew)
+                          : 0
+                        : 0;
+                      // console.log(variation);
+                      totalLocalPrice += localPrice;
+
+                      if (localPriceNew > 0) {
+                        totalLocalPriceNew += localPriceNew;
+                        hasNewPrice = true;
+                      } else {
+                        totalLocalPriceNew += localPrice;
+                      }
+
+                      if (variation.localCurrencySymbol) {
+                        finalCurrencySymbol = variation.localCurrencySymbol;
+                      }
+                    });
+                  } else {
+                    const localPrice = parseSafeFloat(item?.localPrice);
+                    const localPriceNew = isNonEmpty(item?.localPriceNew)
+                      ? parseSafeFloat(item.localPriceNew) !=
+                        parseSafeFloat(item.localPrice)
+                        ? parseSafeFloat(item.localPriceNew)
+                        : 0
+                      : 0;
+                    // console.log('Single: ' + JSON.stringify(item?));
+                    totalLocalPrice = localPrice;
+                    totalLocalPriceNew = localPriceNew;
+                    localPriceNew > 0 ? localPriceNew : localPrice;
+                    hasNewPrice = localPriceNew > 0;
+
+                    if (item?.localCurrencySymbol) {
+                      finalCurrencySymbol = item?.localCurrencySymbol;
+                    }
+                  }
+
+                  return (
+                    <View
+                      style={[
+                        styles.cell,
+                        {width: COLUMN_WIDTH, flexDirection: 'row'},
+                      ]}>
+                      {hasNewPrice ? (
+                        <>
+                          <Text
+                            style={[
+                              globalStyles.textMDAccent,
+                              {paddingRight: 10},
+                            ]}>
+                            {finalCurrencySymbol}
+                            {totalLocalPriceNew.toFixed(2)}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.strikeText,
+                              globalStyles.textMDGreyLight,
+                            ]}>
+                            {finalCurrencySymbol}
+                            {totalLocalPrice.toFixed(2)}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={globalStyles.textMDGreyLight}>
+                          {finalCurrencySymbol}
+                          {totalLocalPrice.toFixed(2)}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })()}
 
                 {/* Quantity */}
                 <View style={[styles.cell, {width: COLUMN_WIDTH}]}>
@@ -366,6 +462,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  strikeText: {
+    textDecorationLine: 'line-through',
+    color: 'black',
   },
 });
 
