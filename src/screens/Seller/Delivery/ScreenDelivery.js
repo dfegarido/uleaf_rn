@@ -917,50 +917,53 @@ const ScreenDelivery = ({navigation}) => {
             </View>
           </View>
 
-          {/* {dataTable.length == 0 ? (
+          {dataTable.length == 0 ? (
             <View
               style={{
                 flex: 1,
-                paddingTop: 60,
+                paddingTop: 30,
                 alignItems: 'center',
               }}>
               <Image
-                source={require('../../../assets/images/orders-delivered.png')}
+                source={require('../../../assets/images/for_delivery_empty.png')}
                 style={{width: 300, height: 300, resizeMode: 'contain'}}
               />
             </View>
-          ) : ( */}
-          <>
-            <ScrollView
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-              }>
-              <DeliverTableList
-                headers={headers}
-                orders={dataTable}
-                module={'MAIN'}
-                navigateToListAction={onPressCheck}
-                onEditPressFilter={onEditPressFilter}
-                style={{}}
-              />
-            </ScrollView>
-            {dataCount >= 10 && (
-              <TouchableOpacity
-                onPress={() => onPressLoadMore()}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  marginTop: 300,
-                  marginBottom: 50,
-                }}>
-                <Text style={globalStyles.textLGAccent}>Load More</Text>
-                <ArrowDownIcon width={25} height={20} />
-              </TouchableOpacity>
-            )}
-          </>
-          {/* )} */}
+          ) : (
+            <>
+              <ScrollView
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                  />
+                }>
+                <DeliverTableList
+                  headers={headers}
+                  orders={dataTable}
+                  module={'MAIN'}
+                  navigateToListAction={onPressCheck}
+                  onEditPressFilter={onEditPressFilter}
+                  style={{}}
+                />
+              </ScrollView>
+              {dataCount >= 10 && (
+                <TouchableOpacity
+                  onPress={() => onPressLoadMore()}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    marginTop: 300,
+                    marginBottom: 50,
+                  }}>
+                  <Text style={globalStyles.textLGAccent}>Load More</Text>
+                  <ArrowDownIcon width={25} height={20} />
+                </TouchableOpacity>
+              )}
+            </>
+          )}
         </View>
       </ScrollView>
 

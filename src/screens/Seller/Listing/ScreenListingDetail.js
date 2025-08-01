@@ -27,6 +27,7 @@ import ListingActionSheet from './components/ListingActionSheetEdit';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
 import {formatDateMonthDayYear} from '../../../utils/formatDateMonthDayYear';
+import ConfirmDelete from './components/ConfirmDelete';
 
 import {
   postListingPublishNowActionApi,
@@ -166,8 +167,10 @@ const ScreenListingDetail = ({navigation, route}) => {
     } catch (error) {
       console.log('Error publish now action:', error.message);
       Alert.alert('Publish now', error.message);
+    } finally {
+      setLoading(false);
+      navigation.goBack();
     }
-    setLoading(false);
     // Proceed with API call or action here
   };
   // Publish now action
@@ -200,8 +203,10 @@ const ScreenListingDetail = ({navigation, route}) => {
     } catch (error) {
       console.log('Error publish in nursery drop action:', error.message);
       Alert.alert('Publish in nursery drop', error.message);
+    } finally {
+      setLoading(false);
+      navigation.goBack();
     }
-    setLoading(false);
     // Proceed with API call or action here
   };
   // Publish nursery action
@@ -307,6 +312,7 @@ const ScreenListingDetail = ({navigation, route}) => {
 
   // Delete Item
   const onPressDelete = async () => {
+    setLoading(true);
     try {
       const response = await postListingDeleteApi(plantCode);
 
@@ -315,12 +321,23 @@ const ScreenListingDetail = ({navigation, route}) => {
       }
 
       Alert.alert('Delete Listing', 'Listing deleted successfully!');
+      setActionShowSheet(false);
+      setDeleteModalVisible(false);
+      navigation.goBack();
     } catch (error) {
       console.log('Error pin table action:', error.message);
       Alert.alert('Delete item', error.message);
+    } finally {
+      setLoading(false);
     }
   };
   // Delete Item
+
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  const onPressDeleteConfirm = async () => {
+    setDeleteModalVisible(true);
+  };
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
@@ -935,7 +952,7 @@ const ScreenListingDetail = ({navigation, route}) => {
             });
           }
         }}
-        onPressDelete={onPressDelete}
+        onPressDelete={onPressDeleteConfirm}
       />
 
       <ActionSheet
@@ -1005,6 +1022,11 @@ const ScreenListingDetail = ({navigation, route}) => {
           </View>
         </TouchableOpacity>
       </ActionSheet>
+      <ConfirmDelete
+        visible={deleteModalVisible}
+        onDelete={onPressDelete}
+        onCancel={() => setDeleteModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };
