@@ -8,9 +8,7 @@ import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 
 // Import buyer screens
-import {
-  BuyerLiveStreamScreen,
-} from '../../screens/Buyer/Live';
+import {BuyerLiveStreamScreen} from '../../screens/Buyer/Live';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
@@ -25,9 +23,10 @@ import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
+import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
+import {ScreenCart} from '../../screens/Buyer/Cart';
 
 import {LiveBroadcastScreen} from '../../screens/Live';
-
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
@@ -42,7 +41,6 @@ import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selecte
 import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
-import {ScreenCart} from '../../screens/Buyer/Cart';
 import {ScreenOrders} from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
@@ -144,6 +142,16 @@ function BuyerTabNavigator() {
         component={MessagesScreen}
         options={{headerShown: false}}
       />
+      <Stack.Screen
+        name="ScreenRequestCredit"
+        component={RequestCredit}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenCart"
+        component={ScreenCart}
+        options={{headerShown: false}}
+      />
     </Stack.Navigator>
   );
 }
@@ -223,12 +231,23 @@ function BuyerTabs() {
           },
         })}
       />
-      <Tab.Screen name="Cart" component={ScreenCart} />
+      <Tab.Screen
+        name="Cart"
+        component={ScreenShop} // Use a placeholder component
+        listeners={({navigation}) => ({
+          tabPress: e => {
+            e.preventDefault();
+            // Navigate to cart screen as a separate screen
+            navigation.navigate('ScreenCart');
+          },
+        })}
+      />
       <Tab.Screen name="Shop" component={ScreenShop} />
       <Tab.Screen name="Orders" component={ScreenOrders} />
+
       <Tab.Screen
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
+        listeners={({navigation}) => ({
+          tabPress: e => {
             e.preventDefault();
             navigation.navigate('MessagesScreen');
           },

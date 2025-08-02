@@ -23,7 +23,8 @@ import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
 import PromoBadge from '../../../components/PromoBadge/PromoBadge';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
 import {selectedCard} from '../../../assets/buyer-icons/png';
-
+import DownArrowIcon from '../../../assets/buyer-icons/downicon.svg';
+import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 const CartHeader = () => {
   const promoBadges = [
     {label: 'Price Drop', icon: PriceDropIcon},
@@ -39,6 +40,9 @@ const CartHeader = () => {
   return (
     <View style={styles.header}>
       <View style={styles.controls}>
+        <TouchableOpacity onPress={() => navigation.navigate('Shop')}>
+          <BackSolidIcon style={{height: 10, width: 10}} />
+        </TouchableOpacity>
         <View style={styles.searchContainer}>
           <View style={styles.searchField}>
             <View style={styles.textField}>
@@ -159,6 +163,49 @@ const cartItems = Array.from({length: 10}).map((_, i) => ({
   flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
 }));
 
+const CartFooter = ({selectedItems, cartItems, onSelectAll, onCheckout}) => {
+  const isAllSelected = selectedItems.size === cartItems.length;
+  const selectedCount = selectedItems.size;
+
+  // Calculate total cost and savings
+  const totalCost = cartItems.reduce(
+    (sum, item) => sum + parseFloat(item.price),
+    0,
+  );
+  const savings = 1200; // This could be calculated based on actual discounts
+
+  return (
+    <View style={styles.footer}>
+      <View style={styles.footerTop}>
+        <View style={styles.selectAllContainer}>
+          <TouchableOpacity
+            style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}
+            onPress={onSelectAll}>
+            {isAllSelected && <Text style={styles.checkmark}>✓</Text>}
+          </TouchableOpacity>
+          <Text style={styles.selectAllText}>All</Text>
+        </View>
+
+        <View style={styles.costContainer}>
+          <View style={styles.costRow}>
+            <Text style={styles.totalCostText}>
+              Total Plant Cost: ${totalCost.toFixed(2)}
+            </Text>
+            <DownArrowIcon style={{height: 10, width: 10}} />
+          </View>
+          <Text style={styles.savingsText}>Savings ${savings.toFixed(2)}</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.checkoutButton} onPress={onCheckout}>
+        <Text style={styles.checkoutButtonText}>
+          Check Out ({selectedCount})
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const ScreenCart = () => {
   const [selectedItems, setSelectedItems] = useState(new Set());
 
@@ -172,6 +219,18 @@ const ScreenCart = () => {
       }
       return newSet;
     });
+  };
+
+  const selectAllItems = () => {
+    if (selectedItems.size === cartItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(cartItems.map(item => item.id)));
+    }
+  };
+
+  const handleCheckout = () => {
+    console.log('Checking out items:', Array.from(selectedItems));
   };
 
   return (
@@ -197,6 +256,12 @@ const ScreenCart = () => {
           />
         ))}
       </ScrollView>
+      <CartFooter
+        selectedItems={selectedItems}
+        cartItems={cartItems}
+        onSelectAll={selectAllItems}
+        onCheckout={handleCheckout}
+      />
     </View>
   );
 };
@@ -355,6 +420,86 @@ const styles = StyleSheet.create({
   },
   cartFooterText: {
     color: '#647276',
+    fontWeight: 'bold',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  footerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  selectAllContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#CDD3D4',
+    borderRadius: 4,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  selectAllText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#202325',
+  },
+  costContainer: {
+    alignItems: 'flex-end',
+  },
+  costRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  totalCostText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#202325',
+    marginRight: 4,
+  },
+  caret: {
+    fontSize: 12,
+    color: '#202325',
+  },
+  savingsText: {
+    fontSize: 14,
+    color: '#E7522F',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  checkoutButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkoutButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
