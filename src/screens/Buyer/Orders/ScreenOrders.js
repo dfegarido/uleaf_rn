@@ -16,11 +16,11 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
   const tabFilters = [
     {filterKey: 'Ready to Fly'},
     {filterKey: 'Plants are Home'},
-    {filterKey: 'Journey Mission'},
+    {filterKey: 'Journey Mishap'},
   ];
 
   const filterOptions =
-    activeTab === 'Plants are Home' || activeTab === 'Journey Mission'
+    activeTab === 'Plants are Home' || activeTab === 'Journey Mishap'
       ? [
           {label: 'Plant Owner', rightIcon: DownIcon},
           {label: 'Plant Flight', rightIcon: DownIcon},
@@ -174,7 +174,7 @@ const ScreenOrders = () => {
           requestDeadline: 'May-31 12:00 AM',
         }));
 
-      case 'Journey Mission':
+      case 'Journey Mishap':
         const plantStatuses = ['Damaged', 'Missing', 'Dead on Arrival'];
         return Array.from({length: 6}).map((_, i) => ({
           id: i + 200,
