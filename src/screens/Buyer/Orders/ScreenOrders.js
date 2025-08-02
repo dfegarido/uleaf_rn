@@ -9,9 +9,8 @@ import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {OrderItemCard} from '../../../components/OrderItemCard';
 
-const OrdersHeader = () => {
+const OrdersHeader = ({activeTab, setActiveTab}) => {
   const [searchText, setSearchText] = useState('');
-  const [activeTab, setActiveTab] = useState('Ready to Fly');
   const navigation = useNavigation();
 
   const tabFilters = [
@@ -20,7 +19,13 @@ const OrdersHeader = () => {
     {filterKey: 'Journey Mission'},
   ];
 
-  const filterOptions = [{label: 'Plant Owner', rightIcon: DownIcon}];
+  const filterOptions =
+    activeTab === 'Plants are Home' || activeTab === 'Journey Mission'
+      ? [
+          {label: 'Plant Owner', rightIcon: DownIcon},
+          {label: 'Plant Flight', rightIcon: DownIcon},
+        ]
+      : [{label: 'Plant Owner', rightIcon: DownIcon}];
 
   const onPressTab = ({pressTab}) => {
     setActiveTab(pressTab);
@@ -136,22 +141,68 @@ const OrdersHeader = () => {
 };
 
 const ScreenOrders = () => {
-  const orderItems = Array.from({length: 10}).map((_, i) => ({
-    id: i,
-    image: require('../../../assets/images/plant1.png'),
-    name: 'Spinacia Oleracea',
-    subtitle: 'Inner Variegated • 2"',
-    price: '65.27',
-    flightInfo: 'Plant Flight May-30',
-    shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
-    flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
-  }));
+  const [activeTab, setActiveTab] = useState('Ready to Fly');
+
+  // Different order items for each tab
+  const getOrderItems = tab => {
+    switch (tab) {
+      case 'Ready to Fly':
+        return Array.from({length: 10}).map((_, i) => ({
+          id: i,
+          status: 'Ready to Fly',
+          image: require('../../../assets/images/plant1.png'),
+          name: 'Spinacia Oleracea',
+          subtitle: 'Inner Variegated • 2"',
+          price: '65.27',
+          flightInfo: 'Plant Flight May-30',
+          shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
+          flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
+        }));
+
+      case 'Plants are Home':
+        return Array.from({length: 8}).map((_, i) => ({
+          id: i + 100,
+          status: 'Plants are Home',
+          image: require('../../../assets/images/plant1.png'),
+          name: 'Monstera Deliciosa',
+          subtitle: 'Variegated • 4"',
+          price: '89.99',
+          flightInfo: 'Delivered May-25',
+          shippingInfo: 'Successfully delivered to your home',
+          flagIcon: <Text style={{fontSize: 18}}>🇺🇸</Text>,
+          showRequestCredit: true,
+          requestDeadline: 'May-31 12:00 AM',
+        }));
+
+      case 'Journey Mission':
+        const plantStatuses = ['Damaged', 'Missing', 'Dead on Arrival'];
+        return Array.from({length: 6}).map((_, i) => ({
+          id: i + 200,
+          status: 'Journey Mission',
+          image: require('../../../assets/images/plant1.png'),
+          name: 'Philodendron Brasil',
+          subtitle: 'Trailing • 6"',
+          price: '45.50',
+          flightInfo: 'In Transit - May-28',
+          shippingInfo: 'FedEx Ground - Expected delivery June-2',
+          flagIcon: <Text style={{fontSize: 18}}>🇧🇷</Text>,
+          plantStatus: plantStatuses[i % plantStatuses.length],
+          creditApproved: i % 3 === 0, // Show credit approved for every 3rd item
+        }));
+
+      default:
+        return [];
+    }
+  };
+
+  const orderItems = getOrderItems(activeTab);
+
   return (
     <>
-      <OrdersHeader />
+      <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       <ScrollView
         style={{flex: 1, backgroundColor: '#fff'}}
-        contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 24}}>
+        contentContainerStyle={{paddingHorizontal: 1}}>
         {orderItems.map(item => (
           <OrderItemCard key={item.id} {...item} />
         ))}
