@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   Dimensions,
   ImageBackground,
@@ -11,11 +11,15 @@ import {
 } from 'react-native';
 
 // Import SVG icons
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import moment from 'moment';
+import { db } from '../../../../firebase';
+import CalendarWhiteIcon from '../../../assets/buyer-icons/calendar-white.svg';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
-import CalendarWhiteIcon from '../../../assets/buyer-icons/calendar-white.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
+import { AuthContext } from '../../../auth/AuthProvider';
 import { InputGroupLeftIcon } from '../../../components/InputGroup/Left';
 
 // Get screen dimensions with proper 2-column layout calculation
@@ -48,80 +52,6 @@ const getScreenDimensions = () => {
 let {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH, availableWidth} =
   getScreenDimensions();
 
-// Mock data for live streams
-const liveStreams = [
-  {
-    id: 1,
-    title: 'Monstera Deliciosa Propagation',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: true,
-    viewers: 1234,
-  },
-  {
-    id: 2,
-    title: 'Rare Philodendron Collection',
-    thumbnail: require('../../../assets/images/plant2.png'),
-    isLive: false,
-    viewers: 856,
-  },
-  {
-    id: 3,
-    title: 'Fiddle Leaf Fig Care Tips',
-    thumbnail: require('../../../assets/images/plant3.png'),
-    isLive: false,
-    viewers: 423,
-  },
-  {
-    id: 4,
-    title: 'Orchid Repotting Guide',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: false,
-    viewers: 678,
-  },
-  {
-    id: 5,
-    title: 'Succulent Arrangements',
-    thumbnail: require('../../../assets/images/plant2.png'),
-    isLive: false,
-    viewers: 234,
-  },
-  {
-    id: 6,
-    title: 'Indoor Garden Setup',
-    thumbnail: require('../../../assets/images/plant3.png'),
-    isLive: false,
-    viewers: 567,
-  },
-  {
-    id: 7,
-    title: 'Snake Plant Care Workshop',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: true,
-    viewers: 892,
-  },
-  {
-    id: 8,
-    title: 'Pothos Propagation Tips',
-    thumbnail: require('../../../assets/images/plant2.png'),
-    isLive: true,
-    viewers: 1567,
-  },
-  {
-    id: 9,
-    title: 'Air Plant Collection Tour',
-    thumbnail: require('../../../assets/images/plant3.png'),
-    isLive: true,
-    viewers: 743,
-  },
-  {
-    id: 10,
-    title: 'Calathea Care Secrets',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: true,
-    viewers: 456,
-  },
-];
-
 const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
   const formatViewers = (count) => {
     if (count >= 1000) {
@@ -148,14 +78,14 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
 
   return (
     <TouchableOpacity 
-      onPress={() => navigation.navigate('BuyerLiveStreamScreen')} 
+      onPress={() => stream.isLive ? navigation.navigate('BuyerLiveStreamScreen', stream) : navigation.navigate('LiveRecap') } 
       style={[styles.videoCard, cardStyle]}
     >
       {/* Video container */}
       <View style={styles.videoContainer}>
         <View style={styles.thumbnailContainer}>
           <ImageBackground
-            source={stream.thumbnail}
+            source= {{uri: stream.thumbnail}}
             style={[styles.thumbnail, {width: thumbnailWidth, height: thumbnailHeight}]}
             imageStyle={styles.thumbnailImage}
           >
@@ -172,7 +102,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
               <View style={styles.viewersContainer}>
                 <SocialIcon width={16} height={16} />
                 <Text style={styles.viewerCount}>
-                  {formatViewers(stream.viewers)}
+                  {formatViewers(stream.views)}
                 </Text>
               </View>
             </View>
@@ -182,7 +112,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
               <View style={styles.bottomOverlay}>
                 <View style={styles.dateContainer}>
                   <CalendarWhiteIcon width={16} height={16} />
-                  <Text style={styles.dateText}>Dec-15 12:00AM</Text>
+                  <Text style={styles.dateText}>{moment(stream.startedAt.toDate()).format('MMM-DD hh:mmA')}</Text>
                 </View>
               </View>
             )}
@@ -194,7 +124,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
       <View style={styles.titleDetails}>
         <View style={styles.titleContainer}>
           <Text style={styles.titleText} numberOfLines={2}>
-            {stream.title}
+            {stream.liveTitle}
           </Text>
         </View>
       </View>
@@ -258,8 +188,32 @@ const LiveTabs = ({activeTab, setActiveTab}) => {
 };
 
 const LiveScreen = ({navigation}) => {
+  const {userInfo} = useContext(AuthContext);
+  const [liveStreams, setLiveStreams] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [dimensions, setDimensions] = useState(getScreenDimensions());
   const [activeTab, setActiveTab] = useState('recaps');
+
+  useEffect(() => {
+    setLoading(true);
+    if (!userInfo) return;
+  
+    const q = query(
+      collection(db, 'liveStreams'),
+      orderBy('startedAt', 'desc')
+    );
+  
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveStreamData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+        
+      setLiveStreams(liveStreamData);
+    });
+    setLoading(false);
+    return unsubscribe;
+  }, [userInfo]);
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({window}) => {
@@ -271,7 +225,6 @@ const LiveScreen = ({navigation}) => {
       GAP = newDimensions.GAP;
       CARD_WIDTH = newDimensions.CARD_WIDTH;
     });
-
     return () => subscription?.remove();
   }, []);
 
@@ -295,6 +248,13 @@ const LiveScreen = ({navigation}) => {
 
   return (
     <View style={styles.container}>
+      {loading && (
+              <Modal transparent animationType="fade">
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator size="large" color="#699E73" />
+                </View>
+              </Modal>
+      )}
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <LiveHeader navigation={navigation} />
       <LiveTabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -594,6 +554,12 @@ const styles = StyleSheet.create({
   activeTabIndicator: {
     backgroundColor: '#202325',
     opacity: 1,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

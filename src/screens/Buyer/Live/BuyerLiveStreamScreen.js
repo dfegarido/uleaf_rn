@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,6 +17,7 @@ import {
   createAgoraRtcEngine,
   RtcSurfaceView
 } from 'react-native-agora';
+import { AGORA_APP_ID } from '../../../../config';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
@@ -24,19 +25,18 @@ import ShareIcon from '../../../assets/live-icon/share.svg';
 import ShopIcon from '../../../assets/live-icon/shop.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
+import { AuthContext } from '../../../auth/AuthProvider';
 
-const APP_ID = '77bffba08cc144228a447e99bae16ec1';
-// Note: You should generate a new token from Agora console if this one is expired
-const TOKEN = "007eJxTYNCU6kqdJ5U0i8f9wbfvjZtXd7zXSP98w7z2xJyeK9kMzeoKDObmSWlpSYkGFsnJhiYmRkYWiSYm5qmWlkmJqYZmqcmGe5fUZDQEMjKsCTzAwAiFID4bQ2lOamKaCQMDAN91IZY="; // your token here
-const CHANNEL_NAME = 'uleaf4';
-
-const BuyerLiveStreamScreen = ({navigation}) => {
+const BuyerLiveStreamScreen = ({navigation, route}) => {
+  const { channelName, uid } = route.params;
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
   const [remoteUid, setRemoteUid] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [token, setToken] = useState("");
+  const {userInfo} = useContext(AuthContext);
 
   // Mocked chat messages
   const chatData = [
@@ -45,8 +45,27 @@ const BuyerLiveStreamScreen = ({navigation}) => {
     { id: '3', name: 'Dylan Brooks', message: 'Look at those variegated leaves, absolute stunner!😍', avatar: 'https://i.pravatar.cc/40?img=3' },
   ];
 
+  const fetchTokenAndRejoin = async () => {
+    try {
+      const response = await fetch(`https://9ac84fa28d97.ngrok-free.app/api/agora-token?channelName=${channelName}&uid=${userInfo.uid}&isSubscriber=true`);
+      const data = await response.json();
+      const newToken = data.token;
+      
+      setToken(newToken);
+      
+      // Rejoin channel with the new token
+      if (rtcEngineRef.current) {
+        console.log('🔄 Rejoining channel with new token');
+        await rtcEngineRef.current.renewToken(newToken);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching new token:', error);
+    }
+  };
+
   useEffect(() => {
     const startAgora = async () => {
+      await fetchTokenAndRejoin();
       if (Platform.OS === 'android') {
         await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.CAMERA,
@@ -57,7 +76,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
-        appId: APP_ID,
+        appId: AGORA_APP_ID,
         channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
       
@@ -155,12 +174,12 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       rtc.setClientRole(ClientRoleType.ClientRoleAudience);
       
       // Log to help with debugging
-      console.log('Joining channel:', CHANNEL_NAME);
-      console.log('Using token:', TOKEN ? 'Token provided' : 'No token');
+      console.log('Joining channel:', channelName);
+      console.log('Using token:', token ? 'Token provided' : 'No token');
       
       try {
         // Join the channel with specific options
-        rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {
+        rtc.joinChannel(token, channelName, userInfo.uid, {
           autoSubscribeVideo: true,
           autoSubscribeAudio: true,
           publishLocalAudio: false,

@@ -187,15 +187,16 @@ function BuyerTabs() {
       <Tab.Screen
         name="Live"
         component={LiveScreen}
-        listeners={({ navigation }) => ({
+      /> 
+      <Tab.Screen name="Cart" component={ScreenCart}
+      listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
             // Always go to BuyerLiveStreamScreen - it handles the logic internally
-            navigation.navigate('BuyerLiveStreamScreen');
+            navigation.navigate('LiveBroadcastScreen');
           },
         })}
       />
-      <Tab.Screen name="Cart" component={ScreenCart} />
       <Tab.Screen name="Shop" component={ScreenShop} />
       <Tab.Screen name="Orders" component={ScreenOrders} />
       <Tab.Screen
