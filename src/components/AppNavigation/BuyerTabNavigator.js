@@ -25,6 +25,7 @@ import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import {ScreenCart} from '../../screens/Buyer/Cart';
+import CheckoutScreen from '../../screens/Buyer/Checkout/CheckoutScreen';
 
 import {LiveBroadcastScreen} from '../../screens/Live';
 

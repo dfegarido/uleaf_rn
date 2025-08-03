@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
@@ -52,6 +53,12 @@ import {
   getGenusApi,
   getVariegationApi,
   getBrowsePlantByGenusApi,
+  getBuyerEventsApi,
+  searchListingApi,
+  getBuyerListingsApi,
+  getPlantRecommendationsApi,
+  addToCartApi,
+  getCartItemsApi,
 } from '../../../components/Api';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
@@ -174,6 +181,38 @@ const ScreenShop = ({navigation}) => {
   // Dynamic genus data state
   const [dynamicGenusData, setDynamicGenusData] = useState([]);
   const [loadingGenusData, setLoadingGenusData] = useState(true);
+  
+  // Events data state
+  const [eventsData, setEventsData] = useState([]);
+  const [loadingEventsData, setLoadingEventsData] = useState(true);
+  
+  // Most loved listings state
+  const [mostLovedListings, setMostLovedListings] = useState([]);
+  const [loadingMostLoved, setLoadingMostLoved] = useState(true);
+  
+  // Search results state
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  
+  // Plant recommendations state
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(true);
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim().length > 2) {
+        performSearch(searchTerm.trim());
+      } else if (searchTerm.trim().length === 0) {
+        setSearchResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   // Load sort, genus, and variegation options on component mount
   useEffect(() => {
@@ -184,6 +223,9 @@ const ScreenShop = ({navigation}) => {
           loadGenusData(),
           loadVariegationData(),
           loadBrowseGenusData(),
+          loadEventsData(),
+          loadMostLovedListings(),
+          loadPlantRecommendations(),
         ]);
       } catch (error) {
         console.log('Error loading filter data:', error);
@@ -355,6 +397,123 @@ const ScreenShop = ({navigation}) => {
     }
   };
 
+  const loadEventsData = async () => {
+    try {
+      setLoadingEventsData(true);
+      console.log('Starting to load events data...');
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getBuyerEventsApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load events API.');
+      }
+
+      console.log('Events data loaded successfully:', res.data);
+      setEventsData(res.data || []);
+    } catch (error) {
+      console.error('Error loading events data:', error);
+      // Set fallback data or empty array on error
+      setEventsData([]);
+    } finally {
+      setLoadingEventsData(false);
+    }
+  };
+
+  const loadMostLovedListings = async () => {
+    try {
+      setLoadingMostLoved(true);
+      console.log('Starting to load most loved listings...');
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Use getBuyerListings with mostLoved filter
+      const res = await retryAsync(() => getBuyerListingsApi({
+        limit: 10,
+        sortBy: 'Most Loved'
+      }), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load most loved listings.');
+      }
+
+      console.log('Most loved listings loaded successfully:', res.data);
+      setMostLovedListings(res.data?.listings || []);
+    } catch (error) {
+      console.error('Error loading most loved listings:', error);
+      setMostLovedListings([]);
+    } finally {
+      setLoadingMostLoved(false);
+    }
+  };
+
+  const loadPlantRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true);
+      console.log('Starting to load plant recommendations...');
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getPlantRecommendationsApi({
+        limit: 5
+      }), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load plant recommendations.');
+      }
+
+      console.log('Plant recommendations loaded successfully:', res.data);
+      setRecommendations(res.data?.recommendations || []);
+    } catch (error) {
+      console.error('Error loading plant recommendations:', error);
+      setRecommendations([]);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
+  const performSearch = async (searchTerm) => {
+    try {
+      setLoadingSearch(true);
+      console.log('Starting search for:', searchTerm);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => searchListingApi({
+        plant: searchTerm,
+        limit: 20,
+        sortBy: reusableSort,
+        genus: reusableGenus.join(','),
+        variegation: reusableVariegation.join(',')
+      }), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to search listings.');
+      }
+
+      console.log('Search results loaded successfully:', res.data);
+      setSearchResults(res.data?.listings || []);
+    } catch (error) {
+      console.error('Error performing search:', error);
+      setSearchResults([]);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
   const handleFilterView = () => {
     // Handle filter application here
     if (code === 'SORT') {
@@ -437,17 +596,6 @@ const ScreenShop = ({navigation}) => {
     console.log('Wholesale Pressed');
   };
 
-  const imageData = [
-    {
-      src: event1,
-      label: 'Deals, Rewards & News',
-    },
-    {
-      src: event2,
-      label: 'Deals, Rewards & News',
-    },
-  ];
-
   const HEADER_HEIGHT = 110;
 
   const scrollViewRef = useRef(null);
@@ -463,6 +611,8 @@ const ScreenShop = ({navigation}) => {
             <InputGroupLeftIcon
               IconLeftComponent={SearchIcon}
               placeholder={'Search ileafU'}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
             />
           </View>
 
@@ -538,6 +688,61 @@ const ScreenShop = ({navigation}) => {
         ref={scrollViewRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
         contentContainerStyle={{paddingBottom: 170}}>
+        
+        {/* Search Results Section */}
+        {searchTerm.trim().length > 2 && (
+          <>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: 'bold',
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: '#393D40',
+              }}>
+              Search Results for "{searchTerm}"
+            </Text>
+            {loadingSearch ? (
+              <View style={{paddingHorizontal: 12, paddingVertical: 20}}>
+                <Text style={{color: '#666', textAlign: 'center'}}>
+                  Searching...
+                </Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'flex-start',
+                  paddingHorizontal: 10,
+                }}
+                style={{flexGrow: 0}}>
+                {searchResults.slice(0, 10).map((item, idx) => (
+                  <PlantItemCard
+                    key={item.plantCode || idx}
+                    data={item}
+                    onPress={() => {
+                      console.log('Navigate to plant detail:', item.plantCode);
+                    }}
+                    onAddToCart={() => {
+                      console.log('Add to cart:', item.plantCode);
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={{paddingHorizontal: 12, paddingVertical: 20}}>
+                <Text style={{color: '#666', textAlign: 'center'}}>
+                  No plants found for "{searchTerm}"
+                </Text>
+              </View>
+            )}
+            <View style={{height: 20}} />
+          </>
+        )}
+        
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -599,26 +804,226 @@ const ScreenShop = ({navigation}) => {
             paddingHorizontal: 10,
           }}
           style={{flexGrow: 0}}>
-          {imageData.map((item, idx) => (
-            <View key={idx} style={{width: 275}}>
-              <Image
-                source={item.src}
-                style={{width: 260, height: 120, borderRadius: 16}}
-              />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '900',
-                  color: '#393D40',
-                  marginTop: 4,
-                  textAlign: 'left',
-                  paddingHorizontal: 5,
+          {loadingEventsData ? (
+            // Loading state
+            Array.from({length: 2}).map((_, idx) => (
+              <View key={idx} style={{width: 275}}>
+                <View
+                  style={{
+                    width: 260,
+                    height: 120,
+                    borderRadius: 16,
+                    backgroundColor: '#f0f0f0',
+                  }}
+                />
+                <View
+                  style={{
+                    width: 150,
+                    height: 16,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                    marginTop: 4,
+                    marginHorizontal: 5,
+                  }}
+                />
+              </View>
+            ))
+          ) : eventsData.length > 0 ? (
+            eventsData.map((item, idx) => (
+              <TouchableOpacity
+                key={item.id || idx}
+                style={{width: 275}}
+                onPress={() => {
+                  // Handle link navigation if item has a link
+                  if (item.link) {
+                    Linking.openURL(item.link).catch(err => 
+                      console.error('Failed to open link:', err)
+                    );
+                  }
                 }}>
-                {item.label}
+                <Image
+                  source={{uri: item.image}}
+                  style={{width: 260, height: 120, borderRadius: 16}}
+                  resizeMode="cover"
+                />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '900',
+                    color: '#393D40',
+                    marginTop: 4,
+                    textAlign: 'left',
+                    paddingHorizontal: 5,
+                  }}>
+                  {item.name || item.label || 'Deals, Rewards & News'}
+                </Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            // Fallback when no events data
+            <View style={{width: 275}}>
+              <View
+                style={{
+                  width: 260,
+                  height: 120,
+                  borderRadius: 16,
+                  backgroundColor: '#f5f5f5',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Text style={{color: '#888', fontSize: 14}}>
+                  No events available
+                </Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+        
+        {/* Most Loved Plants Section */}
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: '#393D40',
+            marginTop: 20,
+          }}>
+          Most Loved Plants
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+            paddingHorizontal: 10,
+          }}
+          style={{flexGrow: 0}}>
+          {loadingMostLoved ? (
+            // Loading state
+            Array.from({length: 3}).map((_, idx) => (
+              <View key={idx} style={{width: 200}}>
+                <View
+                  style={{
+                    width: 180,
+                    height: 120,
+                    borderRadius: 16,
+                    backgroundColor: '#f0f0f0',
+                  }}
+                />
+                <View
+                  style={{
+                    width: 120,
+                    height: 16,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                    marginTop: 8,
+                  }}
+                />
+                <View
+                  style={{
+                    width: 80,
+                    height: 14,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                    marginTop: 4,
+                  }}
+                />
+              </View>
+            ))
+          ) : mostLovedListings.length > 0 ? (
+            mostLovedListings.slice(0, 5).map((item, idx) => (
+              <PlantItemCard
+                key={item.plantCode || idx}
+                data={item}
+                onPress={() => {
+                  // Navigate to plant detail screen
+                  console.log('Navigate to plant detail:', item.plantCode);
+                }}
+                onAddToCart={() => {
+                  // Add to cart functionality
+                  console.log('Add to cart:', item.plantCode);
+                }}
+              />
+            ))
+          ) : (
+            <View style={{width: 200, alignItems: 'center', paddingVertical: 20}}>
+              <Text style={{color: '#888', fontSize: 14}}>
+                No most loved plants available
               </Text>
             </View>
-          ))}
+          )}
         </ScrollView>
+
+        {/* Plant Recommendations Section */}
+        {recommendations.length > 0 && (
+          <>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: '#393D40',
+                marginTop: 20,
+              }}>
+              Recommended for You
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                flexDirection: 'row',
+                gap: 10,
+                alignItems: 'flex-start',
+                paddingHorizontal: 10,
+              }}
+              style={{flexGrow: 0}}>
+              {loadingRecommendations ? (
+                // Loading state
+                Array.from({length: 3}).map((_, idx) => (
+                  <View key={idx} style={{width: 200}}>
+                    <View
+                      style={{
+                        width: 180,
+                        height: 120,
+                        borderRadius: 16,
+                        backgroundColor: '#f0f0f0',
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 120,
+                        height: 16,
+                        backgroundColor: '#f0f0f0',
+                        borderRadius: 4,
+                        marginTop: 8,
+                      }}
+                    />
+                  </View>
+                ))
+              ) : (
+                recommendations.slice(0, 5).map((item, idx) => (
+                  <PlantItemCard
+                    key={item.plantCode || idx}
+                    data={item}
+                    onPress={() => {
+                      // Navigate to plant detail screen
+                      console.log('Navigate to plant detail:', item.plantCode);
+                    }}
+                    onAddToCart={() => {
+                      // Add to cart functionality
+                      console.log('Add to cart:', item.plantCode);
+                    }}
+                  />
+                ))
+              )}
+            </ScrollView>
+          </>
+        )}
+        
         <Text
           style={{
             fontSize: 20,
