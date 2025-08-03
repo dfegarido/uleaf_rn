@@ -18,6 +18,11 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 8.8
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -30,8 +35,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./android/gradlew
 
+      - name: Verify Gradle version
+        run: ./android/gradlew -p android --version
+
       - name: Build Android Release
-        run: ./android/gradlew -p android assembleRelease
+        run: ./android/gradlew -p android assembleRelease --warning-mode all
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
