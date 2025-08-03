@@ -5,11 +5,27 @@ import FlightIcon from '../../assets/buyer-icons/flight.svg';
 import WishListSelected from '../../assets/buyer-icons/wishlist-selected.svg';
 import WishListUnselected from '../../assets/buyer-icons/wishlist-unselected.svg';
 import HeartIcon from '../../assets/buyer-icons/heart.svg';
+import PhilippinesFlag from '../../assets/buyer-icons/philippines-flag.svg';
+import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg';
+import IndonesiaFlag from '../../assets/buyer-icons/indonesia-flag.svg';
 
 const placeholderImage = require('../../assets/buyer-icons/png/ficus-lyrata.png');
 const placeholderFlag = require('../../assets/buyer-icons/philippines-flag.svg');
 // const HeartIcon = require('../../assets/buyer-icons/heart.svg');
 const noteIcon = require('../../assets/buyer-icons/note.svg');
+
+// Function to get flag component based on country
+const getFlagComponent = (country) => {
+  const countryLower = country?.toLowerCase() || '';
+  if (countryLower.includes('philippines') || countryLower.includes('ph')) {
+    return PhilippinesFlag;
+  } else if (countryLower.includes('thailand') || countryLower.includes('th')) {
+    return ThailandFlag;
+  } else if (countryLower.includes('indonesia') || countryLower.includes('id')) {
+    return IndonesiaFlag;
+  }
+  return PhilippinesFlag; // Default to Philippines
+};
 
 const PlantItemCard = ({
   // Legacy props (for backward compatibility)
@@ -56,16 +72,6 @@ const PlantItemCard = ({
       {uri: plantData.imagePrimary} : 
       placeholderImage) : 
     image;
-  
-  // Debug logging
-  if (data && plantData?.plantCode) {
-    console.log(`PlantItemCard ${plantData.plantCode}:`, {
-      imagePrimary: plantData.imagePrimary,
-      displayImage: displayImage,
-      hasImageUri: displayImage.uri ? 'yes' : 'no',
-      imageError: imageError
-    });
-  }
     
   const displayTitle = data ? 
     (plantData.genus || plantData.plantName || 'Unknown Plant') :
@@ -109,28 +115,30 @@ const PlantItemCard = ({
             style={styles.image} 
             resizeMode="cover"
             onError={(error) => {
-              console.log('PlantItemCard image load error:', {
-                plantCode: plantData?.plantCode,
-                imagePrimary: plantData?.imagePrimary,
-                error: error.nativeEvent.error
-              });
               setImageError(true);
             }}
             onLoad={() => {
-              if (data && plantData?.plantCode) {
-                console.log(`Image loaded successfully for ${plantData.plantCode}`);
-              }
+              // Image loaded successfully
             }}
             key={`${plantData?.plantCode || 'default'}-${imageError}`}
           />
-          <Image 
-            source={displayFlag} 
-            style={styles.flag}
-            onError={(error) => {
-              console.log('PlantItemCard flag error:', error.nativeEvent.error);
-            }}
-            defaultSource={placeholderFlag}
-          />
+          
+          {/* Listing Type + Country Overlay */}
+          <View style={styles.listingOverlay}>
+            <View style={styles.listingTypeContainer}>
+              <View style={styles.listingTypeBadge}>
+                <Text style={styles.listingTypeText}>
+                  {plantData.listingType || 'Single Plant'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.countryContainer}>
+              {(() => {
+                const FlagComponent = getFlagComponent(plantData.country);
+                return <FlagComponent width={24} height={16} style={styles.countryFlag} />;
+              })()}
+            </View>
+          </View>
           
           {/* Discount Badge */}
           {data && (plantData.discountPercent > 0 || plantData.discountPrice > 0) && (
@@ -204,13 +212,56 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 12,
   },
-  flag: {
+  listingOverlay: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 18,
-    borderRadius: 4,
+    top: 0,
+    left: 0,
+    width: 166,
+    height: 40,
+    minHeight: 36,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    gap: 6,
+    zIndex: 1,
+  },
+  listingTypeContainer: {
+    width: 126,
+    height: 24,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  listingTypeBadge: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    backgroundColor: '#202325',
+    borderRadius: 6,
+    height: 24,
+    minHeight: 24,
+  },
+  listingTypeText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#FFFFFF',
+  },
+  countryContainer: {
+    width: 24,
+    height: 16,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  countryFlag: {
+    width: 24,
+    height: 16,
+    borderRadius: 2,
   },
   discountBadge: {
     position: 'absolute',
