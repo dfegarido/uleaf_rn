@@ -90,3 +90,6 @@ export {getBrowsePlantByGenusApi} from './getBrowsePlantByGenus';
 export {postBuyerUpdateInfoApi} from './postBuyerUpdateInfoApi';
 export {getPriceFilterApi} from './getPriceFilterApi';
 export {getPlantDetailApi} from './getPlantDetailApi';
+export {getSpeciesFromPlantCatalogApi} from './getSpeciesFromPlantCatalogApi';
+export {getGenusFromPlantCatalogApi} from './getGenusFromPlantCatalogApi';
+export {browsePlantsBySpeciesApi} from './browsePlantsBySpeciesApi';

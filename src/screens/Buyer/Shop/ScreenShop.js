@@ -59,6 +59,9 @@ import {
   getPlantRecommendationsApi,
   addToCartApi,
   getCartItemsApi,
+  getSpeciesFromPlantCatalogApi,
+  getGenusFromPlantCatalogApi,
+  browsePlantsBySpeciesApi,
 } from '../../../components/Api';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
@@ -186,10 +189,6 @@ const ScreenShop = ({navigation}) => {
   const [eventsData, setEventsData] = useState([]);
   const [loadingEventsData, setLoadingEventsData] = useState(true);
   
-  // Most loved listings state
-  const [mostLovedListings, setMostLovedListings] = useState([]);
-  const [loadingMostLoved, setLoadingMostLoved] = useState(true);
-  
   // Search results state
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -200,6 +199,15 @@ const ScreenShop = ({navigation}) => {
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Plant catalog data state
+  const [plantCatalogGenera, setPlantCatalogGenera] = useState([]);
+  const [loadingPlantCatalog, setLoadingPlantCatalog] = useState(true);
+  const [selectedGenusForSpecies, setSelectedGenusForSpecies] = useState(null);
+  const [speciesForGenus, setSpeciesForGenus] = useState([]);
+  const [loadingSpecies, setLoadingSpecies] = useState(false);
+  const [speciesPlants, setSpeciesPlants] = useState([]);
+  const [loadingSpeciesPlants, setLoadingSpeciesPlants] = useState(false);
   
   // Debounced search effect
   useEffect(() => {
@@ -224,8 +232,8 @@ const ScreenShop = ({navigation}) => {
           loadVariegationData(),
           loadBrowseGenusData(),
           loadEventsData(),
-          loadMostLovedListings(),
           loadPlantRecommendations(),
+          loadPlantCatalogGenera(),
         ]);
       } catch (error) {
         console.log('Error loading filter data:', error);
@@ -424,36 +432,6 @@ const ScreenShop = ({navigation}) => {
     }
   };
 
-  const loadMostLovedListings = async () => {
-    try {
-      setLoadingMostLoved(true);
-      console.log('Starting to load most loved listings...');
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      // Use getBuyerListings with mostLoved filter
-      const res = await retryAsync(() => getBuyerListingsApi({
-        limit: 10,
-        sortBy: 'Most Loved'
-      }), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load most loved listings.');
-      }
-
-      console.log('Most loved listings loaded successfully:', res.data);
-      setMostLovedListings(res.data?.listings || []);
-    } catch (error) {
-      console.error('Error loading most loved listings:', error);
-      setMostLovedListings([]);
-    } finally {
-      setLoadingMostLoved(false);
-    }
-  };
-
   const loadPlantRecommendations = async () => {
     try {
       setLoadingRecommendations(true);
@@ -511,6 +489,88 @@ const ScreenShop = ({navigation}) => {
       setSearchResults([]);
     } finally {
       setLoadingSearch(false);
+    }
+  };
+
+  // Load plant catalog genera
+  const loadPlantCatalogGenera = async () => {
+    try {
+      setLoadingPlantCatalog(true);
+      console.log('Starting to load plant catalog genera...');
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getGenusFromPlantCatalogApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load plant catalog genera.');
+      }
+
+      console.log('Plant catalog genera loaded successfully:', res.data);
+      setPlantCatalogGenera(res.data || []);
+    } catch (error) {
+      console.error('Error loading plant catalog genera:', error);
+      setPlantCatalogGenera([]);
+    } finally {
+      setLoadingPlantCatalog(false);
+    }
+  };
+
+  // Load species for a specific genus
+  const loadSpeciesForGenus = async (genus) => {
+    try {
+      setLoadingSpecies(true);
+      console.log('Starting to load species for genus:', genus);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getSpeciesFromPlantCatalogApi(genus), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load species for genus.');
+      }
+
+      console.log('Species loaded successfully for genus:', genus, res.data);
+      setSpeciesForGenus(res.data || []);
+      setSelectedGenusForSpecies(genus);
+    } catch (error) {
+      console.error('Error loading species for genus:', error);
+      setSpeciesForGenus([]);
+    } finally {
+      setLoadingSpecies(false);
+    }
+  };
+
+  // Browse plants by species
+  const browseBySpecies = async (speciesName) => {
+    try {
+      setLoadingSpeciesPlants(true);
+      console.log('Starting to browse plants by species:', speciesName);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => browsePlantsBySpeciesApi(speciesName), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to browse plants by species.');
+      }
+
+      console.log('Plants loaded successfully for species:', speciesName, res.data);
+      setSpeciesPlants(res.data || []);
+    } catch (error) {
+      console.error('Error browsing plants by species:', error);
+      setSpeciesPlants([]);
+    } finally {
+      setLoadingSpeciesPlants(false);
     }
   };
 
@@ -878,84 +938,6 @@ const ScreenShop = ({navigation}) => {
             </View>
           )}
         </ScrollView>
-        
-        {/* Most Loved Plants Section */}
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: 'bold',
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            color: '#393D40',
-            marginTop: 20,
-          }}>
-          Most Loved Plants
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            flexDirection: 'row',
-            gap: 10,
-            alignItems: 'flex-start',
-            paddingHorizontal: 10,
-          }}
-          style={{flexGrow: 0}}>
-          {loadingMostLoved ? (
-            // Loading state
-            Array.from({length: 3}).map((_, idx) => (
-              <View key={idx} style={{width: 200}}>
-                <View
-                  style={{
-                    width: 180,
-                    height: 120,
-                    borderRadius: 16,
-                    backgroundColor: '#f0f0f0',
-                  }}
-                />
-                <View
-                  style={{
-                    width: 120,
-                    height: 16,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 4,
-                    marginTop: 8,
-                  }}
-                />
-                <View
-                  style={{
-                    width: 80,
-                    height: 14,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 4,
-                    marginTop: 4,
-                  }}
-                />
-              </View>
-            ))
-          ) : mostLovedListings.length > 0 ? (
-            mostLovedListings.slice(0, 5).map((item, idx) => (
-              <PlantItemCard
-                key={item.plantCode || idx}
-                data={item}
-                onPress={() => {
-                  // Navigate to plant detail screen
-                  console.log('Navigate to plant detail:', item.plantCode);
-                }}
-                onAddToCart={() => {
-                  // Add to cart functionality
-                  console.log('Add to cart:', item.plantCode);
-                }}
-              />
-            ))
-          ) : (
-            <View style={{width: 200, alignItems: 'center', paddingVertical: 20}}>
-              <Text style={{color: '#888', fontSize: 14}}>
-                No most loved plants available
-              </Text>
-            </View>
-          )}
-        </ScrollView>
 
         {/* Plant Recommendations Section */}
         {recommendations.length > 0 && (
@@ -1146,6 +1128,199 @@ const ScreenShop = ({navigation}) => {
             </View>
           )}
         </View>
+        
+        {/* Browse Plants by Species Section */}
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: '#393D40',
+            marginTop: 10,
+          }}>
+          Browse Plants by Species
+        </Text>
+        
+        {/* Genus Selection for Species */}
+        <Text
+          style={{
+            fontSize: 16,
+            fontWeight: '600',
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+            color: '#666',
+          }}>
+          Select Genus:
+        </Text>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={{ paddingHorizontal: 12, marginBottom: 10 }}>
+          {loadingPlantCatalog ? (
+            // Loading state for genus selection
+            Array.from({length: 5}).map((_, idx) => (
+              <View
+                key={idx}
+                style={{
+                  width: 80,
+                  height: 35,
+                  backgroundColor: '#f0f0f0',
+                  borderRadius: 8,
+                  marginRight: 10,
+                }}
+              />
+            ))
+          ) : (
+            plantCatalogGenera.map((genus, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={{
+                  backgroundColor: selectedGenusForSpecies === genus.name ? '#539461' : '#E3E6E8',
+                  paddingHorizontal: 15,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  marginRight: 10,
+                }}
+                onPress={() => loadSpeciesForGenus(genus.name)}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: selectedGenusForSpecies === genus.name ? '#fff' : '#393D40',
+                    textTransform: 'capitalize',
+                  }}>
+                  {genus.name}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+
+        {/* Species Selection */}
+        {selectedGenusForSpecies && (
+          <>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '600',
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+                color: '#666',
+              }}>
+              Select Species from {selectedGenusForSpecies}:
+            </Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={{ paddingHorizontal: 12, marginBottom: 10 }}>
+              {loadingSpecies ? (
+                // Loading state for species selection
+                Array.from({length: 3}).map((_, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      width: 100,
+                      height: 35,
+                      backgroundColor: '#f0f0f0',
+                      borderRadius: 8,
+                      marginRight: 10,
+                    }}
+                  />
+                ))
+              ) : speciesForGenus.length > 0 ? (
+                speciesForGenus.map((species, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={{
+                      backgroundColor: '#E3E6E8',
+                      paddingHorizontal: 15,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      marginRight: 10,
+                    }}
+                    onPress={() => browseBySpecies(species.species)}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#393D40',
+                        textTransform: 'capitalize',
+                      }}>
+                      {species.species}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: '#666',
+                    paddingHorizontal: 12,
+                    fontStyle: 'italic',
+                  }}>
+                  No species found for {selectedGenusForSpecies}
+                </Text>
+              )}
+            </ScrollView>
+          </>
+        )}
+
+        {/* Species Plants Results */}
+        {speciesPlants.length > 0 && (
+          <>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: 'bold',
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: '#393D40',
+              }}>
+              Plants Found:
+            </Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={{ paddingHorizontal: 12, marginBottom: 15 }}>
+              {loadingSpeciesPlants ? (
+                // Loading state for species plants
+                Array.from({length: 3}).map((_, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      width: 160,
+                      height: 200,
+                      backgroundColor: '#f0f0f0',
+                      borderRadius: 12,
+                      marginRight: 10,
+                    }}
+                  />
+                ))
+              ) : (
+                speciesPlants.map((plant, idx) => (
+                  <PlantItemCard
+                    key={plant.id || idx}
+                    flag={plant.country?.flag || ThailandIcon}
+                    title={plant.plantName || 'Unknown Plant'}
+                    subtitle={plant.species || plant.genus || 'Unknown Species'}
+                    price={plant.price ? `$${plant.price}` : 'Price N/A'}
+                    likes={plant.likes || '0'}
+                    isWishlisted={plant.isWishlisted || false}
+                    containerStyle={{
+                      width: 160,
+                      marginRight: 10,
+                    }}
+                    onAddToCart={() => {
+                      console.log('Add to cart:', plant.plantCode);
+                    }}
+                  />
+                ))
+              )}
+            </ScrollView>
+          </>
+        )}
+        
         <Text
           style={{
             fontSize: 20,
