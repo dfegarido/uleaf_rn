@@ -435,7 +435,14 @@ const ScreenGenusPlants = ({navigation, route}) => {
         {plants.length > 0 ? (
           <View style={styles.plantsGridContainer}>
             {plants.map((plant, idx) => (
-              <View key={plant.plantCode || idx} style={styles.plantCardWrapper}>
+              <View 
+                key={plant.plantCode || idx} 
+                style={[
+                  styles.plantCardWrapper,
+                  // Remove right margin for every second item (right column) or if it's the last item
+                  (idx + 1) % 2 === 0 || idx === plants.length - 1 ? { marginRight: 0 } : {}
+                ]}
+              >
                 <PlantItemCard
                   data={plant}
                   onPress={() => {
@@ -662,15 +669,16 @@ const styles = StyleSheet.create({
   plantsGridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around', // Equal spacing around each item
+    justifyContent: 'flex-start', // Align items to the left
     alignItems: 'flex-start',
     marginTop: 0,
     paddingHorizontal: 0,
   },
   plantCardWrapper: {
     // Equal width for two columns with equal spacing
-    width: '45%', // 45% width for each card with 10% total for spacing
+    width: '45%', // 45% width for each card
     marginBottom: 16,
+    marginRight: '10%', // 10% margin on the right for spacing
     backgroundColor: '#FFFFFF',
     flexDirection: 'column',
     alignItems: 'center',
