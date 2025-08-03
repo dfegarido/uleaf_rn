@@ -11,6 +11,7 @@ const placeholderFlag = require('../../assets/buyer-icons/philippines-flag.svg')
 const noteIcon = require('../../assets/buyer-icons/note.svg');
 
 const PlantItemCard = ({
+  // Legacy props (for backward compatibility)
   image = placeholderImage,
   flag = placeholderFlag,
   title = 'Ficus lyrata',
@@ -21,47 +22,112 @@ const PlantItemCard = ({
   onWishlistPress = () => {},
   onPress = () => {},
   flightDate = 'May-30',
+  // New props
+  data = null,
+  onAddToCart = () => {},
+  style = {},
 }) => {
-  return (
-    <>
-      <View style={{flexDirection: 'column'}}>
-        <TouchableOpacity
-          style={styles.card}
-          onPress={onPress}
-          activeOpacity={0.9}>
-          <View style={styles.imageContainer}>
-            <Image source={image} style={styles.image} resizeMode="cover" />
-            <Image source={flag} style={styles.flag} />
-          </View>
-        </TouchableOpacity>
+  // If data prop is provided, use it; otherwise fall back to individual props
+  const plantData = data || {};
+  
+  const displayImage = data ? 
+    (plantData.imagePrimary ? {uri: plantData.imagePrimary} : placeholderImage) : 
+    image;
+    
+  const displayTitle = data ? 
+    (plantData.genus || plantData.plantName || 'Unknown Plant') :
+    title;
+    
+  const displaySubtitle = data ? 
+    (plantData.species || plantData.variegation || 'Plant Details') :
+    subtitle;
+    
+  const displayPrice = data ? 
+    (plantData.usdPriceNew ? `$${plantData.usdPriceNew}` : 
+     plantData.usdPrice ? `$${plantData.usdPrice}` : 
+     plantData.localPriceNew ? `${plantData.localCurrencySymbol || '$'}${plantData.localPriceNew}` :
+     plantData.localPrice ? `${plantData.localCurrencySymbol || '$'}${plantData.localPrice}` : 
+     'Price N/A') :
+    price;
+    
+  const displayLikes = data ? 
+    (plantData.loveCount ? `${plantData.loveCount}` : '0') :
+    likes;
+    
+  const displayFlag = data ? 
+    (plantData.countryFlag ? {uri: plantData.countryFlag} : placeholderFlag) :
+    flag;
+    
+  const displayFlightDate = data ? 
+    (plantData.flightDate || 'TBD') :
+    flightDate;
 
-        <View style={styles.infoContainer}>
-          <View style={styles.row}>
-            <Text style={styles.title}>{title}</Text>
-            <TouchableOpacity
-              onPress={onWishlistPress}
-              style={styles.likeButton}>
-              {isWishlisted ? (
-                <WishListSelected width={22} height={22} />
-              ) : (
-                <WishListUnselected width={20} height={20} />
-              )}
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-          <View style={styles.row}>
-            <Text style={styles.price}>{price}</Text>
-            <Image source={noteIcon} style={styles.noteIcon} />
-          </View>
-          <View style={styles.flightRow}>
-            <FlightIcon width={16} height={16} />
-            <Text style={styles.flightText}>
-              Plant Flight <Text style={styles.flightDate}>{flightDate}</Text>
-            </Text>
+  return (
+    <View style={[{flexDirection: 'column'}, style]}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={onPress}
+        activeOpacity={0.9}>
+        <View style={styles.imageContainer}>
+          <Image source={displayImage} style={styles.image} resizeMode="cover" />
+          <Image source={displayFlag} style={styles.flag} />
+          
+          {/* Discount Badge */}
+          {data && (plantData.discountPercent > 0 || plantData.discountPrice > 0) && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>
+                {plantData.discountPercent > 0 
+                  ? `${plantData.discountPercent}% OFF`
+                  : `$${plantData.discountPrice} OFF`
+                }
+              </Text>
+            </View>
+          )}
+          
+          {/* Love Count Badge */}
+          <View style={styles.loveBadge}>
+            <HeartIcon width={16} height={16} />
+            <Text style={styles.loveCount}>{displayLikes}</Text>
           </View>
         </View>
+      </TouchableOpacity>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.row}>
+          <Text style={styles.title} numberOfLines={2}>{displayTitle}</Text>
+          <TouchableOpacity
+            onPress={onWishlistPress}
+            style={styles.likeButton}>
+            {isWishlisted ? (
+              <WishListSelected width={22} height={22} />
+            ) : (
+              <WishListUnselected width={20} height={20} />
+            )}
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.subtitle} numberOfLines={1}>{displaySubtitle}</Text>
+        <View style={styles.row}>
+          <Text style={styles.price}>{displayPrice}</Text>
+          {data && plantData.usdPriceNew && plantData.usdPrice && plantData.usdPrice > plantData.usdPriceNew && (
+            <Text style={styles.oldPrice}>${plantData.usdPrice}</Text>
+          )}
+        </View>
+        
+        {/* Add to Cart Button for data-driven cards */}
+        {data && onAddToCart && (
+          <TouchableOpacity style={styles.addToCartButton} onPress={onAddToCart}>
+            <Text style={styles.addToCartText}>Add to Cart</Text>
+          </TouchableOpacity>
+        )}
+        
+        <View style={styles.flightRow}>
+          <FlightIcon width={16} height={16} />
+          <Text style={styles.flightText}>
+            Plant Flight <Text style={styles.flightDate}>{displayFlightDate}</Text>
+          </Text>
+        </View>
       </View>
-    </>
+    </View>
   );
 };
 
@@ -93,6 +159,38 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
   },
+  discountBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    backgroundColor: '#FFE7E2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  discountText: {
+    color: '#E7522F',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  loveBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 100,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  loveCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#393D40',
+  },
   infoContainer: {
     paddingHorizontal: 12,
     marginBottom: 10,
@@ -106,6 +204,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     flex: 1,
+    color: '#202325',
+    lineHeight: 22,
   },
   likeButton: {
     flexDirection: 'row',
@@ -129,7 +229,25 @@ const styles = StyleSheet.create({
   price: {
     fontWeight: 'bold',
     fontSize: 18,
-    color: '#222',
+    color: '#539461',
+  },
+  oldPrice: {
+    fontSize: 14,
+    color: '#7F8D91',
+    textDecorationLine: 'line-through',
+  },
+  addToCartButton: {
+    backgroundColor: '#539461',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  addToCartText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   noteIcon: {
     width: 18,

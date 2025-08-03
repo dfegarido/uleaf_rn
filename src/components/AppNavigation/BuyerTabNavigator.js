@@ -22,6 +22,7 @@ import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScre
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
+import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import {ScreenCart} from '../../screens/Buyer/Cart';
@@ -58,6 +59,11 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="ScreenWishlist"
         component={ScreenWishlist}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenGenusPlants"
+        component={ScreenGenusPlants}
         options={{headerShown: false}}
       />
       <Stack.Screen
