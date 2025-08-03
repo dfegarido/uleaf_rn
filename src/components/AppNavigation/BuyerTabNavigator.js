@@ -23,6 +23,7 @@ import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
+import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import {ScreenCart} from '../../screens/Buyer/Cart';
@@ -48,6 +49,29 @@ import {ScreenOrders} from '../../screens/Buyer/Orders';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// Create a Shop Stack Navigator to include shop-related screens
+function ShopStackNavigator() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="ScreenShop"
+        component={ScreenShop}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenGenusPlants"
+        component={ScreenGenusPlants}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenWishlist"
+        component={ScreenWishlist}
+        options={{headerShown: false}}
+      />
+    </Stack.Navigator>
+  );
+}
+
 function BuyerTabNavigator() {
   return (
     <Stack.Navigator>
@@ -57,13 +81,8 @@ function BuyerTabNavigator() {
         options={{headerShown: false}}
       />
       <Stack.Screen
-        name="ScreenWishlist"
-        component={ScreenWishlist}
-        options={{headerShown: false}}
-      />
-      <Stack.Screen
-        name="ScreenGenusPlants"
-        component={ScreenGenusPlants}
+        name="ScreenPlantDetail"
+        component={ScreenPlantDetail}
         options={{headerShown: false}}
       />
       <Stack.Screen
@@ -254,7 +273,7 @@ function BuyerTabs() {
           },
         })}
       />
-      <Tab.Screen name="Shop" component={ScreenShop} />
+      <Tab.Screen name="Shop" component={ShopStackNavigator} />
       <Tab.Screen name="Orders" component={ScreenOrders} />
 
       <Tab.Screen

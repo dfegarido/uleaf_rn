@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, Image, StyleSheet, TouchableOpacity} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
 import FlightIcon from '../../assets/buyer-icons/flight.svg';
 import WishListSelected from '../../assets/buyer-icons/wishlist-selected.svg';
 import WishListUnselected from '../../assets/buyer-icons/wishlist-unselected.svg';
@@ -27,12 +28,44 @@ const PlantItemCard = ({
   onAddToCart = () => {},
   style = {},
 }) => {
+  const navigation = useNavigation();
+  const [imageError, setImageError] = React.useState(false);
+  
   // If data prop is provided, use it; otherwise fall back to individual props
   const plantData = data || {};
   
+  // Reset image error when plant data changes
+  React.useEffect(() => {
+    setImageError(false);
+  }, [plantData?.plantCode, plantData?.imagePrimary]);
+  
+  const handleCardPress = () => {
+    if (data && plantData.plantCode) {
+      // Navigate to plant detail screen with plantCode
+      navigation.navigate('ScreenPlantDetail', {
+        plantCode: plantData.plantCode,
+      });
+    } else {
+      // Fallback to legacy onPress prop
+      onPress();
+    }
+  };
+  
   const displayImage = data ? 
-    (plantData.imagePrimary ? {uri: plantData.imagePrimary} : placeholderImage) : 
+    (plantData.imagePrimary && plantData.imagePrimary.trim() !== '' && !imageError ? 
+      {uri: plantData.imagePrimary} : 
+      placeholderImage) : 
     image;
+  
+  // Debug logging
+  if (data && plantData?.plantCode) {
+    console.log(`PlantItemCard ${plantData.plantCode}:`, {
+      imagePrimary: plantData.imagePrimary,
+      displayImage: displayImage,
+      hasImageUri: displayImage.uri ? 'yes' : 'no',
+      imageError: imageError
+    });
+  }
     
   const displayTitle = data ? 
     (plantData.genus || plantData.plantName || 'Unknown Plant') :
@@ -55,7 +88,9 @@ const PlantItemCard = ({
     likes;
     
   const displayFlag = data ? 
-    (plantData.countryFlag ? {uri: plantData.countryFlag} : placeholderFlag) :
+    (plantData.countryFlag && plantData.countryFlag.trim() !== '' ? 
+      {uri: plantData.countryFlag} : 
+      placeholderFlag) :
     flag;
     
   const displayFlightDate = data ? 
@@ -66,11 +101,36 @@ const PlantItemCard = ({
     <View style={[{flexDirection: 'column'}, style]}>
       <TouchableOpacity
         style={styles.card}
-        onPress={onPress}
+        onPress={handleCardPress}
         activeOpacity={0.9}>
         <View style={styles.imageContainer}>
-          <Image source={displayImage} style={styles.image} resizeMode="cover" />
-          <Image source={displayFlag} style={styles.flag} />
+          <Image 
+            source={displayImage} 
+            style={styles.image} 
+            resizeMode="cover"
+            onError={(error) => {
+              console.log('PlantItemCard image load error:', {
+                plantCode: plantData?.plantCode,
+                imagePrimary: plantData?.imagePrimary,
+                error: error.nativeEvent.error
+              });
+              setImageError(true);
+            }}
+            onLoad={() => {
+              if (data && plantData?.plantCode) {
+                console.log(`Image loaded successfully for ${plantData.plantCode}`);
+              }
+            }}
+            key={`${plantData?.plantCode || 'default'}-${imageError}`}
+          />
+          <Image 
+            source={displayFlag} 
+            style={styles.flag}
+            onError={(error) => {
+              console.log('PlantItemCard flag error:', error.nativeEvent.error);
+            }}
+            defaultSource={placeholderFlag}
+          />
           
           {/* Discount Badge */}
           {data && (plantData.discountPercent > 0 || plantData.discountPrice > 0) && (
@@ -112,13 +172,6 @@ const PlantItemCard = ({
             <Text style={styles.oldPrice}>${plantData.usdPrice}</Text>
           )}
         </View>
-        
-        {/* Add to Cart Button for data-driven cards */}
-        {data && onAddToCart && (
-          <TouchableOpacity style={styles.addToCartButton} onPress={onAddToCart}>
-            <Text style={styles.addToCartText}>Add to Cart</Text>
-          </TouchableOpacity>
-        )}
         
         <View style={styles.flightRow}>
           <FlightIcon width={16} height={16} />
@@ -235,19 +288,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7F8D91',
     textDecorationLine: 'line-through',
-  },
-  addToCartButton: {
-    backgroundColor: '#539461',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  addToCartText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
   },
   noteIcon: {
     width: 18,

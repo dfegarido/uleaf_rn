@@ -9,11 +9,16 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Alert,
+  TextInput,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useAuth} from '../../../auth/AuthProvider';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
+import SearchIcon from '../../../assets/iconnav/search.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
+import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {PlantItemCard} from '../../../components/PlantItemCard';
 import {ReusableActionSheet} from '../../../components/ReusableActionSheet';
 import {
@@ -25,7 +30,67 @@ import {
 } from '../../../components/Api';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import BackIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
+import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
+import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
+import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
+import PriceTagIcon from '../../../assets/buyer-icons/tag-bold.svg';
+import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
+import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
+import PromoBadge from '../../../components/PromoBadge/PromoBadge';
+
+const GenusHeader = ({genus, navigation}) => {
+  const [searchText, setSearchText] = useState('');
+  
+  return (
+    <View style={styles.header}>
+      <View style={styles.controls}>
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}>
+          <BackIcon width={24} height={24} />
+        </TouchableOpacity>
+
+        {/* Search */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchField}>
+            <View style={styles.textField}>
+              <SearchIcon width={24} height={24} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={`Search ${genus || 'plants'}...`}
+                placeholderTextColor="#647276"
+                value={searchText}
+                onChangeText={setSearchText}
+                multiline={false}
+                numberOfLines={1}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Wishlist Action */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('ScreenWishlist')}>
+          <Wishicon width={24} height={24} />
+        </TouchableOpacity>
+
+        {/* Profile */}
+        <TouchableOpacity 
+          style={styles.profileContainer}
+          onPress={() => navigation.navigate('ScreenProfile')}>
+          <View style={styles.avatar}>
+            <AvatarIcon width={32} height={32} />
+            <View style={styles.badge}>
+              <View style={styles.badgeDot} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 const ScreenGenusPlants = ({navigation, route}) => {
   const {user} = useAuth();
@@ -227,11 +292,13 @@ const ScreenGenusPlants = ({navigation, route}) => {
   };
 
   const handleFilterView = () => {
-    // Apply filters and reload plants
+    // Handle filter application here
     if (code === 'SORT') {
       console.log('Applied sort filter:', reusableSort);
     } else if (code === 'PRICE') {
       console.log('Applied price filter:', reusablePrice);
+    } else if (code === 'GENUS') {
+      console.log('Applied genus filter:', reusableGenus);
     } else if (code === 'VARIEGATION') {
       console.log('Applied variegation filter:', reusableVariegation);
     }
@@ -281,58 +348,31 @@ const ScreenGenusPlants = ({navigation, route}) => {
   };
 
   const filterOptions = [
-    {label: 'Sort', leftIcon: null},
-    {label: 'Price', rightIcon: null},
-    {label: 'Variegation', rightIcon: null},
+    {label: 'Sort', leftIcon: SortIcon},
+    {label: 'Price', rightIcon: DownIcon},
+    {label: 'Genus', rightIcon: DownIcon},
+    {label: 'Variegation', rightIcon: DownIcon},
+    {label: 'Country', rightIcon: DownIcon},
+    {label: 'Shipping Index', rightIcon: DownIcon},
+    {label: 'Acclimation Index', rightIcon: DownIcon},
+    {label: 'Listing Type', rightIcon: DownIcon},
   ];
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}>
-            <BackIcon width={24} height={24} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {genus ? `${genus} Plants` : 'Plants'}
-          </Text>
-          <View style={{width: 40}} />
-        </View>
+      <View style={styles.container}>
+        <GenusHeader genus={genus} navigation={navigation} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#539461" />
           <Text style={styles.loadingText}>Loading plants...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}>
-          <BackIcon width={24} height={24} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {genus ? `${genus} Plants` : 'Plants'}
-        </Text>
-        <View style={{width: 40}} />
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <InputGroupLeftIcon
-          IconLeftComponent={SearchIcon}
-          placeholder={`Search ${genus || 'plants'}...`}
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          onSubmitEditing={() => loadPlants(true)}
-        />
-      </View>
+    <View style={styles.container}>
+      <GenusHeader genus={genus} navigation={navigation} />
 
       {/* Filter Bar */}
       <ScrollView
@@ -348,12 +388,28 @@ const ScreenGenusPlants = ({navigation, route}) => {
                 onPressFilter('SORT');
               } else if (option.label === 'Price') {
                 onPressFilter('PRICE');
+              } else if (option.label === 'Genus') {
+                onPressFilter('GENUS');
               } else if (option.label === 'Variegation') {
                 onPressFilter('VARIEGATION');
               }
             }}
             style={styles.filterButton}>
+            {option.leftIcon && (
+              <option.leftIcon
+                width={20}
+                height={20}
+                style={{marginRight: 4}}
+              />
+            )}
             <Text style={styles.filterButtonText}>{option.label}</Text>
+            {option.rightIcon && (
+              <option.rightIcon
+                width={20}
+                height={20}
+                style={{marginLeft: 4}}
+              />
+            )}
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -437,7 +493,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         priceChange={setReusablePrice}
         handleSearchSubmit={handleFilterView}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -447,33 +503,133 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
+    width: '100%',
+    height: 100,
+    marginBottom: -40,
+    backgroundColor: '#FFFFFF',
+  },
+  controls: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    paddingTop: 6,
+    gap: 10,
+    width: '100%',
+    height: 58,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#393D40',
-    textTransform: 'capitalize',
+    width: 24,
+    height: 24,
+    flex: 0,
   },
   searchContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 209,
+    height: 40,
+    flex: 1,
+  },
+  searchField: {
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    flex: 0,
+  },
+  textField: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    minHeight: 34,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
+  },
+  searchInput: {
+    width: 145,
+    height: 22,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#647276',
+    flex: 1,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    paddingVertical: 0,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
+  },
+  profileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    width: 40,
+    height: 40,
+    flex: 0,
+  },
+  avatar: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 32,
+    minWidth: 32,
+    height: 32,
+    minHeight: 32,
+    borderRadius: 1000,
+    position: 'relative',
+    flex: 0,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 0,
+    zIndex: 1,
+  },
+  badgeDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    left: 1,
+    top: 1,
+    backgroundColor: '#E7522F',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    borderRadius: 4,
   },
   filterBar: {
     flexGrow: 0,
-    paddingVertical: 8,
+    paddingTop: 0,
+    paddingBottom: 8,
   },
   filterBarContent: {
     flexDirection: 'row',
@@ -485,8 +641,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#CDD3D4',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    padding: 8,
+    marginTop: 5,
     flexDirection: 'row',
     alignItems: 'center',
   },

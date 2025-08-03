@@ -5,7 +5,7 @@ export const getPlantDetailApi = async (plantCode) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getListing?plantCode=${plantCode}`,
+      `https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerListing?plantCode=${plantCode}`,
       {
         method: 'GET',
         headers: {
