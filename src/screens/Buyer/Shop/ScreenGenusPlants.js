@@ -433,19 +433,19 @@ const ScreenGenusPlants = ({navigation, route}) => {
         onRefresh={() => loadPlants(true)}>
         
         {plants.length > 0 ? (
-          <>
+          <View style={styles.plantsGridContainer}>
             {plants.map((plant, idx) => (
-              <PlantItemCard
-                key={plant.plantCode || idx}
-                data={plant}
-                onPress={() => {
-                  console.log('Navigate to plant detail:', plant.plantCode);
-                  // TODO: Navigate to plant detail screen
-                  // navigation.navigate('PlantDetail', {plantCode: plant.plantCode});
-                }}
-                onAddToCart={() => handleAddToCart(plant)}
-                style={styles.plantCard}
-              />
+              <View key={plant.plantCode || idx} style={styles.plantCardWrapper}>
+                <PlantItemCard
+                  data={plant}
+                  onPress={() => {
+                    console.log('Navigate to plant detail:', plant.plantCode);
+                    // TODO: Navigate to plant detail screen
+                    // navigation.navigate('PlantDetail', {plantCode: plant.plantCode});
+                  }}
+                  onAddToCart={() => handleAddToCart(plant)}
+                />
+              </View>
             ))}
             
             {/* Load More Indicator */}
@@ -463,7 +463,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
                 </Text>
               </View>
             )}
-          </>
+          </View>
         ) : (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>No {genus} plants found</Text>
@@ -655,13 +655,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   plantsGrid: {
+    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingTop: 15,
+  },
+  plantsGridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-around', // Equal spacing around each item
     alignItems: 'flex-start',
-    alignContent: 'flex-start',
-    padding: 15,
-    gap: 13,
-    paddingBottom: 100,
+    marginTop: 0,
+    paddingHorizontal: 0,
+  },
+  plantCardWrapper: {
+    // Equal width for two columns with equal spacing
+    width: '45%', // 45% width for each card with 10% total for spacing
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: 0,
   },
   plantCard: {
     width: 166,

@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   Modal,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useAuth} from '../../../auth/AuthProvider';
@@ -42,6 +43,13 @@ import {retryAsync} from '../../../utils/utils';
 const ScreenPlantDetail = ({navigation, route}) => {
   const {user} = useAuth();
   const {plantCode} = route.params || {};
+  
+  // Get screen dimensions for dynamic card sizing
+  const screenWidth = Dimensions.get('window').width;
+  const sectionPadding = 48; // Total horizontal padding (24 * 2) from sectionContainer
+  const cardGap = 12; // Gap between cards
+  const availableWidth = screenWidth - sectionPadding; // Width after container padding
+  const cardWidth = Math.floor((availableWidth - cardGap) / 2); // Width for each card
 
   // Plant data state
   const [plantData, setPlantData] = useState(null);
@@ -545,7 +553,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
           {/* You may also like section */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>You may also like</Text>
+            <Text style={styles.sectionTitle}>You May Also Like</Text>
             
             {(() => {
               console.log('Rendering recommendations section - loadingRecommendations:', loadingRecommendations, 'recommendations.length:', recommendations.length);
@@ -562,7 +570,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 {recommendations.map((plant, index) => {
                   console.log('Rendering recommendation card:', index, plant.plantCode);
                   return (
-                    <View key={plant.id || plant.plantCode || index} style={styles.recommendationCard}>
+                    <View 
+                      key={plant.id || plant.plantCode || index} 
+                      style={styles.recommendationCard}
+                    >
                       <PlantItemCard 
                         data={plant}
                         onPress={() => {
@@ -1322,12 +1333,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
   recommendationGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around', // Equal spacing around each item
+    alignItems: 'flex-start',
     marginTop: 16,
+    paddingHorizontal: 0,
   },
   recommendationCard: {
-    width: '48%',
+    // Equal width for two columns with equal spacing
+    width: '45%', // 45% width for each card with 10% total for spacing
     marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: 0,
   },
   noRecommendationsContainer: {
     marginTop: 16,

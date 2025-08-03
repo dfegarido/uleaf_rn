@@ -199,12 +199,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     elevation: 2,
     margin: 11,
-    width: 166,
+    width: 150,
     height: 220,
   },
   imageContainer: {
     position: 'relative',
-    width: '100%',
+    width: 150,
     height: '100%',
   },
   image: {
