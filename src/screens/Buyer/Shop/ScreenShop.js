@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   Linking,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
@@ -588,18 +589,28 @@ const ScreenShop = ({navigation}) => {
   const [browseMorePlants, setBrowseMorePlants] =
     useState(browseMorePlantsData);
 
+  const [searchText, setSearchText] = useState('');
+
   return (
     <>
       <View style={styles.stickyHeader}>
         <View style={styles.header}>
-          <View style={{flex: 1}}>
-            <InputGroupLeftIcon
-              IconLeftComponent={SearchIcon}
-              placeholder={'Search ileafU'}
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-            />
+        <View style={styles.searchContainer}>
+          <View style={styles.searchField}>
+            <View style={styles.textField}>
+              <SearchIcon width={24} height={24} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search ileafU"
+                placeholderTextColor="#647276"
+                value={searchText}
+                onChangeText={setSearchText}
+                multiline={false}
+                numberOfLines={1}
+              />
+            </View>
           </View>
+        </View>
 
           <View style={styles.headerIcons}>
             <TouchableOpacity
@@ -1248,6 +1259,54 @@ const styles = StyleSheet.create({
     padding: 16,
     flex: 1,
     marginRight: 8,
+  },
+   searchContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 209,
+    height: 40,
+    flex: 1,
+  },
+  searchField: {
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    flex: 0,
+  },
+  textField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    minHeight: 34,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
+  },
+  searchInput: {
+    width: 145,
+    height: 22,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#647276',
+    flex: 1,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    paddingVertical: 0,
   },
   cardWhite: {
     backgroundColor: '#f7f7f7',
