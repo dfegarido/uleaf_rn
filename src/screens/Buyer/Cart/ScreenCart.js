@@ -71,7 +71,7 @@ const CartHeader = () => {
         {/* Wishlist Action */}
           <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => navigation.navigate('Wishlist')}>
+          onPress={() => navigation.navigate('ScreenWishlist')}>
           <Wishicon width={24} height={24} />
           </TouchableOpacity>
 
