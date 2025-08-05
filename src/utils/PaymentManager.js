@@ -167,6 +167,30 @@ export class PaymentManager {
   }
   
   /**
+   * Handle the complete checkout flow for direct purchase (Buy Now)
+   * @param {Object} checkoutData - Checkout data
+   * @param {Object} checkoutData.directPurchase - Direct purchase data
+   * @param {string} checkoutData.cargoDate - Cargo date
+   * @param {Object} checkoutData.deliveryDetails - Delivery details
+   * @param {string} checkoutData.paymentMethod - Payment method
+   * @param {number} checkoutData.leafPoints - Leaf points to apply
+   * @param {number} checkoutData.plantCredits - Plant credits to apply
+   * @param {number} checkoutData.shippingCredits - Shipping credits to apply
+   * @param {Object} paymentOptions - Payment options
+   * @returns {Promise<Object>} Complete checkout result
+   */
+  static async checkoutWithDirectPurchase(checkoutData, paymentOptions = {}) {
+    const orderData = {
+      ...checkoutData,
+      useCart: false, // Direct purchase, not from cart
+      directPurchase: true, // Flag for direct purchase
+      paymentMethod: checkoutData.paymentMethod || 'PAYPAL',
+    };
+    
+    return await this.initiatePayment(orderData, paymentOptions);
+  }
+  
+  /**
    * Show payment confirmation dialog
    * @param {Object} orderSummary - Order summary data
    * @param {Function} onConfirm - Callback when user confirms

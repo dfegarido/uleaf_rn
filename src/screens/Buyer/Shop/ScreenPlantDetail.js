@@ -36,6 +36,7 @@ import MinusIcon from '../../../assets/buyer-icons/minus.svg';
 import PlusIcon from '../../../assets/buyer-icons/plus.svg';
 import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
 import {getPlantRecommendationsApi} from '../../../components/Api/listingBrowseApi';
+import {addToCartApi} from '../../../components/Api/cartApi';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
@@ -186,26 +187,54 @@ const ScreenPlantDetail = ({navigation, route}) => {
     setShowAddToCartModal(true);
   };
 
-  const handleConfirmAddToCart = () => {
+  const handleConfirmAddToCart = async () => {
+    if (quantity <= 0) {
+      Alert.alert('Invalid Quantity', 'Please select a quantity greater than 0');
+      return;
+    }
+
     console.log('Adding to cart:', {
       plantCode,
       potSize: selectedPotSize,
       quantity,
       action: modalAction,
     });
+
     setShowAddToCartModal(false);
+
     if (modalAction === 'buy-now') {
       // Navigate to checkout screen with plant data
+      const unitPrice = parseFloat(plantData?.usdPriceNew || plantData?.usdPrice || '0');
       navigation.navigate('CheckoutScreen', {
         plantData: plantData,
         selectedPotSize: selectedPotSize,
         quantity: quantity,
         plantCode: plantCode,
-        totalAmount: parseFloat(plantData?.usdPrice || '0') * quantity,
+        totalAmount: unitPrice * quantity,
         fromBuyNow: true,
       });
     } else {
-      Alert.alert('Success', `Added ${quantity} plant(s) to cart!`);
+      // Add to cart using API
+      try {
+        const cartData = {
+          plantCode: plantCode,
+          quantity: quantity,
+          potSize: selectedPotSize,
+          notes: `${plantData.genus} ${plantData.species} - ${plantData.variegation || 'Standard'}`
+        };
+
+        const response = await addToCartApi(cartData);
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to add to cart');
+        }
+
+        Alert.alert('Success', `Added ${quantity} plant(s) to cart!`);
+        console.log('Item added to cart successfully:', response.data);
+      } catch (error) {
+        console.error('Error adding to cart:', error);
+        Alert.alert('Error', error.message || 'Failed to add item to cart');
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useMemo} from 'react';
 import {
   View,
   Text,
@@ -117,6 +117,13 @@ const CheckoutScreen = () => {
     cartItems = [],
     productData = [],
     useCart = true,
+    // Buy Now parameters
+    fromBuyNow = false,
+    plantData = null,
+    selectedPotSize = null,
+    quantity = 1,
+    plantCode = null,
+    totalAmount = 0,
   } = route.params || {};
 
   const [loading, setLoading] = useState(false);
@@ -139,66 +146,155 @@ const CheckoutScreen = () => {
   const [plantCredits, setPlantCredits] = useState(0);
   const [shippingCredits, setShippingCredits] = useState(0);
   
-  // Mock plant items data (similar to cart screen approach)
-  const plantItems = useCart && cartItems.length > 0 
-    ? cartItems 
-    : productData.length > 0 
-    ? productData 
-    : [
+  // Prepare plant items for display - handle cart data, direct product data, and buy now
+  const plantItems = useMemo(() => {
+    if (fromBuyNow && plantData) {
+      return [
         {
-          id: 1,
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Monstera Deliciosa',
-          variation: 'Variegated',
-          size: '6',
-          price: 89.99,
-          quantity: 2,
-          title: 'Rare Tropical Plants from Thailand',
-          country: 'TH',
+          id: plantCode || Math.random().toString(),
+          image: plantData.imagePrimary 
+            ? { uri: plantData.imagePrimary } 
+            : require('../../../assets/buyer-icons/png/ficus-lyrata.png'),
+          name: `${plantData.genus || ''} ${plantData.species || ''}`.trim() || 'Unknown Plant',
+          variation: plantData.variegation && plantData.variegation !== 'None' 
+            ? plantData.variegation 
+            : 'Standard',
+          size: selectedPotSize || '2"',
+          price: parseFloat(plantData.usdPriceNew || plantData.usdPrice || '0'),
+          originalPrice: plantData.usdPriceNew && plantData.usdPrice 
+            ? parseFloat(plantData.usdPrice) 
+            : null,
+          quantity: quantity,
+          title: 'Direct Purchase from Plant Detail',
+          country: plantData.country || 'TH',
           shippingMethod: 'Plant / UPS Ground Shipping',
-        },
-        {
-          id: 2,
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Philodendron Spiritus',
-          variation: 'Variegated',
-          size: '4" pot',
-          price: 125.50,
-          originalPrice: 150.00,
-          quantity: 1,
-          title: 'Rare Tropical Plants from Thailand',
-          country: 'TH',
-          shippingMethod: 'Plant / UPS Ground Shipping',
-          listingType: 'Wholesale Plant',
-          discount: '15%',
-          hasAirCargo: false,
-        },
-        {
-          id: 3,
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Anthurium Warocqueanum',
-          variation: 'Variegated',
-          size: '6" pot',
-          price: 299.99,
-          originalPrice: 350.00,
-          quantity: 3,
-          title: 'Rare Tropical Plants from Thailand',
-          country: 'TH',
-          shippingMethod: 'Plant / UPS Ground Shipping',
-          listingType: 'Auction',
-          discount: '14%',
+          plantCode: plantCode,
+          listingType: plantData.usdPriceNew ? 'Discounted' : 'Single Plant',
+          discount: plantData.usdPriceNew && plantData.usdPrice 
+            ? `${Math.round(((parseFloat(plantData.usdPrice) - parseFloat(plantData.usdPriceNew)) / parseFloat(plantData.usdPrice)) * 100)}%` 
+            : null,
           hasAirCargo: true,
         }
       ];
+    } else if (useCart && cartItems.length > 0) {
+      return cartItems.map(item => ({
+        id: item.id || item.cartItemId,
+        image: item.image || require('../../../assets/images/plant1.png'),
+        name: item.name || 'Unknown Plant',
+        variation: item.subtitle?.split(' • ')[0] || 'Standard',
+        size: item.subtitle?.split(' • ')[1]?.replace(' pot', '') || item.potSize || '2"',
+        price: item.price || 0,
+        originalPrice: item.originalPrice,
+        quantity: item.quantity || 1,
+        title: 'Rare Tropical Plants from Thailand',
+        country: 'TH',
+        shippingMethod: 'Plant / UPS Ground Shipping',
+        plantCode: item.plantCode,
+        listingType: item.originalPrice ? 'Discounted' : null,
+        discount: item.originalPrice ? `${Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)}%` : null,
+        hasAirCargo: true,
+      }));
+    } else if (productData.length > 0) {
+      return productData.map(item => ({
+        id: item.id || Math.random().toString(),
+        image: item.image || require('../../../assets/images/plant1.png'),
+        name: item.name || 'Unknown Plant',
+        variation: item.variation || item.variegation || 'Standard',
+        size: item.size || item.potSize || '2"',
+        price: item.price || 0,
+        originalPrice: item.originalPrice,
+        quantity: item.quantity || 1,
+        title: item.title || 'Rare Tropical Plants from Thailand',
+        country: item.country || 'TH',
+        shippingMethod: item.shippingMethod || 'Plant / UPS Ground Shipping',
+        plantCode: item.plantCode,
+        listingType: item.listingType,
+        discount: item.discount,
+        hasAirCargo: item.hasAirCargo !== false,
+      }));
+    } else {
+      return [];
+    }
+  }, [fromBuyNow, plantData, selectedPotSize, quantity, plantCode, useCart, cartItems, productData]);
   
-  // Mock order summary
-  const [orderSummary, setOrderSummary] = useState({
-    totalItems: plantItems.length,
-    subtotal: plantItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0),
-    shipping: 15.00,
-    discount: 5.00,
-    finalTotal: plantItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) + 15.00 - 5.00,
-  });
+  const orderSummary = useMemo(() => {
+    const defaultSummary = {
+      totalItems: 0,
+      subtotal: 0,
+      shipping: 15.00,
+      discount: 0,
+      finalTotal: 15.00,
+    };
+
+    if (!plantItems || plantItems.length === 0) {
+      return defaultSummary;
+    }
+
+    const totalItems = plantItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const subtotal = plantItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+    const discountAmount = plantItems.reduce((sum, item) => {
+      if (item.originalPrice && item.originalPrice > item.price) {
+        return sum + ((item.originalPrice - item.price) * (item.quantity || 1));
+      }
+      return sum;
+    }, 0);
+    
+    const shipping = 15.00; // Base shipping cost
+    const finalTotal = subtotal + shipping - discountAmount;
+
+    return {
+      totalItems,
+      subtotal,
+      shipping,
+      discount: discountAmount,
+      finalTotal: finalTotal > 0 ? finalTotal : 0,
+    };
+  }, [plantItems]);
+
+  const quantityBreakdown = useMemo(() => {
+    const defaultBreakdown = {
+      singlePlant: 0,
+      wholesale: 0,
+    };
+
+    if (!plantItems || plantItems.length === 0) {
+      return defaultBreakdown;
+    }
+
+    const singlePlant = plantItems.reduce((sum, item) => {
+      if (item.listingType === 'Single Plant' || item.listingType === 'Discounted' || !item.listingType) {
+        return sum + (item.quantity || 1);
+      }
+      return sum;
+    }, 0);
+    
+    const wholesale = plantItems.reduce((sum, item) => {
+      if (item.listingType === 'Wholesale Plant' || item.listingType === 'Wholesale') {
+        return sum + (item.quantity || 1);
+      }
+      return sum;
+    }, 0);
+
+    return {
+      singlePlant,
+      wholesale,
+    };
+  }, [plantItems]);
+
+  // Handle Buy Now specific data updates
+  useEffect(() => {
+    if (fromBuyNow && plantData) {
+      // Update flight date if available from plant data
+      if (plantData.flightDate) {
+        setSelectedFlightDate(plantData.flightDate);
+      }
+      
+      // Update cargo date if available
+      if (plantData.cargoDate) {
+        setCargoDate(plantData.cargoDate);
+      }
+    }
+  }, [fromBuyNow, plantData]);
 
   const handleCheckout = async () => {
     try {
@@ -212,11 +308,26 @@ const CheckoutScreen = () => {
         leafPoints,
         plantCredits,
         shippingCredits,
+        orderSummary,
       };
 
-      // Add product data if not using cart
-      if (!useCart && productData.length > 0) {
+      // Add appropriate data based on checkout type
+      if (fromBuyNow && plantData) {
+        // Direct purchase from plant detail
+        checkoutData.directPurchase = {
+          plantCode,
+          plantData,
+          selectedPotSize,
+          quantity,
+          totalAmount,
+        };
+        checkoutData.items = plantItems;
+      } else if (!useCart && productData.length > 0) {
+        // Product data checkout
         checkoutData.productData = productData;
+      } else if (useCart && cartItems.length > 0) {
+        // Cart checkout
+        checkoutData.cartItems = cartItems;
       }
 
       // Payment options
@@ -231,7 +342,9 @@ const CheckoutScreen = () => {
         orderSummary,
         async () => {
           // User confirmed, proceed with payment
-          const result = useCart
+          const result = fromBuyNow
+            ? await PaymentManager.checkoutWithDirectPurchase(checkoutData, paymentOptions)
+            : useCart
             ? await PaymentManager.checkoutWithCart(checkoutData, paymentOptions)
             : await PaymentManager.checkoutWithProducts(checkoutData, paymentOptions);
 
@@ -477,19 +590,19 @@ const CheckoutScreen = () => {
               {/* Single / Growers */}
               <View style={styles.singleGrowerRow}>
                 <Text style={styles.summaryRowLabel}>Single Plant Quantity</Text>
-                <Text style={styles.summaryRowNumber}>2</Text>
+                <Text style={styles.summaryRowNumber}>{quantityBreakdown.singlePlant}</Text>
               </View>
               
               {/* Wholesale */}
               <View style={styles.wholesaleRow}>
                 <Text style={styles.summaryRowLabel}>Wholesale Quantity</Text>
-                <Text style={styles.summaryRowNumber}>1</Text>
+                <Text style={styles.summaryRowNumber}>{quantityBreakdown.wholesale}</Text>
               </View>
               
               {/* Total */}
               <View style={styles.quantityTotalRow}>
                 <Text style={styles.quantityTotalLabel}>Total quantity</Text>
-                <Text style={styles.quantityTotalNumber}>3</Text>
+                <Text style={styles.quantityTotalNumber}>{orderSummary.totalItems}</Text>
               </View>
             </View>
           </View>

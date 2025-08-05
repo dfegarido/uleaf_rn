@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   StyleSheet,
@@ -8,6 +8,9 @@ import {
   ScrollView,
   Image,
   Text,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -15,6 +18,9 @@ import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
+import {getCartItemsApi, removeFromCartApi} from '../../../components/Api/cartApi';
+import NetInfo from '@react-native-community/netinfo';
+import {retryAsync} from '../../../utils/utils';
 
 import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
 import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
@@ -176,52 +182,104 @@ const cartItems = Array.from({length: 10}).map((_, i) => ({
   flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
 }));
 
-const CartFooter = ({selectedItems, cartItems, onSelectAll, onCheckout}) => {
-  const isAllSelected = selectedItems.size === cartItems.length;
-  const selectedCount = selectedItems.size;
-
-  // Calculate total cost and savings
-  const totalCost = cartItems.reduce(
-    (sum, item) => sum + parseFloat(item.price),
-    0,
-  );
-  const savings = 1200; // This could be calculated based on actual discounts
-
-  return (
-    <View style={styles.footer}>
-      <View style={styles.footerTop}>
-        <View style={styles.selectAllContainer}>
-          <TouchableOpacity
-            style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}
-            onPress={onSelectAll}>
-            {isAllSelected && <Text style={styles.checkmark}>✓</Text>}
-          </TouchableOpacity>
-          <Text style={styles.selectAllText}>All</Text>
-        </View>
-
-        <View style={styles.costContainer}>
-          <View style={styles.costRow}>
-            <Text style={styles.totalCostText}>
-              Total Plant Cost: ${totalCost.toFixed(2)}
-            </Text>
-            <DownArrowIcon style={{height: 10, width: 10}} />
-          </View>
-          <Text style={styles.savingsText}>Savings ${savings.toFixed(2)}</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.checkoutButton} onPress={onCheckout}>
-        <Text style={styles.checkoutButtonText}>
-          Check Out ({selectedCount})
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
 const ScreenCart = () => {
   const navigation = useNavigation();
   const [selectedItems, setSelectedItems] = useState(new Set());
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Load cart items on component mount
+  useEffect(() => {
+    loadCartItems();
+  }, []);
+
+  const loadCartItems = async () => {
+    try {
+      setLoading(true);
+      
+      // Check internet connection
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const response = await retryAsync(() => getCartItemsApi({ limit: 50, offset: 0 }), 3, 1000);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load cart items');
+      }
+
+      // Transform API data to match component structure
+      const transformedItems = response.data.items?.map(item => ({
+        id: item.cartId || item.id,
+        cartItemId: item.cartId,
+        plantCode: item.plantCode,
+        image: item.listingDetails?.imagePrimary 
+          ? { uri: item.listingDetails.imagePrimary } 
+          : require('../../../assets/images/plant1.png'),
+        name: `${item.listingDetails?.genus || ''} ${item.listingDetails?.species || ''}`.trim() 
+          || item.listingDetails?.title || 'Unknown Plant',
+        subtitle: `${item.listingDetails?.variegation || 'Standard'} • ${item.potSize || '2"'}`,
+        price: parseFloat(item.listingDetails?.discountPrice || item.listingDetails?.price || item.price || 0),
+        originalPrice: item.listingDetails?.discountPrice ? parseFloat(item.listingDetails.price) : null,
+        quantity: item.quantity || 1,
+        flightInfo: `Plant Flight ${item.listingDetails?.flightDate || 'May-30'}`,
+        shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
+        flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
+        availableQuantity: item.listingDetails?.availableQuantity || 999
+      })) || [];
+
+      setCartItems(transformedItems);
+      console.log('Cart items loaded:', transformedItems.length);
+
+    } catch (error) {
+      console.error('Error loading cart items:', error);
+      Alert.alert('Error', error.message);
+      // Keep empty array on error
+      setCartItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadCartItems();
+    setRefreshing(false);
+  };
+
+  const removeItem = async (itemId) => {
+    try {
+      const item = cartItems.find(cartItem => cartItem.id === itemId);
+      if (!item?.cartItemId) {
+        Alert.alert('Error', 'Unable to remove item');
+        return;
+      }
+
+      const response = await removeFromCartApi({ cartItemId: item.cartItemId });
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to remove item');
+      }
+
+      // Remove item from local state
+      setCartItems(prev => prev.filter(cartItem => cartItem.id !== itemId));
+      
+      // Remove from selectedItems if it was selected
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+
+      Alert.alert('Success', 'Item removed from cart');
+    } catch (error) {
+      console.error('Error removing item:', error);
+      Alert.alert('Error', error.message);
+    }
+  };
 
   const toggleItemSelection = itemId => {
     setSelectedItems(prev => {
@@ -246,16 +304,14 @@ const ScreenCart = () => {
   const calculateTotalAmount = () => {
     return cartItems
       .filter(item => selectedItems.has(item.id))
-      .reduce((total, item) => total + item.price, 0);
+      .reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
   const calculateDiscountAmount = () => {
-    // Example discount calculation - 10% off if more than 3 items selected
-    const selectedCount = selectedItems.size;
-    if (selectedCount > 3) {
-      return calculateTotalAmount() * 0.1;
-    }
-    return 0;
+    // Calculate discount based on original prices vs current prices
+    return cartItems
+      .filter(item => selectedItems.has(item.id) && item.originalPrice)
+      .reduce((total, item) => total + ((item.originalPrice - item.price) * item.quantity), 0);
   };
 
   const handleCheckout = () => {
@@ -263,27 +319,28 @@ const ScreenCart = () => {
       selectedItems.has(item.id)
     );
     
+    if (selectedCartItems.length === 0) {
+      Alert.alert('No Items Selected', 'Please select items to checkout');
+      return;
+    }
+    
     // Navigate to checkout screen with selected items
     navigation.navigate('CheckoutScreen', {
       cartItems: selectedCartItems,
-      productData: selectedCartItems,
-      useCart: false, // Use false since we're passing mock data, not backend cart
+      useCart: true, // Use real cart data
       totalAmount: calculateTotalAmount(),
       discountAmount: calculateDiscountAmount(),
     });
   };
 
-  const removeItem = (itemId) => {
-    // Remove item from selectedItems if it was selected
-    setSelectedItems(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(itemId);
-      return newSet;
-    });
-    
-    // Here you would also remove from cartItems array
-    // For now, we'll just handle the selection state
-  };
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={{ marginTop: 12, fontSize: 16, color: '#666' }}>Loading cart...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -291,32 +348,53 @@ const ScreenCart = () => {
       <ScrollView
         style={[styles.container]}
         contentContainerStyle={{paddingBottom: 170}}
-        showsVerticalScrollIndicator={false}>
-        {cartItems.map(item => (
-          <CartComponent
-            key={item.id}
-            image={item.image}
-            name={item.name}
-            subtitle={item.subtitle}
-            price={item.price.toFixed(2)}
-            flightInfo={item.flightInfo}
-            shippingInfo={item.shippingInfo}
-            flagIcon={item.flagIcon}
-            checked={selectedItems.has(item.id)}
-            onRemove={() => removeItem(item.id)}
-            onPress={() => toggleItemSelection(item.id)}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#4CAF50']}
           />
-        ))}
+        }>
+        
+        {cartItems.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 50 }}>
+            <Text style={{ fontSize: 18, color: '#666', marginBottom: 16 }}>Your cart is empty</Text>
+            <TouchableOpacity 
+              style={{ backgroundColor: '#4CAF50', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
+              onPress={() => navigation.navigate('Shop')}>
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>Start Shopping</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          cartItems.map(item => (
+            <CartComponent
+              key={item.id}
+              image={item.image}
+              name={item.name}
+              subtitle={item.subtitle}
+              price={item.price.toFixed(2)}
+              flightInfo={item.flightInfo}
+              shippingInfo={item.shippingInfo}
+              flagIcon={item.flagIcon}
+              checked={selectedItems.has(item.id)}
+              onRemove={() => removeItem(item.id)}
+              onPress={() => toggleItemSelection(item.id)}
+            />
+          ))
+        )}
       </ScrollView>
       
-      <CartBar
-        isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
-        onSelectAllToggle={toggleSelectAll}
-        selectedItemsCount={selectedItems.size}
-        totalAmount={calculateTotalAmount()}
-        discountAmount={calculateDiscountAmount()}
-        onCheckoutPress={handleCheckout}
-      />
+      {cartItems.length > 0 && (
+        <CartBar
+          isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
+          onSelectAllToggle={toggleSelectAll}
+          selectedItemsCount={selectedItems.size}
+          totalAmount={calculateTotalAmount()}
+          discountAmount={calculateDiscountAmount()}
+          onCheckoutPress={handleCheckout}
+        />
+      )}
     </View>
   );
 };
