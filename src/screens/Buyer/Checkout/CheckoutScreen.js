@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator,
   SafeAreaView,
   Image,
 } from 'react-native';
@@ -831,7 +830,7 @@ const CheckoutScreen = () => {
             disabled={loading}>
             <View style={styles.buttonText}>
               {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <View style={styles.buttonSkeleton} />
               ) : (
                 <Text style={styles.buttonLabel}>Place Order</Text>
               )}
@@ -2586,6 +2585,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#FFFFFF',
     flex: 0,
+  },
+  buttonSkeleton: {
+    width: 91,
+    height: 16,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
   },
   homeIndicator: {
     width: '100%',

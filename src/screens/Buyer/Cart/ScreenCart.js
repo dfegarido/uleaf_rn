@@ -8,7 +8,6 @@ import {
   ScrollView,
   Image,
   Text,
-  ActivityIndicator,
   Alert,
   RefreshControl,
 } from 'react-native';
@@ -598,9 +597,70 @@ const ScreenCart = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={{ marginTop: 12, fontSize: 16, color: '#666' }}>Loading cart...</Text>
+      <View style={styles.container}>
+        <CartHeader />
+        <ScrollView
+          style={[styles.container]}
+          contentContainerStyle={{paddingBottom: 170}}
+          showsVerticalScrollIndicator={false}>
+          
+          {/* Skeleton loading for cart items */}
+          {Array.from({length: 3}).map((_, index) => (
+            <View key={index} style={styles.cartCard}>
+              <View style={styles.cartTopCard}>
+                <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
+                  <View style={[styles.cartImageContainer, styles.skeletonImage]} />
+                  <View style={{flex: 1, marginLeft: 12}}>
+                    <View style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: 8,
+                    }}>
+                      <View style={[styles.skeletonText, {width: '60%', height: 16}]} />
+                      <View style={[styles.skeletonText, {width: 24, height: 24}]} />
+                    </View>
+                    <View style={[styles.skeletonText, {width: '80%', height: 14, marginBottom: 8}]} />
+                    <View style={[styles.skeletonText, {width: '40%', height: 20, marginBottom: 12}]} />
+                    <View style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}>
+                      <View style={[styles.skeletonText, {width: '30%', height: 18}]} />
+                      <View style={[styles.skeletonText, {width: 80, height: 32}]} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.cartDetailsSection}>
+                <View style={[styles.skeletonText, {width: '70%', height: 14, marginBottom: 4}]} />
+                <View style={[styles.skeletonText, {width: '60%', height: 14}]} />
+              </View>
+            </View>
+          ))}
+          
+          {/* Skeleton for recommendations section */}
+          <View style={{ paddingHorizontal: 16, marginTop: 32 }}>
+            <View style={[styles.skeletonText, {width: '50%', height: 20, marginBottom: 16}]} />
+            <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 8 }}>
+              {Array.from({length: 2}).map((_, idx) => (
+                <View key={idx} style={{ flex: 1 }}>
+                  <View style={[styles.skeletonText, {width: '100%', height: 160, borderRadius: 12}]} />
+                  <View style={[styles.skeletonText, {width: '80%', height: 16, marginTop: 8}]} />
+                  <View style={[styles.skeletonText, {width: '60%', height: 14, marginTop: 4}]} />
+                  <View style={[styles.skeletonText, {width: '40%', height: 16, marginTop: 8}]} />
+                </View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+        <CartBar
+          itemCount={0}
+          totalAmount={0}
+          discountAmount={0}
+          onCheckout={() => {}}
+        />
       </View>
     );
   }
@@ -1172,6 +1232,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  skeletonText: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+  },
+  skeletonImage: {
+    backgroundColor: '#f0f0f0',
   },
 });
 export default ScreenCart;

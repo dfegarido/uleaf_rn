@@ -357,9 +357,82 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#539461" />
-        <Text style={styles.loadingText}>Loading plant details...</Text>
+      <View style={styles.container}>
+        {/* Skeleton Background Image */}
+        <View style={styles.skeletonBackgroundImage} />
+        
+        <SafeAreaView style={styles.safeArea}>
+          {/* Header Navigation */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}>
+              <BackIcon width={24} height={24} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.scrollContainer}>
+            {/* Skeleton Content */}
+            <View style={styles.content}>
+              {/* Skeleton Title */}
+              <View style={styles.skeletonTitle} />
+              
+              {/* Skeleton Description */}
+              <View style={styles.descriptionContainer}>
+                <View style={styles.skeletonVariegation} />
+                <View style={styles.skeletonDetailRow}>
+                  <View style={styles.skeletonDetailLabel} />
+                  <View style={styles.skeletonDetailValue} />
+                </View>
+                <View style={styles.skeletonDetailRow}>
+                  <View style={styles.skeletonDetailLabel} />
+                  <View style={styles.skeletonDetailValue} />
+                </View>
+              </View>
+
+              {/* Skeleton Price Section */}
+              <View style={styles.priceContainer}>
+                <View style={styles.skeletonPrice} />
+                <View style={styles.skeletonOriginalPrice} />
+              </View>
+
+              {/* Skeleton Pot Size Section */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.skeletonSectionTitle} />
+                <View style={styles.potSizeContainer}>
+                  {Array.from({length: 3}).map((_, idx) => (
+                    <View key={idx} style={styles.skeletonPotSize} />
+                  ))}
+                </View>
+              </View>
+
+              {/* Skeleton Details Section */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.skeletonSectionTitle} />
+                {Array.from({length: 4}).map((_, idx) => (
+                  <View key={idx} style={styles.skeletonDetailRow}>
+                    <View style={styles.skeletonDetailLabel} />
+                    <View style={styles.skeletonDetailValue} />
+                  </View>
+                ))}
+              </View>
+
+              {/* Skeleton Recommendations */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.skeletonSectionTitle} />
+                <View style={styles.recommendationGrid}>
+                  {Array.from({length: 2}).map((_, idx) => (
+                    <View key={idx} style={styles.skeletonRecommendationCard}>
+                      <View style={styles.skeletonRecommendationImage} />
+                      <View style={styles.skeletonRecommendationText} />
+                      <View style={styles.skeletonRecommendationPrice} />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </View>
     );
   }
@@ -1847,6 +1920,103 @@ const ScreenPlantDetail = ({navigation, route}) => {
     marginLeft: -74,
     backgroundColor: '#202325',
     borderRadius: 100,
+  },
+  // Skeleton loading styles
+  skeletonBackgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    backgroundColor: '#f0f0f0',
+  },
+  skeletonTitle: {
+    width: '70%',
+    height: 32,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 6,
+    marginBottom: 16,
+  },
+  skeletonVariegation: {
+    width: '50%',
+    height: 20,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  skeletonDetailLabel: {
+    width: '30%',
+    height: 16,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+  },
+  skeletonDetailValue: {
+    width: '40%',
+    height: 16,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+  },
+  skeletonPrice: {
+    width: '40%',
+    height: 28,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  skeletonOriginalPrice: {
+    width: '30%',
+    height: 20,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+  },
+  skeletonSectionTitle: {
+    width: '60%',
+    height: 24,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 6,
+    marginBottom: 16,
+  },
+  skeletonPotSize: {
+    width: 80,
+    height: 40,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  skeletonRecommendationCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E3E6E8',
+    marginBottom: 16,
+  },
+  skeletonRecommendationImage: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  skeletonRecommendationText: {
+    width: '80%',
+    height: 16,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonRecommendationPrice: {
+    width: '50%',
+    height: 18,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
   },
 });
 
