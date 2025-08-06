@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Get plants dropdown data
@@ -7,7 +8,7 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 export const getPlantsDropdownApi = async () => {
   try {
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getPlantsDropdown',
+      API_ENDPOINTS.GET_PLANTS_DROPDOWN,
       {
         method: 'GET',
         headers: {
@@ -44,7 +45,7 @@ export const getPlantsDropdownApi = async () => {
 export const getAllPlantGenusApi = async () => {
   try {
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getAllPlantGenus',
+      API_ENDPOINTS.GET_ALL_PLANT_GENUS,
       {
         method: 'GET',
         headers: {
@@ -81,7 +82,7 @@ export const getAllPlantGenusApi = async () => {
 export const getPlantCareTagsApi = async () => {
   try {
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getPlantCareTags',
+      API_ENDPOINTS.GET_PLANT_CARE_TAGS,
       {
         method: 'GET',
         headers: {
@@ -118,7 +119,7 @@ export const getPlantCareTagsApi = async () => {
 export const getPlantTypesApi = async () => {
   try {
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getPlantTypes',
+      API_ENDPOINTS.GET_PLANT_TYPES,
       {
         method: 'GET',
         headers: {
@@ -155,7 +156,7 @@ export const getPlantTypesApi = async () => {
 export const getPlantGrowthFormsApi = async () => {
   try {
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getPlantGrowthForms',
+      API_ENDPOINTS.GET_PLANT_GROWTH_FORMS,
       {
         method: 'GET',
         headers: {
@@ -192,7 +193,7 @@ export const getPlantGrowthFormsApi = async () => {
 export const getRegionsDropdownApi = async () => {
   try {
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getRegionsDropdown',
+      API_ENDPOINTS.GET_REGIONS_DROPDOWN,
       {
         method: 'GET',
         headers: {
@@ -229,7 +230,7 @@ export const getRegionsDropdownApi = async () => {
 export const getDeliveryOptionsApi = async () => {
   try {
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getDeliveryOptions',
+      API_ENDPOINTS.GET_DELIVERY_OPTIONS,
       {
         method: 'GET',
         headers: {
@@ -255,6 +256,154 @@ export const getDeliveryOptionsApi = async () => {
     return {
       success: false,
       error: error.message || 'An error occurred while fetching delivery options',
+    };
+  }
+};
+
+/**
+ * Get countries dropdown options
+ * @returns {Promise<Object>} Countries response
+ */
+export const getCountryApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_COUNTRY,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Get country API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching countries',
+    };
+  }
+};
+
+/**
+ * Get listing types dropdown options
+ * @returns {Promise<Object>} Listing types response
+ */
+export const getListingTypeApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_LISTING_TYPE,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Get listing type API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching listing types',
+    };
+  }
+};
+
+/**
+ * Get shipping index dropdown options
+ * @returns {Promise<Object>} Shipping index response
+ */
+export const getShippingIndexApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_SHIPPING_INDEX,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return data
+  } catch (error) {
+    console.error('Get shipping index API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching shipping index',
+    };
+  }
+};
+
+/**
+ * Get acclimation index dropdown options
+ * @returns {Promise<Object>} Acclimation index response
+ */
+export const getAcclimationIndexApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_ACCLIMATION_INDEX,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Get acclimation index API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching acclimation index',
     };
   }
 };

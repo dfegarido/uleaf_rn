@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useAuth} from '../../../auth/AuthProvider';
+import {useFilters} from '../../../context/FilterContext';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
@@ -28,8 +29,19 @@ import {
   getBuyerListingsApi,
   addToCartApi,
 } from '../../../components/Api';
+import {
+  getCountryApi,
+  getListingTypeApi,
+  getShippingIndexApi,
+  getAcclimationIndexApi,
+} from '../../../components/Api/dropdownApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {
+  setCacheData,
+  getCacheData,
+  CACHE_KEYS,
+} from '../../../utils/dropdownCache';
 import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
 import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
 import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
@@ -95,27 +107,37 @@ const GenusHeader = ({genus, navigation}) => {
 const ScreenGenusPlants = ({navigation, route}) => {
   const {user} = useAuth();
   const {genus} = route.params || {};
+  const {
+    globalFilters,
+    appliedFilters,
+    updateFilters,
+    buildFilterParams,
+    hasAppliedFilters
+  } = useFilters();
+  const justFiltered = React.useRef(false);
 
   // Filter modal state
   const [sortOptions, setSortOptions] = useState([]);
   const [genusOptions, setGenusOptions] = useState([]);
   const [variegationOptions, setVariegationOptions] = useState([]);
-  const [reusableSort, setReusableSort] = useState('createdAt');
-  const [reusableGenus, setReusableGenus] = useState([]);
-  const [reusableVariegation, setReusableVariegation] = useState([]);
   const [code, setCode] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
 
   // Price filter state
   const [priceOptions, setPriceOptions] = useState([
-    {label: '$0 - $20', value: '0-20'},
-    {label: '$21 - $50', value: '21-50'},
-    {label: '$51 - $100', value: '51-100'},
-    {label: '$101 - $200', value: '101-200'},
-    {label: '$201 - $500', value: '201-500'},
-    {label: '$501 +', value: '501+'},
+    {label: '$0 - $20', value: '$0 - $20'},
+    {label: '$21 - $50', value: '$21 - $50'},
+    {label: '$51 - $100', value: '$51 - $100'},
+    {label: '$101 - $200', value: '$101 - $200'},
+    {label: '$201 - $500', value: '$201 - $500'},
+    {label: '$501 +', value: '$501 +'},
   ]);
-  const [reusablePrice, setReusablePrice] = useState('');
+
+  // Additional filter options - will be loaded from APIs
+  const [countryOptions, setCountryOptions] = useState([]);
+  const [listingTypeOptions, setListingTypeOptions] = useState([]);
+  const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
+  const [acclimationIndexOptions, setAcclimationIndexOptions] = useState([]);
 
   // Plants data state
   const [plants, setPlants] = useState([]);
@@ -135,39 +157,79 @@ const ScreenGenusPlants = ({navigation, route}) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Load all dropdown data in parallel
+        // Data will be served from cache if available, otherwise fetched from API and cached
         await Promise.all([
           loadSortByData(),
           loadGenusData(),
           loadVariegationData(),
+          loadCountryData(),
+          loadListingTypeData(),
+          loadShippingIndexData(),
+          loadAcclimationIndexData(),
         ]);
+        console.log('All dropdown data loaded successfully');
+        
+        // Load plants using global filters if available, otherwise load all plants
+        loadPlants(true);
       } catch (error) {
         console.log('Error loading filter data:', error);
       }
     };
 
     fetchData();
-  }, []);
+  }, []); // Only run on mount
 
-  // Load plants when screen comes into focus or genus changes
+  // Load plants when screen comes into focus - but only if filters were applied from another screen
   useFocusEffect(
     React.useCallback(() => {
-      loadPlants(true);
-    }, [genus, reusableSort, reusableVariegation, reusablePrice, searchTerm]),
+      if (justFiltered.current) {
+        // Don't reload if we just applied filters
+        justFiltered.current = false;
+      } else if (hasAppliedFilters) {
+        // Only reload if there are applied filters from another screen
+        console.log('Loading plants with applied filters from another screen:', appliedFilters);
+        loadPlants(true);
+      }
+      // If no applied filters, don't auto-reload to prevent unnecessary API calls
+    }, [appliedFilters, hasAppliedFilters]),
   );
 
   const loadSortByData = async () => {
-    const buyerSortOptions = [
-      {label: 'Newest to Oldest', value: 'createdAt'},
-      {label: 'Price Low to High', value: 'usdPrice'},
-      {label: 'Price High to Low', value: 'usdPrice'},
-      {label: 'Most Loved', value: 'loveCount'},
-    ];
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.SORT);
+      if (cachedData) {
+        setSortOptions(cachedData);
+        return;
+      }
 
-    setSortOptions(buyerSortOptions);
+      // For buyer genus screen, use sort options that match ScreenShop
+      const buyerSortOptions = [
+        {label: 'Newest to Oldest', value: 'Newest to Oldest'},
+        {label: 'Price Low to High', value: 'Price Low to High'},
+        {label: 'Price High to Low', value: 'Price High to Low'},
+        {label: 'Most Loved', value: 'Most Loved'},
+      ];
+
+      setSortOptions(buyerSortOptions);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.SORT, buyerSortOptions);
+    } catch (error) {
+      console.log('Error loading sort data:', error);
+    }
   };
 
   const loadGenusData = async () => {
     try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.GENUS);
+      if (cachedData) {
+        setGenusOptions(cachedData);
+        return;
+      }
+
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
@@ -185,6 +247,9 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }));
 
       setGenusOptions(localGenusData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.GENUS, localGenusData);
     } catch (error) {
       console.log('Error loading genus data:', error);
     }
@@ -192,6 +257,13 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   const loadVariegationData = async () => {
     try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.VARIEGATION);
+      if (cachedData) {
+        setVariegationOptions(cachedData);
+        return;
+      }
+
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
@@ -209,8 +281,147 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }));
 
       setVariegationOptions(localVariegationData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.VARIEGATION, localVariegationData);
     } catch (error) {
       console.log('Error loading variegation data:', error);
+    }
+  };
+
+  const loadCountryData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.COUNTRY);
+      if (cachedData) {
+        setCountryOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getCountryApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load country api');
+      }
+
+      let localCountryData = res.data.map(item => ({
+        label: item.name || item.country,
+        value: item.name || item.country,
+      }));
+
+      setCountryOptions(localCountryData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.COUNTRY, localCountryData);
+    } catch (error) {
+      console.log('Error loading country data:', error);
+    }
+  };
+
+  const loadListingTypeData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.LISTING_TYPE);
+      if (cachedData) {
+        setListingTypeOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getListingTypeApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load listing type api');
+      }
+
+      let localListingTypeData = res.data.map(item => ({
+        label: item.name || item.listingType,
+        value: item.name || item.listingType,
+      }));
+
+      setListingTypeOptions(localListingTypeData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.LISTING_TYPE, localListingTypeData);
+    } catch (error) {
+      console.log('Error loading listing type data:', error);
+    }
+  };
+
+  const loadShippingIndexData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.SHIPPING_INDEX);
+      if (cachedData) {
+        setShippingIndexOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getShippingIndexApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load shipping index api');
+      }
+
+      let localShippingIndexData = res.data.map(item => ({
+        label: item.name || item.shippingIndex,
+        value: item.name || item.shippingIndex,
+      }));
+
+      setShippingIndexOptions(localShippingIndexData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.SHIPPING_INDEX, localShippingIndexData);
+    } catch (error) {
+      console.log('Error loading shipping index data:', error);
+    }
+  };
+
+  const loadAcclimationIndexData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.ACCLIMATION_INDEX);
+      if (cachedData) {
+        setAcclimationIndexOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getAcclimationIndexApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load acclimation index api');
+      }
+
+      let localAcclimationIndexData = res.data.map(item => ({
+        label: item.name || item.acclimationIndex,
+        value: item.name || item.acclimationIndex,
+      }));
+
+      setAcclimationIndexOptions(localAcclimationIndexData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, localAcclimationIndexData);
+    } catch (error) {
+      console.log('Error loading acclimation index data:', error);
     }
   };
 
@@ -229,36 +440,27 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Parse price range
-      let minPrice, maxPrice;
-      if (reusablePrice) {
-        const [min, max] = reusablePrice.split('-');
-        minPrice = min;
-        maxPrice = max === '+' ? undefined : max;
-      }
-
-      // Determine sort order
-      const sortOrder = 
-        reusableSort === 'usdPrice' && !refresh ? 'asc' : 
-        reusableSort === 'usdPrice' ? 'desc' : 'desc';
-
-      const params = {
+      const baseParams = {
         limit,
         offset: refresh ? 0 : offset,
-        genus,
-        sortBy: reusableSort,
-        sortOrder,
-        variegation: reusableVariegation.length > 0 ? reusableVariegation.join(',') : undefined,
-        minPrice,
-        maxPrice,
       };
 
       // Add search term if provided
       if (searchTerm.trim()) {
-        params.plant = searchTerm.trim();
+        baseParams.plant = searchTerm.trim();
       }
 
+      // Add genus from route params if available and no genus filter is applied
+      if (genus && genus !== 'All' && (!appliedFilters.genus || appliedFilters.genus.length === 0)) {
+        baseParams.genus = genus;
+      }
+
+      // Use buildFilterParams to construct all filter parameters
+      const params = buildFilterParams(baseParams);
+
       console.log('Loading plants with params:', params);
+      console.log('Applied filters:', appliedFilters);
+      console.log('Has applied filters:', hasAppliedFilters);
 
       const res = await retryAsync(() => getBuyerListingsApi(params), 3, 1000);
 
@@ -272,14 +474,19 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (refresh) {
         setPlants(newPlants);
-        setOffset(limit);
       } else {
-        setPlants(prev => [...prev, ...newPlants]);
-        setOffset(prev => prev + limit);
+        // Filter out duplicates before appending new plants
+        setPlants(prev => {
+          const existingPlantCodes = new Set(prev.map(p => p.plantCode));
+          const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
+          return [...prev, ...uniqueNewPlants];
+        });
       }
 
       // Check if there are more plants to load
       setHasMore(newPlants.length === limit);
+
+      setOffset(prev => prev + (newPlants.length || 0));
 
     } catch (error) {
       console.error('Error loading plants:', error);
@@ -291,19 +498,233 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }
   };
 
-  const handleFilterView = () => {
-    // Handle filter application here
-    if (code === 'SORT') {
-      console.log('Applied sort filter:', reusableSort);
-    } else if (code === 'PRICE') {
-      console.log('Applied price filter:', reusablePrice);
-    } else if (code === 'GENUS') {
-      console.log('Applied genus filter:', reusableGenus);
-    } else if (code === 'VARIEGATION') {
-      console.log('Applied variegation filter:', reusableVariegation);
+  // Load plants with specific filters (used when applying filters to avoid timing issues)
+  const loadPlantsWithFilters = async (filters, refresh = false) => {
+    try {
+      if (refresh) {
+        setRefreshing(true);
+        setOffset(0);
+        setHasMore(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const baseParams = {
+        limit,
+        offset: refresh ? 0 : offset,
+      };
+
+      // Add search term if provided
+      if (searchTerm.trim()) {
+        baseParams.plant = searchTerm.trim();
+      }
+
+      // Add genus from route params if available and no genus filter is applied
+      if (genus && genus !== 'All' && (!filters.genus || filters.genus.length === 0)) {
+        baseParams.genus = genus;
+      }
+
+      // Build filter parameters manually with the provided filters
+      console.log('Building filter params with local filters:', filters);
+      
+      // Apply sort filter
+      if (filters.sort && filters.sort.length > 0) {
+        const sortValue = Array.isArray(filters.sort) ? filters.sort[0] : filters.sort;
+        if (sortValue === 'Newest to Oldest') {
+          baseParams.sortBy = 'createdAt';
+          baseParams.sortOrder = 'desc';
+        } else if (sortValue === 'Price Low to High') {
+          baseParams.sortBy = 'price';
+          baseParams.sortOrder = 'asc';
+        } else if (sortValue === 'Price High to Low') {
+          baseParams.sortBy = 'price';
+          baseParams.sortOrder = 'desc';
+        } else if (sortValue === 'Most Loved') {
+          baseParams.sortBy = 'loveCount';
+          baseParams.sortOrder = 'desc';
+        }
+      } else {
+        // Default sort
+        baseParams.sortBy = 'createdAt';
+        baseParams.sortOrder = 'desc';
+      }
+
+      // Apply other filters
+      if (filters.listingType && filters.listingType.length > 0) {
+        baseParams.listingType = Array.isArray(filters.listingType) ? filters.listingType.join(',') : filters.listingType;
+      }
+      
+      if (filters.genus && filters.genus.length > 0) {
+        baseParams.genus = Array.isArray(filters.genus) ? filters.genus.join(',') : filters.genus;
+      }
+      
+      if (filters.variegation && filters.variegation.length > 0) {
+        baseParams.variegation = Array.isArray(filters.variegation) ? filters.variegation.join(',') : filters.variegation;
+      }
+      
+      if (filters.country && filters.country.length > 0) {
+        baseParams.country = Array.isArray(filters.country) ? filters.country.join(',') : filters.country;
+      }
+      
+      if (filters.shippingIndex && filters.shippingIndex.length > 0) {
+        baseParams.shippingIndex = Array.isArray(filters.shippingIndex) ? filters.shippingIndex.join(',') : filters.shippingIndex;
+      }
+      
+      if (filters.acclimationIndex && filters.acclimationIndex.length > 0) {
+        baseParams.acclimationIndex = Array.isArray(filters.acclimationIndex) ? filters.acclimationIndex.join(',') : filters.acclimationIndex;
+      }
+
+      // Apply price filter
+      if (filters.price && filters.price.length > 0) {
+        const priceValue = Array.isArray(filters.price) ? filters.price[0] : filters.price;
+        if (priceValue === '$0 - $20') {
+          baseParams.minPrice = 0;
+          baseParams.maxPrice = 20;
+        } else if (priceValue === '$21 - $50') {
+          baseParams.minPrice = 21;
+          baseParams.maxPrice = 50;
+        } else if (priceValue === '$51 - $100') {
+          baseParams.minPrice = 51;
+          baseParams.maxPrice = 100;
+        } else if (priceValue === '$101 - $200') {
+          baseParams.minPrice = 101;
+          baseParams.maxPrice = 200;
+        } else if (priceValue === '$201 - $500') {
+          baseParams.minPrice = 201;
+          baseParams.maxPrice = 500;
+        } else if (priceValue === '$501 +') {
+          baseParams.minPrice = 501;
+        }
+      }
+
+      console.log('Loading plants with local filter params:', baseParams);
+
+      const res = await retryAsync(() => getBuyerListingsApi(baseParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load plants');
+      }
+
+      console.log('Plants loaded successfully with local filters:', res.data?.listings?.length || 0);
+
+      const newPlants = res.data?.listings || [];
+      
+      if (refresh) {
+        setPlants(newPlants);
+      } else {
+        // Filter out duplicates before appending new plants
+        setPlants(prev => {
+          const existingPlantCodes = new Set(prev.map(p => p.plantCode));
+          const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
+          return [...prev, ...uniqueNewPlants];
+        });
+      }
+
+      // Check if there are more plants to load
+      setHasMore(newPlants.length === limit);
+
+      setOffset(prev => prev + (newPlants.length || 0));
+
+    } catch (error) {
+      console.error('Error loading plants with filters:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
     }
+  };
+
+  // Local filter state - separate from global state until "View" is clicked
+  const [localFilters, setLocalFilters] = useState({
+    sort: globalFilters.sort || [],
+    price: globalFilters.price || [],
+    genus: globalFilters.genus || [],
+    variegation: globalFilters.variegation || [],
+    country: globalFilters.country || [],
+    listingType: globalFilters.listingType || [],
+    shippingIndex: globalFilters.shippingIndex || [],
+    acclimationIndex: globalFilters.acclimationIndex || [],
+  });
+
+  // Update local filters when global filters change (e.g., from another screen)
+  useEffect(() => {
+    setLocalFilters({
+      sort: globalFilters.sort || [],
+      price: globalFilters.price || [],
+      genus: globalFilters.genus || [],
+      variegation: globalFilters.variegation || [],
+      country: globalFilters.country || [],
+      listingType: globalFilters.listingType || [],
+      shippingIndex: globalFilters.shippingIndex || [],
+      acclimationIndex: globalFilters.acclimationIndex || [],
+    });
+  }, [globalFilters]);
+
+  // Filter update functions that update LOCAL state only (not global state until "View" is clicked)
+  const handleSortChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, sort: value }));
+  };
+
+  const handlePriceChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, price: value }));
+  };
+
+  const handleGenusChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, genus: value }));
+  };
+
+  const handleVariegationChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, variegation: value }));
+  };
+
+  const handleCountryChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, country: value }));
+  };
+
+  const handleListingTypeChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, listingType: value }));
+  };
+
+  const handleShippingIndexChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, shippingIndex: value }));
+  };
+
+  const handleAcclimationIndexChange = (value) => {
+    setLocalFilters(prev => ({ ...prev, acclimationIndex: value }));
+  };
+
+  const handleFilterView = () => {
+    console.log('Applying local filters to global state:', localFilters);
+    
+    // Update global filters with local filter selections
+    updateFilters({
+      sort: localFilters.sort,
+      price: localFilters.price,
+      genus: localFilters.genus,
+      variegation: localFilters.variegation,
+      country: localFilters.country,
+      listingType: localFilters.listingType,
+      shippingIndex: localFilters.shippingIndex,
+      acclimationIndex: localFilters.acclimationIndex,
+    });
+    
     setShowSheet(false);
-    loadPlants(true);
+    
+    // Show skeleton loading while applying filters
+    setLoading(true);
+    setPlants([]); // Clear current plants to show skeleton
+    
+    // Apply filters and load new data
+    justFiltered.current = true;
+    
+    // Call loadPlants directly with local filters to avoid timing issues
+    loadPlantsWithFilters(localFilters, true);
   };
 
   const onPressFilter = pressCode => {
@@ -380,6 +801,14 @@ const ScreenGenusPlants = ({navigation, route}) => {
                 onPressFilter('GENUS');
               } else if (option.label === 'Variegation') {
                 onPressFilter('VARIEGATION');
+              } else if (option.label === 'Country') {
+                onPressFilter('COUNTRY');
+              } else if (option.label === 'Shipping Index') {
+                onPressFilter('SHIPPING_INDEX');
+              } else if (option.label === 'Acclimation Index') {
+                onPressFilter('ACCLIMATION_INDEX');
+              } else if (option.label === 'Listing Type') {
+                onPressFilter('LISTING_TYPE');
               }
             }}
             style={styles.filterButton}>
@@ -498,14 +927,26 @@ const ScreenGenusPlants = ({navigation, route}) => {
         genusOptions={genusOptions}
         variegationOptions={variegationOptions}
         priceOptions={priceOptions}
-        sortValue={reusableSort}
-        sortChange={setReusableSort}
-        genusValue={reusableGenus}
-        genusChange={setReusableGenus}
-        variegationValue={reusableVariegation}
-        variegationChange={setReusableVariegation}
-        priceValue={reusablePrice}
-        priceChange={setReusablePrice}
+        countryOptions={countryOptions}
+        listingTypeOptions={listingTypeOptions}
+        shippingIndexOptions={shippingIndexOptions}
+        acclimationIndexOptions={acclimationIndexOptions}
+        sortValue={localFilters.sort}
+        sortChange={handleSortChange}
+        genusValue={localFilters.genus}
+        genusChange={handleGenusChange}
+        variegationValue={localFilters.variegation}
+        variegationChange={handleVariegationChange}
+        priceValue={localFilters.price}
+        priceChange={handlePriceChange}
+        countryValue={localFilters.country}
+        countryChange={handleCountryChange}
+        listingTypeValue={localFilters.listingType}
+        listingTypeChange={handleListingTypeChange}
+        shippingIndexValue={localFilters.shippingIndex}
+        shippingIndexChange={handleShippingIndexChange}
+        acclimationIndexValue={localFilters.acclimationIndex}
+        acclimationIndexChange={handleAcclimationIndexChange}
         handleSearchSubmit={handleFilterView}
       />
     </View>

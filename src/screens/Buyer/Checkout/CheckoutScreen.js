@@ -268,7 +268,7 @@ const CheckoutScreen = () => {
     }, 0);
     
     const wholesale = plantItems.reduce((sum, item) => {
-      if (item.listingType === 'Wholesale Plant' || item.listingType === 'Wholesale') {
+      if (item.listingType === 'Wholesale') {
         return sum + (item.quantity || 1);
       }
       return sum;
