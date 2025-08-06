@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Search listings with filters
@@ -23,12 +24,30 @@ export const searchListingApi = async (params = {}) => {
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
-        queryParams.append(key, params[key].toString());
+        let value = params[key];
+        
+        // Handle arrays by joining with commas
+        if (Array.isArray(value)) {
+          value = value.join(',');
+        }
+        // Handle objects by converting to JSON string or extracting specific properties
+        else if (typeof value === 'object') {
+          // If it's an object, try to extract meaningful value or stringify
+          if (value.value !== undefined) {
+            value = value.value;
+          } else if (value.label !== undefined) {
+            value = value.label;
+          } else {
+            value = JSON.stringify(value);
+          }
+        }
+        
+        queryParams.append(key, String(value));
       }
     });
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/searchListing?${queryParams.toString()}`,
+      `${API_ENDPOINTS.SEARCH_LISTING}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -73,15 +92,35 @@ export const getBuyerListingsApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
     
+    console.log("Input params to getBuyerListingsApi:", params);
+    
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
-        queryParams.append(key, params[key].toString());
+        let value = params[key];
+        
+        // Handle arrays by joining with commas
+        if (Array.isArray(value)) {
+          value = value.join(',');
+        }
+        // Handle objects by converting to JSON string or extracting specific properties
+        else if (typeof value === 'object') {
+          // If it's an object, try to extract meaningful value or stringify
+          if (value.value !== undefined) {
+            value = value.value;
+          } else if (value.label !== undefined) {
+            value = value.label;
+          } else {
+            value = JSON.stringify(value);
+          }
+        }
+        
+        queryParams.append(key, String(value));
       }
     });
-    
+    console.log("API Query Params:", `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`);
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerListings?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -127,12 +166,30 @@ export const browsePlantsByGenusApi = async (params = {}) => {
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
-        queryParams.append(key, params[key].toString());
+        let value = params[key];
+        
+        // Handle arrays by joining with commas
+        if (Array.isArray(value)) {
+          value = value.join(',');
+        }
+        // Handle objects by converting to JSON string or extracting specific properties
+        else if (typeof value === 'object') {
+          // If it's an object, try to extract meaningful value or stringify
+          if (value.value !== undefined) {
+            value = value.value;
+          } else if (value.label !== undefined) {
+            value = value.label;
+          } else {
+            value = JSON.stringify(value);
+          }
+        }
+        
+        queryParams.append(key, String(value));
       }
     });
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/browsePlantsByGenus?${queryParams.toString()}`,
+      `${API_ENDPOINTS.BROWSE_PLANTS_BY_GENUS}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -177,12 +234,30 @@ export const getPlantRecommendationsApi = async (params = {}) => {
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
-        queryParams.append(key, params[key].toString());
+        let value = params[key];
+        
+        // Handle arrays by joining with commas
+        if (Array.isArray(value)) {
+          value = value.join(',');
+        }
+        // Handle objects by converting to JSON string or extracting specific properties
+        else if (typeof value === 'object') {
+          // If it's an object, try to extract meaningful value or stringify
+          if (value.value !== undefined) {
+            value = value.value;
+          } else if (value.label !== undefined) {
+            value = value.label;
+          } else {
+            value = JSON.stringify(value);
+          }
+        }
+        
+        queryParams.append(key, String(value));
       }
     });
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getPlantRecommendations?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -228,12 +303,30 @@ export const searchDraftListingsApi = async (params = {}) => {
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
-        queryParams.append(key, params[key].toString());
+        let value = params[key];
+        
+        // Handle arrays by joining with commas
+        if (Array.isArray(value)) {
+          value = value.join(',');
+        }
+        // Handle objects by converting to JSON string or extracting specific properties
+        else if (typeof value === 'object') {
+          // If it's an object, try to extract meaningful value or stringify
+          if (value.value !== undefined) {
+            value = value.value;
+          } else if (value.label !== undefined) {
+            value = value.label;
+          } else {
+            value = JSON.stringify(value);
+          }
+        }
+        
+        queryParams.append(key, String(value));
       }
     });
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/searchDraftListings?${queryParams.toString()}`,
+      `${API_ENDPOINTS.SEARCH_DRAFT_LISTINGS}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {

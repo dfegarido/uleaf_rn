@@ -21,6 +21,9 @@ const ReusableActionSheet = ({
   genusOptions,
   variegationOptions,
   listingTypeOptions,
+  countryOptions,
+  shippingIndexOptions,
+  acclimationIndexOptions,
   priceOptions,
   sortValue,
   sortChange,
@@ -30,6 +33,12 @@ const ReusableActionSheet = ({
   variegationChange,
   listingTypeValue,
   listingTypeChange,
+  countryValue,
+  countryChange,
+  shippingIndexValue,
+  shippingIndexChange,
+  acclimationIndexValue,
+  acclimationIndexChange,
   priceValue,
   priceChange,
   handleSearchSubmit,
@@ -37,6 +46,9 @@ const ReusableActionSheet = ({
   const resetSelection = () => variegationChange([]);
   const resetGenusSelection = () => genusChange([]);
   const resetListingTypeSelection = () => listingTypeChange([]);
+  const resetCountrySelection = () => countryChange('');
+  const resetShippingIndexSelection = () => shippingIndexChange('');
+  const resetAcclimationIndexSelection = () => acclimationIndexChange('');
   const resetPriceSelection = () => priceChange('');
 
   const renderSheetContent = () => {
@@ -263,7 +275,7 @@ const ReusableActionSheet = ({
             </View>
           </ActionSheet>
         );
-      case 'LISTINGTYPE':
+      case 'LISTING_TYPE':
         return (
           <ActionSheet
             visible={visible}
@@ -307,6 +319,177 @@ const ReusableActionSheet = ({
                 </View>
               </TouchableOpacity>
 
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ActionSheet>
+        );
+      case 'COUNTRY':
+        return (
+          <ActionSheet
+            visible={visible}
+            onClose={onClose}
+            heightPercent={'50%'}>
+            <View style={styles.sheetTitleContainer}>
+              <Text style={styles.sheetTitle}>Country</Text>
+              <TouchableOpacity onPress={() => onClose(true)}>
+                <IconEx width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{marginBottom: 60}}>
+              <RadioButton
+                options={countryOptions}
+                selected={countryValue}
+                onSelect={countryChange}
+                containerStyle={{marginTop: 20}}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 15,
+                }}
+              />
+            </ScrollView>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+              }}>
+              <TouchableOpacity
+                onPress={resetCountrySelection}
+                style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ActionSheet>
+        );
+      case 'SHIPPING_INDEX':
+        return (
+          <ActionSheet
+            visible={visible}
+            onClose={onClose}
+            heightPercent={'40%'}>
+            <View style={styles.sheetTitleContainer}>
+              <Text style={styles.sheetTitle}>Shipping Index</Text>
+              <TouchableOpacity onPress={() => onClose(true)}>
+                <IconEx width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{marginBottom: 60}}>
+              <RadioButton
+                options={shippingIndexOptions}
+                selected={shippingIndexValue}
+                onSelect={shippingIndexChange}
+                containerStyle={{marginTop: 20}}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 15,
+                }}
+              />
+            </ScrollView>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+              }}>
+              <TouchableOpacity
+                onPress={resetShippingIndexSelection}
+                style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ActionSheet>
+        );
+      case 'ACCLIMATION_INDEX':
+        return (
+          <ActionSheet
+            visible={visible}
+            onClose={onClose}
+            heightPercent={'40%'}>
+            <View style={styles.sheetTitleContainer}>
+              <Text style={styles.sheetTitle}>Acclimation Index</Text>
+              <TouchableOpacity onPress={() => onClose(true)}>
+                <IconEx width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{marginBottom: 60}}>
+              <RadioButton
+                options={acclimationIndexOptions}
+                selected={acclimationIndexValue}
+                onSelect={acclimationIndexChange}
+                containerStyle={{marginTop: 20}}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 15,
+                }}
+              />
+            </ScrollView>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+              }}>
+              <TouchableOpacity
+                onPress={resetAcclimationIndexSelection}
+                style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={{width: '45%'}}
                 onPress={handleSearchSubmit}>

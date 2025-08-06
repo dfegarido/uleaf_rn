@@ -26,11 +26,26 @@ export const API_ENDPOINTS = {
   GET_SORT: `${getBaseUrl()}/getSort`,
   GET_GENUS: `${getBaseUrl()}/getGenus`,
   GET_VARIEGATION: `${getBaseUrl()}/getVariegation`,
+  GET_COUNTRY: `${getBaseUrl()}/getCountryDropdown`,
+  GET_LISTING_TYPE: `${getBaseUrl()}/getListingTypeDropdown`,
+  GET_SHIPPING_INDEX: `${getBaseUrl()}/getShippingIndexDropdown`,
+  GET_ACCLIMATION_INDEX: `${getBaseUrl()}/getAcclimationIndexDropdown`,
   BROWSE_PLANT_BY_GENUS: `${getBaseUrl()}/browsePlantByGenus`,
+  BROWSE_PLANTS_BY_GENUS: `${getBaseUrl()}/browsePlantsByGenus`,
   GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
   SEARCH_LISTING: `${getBaseUrl()}/searchListing`,
   GET_BUYER_LISTINGS: `${getBaseUrl()}/getBuyerListings`,
   GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
+  SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
+  
+  // Dropdown APIs
+  GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,
+  GET_ALL_PLANT_GENUS: `${getBaseUrl()}/getAllPlantGenus`,
+  GET_PLANT_CARE_TAGS: `${getBaseUrl()}/getPlantCareTags`,
+  GET_PLANT_TYPES: `${getBaseUrl()}/getPlantTypes`,
+  GET_PLANT_GROWTH_FORMS: `${getBaseUrl()}/getPlantGrowthForms`,
+  GET_REGIONS_DROPDOWN: `${getBaseUrl()}/getRegionsDropdown`,
+  GET_DELIVERY_OPTIONS: `${getBaseUrl()}/getDeliveryOptions`,
 };
 
 // Export configuration

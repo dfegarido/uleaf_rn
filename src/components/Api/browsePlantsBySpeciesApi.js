@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Browse plants by species using getBuyerListings with species filter
@@ -33,7 +34,7 @@ export const browsePlantsBySpeciesApi = async (params = {}) => {
     queryParams.append('sortOrder', params.sortOrder || 'desc');
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerListings?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {
