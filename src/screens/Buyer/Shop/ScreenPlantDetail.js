@@ -74,7 +74,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   // Add to cart modal state
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
   const [selectedPotSize, setSelectedPotSize] = useState('2"');
-  const [quantity, setQuantity] = useState(0);
+  const [quantity, setQuantity] = useState(1);
   const [modalAction, setModalAction] = useState('add-to-cart'); // 'add-to-cart' or 'buy-now'
 
   // Load plant details when screen comes into focus
@@ -208,8 +208,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const handleConfirmAddToCart = async () => {
-    if (quantity <= 0) {
-      Alert.alert('Invalid Quantity', 'Please select a quantity greater than 0');
+    if (quantity < 1) {
+      Alert.alert('Invalid Quantity', 'Please select a quantity of at least 1');
       return;
     }
 
@@ -312,7 +312,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const decreaseQuantity = () => {
-    if (quantity > 0) {
+    if (quantity > 1) {
       setQuantity(prev => prev - 1);
     }
   };
@@ -814,8 +814,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
                     style={styles.quantityInputText}
                     value={quantity.toString()}
                     onChangeText={(text) => {
-                      const num = parseInt(text) || 0;
-                      setQuantity(num >= 0 ? num : 0);
+                      const num = parseInt(text) || 1;
+                      setQuantity(num >= 1 ? num : 1);
                     }}
                     keyboardType="numeric"
                     textAlign="center"

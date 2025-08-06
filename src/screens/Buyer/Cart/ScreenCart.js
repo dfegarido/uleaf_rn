@@ -22,6 +22,8 @@ import PlusDisabledIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
 import {getCartItemsApi, removeFromCartApi, updateCartItemApi} from '../../../components/Api/cartApi';
+import {getBuyerListingsApi} from '../../../components/Api/listingBrowseApi';
+import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
@@ -36,6 +38,46 @@ import CloseIcon from '../../../assets/buyer-icons/close.svg';
 import {selectedCard} from '../../../assets/buyer-icons/png';
 import DownArrowIcon from '../../../assets/buyer-icons/downicon.svg';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
+
+// Helper function to get a valid image source
+const getValidImageSource = (imageUrl, plantCode) => {
+  // Array of default plant images to choose from
+  const defaultImages = [
+    require('../../../assets/images/plant1.png'),
+    require('../../../assets/images/plant2.png'),
+    require('../../../assets/images/plant3.png'),
+    require('../../../assets/images/alocasia.png'),
+    require('../../../assets/images/anthurium.png'),
+    require('../../../assets/images/begonia.png'),
+    require('../../../assets/images/hoya.png'),
+    require('../../../assets/images/monstera.png'),
+    require('../../../assets/images/philodendron.png'),
+    require('../../../assets/images/scindapsus.png'),
+    require('../../../assets/images/syngonium.png'),
+  ];
+  
+  try {
+    if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+      // Select a random default image
+      const randomIndex = Math.floor(Math.random() * defaultImages.length);
+      const selectedDefaultImage = defaultImages[randomIndex];
+      console.log('❌ No valid image URL for', plantCode, ', using random default image at index:', randomIndex);
+      return selectedDefaultImage;
+    }
+    
+    const trimmedUrl = imageUrl.trim();
+    console.log('✅ Valid image URL for', plantCode, ':', trimmedUrl);
+    return { uri: trimmedUrl };
+  } catch (error) {
+    // Fallback to a random default image on error
+    const randomIndex = Math.floor(Math.random() * defaultImages.length);
+    const selectedDefaultImage = defaultImages[randomIndex];
+    console.log('❌ Error processing image for', plantCode, ':', error.message, ', using random default image at index:', randomIndex);
+    return selectedDefaultImage;
+  }
+};
+
 const CartHeader = () => {
   const promoBadges = [
     {label: 'Price Drop', icon: PriceDropIcon},
@@ -136,7 +178,11 @@ const CartComponent = ({
   onQuantityChange,
   availableQuantity,
   isUnavailable,
-}) => (
+}) => {
+  // Debug image prop
+  console.log('🖼️ CartComponent image prop for', name, ':', image);
+  
+  return (
   <View style={styles.cartCard}>
     <TouchableOpacity style={styles.cartTopCard} onPress={onPress}>
       <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
@@ -223,14 +269,15 @@ const CartComponent = ({
     <View style={styles.cartDetailsSection}>
       <View style={styles.cartFooterRow}>
         <Text style={styles.cartFooterText}>✈️ {flightInfo}</Text>
-        {flagIcon}
+        <Text style={{fontSize: 18}}>{flagIcon}</Text>
       </View>
       <View style={styles.cartFooterRow}>
         <Text style={styles.cartFooterText}>🚚 {shippingInfo}</Text>
       </View>
     </View>
   </View>
-);
+  );
+};
 
 const ScreenCart = () => {
   const navigation = useNavigation();
@@ -238,10 +285,15 @@ const ScreenCart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Recommendations state
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   // Load cart items on component mount
   useEffect(() => {
     loadCartItems();
+    loadRecommendations(); // Load recommendations for empty cart
   }, []);
 
   const loadCartItems = async () => {
@@ -273,32 +325,12 @@ const ScreenCart = () => {
         
         // Debug image mapping
         console.log('🖼️ Image mapping for item:', item.plantCode);
-        console.log('� Image field:', item.listingDetails?.image);
+        console.log('🖼️ Image field:', item.listingDetails?.image);
         console.log('🔗 Image type:', typeof item.listingDetails?.image);
         console.log('🔗 Image length:', item.listingDetails?.image?.length || 'N/A');
         
-        // Determine the best image to use
-        let itemImage;
-        const imageUrl = item.listingDetails?.image;
-        
-        if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '') {
-          // Check if it's a full URL or relative path
-          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-            itemImage = { uri: imageUrl };
-            console.log('✅ Using full URL image:', imageUrl);
-          } else if (imageUrl.startsWith('/') || imageUrl.includes('firebase') || imageUrl.includes('storage')) {
-            // Looks like a Firebase Storage path or relative URL
-            itemImage = { uri: imageUrl };
-            console.log('✅ Using Firebase/relative path image:', imageUrl);
-          } else {
-            // Treat as relative path, might need base URL
-            itemImage = { uri: imageUrl };
-            console.log('✅ Using relative path image:', imageUrl);
-          }
-        } else {
-          itemImage = require('../../../assets/images/plant1.png');
-          console.log('❌ No valid image found, using default plant1.png');
-        }
+        // Use helper function to get valid image
+        const itemImage = getValidImageSource(item.listingDetails?.image, item.plantCode);
         
         // Debug available quantity mapping
         console.log('📦 Stock info for item:', item.plantCode);
@@ -321,7 +353,7 @@ const ScreenCart = () => {
           quantity: item.quantity || 1,
           flightInfo: `Plant Flight ${item.listingDetails?.flightDate || 'May-30'}`,
           shippingInfo: isListingUnavailable ? 'Item no longer available' : 'UPS 2nd Day $50, add-on plant $5',
-          flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
+          flagIcon: '🇹🇭',
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
           isUnavailable: isListingUnavailable
         };
@@ -474,6 +506,77 @@ const ScreenCart = () => {
       .reduce((total, item) => total + ((item.originalPrice - item.price) * item.quantity), 0);
   };
 
+  const loadRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true);
+      
+      // Check internet connection
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        console.log('No internet connection for recommendations');
+        return;
+      }
+
+      // Get popular plants sorted by love count for empty cart recommendations
+      const response = await retryAsync(() => getBuyerListingsApi({
+        limit: 6,
+        sortBy: 'loveCount',
+        sortOrder: 'desc'
+      }), 3, 1000);
+      
+      if (!response?.success) {
+        console.log('Failed to load recommendations:', response?.error);
+        return;
+      }
+
+      console.log('Recommendations loaded successfully:', response.data?.listings?.length || 0);
+      setRecommendations(response.data?.listings || []);
+      
+    } catch (error) {
+      console.error('Error loading recommendations:', error);
+      setRecommendations([]);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
+  const handleAddToCartFromRecommendations = async (plant) => {
+    try {
+      if (!plant.plantCode) {
+        Alert.alert('Error', 'Plant code is missing');
+        return;
+      }
+
+      // Use the first available pot size or default to '2"'
+      const potSize = plant.potSize || '2"';
+      
+      console.log('Adding to cart from recommendations:', {
+        plantCode: plant.plantCode,
+        potSize: potSize,
+        quantity: 1
+      });
+
+      const response = await retryAsync(() => addToCartApi({
+        plantCode: plant.plantCode,
+        potSize: potSize,
+        quantity: 1
+      }), 3, 1000);
+
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to add to cart');
+      }
+
+      Alert.alert('Success', 'Plant added to cart successfully!');
+      
+      // Reload cart items to show the new addition
+      loadCartItems();
+      
+    } catch (error) {
+      console.error('Error adding to cart from recommendations:', error);
+      Alert.alert('Error', error.message);
+    }
+  };
+
   const handleCheckout = () => {
     const selectedCartItems = cartItems.filter(item => 
       selectedItems.has(item.id)
@@ -518,13 +621,15 @@ const ScreenCart = () => {
         }>
         
         {cartItems.length === 0 ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 50 }}>
-            <Text style={{ fontSize: 18, color: '#666', marginBottom: 16 }}>Your cart is empty</Text>
-            <TouchableOpacity 
-              style={{ backgroundColor: '#4CAF50', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
-              onPress={() => navigation.navigate('Shop')}>
-              <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>Start Shopping</Text>
-            </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            {/* Empty cart image only */}
+            <View style={{ justifyContent: 'center', alignItems: 'center', paddingVertical: 50 }}>
+              <Image 
+                source={require('../../../assets/images/no-item-cart.png')} 
+                style={{ width: 200, height: 200 }}
+                resizeMode="contain"
+              />
+            </View>
           </View>
         ) : (
           cartItems.map(item => (
@@ -548,6 +653,81 @@ const ScreenCart = () => {
             />
           ))
         )}
+
+        {/* You may also like section - Always visible */}
+        <View style={{ paddingHorizontal: 16, marginTop: 32 }}>
+          <Text style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            color: '#202325',
+            marginBottom: 16,
+          }}>
+            Browse More Plants
+          </Text>
+          
+          {loadingRecommendations ? (
+            <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 8 }}>
+              {Array.from({length: 2}).map((_, idx) => (
+                <View key={idx} style={{ flex: 1 }}>
+                  <View style={{
+                    width: '100%',
+                    height: 160,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 12,
+                  }} />
+                  <View style={{
+                    width: '80%',
+                    height: 16,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                    marginTop: 8,
+                  }} />
+                  <View style={{
+                    width: '60%',
+                    height: 12,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                    marginTop: 4,
+                  }} />
+                </View>
+              ))}
+            </View>
+          ) : recommendations.length > 0 ? (
+            <View style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
+              {recommendations.slice(0, 6).map((plant, index) => (
+                <View 
+                  key={plant.id || plant.plantCode || index} 
+                  style={{ 
+                    width: '48%',
+                    marginBottom: 16 
+                  }}
+                >
+                  <PlantItemCard 
+                    data={plant}
+                    onPress={() => {
+                      navigation.navigate('ScreenPlantDetail', { 
+                        plantCode: plant.plantCode,
+                        plantData: plant 
+                      });
+                    }}
+                    onAddToCart={() => handleAddToCartFromRecommendations(plant)}
+                  />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <Text style={{ color: '#999', fontSize: 14 }}>
+                No recommendations available at the moment
+              </Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
       
       {cartItems.length > 0 && (
