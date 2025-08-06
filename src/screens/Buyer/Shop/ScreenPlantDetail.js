@@ -63,6 +63,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
     require('../../../assets/buyer-icons/png/ficus-lyrata.png'),
   );
   
+  // Available pot sizes from backend
+  const [availablePotSizes, setAvailablePotSizes] = useState([]);
+  const [potSizeGroups, setPotSizeGroups] = useState({});
+  
   // Recommendations state
   const [recommendations, setRecommendations] = useState([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
@@ -89,16 +93,28 @@ const ScreenPlantDetail = ({navigation, route}) => {
     if (plantData?.loveCount !== undefined) {
       setLoveCount(plantData.loveCount || 0);
     }
-    // Set initial pot size from plant data
-    if (plantData?.potSize) {
+    
+    // Handle new pot size data structure
+    if (plantData?.availablePotSizes && plantData.availablePotSizes.length > 0) {
+      setAvailablePotSizes(plantData.availablePotSizes);
+      setPotSizeGroups(plantData.potSizeGroups || {});
+      
+      // Set initial pot size to the first available one
+      if (!selectedPotSize || !plantData.availablePotSizes.includes(selectedPotSize)) {
+        setSelectedPotSize(plantData.availablePotSizes[0]);
+      }
+    } else if (plantData?.potSize) {
+      // Fallback for old data structure
       setSelectedPotSize(plantData.potSize);
+      setAvailablePotSizes([plantData.potSize]);
     }
+    
     // Load recommendations when plant data is available and we're not already loading
     if (plantData?.plantCode && !loadingRecommendations && recommendations.length === 0) {
       console.log('Triggering loadRecommendations from useEffect');
       loadRecommendations();
     }
-  }, [plantData, loadingRecommendations, recommendations.length]);
+  }, [plantData, loadingRecommendations, recommendations.length, selectedPotSize]);
 
   const loadRecommendations = async () => {
     // Prevent multiple concurrent calls
@@ -163,6 +179,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
       }
 
       console.log('Plant details loaded successfully:', res.data);
+      console.log('🔍 Plant Code from data:', res.data?.plantCode);
+      console.log('🔍 Plant Status:', res.data?.status);
+      console.log('🔍 Available pot sizes:', res.data?.availablePotSizes);
+      console.log('🔍 Pot size groups:', res.data?.potSizeGroups);
       console.log('Image Primary URL:', res.data?.imagePrimary);
       // Extract the nested data object from the response
       setPlantData(res.data);
@@ -204,7 +224,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
     if (modalAction === 'buy-now') {
       // Navigate to checkout screen with plant data
-      const unitPrice = parseFloat(plantData?.usdPriceNew || plantData?.usdPrice || '0');
+      const selectedPrice = getPriceForSelectedPotSize();
+      const unitPrice = parseFloat(selectedPrice.usdPriceNew || selectedPrice.usdPrice || '0');
       navigation.navigate('CheckoutScreen', {
         plantData: plantData,
         selectedPotSize: selectedPotSize,
@@ -216,6 +237,27 @@ const ScreenPlantDetail = ({navigation, route}) => {
     } else {
       // Add to cart using API
       try {
+        // Validate before sending to API
+        if (!plantCode) {
+          throw new Error('Plant code is missing');
+        }
+        
+        if (!plantData) {
+          throw new Error('Plant data is not loaded');
+        }
+        
+        // Check if plant is available for purchase
+        if (plantData.status && plantData.status !== 'Active') {
+          throw new Error(`This plant is currently ${plantData.status} and not available for purchase`);
+        }
+
+        console.log('🌱 Attempting to add to cart with data:', {
+          plantCode: plantCode,
+          quantity: quantity,
+          potSize: selectedPotSize,
+          plantData: plantData
+        });
+
         const cartData = {
           plantCode: plantCode,
           quantity: quantity,
@@ -223,7 +265,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
           notes: `${plantData.genus} ${plantData.species} - ${plantData.variegation || 'Standard'}`
         };
 
+        console.log('📦 Sending cart data to API:', cartData);
+
         const response = await addToCartApi(cartData);
+        
+        console.log('📡 API Response:', response);
         
         if (!response.success) {
           throw new Error(response.error || 'Failed to add to cart');
@@ -231,9 +277,28 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
         Alert.alert('Success', `Added ${quantity} plant(s) to cart!`);
         console.log('Item added to cart successfully:', response.data);
+        
+        // Optional: Trigger cart count refresh
+        // You could emit an event or call a context method here
+        
       } catch (error) {
-        console.error('Error adding to cart:', error);
-        Alert.alert('Error', error.message || 'Failed to add item to cart');
+        console.error('❌ Error adding to cart:', error);
+        
+        // Enhanced error handling with specific messages
+        let errorMessage = 'Failed to add item to cart';
+        if (error.message.includes('No active listing found')) {
+          errorMessage = `This plant (${plantCode}) is currently not available for purchase. It may be sold out or temporarily unavailable.`;
+        } else if (error.message.includes('Insufficient stock')) {
+          errorMessage = 'Sorry, not enough items in stock for your request.';
+        } else if (error.message.includes('Invalid pot size')) {
+          errorMessage = 'The selected pot size is not available for this plant.';
+        } else if (error.message.includes('Unauthorized')) {
+          errorMessage = 'Please log in to add items to your cart.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        Alert.alert('Error', errorMessage);
       }
     }
   };
@@ -268,6 +333,26 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const handleShare = () => {
     console.log('Share plant:', plantCode);
     // TODO: Implement share functionality
+  };
+
+  // Get price for selected pot size
+  const getPriceForSelectedPotSize = () => {
+    if (potSizeGroups[selectedPotSize] && potSizeGroups[selectedPotSize].length > 0) {
+      const selectedPlant = potSizeGroups[selectedPotSize][0]; // Take first plant of selected pot size
+      return {
+        usdPrice: selectedPlant.usdPrice,
+        usdPriceNew: selectedPlant.usdPriceNew,
+        localPrice: selectedPlant.localPrice,
+        localPriceNew: selectedPlant.localPriceNew,
+      };
+    }
+    // Fallback to main plant data
+    return {
+      usdPrice: plantData?.usdPrice,
+      usdPriceNew: plantData?.usdPriceNew,
+      localPrice: plantData?.localPrice,
+      localPriceNew: plantData?.localPriceNew,
+    };
   };
 
   if (loading) {
@@ -394,7 +479,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
           {/* Price and Pot Size */}
           <View style={styles.priceContainer}>
             <Text style={styles.price}>
-              ${plantData.usdPriceNew || plantData.usdPrice || '0.00'}
+              ${getPriceForSelectedPotSize().usdPriceNew || getPriceForSelectedPotSize().usdPrice || '0.00'}
             </Text>
             <View style={styles.shippingInfo}>
               <FlightIcon width={20} height={20} />
@@ -410,42 +495,27 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 </Text>
               </View>
               <View style={styles.potSizeCards}>
-                <TouchableOpacity
-                  style={[
-                    styles.potSizeCard,
-                    selectedPotSize === '2"' && styles.selectedPotSizeCard,
-                  ]}
-                  onPress={() => setSelectedPotSize('2"')}
-                >
-                  <View style={[
-                    styles.potSizeImage,
-                    selectedPotSize === '2"' && { borderColor: '#539461' }
-                  ]}>
-                    <Image
-                      source={imageSource}
-                      style={styles.potImage}
-                    />
-                  </View>
-                  <Text style={styles.potSizeCardLabel}>2"</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.potSizeCard,
-                    selectedPotSize === '4"' && styles.selectedPotSizeCard,
-                  ]}
-                  onPress={() => setSelectedPotSize('4"')}
-                >
-                  <View style={[
-                    styles.potSizeImage,
-                    selectedPotSize === '4"' && { borderColor: '#539461' }
-                  ]}>
-                    <Image
-                      source={imageSource}
-                      style={styles.potImage}
-                    />
-                  </View>
-                  <Text style={styles.potSizeCardLabel}>4"</Text>
-                </TouchableOpacity>
+                {availablePotSizes.map((potSize) => (
+                  <TouchableOpacity
+                    key={potSize}
+                    style={[
+                      styles.potSizeCard,
+                      selectedPotSize === potSize && styles.selectedPotSizeCard,
+                    ]}
+                    onPress={() => setSelectedPotSize(potSize)}
+                  >
+                    <View style={[
+                      styles.potSizeImage,
+                      selectedPotSize === potSize && { borderColor: '#539461' }
+                    ]}>
+                      <Image
+                        source={imageSource}
+                        style={styles.potImage}
+                      />
+                    </View>
+                    <Text style={styles.potSizeCardLabel}>{potSize}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           </View>
@@ -670,10 +740,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.modalPriceContainer}>
                   <View style={styles.priceRow}>
                     <Text style={styles.modalPrice}>
-                      ${plantData?.usdPrice || '65.00'}
+                      ${getPriceForSelectedPotSize().usdPriceNew || getPriceForSelectedPotSize().usdPrice || '65.00'}
                     </Text>
                     <Text style={styles.originalPrice}>
-                      ${(parseFloat(plantData?.usdPrice || 75) * 1.15).toFixed(2)}
+                      ${(parseFloat(getPriceForSelectedPotSize().usdPrice || plantData?.usdPrice || 75) * 1.15).toFixed(2)}
                     </Text>
                     <View style={styles.discountBadge}>
                       <Text style={styles.discountText}>15% OFF</Text>
@@ -696,42 +766,27 @@ const ScreenPlantDetail = ({navigation, route}) => {
                     </Text>
                   </View>
                   <View style={styles.modalPotSizeCards}>
-                    <TouchableOpacity
-                      style={[
-                        styles.modalPotSizeCard,
-                        selectedPotSize === '2"' && styles.selectedPotSizeCard,
-                      ]}
-                      onPress={() => setSelectedPotSize('2"')}
-                    >
-                      <View style={[
-                        styles.modalPotSizeImage,
-                        selectedPotSize === '2"' && styles.modalSelectedPotSizeImage
-                      ]}>
-                        <Image
-                          source={require('../../../assets/buyer-icons/png/ficus-lyrata.png')}
-                          style={styles.modalPotImage}
-                        />
-                      </View>
-                      <Text style={styles.modalPotSizeCardLabel}>2"</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.modalPotSizeCard,
-                        selectedPotSize === '4"' && styles.selectedPotSizeCard,
-                      ]}
-                      onPress={() => setSelectedPotSize('4"')}
-                    >
-                      <View style={[
-                        styles.modalPotSizeImage,
-                        selectedPotSize === '4"' && styles.modalSelectedPotSizeImage
-                      ]}>
-                        <Image
-                          source={require('../../../assets/buyer-icons/png/ficus-lyrata.png')}
-                          style={styles.modalPotImage}
-                        />
-                      </View>
-                      <Text style={styles.modalPotSizeCardLabel}>4"</Text>
-                    </TouchableOpacity>
+                    {availablePotSizes.map((potSize) => (
+                      <TouchableOpacity
+                        key={potSize}
+                        style={[
+                          styles.modalPotSizeCard,
+                          selectedPotSize === potSize && styles.selectedPotSizeCard,
+                        ]}
+                        onPress={() => setSelectedPotSize(potSize)}
+                      >
+                        <View style={[
+                          styles.modalPotSizeImage,
+                          selectedPotSize === potSize && styles.modalSelectedPotSizeImage
+                        ]}>
+                          <Image
+                            source={require('../../../assets/buyer-icons/png/ficus-lyrata.png')}
+                            style={styles.modalPotImage}
+                          />
+                        </View>
+                        <Text style={styles.modalPotSizeCardLabel}>{potSize}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
               </View>

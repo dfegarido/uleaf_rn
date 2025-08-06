@@ -16,9 +16,12 @@ import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
+import MinusIcon from '../../../assets/buyer-icons/minus.svg';
+import PlusIcon from '../../../assets/buyer-icons/plus.svg';
+import PlusDisabledIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
-import {getCartItemsApi, removeFromCartApi} from '../../../components/Api/cartApi';
+import {getCartItemsApi, removeFromCartApi, updateCartItemApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
@@ -122,20 +125,25 @@ const CartComponent = ({
   name,
   subtitle,
   price,
+  originalPrice,
+  quantity,
   flightInfo,
   shippingInfo,
   flagIcon,
   checked,
   onRemove,
   onPress,
+  onQuantityChange,
+  availableQuantity,
+  isUnavailable,
 }) => (
-  <TouchableOpacity style={styles.cartCard} onPress={onPress}>
-    <View style={styles.cartTopCard}>
+  <View style={styles.cartCard}>
+    <TouchableOpacity style={styles.cartTopCard} onPress={onPress}>
       <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
         <View
           style={[
             styles.cartImageContainer,
-            {borderColor: checked ? '#4CAF50' : 'transparent'},
+            {borderColor: checked ? '#539461' : 'transparent'},
           ]}>
           <Image source={image} style={styles.cartImage} />
           {checked && (
@@ -143,44 +151,86 @@ const CartComponent = ({
               <Image source={selectedCard} style={{width: 24, height: 24}} />
             </View>
           )}
+          {/* Discount Badge */}
+          {originalPrice && originalPrice > price && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>
+                {Math.round(((originalPrice - price) / originalPrice) * 100)}% OFF
+              </Text>
+            </View>
+          )}
         </View>
-        <View style={{flex: 1, marginLeft: 10}}>
+        <View style={{flex: 1, marginLeft: 12}}>
           <View
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
             }}>
-            <Text style={styles.cartName}>{name}</Text>
+            <Text style={[styles.cartName, isUnavailable && styles.unavailableText]}>{name}</Text>
             <TouchableOpacity onPress={onRemove}>
-              <CloseIcon style={{marginTop: 5}} width={15} height={15} />
+              <CloseIcon style={{marginTop: 5}} width={24} height={24} />
             </TouchableOpacity>
           </View>
           <Text style={styles.cartSubtitle}>{subtitle}</Text>
-          <Text style={styles.cartPrice}>${price}</Text>
+          
+          {/* Listing Type Badge */}
+          <View style={[styles.listingTypeBadge, isUnavailable && styles.unavailableBadge]}>
+            <Text style={styles.listingTypeText}>{isUnavailable ? 'Unavailable' : 'Premium'}</Text>
+          </View>
+          
+          {/* Price and Quantity Row */}
+          <View style={styles.priceQuantityRow}>
+            <View style={styles.priceContainer}>
+              <Text style={styles.totalItemPrice}>${(parseFloat(price) * quantity).toFixed(2)}</Text>
+            </View>
+            
+            {/* Quantity Stepper - Only show when quantity > 1 */}
+            {quantity > 1 && (
+              <View style={[styles.quantityStepper, isUnavailable && styles.disabledStepper]}>
+                <TouchableOpacity
+                  style={styles.stepperButton}
+                  onPress={() => onQuantityChange(quantity - 1)}
+                  disabled={quantity <= 1 || isUnavailable}>
+                  <MinusIcon width={16} height={16} color={(quantity <= 1 || isUnavailable) ? '#CDD3D4' : '#556065'} />
+                </TouchableOpacity>
+                
+                <View style={styles.quantityContainer}>
+                  <Text style={styles.quantityText}>{quantity}</Text>
+                </View>
+                
+                <TouchableOpacity
+                  style={styles.stepperButton}
+                  onPress={() => {
+                    console.log('🔼 INCREMENT BUTTON PRESSED');
+                    console.log('🔼 Current quantity:', quantity);
+                    console.log('🔼 Available quantity:', availableQuantity);
+                    console.log('🔼 Is disabled?', quantity >= availableQuantity || isUnavailable);
+                    console.log('🔼 Plant name:', name);
+                    onQuantityChange(quantity + 1);
+                  }}
+                  disabled={quantity >= availableQuantity || isUnavailable}>
+                  <PlusIcon width={16} height={16} color={(quantity >= availableQuantity || isUnavailable) ? '#CDD3D4' : '#556065'} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
       </View>
+    </TouchableOpacity>
+    
+    {/* Details Section */}
+    <View style={styles.cartDetailsSection}>
+      <View style={styles.cartFooterRow}>
+        <Text style={styles.cartFooterText}>✈️ {flightInfo}</Text>
+        {flagIcon}
+      </View>
+      <View style={styles.cartFooterRow}>
+        <Text style={styles.cartFooterText}>🚚 {shippingInfo}</Text>
+      </View>
     </View>
-    <View style={styles.cartFooterRow}>
-      <Text style={styles.cartFooterText}>✈️ {flightInfo}</Text>
-      {flagIcon}
-    </View>
-    <View style={styles.cartFooterRow}>
-      <Text style={styles.cartFooterText}>🚚 {shippingInfo}</Text>
-    </View>
-  </TouchableOpacity>
+  </View>
 );
-
-const cartItems = Array.from({length: 10}).map((_, i) => ({
-  id: i,
-  image: require('../../../assets/images/plant1.png'),
-  name: 'Spinacia Oleracea',
-  subtitle: 'Inner Variegated • 2"',
-  price: 65.27,
-  flightInfo: 'Plant Flight May-30',
-  shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
-  flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
-}));
 
 const ScreenCart = () => {
   const navigation = useNavigation();
@@ -210,28 +260,76 @@ const ScreenCart = () => {
         throw new Error(response.error || 'Failed to load cart items');
       }
 
+      console.log('Raw API response:', response.data); // Debug log
+      console.log('Cart items from API:', JSON.stringify(response.data.items, null, 2)); // Better debug for items
+
       // Transform API data to match component structure
-      const transformedItems = response.data.items?.map(item => ({
-        id: item.cartId || item.id,
-        cartItemId: item.cartId,
-        plantCode: item.plantCode,
-        image: item.listingDetails?.imagePrimary 
-          ? { uri: item.listingDetails.imagePrimary } 
-          : require('../../../assets/images/plant1.png'),
-        name: `${item.listingDetails?.genus || ''} ${item.listingDetails?.species || ''}`.trim() 
-          || item.listingDetails?.title || 'Unknown Plant',
-        subtitle: `${item.listingDetails?.variegation || 'Standard'} • ${item.potSize || '2"'}`,
-        price: parseFloat(item.listingDetails?.discountPrice || item.listingDetails?.price || item.price || 0),
-        originalPrice: item.listingDetails?.discountPrice ? parseFloat(item.listingDetails.price) : null,
-        quantity: item.quantity || 1,
-        flightInfo: `Plant Flight ${item.listingDetails?.flightDate || 'May-30'}`,
-        shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
-        flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
-        availableQuantity: item.listingDetails?.availableQuantity || 999
-      })) || [];
+      const transformedItems = response.data.items?.map(item => {
+        console.log('Transforming item:', item); // Debug log
+        console.log('Listing details:', JSON.stringify(item.listingDetails, null, 2)); // Better debug for listing details
+        
+        // Check if listing is no longer available
+        const isListingUnavailable = item.listingDetails?.title === "Listing no longer available";
+        
+        // Debug image mapping
+        console.log('🖼️ Image mapping for item:', item.plantCode);
+        console.log('� Image field:', item.listingDetails?.image);
+        console.log('🔗 Image type:', typeof item.listingDetails?.image);
+        console.log('🔗 Image length:', item.listingDetails?.image?.length || 'N/A');
+        
+        // Determine the best image to use
+        let itemImage;
+        const imageUrl = item.listingDetails?.image;
+        
+        if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '') {
+          // Check if it's a full URL or relative path
+          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            itemImage = { uri: imageUrl };
+            console.log('✅ Using full URL image:', imageUrl);
+          } else if (imageUrl.startsWith('/') || imageUrl.includes('firebase') || imageUrl.includes('storage')) {
+            // Looks like a Firebase Storage path or relative URL
+            itemImage = { uri: imageUrl };
+            console.log('✅ Using Firebase/relative path image:', imageUrl);
+          } else {
+            // Treat as relative path, might need base URL
+            itemImage = { uri: imageUrl };
+            console.log('✅ Using relative path image:', imageUrl);
+          }
+        } else {
+          itemImage = require('../../../assets/images/plant1.png');
+          console.log('❌ No valid image found, using default plant1.png');
+        }
+        
+        // Debug available quantity mapping
+        console.log('📦 Stock info for item:', item.plantCode);
+        console.log('📦 availableQty field:', item.listingDetails?.availableQty);
+        console.log('📦 availableQuantity field:', item.listingDetails?.availableQuantity);
+        console.log('📦 Final mapped value:', item.listingDetails?.availableQty || 999);
+        
+        return {
+          id: item.cartId || item.id,
+          cartItemId: item.cartId,
+          plantCode: item.plantCode,
+          image: itemImage,
+          name: isListingUnavailable 
+            ? `${item.plantCode} (No longer available)` 
+            : (`${item.listingDetails?.genus || ''} ${item.listingDetails?.species || ''}`.trim() 
+               || item.listingDetails?.title || 'Unknown Plant'),
+          subtitle: `${item.listingDetails?.variegation || 'Standard'} • ${item.potSize || '2"'}`,
+          price: parseFloat(item.listingDetails?.discountPrice || item.listingDetails?.price || item.price || 0),
+          originalPrice: item.listingDetails?.discountPrice ? parseFloat(item.listingDetails.price) : null,
+          quantity: item.quantity || 1,
+          flightInfo: `Plant Flight ${item.listingDetails?.flightDate || 'May-30'}`,
+          shippingInfo: isListingUnavailable ? 'Item no longer available' : 'UPS 2nd Day $50, add-on plant $5',
+          flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
+          availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
+          isUnavailable: isListingUnavailable
+        };
+      }) || [];
 
       setCartItems(transformedItems);
       console.log('Cart items loaded:', transformedItems.length);
+      console.log('First cart item:', transformedItems[0]); // Debug log to see the actual data
 
     } catch (error) {
       console.error('Error loading cart items:', error);
@@ -248,6 +346,68 @@ const ScreenCart = () => {
     setRefreshing(true);
     await loadCartItems();
     setRefreshing(false);
+  };
+
+  const updateItemQuantity = async (itemId, newQuantity) => {
+    try {
+      console.log('🔄 UPDATE QUANTITY CALLED');
+      console.log('🔄 Item ID:', itemId);
+      console.log('🔄 New quantity:', newQuantity);
+
+      if (newQuantity < 1) {
+        // If quantity is 0 or less, remove the item
+        await removeItem(itemId);
+        return;
+      }
+
+      const item = cartItems.find(cartItem => cartItem.id === itemId);
+      if (!item?.cartItemId) {
+        Alert.alert('Error', 'Unable to update item quantity');
+        return;
+      }
+
+      console.log('🔄 Found item:', item);
+      console.log('🔄 Item available quantity:', item.availableQuantity);
+      console.log('🔄 Item plant code:', item.plantCode);
+
+      // Check if quantity exceeds available stock
+      const maxQuantity = item.availableQuantity || 999; // Default to 999 if undefined
+      console.log('🔄 Max quantity (with fallback):', maxQuantity);
+      
+      if (newQuantity > maxQuantity) {
+        console.log('🔄 STOCK LIMIT EXCEEDED!');
+        Alert.alert('Stock Limit', `Only ${maxQuantity} items available in stock`);
+        return;
+      }
+
+      // Optimistically update the UI
+      setCartItems(prev => prev.map(cartItem => 
+        cartItem.id === itemId 
+          ? { ...cartItem, quantity: newQuantity }
+          : cartItem
+      ));
+
+      // Update via API
+      const response = await updateCartItemApi({ 
+        cartItemId: item.cartItemId, 
+        quantity: newQuantity 
+      });
+      
+      if (!response.success) {
+        // Revert on error
+        setCartItems(prev => prev.map(cartItem => 
+          cartItem.id === itemId 
+            ? { ...cartItem, quantity: item.quantity }
+            : cartItem
+        ));
+        throw new Error(response.error || 'Failed to update quantity');
+      }
+
+      console.log('Quantity updated successfully');
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      Alert.alert('Error', error.message);
+    }
   };
 
   const removeItem = async (itemId) => {
@@ -374,12 +534,17 @@ const ScreenCart = () => {
               name={item.name}
               subtitle={item.subtitle}
               price={item.price.toFixed(2)}
+              originalPrice={item.originalPrice?.toFixed(2)}
+              quantity={item.quantity}
               flightInfo={item.flightInfo}
               shippingInfo={item.shippingInfo}
               flagIcon={item.flagIcon}
               checked={selectedItems.has(item.id)}
               onRemove={() => removeItem(item.id)}
               onPress={() => toggleItemSelection(item.id)}
+              onQuantityChange={(newQuantity) => updateItemQuantity(item.id, newQuantity)}
+              availableQuantity={item.availableQuantity}
+              isUnavailable={item.isUnavailable}
             />
           ))
         )}
@@ -538,66 +703,215 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   cartCard: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 12,
+    gap: 12,
     backgroundColor: '#F5F6F6',
-    padding: 10,
-    margin: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    marginBottom: 12,
+    marginHorizontal: 12,
   },
   cartTopCard: {
-    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    gap: 12,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
+    alignSelf: 'stretch',
   },
   cartImageContainer: {
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-    overflow: 'hidden',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 8,
     width: 96,
-    height: 128,
+    height: 160,
     position: 'relative',
   },
   cartImage: {
     width: 96,
     height: 128,
-    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: '#539461',
+    borderRadius: 8,
   },
   cartCheckOverlay: {
     position: 'absolute',
-    top: 6,
-    left: 6,
-
-    borderRadius: 10,
-    padding: 2,
-    zIndex: 2,
+    top: 0,
+    left: 0,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4,
+  },
+  discountBadge: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    width: 96,
+    height: 24,
+    backgroundColor: '#FFE7E2',
+    borderRadius: 8,
+    alignSelf: 'stretch',
+  },
+  discountText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#E7522F',
   },
   cartName: {
-    fontWeight: 'bold',
+    fontFamily: 'Inter',
+    fontWeight: '600',
     fontSize: 18,
+    lineHeight: 24,
+    color: '#202325',
     flex: 1,
   },
   cartSubtitle: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
     color: '#647276',
-    fontSize: 14,
-    marginVertical: 2,
+    marginTop: 4,
+  },
+  listingTypeBadge: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    height: 24,
+    backgroundColor: '#202325',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  listingTypeText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#FFFFFF',
+  },
+  unavailableText: {
+    color: '#999999',
+    textDecorationLine: 'line-through',
+  },
+  unavailableBadge: {
+    backgroundColor: '#999999',
+  },
+  disabledStepper: {
+    opacity: 0.5,
+    borderColor: '#CDD3D4',
+  },
+  priceQuantityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 0,
+    gap: 12,
+    alignSelf: 'stretch',
+    height: 50,
+    marginTop: 8,
+  },
+  priceContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 4,
+    flex: 1,
   },
   cartPrice: {
-    fontWeight: 'bold',
+    fontFamily: 'Inter',
+    fontWeight: '700',
     fontSize: 20,
-    marginVertical: 2,
+    lineHeight: 24,
+    color: '#539461',
+  },
+  originalPriceText: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    textDecorationLine: 'line-through',
+    color: '#7F8D91',
+  },
+  totalItemPrice: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 24,
+    color: '#539461',
+  },
+  quantityStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    width: 96,
+    height: 30,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#539461',
+    borderRadius: 8,
+  },
+  stepperButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4,
+    width: 40,
+    height: 30,
+    flex: 1,
+  },
+  quantityText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: '#393D40',
+  },
+  cartDetailsSection: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingHorizontal: 6,
+    gap: 8,
+    borderRadius: 12,
+    alignSelf: 'stretch',
   },
   cartFooterRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 0,
+    gap: 6,
+    alignSelf: 'stretch',
+    height: 24,
   },
   cartFooterText: {
-    color: '#647276',
-    fontWeight: 'bold',
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#556065',
+    flex: 1,
   },
   footer: {
     position: 'absolute',

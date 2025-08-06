@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Add item to cart
@@ -14,7 +15,7 @@ export const addToCartApi = async (cartData) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/addToCart',
+      API_ENDPOINTS.ADD_TO_CART,
       {
         method: 'POST',
         headers: {
@@ -61,7 +62,7 @@ export const getCartItemsApi = async (params = {}) => {
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.offset) queryParams.append('offset', params.offset.toString());
     
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getCartItems${
+    const url = `${API_ENDPOINTS.GET_CART_ITEMS}${
       queryParams.toString() ? `?${queryParams.toString()}` : ''
     }`;
     
@@ -81,6 +82,18 @@ export const getCartItemsApi = async (params = {}) => {
     }
 
     const data = await response.json();
+    
+    // Debug logging for cart items API response
+    console.log('🛒 GetCartItems API Response:');
+    console.log('📊 Response Status:', response.status);
+    console.log('📝 Raw Data:', JSON.stringify(data, null, 2));
+    console.log('📋 Items Count:', data.items?.length || 0);
+    
+    if (data.items && data.items.length > 0) {
+      console.log('🔍 First Item Details:', JSON.stringify(data.items[0], null, 2));
+      console.log('🖼️ First Item Listing Details:', JSON.stringify(data.items[0].listingDetails, null, 2));
+    }
+    
     return {
       success: true,
       data,
@@ -108,9 +121,9 @@ export const updateCartItemApi = async (updateData) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/updateCartItem',
+      API_ENDPOINTS.UPDATE_CART_ITEM,
       {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
@@ -151,9 +164,9 @@ export const removeFromCartApi = async (removeData) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/removeFromCart',
+      API_ENDPOINTS.REMOVE_FROM_CART,
       {
-        method: 'DELETE',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
