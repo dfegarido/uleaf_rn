@@ -756,9 +756,28 @@ const ScreenShop = ({navigation}) => {
 
   const onGrowersPress = () => {
     console.log('Growers Pressed');
+    // Update filters to show only Grower's Choice listings
+    updateFilters({ listingType: ["Grower's Choice"] });
+    
+    // Navigate to genus plants screen with Grower's Choice filter
+    navigation.navigate('ScreenGenusPlants', {
+      genus: 'All',
+      filterType: 'listingType',
+      filterValue: "Grower's Choice"
+    });
   };
+  
   const onWholesalePress = () => {
     console.log('Wholesale Pressed');
+    // Update filters to show only Wholesale listings
+    updateFilters({ listingType: ["Wholesale"] });
+    
+    // Navigate to genus plants screen with Wholesale filter
+    navigation.navigate('ScreenGenusPlants', {
+      genus: 'All',
+      filterType: 'listingType',
+      filterValue: 'Wholesale'
+    });
   };
 
   const loadBrowseMorePlants = async () => {
@@ -1262,7 +1281,18 @@ const ScreenShop = ({navigation}) => {
           {countryData.map((item, idx) => (
             <TouchableOpacity
               key={idx}
-              onPress={() => console.log(item.label)}
+              onPress={() => {
+                console.log('Country pressed:', item.label);
+                // Update filters to show plants from selected country
+                updateFilters({ country: [item.label] });
+                
+                // Navigate to genus plants screen with country filter
+                navigation.navigate('ScreenGenusPlants', {
+                  genus: 'All',
+                  filterType: 'country',
+                  filterValue: item.label
+                });
+              }}
               style={{
                 width: 110,
                 height: 79,
@@ -1304,9 +1334,74 @@ const ScreenShop = ({navigation}) => {
               flexWrap: 'wrap',
               gap: 1,
               justifyContent: 'center',
-              paddingVertical: 20,
             }}>
-            <ActivityIndicator size="large" color="#22B14C" />
+            {Array.from({length: 6}).map((_, idx) => (
+              <View
+                key={idx}
+                style={{
+                  width: 191,
+                  height: 289,
+                  backgroundColor: '#f0f0f0',
+                  borderRadius: 12,
+                  margin: 1,
+                  padding: 8,
+                }}>
+                {/* Image skeleton */}
+                <View
+                  style={{
+                    width: '100%',
+                    height: 160,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}
+                />
+                
+                {/* Title skeleton */}
+                <View
+                  style={{
+                    width: '80%',
+                    height: 16,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 4,
+                    marginBottom: 6,
+                  }}
+                />
+                
+                {/* Subtitle skeleton */}
+                <View
+                  style={{
+                    width: '60%',
+                    height: 14,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 4,
+                    marginBottom: 8,
+                  }}
+                />
+                
+                {/* Price skeleton */}
+                <View
+                  style={{
+                    width: '50%',
+                    height: 18,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 4,
+                    marginBottom: 8,
+                  }}
+                />
+                
+                {/* Button skeleton */}
+                <View
+                  style={{
+                    width: '100%',
+                    height: 32,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 6,
+                    marginTop: 'auto',
+                  }}
+                />
+              </View>
+            ))}
           </View>
         ) : browseMorePlants.length > 0 ? (
           <View
