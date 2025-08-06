@@ -9,6 +9,8 @@ import {
   Image,
   Linking,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
@@ -87,63 +89,6 @@ const countryData = [
   {
     src: PhilippinesIcon,
     label: 'Philippines',
-  },
-];
-
-const browseMorePlantsData = [
-  {
-    id: 1,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 2,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 3,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 4,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 5,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 6,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
   },
 ];
 
@@ -233,6 +178,7 @@ const ScreenShop = ({navigation}) => {
           loadBrowseGenusData(),
           loadEventsData(),
           loadPlantRecommendations(),
+          loadBrowseMorePlants(),
         ]);
       } catch (error) {
         console.log('Error loading filter data:', error);
@@ -582,12 +528,64 @@ const ScreenShop = ({navigation}) => {
     console.log('Wholesale Pressed');
   };
 
+  const loadBrowseMorePlants = async () => {
+    try {
+      setLoadingBrowseMorePlants(true);
+      console.log('Loading browse more plants...');
+      
+      const params = {
+        page: 1,
+        limit: 6, // Same as static data count
+        sortBy: 'loveCount',
+        sortOrder: 'desc',
+      };
+      
+      const response = await getBuyerListingsApi(params);
+      console.log('Browse more plants API response:', response);
+      
+      if (response.success && response.data?.listings) {
+        setBrowseMorePlants(response.data.listings);
+      } else {
+        console.error('Failed to load browse more plants:', response.message);
+        setBrowseMorePlants([]);
+      }
+    } catch (error) {
+      console.error('Error loading browse more plants:', error);
+      setBrowseMorePlants([]);
+    } finally {
+      setLoadingBrowseMorePlants(false);
+    }
+  };
+
+  const handleAddToCartFromBrowseMore = async (plant) => {
+    try {
+      console.log('Adding plant to cart from browse more:', plant.plantCode);
+      
+      const params = {
+        plantCode: plant.plantCode,
+        quantity: 1,
+      };
+      
+      const response = await addToCartApi(params);
+      console.log('Add to cart response:', response);
+      
+      if (response.success) {
+        Alert.alert('Success', 'Plant added to cart successfully!');
+      } else {
+        Alert.alert('Error', response.message || 'Failed to add plant to cart');
+      }
+    } catch (error) {
+      console.error('Error adding plant to cart:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
   const HEADER_HEIGHT = 110;
 
   const scrollViewRef = useRef(null);
 
-  const [browseMorePlants, setBrowseMorePlants] =
-    useState(browseMorePlantsData);
+  const [browseMorePlants, setBrowseMorePlants] = useState([]);
+  const [loadingBrowseMorePlants, setLoadingBrowseMorePlants] = useState(true);
 
   const [searchText, setSearchText] = useState('');
 
@@ -1121,32 +1119,48 @@ const ScreenShop = ({navigation}) => {
           }}>
           Browse More Plants
         </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 1,
-            justifyContent: 'center',
-          }}>
-          {browseMorePlants.map((plant, idx) => (
-            <PlantItemCard
-              key={plant.id}
-              flag={plant.flag}
-              title={plant.title}
-              subtitle={plant.subtitle}
-              price={plant.price}
-              likes={plant.likes}
-              isWishlisted={plant.isWishlisted}
-              onWishlistPress={() => {
-                setBrowseMorePlants(prev =>
-                  prev.map((p, i) =>
-                    i === idx ? {...p, isWishlisted: !p.isWishlisted} : p,
-                  ),
-                );
-              }}
-            />
-          ))}
-        </View>
+        
+        {loadingBrowseMorePlants ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'center',
+              paddingVertical: 20,
+            }}>
+            <ActivityIndicator size="large" color="#22B14C" />
+          </View>
+        ) : browseMorePlants.length > 0 ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'center',
+            }}>
+            {browseMorePlants.map((plant, idx) => (
+              <PlantItemCard
+                key={plant.plantCode || plant.id}
+                data={plant}
+                onAddToCart={() => handleAddToCartFromBrowseMore(plant)}
+              />
+            ))}
+          </View>
+        ) : (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'center',
+              paddingVertical: 20,
+            }}>
+            <Text style={{color: '#666', textAlign: 'center'}}>
+              No recommendations available
+            </Text>
+          </View>
+        )}
         <View style={{width: '100%', alignItems: 'center', marginTop: 15}}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <Text style={styles.loadMoreText}>Load More</Text>

@@ -358,18 +358,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
     {label: 'Listing Type', rightIcon: DownIcon},
   ];
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <GenusHeader genus={genus} navigation={navigation} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#539461" />
-          <Text style={styles.loadingText}>Loading plants...</Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <GenusHeader genus={genus} navigation={navigation} />
@@ -470,6 +458,26 @@ const ScreenGenusPlants = ({navigation, route}) => {
                 </Text>
               </View>
             )}
+          </View>
+        ) : loading ? (
+          // Loading state with skeleton placeholders
+          <View style={styles.plantsGridContainer}>
+            {Array.from({length: 6}).map((_, idx) => (
+              <View 
+                key={idx} 
+                style={[
+                  styles.plantCardWrapper,
+                  (idx + 1) % 2 === 0 || idx === 5 ? { marginRight: 0 } : {}
+                ]}
+              >
+                <View style={styles.skeletonCard}>
+                  <View style={styles.skeletonImage} />
+                  <View style={styles.skeletonTextLarge} />
+                  <View style={styles.skeletonTextSmall} />
+                  <View style={styles.skeletonPrice} />
+                </View>
+              </View>
+            ))}
           </View>
         ) : (
           <View style={styles.emptyContainer}>
@@ -737,6 +745,41 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  skeletonCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E3E6E8',
+  },
+  skeletonImage: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  skeletonTextLarge: {
+    width: '80%',
+    height: 16,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonTextSmall: {
+    width: '60%',
+    height: 14,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonPrice: {
+    width: '40%',
+    height: 18,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
   },
 });
 
