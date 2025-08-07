@@ -8,6 +8,7 @@ import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {OrderItemCard} from '../../../components/OrderItemCard';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
 
 const OrdersHeader = ({activeTab, setActiveTab}) => {
   const [searchText, setSearchText] = useState('');
@@ -206,6 +207,15 @@ const ScreenOrders = () => {
         {orderItems.map(item => (
           <OrderItemCard key={item.id} {...item} />
         ))}
+        
+        {/* Browse More Plants Component */}
+        <BrowseMorePlants 
+          title="Discover More Plants to Order"
+          initialLimit={6}
+          loadMoreLimit={6}
+          showLoadMore={true}
+          containerStyle={{marginTop: 24, paddingHorizontal: 15}}
+        />
       </ScrollView>
     </>
   );

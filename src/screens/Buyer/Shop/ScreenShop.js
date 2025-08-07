@@ -35,6 +35,7 @@ import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThailandIcon from '../../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
 import DropDownIcon from '../../../assets/buyer-icons/drop-down.svg';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {
   genus1,
   genus2,
@@ -198,7 +199,6 @@ const ScreenShop = ({navigation}) => {
           loadAcclimationIndexData(),
           loadBrowseGenusData(),
           loadEventsData(),
-          loadBrowseMorePlants(),
         ]);
       } catch (error) {
         console.log('Error loading filter data:', error);
@@ -803,36 +803,6 @@ const ScreenShop = ({navigation}) => {
     });
   };
 
-  const loadBrowseMorePlants = async () => {
-    try {
-      setLoadingBrowseMorePlants(true);
-      console.log('Loading browse more plants...');
-      
-      const params = {
-        limit: 6, // Number of random plants to show
-      };
-      
-      console.log('Getting plant recommendations with params:', params);
-      
-      // Use the plant recommendations API without providing a plantCode
-      // This will return random plants as we implemented in the backend
-      const response = await getPlantRecommendationsApi(params);
-      console.log('Plant recommendations API response:', response);
-      
-      if (response.success && response.data && response.data.recommendations) {
-        setBrowseMorePlants(response.data.recommendations);
-      } else {
-        console.error('Failed to load plant recommendations:', response.data?.message || 'Unknown error');
-        setBrowseMorePlants([]);
-      }
-    } catch (error) {
-      console.error('Error loading browse more plants:', error);
-      setBrowseMorePlants([]);
-    } finally {
-      setLoadingBrowseMorePlants(false);
-    }
-  };
-
   const handleAddToCartFromBrowseMore = async (plant) => {
     try {
       console.log('Adding plant to cart from browse more:', plant.plantCode);
@@ -855,53 +825,10 @@ const ScreenShop = ({navigation}) => {
       Alert.alert('Error', 'Something went wrong. Please try again.');
     }
   };
-  
-  // Load more plants when the "Load More" button is pressed
-  const loadMorePlants = async () => {
-    try {
-      setLoadingBrowseMorePlants(true);
-      console.log('Loading more plants...');
-      
-      const params = {
-        limit: 6, // Number of additional plants to load
-      };
-      
-      console.log('Getting more plant recommendations with params:', params);
-      
-      const response = await getPlantRecommendationsApi(params);
-      console.log('Additional plant recommendations response:', response);
-      
-      if (response.success && response.data && response.data.recommendations) {
-        // Add new recommendations to the existing ones
-        setBrowseMorePlants(prevPlants => {
-          // Filter out any duplicates based on plantCode
-          const existingPlantCodes = new Set(prevPlants.map(p => p.plantCode));
-          const newPlants = response.data.recommendations.filter(p => !existingPlantCodes.has(p.plantCode));
-          
-          return [...prevPlants, ...newPlants];
-        });
-        
-        if (response.data.recommendations.length === 0) {
-          Alert.alert('No more plants', 'No more plants available to load.');
-        }
-      } else {
-        console.error('Failed to load more plant recommendations:', response.data?.message || 'Unknown error');
-        Alert.alert('Error', 'Failed to load more plants. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error loading more plants:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    } finally {
-      setLoadingBrowseMorePlants(false);
-    }
-  };
 
   const HEADER_HEIGHT = 110;
 
   const scrollViewRef = useRef(null);
-
-  const [browseMorePlants, setBrowseMorePlants] = useState([]);
-  const [loadingBrowseMorePlants, setLoadingBrowseMorePlants] = useState(true);
 
   const [searchText, setSearchText] = useState('');
 
@@ -1377,132 +1304,15 @@ const ScreenShop = ({navigation}) => {
             </TouchableOpacity>
           ))}
         </View>
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: '900',
-            color: '#393D40',
-            marginTop: 15,
-            marginLeft: 12,
-          }}>
-          Discover Random Plants
-        </Text>
         
-        {loadingBrowseMorePlants ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: 1,
-              justifyContent: 'center',
-            }}>
-            {Array.from({length: 6}).map((_, idx) => (
-              <View
-                key={idx}
-                style={{
-                  width: 191,
-                  height: 289,
-                  backgroundColor: '#f0f0f0',
-                  borderRadius: 12,
-                  margin: 1,
-                  padding: 8,
-                }}>
-                {/* Image skeleton */}
-                <View
-                  style={{
-                    width: '100%',
-                    height: 160,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 8,
-                    marginBottom: 8,
-                  }}
-                />
-                
-                {/* Title skeleton */}
-                <View
-                  style={{
-                    width: '80%',
-                    height: 16,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 4,
-                    marginBottom: 6,
-                  }}
-                />
-                
-                {/* Subtitle skeleton */}
-                <View
-                  style={{
-                    width: '60%',
-                    height: 14,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 4,
-                    marginBottom: 8,
-                  }}
-                />
-                
-                {/* Price skeleton */}
-                <View
-                  style={{
-                    width: '50%',
-                    height: 18,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 4,
-                    marginBottom: 8,
-                  }}
-                />
-                
-                {/* Button skeleton */}
-                <View
-                  style={{
-                    width: '100%',
-                    height: 32,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 6,
-                    marginTop: 'auto',
-                  }}
-                />
-              </View>
-            ))}
-          </View>
-        ) : browseMorePlants.length > 0 ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: 1,
-              justifyContent: 'center',
-            }}>
-            {browseMorePlants.map((plant, idx) => (
-              <PlantItemCard
-                key={plant.plantCode || plant.id}
-                data={plant}
-                onAddToCart={() => handleAddToCartFromBrowseMore(plant)}
-              />
-            ))}
-          </View>
-        ) : (
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: 1,
-              justifyContent: 'center',
-              paddingVertical: 20,
-            }}>
-            <Text style={{color: '#666', textAlign: 'center'}}>
-              No recommendations available
-            </Text>
-          </View>
-        )}
-        <View style={{width: '100%', alignItems: 'center', marginTop: 15}}>
-          <TouchableOpacity 
-            onPress={() => loadMorePlants()} 
-            style={{flexDirection: 'row', alignItems: 'center', padding: 10}}
-          >
-            <Text style={styles.loadMoreText}>Load More</Text>
-            <DropDownIcon width={16.5} height={9} />
-          </TouchableOpacity>
-        </View>
+        {/* Browse More Plants Component */}
+        <BrowseMorePlants 
+          title="Discover Random Plants"
+          initialLimit={6}
+          loadMoreLimit={6}
+          showLoadMore={true}
+          onAddToCart={handleAddToCartFromBrowseMore}
+        />
       </ScrollView>
 
       {/* Sort Filter Modal */}

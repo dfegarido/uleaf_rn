@@ -23,6 +23,7 @@ import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
 import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
 import TruckBlueIcon from '../../../assets/buyer-icons/truck-blue.svg';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {checkoutApi} from '../../../components/Api/checkoutApi';
 import {globalStyles} from '../../../assets/styles/styles';
 import {formatCurrencyFull} from '../../../utils/formatCurrency';
@@ -241,7 +242,7 @@ const CheckoutScreen = () => {
         }
       ];
     } else if (useCart && cartItems.length > 0) {
-      console.log({cartItems})
+
       return cartItems.map(item => ({
         id: item.id || item.cartItemId,
         image: item.image || require('../../../assets/images/plant1.png'),
@@ -1165,6 +1166,15 @@ const CheckoutScreen = () => {
             </View>
           </View>
         </View>
+
+        {/* Browse More Plants Component */}
+        <BrowseMorePlants 
+          title="Continue Shopping - Discover More Plants"
+          initialLimit={6}
+          loadMoreLimit={6}
+          showLoadMore={true}
+          containerStyle={{marginTop: 24}}
+        />
 
       </ScrollView>
 
