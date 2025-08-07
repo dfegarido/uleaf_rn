@@ -18,6 +18,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
 
   // Debounced search effect - triggers after user stops typing
@@ -108,11 +109,11 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
                 placeholderTextColor="#647276"
                 value={searchTerm}
                 onChangeText={setSearchTerm}
+                onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => {
                   // Close search results when input loses focus
                   setTimeout(() => {
-                    setSearchResults([]);
-                    setLoadingSearch(false);
+                    setIsSearchFocused(false);
                   }, 150); // Small delay to allow for result tap
                 }}
                 multiline={false}
@@ -137,7 +138,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
       </View>
 
       {/* Search Results */}
-      {searchTerm.trim().length >= 2 && (
+      {isSearchFocused && searchTerm.trim().length >= 2 && (
         <View style={styles.searchResultsContainer}>
           {loadingSearch ? (
             <View style={styles.loadingContainer}>
@@ -314,11 +315,11 @@ const ScreenOrders = () => {
   const orderItems = getOrderItems(activeTab);
 
   return (
-    <>
+    <View style={styles.container}>
       <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       <ScrollView
-        style={{flex: 1, backgroundColor: '#fff'}}
-        contentContainerStyle={{paddingHorizontal: 1}}>
+        style={{flex: 1}}
+        contentContainerStyle={{paddingTop: 200, paddingHorizontal: 1}}>
         {orderItems.map(item => (
           <OrderItemCard key={item.id} {...item} />
         ))}
@@ -332,14 +333,14 @@ const ScreenOrders = () => {
           containerStyle={{marginTop: 24, paddingHorizontal: 15}}
         />
       </ScrollView>
-    </>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#DFECDF',
+    backgroundColor: '#fff',
   },
 
   stickyHeader: {

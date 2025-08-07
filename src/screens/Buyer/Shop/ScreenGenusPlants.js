@@ -56,71 +56,91 @@ const GenusHeader = ({
   navigation,
   searchTerm,
   setSearchTerm,
-  setSearchResults,
-  setLoadingSearch,
+  setIsSearchFocused,
 }) => {
+  const promoBadges = [
+    {label: 'Price Drop', icon: PriceDropIcon},
+    {label: 'New Arrivals', icon: NewArrivalsIcon},
+    {label: 'Latest Nursery Drop', icon: LeavesIcon},
+    {label: 'Below $20', icon: PriceTagIcon},
+    {label: 'Unicorn', icon: UnicornIcon},
+    {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
+  ];
   return (
+    <View style={styles.stickyHeader}>
     <View style={styles.header}>
-      <View style={styles.controls}>
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}>
-          <BackIcon width={24} height={24} />
-        </TouchableOpacity>
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}>
+        <BackIcon width={24} height={24} />
+      </TouchableOpacity>
 
-        {/* Search */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchField}>
-            <View style={styles.textField}>
-              <SearchIcon width={24} height={24} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={`Search ${genus || 'plants'}...`}
-                placeholderTextColor="#647276"
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                onBlur={() => {
-                  // Close search results when input loses focus
-                  setTimeout(() => {
-                    setSearchResults([]);
-                    setLoadingSearch(false);
-                  }, 150); // Small delay to allow for result tap
-                }}
-                multiline={false}
-                numberOfLines={1}
-                // Disable native autocomplete and suggestions
-                autoComplete="off"
-                autoCorrect={false}
-                autoCapitalize="none"
-                spellCheck={false}
-                textContentType="none"
-                dataDetectorTypes="none"
-                keyboardType="default"
-              />
-            </View>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchField}>
+          <View style={styles.textField}>
+            <SearchIcon width={24} height={24} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search iLeafU"
+              placeholderTextColor="#647276"
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => {
+                // Close search results when input loses focus
+                setTimeout(() => {
+                  setIsSearchFocused(false);
+                }, 150); // Small delay to allow for result tap
+              }}
+              multiline={false}
+              numberOfLines={1}
+              // Disable native autocomplete and suggestions
+              autoComplete="off"
+              autoCorrect={false}
+              autoCapitalize="none"
+              spellCheck={false}
+              textContentType="none"
+              dataDetectorTypes="none"
+              keyboardType="default"
+            />
           </View>
         </View>
+      </View>
 
-        {/* Wishlist Action */}
+      <View style={styles.headerIcons}>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={styles.iconButton}
           onPress={() => navigation.navigate('ScreenWishlist')}>
-          <Wishicon width={24} height={24} />
+          <Wishicon width={40} height={40} />
         </TouchableOpacity>
-
-        {/* Profile */}
         <TouchableOpacity
-          style={styles.profileContainer}
+          style={styles.iconButton}
           onPress={() => navigation.navigate('ScreenProfile')}>
-          <View style={styles.avatar}>
-            <AvatarIcon width={32} height={32} />
-            <View style={styles.badge}>
-              <View style={styles.badgeDot} />
-            </View>
-          </View>
+          <AvatarIcon width={40} height={40} />
         </TouchableOpacity>
       </View>
+    </View>
+    
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{flexGrow: 0, paddingVertical: 1}}
+      contentContainerStyle={{
+        flexDirection: 'row',
+        gap: 6,
+        alignItems: 'flex-start',
+        paddingHorizontal: 9,
+      }}>
+      {promoBadges.map(badge => (
+        <PromoBadge
+          key={badge.label}
+          icon={badge.icon}
+          label={badge.label}
+          style={{marginRight: 5}}
+        />
+      ))}
+    </ScrollView>
     </View>
   );
 };
@@ -175,6 +195,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Debounced search effect - triggers after user stops typing
   useEffect(() => {
@@ -867,12 +888,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
         navigation={navigation}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        setSearchResults={setSearchResults}
-        setLoadingSearch={setLoadingSearch}
+        setIsSearchFocused={setIsSearchFocused}
       />
 
       {/* Search Results - Positioned outside header to appear above content */}
-      {searchTerm.trim().length >= 2 && (
+      {isSearchFocused && searchTerm.trim().length >= 2 && (
         <View style={styles.searchResultsContainer}>
           {loadingSearch ? (
             <View style={styles.loadingContainer}>
@@ -1090,10 +1110,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    width: '100%',
-    height: 100,
-    marginBottom: -40,
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingBottom: 12,
   },
   controls: {
     flexDirection: 'row',
@@ -1213,6 +1234,23 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     borderRadius: 4,
   },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingTop: 12,
+    backgroundColor: '#fff',
+  },
   filterBar: {
     flexGrow: 0,
     paddingTop: 0,
@@ -1240,11 +1278,11 @@ const styles = StyleSheet.create({
   },
   plantsContainer: {
     flex: 1,
+    paddingTop: 120,
   },
   plantsGrid: {
     paddingBottom: 100,
     paddingHorizontal: 16,
-    paddingTop: 15,
   },
   plantsGridContainer: {
     flexDirection: 'row',

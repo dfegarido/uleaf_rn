@@ -169,6 +169,7 @@ const ScreenShop = ({navigation}) => {
   // Search results state
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -862,11 +863,11 @@ const ScreenShop = ({navigation}) => {
                   placeholderTextColor="#647276"
                   value={searchTerm}
                   onChangeText={setSearchTerm}
+                  onFocus={() => setIsSearchFocused(true)}
                   onBlur={() => {
                     // Close search results when input loses focus
                     setTimeout(() => {
-                      setSearchResults([]);
-                      setLoadingSearch(false);
+                      setIsSearchFocused(false);
                     }, 150); // Small delay to allow for result tap
                   }}
                   multiline={false}
@@ -964,7 +965,7 @@ const ScreenShop = ({navigation}) => {
         </ScrollView>
 
         {/* Search Results Dropdown */}
-        {searchTerm.trim().length >= 2 && (
+        {isSearchFocused && searchTerm.trim().length >= 2 && (
           <View style={styles.searchResultsContainer}>
             {loadingSearch ? (
               <View style={styles.loadingContainer}>
