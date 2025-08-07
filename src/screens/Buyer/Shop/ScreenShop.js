@@ -7,10 +7,15 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Linking,
+  TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
 import {useAuth} from '../../../auth/AuthProvider';
+import {useFilters} from '../../../context/FilterContext';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
@@ -43,6 +48,17 @@ import {
   event2,
 } from '../../../assets/buyer-icons/png';
 
+// Import genus images from assets/images
+import alocasiaImage from '../../../assets/images/alocasia.png';
+import anthuriumImage from '../../../assets/images/anthurium.png';
+import begoniaImage from '../../../assets/images/begonia.png';
+import hoyaImage from '../../../assets/images/hoya.png';
+import monsteraImage from '../../../assets/images/monstera.png';
+import scindapsusImage from '../../../assets/images/scindapsus.png';
+import syngoniumImage from '../../../assets/images/syngonium.png';
+import philodendronImage from '../../../assets/images/philodendron.png';
+import othersImage from '../../../assets/images/others.png';
+
 import {InfoCard} from '../../../components/InfoCards';
 import ScreenWishlist from './ScreenWishlist';
 import {PlantItemCard} from '../../../components/PlantItemCard';
@@ -52,9 +68,25 @@ import {
   getGenusApi,
   getVariegationApi,
   getBrowsePlantByGenusApi,
+  getBuyerEventsApi,
+  searchListingApi,
+  getBuyerListingsApi,
+  addToCartApi,
+  getCartItemsApi,
 } from '../../../components/Api';
+import {
+  getCountryApi,
+  getListingTypeApi,
+  getShippingIndexApi,
+  getAcclimationIndexApi,
+} from '../../../components/Api/dropdownApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {
+  setCacheData,
+  getCacheData,
+  CACHE_KEYS,
+} from '../../../utils/dropdownCache';
 
 const countryData = [
   {
@@ -71,65 +103,15 @@ const countryData = [
   },
 ];
 
-const browseMorePlantsData = [
-  {
-    id: 1,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 2,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 3,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 4,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 5,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-  {
-    id: 6,
-    flag: ThailandIcon,
-    title: 'Ficus lyrata',
-    subtitle: 'Inner Variegated',
-    price: '$65.27',
-    likes: '5K',
-    isWishlisted: false,
-  },
-];
-
 const ScreenShop = ({navigation}) => {
   const {user} = useAuth();
+  const {
+    globalFilters,
+    updateFilters,
+    applyFilters,
+    buildFilterParams,
+    hasAppliedFilters
+  } = useFilters();
 
   // Log auth token and user info when Shop tab is accessed
   useFocusEffect(
@@ -140,6 +122,7 @@ const ScreenShop = ({navigation}) => {
           console.log('=== SHOP TAB ACCESS ===');
           console.log('Auth Token:', token);
           console.log('Firebase User:', user);
+          console.log('Global Filters:', globalFilters);
           console.log('========================');
         } catch (error) {
           console.error('Error getting auth token:', error);
@@ -147,16 +130,17 @@ const ScreenShop = ({navigation}) => {
       };
 
       logAuthInfo();
-    }, [user]),
+    }, [user, globalFilters]),
   );
 
   // Filter modal state
   const [sortOptions, setSortOptions] = useState([]);
   const [genusOptions, setGenusOptions] = useState([]);
   const [variegationOptions, setVariegationOptions] = useState([]);
-  const [reusableSort, setReusableSort] = useState('Newest to Oldest');
-  const [reusableGenus, setReusableGenus] = useState([]);
-  const [reusableVariegation, setReusableVariegation] = useState([]);
+  const [countryOptions, setCountryOptions] = useState([]);
+  const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
+  const [acclimationIndexOptions, setAcclimationIndexOptions] = useState([]);
+  const [listingTypeOptions, setListingTypeOptions] = useState([]);
   const [code, setCode] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
 
@@ -169,11 +153,34 @@ const ScreenShop = ({navigation}) => {
     {label: '$201 - $500', value: '$201 - $500'},
     {label: '$501 +', value: '$501 +'},
   ]);
-  const [reusablePrice, setReusablePrice] = useState('');
 
   // Dynamic genus data state
   const [dynamicGenusData, setDynamicGenusData] = useState([]);
   const [loadingGenusData, setLoadingGenusData] = useState(true);
+  
+  // Events data state
+  const [eventsData, setEventsData] = useState([]);
+  const [loadingEventsData, setLoadingEventsData] = useState(true);
+  
+  // Search results state
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim().length > 2) {
+        performSearch(searchTerm.trim());
+      } else if (searchTerm.trim().length === 0) {
+        setSearchResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   // Load sort, genus, and variegation options on component mount
   useEffect(() => {
@@ -183,7 +190,13 @@ const ScreenShop = ({navigation}) => {
           loadSortByData(),
           loadGenusData(),
           loadVariegationData(),
+          loadCountryData(),
+          loadListingTypeData(),
+          loadShippingIndexData(),
+          loadAcclimationIndexData(),
           loadBrowseGenusData(),
+          loadEventsData(),
+          loadBrowseMorePlants(),
         ]);
       } catch (error) {
         console.log('Error loading filter data:', error);
@@ -209,63 +222,241 @@ const ScreenShop = ({navigation}) => {
   );
 
   const loadSortByData = async () => {
-    // For buyer shop, use hardcoded sort options that match the UI requirements
-    const buyerSortOptions = [
-      {label: 'Newest to Oldest', value: 'Newest to Oldest'},
-      {label: 'Price Low to High', value: 'Price Low to High'},
-      {label: 'Price High to Low', value: 'Price High to Low'},
-      {label: 'Most Loved', value: 'Most Loved'},
-    ];
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.SORT);
+      if (cachedData) {
+        setSortOptions(cachedData);
+        return;
+      }
 
-    setSortOptions(buyerSortOptions);
+      // For buyer shop, use hardcoded sort options that match the UI requirements
+      const buyerSortOptions = [
+        {label: 'Newest to Oldest', value: 'Newest to Oldest'},
+        {label: 'Price Low to High', value: 'Price Low to High'},
+        {label: 'Price High to Low', value: 'Price High to Low'},
+        {label: 'Most Loved', value: 'Most Loved'},
+      ];
+
+      setSortOptions(buyerSortOptions);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.SORT, buyerSortOptions);
+    } catch (error) {
+      console.log('Error loading sort data:', error);
+    }
   };
 
   const loadGenusData = async () => {
-    let netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.GENUS);
+      if (cachedData) {
+        setGenusOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getGenusApi(), 10, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load genus api');
+      }
+
+      let localGenusData = res.data.map(item => ({
+        label: item.name,
+        value: item.name,
+        genusName: item.name,
+        src: genus2,
+        id: item.id,
+        isWishlisted: false,
+        isLiked: false,
+        isViewed: false,
+        isAddedToCart: false,
+        isAddedToWishlist: false,
+      }));
+
+      setGenusOptions(localGenusData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.GENUS, localGenusData);
+    } catch (error) {
+      console.log('Error loading genus data:', error);
     }
-
-    const res = await retryAsync(() => getGenusApi(), 10, 1000);
-
-    if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load genus api');
-    }
-
-    let localGenusData = res.data.map(item => ({
-      label: item.name,
-      value: item.name,
-      genusName: item.name,
-      src: genus2,
-      id: item.id,
-      isWishlisted: false,
-      isLiked: false,
-      isViewed: false,
-      isAddedToCart: false,
-      isAddedToWishlist: false,
-    }));
-
-    setGenusOptions(localGenusData);
   };
 
   const loadVariegationData = async () => {
-    let netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.VARIEGATION);
+      if (cachedData) {
+        setVariegationOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getVariegationApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load variegation api');
+      }
+
+      let localVariegationData = res.data.map(item => ({
+        label: item.name,
+        value: item.name,
+      }));
+
+      setVariegationOptions(localVariegationData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.VARIEGATION, localVariegationData);
+    } catch (error) {
+      console.log('Error loading variegation data:', error);
     }
+  };
 
-    const res = await retryAsync(() => getVariegationApi(), 3, 1000);
+  const loadCountryData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.COUNTRY);
+      if (cachedData) {
+        setCountryOptions(cachedData);
+        return;
+      }
 
-    if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load variegation api');
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getCountryApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load country api');
+      }
+
+      let localCountryData = res.data.map(item => ({
+        label: item.name || item.country,
+        value: item.name || item.country,
+      }));
+
+      setCountryOptions(localCountryData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.COUNTRY, localCountryData);
+    } catch (error) {
+      console.log('Error loading country data:', error);
     }
+  };
 
-    let localVariegationData = res.data.map(item => ({
-      label: item.name,
-      value: item.name,
-    }));
+  const loadListingTypeData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.LISTING_TYPE);
+      if (cachedData) {
+        setListingTypeOptions(cachedData);
+        return;
+      }
 
-    setVariegationOptions(localVariegationData);
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getListingTypeApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load listing type api');
+      }
+
+      let localListingTypeData = res.data.map(item => ({
+        label: item.name || item.listingType,
+        value: item.name || item.listingType,
+      }));
+
+      setListingTypeOptions(localListingTypeData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.LISTING_TYPE, localListingTypeData);
+    } catch (error) {
+      console.log('Error loading listing type data:', error);
+    }
+  };
+
+  const loadShippingIndexData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.SHIPPING_INDEX);
+      if (cachedData) {
+        setShippingIndexOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getShippingIndexApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load shipping index api');
+      }
+
+      let localShippingIndexData = res.data.map(item => ({
+        label: item.name || item.shippingIndex,
+        value: item.name || item.shippingIndex,
+      }));
+
+      setShippingIndexOptions(localShippingIndexData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.SHIPPING_INDEX, localShippingIndexData);
+    } catch (error) {
+      console.log('Error loading shipping index data:', error);
+    }
+  };
+
+  const loadAcclimationIndexData = async () => {
+    try {
+      // Try to get from cache first
+      const cachedData = await getCacheData(CACHE_KEYS.ACCLIMATION_INDEX);
+      if (cachedData) {
+        setAcclimationIndexOptions(cachedData);
+        return;
+      }
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getAcclimationIndexApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load acclimation index api');
+      }
+
+      let localAcclimationIndexData = res.data.map(item => ({
+        label: item.name || item.acclimationIndex,
+        value: item.name || item.acclimationIndex,
+      }));
+
+      setAcclimationIndexOptions(localAcclimationIndexData);
+      
+      // Cache the data
+      await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, localAcclimationIndexData);
+    } catch (error) {
+      console.log('Error loading acclimation index data:', error);
+    }
   };
 
   const loadBrowseGenusData = async () => {
@@ -304,43 +495,75 @@ const ScreenShop = ({navigation}) => {
 
       console.log('Raw genus groups data:', browseRes.genusGroups);
 
-      // Map the API response to the expected format with representative images
-      const genusImages = [
-        genus1,
-        genus2,
-        genus3,
-        genus4,
-        genus5,
-        genus6,
-        genus7,
-        genus8,
-      ];
+      // Create genus image mapping
+      const genusImageMap = {
+        'alocasia': alocasiaImage,
+        'anthurium': anthuriumImage,
+        'begonia': begoniaImage,
+        'hoya': hoyaImage,
+        'monstera': monsteraImage,
+        'scindapsus': scindapsusImage,
+        'syngonium': syngoniumImage,
+        'philodendron': philodendronImage,
+        'others': othersImage,
+      };
+
+      // Fallback images array for any unmapped genera
+      // const genusImages = [
+      //   genus1,
+      //   genus2,
+      //   genus3,
+      //   genus4,
+      //   genus5,
+      //   genus6,
+      //   genus7,
+      //   genus8,
+      // ];
 
       const mappedGenusData = browseRes.genusGroups.map((genusGroup, index) => {
-        let imageSource = genusImages[index % genusImages.length]; // Fallback to static image
-
-        // Use the representative image from the API if available
-        if (genusGroup.representativeImage) {
+        // Get the correct genus name from representativePlant.originalGenus
+        const correctGenusName = genusGroup.representativePlant?.originalGenus || genusGroup.genus;
+        
+        // First try to get the specific image for this genus
+        let imageSource = genusImageMap[genusGroup.genus.toLowerCase()];
+        
+        // If no specific image found, try using representative image from API
+        if (!imageSource && genusGroup.representativeImage) {
           imageSource = {uri: genusGroup.representativeImage};
+        }
+        
+        // // Final fallback to generic images
+        if (!imageSource) {
+          imageSource = genusImages[index % genusImages.length];
         }
 
         return {
           src: imageSource,
           label: genusGroup.genus,
-          genusName: genusGroup.genus,
+          genusName: correctGenusName,
           plantCount: genusGroup.plantCount,
           speciesCount: genusGroup.speciesCount,
           priceRange: genusGroup.priceRange,
         };
       });
 
+      // Sort the data to ensure "others" appears last
+      const sortedGenusData = mappedGenusData.sort((a, b) => {
+        const aIsOthers = a.genusName.toLowerCase() === 'others';
+        const bIsOthers = b.genusName.toLowerCase() === 'others';
+        
+        if (aIsOthers && !bIsOthers) return 1; // a goes to end
+        if (!aIsOthers && bIsOthers) return -1; // b goes to end
+        return 0; // maintain original order for non-others items
+      });
+
       console.log(
         'Successfully loaded dynamic genus data:',
-        mappedGenusData.length,
+        sortedGenusData.length,
         'items',
       );
-      console.log('Mapped genus data:', mappedGenusData);
-      setDynamicGenusData(mappedGenusData);
+      console.log('Mapped genus data:', sortedGenusData);
+      setDynamicGenusData(sortedGenusData);
     } catch (error) {
       console.error('Error loading browse genus data:', error);
       console.error('Error details:', {
@@ -355,18 +578,142 @@ const ScreenShop = ({navigation}) => {
     }
   };
 
-  const handleFilterView = () => {
-    // Handle filter application here
-    if (code === 'SORT') {
-      console.log('Applied sort filter:', reusableSort);
-    } else if (code === 'PRICE') {
-      console.log('Applied price filter:', reusablePrice);
-    } else if (code === 'GENUS') {
-      console.log('Applied genus filter:', reusableGenus);
-    } else if (code === 'VARIEGATION') {
-      console.log('Applied variegation filter:', reusableVariegation);
+  const loadEventsData = async () => {
+    try {
+      setLoadingEventsData(true);
+      console.log('Starting to load events data...');
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const res = await retryAsync(() => getBuyerEventsApi(), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load events API.');
+      }
+
+      console.log('Events data loaded successfully:', res.data);
+      setEventsData(res.data || []);
+    } catch (error) {
+      console.error('Error loading events data:', error);
+      // Set fallback data or empty array on error
+      setEventsData([]);
+    } finally {
+      setLoadingEventsData(false);
     }
-    setShowSheet(false);
+  };
+
+  const performSearch = async (searchTerm) => {
+    try {
+      setLoadingSearch(true);
+      console.log('Starting search for:', searchTerm);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const baseSearchParams = {
+        plant: searchTerm,
+        limit: 20
+      };
+
+      const searchFilterParams = buildFilterParams(baseSearchParams);
+      console.log('Search filter params:', searchFilterParams);
+
+      const res = await retryAsync(() => searchListingApi(searchFilterParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to search listings.');
+      }
+
+      console.log('Search results loaded successfully:', res.data);
+      setSearchResults(res.data?.listings || []);
+    } catch (error) {
+      console.error('Error performing search:', error);
+      setSearchResults([]);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  // Filter update functions that sync with global state
+  const handleSortChange = (value) => {
+    updateFilters({ sort: value });
+  };
+
+  const handlePriceChange = (value) => {
+    updateFilters({ price: value });
+  };
+
+  const handleGenusChange = (value) => {
+    updateFilters({ genus: value });
+  };
+
+  const handleVariegationChange = (value) => {
+    updateFilters({ variegation: value });
+  };
+
+  const handleCountryChange = (value) => {
+    updateFilters({ country: value });
+  };
+
+  const handleListingTypeChange = (value) => {
+    updateFilters({ listingType: value });
+  };
+
+  const handleShippingIndexChange = (value) => {
+    updateFilters({ shippingIndex: value });
+  };
+
+  const handleAcclimationIndexChange = (value) => {
+    updateFilters({ acclimationIndex: value });
+  };
+
+  const handleFilterView = async () => {
+    try {
+      // Apply filters to global state
+      applyFilters(globalFilters);
+      
+      console.log('Applying filters to global state:', globalFilters);
+      
+      // Build filter parameters for API call using global context
+      const baseParams = {
+        offset: 0,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+      
+      const filterParams = buildFilterParams(baseParams);
+      console.log('Filter params for API call:', filterParams);
+      
+      // Call buyer listings API with applied filters
+      const response = await getBuyerListingsApi(filterParams);
+      console.log('Buyer listings API response:', response);
+      
+      setShowSheet(false);
+      
+      // Navigate to ScreenGenusPlants - the global state will handle the filters
+      // If a specific genus is selected, use it; otherwise navigate to a general filtered view
+      const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 ? globalFilters.genus[0] : 'All';
+      
+      navigation.navigate('ScreenGenusPlants', {
+        genus: targetGenus,
+      });
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      setShowSheet(false);
+      
+      // Still navigate even if API call fails
+      const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 ? globalFilters.genus[0] : 'All';
+      
+      navigation.navigate('ScreenGenusPlants', {
+        genus: targetGenus,
+      });
+    }
   };
 
   const onPressFilter = pressCode => {
@@ -376,33 +723,10 @@ const ScreenShop = ({navigation}) => {
 
   const onGenusPress = async genusName => {
     console.log('Genus pressed:', genusName);
-    try {
-      // Fetch plants for this specific genus using the browse API
-      const browseRes = await getBrowsePlantByGenusApi(genusName);
-      console.log(`Plants for ${genusName}:`, browseRes);
-
-      if (browseRes?.success && browseRes.genusGroups) {
-        // Find the specific genus group
-        const genusGroup = browseRes.genusGroups.find(
-          group => group.genus.toLowerCase() === genusName.toLowerCase(),
-        );
-
-        if (genusGroup) {
-          console.log(`Found genus group for ${genusName}:`, genusGroup);
-          // Navigate to a filtered view with the genus data
-          // For example: navigation.navigate('FilteredPlants', {
-          //   genus: genusName,
-          //   genusGroup: genusGroup
-          // });
-        } else {
-          console.log(`No genus group found for ${genusName}`);
-        }
-      } else {
-        console.log(`No data found for ${genusName}`);
-      }
-    } catch (error) {
-      console.error(`Error fetching plants for ${genusName}:`, error);
-    }
+    // Navigate to the genus plants screen
+    navigation.navigate('ScreenGenusPlants', {
+      genus: genusName,
+    });
   };
 
   const retryLoadGenusData = () => {
@@ -432,39 +756,114 @@ const ScreenShop = ({navigation}) => {
 
   const onGrowersPress = () => {
     console.log('Growers Pressed');
+    // Update filters to show only Grower's Choice listings
+    updateFilters({ listingType: ["Grower's Choice"] });
+    
+    // Navigate to genus plants screen with Grower's Choice filter
+    navigation.navigate('ScreenGenusPlants', {
+      genus: 'All',
+      filterType: 'listingType',
+      filterValue: "Grower's Choice"
+    });
   };
+  
   const onWholesalePress = () => {
     console.log('Wholesale Pressed');
+    // Update filters to show only Wholesale listings
+    updateFilters({ listingType: ["Wholesale"] });
+    
+    // Navigate to genus plants screen with Wholesale filter
+    navigation.navigate('ScreenGenusPlants', {
+      genus: 'All',
+      filterType: 'listingType',
+      filterValue: 'Wholesale'
+    });
   };
 
-  const imageData = [
-    {
-      src: event1,
-      label: 'Deals, Rewards & News',
-    },
-    {
-      src: event2,
-      label: 'Deals, Rewards & News',
-    },
-  ];
+  const loadBrowseMorePlants = async () => {
+    try {
+      setLoadingBrowseMorePlants(true);
+      console.log('Loading browse more plants...');
+      
+      const baseParams = {
+        offset: 0,
+        limit: 6, // Same as static data count
+        sortBy: 'loveCount',
+        sortOrder: 'desc',
+      };
+      
+      const filterParams = buildFilterParams(baseParams);
+      console.log('Browse more plants filter params:', filterParams);
+      
+      const response = await getBuyerListingsApi(filterParams);
+      console.log('Browse more plants API response:', response);
+      
+      if (response.success && response.data?.listings) {
+        setBrowseMorePlants(response.data.listings);
+      } else {
+        console.error('Failed to load browse more plants:', response.message);
+        setBrowseMorePlants([]);
+      }
+    } catch (error) {
+      console.error('Error loading browse more plants:', error);
+      setBrowseMorePlants([]);
+    } finally {
+      setLoadingBrowseMorePlants(false);
+    }
+  };
+
+  const handleAddToCartFromBrowseMore = async (plant) => {
+    try {
+      console.log('Adding plant to cart from browse more:', plant.plantCode);
+      
+      const params = {
+        plantCode: plant.plantCode,
+        quantity: 1,
+      };
+      
+      const response = await addToCartApi(params);
+      console.log('Add to cart response:', response);
+      
+      if (response.success) {
+        Alert.alert('Success', 'Plant added to cart successfully!');
+      } else {
+        Alert.alert('Error', response.message || 'Failed to add plant to cart');
+      }
+    } catch (error) {
+      console.error('Error adding plant to cart:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
 
   const HEADER_HEIGHT = 110;
 
   const scrollViewRef = useRef(null);
 
-  const [browseMorePlants, setBrowseMorePlants] =
-    useState(browseMorePlantsData);
+  const [browseMorePlants, setBrowseMorePlants] = useState([]);
+  const [loadingBrowseMorePlants, setLoadingBrowseMorePlants] = useState(true);
+
+  const [searchText, setSearchText] = useState('');
 
   return (
     <>
       <View style={styles.stickyHeader}>
         <View style={styles.header}>
-          <View style={{flex: 1}}>
-            <InputGroupLeftIcon
-              IconLeftComponent={SearchIcon}
-              placeholder={'Search ileafU'}
-            />
+        <View style={styles.searchContainer}>
+          <View style={styles.searchField}>
+            <View style={styles.textField}>
+              <SearchIcon width={24} height={24} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search ileafU"
+                placeholderTextColor="#647276"
+                value={searchText}
+                onChangeText={setSearchText}
+                multiline={false}
+                numberOfLines={1}
+              />
+            </View>
           </View>
+        </View>
 
           <View style={styles.headerIcons}>
             <TouchableOpacity
@@ -502,6 +901,14 @@ const ScreenShop = ({navigation}) => {
                   onPressFilter('GENUS');
                 } else if (option.label === 'Variegation') {
                   onPressFilter('VARIEGATION');
+                } else if (option.label === 'Country') {
+                  onPressFilter('COUNTRY');
+                } else if (option.label === 'Shipping Index') {
+                  onPressFilter('SHIPPING_INDEX');
+                } else if (option.label === 'Acclimation Index') {
+                  onPressFilter('ACCLIMATION_INDEX');
+                } else if (option.label === 'Listing Type') {
+                  onPressFilter('LISTING_TYPE');
                 }
               }}
               style={{
@@ -538,6 +945,61 @@ const ScreenShop = ({navigation}) => {
         ref={scrollViewRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
         contentContainerStyle={{paddingBottom: 170}}>
+        
+        {/* Search Results Section */}
+        {searchTerm.trim().length > 2 && (
+          <>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: 'bold',
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: '#393D40',
+              }}>
+              Search Results for "{searchTerm}"
+            </Text>
+            {loadingSearch ? (
+              <View style={{paddingHorizontal: 12, paddingVertical: 20}}>
+                <Text style={{color: '#666', textAlign: 'center'}}>
+                  Searching...
+                </Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'flex-start',
+                  paddingHorizontal: 10,
+                }}
+                style={{flexGrow: 0}}>
+                {searchResults.slice(0, 10).map((item, idx) => (
+                  <PlantItemCard
+                    key={item.plantCode || idx}
+                    data={item}
+                    onPress={() => {
+                      console.log('Navigate to plant detail:', item.plantCode);
+                    }}
+                    onAddToCart={() => {
+                      console.log('Add to cart:', item.plantCode);
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={{paddingHorizontal: 12, paddingVertical: 20}}>
+                <Text style={{color: '#666', textAlign: 'center'}}>
+                  No plants found for "{searchTerm}"
+                </Text>
+              </View>
+            )}
+            <View style={{height: 20}} />
+          </>
+        )}
+        
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -599,26 +1061,81 @@ const ScreenShop = ({navigation}) => {
             paddingHorizontal: 10,
           }}
           style={{flexGrow: 0}}>
-          {imageData.map((item, idx) => (
-            <View key={idx} style={{width: 275}}>
-              <Image
-                source={item.src}
-                style={{width: 260, height: 120, borderRadius: 16}}
-              />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '900',
-                  color: '#393D40',
-                  marginTop: 4,
-                  textAlign: 'left',
-                  paddingHorizontal: 5,
+          {loadingEventsData ? (
+            // Loading state
+            Array.from({length: 2}).map((_, idx) => (
+              <View key={idx} style={{width: 275}}>
+                <View
+                  style={{
+                    width: 260,
+                    height: 120,
+                    borderRadius: 16,
+                    backgroundColor: '#f0f0f0',
+                  }}
+                />
+                <View
+                  style={{
+                    width: 150,
+                    height: 16,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                    marginTop: 4,
+                    marginHorizontal: 5,
+                  }}
+                />
+              </View>
+            ))
+          ) : eventsData.length > 0 ? (
+            eventsData.map((item, idx) => (
+              <TouchableOpacity
+                key={item.id || idx}
+                style={{width: 275}}
+                onPress={() => {
+                  // Handle link navigation if item has a link
+                  if (item.link) {
+                    Linking.openURL(item.link).catch(err => 
+                      console.error('Failed to open link:', err)
+                    );
+                  }
                 }}>
-                {item.label}
-              </Text>
+                <Image
+                  source={{uri: item.image}}
+                  style={{width: 260, height: 120, borderRadius: 16}}
+                  resizeMode="cover"
+                />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '900',
+                    color: '#393D40',
+                    marginTop: 4,
+                    textAlign: 'left',
+                    paddingHorizontal: 5,
+                  }}>
+                  {item.name || item.label || 'Deals, Rewards & News'}
+                </Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            // Fallback when no events data
+            <View style={{width: 275}}>
+              <View
+                style={{
+                  width: 260,
+                  height: 120,
+                  borderRadius: 16,
+                  backgroundColor: '#f5f5f5',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Text style={{color: '#888', fontSize: 14}}>
+                  No events available
+                </Text>
+              </View>
             </View>
-          ))}
+          )}
         </ScrollView>
+        
         <Text
           style={{
             fontSize: 20,
@@ -741,6 +1258,7 @@ const ScreenShop = ({navigation}) => {
             </View>
           )}
         </View>
+        
         <Text
           style={{
             fontSize: 20,
@@ -763,7 +1281,18 @@ const ScreenShop = ({navigation}) => {
           {countryData.map((item, idx) => (
             <TouchableOpacity
               key={idx}
-              onPress={() => console.log(item.label)}
+              onPress={() => {
+                console.log('Country pressed:', item.label);
+                // Update filters to show plants from selected country
+                updateFilters({ country: [item.label] });
+                
+                // Navigate to genus plants screen with country filter
+                navigation.navigate('ScreenGenusPlants', {
+                  genus: 'All',
+                  filterType: 'country',
+                  filterValue: item.label
+                });
+              }}
               style={{
                 width: 110,
                 height: 79,
@@ -797,32 +1326,113 @@ const ScreenShop = ({navigation}) => {
           }}>
           Browse More Plants
         </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 1,
-            justifyContent: 'center',
-          }}>
-          {browseMorePlants.map((plant, idx) => (
-            <PlantItemCard
-              key={plant.id}
-              flag={plant.flag}
-              title={plant.title}
-              subtitle={plant.subtitle}
-              price={plant.price}
-              likes={plant.likes}
-              isWishlisted={plant.isWishlisted}
-              onWishlistPress={() => {
-                setBrowseMorePlants(prev =>
-                  prev.map((p, i) =>
-                    i === idx ? {...p, isWishlisted: !p.isWishlisted} : p,
-                  ),
-                );
-              }}
-            />
-          ))}
-        </View>
+        
+        {loadingBrowseMorePlants ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'center',
+            }}>
+            {Array.from({length: 6}).map((_, idx) => (
+              <View
+                key={idx}
+                style={{
+                  width: 191,
+                  height: 289,
+                  backgroundColor: '#f0f0f0',
+                  borderRadius: 12,
+                  margin: 1,
+                  padding: 8,
+                }}>
+                {/* Image skeleton */}
+                <View
+                  style={{
+                    width: '100%',
+                    height: 160,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}
+                />
+                
+                {/* Title skeleton */}
+                <View
+                  style={{
+                    width: '80%',
+                    height: 16,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 4,
+                    marginBottom: 6,
+                  }}
+                />
+                
+                {/* Subtitle skeleton */}
+                <View
+                  style={{
+                    width: '60%',
+                    height: 14,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 4,
+                    marginBottom: 8,
+                  }}
+                />
+                
+                {/* Price skeleton */}
+                <View
+                  style={{
+                    width: '50%',
+                    height: 18,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 4,
+                    marginBottom: 8,
+                  }}
+                />
+                
+                {/* Button skeleton */}
+                <View
+                  style={{
+                    width: '100%',
+                    height: 32,
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 6,
+                    marginTop: 'auto',
+                  }}
+                />
+              </View>
+            ))}
+          </View>
+        ) : browseMorePlants.length > 0 ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'center',
+            }}>
+            {browseMorePlants.map((plant, idx) => (
+              <PlantItemCard
+                key={plant.plantCode || plant.id}
+                data={plant}
+                onAddToCart={() => handleAddToCartFromBrowseMore(plant)}
+              />
+            ))}
+          </View>
+        ) : (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'center',
+              paddingVertical: 20,
+            }}>
+            <Text style={{color: '#666', textAlign: 'center'}}>
+              No recommendations available
+            </Text>
+          </View>
+        )}
         <View style={{width: '100%', alignItems: 'center', marginTop: 15}}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <Text style={styles.loadMoreText}>Load More</Text>
@@ -840,14 +1450,26 @@ const ScreenShop = ({navigation}) => {
         genusOptions={genusOptions}
         variegationOptions={variegationOptions}
         priceOptions={priceOptions}
-        sortValue={reusableSort}
-        sortChange={setReusableSort}
-        genusValue={reusableGenus}
-        genusChange={setReusableGenus}
-        variegationValue={reusableVariegation}
-        variegationChange={setReusableVariegation}
-        priceValue={reusablePrice}
-        priceChange={setReusablePrice}
+        countryOptions={countryOptions}
+        listingTypeOptions={listingTypeOptions}
+        shippingIndexOptions={shippingIndexOptions}
+        acclimationIndexOptions={acclimationIndexOptions}
+        sortValue={globalFilters.sort}
+        sortChange={handleSortChange}
+        genusValue={globalFilters.genus}
+        genusChange={handleGenusChange}
+        variegationValue={globalFilters.variegation}
+        variegationChange={handleVariegationChange}
+        priceValue={globalFilters.price}
+        priceChange={handlePriceChange}
+        countryValue={globalFilters.country}
+        countryChange={handleCountryChange}
+        listingTypeValue={globalFilters.listingType}
+        listingTypeChange={handleListingTypeChange}
+        shippingIndexValue={globalFilters.shippingIndex}
+        shippingIndexChange={handleShippingIndexChange}
+        acclimationIndexValue={globalFilters.acclimationIndex}
+        acclimationIndexChange={handleAcclimationIndexChange}
         handleSearchSubmit={handleFilterView}
       />
     </>
@@ -935,6 +1557,54 @@ const styles = StyleSheet.create({
     padding: 16,
     flex: 1,
     marginRight: 8,
+  },
+   searchContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 209,
+    height: 40,
+    flex: 1,
+  },
+  searchField: {
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    flex: 0,
+  },
+  textField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    minHeight: 34,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
+  },
+  searchInput: {
+    width: 145,
+    height: 22,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#647276',
+    flex: 1,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    paddingVertical: 0,
   },
   cardWhite: {
     backgroundColor: '#f7f7f7',
