@@ -16,6 +16,7 @@ import IconPin from '../../../../assets/icons/greylight/pin-light.svg';
 import IconAccentPin from '../../../../assets/icons/accent/pin.svg';
 import IconMenu from '../../../../assets/icons/greylight/dots-three-vertical-regular.svg';
 import IconDiscountList from '../../../../assets/icons/accent/discount-list.svg';
+import {numberToCurrency} from '../../../../utils/numberToCurrency';
 
 const COLUMN_WIDTH = 150;
 
@@ -364,7 +365,7 @@ const ListingTable = ({
                       <Text
                         style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
                         {finalCurrencySymbol}
-                        {totalLocalPriceNew.toFixed(2)}
+                        {numberToCurrency(totalLocalPriceNew.toFixed(2))}
                       </Text>
                       <Text
                         style={[
@@ -372,13 +373,13 @@ const ListingTable = ({
                           globalStyles.textMDGreyLight,
                         ]}>
                         {finalCurrencySymbol}
-                        {totalLocalPrice.toFixed(2)}
+                        {numberToCurrency(totalLocalPrice.toFixed(2))}
                       </Text>
                     </>
                   ) : (
                     <Text style={globalStyles.textMDGreyLight}>
                       {finalCurrencySymbol}
-                      {totalLocalPrice.toFixed(2)}
+                      {numberToCurrency(totalLocalPrice.toFixed(2))}
                     </Text>
                   )}
                 </View>

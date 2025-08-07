@@ -28,6 +28,7 @@ import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
 import {formatDateMonthDayYear} from '../../../utils/formatDateMonthDayYear';
 import ConfirmDelete from './components/ConfirmDelete';
+import {numberToCurrency} from '../../../utils/numberToCurrency';
 
 import {
   postListingPublishNowActionApi,
@@ -115,7 +116,7 @@ const ScreenListingDetail = ({navigation, route}) => {
       throw new Error(res?.message || 'Failed to load sort api');
     }
 
-    console.log(res.data);
+    // console.log(res.data);
     setSwitchActive(res.data.status == 'Active' ? true : false);
     setListingData(res.data);
   };
@@ -217,7 +218,6 @@ const ScreenListingDetail = ({navigation, route}) => {
     if (!netState.isConnected || !netState.isInternetReachable) {
       throw new Error('No internet connection.');
     }
-
     try {
       const response = await postListingActivateActionApi([plantCode]);
 
@@ -848,7 +848,9 @@ const ScreenListingDetail = ({navigation, route}) => {
                           </Text>
                         </View>
 
-                        <Text style={globalStyles.textMDGreyDark}>{price}</Text>
+                        <Text style={globalStyles.textMDGreyDark}>
+                          {numberToCurrency(price)}
+                        </Text>
                       </View>
                     </View>
                   );

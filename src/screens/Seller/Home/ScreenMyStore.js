@@ -26,6 +26,7 @@ import {retryAsync} from '../../../utils/utils';
 import {useIsFocused} from '@react-navigation/native';
 import {InputSearch} from '../../../components/InputGroup/Left';
 import {AuthContext} from '../../../auth/AuthProvider';
+import {numberToCurrency} from '../../../utils/numberToCurrency';
 
 import LiveIcon from '../../../assets/images/live.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
@@ -781,7 +782,9 @@ const ScreenMyStore = ({navigation}) => {
                                     {paddingRight: 10},
                                   ]}>
                                   {finalCurrencySymbol}
-                                  {totalLocalPriceNew.toFixed(2)}
+                                  {numberToCurrency(
+                                    totalLocalPriceNew.toFixed(2),
+                                  )}
                                 </Text>
                                 <Text
                                   style={[
@@ -789,13 +792,13 @@ const ScreenMyStore = ({navigation}) => {
                                     globalStyles.textMDGreyLight,
                                   ]}>
                                   {finalCurrencySymbol}
-                                  {totalLocalPrice.toFixed(2)}
+                                  {numberToCurrency(totalLocalPrice.toFixed(2))}
                                 </Text>
                               </>
                             ) : (
                               <Text style={globalStyles.textMDGreyLight}>
                                 {finalCurrencySymbol}
-                                {totalLocalPrice.toFixed(2)}
+                                {numberToCurrency(totalLocalPrice.toFixed(2))}
                               </Text>
                             )}
                           </View>
