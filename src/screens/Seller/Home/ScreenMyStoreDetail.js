@@ -441,7 +441,9 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                 {listingData?.variations.map((item, index) => {
                   const potSize = item.potSize || 'No Pot Size';
                   const price =
-                    item?.localCurrencySymbol + ' ' + item?.localPrice;
+                    item?.localCurrencySymbol +
+                    ' ' +
+                    numberToCurrency(item?.localPrice);
 
                   return (
                     <View
@@ -485,9 +487,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                           </Text>
                         </View>
 
-                        <Text style={globalStyles.textMDGreyDark}>
-                          {numberToCurrency(price)}
-                        </Text>
+                        <Text style={globalStyles.textMDGreyDark}>{price}</Text>
                       </View>
                     </View>
                   );
