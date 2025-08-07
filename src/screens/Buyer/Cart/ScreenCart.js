@@ -10,6 +10,7 @@ import {
   Text,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -21,7 +22,7 @@ import PlusDisabledIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
 import {getCartItemsApi, removeFromCartApi, updateCartItemApi} from '../../../components/Api/cartApi';
-import {getBuyerListingsApi} from '../../../components/Api/listingBrowseApi';
+import {getBuyerListingsApi, searchPlantsApi} from '../../../components/Api/listingBrowseApi';
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
@@ -87,8 +88,67 @@ const CartHeader = () => {
     {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
   ];
 
-  const [searchText, setSearchText] = useState('');
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
   const navigation = useNavigation();
+
+  // Debounced search effect - triggers after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim().length >= 2) {
+        console.log('🔍 Cart search triggered for:', searchTerm);
+        performSearch(searchTerm.trim());
+      } else if (searchTerm.trim().length === 0) {
+        setSearchResults([]);
+        setLoadingSearch(false);
+      }
+    }, 800); // 800ms delay for "finished typing" detection
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const performSearch = async (searchTerm) => {
+    try {
+      setLoadingSearch(true);
+      console.log('🔍 Starting cart search for:', searchTerm);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const searchParams = {
+        query: searchTerm,
+        limit: 4,
+        sortBy: 'relevance',
+        sortOrder: 'desc'
+      };
+
+      const res = await searchPlantsApi(searchParams);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to search plants.');
+      }
+
+      const plants = res.data?.plants || [];
+      console.log(`✅ Cart search completed: found ${plants.length} plants for "${searchTerm}"`);
+      setSearchResults(plants);
+      
+    } catch (error) {
+      console.error('❌ Error performing cart search:', error);
+      setSearchResults([]);
+      
+      Alert.alert(
+        'Search Error',
+        'Could not search for plants. Please check your connection and try again.',
+        [{text: 'OK'}]
+      );
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
   
   return (
     <View style={styles.stickyHeader}>
@@ -106,13 +166,31 @@ const CartHeader = () => {
               <SearchIcon width={24} height={24} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search ileafU"
+                placeholder="Search iLeafU"
                 placeholderTextColor="#647276"
-                value={searchText}
-                onChangeText={setSearchText}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+                onBlur={() => {
+                  // Close search results when input loses focus
+                  setTimeout(() => {
+                    setSearchResults([]);
+                    setLoadingSearch(false);
+                  }, 150); // Small delay to allow for result tap
+                }}
                 multiline={false}
                 numberOfLines={1}
+                // Disable native autocomplete and suggestions
+                autoComplete="off"
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                textContentType="none"
+                dataDetectorTypes="none"
+                keyboardType="default"
               />
+              {loadingSearch && (
+                <ActivityIndicator size="small" color="#647276" style={{marginLeft: 8}} />
+              )}
             </View>
           </View>
         </View>
@@ -150,6 +228,47 @@ const CartHeader = () => {
           />
         ))}
       </ScrollView>
+
+      {/* Search Results Dropdown */}
+      {searchTerm.trim().length >= 2 && (
+        <View style={styles.searchResultsContainer}>
+          {loadingSearch ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#10b981" />
+              <Text style={styles.loadingText}>Searching plants...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={styles.searchResultsList}>
+              {searchResults.slice(0, 8).map((plant, index) => (
+                <TouchableOpacity
+                  key={`${plant.id}_${index}`}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    if (plant.plantCode) {
+                      navigation.navigate('ScreenPlantDetail', {
+                        plantCode: plant.plantCode
+                      });
+                    } else {
+                      console.error('❌ Missing plantCode for plant:', plant);
+                      Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+                    }
+                  }}
+                >
+                  <Text style={styles.searchResultName} numberOfLines={2}>
+                    {plant.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noResultsContainer}>
+              <Text style={styles.noResultsText}>
+                No plants found for "{searchTerm}"
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 };
@@ -1312,6 +1431,76 @@ const styles = StyleSheet.create({
   },
   skeletonImage: {
     backgroundColor: '#f0f0f0',
+  },
+  // Search Results Styles
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 52, // Position below the header
+    left: 13, // Match header paddingHorizontal
+    right: 53, // Account for header icons width
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, // Thicker border for better definition
+    borderColor: '#d1d5db', // Slightly darker border
+    borderRadius: 12,
+    maxHeight: 200,
+    zIndex: 9999, // Ensure it appears on top of everything
+    elevation: 15, // Higher elevation for Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25, // Stronger shadow for better visibility
+    shadowRadius: 8,
+    // Ensure completely opaque background
+    opacity: 1,
+    // Additional properties to ensure visibility
+    borderStyle: 'solid',
+    overflow: 'hidden', // Ensure content doesn't bleed
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
+  },
+  searchResultsList: {
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  searchResultItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#FFFFFF', // Ensure solid background for each item
+    // Additional properties for visibility
+    opacity: 1,
+    borderStyle: 'solid',
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    fontFamily: 'Inter',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
   },
 });
 export default ScreenCart;

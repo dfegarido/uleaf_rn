@@ -28,6 +28,7 @@ import {
   getVariegationApi,
   getBuyerListingsApi,
   addToCartApi,
+  searchPlantsApi,
 } from '../../../components/Api';
 import {
   getCountryApi,
@@ -50,14 +51,19 @@ import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
 import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
 import PromoBadge from '../../../components/PromoBadge/PromoBadge';
 
-const GenusHeader = ({genus, navigation}) => {
-  const [searchText, setSearchText] = useState('');
-  
+const GenusHeader = ({
+  genus,
+  navigation,
+  searchTerm,
+  setSearchTerm,
+  setSearchResults,
+  setLoadingSearch,
+}) => {
   return (
     <View style={styles.header}>
       <View style={styles.controls}>
         {/* Back Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
           <BackIcon width={24} height={24} />
@@ -72,10 +78,25 @@ const GenusHeader = ({genus, navigation}) => {
                 style={styles.searchInput}
                 placeholder={`Search ${genus || 'plants'}...`}
                 placeholderTextColor="#647276"
-                value={searchText}
-                onChangeText={setSearchText}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+                onBlur={() => {
+                  // Close search results when input loses focus
+                  setTimeout(() => {
+                    setSearchResults([]);
+                    setLoadingSearch(false);
+                  }, 150); // Small delay to allow for result tap
+                }}
                 multiline={false}
                 numberOfLines={1}
+                // Disable native autocomplete and suggestions
+                autoComplete="off"
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                textContentType="none"
+                dataDetectorTypes="none"
+                keyboardType="default"
               />
             </View>
           </View>
@@ -89,7 +110,7 @@ const GenusHeader = ({genus, navigation}) => {
         </TouchableOpacity>
 
         {/* Profile */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.profileContainer}
           onPress={() => navigation.navigate('ScreenProfile')}>
           <View style={styles.avatar}>
@@ -152,6 +173,65 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+
+  // Debounced search effect - triggers after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim().length >= 2) {
+        console.log('🔍 Genus screen search triggered for:', searchTerm);
+        performSearch(searchTerm.trim());
+      } else if (searchTerm.trim().length === 0) {
+        setSearchResults([]);
+        setLoadingSearch(false);
+      }
+    }, 800); // 800ms delay for "finished typing" detection
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const performSearch = async (searchTerm) => {
+    try {
+      setLoadingSearch(true);
+      console.log('🔍 Starting genus screen search for:', searchTerm);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const searchParams = {
+        query: searchTerm,
+        limit: 4,
+        sortBy: 'relevance',
+        sortOrder: 'desc'
+      };
+
+      const res = await searchPlantsApi(searchParams);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to search plants.');
+      }
+
+      const plants = res.data?.plants || [];
+      console.log(`✅ Genus screen search completed: found ${plants.length} plants for "${searchTerm}"`);
+      console.log('📋 First plant data:', plants[0]); // Debug plant structure
+      setSearchResults(plants);
+      
+    } catch (error) {
+      console.error('❌ Error performing genus screen search:', error);
+      setSearchResults([]);
+      
+      Alert.alert(
+        'Search Error',
+        'Could not search for plants. Please check your connection and try again.',
+        [{text: 'OK'}]
+      );
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
 
   // Load filter options on component mount
   useEffect(() => {
@@ -782,7 +862,57 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   return (
     <View style={styles.container}>
-      <GenusHeader genus={genus} navigation={navigation} />
+      <GenusHeader
+        genus={genus}
+        navigation={navigation}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        setSearchResults={setSearchResults}
+        setLoadingSearch={setLoadingSearch}
+      />
+
+      {/* Search Results - Positioned outside header to appear above content */}
+      {searchTerm.trim().length >= 2 && (
+        <View style={styles.searchResultsContainer}>
+          {loadingSearch ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#10b981" />
+              <Text style={styles.loadingText}>Searching plants...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={styles.searchResultsList}>
+              {searchResults.map((plant, index) => (
+                <TouchableOpacity
+                  key={`${plant.id}_${index}`}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    if (plant.plantCode) {
+                      navigation.navigate('ScreenPlantDetail', {
+                        plantCode: plant.plantCode,
+                      });
+                    } else {
+                      console.error('❌ Missing plantCode for plant:', plant);
+                      Alert.alert(
+                        'Error',
+                        'Unable to view plant details. Missing plant code.',
+                      );
+                    }
+                  }}>
+                  <Text style={styles.searchResultName} numberOfLines={2}>
+                    {plant.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noResultsContainer}>
+              <Text style={styles.noResultsText}>
+                No plants found for "{searchTerm}"
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Filter Bar */}
       <ScrollView
@@ -1222,6 +1352,76 @@ const styles = StyleSheet.create({
     height: 18,
     backgroundColor: '#f0f0f0',
     borderRadius: 4,
+  },
+  // Search Results Styles
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 58, // Position below the controls
+    left: 56, // Account for back button width + gap
+    right: 80, // Account for wishlist and profile buttons
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, // Thicker border for better definition
+    borderColor: '#d1d5db', // Slightly darker border
+    borderRadius: 12,
+    maxHeight: 200,
+    zIndex: 9999, // Ensure it appears on top of everything
+    elevation: 15, // Higher elevation for Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25, // Stronger shadow for better visibility
+    shadowRadius: 8,
+    // Ensure completely opaque background
+    opacity: 1,
+    // Additional properties to ensure visibility
+    borderStyle: 'solid',
+    overflow: 'hidden', // Ensure content doesn't bleed
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
+  },
+  searchResultsList: {
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  searchResultItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#FFFFFF', // Ensure solid background for each item
+    // Additional properties for visibility
+    opacity: 1,
+    borderStyle: 'solid',
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    fontFamily: 'Inter',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
   },
 });
 

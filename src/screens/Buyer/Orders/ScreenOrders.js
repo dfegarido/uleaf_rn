@@ -1,8 +1,8 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-import {useState} from 'react';
-import {ScrollView, TouchableOpacity, TextInput} from 'react-native';
+import {useState, useEffect} from 'react';
+import {ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
@@ -10,10 +10,72 @@ import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {OrderItemCard} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import {searchPlantsApi} from '../../../components/Api/listingBrowseApi';
+import NetInfo from '@react-native-community/netinfo';
 
 const OrdersHeader = ({activeTab, setActiveTab}) => {
-  const [searchText, setSearchText] = useState('');
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
   const navigation = useNavigation();
+
+  // Debounced search effect - triggers after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim().length >= 2) {
+        console.log('🔍 Orders search triggered for:', searchTerm);
+        performSearch(searchTerm.trim());
+      } else if (searchTerm.trim().length === 0) {
+        setSearchResults([]);
+        setLoadingSearch(false);
+      }
+    }, 800); // 800ms delay for "finished typing" detection
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const performSearch = async (searchTerm) => {
+    try {
+      setLoadingSearch(true);
+      console.log('🔍 Starting orders search for:', searchTerm);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const searchParams = {
+        query: searchTerm,
+        limit: 4,
+        sortBy: 'relevance',
+        sortOrder: 'desc'
+      };
+
+      const res = await searchPlantsApi(searchParams);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to search plants.');
+      }
+
+      const plants = res.data?.plants || [];
+      console.log(`✅ Orders search completed: found ${plants.length} plants for "${searchTerm}"`);
+      console.log('📋 First plant data:', plants[0]); // Debug plant structure
+      setSearchResults(plants);
+      
+    } catch (error) {
+      console.error('❌ Error performing orders search:', error);
+      setSearchResults([]);
+      
+      Alert.alert(
+        'Search Error',
+        'Could not search for plants. Please check your connection and try again.',
+        [{text: 'OK'}]
+      );
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
 
   const tabFilters = [
     {filterKey: 'Ready to Fly'},
@@ -44,8 +106,15 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
                 style={styles.searchInput}
                 placeholder="Search plant, invoice #, buddy"
                 placeholderTextColor="#647276"
-                value={searchText}
-                onChangeText={setSearchText}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+                onBlur={() => {
+                  // Close search results when input loses focus
+                  setTimeout(() => {
+                    setSearchResults([]);
+                    setLoadingSearch(false);
+                  }, 150); // Small delay to allow for result tap
+                }}
                 multiline={false}
                 numberOfLines={1}
               />
@@ -66,6 +135,47 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Search Results */}
+      {searchTerm.trim().length >= 2 && (
+        <View style={styles.searchResultsContainer}>
+          {loadingSearch ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#10b981" />
+              <Text style={styles.loadingText}>Searching plants...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={styles.searchResultsList}>
+              {searchResults.map((plant, index) => (
+                <TouchableOpacity
+                  key={`${plant.id}_${index}`}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    if (plant.plantCode) {
+                      navigation.navigate('ScreenPlantDetail', {
+                        plantCode: plant.plantCode
+                      });
+                    } else {
+                      console.error('❌ Missing plantCode for plant:', plant);
+                      Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+                    }
+                  }}
+                >
+                  <Text style={styles.searchResultName} numberOfLines={2}>
+                    {plant.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noResultsContainer}>
+              <Text style={styles.noResultsText}>
+                No plants found for "{searchTerm}"
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <View style={styles.tabContainer}>
         <ScrollView
@@ -237,7 +347,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
+    zIndex: 100, // Lower than search results
     paddingTop: 12,
     backgroundColor: '#fff',
   },
@@ -439,6 +549,76 @@ const styles = StyleSheet.create({
   arrowText: {
     fontSize: 12,
     color: '#647276',
+  },
+  // Search Results Styles
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 52, // Position below the header
+    left: 13, // Match header paddingHorizontal
+    right: 53, // Account for header icons width
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    maxHeight: 200,
+    zIndex: 9999, // Ensure it appears on top of everything
+    elevation: 15, // Higher elevation for Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    // Ensure solid background
+    opacity: 1,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
+  },
+  searchResultsList: {
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  searchResultItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#FFFFFF', // Ensure solid background for each item
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    fontFamily: 'Inter',
+  },
+  searchResultPrice: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10b981',
+    fontFamily: 'Inter',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
   },
 });
 export default ScreenOrders;

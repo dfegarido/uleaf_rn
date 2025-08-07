@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
   BROWSE_PLANTS_BY_GENUS: `${getBaseUrl()}/browsePlantsByGenus`,
   GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
   SEARCH_LISTING: `${getBaseUrl()}/searchListing`,
+  SEARCH_PLANTS: `${getBaseUrl()}/searchPlants`,
   GET_BUYER_LISTINGS: `${getBaseUrl()}/getBuyerListings`,
   GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
