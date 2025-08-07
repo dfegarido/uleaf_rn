@@ -1,7 +1,7 @@
 // API Configuration for local and production environments
 
 // Set this to true for local development, false for production
-const USE_LOCAL_API = true;
+const USE_LOCAL_API = false;
 
 // Local development endpoints (Firebase Functions Emulator)
 const LOCAL_BASE_URL = 'http://10.0.2.2:5001/i-leaf-u/us-central1';
