@@ -78,6 +78,12 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
     namespace "com.ileafu"
     defaultConfig {
         applicationId "com.ileafu"
@@ -128,4 +134,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }

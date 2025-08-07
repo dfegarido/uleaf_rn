@@ -59,3 +59,7 @@
 # React Native Reanimated
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
+
+# Add these rules for Agora SDK
+-keep class io.agora.** {*;}
+-dontwarn io.agora.**
