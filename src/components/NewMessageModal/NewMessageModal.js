@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Pre-load and cache the avatar image to prevent RCTImageView errors
@@ -81,6 +81,24 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
       setLoading(false);
     }
   };
+  
+  // Skeleton loading component for user items
+  const SkeletonUserItem = ({ index = 0 }) => (
+    <View style={[
+      styles.userItem,
+      index !== 4 && styles.userItemBorder // Show border except for last item
+    ]}>
+      {/* Avatar skeleton */}
+      <View style={styles.skeletonAvatar} />
+      <View style={styles.userInfo}>
+        {/* Name skeleton with varying widths for realism */}
+        <View style={[styles.skeletonName, { width: 120 + (index % 3) * 30 }]} />
+        {/* Email skeleton with varying widths */}
+        <View style={[styles.skeletonEmail, { width: 80 + (index % 4) * 20 }]} />
+      </View>
+    </View>
+  );
+
   return (
     <Modal 
       visible={visible} 
@@ -114,12 +132,11 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
 
           {/* List */}
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#539461" />
-              <Text style={styles.loadingText}>
-                {searchText.trim() ? `Searching for "${searchText}"...` : 'Loading users...'}
-              </Text>
-            </View>
+            <ScrollView contentContainerStyle={styles.userList}>
+              {Array.from({length: 5}).map((_, idx) => (
+                <SkeletonUserItem key={idx} index={idx} />
+              ))}
+            </ScrollView>
           ) : filteredUsers.length > 0 ? (
             <ScrollView contentContainerStyle={styles.userList}>
               {filteredUsers.map((user, index) => ( 
@@ -278,17 +295,6 @@ const styles = StyleSheet.create({
     color: '#647276',
     marginTop: 2,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#647276',
-  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -299,6 +305,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#647276',
     textAlign: 'center',
-  }
+  },
+  skeletonAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e0e0e0',
+    marginRight: 12,
+  },
+  skeletonName: {
+    height: 16,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonEmail: {
+    height: 12,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+  },
 });
 

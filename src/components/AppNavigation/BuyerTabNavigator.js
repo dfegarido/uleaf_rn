@@ -21,6 +21,7 @@ import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
+import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
@@ -165,6 +166,12 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="ChatScreen"
         component={ChatScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="ChatSettingsScreen"
+        component={ChatSettingsScreen}
         options={{headerShown: false}}
       />
 

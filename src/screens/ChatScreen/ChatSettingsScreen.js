@@ -24,6 +24,16 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const [loading, setLoading] = useState(false);
   const otherUserInfo = participants.filter(i => i.uid !== userInfo.uid)[0];
 
+  // Helper function to get safe avatar source
+  const getAvatarSource = () => {
+    // Check if avatarUrl is a valid string URL
+    if (typeof otherUserInfo?.avatarUrl === 'string' && otherUserInfo.avatarUrl.startsWith('http')) {
+      return { uri: otherUserInfo.avatarUrl };
+    }
+    // Fallback to default avatar
+    return require('../../assets/images/AvatarBig.png');
+  };
+
   const deleteChat = async () => {
     setLoading(true);
     await deleteDoc(doc(db, 'chats', chatId));
@@ -45,16 +55,16 @@ const ChatSettingsScreen = ({navigation, route}) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <BackSolidIcon size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{otherUserInfo.name}</Text>
+        <Text style={styles.headerTitle}>{otherUserInfo?.name || 'Chat Settings'}</Text>
       </View>
 
       {/* Profile */}
       <View style={styles.profileSection}>
         <Image
-          source={{ uri: otherUserInfo.avatarUrl }}
+          source={getAvatarSource()}
           style={styles.avatar}
         />
-        <Text style={styles.username}>@{otherUserInfo.name}</Text>
+        <Text style={styles.username}>@{otherUserInfo?.name || 'Unknown'}</Text>
       </View>
 
       {/* Divider */}

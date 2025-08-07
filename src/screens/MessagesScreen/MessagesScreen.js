@@ -1,7 +1,7 @@
 import { addDoc, arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
@@ -10,6 +10,7 @@ import CreateChat from '../../assets/iconchat/new-chat.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
+import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const MessagesScreen = ({navigation}) => {
 
@@ -75,7 +76,6 @@ const MessagesScreen = ({navigation}) => {
   }
 
   const createChat = async user => {
-    setLoading(true);
     setModalVisible(false);
     
     try {
@@ -106,7 +106,6 @@ const MessagesScreen = ({navigation}) => {
       
       // If chat exists, navigate to it
       if (existingChat) {
-        setLoading(false);
         navigation.navigate('ChatScreen', existingChat);
         return;
       }
@@ -163,8 +162,6 @@ const MessagesScreen = ({navigation}) => {
     } catch (error) {
       console.error('Error creating chat:', error);
       Alert.alert('Error', 'Failed to create chat. Please try again.');
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -201,6 +198,27 @@ const MessagesScreen = ({navigation}) => {
     );
   };
 
+  // Skeleton loading component for chat items
+  const SkeletonChatItem = ({ index = 0 }) => (
+    <View style={styles.chatItem}>
+      {/* Avatar skeleton */}
+      <View style={styles.skeletonAvatar} />
+      
+      <View style={styles.chatContent}>
+        <View style={styles.chatHeader}>
+          <View style={styles.chatSubHeader}>
+            {/* Name skeleton with varying widths */}
+            <View style={[styles.skeletonName, { width: 100 + (index % 3) * 20 }]} />
+            {/* Time skeleton */}
+            <View style={styles.skeletonTime} />
+          </View>
+        </View>
+        {/* Message skeleton with varying widths */}
+        <View style={[styles.skeletonMessage, { width: `${60 + (index % 4) * 10}%` }]} />
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -214,18 +232,32 @@ const MessagesScreen = ({navigation}) => {
       </View>
 
       <FlatList
-        data={messages}
+        data={loading ? [] : messages}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContainer,
+          messages.length === 0 && !loading && styles.emptyListContainer
+        ]}
+        ListEmptyComponent={() => (
+          loading ? (
+            // Show skeleton loading when loading
+            <View style={styles.skeletonContainer}>
+              {Array.from({length: 6}).map((_, idx) => (
+                <SkeletonChatItem key={idx} index={idx} />
+              ))}
+            </View>
+          ) : (
+            // Show empty state when not loading and no messages
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateTitle}>No Messages Yet</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                Start a conversation with plant enthusiasts and discover amazing plants!
+              </Text>
+            </View>
+          )
+        )}
       />
-
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#539461" />
-          <Text style={styles.loadingText}>Creating chat...</Text>
-        </View>
-      )}
 
       <NewMessageModal
         visible={modalVisible}
@@ -258,6 +290,10 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 12,
+  },
+  emptyListContainer: {
+    flex: 1,
+    padding: 0,
   },
   chatItem: {
     flexDirection: 'row',
@@ -319,22 +355,59 @@ const styles = StyleSheet.create({
     backgroundColor: '#F84F4F',
     marginLeft: 6,
   },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  emptyStateContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
-  loadingText: {
-    color: '#fff',
-    marginTop: 10,
-    fontSize: 16,
+  emptyStateTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 22,
+  },
+  browseMoreContainer: {
+    width: '100%',
+    marginTop: 20,
+  },
+  skeletonContainer: {
+    paddingHorizontal: 12,
+  },
+  skeletonAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#e0e0e0',
+    marginRight: 12,
+  },
+  skeletonName: {
+    width: 120,
+    height: 16,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+  },
+  skeletonTime: {
+    width: 60,
+    height: 14,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+  },
+  skeletonMessage: {
+    width: '80%',
+    height: 14,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginTop: 6,
   },
 });
 
