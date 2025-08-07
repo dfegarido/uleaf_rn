@@ -91,8 +91,8 @@ const CartHeader = () => {
   const navigation = useNavigation();
   
   return (
-    <View style={styles.header}>
-      <View style={styles.controls}>
+    <View style={styles.stickyHeader}>
+      <View style={styles.header}>
         {/* Back Button */}
         <TouchableOpacity 
           style={styles.backButton}
@@ -100,7 +100,6 @@ const CartHeader = () => {
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
 
-        {/* Search */}
         <View style={styles.searchContainer}>
           <View style={styles.searchField}>
             <View style={styles.textField}>
@@ -118,24 +117,18 @@ const CartHeader = () => {
           </View>
         </View>
 
-        {/* Wishlist Action */}
+        <View style={styles.headerIcons}>
           <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('ScreenWishlist')}>
-          <Wishicon width={24} height={24} />
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('ScreenWishlist')}>
+            <Wishicon width={40} height={40} />
           </TouchableOpacity>
-
-        {/* Profile */}
-        <TouchableOpacity 
-          style={styles.profileContainer}
-          onPress={() => navigation.navigate('ScreenProfile')}>
-          <View style={styles.avatar}>
-            <AvatarIcon width={32} height={32} />
-            <View style={styles.badge}>
-              <View style={styles.badgeDot} />
-            </View>
-          </View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('ScreenProfile')}>
+            <AvatarIcon width={40} height={40} />
+          </TouchableOpacity>
+        </View>
       </View>
       
       <ScrollView
@@ -656,7 +649,7 @@ const ScreenCart = () => {
         <CartHeader />
         <ScrollView
           style={[styles.container]}
-          contentContainerStyle={{paddingBottom: 170}}
+          contentContainerStyle={{paddingTop: 120, paddingBottom: 170}}
           showsVerticalScrollIndicator={false}>
           
           {/* Skeleton loading for cart items */}
@@ -727,7 +720,7 @@ const ScreenCart = () => {
       <CartHeader />
       <ScrollView
         style={[styles.container]}
-        contentContainerStyle={{paddingBottom: 170}}
+        contentContainerStyle={{paddingTop: 120, paddingBottom: 170}}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -878,12 +871,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+    paddingTop: 12,
+    backgroundColor: '#fff',
   },
   header: {
-    width: '100%',
-    height: 100,
-    minHeight: 120,
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingBottom: 12,
   },
   controls: {
     flexDirection: 'row',
@@ -947,6 +943,19 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
     includeFontPadding: false,
     paddingVertical: 0,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  backButton: {
+    width: 24,
+    height: 24,
+    flex: 0,
   },
   actionButton: {
     flexDirection: 'row',

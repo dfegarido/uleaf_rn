@@ -3,8 +3,9 @@ import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useState} from 'react';
 import {ScrollView, TouchableOpacity, TextInput} from 'react-native';
-import SearchIcon from '../../../assets/iconnav/search.svg';
-import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import AvatarIcon from '../../../assets/images/avatar.svg';
+import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {OrderItemCard} from '../../../components/OrderItemCard';
@@ -33,8 +34,8 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
   };
 
   return (
-    <View style={styles.header}>
-      <View style={styles.controls}>
+    <View style={styles.stickyHeader}>
+      <View style={styles.header}>
         <View style={styles.searchContainer}>
           <View style={styles.searchField}>
             <View style={styles.textField}>
@@ -52,14 +53,18 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.profileContainer}>
-          <View style={styles.avatar}>
-            <AvatarIcon width={32} height={32} />
-            <View style={styles.badge}>
-              <View style={styles.badgeDot} />
-            </View>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('ScreenWishlist')}>
+            <Wishicon width={40} height={40} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('ScreenProfile')}>
+            <AvatarIcon width={40} height={40} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.tabContainer}>
@@ -224,7 +229,7 @@ const ScreenOrders = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#DFECDF',
   },
 
   stickyHeader: {
@@ -233,12 +238,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+    paddingTop: 12,
+    backgroundColor: '#fff',
   },
   header: {
-    width: '100%',
-    height: 168,
-    minHeight: 168,
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 13,
   },
   controls: {
     flexDirection: 'row',
@@ -251,13 +258,23 @@ const styles = StyleSheet.create({
     height: 58,
   },
   searchContainer: {
-    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 209,
     height: 40,
+    flex: 1,
   },
   searchField: {
     width: '100%',
     height: 40,
     justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    flex: 0,
   },
   textField: {
     flexDirection: 'row',
@@ -265,55 +282,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     gap: 8,
+    width: '100%',
     height: 40,
+    minHeight: 34,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
+    flex: 0,
   },
   searchInput: {
-    flex: 1,
-    height: 40,
+    width: 145,
+    height: 22,
     fontFamily: 'Inter',
+    fontStyle: 'normal',
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 22,
-    color: '#202325',
+    color: '#647276',
+    flex: 1,
     textAlignVertical: 'center',
     includeFontPadding: false,
     paddingVertical: 0,
   },
-  profileContainer: {
-    width: 40,
-    height: 40,
+  headerIcons: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 1000,
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
+  iconButton: {
+    marginHorizontal: 4,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 50,
-    backgroundColor: '#E7522F',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   cartCard: {
     backgroundColor: '#F5F6F6',
