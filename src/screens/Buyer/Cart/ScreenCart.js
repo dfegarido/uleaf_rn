@@ -177,6 +177,7 @@ const CartComponent = ({
   onQuantityChange,
   availableQuantity,
   isUnavailable,
+  listingType,
 }) => {
   // Debug image prop
   console.log('🖼️ CartComponent image prop for', name, ':', image);
@@ -214,20 +215,23 @@ const CartComponent = ({
             }}>
             <Text style={[styles.cartName, isUnavailable && styles.unavailableText]}>{name}</Text>
             <TouchableOpacity onPress={onRemove}>
-              <CloseIcon style={{marginTop: 5}} width={24} height={24} />
+              <CloseIcon style={{marginTop: 5}} width={16} height={16} />
             </TouchableOpacity>
           </View>
           <Text style={styles.cartSubtitle}>{subtitle}</Text>
           
           {/* Listing Type Badge */}
           <View style={[styles.listingTypeBadge, isUnavailable && styles.unavailableBadge]}>
-            <Text style={styles.listingTypeText}>{isUnavailable ? 'Unavailable' : 'Premium'}</Text>
+            <Text style={styles.listingTypeText}>{isUnavailable ? 'Unavailable' : (listingType || 'Single Plant')}</Text>
           </View>
           
           {/* Price and Quantity Row */}
           <View style={styles.priceQuantityRow}>
             <View style={styles.priceContainer}>
-              <Text style={styles.totalItemPrice}>${(parseFloat(price) * quantity).toFixed(2)}</Text>
+              <Text style={styles.totalItemPrice}>$ {(parseFloat(price) * quantity).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              })}</Text>
             </View>
             
             {/* Quantity Stepper - Only show when quantity > 1 */}
@@ -318,7 +322,7 @@ const ScreenCart = () => {
       const transformedItems = response.data.items?.map(item => {
         console.log('Transforming item:', item); // Debug log
         console.log('Listing details:', JSON.stringify(item.listingDetails, null, 2)); // Better debug for listing details
-        
+        console.log({transformedItems})
         // Check if listing is no longer available
         const isListingUnavailable = item.listingDetails?.title === "Listing no longer available";
         
@@ -337,6 +341,36 @@ const ScreenCart = () => {
         console.log('📦 availableQuantity field:', item.listingDetails?.availableQuantity);
         console.log('📦 Final mapped value:', item.listingDetails?.availableQty || 999);
         
+        // Calculate current price and determine if there's a discount
+        let currentPrice = 0;
+        let originalPrice = null;
+        
+        if (item.listingDetails) {
+          // If discount price exists, use it as current price and regular price as original
+          if (item.listingDetails.discountPrice) {
+            currentPrice = parseFloat(item.listingDetails.discountPrice);
+            originalPrice = parseFloat(item.listingDetails.price);
+          } 
+          // Otherwise just use the regular price
+          else if (item.listingDetails.price) {
+            currentPrice = parseFloat(item.listingDetails.price);
+          }
+        }
+        
+        // Fallback to item price if nothing else is available
+        if (currentPrice === 0 && item.price) {
+          currentPrice = parseFloat(item.price);
+        }
+        
+        // Log the price data for debugging
+        console.log('Price data for item:', item.plantCode, {
+          discountPrice: item.listingDetails?.discountPrice,
+          regularPrice: item.listingDetails?.price,
+          itemPrice: item.price,
+          calculatedCurrentPrice: currentPrice,
+          calculatedOriginalPrice: originalPrice
+        });
+
         return {
           id: item.cartId || item.id,
           cartItemId: item.cartId,
@@ -347,14 +381,15 @@ const ScreenCart = () => {
             : (`${item.listingDetails?.genus || ''} ${item.listingDetails?.species || ''}`.trim() 
                || item.listingDetails?.title || 'Unknown Plant'),
           subtitle: `${item.listingDetails?.variegation || 'Standard'} • ${item.potSize || '2"'}`,
-          price: parseFloat(item.listingDetails?.discountPrice || item.listingDetails?.price || item.price || 0),
-          originalPrice: item.listingDetails?.discountPrice ? parseFloat(item.listingDetails.price) : null,
+          price: currentPrice,
+          originalPrice: originalPrice,
           quantity: item.quantity || 1,
           flightInfo: `Plant Flight ${item.listingDetails?.flightDate || 'May-30'}`,
           shippingInfo: isListingUnavailable ? 'Item no longer available' : 'UPS 2nd Day $50, add-on plant $5',
           flagIcon: '🇹🇭',
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
-          isUnavailable: isListingUnavailable
+          isUnavailable: isListingUnavailable,
+          listingType: item.listingDetails?.listingType || 'Single Plant' // Add the listing type
         };
       }) || [];
 
@@ -500,9 +535,29 @@ const ScreenCart = () => {
 
   const calculateDiscountAmount = () => {
     // Calculate discount based on original prices vs current prices
-    return cartItems
-      .filter(item => selectedItems.has(item.id) && item.originalPrice)
-      .reduce((total, item) => total + ((item.originalPrice - item.price) * item.quantity), 0);
+    let totalDiscount = 0;
+    
+    // Log information for debugging
+    console.log('Calculating discounts for selected items:', 
+      cartItems.filter(item => selectedItems.has(item.id)).length);
+    
+    // Process each selected item
+    cartItems
+      .filter(item => selectedItems.has(item.id))
+      .forEach(item => {
+        // Log the item for debugging
+        console.log('Processing item for discount:', item.name, 'Original:', item.originalPrice, 'Current:', item.price);
+        
+        // If the item has an originalPrice, calculate the difference
+        if (item.originalPrice && item.originalPrice > item.price) {
+          const itemDiscount = (item.originalPrice - item.price) * item.quantity;
+          console.log('Item discount from original price:', itemDiscount);
+          totalDiscount += itemDiscount;
+        }
+      });
+    
+    console.log('Total calculated discount:', totalDiscount);
+    return totalDiscount;
   };
 
   const loadRecommendations = async () => {
@@ -656,10 +711,12 @@ const ScreenCart = () => {
           </View>
         </ScrollView>
         <CartBar
-          itemCount={0}
+          isSelectAllChecked={false}
+          onSelectAllToggle={() => {}}
+          selectedItemsCount={0}
           totalAmount={0}
           discountAmount={0}
-          onCheckout={() => {}}
+          onCheckoutPress={() => {}}
         />
       </View>
     );
@@ -710,6 +767,7 @@ const ScreenCart = () => {
               onQuantityChange={(newQuantity) => updateItemQuantity(item.id, newQuantity)}
               availableQuantity={item.availableQuantity}
               isUnavailable={item.isUnavailable}
+              listingType={item.listingType}
             />
           ))
         )}
@@ -791,14 +849,18 @@ const ScreenCart = () => {
       </ScrollView>
       
       {cartItems.length > 0 && (
-        <CartBar
-          isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
-          onSelectAllToggle={toggleSelectAll}
-          selectedItemsCount={selectedItems.size}
-          totalAmount={calculateTotalAmount()}
-          discountAmount={calculateDiscountAmount()}
-          onCheckoutPress={handleCheckout}
-        />
+        <>
+          {/* Log discount amount for debugging */}
+          {console.log('Discount amount passed to CartBar:', calculateDiscountAmount())}
+          <CartBar
+            isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
+            onSelectAllToggle={toggleSelectAll}
+            selectedItemsCount={selectedItems.size}
+            totalAmount={calculateTotalAmount()}
+            discountAmount={calculateDiscountAmount()}
+            onCheckoutPress={handleCheckout}
+          />
+        </>
       )}
     </View>
   );
@@ -945,15 +1007,17 @@ const styles = StyleSheet.create({
   cartCard: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    padding: 12,
-    gap: 12,
+    // paddingTop: 12,
+    // paddingBottom: 12,
+    // gap: 12,
     backgroundColor: '#F5F6F6',
-    marginBottom: 12,
-    marginHorizontal: 12,
+    // marginBottom: 12,
+    // marginHorizontal: 12,
   },
   cartTopCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    margin: 12,
     padding: 12,
     gap: 12,
     backgroundColor: '#FFFFFF',
@@ -967,7 +1031,6 @@ const styles = StyleSheet.create({
     padding: 0,
     gap: 8,
     width: 96,
-    height: 160,
     position: 'relative',
   },
   cartImage: {
@@ -1131,7 +1194,8 @@ const styles = StyleSheet.create({
   cartDetailsSection: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    paddingHorizontal: 6,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     gap: 8,
     borderRadius: 12,
     alignSelf: 'stretch',
