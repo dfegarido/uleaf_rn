@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Create a checkout order
@@ -17,8 +18,13 @@ export const checkoutApi = async (orderData) => {
   try {
     const authToken = await getStoredAuthToken();
     
+    console.log('🛒 Initiating checkout with data:', {
+      ...orderData,
+      deliveryDetails: orderData.deliveryDetails ? 'Present' : 'Missing'
+    });
+    
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/checkout',
+      API_ENDPOINTS.CHECKOUT,
       {
         method: 'POST',
         headers: {
@@ -31,18 +37,20 @@ export const checkoutApi = async (orderData) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('❌ Checkout API error response:', errorData);
       throw new Error(
         errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
       );
     }
 
     const data = await response.json();
+    console.log('✅ Checkout API success:', data);
     return {
       success: true,
       data,
     };
   } catch (error) {
-    console.error('Checkout API error:', error);
+    console.error('❌ Checkout API error:', error);
     return {
       success: false,
       error: error.message || 'An error occurred during checkout',

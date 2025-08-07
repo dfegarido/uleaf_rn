@@ -9,7 +9,7 @@ import {StyleSheet, Text, View} from 'react-native';
 
 // Import buyer screens
 import {BuyerLiveStreamScreen} from '../../screens/Buyer/Live';
-import LiveScreen from '../../screens/Buyer/Live/LiveScreen';
+// import LiveScreen from '../../screens/Buyer/Live/LiveScreen'; // Disabled for now
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
@@ -21,6 +21,7 @@ import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
+import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
@@ -48,6 +49,15 @@ import {ScreenOrders} from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+// Placeholder component for Live tab
+const LivePlaceholder = () => (
+  <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F3F5'}}>
+    <Text style={{fontSize: 18, color: '#666', textAlign: 'center'}}>
+      🎥{'\n\n'}Live Streaming{'\n'}Coming Soon!
+    </Text>
+  </View>
+);
 
 // Create a Shop Stack Navigator to include shop-related screens
 function ShopStackNavigator() {
@@ -169,6 +179,12 @@ function BuyerTabNavigator() {
       />
 
       <Stack.Screen
+        name="ChatSettingsScreen"
+        component={ChatSettingsScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
         name="MessagesScreen"
         component={MessagesScreen}
         options={{headerShown: false}}
@@ -253,12 +269,12 @@ function BuyerTabs() {
       })}>
       <Tab.Screen
         name="Live"
-        component={LiveScreen}
+        component={LivePlaceholder}
         listeners={({navigation}) => ({
           tabPress: e => {
-            e.preventDefault();
-            // Always go to BuyerLiveStreamScreen - it handles the logic internally
-            navigation.navigate('BuyerLiveStreamScreen');
+            // Don't prevent default - let it navigate to placeholder
+            // Just log the press
+            console.log('Live tab pressed - feature coming soon!');
           },
         })}
       />

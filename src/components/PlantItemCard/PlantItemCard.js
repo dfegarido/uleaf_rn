@@ -214,11 +214,6 @@ const styles = StyleSheet.create({
   },
   listingOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 166,
-    height: 40,
-    minHeight: 36,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

@@ -35,6 +35,7 @@ import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThailandIcon from '../../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
 import DropDownIcon from '../../../assets/buyer-icons/drop-down.svg';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {
   genus1,
   genus2,
@@ -70,9 +71,11 @@ import {
   getBrowsePlantByGenusApi,
   getBuyerEventsApi,
   searchListingApi,
+  searchPlantsApi,
   getBuyerListingsApi,
   addToCartApi,
   getCartItemsApi,
+  getPlantRecommendationsApi,
 } from '../../../components/Api';
 import {
   getCountryApi,
@@ -110,7 +113,8 @@ const ScreenShop = ({navigation}) => {
     updateFilters,
     applyFilters,
     buildFilterParams,
-    hasAppliedFilters
+    hasAppliedFilters,
+    clearFilters
   } = useFilters();
 
   // Log auth token and user info when Shop tab is accessed
@@ -165,19 +169,22 @@ const ScreenShop = ({navigation}) => {
   // Search results state
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Debounced search effect
+  // Debounced search effect - triggers after user stops typing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchTerm.trim().length > 2) {
+      if (searchTerm.trim().length >= 2) {
+        console.log('Triggering search after user finished typing:', searchTerm);
         performSearch(searchTerm.trim());
       } else if (searchTerm.trim().length === 0) {
         setSearchResults([]);
+        setLoadingSearch(false);
       }
-    }, 500);
+    }, 800); // Increased delay to 800ms for better "finished typing" detection
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
@@ -196,7 +203,6 @@ const ScreenShop = ({navigation}) => {
           loadAcclimationIndexData(),
           loadBrowseGenusData(),
           loadEventsData(),
-          loadBrowseMorePlants(),
         ]);
       } catch (error) {
         console.log('Error loading filter data:', error);
@@ -608,32 +614,47 @@ const ScreenShop = ({navigation}) => {
   const performSearch = async (searchTerm) => {
     try {
       setLoadingSearch(true);
-      console.log('Starting search for:', searchTerm);
+      console.log('🔍 Starting search for:', searchTerm);
 
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
 
-      const baseSearchParams = {
-        plant: searchTerm,
-        limit: 20
+      const searchParams = {
+        query: searchTerm,
+        limit: 4,
+        sortBy: 'relevance',
+        sortOrder: 'desc'
       };
 
-      const searchFilterParams = buildFilterParams(baseSearchParams);
-      console.log('Search filter params:', searchFilterParams);
+      console.log('📤 Search params:', searchParams);
 
-      const res = await retryAsync(() => searchListingApi(searchFilterParams), 3, 1000);
+      const res = await retryAsync(() => searchPlantsApi(searchParams), 3, 1000);
 
       if (!res?.success) {
-        throw new Error(res?.message || 'Failed to search listings.');
+        throw new Error(res?.error || 'Failed to search plants.');
       }
 
-      console.log('Search results loaded successfully:', res.data);
-      setSearchResults(res.data?.listings || []);
+      const plants = res.data?.plants || [];
+      console.log(`✅ Search completed: found ${plants.length} plants for "${searchTerm}"`);
+      setSearchResults(plants);
+      
+      // Show search results in a separate section or update the main plant list
+      if (plants.length > 0) {
+        console.log('🌱 First result:', plants[0].genus, plants[0].species);
+      }
+      
     } catch (error) {
-      console.error('Error performing search:', error);
+      console.error('❌ Error performing search:', error);
       setSearchResults([]);
+      
+      // Optionally show user-friendly error message
+      Alert.alert(
+        'Search Error',
+        'Could not search for plants. Please check your connection and try again.',
+        [{text: 'OK'}]
+      );
     } finally {
       setLoadingSearch(false);
     }
@@ -723,6 +744,27 @@ const ScreenShop = ({navigation}) => {
 
   const onGenusPress = async genusName => {
     console.log('Genus pressed:', genusName);
+    
+    // Clear FilterContext state
+    clearFilters();
+    console.log('FilterContext cleared when browsing genus plants');
+    
+    // Clear filter-related AsyncStorage when browsing genus plants
+    try {
+      console.log('Clearing filter-related AsyncStorage from Shop screen');
+      await AsyncStorage.multiRemove([
+        'shop_filters',
+        'applied_filters', 
+        'global_filters',
+        'filter_preferences',
+        'buyer_filters',
+        'plant_filters'
+      ]);
+      console.log('Filter AsyncStorage cleared successfully from Shop screen');
+    } catch (error) {
+      console.log('Error clearing filter AsyncStorage from Shop screen:', error);
+    }
+    
     // Navigate to the genus plants screen
     navigation.navigate('ScreenGenusPlants', {
       genus: genusName,
@@ -780,38 +822,6 @@ const ScreenShop = ({navigation}) => {
     });
   };
 
-  const loadBrowseMorePlants = async () => {
-    try {
-      setLoadingBrowseMorePlants(true);
-      console.log('Loading browse more plants...');
-      
-      const baseParams = {
-        offset: 0,
-        limit: 6, // Same as static data count
-        sortBy: 'loveCount',
-        sortOrder: 'desc',
-      };
-      
-      const filterParams = buildFilterParams(baseParams);
-      console.log('Browse more plants filter params:', filterParams);
-      
-      const response = await getBuyerListingsApi(filterParams);
-      console.log('Browse more plants API response:', response);
-      
-      if (response.success && response.data?.listings) {
-        setBrowseMorePlants(response.data.listings);
-      } else {
-        console.error('Failed to load browse more plants:', response.message);
-        setBrowseMorePlants([]);
-      }
-    } catch (error) {
-      console.error('Error loading browse more plants:', error);
-      setBrowseMorePlants([]);
-    } finally {
-      setLoadingBrowseMorePlants(false);
-    }
-  };
-
   const handleAddToCartFromBrowseMore = async (plant) => {
     try {
       console.log('Adding plant to cart from browse more:', plant.plantCode);
@@ -839,31 +849,44 @@ const ScreenShop = ({navigation}) => {
 
   const scrollViewRef = useRef(null);
 
-  const [browseMorePlants, setBrowseMorePlants] = useState([]);
-  const [loadingBrowseMorePlants, setLoadingBrowseMorePlants] = useState(true);
-
-  const [searchText, setSearchText] = useState('');
-
   return (
     <>
       <View style={styles.stickyHeader}>
         <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <View style={styles.searchField}>
-            <View style={styles.textField}>
-              <SearchIcon width={24} height={24} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search ileafU"
-                placeholderTextColor="#647276"
-                value={searchText}
-                onChangeText={setSearchText}
-                multiline={false}
-                numberOfLines={1}
-              />
+          <View style={styles.searchContainer}>
+            <View style={styles.searchField}>
+              <View style={styles.textField}>
+                <SearchIcon width={24} height={24} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search iLeafU"
+                  placeholderTextColor="#647276"
+                  value={searchTerm}
+                  onChangeText={setSearchTerm}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => {
+                    // Close search results when input loses focus
+                    setTimeout(() => {
+                      setIsSearchFocused(false);
+                    }, 150); // Small delay to allow for result tap
+                  }}
+                  multiline={false}
+                  numberOfLines={1}
+                  // Disable native autocomplete and suggestions
+                  autoComplete="off"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  textContentType="none"
+                  dataDetectorTypes="none"
+                  keyboardType="default"
+                />
+                {loadingSearch && (
+                  <ActivityIndicator size="small" color="#647276" style={{marginLeft: 8}} />
+                )}
+              </View>
             </View>
           </View>
-        </View>
 
           <View style={styles.headerIcons}>
             <TouchableOpacity
@@ -940,65 +963,52 @@ const ScreenShop = ({navigation}) => {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Search Results Dropdown */}
+        {isSearchFocused && searchTerm.trim().length >= 2 && (
+          <View style={styles.searchResultsContainer}>
+            {loadingSearch ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#10b981" />
+                <Text style={styles.loadingText}>Searching plants...</Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              <View style={styles.searchResultsList}>
+                {searchResults.slice(0, 8).map((plant, index) => (
+                  <TouchableOpacity
+                    key={`${plant.id}_${index}`}
+                    style={styles.searchResultItem}
+                    onPress={() => {
+                      if (plant.plantCode) {
+                        navigation.navigate('ScreenPlantDetail', {
+                          plantCode: plant.plantCode
+                        });
+                      } else {
+                        console.error('❌ Missing plantCode for plant:', plant);
+                        Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+                      }
+                    }}
+                  >
+                    <Text style={styles.searchResultName} numberOfLines={2}>
+                      {plant.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsText}>
+                  No plants found for "{searchTerm}"
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
       <ScrollView
         ref={scrollViewRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
         contentContainerStyle={{paddingBottom: 170}}>
-        
-        {/* Search Results Section */}
-        {searchTerm.trim().length > 2 && (
-          <>
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: 'bold',
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                color: '#393D40',
-              }}>
-              Search Results for "{searchTerm}"
-            </Text>
-            {loadingSearch ? (
-              <View style={{paddingHorizontal: 12, paddingVertical: 20}}>
-                <Text style={{color: '#666', textAlign: 'center'}}>
-                  Searching...
-                </Text>
-              </View>
-            ) : searchResults.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                  flexDirection: 'row',
-                  gap: 10,
-                  alignItems: 'flex-start',
-                  paddingHorizontal: 10,
-                }}
-                style={{flexGrow: 0}}>
-                {searchResults.slice(0, 10).map((item, idx) => (
-                  <PlantItemCard
-                    key={item.plantCode || idx}
-                    data={item}
-                    onPress={() => {
-                      console.log('Navigate to plant detail:', item.plantCode);
-                    }}
-                    onAddToCart={() => {
-                      console.log('Add to cart:', item.plantCode);
-                    }}
-                  />
-                ))}
-              </ScrollView>
-            ) : (
-              <View style={{paddingHorizontal: 12, paddingVertical: 20}}>
-                <Text style={{color: '#666', textAlign: 'center'}}>
-                  No plants found for "{searchTerm}"
-                </Text>
-              </View>
-            )}
-            <View style={{height: 20}} />
-          </>
-        )}
         
         <ScrollView
           horizontal
@@ -1316,129 +1326,15 @@ const ScreenShop = ({navigation}) => {
             </TouchableOpacity>
           ))}
         </View>
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: '900',
-            color: '#393D40',
-            marginTop: 15,
-            marginLeft: 12,
-          }}>
-          Browse More Plants
-        </Text>
         
-        {loadingBrowseMorePlants ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: 1,
-              justifyContent: 'center',
-            }}>
-            {Array.from({length: 6}).map((_, idx) => (
-              <View
-                key={idx}
-                style={{
-                  width: 191,
-                  height: 289,
-                  backgroundColor: '#f0f0f0',
-                  borderRadius: 12,
-                  margin: 1,
-                  padding: 8,
-                }}>
-                {/* Image skeleton */}
-                <View
-                  style={{
-                    width: '100%',
-                    height: 160,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 8,
-                    marginBottom: 8,
-                  }}
-                />
-                
-                {/* Title skeleton */}
-                <View
-                  style={{
-                    width: '80%',
-                    height: 16,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 4,
-                    marginBottom: 6,
-                  }}
-                />
-                
-                {/* Subtitle skeleton */}
-                <View
-                  style={{
-                    width: '60%',
-                    height: 14,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 4,
-                    marginBottom: 8,
-                  }}
-                />
-                
-                {/* Price skeleton */}
-                <View
-                  style={{
-                    width: '50%',
-                    height: 18,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 4,
-                    marginBottom: 8,
-                  }}
-                />
-                
-                {/* Button skeleton */}
-                <View
-                  style={{
-                    width: '100%',
-                    height: 32,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 6,
-                    marginTop: 'auto',
-                  }}
-                />
-              </View>
-            ))}
-          </View>
-        ) : browseMorePlants.length > 0 ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: 1,
-              justifyContent: 'center',
-            }}>
-            {browseMorePlants.map((plant, idx) => (
-              <PlantItemCard
-                key={plant.plantCode || plant.id}
-                data={plant}
-                onAddToCart={() => handleAddToCartFromBrowseMore(plant)}
-              />
-            ))}
-          </View>
-        ) : (
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: 1,
-              justifyContent: 'center',
-              paddingVertical: 20,
-            }}>
-            <Text style={{color: '#666', textAlign: 'center'}}>
-              No recommendations available
-            </Text>
-          </View>
-        )}
-        <View style={{width: '100%', alignItems: 'center', marginTop: 15}}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <Text style={styles.loadMoreText}>Load More</Text>
-            <DropDownIcon width={16.5} height={9} />
-          </View>
-        </View>
+        {/* Browse More Plants Component */}
+        <BrowseMorePlants 
+          title="Discover Random Plants"
+          initialLimit={6}
+          loadMoreLimit={6}
+          showLoadMore={true}
+          onAddToCart={handleAddToCartFromBrowseMore}
+        />
       </ScrollView>
 
       {/* Sort Filter Modal */}
@@ -1471,6 +1367,7 @@ const ScreenShop = ({navigation}) => {
         acclimationIndexValue={globalFilters.acclimationIndex}
         acclimationIndexChange={handleAcclimationIndexChange}
         handleSearchSubmit={handleFilterView}
+        clearFilters={clearFilters}
       />
     </>
   );
@@ -1679,6 +1576,76 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#539461',
     marginRight: 8,
+  },
+  // Search Results Styles
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 52, // Position below the search input field
+    left: 13, // Match header paddingHorizontal
+    right: 53, // Account for header icons width
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, // Thicker border for better definition
+    borderColor: '#d1d5db', // Slightly darker border
+    borderRadius: 12,
+    maxHeight: 200,
+    zIndex: 9999, // Ensure it appears on top of everything
+    elevation: 15, // Higher elevation for Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25, // Stronger shadow for better visibility
+    shadowRadius: 8,
+    // Ensure completely opaque background
+    opacity: 1,
+    // Additional properties to ensure visibility
+    borderStyle: 'solid',
+    overflow: 'hidden', // Ensure content doesn't bleed
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
+  },
+  searchResultsList: {
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  searchResultItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#FFFFFF', // Ensure solid background for each item
+    // Additional properties for visibility
+    opacity: 1,
+    borderStyle: 'solid',
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    fontFamily: 'Inter',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
   },
 });
 export default ScreenShop;

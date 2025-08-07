@@ -10,6 +10,7 @@ import {
   Text,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -21,7 +22,7 @@ import PlusDisabledIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
 import {getCartItemsApi, removeFromCartApi, updateCartItemApi} from '../../../components/Api/cartApi';
-import {getBuyerListingsApi} from '../../../components/Api/listingBrowseApi';
+import {getBuyerListingsApi, searchPlantsApi} from '../../../components/Api/listingBrowseApi';
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
@@ -87,12 +88,72 @@ const CartHeader = () => {
     {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
   ];
 
-  const [searchText, setSearchText] = useState('');
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
+
+  // Debounced search effect - triggers after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim().length >= 2) {
+        console.log('🔍 Cart search triggered for:', searchTerm);
+        performSearch(searchTerm.trim());
+      } else if (searchTerm.trim().length === 0) {
+        setSearchResults([]);
+        setLoadingSearch(false);
+      }
+    }, 800); // 800ms delay for "finished typing" detection
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const performSearch = async (searchTerm) => {
+    try {
+      setLoadingSearch(true);
+      console.log('🔍 Starting cart search for:', searchTerm);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const searchParams = {
+        query: searchTerm,
+        limit: 4,
+        sortBy: 'relevance',
+        sortOrder: 'desc'
+      };
+
+      const res = await searchPlantsApi(searchParams);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to search plants.');
+      }
+
+      const plants = res.data?.plants || [];
+      console.log(`✅ Cart search completed: found ${plants.length} plants for "${searchTerm}"`);
+      setSearchResults(plants);
+      
+    } catch (error) {
+      console.error('❌ Error performing cart search:', error);
+      setSearchResults([]);
+      
+      Alert.alert(
+        'Search Error',
+        'Could not search for plants. Please check your connection and try again.',
+        [{text: 'OK'}]
+      );
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
   
   return (
-    <View style={styles.header}>
-      <View style={styles.controls}>
+    <View style={styles.stickyHeader}>
+      <View style={styles.header}>
         {/* Back Button */}
         <TouchableOpacity 
           style={styles.backButton}
@@ -100,42 +161,53 @@ const CartHeader = () => {
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
 
-        {/* Search */}
         <View style={styles.searchContainer}>
           <View style={styles.searchField}>
             <View style={styles.textField}>
               <SearchIcon width={24} height={24} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search ileafU"
+                placeholder="Search iLeafU"
                 placeholderTextColor="#647276"
-                value={searchText}
-                onChangeText={setSearchText}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => {
+                  // Close search results when input loses focus
+                  setTimeout(() => {
+                    setIsSearchFocused(false);
+                  }, 150); // Small delay to allow for result tap
+                }}
                 multiline={false}
                 numberOfLines={1}
+                // Disable native autocomplete and suggestions
+                autoComplete="off"
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                textContentType="none"
+                dataDetectorTypes="none"
+                keyboardType="default"
               />
+              {loadingSearch && (
+                <ActivityIndicator size="small" color="#647276" style={{marginLeft: 8}} />
+              )}
             </View>
           </View>
         </View>
 
-        {/* Wishlist Action */}
+        <View style={styles.headerIcons}>
           <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('ScreenWishlist')}>
-          <Wishicon width={24} height={24} />
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('ScreenWishlist')}>
+            <Wishicon width={40} height={40} />
           </TouchableOpacity>
-
-        {/* Profile */}
-        <TouchableOpacity 
-          style={styles.profileContainer}
-          onPress={() => navigation.navigate('ScreenProfile')}>
-          <View style={styles.avatar}>
-            <AvatarIcon width={32} height={32} />
-            <View style={styles.badge}>
-              <View style={styles.badgeDot} />
-            </View>
-          </View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('ScreenProfile')}>
+            <AvatarIcon width={40} height={40} />
+          </TouchableOpacity>
+        </View>
       </View>
       
       <ScrollView
@@ -157,6 +229,47 @@ const CartHeader = () => {
           />
         ))}
       </ScrollView>
+
+      {/* Search Results Dropdown */}
+      {isSearchFocused && searchTerm.trim().length >= 2 && (
+        <View style={styles.searchResultsContainer}>
+          {loadingSearch ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#10b981" />
+              <Text style={styles.loadingText}>Searching plants...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={styles.searchResultsList}>
+              {searchResults.slice(0, 8).map((plant, index) => (
+                <TouchableOpacity
+                  key={`${plant.id}_${index}`}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    if (plant.plantCode) {
+                      navigation.navigate('ScreenPlantDetail', {
+                        plantCode: plant.plantCode
+                      });
+                    } else {
+                      console.error('❌ Missing plantCode for plant:', plant);
+                      Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+                    }
+                  }}
+                >
+                  <Text style={styles.searchResultName} numberOfLines={2}>
+                    {plant.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noResultsContainer}>
+              <Text style={styles.noResultsText}>
+                No plants found for "{searchTerm}"
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 };
@@ -177,6 +290,7 @@ const CartComponent = ({
   onQuantityChange,
   availableQuantity,
   isUnavailable,
+  listingType,
 }) => {
   // Debug image prop
   console.log('🖼️ CartComponent image prop for', name, ':', image);
@@ -214,20 +328,23 @@ const CartComponent = ({
             }}>
             <Text style={[styles.cartName, isUnavailable && styles.unavailableText]}>{name}</Text>
             <TouchableOpacity onPress={onRemove}>
-              <CloseIcon style={{marginTop: 5}} width={24} height={24} />
+              <CloseIcon style={{marginTop: 5}} width={16} height={16} />
             </TouchableOpacity>
           </View>
           <Text style={styles.cartSubtitle}>{subtitle}</Text>
           
           {/* Listing Type Badge */}
           <View style={[styles.listingTypeBadge, isUnavailable && styles.unavailableBadge]}>
-            <Text style={styles.listingTypeText}>{isUnavailable ? 'Unavailable' : 'Premium'}</Text>
+            <Text style={styles.listingTypeText}>{isUnavailable ? 'Unavailable' : (listingType || 'Single Plant')}</Text>
           </View>
           
           {/* Price and Quantity Row */}
           <View style={styles.priceQuantityRow}>
             <View style={styles.priceContainer}>
-              <Text style={styles.totalItemPrice}>${(parseFloat(price) * quantity).toFixed(2)}</Text>
+              <Text style={styles.totalItemPrice}>$ {(parseFloat(price) * quantity).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              })}</Text>
             </View>
             
             {/* Quantity Stepper - Only show when quantity > 1 */}
@@ -318,7 +435,7 @@ const ScreenCart = () => {
       const transformedItems = response.data.items?.map(item => {
         console.log('Transforming item:', item); // Debug log
         console.log('Listing details:', JSON.stringify(item.listingDetails, null, 2)); // Better debug for listing details
-        
+        console.log({transformedItems})
         // Check if listing is no longer available
         const isListingUnavailable = item.listingDetails?.title === "Listing no longer available";
         
@@ -337,6 +454,36 @@ const ScreenCart = () => {
         console.log('📦 availableQuantity field:', item.listingDetails?.availableQuantity);
         console.log('📦 Final mapped value:', item.listingDetails?.availableQty || 999);
         
+        // Calculate current price and determine if there's a discount
+        let currentPrice = 0;
+        let originalPrice = null;
+        
+        if (item.listingDetails) {
+          // If discount price exists, use it as current price and regular price as original
+          if (item.listingDetails.discountPrice) {
+            currentPrice = parseFloat(item.listingDetails.discountPrice);
+            originalPrice = parseFloat(item.listingDetails.price);
+          } 
+          // Otherwise just use the regular price
+          else if (item.listingDetails.price) {
+            currentPrice = parseFloat(item.listingDetails.price);
+          }
+        }
+        
+        // Fallback to item price if nothing else is available
+        if (currentPrice === 0 && item.price) {
+          currentPrice = parseFloat(item.price);
+        }
+        
+        // Log the price data for debugging
+        console.log('Price data for item:', item.plantCode, {
+          discountPrice: item.listingDetails?.discountPrice,
+          regularPrice: item.listingDetails?.price,
+          itemPrice: item.price,
+          calculatedCurrentPrice: currentPrice,
+          calculatedOriginalPrice: originalPrice
+        });
+
         return {
           id: item.cartId || item.id,
           cartItemId: item.cartId,
@@ -347,14 +494,15 @@ const ScreenCart = () => {
             : (`${item.listingDetails?.genus || ''} ${item.listingDetails?.species || ''}`.trim() 
                || item.listingDetails?.title || 'Unknown Plant'),
           subtitle: `${item.listingDetails?.variegation || 'Standard'} • ${item.potSize || '2"'}`,
-          price: parseFloat(item.listingDetails?.discountPrice || item.listingDetails?.price || item.price || 0),
-          originalPrice: item.listingDetails?.discountPrice ? parseFloat(item.listingDetails.price) : null,
+          price: currentPrice,
+          originalPrice: originalPrice,
           quantity: item.quantity || 1,
           flightInfo: `Plant Flight ${item.listingDetails?.flightDate || 'May-30'}`,
           shippingInfo: isListingUnavailable ? 'Item no longer available' : 'UPS 2nd Day $50, add-on plant $5',
           flagIcon: '🇹🇭',
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
-          isUnavailable: isListingUnavailable
+          isUnavailable: isListingUnavailable,
+          listingType: item.listingDetails?.listingType || 'Single Plant' // Add the listing type
         };
       }) || [];
 
@@ -500,9 +648,29 @@ const ScreenCart = () => {
 
   const calculateDiscountAmount = () => {
     // Calculate discount based on original prices vs current prices
-    return cartItems
-      .filter(item => selectedItems.has(item.id) && item.originalPrice)
-      .reduce((total, item) => total + ((item.originalPrice - item.price) * item.quantity), 0);
+    let totalDiscount = 0;
+    
+    // Log information for debugging
+    console.log('Calculating discounts for selected items:', 
+      cartItems.filter(item => selectedItems.has(item.id)).length);
+    
+    // Process each selected item
+    cartItems
+      .filter(item => selectedItems.has(item.id))
+      .forEach(item => {
+        // Log the item for debugging
+        console.log('Processing item for discount:', item.name, 'Original:', item.originalPrice, 'Current:', item.price);
+        
+        // If the item has an originalPrice, calculate the difference
+        if (item.originalPrice && item.originalPrice > item.price) {
+          const itemDiscount = (item.originalPrice - item.price) * item.quantity;
+          console.log('Item discount from original price:', itemDiscount);
+          totalDiscount += itemDiscount;
+        }
+      });
+    
+    console.log('Total calculated discount:', totalDiscount);
+    return totalDiscount;
   };
 
   const loadRecommendations = async () => {
@@ -601,7 +769,7 @@ const ScreenCart = () => {
         <CartHeader />
         <ScrollView
           style={[styles.container]}
-          contentContainerStyle={{paddingBottom: 170}}
+          contentContainerStyle={{paddingTop: 120, paddingBottom: 170}}
           showsVerticalScrollIndicator={false}>
           
           {/* Skeleton loading for cart items */}
@@ -656,10 +824,12 @@ const ScreenCart = () => {
           </View>
         </ScrollView>
         <CartBar
-          itemCount={0}
+          isSelectAllChecked={false}
+          onSelectAllToggle={() => {}}
+          selectedItemsCount={0}
           totalAmount={0}
           discountAmount={0}
-          onCheckout={() => {}}
+          onCheckoutPress={() => {}}
         />
       </View>
     );
@@ -670,7 +840,7 @@ const ScreenCart = () => {
       <CartHeader />
       <ScrollView
         style={[styles.container]}
-        contentContainerStyle={{paddingBottom: 170}}
+        contentContainerStyle={{paddingTop: 120, paddingBottom: 170}}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -710,6 +880,7 @@ const ScreenCart = () => {
               onQuantityChange={(newQuantity) => updateItemQuantity(item.id, newQuantity)}
               availableQuantity={item.availableQuantity}
               isUnavailable={item.isUnavailable}
+              listingType={item.listingType}
             />
           ))
         )}
@@ -791,14 +962,18 @@ const ScreenCart = () => {
       </ScrollView>
       
       {cartItems.length > 0 && (
-        <CartBar
-          isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
-          onSelectAllToggle={toggleSelectAll}
-          selectedItemsCount={selectedItems.size}
-          totalAmount={calculateTotalAmount()}
-          discountAmount={calculateDiscountAmount()}
-          onCheckoutPress={handleCheckout}
-        />
+        <>
+          {/* Log discount amount for debugging */}
+          {console.log('Discount amount passed to CartBar:', calculateDiscountAmount())}
+          <CartBar
+            isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
+            onSelectAllToggle={toggleSelectAll}
+            selectedItemsCount={selectedItems.size}
+            totalAmount={calculateTotalAmount()}
+            discountAmount={calculateDiscountAmount()}
+            onCheckoutPress={handleCheckout}
+          />
+        </>
       )}
     </View>
   );
@@ -816,12 +991,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+    paddingTop: 12,
+    backgroundColor: '#fff',
   },
   header: {
-    width: '100%',
-    height: 100,
-    minHeight: 120,
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingBottom: 12,
   },
   controls: {
     flexDirection: 'row',
@@ -886,6 +1064,19 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     paddingVertical: 0,
   },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  backButton: {
+    width: 24,
+    height: 24,
+    flex: 0,
+  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -945,15 +1136,17 @@ const styles = StyleSheet.create({
   cartCard: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    padding: 12,
-    gap: 12,
+    // paddingTop: 12,
+    // paddingBottom: 12,
+    // gap: 12,
     backgroundColor: '#F5F6F6',
-    marginBottom: 12,
-    marginHorizontal: 12,
+    // marginBottom: 12,
+    // marginHorizontal: 12,
   },
   cartTopCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    margin: 12,
     padding: 12,
     gap: 12,
     backgroundColor: '#FFFFFF',
@@ -967,7 +1160,6 @@ const styles = StyleSheet.create({
     padding: 0,
     gap: 8,
     width: 96,
-    height: 160,
     position: 'relative',
   },
   cartImage: {
@@ -1131,7 +1323,8 @@ const styles = StyleSheet.create({
   cartDetailsSection: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    paddingHorizontal: 6,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     gap: 8,
     borderRadius: 12,
     alignSelf: 'stretch',
@@ -1239,6 +1432,76 @@ const styles = StyleSheet.create({
   },
   skeletonImage: {
     backgroundColor: '#f0f0f0',
+  },
+  // Search Results Styles
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 52, // Position below the header
+    left: 13, // Match header paddingHorizontal
+    right: 53, // Account for header icons width
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, // Thicker border for better definition
+    borderColor: '#d1d5db', // Slightly darker border
+    borderRadius: 12,
+    maxHeight: 200,
+    zIndex: 9999, // Ensure it appears on top of everything
+    elevation: 15, // Higher elevation for Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25, // Stronger shadow for better visibility
+    shadowRadius: 8,
+    // Ensure completely opaque background
+    opacity: 1,
+    // Additional properties to ensure visibility
+    borderStyle: 'solid',
+    overflow: 'hidden', // Ensure content doesn't bleed
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
+  },
+  searchResultsList: {
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  searchResultItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#FFFFFF', // Ensure solid background for each item
+    // Additional properties for visibility
+    opacity: 1,
+    borderStyle: 'solid',
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    fontFamily: 'Inter',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
   },
 });
 export default ScreenCart;

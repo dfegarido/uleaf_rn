@@ -28,6 +28,7 @@ import {
   getVariegationApi,
   getBuyerListingsApi,
   addToCartApi,
+  searchPlantsApi,
 } from '../../../components/Api';
 import {
   getCountryApi,
@@ -50,56 +51,96 @@ import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
 import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
 import PromoBadge from '../../../components/PromoBadge/PromoBadge';
 
-const GenusHeader = ({genus, navigation}) => {
-  const [searchText, setSearchText] = useState('');
-  
+const GenusHeader = ({
+  genus,
+  navigation,
+  searchTerm,
+  setSearchTerm,
+  setIsSearchFocused,
+}) => {
+  const promoBadges = [
+    {label: 'Price Drop', icon: PriceDropIcon},
+    {label: 'New Arrivals', icon: NewArrivalsIcon},
+    {label: 'Latest Nursery Drop', icon: LeavesIcon},
+    {label: 'Below $20', icon: PriceTagIcon},
+    {label: 'Unicorn', icon: UnicornIcon},
+    {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
+  ];
   return (
+    <View style={styles.stickyHeader}>
     <View style={styles.header}>
-      <View style={styles.controls}>
-        {/* Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}>
-          <BackIcon width={24} height={24} />
-        </TouchableOpacity>
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}>
+        <BackIcon width={24} height={24} />
+      </TouchableOpacity>
 
-        {/* Search */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchField}>
-            <View style={styles.textField}>
-              <SearchIcon width={24} height={24} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={`Search ${genus || 'plants'}...`}
-                placeholderTextColor="#647276"
-                value={searchText}
-                onChangeText={setSearchText}
-                multiline={false}
-                numberOfLines={1}
-              />
-            </View>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchField}>
+          <View style={styles.textField}>
+            <SearchIcon width={24} height={24} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search iLeafU"
+              placeholderTextColor="#647276"
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => {
+                // Close search results when input loses focus
+                setTimeout(() => {
+                  setIsSearchFocused(false);
+                }, 150); // Small delay to allow for result tap
+              }}
+              multiline={false}
+              numberOfLines={1}
+              // Disable native autocomplete and suggestions
+              autoComplete="off"
+              autoCorrect={false}
+              autoCapitalize="none"
+              spellCheck={false}
+              textContentType="none"
+              dataDetectorTypes="none"
+              keyboardType="default"
+            />
           </View>
         </View>
+      </View>
 
-        {/* Wishlist Action */}
+      <View style={styles.headerIcons}>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={styles.iconButton}
           onPress={() => navigation.navigate('ScreenWishlist')}>
-          <Wishicon width={24} height={24} />
+          <Wishicon width={40} height={40} />
         </TouchableOpacity>
-
-        {/* Profile */}
-        <TouchableOpacity 
-          style={styles.profileContainer}
+        <TouchableOpacity
+          style={styles.iconButton}
           onPress={() => navigation.navigate('ScreenProfile')}>
-          <View style={styles.avatar}>
-            <AvatarIcon width={32} height={32} />
-            <View style={styles.badge}>
-              <View style={styles.badgeDot} />
-            </View>
-          </View>
+          <AvatarIcon width={40} height={40} />
         </TouchableOpacity>
       </View>
+    </View>
+    
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{flexGrow: 0, paddingVertical: 1}}
+      contentContainerStyle={{
+        flexDirection: 'row',
+        gap: 6,
+        alignItems: 'flex-start',
+        paddingHorizontal: 9,
+      }}>
+      {promoBadges.map(badge => (
+        <PromoBadge
+          key={badge.label}
+          icon={badge.icon}
+          label={badge.label}
+          style={{marginRight: 5}}
+        />
+      ))}
+    </ScrollView>
     </View>
   );
 };
@@ -152,6 +193,66 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  // Debounced search effect - triggers after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim().length >= 2) {
+        console.log('🔍 Genus screen search triggered for:', searchTerm);
+        performSearch(searchTerm.trim());
+      } else if (searchTerm.trim().length === 0) {
+        setSearchResults([]);
+        setLoadingSearch(false);
+      }
+    }, 800); // 800ms delay for "finished typing" detection
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const performSearch = async (searchTerm) => {
+    try {
+      setLoadingSearch(true);
+      console.log('🔍 Starting genus screen search for:', searchTerm);
+
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const searchParams = {
+        query: searchTerm,
+        limit: 4,
+        sortBy: 'relevance',
+        sortOrder: 'desc'
+      };
+
+      const res = await searchPlantsApi(searchParams);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to search plants.');
+      }
+
+      const plants = res.data?.plants || [];
+      console.log(`✅ Genus screen search completed: found ${plants.length} plants for "${searchTerm}"`);
+      console.log('📋 First plant data:', plants[0]); // Debug plant structure
+      setSearchResults(plants);
+      
+    } catch (error) {
+      console.error('❌ Error performing genus screen search:', error);
+      setSearchResults([]);
+      
+      Alert.alert(
+        'Search Error',
+        'Could not search for plants. Please check your connection and try again.',
+        [{text: 'OK'}]
+      );
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
 
   // Load filter options on component mount
   useEffect(() => {
@@ -451,8 +552,9 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }
 
       // Add genus from route params if available and no genus filter is applied
-      if (genus && genus !== 'All' && (!appliedFilters.genus || appliedFilters.genus.length === 0)) {
-        baseParams.genus = genus;
+      if (genus && genus !== 'All' && (!appliedFilters?.genus || appliedFilters.genus.length === 0)) {
+        baseParams.genus = genus.toUpperCase(); // Ensure genus is uppercase as expected by API
+        console.log('Setting genus parameter:', genus.toUpperCase());
       }
 
       // Use buildFilterParams to construct all filter parameters
@@ -781,7 +883,56 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   return (
     <View style={styles.container}>
-      <GenusHeader genus={genus} navigation={navigation} />
+      <GenusHeader
+        genus={genus}
+        navigation={navigation}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        setIsSearchFocused={setIsSearchFocused}
+      />
+
+      {/* Search Results - Positioned outside header to appear above content */}
+      {isSearchFocused && searchTerm.trim().length >= 2 && (
+        <View style={styles.searchResultsContainer}>
+          {loadingSearch ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#10b981" />
+              <Text style={styles.loadingText}>Searching plants...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View style={styles.searchResultsList}>
+              {searchResults.map((plant, index) => (
+                <TouchableOpacity
+                  key={`${plant.id}_${index}`}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    if (plant.plantCode) {
+                      navigation.navigate('ScreenPlantDetail', {
+                        plantCode: plant.plantCode,
+                      });
+                    } else {
+                      console.error('❌ Missing plantCode for plant:', plant);
+                      Alert.alert(
+                        'Error',
+                        'Unable to view plant details. Missing plant code.',
+                      );
+                    }
+                  }}>
+                  <Text style={styles.searchResultName} numberOfLines={2}>
+                    {plant.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noResultsContainer}>
+              <Text style={styles.noResultsText}>
+                No plants found for "{searchTerm}"
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Filter Bar */}
       <ScrollView
@@ -959,10 +1110,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    width: '100%',
-    height: 100,
-    marginBottom: -40,
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingBottom: 12,
   },
   controls: {
     flexDirection: 'row',
@@ -1082,6 +1234,23 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     borderRadius: 4,
   },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingTop: 12,
+    backgroundColor: '#fff',
+  },
   filterBar: {
     flexGrow: 0,
     paddingTop: 0,
@@ -1109,11 +1278,11 @@ const styles = StyleSheet.create({
   },
   plantsContainer: {
     flex: 1,
+    paddingTop: 120,
   },
   plantsGrid: {
     paddingBottom: 100,
     paddingHorizontal: 16,
-    paddingTop: 15,
   },
   plantsGridContainer: {
     flexDirection: 'row',
@@ -1221,6 +1390,76 @@ const styles = StyleSheet.create({
     height: 18,
     backgroundColor: '#f0f0f0',
     borderRadius: 4,
+  },
+  // Search Results Styles
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 58, // Position below the controls
+    left: 56, // Account for back button width + gap
+    right: 80, // Account for wishlist and profile buttons
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, // Thicker border for better definition
+    borderColor: '#d1d5db', // Slightly darker border
+    borderRadius: 12,
+    maxHeight: 200,
+    zIndex: 9999, // Ensure it appears on top of everything
+    elevation: 15, // Higher elevation for Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25, // Stronger shadow for better visibility
+    shadowRadius: 8,
+    // Ensure completely opaque background
+    opacity: 1,
+    // Additional properties to ensure visibility
+    borderStyle: 'solid',
+    overflow: 'hidden', // Ensure content doesn't bleed
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
+  },
+  searchResultsList: {
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  searchResultItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#FFFFFF', // Ensure solid background for each item
+    // Additional properties for visibility
+    opacity: 1,
+    borderStyle: 'solid',
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    fontFamily: 'Inter',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Inter',
   },
 });
 
