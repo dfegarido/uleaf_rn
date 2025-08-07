@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, Dimensions} from 'react-native';
 import CheckBox from '../CheckBox/CheckBox';
+import UpwardIcon from '../../assets/buyer-icons/upward.svg';
 
 const {width: screenWidth} = Dimensions.get('window');
 
@@ -12,9 +13,18 @@ const CartBar = ({
   discountAmount = 0,
   onCheckoutPress,
 }) => {
-  const formattedTotal = totalAmount.toFixed(2);
-  const formattedDiscount = discountAmount.toFixed(2);
-  const finalAmount = (totalAmount - discountAmount).toFixed(2);
+  const formattedTotal = totalAmount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  const formattedDiscount = discountAmount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  const finalAmount = (totalAmount - discountAmount).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 
   return (
     <View style={styles.cartBar}>
@@ -28,29 +38,28 @@ const CartBar = ({
               onToggle={onSelectAllToggle}
               style={styles.checkbox}
             />
-            <Text style={styles.checkboxLabel}>{selectedItemsCount}</Text>
+            <Text style={styles.checkboxLabel}>All</Text>
           </View>
 
           {/* Summary */}
           <View style={styles.summary}>
             {/* Amount */}
             <View style={styles.amountRow}>
-              <Text style={styles.amountLabel}>Total amount</Text>
+              <Text style={styles.amountLabel}>Total Plant Cost</Text>
               <Text style={styles.amountValue}>
-                ${discountAmount > 0 ? finalAmount : formattedTotal}
+                $ {discountAmount > 0 ? finalAmount : formattedTotal}
               </Text>
               <View style={styles.iconContainer}>
-                <Text style={styles.infoIcon}>ⓘ</Text>
+                <UpwardIcon width={16} height={16} color="#7F8D91" />
               </View>
             </View>
 
             {/* Discount */}
-            {discountAmount > 0 && (
-              <View style={styles.discountRow}>
-                <Text style={styles.discountLabel}>Discount</Text>
-                <Text style={styles.discountValue}>-${formattedDiscount}</Text>
-              </View>
-            )}
+            <View style={styles.discountRow}>
+              <Text style={styles.discountLabel}>Savings:</Text>
+              <Text style={styles.discountValue}>$ {formattedDiscount}</Text>
+            </View>
+            
           </View>
         </View>
 
@@ -98,12 +107,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     padding: 0,
     zIndex: 1,
+    isolation: 'isolate',
   },
   content: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    paddingHorizontal: 15,
     paddingTop: 16,
+    paddingHorizontal: 15,
     paddingBottom: 0,
     gap: 12,
     width: screenWidth,
@@ -127,6 +137,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 24,
     flex: 0,
+    flexGrow: 0,
   },
   checkbox: {
     width: 24,
@@ -161,6 +172,7 @@ const styles = StyleSheet.create({
     width: 277,
     height: 48,
     flex: 1,
+    flexGrow: 1,
   },
   amountRow: {
     flexDirection: 'row',
@@ -225,6 +237,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#E7522F',
     flex: 0,
+    flexGrow: 0,
   },
   discountValue: {
     width: 48,
@@ -236,6 +249,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#E7522F',
     flex: 0,
+    flexGrow: 0,
   },
   actionContainer: {
     flexDirection: 'row',
@@ -258,6 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#539461',
     borderRadius: 12,
     flex: 1,
+    flexGrow: 1,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -280,6 +295,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     flex: 0,
+    flexGrow: 0,
+    alignItems: 'center',
   },
   homeIndicator: {
     width: screenWidth,

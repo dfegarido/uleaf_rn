@@ -14,6 +14,7 @@ import {AuthContext} from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
 import {ChatScreen} from '../../screens/ChatScreen';
+import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
@@ -650,6 +651,12 @@ const MainStack = () => {
       <Stack.Screen
         name="ChatScreen"
         component={ChatScreen}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
+        name="ChatSettingsScreen"
+        component={ChatSettingsScreen}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
 

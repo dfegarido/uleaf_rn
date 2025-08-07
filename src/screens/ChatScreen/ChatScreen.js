@@ -19,6 +19,7 @@ import { AuthContext } from '../../auth/AuthProvider';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
+import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const ChatScreen = ({navigation, route}) => {
   const { avatarUrl, name, id, participantIds = [], participants = [] } = route.params || {};
@@ -31,6 +32,18 @@ const ChatScreen = ({navigation, route}) => {
     : {};
 
   const [messages, setMessages] = useState([]);
+
+  // Helper function to detect plant-related conversation
+  const isPlantRelatedConversation = () => {
+    const plantKeywords = ['plant', 'flower', 'seed', 'garden', 'grow', 'leaf', 'root', 'soil', 'water', 'fertilizer', 'bloom', 'care', 'indoor', 'outdoor', 'succulent', 'herb', 'tree', 'shrub'];
+    const recentMessages = messages.slice(-10); // Check last 10 messages
+    
+    return recentMessages.some(message => 
+      message.text && plantKeywords.some(keyword => 
+        message.text.toLowerCase().includes(keyword)
+      )
+    );
+  };
 
   // Helper function for safe avatar display
   const getAvatarSource = () => {
@@ -201,6 +214,19 @@ const ChatScreen = ({navigation, route}) => {
         }}
       />
 
+      {/* Plant Recommendations for plant-related conversations */}
+      {messages.length > 3 && isPlantRelatedConversation() && (
+        <View style={styles.plantRecommendationsContainer}>
+          <BrowseMorePlants 
+            title="Plants You Might Like"
+            limit={3}
+            showLoadMore={false}
+            containerStyle={styles.chatBrowseMoreContainer}
+            horizontal={true}
+          />
+        </View>
+      )}
+
       {/* Input */}
       <MessageInput onSend={sendMessage} />
     </View>
@@ -242,6 +268,16 @@ const styles = StyleSheet.create({
     borderColor: '#539461',
     borderWidth: 1,
     borderRadius: 1000,
+  },
+  plantRecommendationsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  chatBrowseMoreContainer: {
+    marginBottom: 0,
   },
 });
 
