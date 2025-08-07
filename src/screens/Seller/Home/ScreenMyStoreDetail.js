@@ -17,6 +17,7 @@ import {useIsFocused} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {numberToCurrency} from '../../../utils/numberToCurrency';
 
 import {
   getListingDetails,
@@ -373,7 +374,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                       <Text
                         style={[globalStyles.textLGAccent, {paddingRight: 10}]}>
                         {finalCurrencySymbol}
-                        {totalLocalPriceNew.toFixed(2)}
+                        {numberToCurrency(totalLocalPriceNew.toFixed(2))}
                       </Text>
                       <Text
                         style={[
@@ -381,13 +382,13 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                           globalStyles.textLGGreyLight,
                         ]}>
                         {finalCurrencySymbol}
-                        {totalLocalPrice.toFixed(2)}
+                        {numberToCurrency(totalLocalPrice.toFixed(2))}
                       </Text>
                     </>
                   ) : (
                     <Text style={globalStyles.textLGGreyLight}>
                       {finalCurrencySymbol}
-                      {totalLocalPrice.toFixed(2)}
+                      {numberToCurrency(totalLocalPrice.toFixed(2))}
                     </Text>
                   )}
                 </View>
@@ -484,7 +485,9 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                           </Text>
                         </View>
 
-                        <Text style={globalStyles.textMDGreyDark}>{price}</Text>
+                        <Text style={globalStyles.textMDGreyDark}>
+                          {numberToCurrency(price)}
+                        </Text>
                       </View>
                     </View>
                   );

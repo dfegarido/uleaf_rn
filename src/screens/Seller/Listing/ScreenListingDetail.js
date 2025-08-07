@@ -28,6 +28,7 @@ import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
 import {formatDateMonthDayYear} from '../../../utils/formatDateMonthDayYear';
 import ConfirmDelete from './components/ConfirmDelete';
+import {numberToCurrency} from '../../../utils/numberToCurrency';
 
 import {
   postListingPublishNowActionApi,
@@ -847,7 +848,9 @@ const ScreenListingDetail = ({navigation, route}) => {
                           </Text>
                         </View>
 
-                        <Text style={globalStyles.textMDGreyDark}>{price}</Text>
+                        <Text style={globalStyles.textMDGreyDark}>
+                          {numberToCurrency(price)}
+                        </Text>
                       </View>
                     </View>
                   );
