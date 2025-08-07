@@ -9,9 +9,10 @@ import {
   SafeAreaView,
   Image,
 } from 'react-native';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
+import {getAddressBookEntriesApi} from '../../../components/Api';
 import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import TagIcon from '../../../assets/icons/greylight/tag.svg';
@@ -24,9 +25,22 @@ import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
 import TruckBlueIcon from '../../../assets/buyer-icons/truck-blue.svg';
 import {checkoutApi} from '../../../components/Api/checkoutApi';
 import {globalStyles} from '../../../assets/styles/styles';
+import {formatCurrencyFull} from '../../../utils/formatCurrency';
 
 // Function to render the correct country flag
 const renderCountryFlag = (country) => {
+  // Handle emoji flags from cart items
+  if (country === '🇹🇭') {
+    return <ThailandFlag width={24} height={16} style={styles.flagIcon} />;
+  }
+  if (country === '🇵🇭') {
+    return <PhilippinesFlag width={24} height={16} style={styles.flagIcon} />;
+  }
+  if (country === '🇮🇩') {
+    return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
+  }
+  
+  // Handle text-based country codes
   const countryCode = country?.toUpperCase();
   
   switch (countryCode) {
@@ -61,8 +75,9 @@ const PlantItemComponent = ({
   discount,
   originalPrice,
   hasAirCargo,
+  onPress,
 }) => (
-  <View style={styles.plant}>
+  <TouchableOpacity style={styles.plant} onPress={onPress} activeOpacity={0.7}>
     {/* Plant Image */}
     <View style={styles.plantImage}>
       <Image source={image} style={styles.plantImageContainer} />
@@ -112,11 +127,11 @@ const PlantItemComponent = ({
         {/* Price */}
         <View style={styles.priceContainer}>
           <Text style={[styles.priceNumber, discount && styles.discountedPrice]}>
-            ${price.toFixed(2)}
+            {formatCurrencyFull(price)}
           </Text>
           {/* Original Price (if discounted) */}
           {originalPrice && discount && (
-            <Text style={styles.originalPriceText}>${originalPrice.toFixed(2)}</Text>
+            <Text style={styles.originalPriceText}>{formatCurrencyFull(originalPrice)}</Text>
           )}
         </View>
         
@@ -127,7 +142,7 @@ const PlantItemComponent = ({
         </View>
       </View>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const CheckoutScreen = () => {
@@ -232,17 +247,22 @@ const CheckoutScreen = () => {
         image: item.image || require('../../../assets/images/plant1.png'),
         name: item.name || 'Unknown Plant',
         variation: item.subtitle?.split(' • ')[0] || 'Standard',
-        size: item.subtitle?.split(' • ')[1]?.replace(' pot', '') || item.potSize || '2"',
+        size: item.subtitle?.split(' • ')[1]?.replace(' pot', '').replace(' inch', '"') || item.potSize || '2"',
         price: item.price || 0,
         originalPrice: item.originalPrice,
         quantity: item.quantity || 1,
         title: 'Delivery Details',
         country: item.flagIcon || 'TH',
-        shippingMethod: 'Plant / UPS Ground Shipping',
+        shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
         plantCode: item.plantCode,
-        listingType: item.originalPrice ? 'Discounted' : null,
+        listingType: item.listingType || (item.originalPrice ? 'Discounted' : 'Single Plant'),
         discount: item.originalPrice ? `${Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)}%` : null,
         hasAirCargo: true,
+        // Additional cart-specific data
+        availableQuantity: item.availableQuantity,
+        isUnavailable: item.isUnavailable,
+        flightInfo: item.flightInfo,
+        cartItemId: item.cartItemId,
       }));
     } else if (productData.length > 0) {
       return productData.map(item => ({
@@ -266,6 +286,23 @@ const CheckoutScreen = () => {
       return [];
     }
   }, [fromBuyNow, plantData, selectedPotSize, quantity, plantCode, useCart, cartItems, productData]);
+
+  // Set flight date based on cart items' flight info
+  useEffect(() => {
+    if (useCart && cartItems.length > 0) {
+      // Get flight info from the first cart item (assuming all items have the same flight)
+      const firstItemFlightInfo = cartItems[0]?.flightInfo;
+      if (firstItemFlightInfo) {
+        // Extract flight date from flightInfo like "Plant Flight May-30"
+        const flightDateMatch = firstItemFlightInfo.match(/(\w+)-(\d+)/);
+        if (flightDateMatch) {
+          const [, month, day] = flightDateMatch;
+          setSelectedFlightDate(`${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`);
+          console.log('🛫 Flight date set from cart items:', `${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`);
+        }
+      }
+    }
+  }, [useCart, cartItems]);
   
   const orderSummary = useMemo(() => {
     const defaultSummary = {
@@ -398,6 +435,56 @@ const CheckoutScreen = () => {
     };
   }, [plantItems]);
 
+  // Fetch the default address on screen focus (including initial load)
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchDefaultAddress = async () => {
+        try {
+          const response = await getAddressBookEntriesApi();
+          
+          if (response?.success && response?.data) {
+            // Look for the default address
+            const defaultAddress = response.data.find(address => address.isDefault);
+            
+            if (defaultAddress) {
+              console.log('Default address found:', defaultAddress);
+              setDeliveryDetails({
+                address: {
+                  street: defaultAddress.streetAddress || defaultAddress.address || '',
+                  city: defaultAddress.city || '',
+                  state: defaultAddress.state || '',
+                  zipCode: defaultAddress.postalCode || defaultAddress.zipCode || '',
+                  country: defaultAddress.country || 'US'
+                },
+                contactPhone: defaultAddress.phoneNumber || '+1-555-0123',
+                specialInstructions: 'Leave at front door'
+              });
+            } else if (response.data.length > 0) {
+              // If no default address is set, use the first one
+              const firstAddress = response.data[0];
+              console.log('No default address found, using first address:', firstAddress);
+              setDeliveryDetails({
+                address: {
+                  street: firstAddress.streetAddress || firstAddress.address || '',
+                  city: firstAddress.city || '',
+                  state: firstAddress.state || '',
+                  zipCode: firstAddress.postalCode || firstAddress.zipCode || '',
+                  country: firstAddress.country || 'US'
+                },
+                contactPhone: firstAddress.phoneNumber || '+1-555-0123',
+                specialInstructions: 'Leave at front door'
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching default address:', error);
+        }
+      };
+
+      fetchDefaultAddress();
+    }, [])
+  );
+
   // Handle Buy Now specific data updates
   useEffect(() => {
     if (fromBuyNow && plantData) {
@@ -426,12 +513,13 @@ const CheckoutScreen = () => {
       // Prepare order data for API
       const orderData = {
         cargoDate,
+        selectedFlightDate,
         deliveryDetails: {
           address: deliveryDetails.address,
           contactPhone: deliveryDetails.contactPhone,
           specialInstructions: deliveryDetails.specialInstructions,
         },
-        paymentMethod: paymentMethod || 'PAYPAL',
+        paymentMethod: paymentMethod || 'VENMO',
         leafPoints: leafPointsEnabled ? leafPoints : 0,
         plantCredits: plantCreditsEnabled ? plantCredits : 0,
         shippingCredits: shippingCreditsEnabled ? shippingCredits : 0,
@@ -462,9 +550,24 @@ const CheckoutScreen = () => {
         }];
         orderData.useCart = false;
       } else if (useCart && cartItems.length > 0) {
-        // Use cart items
+        // Use cart items with enhanced data
         orderData.useCart = true;
-        // The API will fetch cart items from backend
+        orderData.cartItems = cartItems.map(item => ({
+          cartItemId: item.cartItemId,
+          plantCode: item.plantCode,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          originalPrice: item.originalPrice,
+          listingType: item.listingType,
+          flightInfo: item.flightInfo,
+          shippingInfo: item.shippingInfo,
+          availableQuantity: item.availableQuantity,
+          isUnavailable: item.isUnavailable,
+          flagIcon: item.flagIcon,
+          subtitle: item.subtitle
+        }));
+        // The API can use either the cart items from backend or the passed cart items
       } else if (productData && productData.length > 0) {
         // Product data checkout
         orderData.productData = productData.map(item => ({
@@ -489,7 +592,7 @@ const CheckoutScreen = () => {
       // Show confirmation dialog
       Alert.alert(
         'Confirm Order',
-        `Total: $${orderSummary.finalTotal.toFixed(2)}\n\nProceed with checkout?`,
+        `Total: ${formatCurrencyFull(orderSummary.finalTotal)}\n\nProceed with checkout?`,
         [
           {
             text: 'Cancel',
@@ -546,8 +649,24 @@ const CheckoutScreen = () => {
   };
 
   const handleUpdateDeliveryDetails = () => {
-    // Navigate to delivery details screen
-    Alert.alert('Info', 'Navigate to delivery details screen');
+    // Navigate to address book screen for selecting shipping address
+    navigation.navigate('AddressBookScreen', {
+      fromCheckout: true,
+      onSelectAddress: (selectedAddress) => {
+        // Update delivery details with the selected address
+        setDeliveryDetails({
+          ...deliveryDetails,
+          address: {
+            street: selectedAddress.streetAddress,
+            city: selectedAddress.city,
+            state: selectedAddress.state,
+            zipCode: selectedAddress.postalCode,
+            country: selectedAddress.country
+          },
+          contactPhone: selectedAddress.phoneNumber || deliveryDetails.contactPhone
+        });
+      }
+    });
   };
 
   const handleUpdatePaymentMethod = () => {
@@ -636,31 +755,46 @@ const CheckoutScreen = () => {
           {/* Options */}
           <View style={styles.flightOptions}>
             <View style={styles.optionCards}>
-              <Text style={styles.optionLabel}>Select flight date</Text>
+              <Text style={styles.optionLabel}>Select One:</Text>
               
               {/* Flight Options */}
               <View style={styles.flightOptionsRow}>
-                {/* May 30 Option (Selected) */}
+                {/* May 30 Option */}
                 <TouchableOpacity
-                  style={[styles.optionCard, styles.selectedOptionCard]}
+                  style={[
+                    styles.optionCard, 
+                    selectedFlightDate === 'May 30' ? styles.selectedOptionCard : styles.unselectedOptionCard
+                  ]}
                   onPress={() => setSelectedFlightDate('May 30')}>
-                  <Text style={styles.optionText}>May 30</Text>
+                  <Text style={selectedFlightDate === 'May 30' ? styles.optionText : styles.unselectedOptionText}>
+                    May 30
+                  </Text>
                   <Text style={styles.optionSubtext}>2025</Text>
                 </TouchableOpacity>
                 
                 {/* Jun 15 Option */}
                 <TouchableOpacity
-                  style={[styles.optionCard, styles.unselectedOptionCard]}
+                  style={[
+                    styles.optionCard, 
+                    selectedFlightDate === 'Jun 15' ? styles.selectedOptionCard : styles.unselectedOptionCard
+                  ]}
                   onPress={() => setSelectedFlightDate('Jun 15')}>
-                  <Text style={styles.unselectedOptionText}>Jun 15</Text>
+                  <Text style={selectedFlightDate === 'Jun 15' ? styles.optionText : styles.unselectedOptionText}>
+                    Jun 15
+                  </Text>
                   <Text style={styles.optionSubtext}>2025</Text>
                 </TouchableOpacity>
                 
                 {/* Jul 20 Option */}
                 <TouchableOpacity
-                  style={[styles.optionCard, styles.unselectedOptionCard]}
+                  style={[
+                    styles.optionCard, 
+                    selectedFlightDate === 'Jul 20' ? styles.selectedOptionCard : styles.unselectedOptionCard
+                  ]}
                   onPress={() => setSelectedFlightDate('Jul 20')}>
-                  <Text style={styles.unselectedOptionText}>Jul 20</Text>
+                  <Text style={selectedFlightDate === 'Jul 20' ? styles.optionText : styles.unselectedOptionText}>
+                    Jul 20
+                  </Text>
                   <Text style={styles.optionSubtext}>2025</Text>
                 </TouchableOpacity>
               </View>
@@ -687,6 +821,16 @@ const CheckoutScreen = () => {
                 discount={item.discount}
                 originalPrice={item.originalPrice}
                 hasAirCargo={item.hasAirCargo}
+                onPress={() => {
+                  // Navigate to plant detail screen using plantCode
+                  if (item.plantCode) {
+                    navigation.navigate('ScreenPlantDetail', {
+                      plantCode: item.plantCode
+                    });
+                  } else {
+                    console.warn('No plantCode available for navigation');
+                  }
+                }}
               />
               
               {/* Details for each item */}
@@ -697,7 +841,7 @@ const CheckoutScreen = () => {
                   
                   {/* Country */}
                   <View style={styles.countryContainer}>
-                    <Text style={styles.countryText}>{item.country || 'TH'}</Text>
+                    <Text style={styles.countryText}></Text>
                     {renderCountryFlag(item.country || 'TH')}
                   </View>
                 </View>
@@ -711,8 +855,18 @@ const CheckoutScreen = () => {
                   </View>
                 </View>
                 
+                {/* Flight Info (if available from cart) */}
+                {item.flightInfo && (
+                  <View style={styles.plantShipping}>
+                    <View style={styles.shippingContent}>
+                      <TruckIcon width={24} height={24} style={styles.airCargoIcon} />
+                      <Text style={styles.shippingText}>{item.flightInfo}</Text>
+                    </View>
+                  </View>
+                )}
+                
                 {/* Air Cargo Option (if available) */}
-                {item.hasAirCargo && (
+                {item.hasAirCargo && !item.flightInfo && (
                   <View style={styles.plantShipping}>
                     <View style={styles.shippingContent}>
                       <TruckIcon width={24} height={24} style={styles.airCargoIcon} />
@@ -779,20 +933,20 @@ const CheckoutScreen = () => {
             {/* Total */}
             <View style={styles.subtotalRow}>
               <Text style={styles.subtotalLabel}>Total Plant Cost</Text>
-              <Text style={styles.subtotalNumber}>${orderSummary.subtotal.toFixed(2)}</Text>
+              <Text style={styles.subtotalNumber}>{formatCurrencyFull(orderSummary.subtotal)}</Text>
             </View>
             
             {/* Discount */}
             <View style={styles.subtotalRow}>
               <Text style={styles.subtotalLabel}>Total Discount on Plants</Text>
-              <Text style={styles.subtotalNumber}>-${orderSummary.discount.toFixed(2)}</Text>
+              <Text style={styles.subtotalNumber}>-{formatCurrencyFull(orderSummary.discount)}</Text>
             </View>
             
             {/* Credits Applied */}
             {orderSummary.creditsApplied > 0 && (
               <View style={styles.subtotalRow}>
                 <Text style={styles.subtotalLabel}>Credits Applied</Text>
-                <Text style={styles.subtotalNumber}>-${orderSummary.creditsApplied.toFixed(2)}</Text>
+                <Text style={styles.subtotalNumber}>-{formatCurrencyFull(orderSummary.creditsApplied)}</Text>
               </View>
             )}
           </View>
@@ -816,7 +970,7 @@ const CheckoutScreen = () => {
                 <Text style={styles.summaryRowLabel}>
                   {upsNextDayEnabled ? 'UPS Next Day shipping' : 'UPS 2nd day shipping'}
                 </Text>
-                <Text style={styles.summaryRowNumber}>${orderSummary.shipping.toFixed(2)}</Text>
+                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.shipping)}</Text>
               </View>
               
               {/* Form / Labeled Toggle */}
@@ -830,7 +984,7 @@ const CheckoutScreen = () => {
                       {upsNextDayEnabled ? '+' : '-'}
                     </Text>
                     <Text style={upsNextDayEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {upsNextDayEnabled ? '$15.00' : '$0.00'}
+                      {upsNextDayEnabled ? formatCurrencyFull(15) : formatCurrencyFull(0)}
                     </Text>
                   </View>
                   <View style={[
@@ -873,7 +1027,7 @@ const CheckoutScreen = () => {
               {/* Total */}
               <View style={styles.shippingTotalRow}>
                 <Text style={styles.shippingTotalLabel}>Total Shipping Cost</Text>
-                <Text style={styles.shippingTotalNumber}>${orderSummary.shipping.toFixed(2)}</Text>
+                <Text style={styles.shippingTotalNumber}>{formatCurrencyFull(orderSummary.shipping)}</Text>
               </View>
             </View>
           </View>
@@ -923,7 +1077,7 @@ const CheckoutScreen = () => {
                       {leafPointsEnabled ? 'Use' : '-'}
                     </Text>
                     <Text style={leafPointsEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {leafPointsEnabled ? `$${leafPoints.toFixed(2)}` : '$0.00'}
+                      {leafPointsEnabled ? formatCurrencyFull(leafPoints) : formatCurrencyFull(0)}
                     </Text>
                   </View>
                   <View style={[
@@ -952,7 +1106,7 @@ const CheckoutScreen = () => {
                       {plantCreditsEnabled ? 'Use' : '-'}
                     </Text>
                     <Text style={plantCreditsEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {plantCreditsEnabled ? `$${plantCredits.toFixed(2)}` : '$0.00'}
+                      {plantCreditsEnabled ? formatCurrencyFull(plantCredits) : formatCurrencyFull(0)}
                     </Text>
                   </View>
                   <View style={[
@@ -981,7 +1135,7 @@ const CheckoutScreen = () => {
                       {shippingCreditsEnabled ? 'Use' : '-'}
                     </Text>
                     <Text style={shippingCreditsEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {shippingCreditsEnabled ? `$${shippingCredits.toFixed(2)}` : '$0.00'}
+                      {shippingCreditsEnabled ? formatCurrencyFull(shippingCredits) : formatCurrencyFull(0)}
                     </Text>
                   </View>
                   <View style={[
@@ -1007,7 +1161,7 @@ const CheckoutScreen = () => {
           <View style={styles.totalAmount}>
             <View style={styles.totalAmountRow}>
               <Text style={styles.totalAmountLabel}>Total</Text>
-              <Text style={styles.totalAmountNumber}>${orderSummary.finalTotal.toFixed(2)}</Text>
+              <Text style={styles.totalAmountNumber}>{formatCurrencyFull(orderSummary.finalTotal)}</Text>
             </View>
           </View>
         </View>
@@ -1023,7 +1177,7 @@ const CheckoutScreen = () => {
             {/* Amount */}
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Total</Text>
-              <Text style={styles.amountValue}>${orderSummary.finalTotal.toFixed(2)}</Text>
+              <Text style={styles.amountValue}>{formatCurrencyFull(orderSummary.finalTotal)}</Text>
               <CaretDownIcon width={24} height={24} style={styles.infoIcon} />
             </View>
             
@@ -1031,7 +1185,7 @@ const CheckoutScreen = () => {
             {orderSummary.discount > 0 && (
               <View style={styles.discountRow}>
                 <Text style={styles.discountSavings}>You're saving</Text>
-                <Text style={styles.discountAmount}>${orderSummary.discount.toFixed(2)}</Text>
+                <Text style={styles.discountAmount}>{formatCurrencyFull(orderSummary.discount)}</Text>
               </View>
             )}
           </View>
@@ -2476,7 +2630,7 @@ const styles = StyleSheet.create({
   plantItemDetails: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    paddingVertical: 0,
+    paddingVertical: 6,
     paddingHorizontal: 6,
     gap: 8,
     width: '100%',
