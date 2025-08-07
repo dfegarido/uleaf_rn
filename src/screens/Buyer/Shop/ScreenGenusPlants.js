@@ -451,8 +451,9 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }
 
       // Add genus from route params if available and no genus filter is applied
-      if (genus && genus !== 'All' && (!appliedFilters.genus || appliedFilters.genus.length === 0)) {
-        baseParams.genus = genus;
+      if (genus && genus !== 'All' && (!appliedFilters?.genus || appliedFilters.genus.length === 0)) {
+        baseParams.genus = genus.toUpperCase(); // Ensure genus is uppercase as expected by API
+        console.log('Setting genus parameter:', genus.toUpperCase());
       }
 
       // Use buildFilterParams to construct all filter parameters

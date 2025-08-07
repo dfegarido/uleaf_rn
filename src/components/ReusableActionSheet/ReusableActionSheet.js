@@ -42,6 +42,7 @@ const ReusableActionSheet = ({
   priceValue,
   priceChange,
   handleSearchSubmit,
+  clearFilters,
 }) => {
   const resetSelection = () => variegationChange([]);
   const resetGenusSelection = () => genusChange([]);
@@ -140,7 +141,7 @@ const ReusableActionSheet = ({
                 paddingHorizontal: 20,
               }}>
               <TouchableOpacity
-                onPress={resetPriceSelection}
+                onPress={clearFilters}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
@@ -198,7 +199,7 @@ const ReusableActionSheet = ({
                 backgroundColor: '#fff',
               }}>
               <TouchableOpacity
-                onPress={resetGenusSelection}
+                onPress={clearFilters}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
@@ -249,7 +250,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={resetSelection} style={{width: '45%'}}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -309,7 +310,7 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                onPress={resetListingTypeSelection}
+                onPress={clearFilters}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
@@ -367,7 +368,7 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                onPress={resetCountrySelection}
+                onPress={clearFilters}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
@@ -424,7 +425,7 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                onPress={resetShippingIndexSelection}
+                onPress={clearFilters}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
@@ -481,7 +482,7 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                onPress={resetAcclimationIndexSelection}
+                onPress={clearFilters}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text

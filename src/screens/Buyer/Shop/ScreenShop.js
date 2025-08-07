@@ -110,7 +110,8 @@ const ScreenShop = ({navigation}) => {
     updateFilters,
     applyFilters,
     buildFilterParams,
-    hasAppliedFilters
+    hasAppliedFilters,
+    clearFilters
   } = useFilters();
 
   // Log auth token and user info when Shop tab is accessed
@@ -723,6 +724,27 @@ const ScreenShop = ({navigation}) => {
 
   const onGenusPress = async genusName => {
     console.log('Genus pressed:', genusName);
+    
+    // Clear FilterContext state
+    clearFilters();
+    console.log('FilterContext cleared when browsing genus plants');
+    
+    // Clear filter-related AsyncStorage when browsing genus plants
+    try {
+      console.log('Clearing filter-related AsyncStorage from Shop screen');
+      await AsyncStorage.multiRemove([
+        'shop_filters',
+        'applied_filters', 
+        'global_filters',
+        'filter_preferences',
+        'buyer_filters',
+        'plant_filters'
+      ]);
+      console.log('Filter AsyncStorage cleared successfully from Shop screen');
+    } catch (error) {
+      console.log('Error clearing filter AsyncStorage from Shop screen:', error);
+    }
+    
     // Navigate to the genus plants screen
     navigation.navigate('ScreenGenusPlants', {
       genus: genusName,
@@ -1471,6 +1493,7 @@ const ScreenShop = ({navigation}) => {
         acclimationIndexValue={globalFilters.acclimationIndex}
         acclimationIndexChange={handleAcclimationIndexChange}
         handleSearchSubmit={handleFilterView}
+        clearFilters={clearFilters}
       />
     </>
   );
