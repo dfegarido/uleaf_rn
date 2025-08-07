@@ -79,9 +79,9 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     compileOptions {
-        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
     }
 
     namespace "com.ileafu"
@@ -135,5 +135,17 @@ dependencies {
         implementation jscFlavor
     }
 
+    // Required for core library desugaring
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+}
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:7.4.2")
+        classpath("com.google.gms:google-services:4.3.10") // Google Services plugin
+    }
 }

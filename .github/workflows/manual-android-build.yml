@@ -1,6 +1,9 @@
-name: Manual Android Build
+name: Android Build
 
 on:
+  push:
+    branches:
+      - release
   workflow_dispatch:
 
 jobs:
@@ -37,6 +40,9 @@ jobs:
 
       - name: Verify Gradle version
         run: ./android/gradlew -p android --version
+
+      - name: Clean Android Build
+        run: ./android/gradlew -p android clean
 
       - name: Build Android Release
         run: ./android/gradlew -p android assembleRelease --warning-mode all
