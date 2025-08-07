@@ -73,6 +73,7 @@ import {
   getBuyerListingsApi,
   addToCartApi,
   getCartItemsApi,
+  getPlantRecommendationsApi,
 } from '../../../components/Api';
 import {
   getCountryApi,
@@ -807,23 +808,21 @@ const ScreenShop = ({navigation}) => {
       setLoadingBrowseMorePlants(true);
       console.log('Loading browse more plants...');
       
-      const baseParams = {
-        offset: 0,
-        limit: 6, // Same as static data count
-        sortBy: 'loveCount',
-        sortOrder: 'desc',
+      const params = {
+        limit: 6, // Number of random plants to show
       };
       
-      const filterParams = buildFilterParams(baseParams);
-      console.log('Browse more plants filter params:', filterParams);
+      console.log('Getting plant recommendations with params:', params);
       
-      const response = await getBuyerListingsApi(filterParams);
-      console.log('Browse more plants API response:', response);
+      // Use the plant recommendations API without providing a plantCode
+      // This will return random plants as we implemented in the backend
+      const response = await getPlantRecommendationsApi(params);
+      console.log('Plant recommendations API response:', response);
       
-      if (response.success && response.data?.listings) {
-        setBrowseMorePlants(response.data.listings);
+      if (response.success && response.data && response.data.recommendations) {
+        setBrowseMorePlants(response.data.recommendations);
       } else {
-        console.error('Failed to load browse more plants:', response.message);
+        console.error('Failed to load plant recommendations:', response.data?.message || 'Unknown error');
         setBrowseMorePlants([]);
       }
     } catch (error) {
@@ -854,6 +853,46 @@ const ScreenShop = ({navigation}) => {
     } catch (error) {
       console.error('Error adding plant to cart:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+  
+  // Load more plants when the "Load More" button is pressed
+  const loadMorePlants = async () => {
+    try {
+      setLoadingBrowseMorePlants(true);
+      console.log('Loading more plants...');
+      
+      const params = {
+        limit: 6, // Number of additional plants to load
+      };
+      
+      console.log('Getting more plant recommendations with params:', params);
+      
+      const response = await getPlantRecommendationsApi(params);
+      console.log('Additional plant recommendations response:', response);
+      
+      if (response.success && response.data && response.data.recommendations) {
+        // Add new recommendations to the existing ones
+        setBrowseMorePlants(prevPlants => {
+          // Filter out any duplicates based on plantCode
+          const existingPlantCodes = new Set(prevPlants.map(p => p.plantCode));
+          const newPlants = response.data.recommendations.filter(p => !existingPlantCodes.has(p.plantCode));
+          
+          return [...prevPlants, ...newPlants];
+        });
+        
+        if (response.data.recommendations.length === 0) {
+          Alert.alert('No more plants', 'No more plants available to load.');
+        }
+      } else {
+        console.error('Failed to load more plant recommendations:', response.data?.message || 'Unknown error');
+        Alert.alert('Error', 'Failed to load more plants. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error loading more plants:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setLoadingBrowseMorePlants(false);
     }
   };
 
@@ -1346,7 +1385,7 @@ const ScreenShop = ({navigation}) => {
             marginTop: 15,
             marginLeft: 12,
           }}>
-          Browse More Plants
+          Discover Random Plants
         </Text>
         
         {loadingBrowseMorePlants ? (
@@ -1456,10 +1495,13 @@ const ScreenShop = ({navigation}) => {
           </View>
         )}
         <View style={{width: '100%', alignItems: 'center', marginTop: 15}}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <TouchableOpacity 
+            onPress={() => loadMorePlants()} 
+            style={{flexDirection: 'row', alignItems: 'center', padding: 10}}
+          >
             <Text style={styles.loadMoreText}>Load More</Text>
             <DropDownIcon width={16.5} height={9} />
-          </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
