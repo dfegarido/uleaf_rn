@@ -140,9 +140,7 @@ const ReusableActionSheet = ({
                 width: '100%',
                 paddingHorizontal: 20,
               }}>
-              <TouchableOpacity
-                onPress={clearFilters}
-                style={{width: '45%'}}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -198,9 +196,7 @@ const ReusableActionSheet = ({
                 width: '100%',
                 backgroundColor: '#fff',
               }}>
-              <TouchableOpacity
-                onPress={clearFilters}
-                style={{width: '45%'}}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -236,7 +232,9 @@ const ReusableActionSheet = ({
             </View>
             <ScrollView style={{marginBottom: 60}}>
               <SelectableItemList
-                options={variegationOptions}
+                options={variegationOptions.filter(
+                  opt => opt.value !== 'Choose the most suitable variegation.',
+                )}
                 selectedValues={variegationValue}
                 onSelectionChange={variegationChange}
               />
@@ -276,6 +274,61 @@ const ReusableActionSheet = ({
             </View>
           </ActionSheet>
         );
+      case 'LISTINGTYPE':
+        return (
+          <ActionSheet
+            visible={visible}
+            onClose={onClose}
+            heightPercent={'35%'}>
+            <View style={styles.sheetTitleContainer}>
+              <Text style={styles.sheetTitle}>Listing Type</Text>
+              <TouchableOpacity onPress={() => onClose(true)}>
+                <IconEx width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+
+            <CheckBoxGroup
+              options={listingTypeOptions}
+              selectedValues={listingTypeValue}
+              onChange={listingTypeChange}
+              optionStyle={{
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingBottom: 10,
+              }}
+            />
+
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 10,
+                width: '100%',
+              }}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{width: '45%'}}
+                onPress={handleSearchSubmit}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    View
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ActionSheet>
+        );
       case 'LISTING_TYPE':
         return (
           <ActionSheet
@@ -309,9 +362,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity
-                onPress={clearFilters}
-                style={{width: '45%'}}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -367,9 +418,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity
-                onPress={clearFilters}
-                style={{width: '45%'}}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -424,9 +473,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity
-                onPress={clearFilters}
-                style={{width: '45%'}}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -481,9 +528,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity
-                onPress={clearFilters}
-                style={{width: '45%'}}>
+              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
