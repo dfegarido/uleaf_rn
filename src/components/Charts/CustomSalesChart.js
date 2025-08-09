@@ -5,7 +5,7 @@ import {StackedBarChart, LineChart} from 'react-native-chart-kit';
 const screenWidth = Dimensions.get('window').width - 32;
 
 const CustomSalesChart = ({data = [], isMonthly = false}) => {
-  // If data is not yet loaded or is empty, return placeholder
+  // If data is not yet loaded or is empty
   if (!Array.isArray(data) || data.length === 0) {
     return (
       <View style={{padding: 16}}>
@@ -34,19 +34,28 @@ const CustomSalesChart = ({data = [], isMonthly = false}) => {
     Number.isFinite(item.amount) ? item.amount : 0,
   );
 
+  // Check if stackedData is all zeros
+  const isAllZero = stackedData.every(pair => pair.every(value => value === 0));
+
   // Guard: prevent crash if labels mismatch or invalid data
   const isValid =
     labels.length === stackedData.length &&
     labels.length === lineData.length &&
     lineData.every(val => typeof val === 'number' && !isNaN(val));
 
-  if (!isValid) {
-    return <Text style={{padding: 16, color: 'red'}}>Invalid chart data</Text>;
+  if (!isValid || isAllZero) {
+    return (
+      <View style={{padding: 16}}>
+        <Text style={{textAlign: 'center', color: '#999'}}>
+          No chart data available
+        </Text>
+      </View>
+    );
   }
 
   return (
     <View style={{padding: 0}}>
-      {/* <Text
+      <Text
         style={{
           textAlign: 'center',
           fontWeight: 'bold',
@@ -54,7 +63,7 @@ const CustomSalesChart = ({data = [], isMonthly = false}) => {
           marginBottom: 10,
         }}>
         {isMonthly ? 'Monthly' : 'Weekly'} Sales Performance
-      </Text> */}
+      </Text>
 
       {/* Legend */}
       <View
@@ -94,13 +103,11 @@ const CustomSalesChart = ({data = [], isMonthly = false}) => {
       <StackedBarChart
         data={{
           labels,
-          // legend: ['Sold', 'Available'],
           data: stackedData,
           barColors: ['#4caf50', '#f8d7a9'],
         }}
         width={screenWidth}
         height={220}
-        yAxisSuffix=""
         chartConfig={{
           backgroundColor: '#ffffff',
           backgroundGradientFrom: '#ffffff',
@@ -114,7 +121,7 @@ const CustomSalesChart = ({data = [], isMonthly = false}) => {
         showLegend={false}
       />
 
-      {/* Line Chart (Amount) */}
+      {/* Line Chart */}
       <LineChart
         data={{
           labels,

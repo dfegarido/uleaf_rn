@@ -85,7 +85,8 @@ const ImagePickerModal = ({onImagePicked, limit = 0}) => {
         onPress={() => setModalVisible(true)}>
         <View>
           <Text style={[globalStyles.textMDGreyLight, {textAlign: 'center'}]}>
-            Add picture{limit > 0 ? 's' : ''}
+            {/* Add picture{limit > 0 ? 's' : ''} */}
+            Add picture
           </Text>
         </View>
       </TouchableOpacity>
