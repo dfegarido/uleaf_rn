@@ -44,6 +44,9 @@ export const API_ENDPOINTS = {
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
   
+  // Order APIs
+  GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
+  
   // Dropdown APIs
   GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,
   GET_ALL_PLANT_GENUS: `${getBaseUrl()}/getAllPlantGenus`,
