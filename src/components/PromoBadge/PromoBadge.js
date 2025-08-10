@@ -1,12 +1,12 @@
 import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 
 // Example: Pass in an SVG icon component as the 'icon' prop
-const PromoBadge = ({icon: Icon, label, style, ...props}) => (
-  <View style={[styles.badge, style]} {...props}>
+const PromoBadge = ({icon: Icon, label, style, onPress, ...props}) => (
+  <TouchableOpacity style={[styles.badge, style]} onPress={onPress} {...props}>
     {Icon && <Icon width={22} height={22} style={styles.icon} />}
     <Text style={styles.label}>{label}</Text>
-  </View>
+  </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({

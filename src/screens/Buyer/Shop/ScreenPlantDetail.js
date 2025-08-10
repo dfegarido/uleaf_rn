@@ -853,7 +853,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                           selectedPotSize === potSize && styles.modalSelectedPotSizeImage
                         ]}>
                           <Image
-                            source={require('../../../assets/buyer-icons/png/ficus-lyrata.png')}
+                            source={imageSource}
                             style={styles.modalPotImage}
                           />
                         </View>

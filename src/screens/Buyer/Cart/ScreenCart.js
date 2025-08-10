@@ -27,13 +27,7 @@ import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
-import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
-import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
-import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
-import PriceTagIcon from '../../../assets/buyer-icons/tag-bold.svg';
-import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
-import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
-import PromoBadge from '../../../components/PromoBadge/PromoBadge';
+import PromoBadgeList from '../../../components/PromoBadgeList';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
 import {selectedCard} from '../../../assets/buyer-icons/png';
 import DownArrowIcon from '../../../assets/buyer-icons/downicon.svg';
@@ -79,15 +73,6 @@ const getValidImageSource = (imageUrl, plantCode) => {
 };
 
 const CartHeader = () => {
-  const promoBadges = [
-    {label: 'Price Drop', icon: PriceDropIcon},
-    {label: 'New Arrivals', icon: NewArrivalsIcon},
-    {label: 'Latest Nursery Drop', icon: LeavesIcon},
-    {label: 'Below $20', icon: PriceTagIcon},
-    {label: 'Unicorn', icon: UnicornIcon},
-    {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
-  ];
-
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -210,25 +195,7 @@ const CartHeader = () => {
         </View>
       </View>
       
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{flexGrow: 0, paddingVertical: 1}}
-        contentContainerStyle={{
-          flexDirection: 'row',
-          gap: 6,
-          alignItems: 'flex-start',
-          paddingHorizontal: 9,
-        }}>
-        {promoBadges.map(badge => (
-          <PromoBadge
-            key={badge.label}
-            icon={badge.icon}
-            label={badge.label}
-            style={{marginRight: 5}}
-          />
-        ))}
-      </ScrollView>
+      <PromoBadgeList navigation={navigation} />
 
       {/* Search Results Dropdown */}
       {isSearchFocused && searchTerm.trim().length >= 2 && (
