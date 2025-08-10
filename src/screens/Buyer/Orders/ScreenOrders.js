@@ -9,7 +9,7 @@ import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import {OrderItemCard} from '../../../components/OrderItemCard';
+import {OrderItemCard, OrderItemCardSkeleton} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {searchPlantsApi} from '../../../components/Api/listingBrowseApi';
 import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
@@ -270,11 +270,11 @@ const ScreenOrders = () => {
   const getStatusForTab = (tab) => {
     switch (tab) {
       case 'Ready to Fly':
-        return 'pending_payment'; // or 'confirmed', 'ready_to_ship', etc.
+        return ['pending_payment', 'confirmed', 'ready_to_ship']; // Multiple statuses for Ready to Fly
       case 'Plants are Home':
         return 'delivered';
       case 'Journey Mishap':
-        return 'damaged'; // or 'missing', 'casualty', etc.
+        return ['damaged', 'dead_on_arrival', 'missing_plant']; // Multiple mishap statuses
       default:
         return null;
     }
@@ -297,10 +297,11 @@ const ScreenOrders = () => {
       const params = {
         limit: 20,
         offset: 0,
-        ...(status && { status })
+        // Handle both single status and array of statuses
+        ...(Array.isArray(status) ? { statuses: status } : status && { status })
       };
 
-      console.log('🔍 Loading orders for tab:', activeTab, 'with status:', status);
+      console.log('🔍 Loading orders for tab:', activeTab, 'with status(es):', status);
       const response = await getBuyerOrdersApi(params);
 
       if (!response.success) {
@@ -397,8 +398,28 @@ const ScreenOrders = () => {
   };
 
   const getPlantStatus = (order) => {
-    const statuses = ['Damaged', 'Missing', 'Dead on Arrival'];
-    return order.issueType || statuses[Math.floor(Math.random() * statuses.length)];
+    // Map order status to display text
+    if (order.status) {
+      switch (order.status.toLowerCase()) {
+        case 'damaged':
+          return 'Damaged';
+        case 'dead_on_arrival':
+          return 'Dead on Arrival';
+        case 'missing_plant':
+          return 'Missing Plant';
+        default:
+          break;
+      }
+    }
+    
+    // Fallback to issueType or random for demo
+    if (order.issueType) {
+      return order.issueType;
+    }
+    
+    // Demo fallback
+    const statuses = ['Damaged', 'Missing Plant', 'Dead on Arrival'];
+    return statuses[Math.floor(Math.random() * statuses.length)];
   };
 
   // Load orders when component mounts or tab changes
@@ -416,10 +437,24 @@ const ScreenOrders = () => {
     return (
       <View style={styles.container}>
         <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10b981" />
-          <Text style={styles.loadingText}>Loading your orders...</Text>
-        </View>
+        <ScrollView
+          style={{flex: 1}}
+          contentContainerStyle={{paddingTop: 200, paddingHorizontal: 1}}>
+          
+          {/* Render skeleton loading cards */}
+          {Array.from({length: 3}).map((_, index) => (
+            <OrderItemCardSkeleton key={`skeleton-${index}`} />
+          ))}
+          
+          {/* Browse More Plants Component */}
+          <BrowseMorePlants 
+            title="Discover More Plants to Order"
+            initialLimit={6}
+            loadMoreLimit={6}
+            showLoadMore={true}
+            containerStyle={{marginTop: 24, paddingHorizontal: 15}}
+          />
+        </ScrollView>
       </View>
     );
   }
@@ -461,7 +496,7 @@ const ScreenOrders = () => {
           </View>
         ) : (
           orders.map((item, index) => (
-            <OrderItemCard key={`${item.plantCode}_${index}`} {...item} />
+            <OrderItemCard key={`${item.plantCode}_${index}`} {...item} activeTab={activeTab} />
           ))
         )}
         

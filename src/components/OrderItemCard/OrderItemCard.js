@@ -21,14 +21,57 @@ const OrderItemCard = ({
   requestDeadline = 'May-31 12:00 AM',
   plantStatus = null,
   creditApproved = false,
+  fullOrderData = null, // Full order data for navigation
+  activeTab = null, // Active tab from parent screen
 }) => {
   const navigation = useNavigation();
 
   const handleRequestCredit = () => {
     navigation.navigate('ScreenRequestCredit');
   };
+
+  const handleCardPress = () => {
+    // Navigate to order details screen with enhanced data structure
+    const orderDataToPass = {
+      // Include direct identifiers for the new API
+      id: fullOrderData?.id,
+      transactionNumber: fullOrderData?.transactionNumber,
+      
+      // Include the full order data for fallback
+      fullOrderData: fullOrderData,
+      
+      // Legacy format for backward compatibility
+      invoiceNumber: fullOrderData?.transactionNumber || plantCode,
+      plantFlight: airCargoDate,
+      trackingNumber: fullOrderData?.trackingNumber || '1Z999AA1234567890',
+      orderDate: fullOrderData?.orderDate ? new Date(fullOrderData.orderDate.seconds * 1000).toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      }) : 'Wednesday, January 8th 2025',
+      plant: {
+        image: image,
+        code: plantCode,
+        country: countryCode,
+        name: plantName,
+        variegation: variety,
+        size: size,
+        price: price,
+        quantity: quantity,
+      },
+      deliveryAddress: '123 Main Street\nNew York, NY 10001\nUnited States',
+    };
+    
+    console.log('OrderItemCard - Navigating with orderData:', orderDataToPass);
+    navigation.navigate('OrderDetailsScreen', {
+      orderData: orderDataToPass,
+      activeTab: activeTab
+    });
+  };
+
   return (
-    <View style={styles.statusContainer}>
+    <TouchableOpacity style={styles.statusContainer} onPress={handleCardPress} activeOpacity={0.7}>
       {/* Status Row */}
       <View style={styles.statusRow}>
         {plantStatus ? (
@@ -86,7 +129,7 @@ const OrderItemCard = ({
           </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

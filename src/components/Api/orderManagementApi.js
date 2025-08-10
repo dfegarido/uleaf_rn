@@ -107,6 +107,66 @@ export const getBuyerOrdersApi = async (params = {}) => {
 };
 
 /**
+ * Get detailed information for a specific order
+ * @param {Object} params - Query parameters
+ * @param {string} params.orderId - Order ID (optional if transactionNumber provided)
+ * @param {string} params.transactionNumber - Transaction number (optional if orderId provided)
+ * @returns {Promise<Object>} Order detail response with comprehensive information and images
+ */
+export const getOrderDetailApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    if (!params.orderId && !params.transactionNumber) {
+      throw new Error('Either orderId or transactionNumber is required');
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (params.orderId) {
+      queryParams.append('orderId', params.orderId);
+    }
+    if (params.transactionNumber) {
+      queryParams.append('transactionNumber', params.transactionNumber);
+    }
+    
+    const url = `${API_ENDPOINTS.GET_ORDER_DETAIL}?${queryParams.toString()}`;
+    console.log('getOrderDetailApi - Making request to:', url);
+    console.log('getOrderDetailApi - With params:', params);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+
+    console.log('getOrderDetailApi - Response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.log('getOrderDetailApi - Error response:', errorData);
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log('getOrderDetailApi - Success response:', data);
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get order detail API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching order details',
+    };
+  }
+};
+
+/**
  * Update delivery status by transaction number
  * @param {Object} updateData - Update data
  * @param {string} updateData.transactionNumber - Transaction number
