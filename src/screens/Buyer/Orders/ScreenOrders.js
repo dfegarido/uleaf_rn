@@ -2,15 +2,17 @@ import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
-import {ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
+import {ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import {OrderItemCard} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {searchPlantsApi} from '../../../components/Api/listingBrowseApi';
+import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
 
 const OrdersHeader = ({activeTab, setActiveTab}) => {
@@ -259,70 +261,209 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
 
 const ScreenOrders = () => {
   const [activeTab, setActiveTab] = useState('Ready to Fly');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Different order items for each tab
-  const getOrderItems = tab => {
+  // Map tab names to order statuses
+  const getStatusForTab = (tab) => {
     switch (tab) {
       case 'Ready to Fly':
-        return Array.from({length: 10}).map((_, i) => ({
-          id: i,
-          status: 'Ready to Fly',
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Spinacia Oleracea',
-          subtitle: 'Inner Variegated • 2"',
-          price: '65.27',
-          flightInfo: 'Plant Flight May-30',
-          shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
-          flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
-        }));
-
+        return 'pending_payment'; // or 'confirmed', 'ready_to_ship', etc.
       case 'Plants are Home':
-        return Array.from({length: 8}).map((_, i) => ({
-          id: i + 100,
-          status: 'Plants are Home',
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Monstera Deliciosa',
-          subtitle: 'Variegated • 4"',
-          price: '89.99',
-          flightInfo: 'Delivered May-25',
-          shippingInfo: 'Successfully delivered to your home',
-          flagIcon: <Text style={{fontSize: 18}}>🇺🇸</Text>,
-          showRequestCredit: true,
-          requestDeadline: 'May-31 12:00 AM',
-        }));
-
+        return 'delivered';
       case 'Journey Mishap':
-        const plantStatuses = ['Damaged', 'Missing', 'Dead on Arrival'];
-        return Array.from({length: 6}).map((_, i) => ({
-          id: i + 200,
-          status: 'Journey Mission',
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Philodendron Brasil',
-          subtitle: 'Trailing • 6"',
-          price: '45.50',
-          flightInfo: 'In Transit - May-28',
-          shippingInfo: 'FedEx Ground - Expected delivery June-2',
-          flagIcon: <Text style={{fontSize: 18}}>🇧🇷</Text>,
-          plantStatus: plantStatuses[i % plantStatuses.length],
-          creditApproved: i % 3 === 0, // Show credit approved for every 3rd item
-        }));
-
+        return 'damaged'; // or 'missing', 'casualty', etc.
       default:
-        return [];
+        return null;
     }
   };
 
-  const orderItems = getOrderItems(activeTab);
+  // Load orders from API
+  const loadOrders = async (isRefresh = false) => {
+    try {
+      if (!isRefresh) {
+        setLoading(true);
+      }
+      setError(null);
+
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection');
+      }
+
+      const status = getStatusForTab(activeTab);
+      const params = {
+        limit: 20,
+        offset: 0,
+        ...(status && { status })
+      };
+
+      console.log('🔍 Loading orders for tab:', activeTab, 'with status:', status);
+      const response = await getBuyerOrdersApi(params);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load orders');
+      }
+
+      const ordersData = response.data?.data?.orders || [];
+      console.log('📦 Loaded orders:', ordersData.length);
+      
+      // Transform API data to component format
+      const transformedOrders = ordersData.map(order => transformOrderToComponentFormat(order, activeTab));
+      setOrders(transformedOrders);
+
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      setError(error.message);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      }
+    }
+  };
+
+  // Transform API order data to component expected format
+  const transformOrderToComponentFormat = (order, tab) => {
+    const product = order.products?.[0]; // Get first product for display
+    const plantDetails = product?.plantDetails;
+    
+    return {
+      status: getDisplayStatus(order.status, tab),
+      airCargoDate: order.cargoDateFormatted || 'TBD',
+      countryCode: getCountryCode(order),
+      flag: getCountryFlag(order),
+      image: plantDetails?.image ? { uri: plantDetails.image } : require('../../../assets/images/plant1.png'),
+      plantName: plantDetails?.title || product?.plantName || 'Unknown Plant',
+      variety: product?.variegation || 'Standard',
+      size: product?.potSize || '',
+      price: `$${(order.pricing?.finalTotal || 0).toFixed(2)}`,
+      quantity: product?.quantity || 1,
+      plantCode: product?.plantCode || '',
+      // Additional fields based on tab
+      ...(tab === 'Plants are Home' && {
+        showRequestCredit: true,
+        requestDeadline: getRequestDeadline(order)
+      }),
+      ...(tab === 'Journey Mishap' && {
+        plantStatus: getPlantStatus(order),
+        creditApproved: order.creditApproved || false
+      }),
+      // Add full order data for detailed view
+      fullOrderData: order
+    };
+  };
+
+  // Helper functions for display formatting
+  const getDisplayStatus = (status, tab) => {
+    switch (tab) {
+      case 'Ready to Fly':
+        return 'Ready to Fly';
+      case 'Plants are Home':
+        return 'Plants are Home';
+      case 'Journey Mishap':
+        return 'Journey Mishap';
+      default:
+        return status;
+    }
+  };
+
+  const getCountryCode = (order) => {
+    return order.products?.[0]?.supplierCode || 'US';
+  };
+
+  const getCountryFlag = (order) => {
+    const countryCode = getCountryCode(order);
+    const flagMap = {
+      'TH': ThailandFlag,
+      'US': ThailandFlag, // Use default flag for now
+      'BR': ThailandFlag,
+      'ID': ThailandFlag,
+      'NL': ThailandFlag
+    };
+    return flagMap[countryCode] || ThailandFlag;
+  };
+
+  const getRequestDeadline = (order) => {
+    if (order.deliveredDate) {
+      const deliveryDate = new Date(order.deliveredDate);
+      const deadline = new Date(deliveryDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      return deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' 12:00 AM';
+    }
+    return 'TBD';
+  };
+
+  const getPlantStatus = (order) => {
+    const statuses = ['Damaged', 'Missing', 'Dead on Arrival'];
+    return order.issueType || statuses[Math.floor(Math.random() * statuses.length)];
+  };
+
+  // Load orders when component mounts or tab changes
+  useEffect(() => {
+    loadOrders();
+  }, [activeTab]);
+
+  // Pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadOrders(true);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#10b981" />
+          <Text style={styles.loadingText}>Loading your orders...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       <ScrollView
         style={{flex: 1}}
-        contentContainerStyle={{paddingTop: 200, paddingHorizontal: 1}}>
-        {orderItems.map(item => (
-          <OrderItemCard key={item.id} {...item} />
-        ))}
+        contentContainerStyle={{paddingTop: 200, paddingHorizontal: 1}}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#10b981']}
+            tintColor="#10b981"
+          />
+        }>
+        
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Error: {error}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton} 
+              onPress={() => loadOrders()}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {orders.length === 0 && !error ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No orders found for {activeTab}</Text>
+            <Text style={styles.emptySubtext}>
+              {activeTab === 'Ready to Fly' && 'Your confirmed orders will appear here'}
+              {activeTab === 'Plants are Home' && 'Your delivered orders will appear here'}
+              {activeTab === 'Journey Mishap' && 'Any delivery issues will appear here'}
+            </Text>
+          </View>
+        ) : (
+          orders.map((item, index) => (
+            <OrderItemCard key={`${item.plantCode}_${index}`} {...item} />
+          ))
+        )}
         
         {/* Browse More Plants Component */}
         <BrowseMorePlants 
@@ -620,6 +761,66 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontFamily: 'Inter',
+  },
+  // Loading and error states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 200,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Inter',
+  },
+  errorContainer: {
+    margin: 16,
+    padding: 16,
+    backgroundColor: '#fef2f2',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#dc2626',
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+  retryButton: {
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontFamily: 'Inter',
+    textAlign: 'center',
   },
 });
 export default ScreenOrders;

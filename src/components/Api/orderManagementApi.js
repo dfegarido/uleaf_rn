@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Get orders with filters
@@ -74,7 +75,7 @@ export const getBuyerOrdersApi = async (params = {}) => {
     });
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerOrders?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_BUYER_ORDERS}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {

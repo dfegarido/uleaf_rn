@@ -615,14 +615,10 @@ const CheckoutScreen = () => {
                     {
                       text: 'Complete Payment',
                       onPress: () => {
-                        // Navigate to payment screen or open payment URL
-                        // For now, we'll navigate to a success screen
-                        navigation.navigate('PaymentScreen', {
-                          orderId: transactionNumber,
-                          paypalOrderId: paypalOrderId,
-                          approvalUrl: approvalUrl,
-                          orderSummary: orderSummary,
-                        });
+                        // TODO: Payment module integration pending
+                        // Currently redirecting to orders screen while waiting for payment module to be finished
+                        console.log('💳 Payment button clicked - redirecting to orders screen');
+                        navigation.navigate('Orders');
                       },
                     },
                   ],
