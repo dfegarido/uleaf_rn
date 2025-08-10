@@ -460,3 +460,79 @@ export const getCreditRequestDetailApi = async (params = {}) => {
     };
   }
 };
+
+/**
+ * Get Journey Mishap data from requestCredit collection linked with orders and listings
+ * This API fetches comprehensive data by joining requestCredit with orders and listings collections
+ * @param {Object} params - Query parameters
+ * @param {number} params.limit - Number of records to fetch (default: 20)
+ * @param {number} params.offset - Offset for pagination (default: 0)
+ * @param {string} params.status - Filter by credit request status (pending, approved, rejected)
+ * @param {string} params.issueType - Filter by issue type (missing, damaged, dead_on_arrival)
+ * @param {string} params.orderId - Filter by specific order ID
+ * @param {string} params.plantCode - Filter by specific plant code
+ * @param {string} params.startDate - Filter by request date range start
+ * @param {string} params.endDate - Filter by request date range end
+ * @returns {Promise<Object>} Journey Mishap data response with linked order and listing details
+ */
+export const getJourneyMishapDataApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    // Set default parameters
+    const defaultParams = {
+      limit: 20,
+      offset: 0,
+      includeOrderDetails: true,
+      includeListingDetails: true,
+      includePlantDetails: true,
+      ...params
+    };
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(defaultParams).forEach(key => {
+      if (defaultParams[key] !== undefined && defaultParams[key] !== null) {
+        queryParams.append(key, defaultParams[key].toString());
+      }
+    });
+    
+    console.log('🚀 Fetching Journey Mishap data with params:', defaultParams);
+    
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_JOURNEY_MISHAP_DATA}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log('✅ Journey Mishap data received:', {
+      totalRecords: data.data?.totalRecords || 0,
+      creditRequestsCount: data.data?.creditRequests?.length || 0,
+      hasOrderDetails: data.data?.creditRequests?.[0]?.orderDetails ? true : false,
+      hasListingDetails: data.data?.creditRequests?.[0]?.listingDetails ? true : false,
+    });
+    
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('❌ Get Journey Mishap data API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching Journey Mishap data',
+    };
+  }
+};

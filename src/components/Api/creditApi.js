@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Get credit transactions
@@ -195,6 +196,110 @@ export const getBuyerCreditBalanceApi = async (buyerId) => {
     return {
       success: false,
       error: error.message || 'An error occurred while fetching credit balance',
+    };
+  }
+};
+
+/**
+ * Get Journey Mishap Orders - Only Orders with Credit Requests
+ * @param {Object} params - Query parameters
+ * @param {string} params.status - Credit request status filter (optional)
+ * @param {number} params.limit - Number of orders to fetch
+ * @param {number} params.offset - Offset for pagination
+ * @returns {Promise<Object>} Journey mishap orders response
+ */
+export const getJourneyMishapOrdersApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
+    
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_JOURNEY_MISHAP_ORDERS}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get journey mishap orders API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching journey mishap orders',
+    };
+  }
+};
+
+/**
+ * Get Plants with Credit Requests for Journey Mishap
+ * @param {Object} params - Query parameters
+ * @param {string} params.orderId - Order ID (required)
+ * @returns {Promise<Object>} Plants with credit requests response
+ */
+export const getPlantsWithCreditRequestsApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    if (!params.orderId) {
+      throw new Error('orderId is required');
+    }
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
+    
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_PLANTS_WITH_CREDIT_REQUESTS}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get plants with credit requests API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching plants with credit requests',
     };
   }
 };

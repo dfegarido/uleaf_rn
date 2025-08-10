@@ -108,7 +108,13 @@ const ScreenRequestCredit = () => {
           [
             {
               text: 'OK',
-              onPress: () => navigation.goBack()
+              onPress: () => {
+                // Navigate back and trigger refresh
+                navigation.navigate('Orders', { 
+                  refreshData: true,
+                  timestamp: Date.now() // Force refresh with timestamp
+                });
+              }
             }
           ]
         );
@@ -251,7 +257,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
+    paddingTop: 16, // Reduced from 50 to 16
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#CDD3D4',

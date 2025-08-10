@@ -36,6 +36,21 @@ const OrderDetailsScreen = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   
+  // Helper function to get credit status badge color
+  const getCreditStatusBadgeStyle = (status) => {
+    switch (status) {
+      case 'approved':
+        return { backgroundColor: '#4CAF50' }; // Green for approved
+      case 'processed':
+        return { backgroundColor: '#23C16B' }; // Darker green for completed
+      case 'rejected':
+        return { backgroundColor: '#F44336' }; // Red for rejected
+      case 'pending':
+      default:
+        return { backgroundColor: '#48A7F8' }; // Blue for pending/requested
+    }
+  };
+  
   // Debug logging
   useEffect(() => {
     console.log('OrderDetailsScreen - Received orderData:', orderData);
@@ -108,6 +123,7 @@ const OrderDetailsScreen = () => {
       // Always try to fetch detailed data first if we have an identifier
       if (orderData && (orderData.id || orderData.transactionNumber || orderData.fullOrderData?.id || orderData.fullOrderData?.transactionNumber)) {
         try {
+          let response;
           const apiParams = {};
           
           // Determine the best identifier to use
@@ -122,7 +138,10 @@ const OrderDetailsScreen = () => {
           }
           
           console.log('Fetching order details with params:', apiParams);
-          const response = await getOrderDetailApi(apiParams);
+          
+          // Use same API for all tabs - getOrderDetailApi handles all order types
+          console.log('🔍 Using getOrderDetailApi for order details');
+          response = await getOrderDetailApi(apiParams);
           
           // Fix API response structure - it's response.data.data.order
           if (response.success && response.data?.data?.order) {
@@ -133,17 +152,18 @@ const OrderDetailsScreen = () => {
               hasCreditRequests: !!detailedOrder.creditRequests,
               creditRequestsLength: detailedOrder.creditRequests?.length || 0,
               creditRequestsData: detailedOrder.creditRequests,
-              allKeys: Object.keys(detailedOrder)
+              allKeys: Object.keys(detailedOrder),
+              activeTab: activeTab
             });
             
-            // Transform the comprehensive API data for the UI
+            // Transform the comprehensive API data for the UI based on active tab
             const transformedOrder = {
               // Order level data
               invoiceNumber: detailedOrder.transactionNumber || detailedOrder.id || 'N/A',
               plantFlight: detailedOrder.cargoDateFormatted || formatCargoDate(detailedOrder.cargoDate),
-              trackingNumber: detailedOrder.trackingNumber || 'Not Available',
+              trackingNumber: activeTab === 'Journey Mishap' ? 'Credit Request Tracking' : (detailedOrder.trackingNumber || 'Not Available'),
               orderDate: formatOrderDate(detailedOrder.orderDate) || formatOrderDate(detailedOrder.createdAt),
-              status: detailedOrder.status || 'Ready to Fly',
+              status: activeTab === 'Journey Mishap' ? 'Credit Requested' : (detailedOrder.status || 'Ready to Fly'),
               
               // Enhanced plant data from comprehensive API
               plant: detailedOrder.products?.[0] ? {
@@ -171,6 +191,11 @@ const OrderDetailsScreen = () => {
                 description: detailedOrder.products[0].plantDetails?.description || '',
                 careLevel: detailedOrder.products[0].plantDetails?.careLevel || '',
                 rarityLevel: detailedOrder.products[0].plantDetails?.rarityLevel || '',
+                // Journey Mishap specific credit data
+                ...(activeTab === 'Journey Mishap' && {
+                  creditRequests: detailedOrder.creditRequests || [],
+                  creditRequestStatus: detailedOrder.creditRequests?.[0]?.status || 'pending'
+                })
               } : {
                 image: require('../../../assets/images/plant1.png'),
                 code: 'N/A',
@@ -180,6 +205,10 @@ const OrderDetailsScreen = () => {
                 size: 'N/A',
                 price: '$0.00',
                 quantity: 1,
+                ...(activeTab === 'Journey Mishap' && {
+                  creditRequests: [],
+                  creditRequestStatus: 'pending'
+                })
               },
               
               // Enhanced delivery data
@@ -201,7 +230,14 @@ const OrderDetailsScreen = () => {
                 hasRequest: false,
                 requests: [],
                 latestRequest: null
-              }
+              },
+              
+              // Journey Mishap specific fields
+              ...(activeTab === 'Journey Mishap' && {
+                totalCreditRequests: detailedOrder.creditRequests?.length || 0,
+                creditRequests: detailedOrder.creditRequests || [],
+                hasActiveCreditRequests: detailedOrder.creditRequests?.length > 0
+              })
             };
             
             setOrder(transformedOrder);
@@ -599,7 +635,9 @@ const OrderDetailsScreen = () => {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading order details...</Text>
+          <Text style={styles.loadingText}>
+            Loading order details...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -630,9 +668,18 @@ const OrderDetailsScreen = () => {
               {getOrderTitle()}
             </Text>
             {/* Credit Status Badge - Only show for Journey Mishap */}
-            {activeTab === 'Journey Mishap' && (
-              <View style={styles.creditStatusBadge}>
-                <Text style={styles.creditStatusText}>Credit Completed</Text>
+            {activeTab === 'Journey Mishap' && order?.plant?.creditRequestStatus && (
+              <View style={[
+                styles.creditStatusBadge,
+                getCreditStatusBadgeStyle(order.plant.creditRequestStatus)
+              ]}>
+                <Text style={styles.creditStatusText}>
+                  {order.plant.creditRequestStatus === 'pending' ? 'Credit Requested' :
+                   order.plant.creditRequestStatus === 'approved' ? 'Credit Approved' :
+                   order.plant.creditRequestStatus === 'processed' ? 'Credit Completed' :
+                   order.plant.creditRequestStatus === 'rejected' ? 'Credit Rejected' :
+                   'Credit Requested'}
+                </Text>
               </View>
             )}
           </View>
@@ -640,7 +687,7 @@ const OrderDetailsScreen = () => {
           {/* Details */}
           <View style={styles.detailsContainer}>
             {/* Conditional first row based on activeTab */}
-            {activeTab === 'Journey Mishap' && (
+            {activeTab === 'Journey Mishap' && order?.plant?.creditRequests?.length > 0 && (
               <View style={styles.creditCompletedSection}>
                 <View style={styles.creditCompletedCard}>
                   <View style={styles.creditIcon}>
@@ -648,7 +695,15 @@ const OrderDetailsScreen = () => {
                   </View>
                   <View style={styles.creditLabel}>
                     <Text style={styles.creditLabelText}>
-                      Your credit request has been approved and processed successfully.
+                      {order.plant.creditRequestStatus === 'processed' ? 
+                        'Your credit request has been approved and processed successfully.' :
+                       order.plant.creditRequestStatus === 'approved' ?
+                        'Your credit request has been approved and is being processed.' :
+                       order.plant.creditRequestStatus === 'pending' ?
+                        `Credit request submitted for ${order.plant.creditRequests[0]?.issueType || 'plant issue'}. Review in progress.` :
+                       order.plant.creditRequestStatus === 'rejected' ?
+                        'Your credit request has been reviewed but was not approved.' :
+                        'Credit request is being reviewed.'}
                     </Text>
                   </View>
                 </View>
@@ -687,16 +742,17 @@ const OrderDetailsScreen = () => {
         </View>
 
         {/* Plant List */}
-        <View style={styles.plantList}>
-          <View style={styles.plantContainer}>
-            <View style={styles.plantCard}>
-              {/* Plant Image */}
-              <View style={styles.imageContainer}>
-                <Image source={order.plant.image} style={styles.plantImage} resizeMode="cover" />
-              </View>
+        {order.plant ? (
+          <View style={styles.plantList}>
+            <View style={styles.plantContainer}>
+              <View style={styles.plantCard}>
+                {/* Plant Image */}
+                <View style={styles.imageContainer}>
+                  <Image source={order.plant.image} style={styles.plantImage} resizeMode="cover" />
+                </View>
 
-              {/* Plant Details */}
-              <View style={styles.plantDetails}>
+                {/* Plant Details */}
+                <View style={styles.plantDetails}>
                 {/* Name Section */}
                 <View style={styles.nameSection}>
                   {/* Code + Country */}
@@ -709,7 +765,6 @@ const OrderDetailsScreen = () => {
                     </View>
                     <View style={styles.countrySection}>
                       <Text style={styles.countryText}>{order.plant.country}</Text>
-                      {renderCountryFlag(order.plant.country)}
                     </View>
                   </View>
 
@@ -797,7 +852,20 @@ const OrderDetailsScreen = () => {
               </View>
             </View>
           </View>
-        </View>
+          </View>
+        ) : (
+          // Show error message when plant data is not available
+          <View style={styles.plantList}>
+            <View style={styles.plantContainer}>
+              <View style={styles.errorCard}>
+                <Text style={styles.errorTitle}>Plant Details Unavailable</Text>
+                <Text style={styles.errorMessage}>
+                  Unable to load plant information. Please check your connection and try again.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Shipping Details */}
         <View style={styles.shippingDetails}>
@@ -815,7 +883,9 @@ const OrderDetailsScreen = () => {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Plant Price</Text>
                   <View style={styles.detailValueSimple}>
-                    <Text style={styles.plantPriceText}>{order.plant.price}</Text>
+                    <Text style={styles.plantPriceText}>
+                      {order.plant?.price || 'N/A'}
+                    </Text>
                   </View>
                 </View>
                 {/* Shipping Cost */}
@@ -989,7 +1059,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     height: 28,
     minHeight: 28,
-    backgroundColor: '#23C16B',
     borderRadius: 8,
   },
   creditStatusText: {
@@ -1532,6 +1601,44 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 48,
     borderRadius: 12,
+  },
+
+  // Error States
+  errorCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorTitle: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#E7522F',
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#647276',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#539461',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#FFFFFF',
   },
 });
 
