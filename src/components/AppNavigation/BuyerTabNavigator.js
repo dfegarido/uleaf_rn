@@ -46,6 +46,7 @@ import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selecte
 import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
+
 import {ScreenOrders} from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();

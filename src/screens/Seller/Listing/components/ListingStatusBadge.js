@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#23C16B',
   },
   inactive: {
-    backgroundColor: '#FFB323',
+    backgroundColor: '#E7522F',
   },
   scheduled: {
     backgroundColor: '#48A7F8',

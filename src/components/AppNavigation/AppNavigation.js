@@ -94,6 +94,7 @@ import {
 } from '../../screens/BuyerSignup';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
+import AdminTabNavigator from './AdminTabNavigator';
 import ScreenRequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 
 const Stack = createNativeStackNavigator();
@@ -168,6 +169,11 @@ const AuthStack = () => {
       <Stack.Screen
         name="BuyerTabs"
         component={BuyerTabNavigator}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+      <Stack.Screen
+        name="AdminTabs"
+        component={AdminTabNavigator}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
       <Stack.Screen
@@ -895,7 +901,7 @@ const AppNavigation = () => {
     <NavigationContainer>
       {isLoggedIn ? (
         isBuyer ? (
-          <BuyerTabNavigator />
+          <BuyerTabNavigator  />
         ) : (
           <MainStack />
         )

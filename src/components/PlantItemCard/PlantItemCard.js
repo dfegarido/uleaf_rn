@@ -326,9 +326,9 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   price: {
-    fontWeight: 'bold',
+    fontWeight: '500',
     fontSize: 18,
-    color: '#539461',
+    color: '#23C16B',
   },
   oldPrice: {
     fontSize: 14,
