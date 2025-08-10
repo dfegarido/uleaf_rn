@@ -84,6 +84,7 @@ const PlantItemCard = ({
   const displayPrice = data ? 
     (plantData.usdPriceNew ? `$${plantData.usdPriceNew}` : 
      plantData.usdPrice ? `$${plantData.usdPrice}` : 
+     plantData.finalPrice ? `$${plantData.finalPrice}` :
      plantData.localPriceNew ? `${plantData.localCurrencySymbol || '$'}${plantData.localPriceNew}` :
      plantData.localPrice ? `${plantData.localCurrencySymbol || '$'}${plantData.localPrice}` : 
      'Price N/A') :
