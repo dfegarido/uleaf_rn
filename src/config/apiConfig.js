@@ -44,6 +44,18 @@ export const API_ENDPOINTS = {
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
   
+  // Order APIs
+  GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
+  GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
+  
+  // Credit Request APIs
+  REQUEST_CREDIT: `${getBaseUrl()}/requestCredit`,
+  GET_BUYER_CREDIT_REQUESTS: `${getBaseUrl()}/getBuyerCreditRequests`,
+  GET_CREDIT_REQUEST_DETAIL: `${getBaseUrl()}/getCreditRequestDetail`,
+  GET_JOURNEY_MISHAP_ORDERS: `${getBaseUrl()}/getJourneyMishapOrders`,
+  GET_PLANTS_WITH_CREDIT_REQUESTS: `${getBaseUrl()}/getPlantsWithCreditRequests`,
+  GET_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getJourneyMishapData`,
+  
   // Dropdown APIs
   GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,
   GET_ALL_PLANT_GENUS: `${getBaseUrl()}/getAllPlantGenus`,

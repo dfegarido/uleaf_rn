@@ -54,6 +54,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingVertical: 8,
+    color: '#000', // Force black text color
   },
 });
 
