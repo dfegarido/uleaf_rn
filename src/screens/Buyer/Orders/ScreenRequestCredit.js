@@ -6,25 +6,122 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import {requestCreditApi} from '../../../components/Api/orderManagementApi';
+import {useAuth} from '../../../auth/AuthProvider';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import LiveIcon from '../../../assets/icontabs/buyer-tabs/live-solid.svg';
 import ImageIcon from '../../../assets/iconchat/image.svg';
 
 const ScreenRequestCredit = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  const { user, isLoggedIn } = useAuth();
+  
+  // Get order data from navigation params
+  const { orderData, plantCode, orderId, transactionNumber } = route.params || {};
+  
+  // Debug logging
+  console.log('ScreenRequestCredit - Received params:', {
+    orderData: orderData ? 'Present' : 'Missing',
+    plantCode: plantCode ? plantCode : 'Missing',
+    orderId: orderId ? orderId : 'Missing',
+    transactionNumber: transactionNumber ? transactionNumber : 'Missing',
+    orderDataKeys: orderData ? Object.keys(orderData) : [],
+    fullParams: route.params
+  });
+  
   const [selectedIssue, setSelectedIssue] = useState('Missing');
   const [description, setDescription] = useState('');
   const [contentHeight, setContentHeight] = useState(120);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleSubmit = () => {
-  
-    console.log('Submit request:', {selectedIssue, description});
+  const handleSubmit = async () => {
+    console.log('handleSubmit called with:', { orderData, plantCode, orderId, transactionNumber, isLoggedIn, user });
+    
+    if (!isLoggedIn || !user) {
+      Alert.alert('Error', 'Please log in to submit a credit request');
+      return;
+    }
+
+    // Try to get order information with multiple fallbacks
+    let finalOrderId = null;
+    let finalPlantCode = plantCode;
+
+    if (orderData) {
+      finalOrderId = orderData.id || 
+                     orderData.transactionNumber || 
+                     orderData.fullOrderData?.id || 
+                     orderData.fullOrderData?.transactionNumber ||
+                     orderId ||
+                     transactionNumber;
+      
+      // Also try to get plantCode from orderData if not provided
+      if (!finalPlantCode) {
+        finalPlantCode = orderData.plantCode || 
+                        orderData.fullOrderData?.plantCode ||
+                        orderData.plantDetails?.plantCode;
+      }
+    } else {
+      // Use fallback parameters
+      finalOrderId = orderId || transactionNumber;
+    }
+
+    if (!finalOrderId) {
+      console.error('Cannot determine order ID:', { orderData, orderId, transactionNumber, routeParams: route.params });
+      Alert.alert('Error', 'Order information is missing. Please go back and try again.');
+      return;
+    }
+
+    if (!finalPlantCode) {
+      console.error('Plant code is missing:', { plantCode, orderData, routeParams: route.params });
+      Alert.alert('Error', 'Plant information is missing. Please go back and try again.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const requestParams = {
+        orderId: finalOrderId,
+        plantCode: finalPlantCode,
+        issueType: selectedIssue,
+        description: description.trim(),
+        attachments: [], // TODO: Implement attachment handling
+      };
+
+      console.log('Submitting credit request:', requestParams);
+
+      const response = await requestCreditApi(requestParams);
+
+      if (response.success) {
+        Alert.alert(
+          'Success',
+          'Your credit request has been submitted successfully. We will review it within 2-3 business days.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', response.error || 'Failed to submit credit request');
+      }
+
+    } catch (error) {
+      console.error('Error submitting credit request:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -126,8 +223,18 @@ const ScreenRequestCredit = () => {
 
       {/* Submit Button */}
       <View style={styles.submitContainer}>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit Request</Text>
+        <TouchableOpacity 
+          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} 
+          onPress={handleSubmit}
+          disabled={isSubmitting}>
+          {isSubmitting ? (
+            <View style={styles.submitButtonContent}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.submitButtonText}>Submitting...</Text>
+            </View>
+          ) : (
+            <Text style={styles.submitButtonText}>Submit Request</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -255,6 +362,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#A5D6A7',
+  },
+  submitButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   submitButtonText: {
     color: '#FFFFFF',

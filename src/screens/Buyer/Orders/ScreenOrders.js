@@ -347,7 +347,8 @@ const ScreenOrders = () => {
       // Additional fields based on tab
       ...(tab === 'Plants are Home' && {
         showRequestCredit: true,
-        requestDeadline: getRequestDeadline(order)
+        requestDeadline: getRequestDeadline(order),
+        creditRequestStatus: product?.creditRequestStatus // Pass the credit request status from API
       }),
       ...(tab === 'Journey Mishap' && {
         plantStatus: getPlantStatus(order),

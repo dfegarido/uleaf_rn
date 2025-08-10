@@ -124,9 +124,17 @@ const OrderDetailsScreen = () => {
           console.log('Fetching order details with params:', apiParams);
           const response = await getOrderDetailApi(apiParams);
           
-          if (response.success && response.data?.order) {
-            const detailedOrder = response.data.order;
-            console.log('Successfully fetched detailed order:', detailedOrder);
+          // Fix API response structure - it's response.data.data.order
+          if (response.success && response.data?.data?.order) {
+            const detailedOrder = response.data.data.order;
+            console.log('✅ Successfully fetched detailed order:', {
+              id: detailedOrder.id,
+              transactionNumber: detailedOrder.transactionNumber,
+              hasCreditRequests: !!detailedOrder.creditRequests,
+              creditRequestsLength: detailedOrder.creditRequests?.length || 0,
+              creditRequestsData: detailedOrder.creditRequests,
+              allKeys: Object.keys(detailedOrder)
+            });
             
             // Transform the comprehensive API data for the UI
             const transformedOrder = {
@@ -186,10 +194,18 @@ const OrderDetailsScreen = () => {
                           'Unknown Supplier',
               
               // Store the full detailed order for future use
-              _fullDetailedOrder: detailedOrder
+              _fullDetailedOrder: detailedOrder,
+              
+              // Add credit request status from the detailed order
+              creditRequestStatus: detailedOrder.products?.[0]?.creditRequestStatus || {
+                hasRequest: false,
+                requests: [],
+                latestRequest: null
+              }
             };
             
             setOrder(transformedOrder);
+            setLoading(false);
             return;
           } else {
             console.log('API call succeeded but no order data returned:', response);
@@ -257,9 +273,17 @@ const OrderDetailsScreen = () => {
         
         // Supplier info
         supplierName: plantDetails?.supplierName || realOrder.supplierName || 'Unknown Supplier',
+        
+        // Add credit request status from product if available
+        creditRequestStatus: product?.creditRequestStatus || {
+          hasRequest: false,
+          requests: [],
+          latestRequest: null
+        }
       };
       
       setOrder(transformedOrder);
+      setLoading(false);
     } else if (orderData) {
       // Use legacy format data
       setOrder({
@@ -291,7 +315,13 @@ const OrderDetailsScreen = () => {
         paymentMethod: 'PayPal',
         paymentStatus: 'completed',
         supplierName: 'Thailand Supplier',
+        creditRequestStatus: {
+          hasRequest: false,
+          requests: [],
+          latestRequest: null
+        }
       });
+      setLoading(false);
     } else {
       // Default mock data
       setOrder({
@@ -323,6 +353,13 @@ const OrderDetailsScreen = () => {
         paymentMethod: 'PayPal',
         paymentStatus: 'completed',
         supplierName: 'Thailand Supplier',
+        
+        // Default credit request status
+        creditRequestStatus: {
+          hasRequest: false,
+          requests: [],
+          latestRequest: null
+        }
       });
     }
     
@@ -701,12 +738,60 @@ const OrderDetailsScreen = () => {
                 {/* Request Credit Button - Only show for Plants are Home */}
                 {activeTab === 'Plants are Home' && (
                   <View style={styles.requestCreditContainer}>
-                    <TouchableOpacity style={styles.requestCreditButton}>
-                      <Text style={styles.requestCreditText}>Request Credit</Text>
+                    <TouchableOpacity 
+                      style={[
+                        styles.requestCreditButton,
+                        order?.creditRequestStatus?.hasRequest && styles.requestCreditButtonDisabled
+                      ]}
+                      onPress={() => {
+                        // Prevent action if request already exists
+                        if (order?.creditRequestStatus?.hasRequest) {
+                          Alert.alert(
+                            'Credit Already Requested',
+                            'A credit request has already been submitted for this plant.',
+                            [{ text: 'OK' }]
+                          );
+                          return;
+                        }
+
+                        console.log('🚀 Credit request button pressed!');
+                        console.log('Current activeTab:', activeTab);
+                        console.log('Order object structure:', {
+                          order: order ? 'Present' : 'Missing',
+                          orderKeys: order ? Object.keys(order) : [],
+                          orderData: orderData ? 'Present' : 'Missing',
+                          orderDataKeys: orderData ? Object.keys(orderData) : [],
+                          fullDetailedOrder: order?._fullDetailedOrder ? 'Present' : 'Missing',
+                          plantCode: order?.plant?.code,
+                          invoiceNumber: order?.invoiceNumber
+                        });
+                        
+                        const navigationData = {
+                          orderData: order._fullDetailedOrder || orderData || order,
+                          plantCode: order.plant.code,
+                          // Also pass some backup identifiers
+                          orderId: order.invoiceNumber || order._fullDetailedOrder?.id || orderData?.id,
+                          transactionNumber: order.invoiceNumber || order._fullDetailedOrder?.transactionNumber || orderData?.transactionNumber
+                        };
+                        
+                        console.log('📤 Navigation data being sent:', navigationData);
+                        
+                        navigation.navigate('ScreenRequestCredit', navigationData);
+                      }}
+                      disabled={order?.creditRequestStatus?.hasRequest}
+                    >
+                      <Text style={[
+                        styles.requestCreditText,
+                        order?.creditRequestStatus?.hasRequest && styles.requestCreditTextDisabled
+                      ]}>
+                        {order?.creditRequestStatus?.hasRequest ? 'Credit Requested' : 'Request Credit'}
+                      </Text>
                     </TouchableOpacity>
-                    <Text style={styles.requestCreditSubtext}>
-                      If there's an issue with your plant, request credit by May-31 12:00 AM
-                    </Text>
+                    {!order?.creditRequestStatus?.hasRequest && (
+                      <Text style={styles.requestCreditSubtext}>
+                        If there's an issue with your plant, request credit by May-31 12:00 AM
+                      </Text>
+                    )}
                   </View>
                 )}
               </View>
@@ -1172,12 +1257,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 156,
   },
+  requestCreditButtonDisabled: {
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+  },
   requestCreditText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 16,
     lineHeight: 16,
     color: '#539461',
+  },
+  requestCreditTextDisabled: {
+    color: '#CDD3D4',
   },
   requestCreditSubtext: {
     fontFamily: 'Inter',

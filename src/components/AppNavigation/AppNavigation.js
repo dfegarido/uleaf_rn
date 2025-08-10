@@ -94,6 +94,7 @@ import {
 } from '../../screens/BuyerSignup';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
+import ScreenRequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -386,6 +387,11 @@ const AuthStack = () => {
           },
           headerShadowVisible: false,
         })}
+      />
+      <Stack.Screen
+        name="ScreenRequestCredit"
+        component={ScreenRequestCredit}
+        options={{headerShown: false}}
       />
     </Stack.Navigator>
   );

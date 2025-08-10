@@ -23,11 +23,42 @@ const OrderItemCard = ({
   creditApproved = false,
   fullOrderData = null, // Full order data for navigation
   activeTab = null, // Active tab from parent screen
+  creditRequestStatus = null, // Credit request status for this specific plant
 }) => {
   const navigation = useNavigation();
 
+  // Check if a credit request has been submitted for this specific plant
+  // Use the new creditRequestStatus prop if available, otherwise fallback to checking fullOrderData
+  const hasCreditRequest = creditRequestStatus?.hasRequest || 
+    fullOrderData?.creditRequests?.some((req) => req.plantCode === plantCode);
+
   const handleRequestCredit = () => {
-    navigation.navigate('ScreenRequestCredit');
+    // Prevent action if a request has already been made
+    if (hasCreditRequest) {
+      console.log('Credit request already submitted for this item.');
+      return;
+    }
+
+    console.log('🏷️ OrderItemCard - Request Credit button pressed');
+    console.log('Available data:', {
+      fullOrderData: fullOrderData ? 'Present' : 'Missing',
+      fullOrderDataKeys: fullOrderData ? Object.keys(fullOrderData) : [],
+      plantCode: plantCode,
+      activeTab: activeTab
+    });
+
+    // Create navigation data similar to OrderDetailsScreen
+    const navigationData = {
+      orderData: fullOrderData,
+      plantCode: plantCode,
+      // Also pass some backup identifiers
+      orderId: fullOrderData?.id || fullOrderData?.transactionNumber,
+      transactionNumber: fullOrderData?.transactionNumber || fullOrderData?.id
+    };
+
+    console.log('📤 OrderItemCard - Navigation data being sent:', navigationData);
+    
+    navigation.navigate('ScreenRequestCredit', navigationData);
   };
 
   const handleCardPress = () => {
@@ -117,13 +148,25 @@ const OrderItemCard = ({
             {showRequestCredit && (
               <View style={styles.requestCreditContainer}>
                 <TouchableOpacity
-                  style={styles.requestCreditButton}
-                  onPress={handleRequestCredit}>
-                  <Text style={styles.requestCreditText}>Request Credit</Text>
+                  style={[
+                    styles.requestCreditButton,
+                    hasCreditRequest && styles.requestCreditButtonDisabled
+                  ]}
+                  onPress={handleRequestCredit}
+                  disabled={hasCreditRequest}
+                >
+                  <Text style={[
+                    styles.requestCreditText,
+                    hasCreditRequest && styles.requestCreditTextDisabled
+                  ]}>
+                    Request Credit
+                  </Text>
                 </TouchableOpacity>
-                <Text style={styles.requestDeadline}>
-                  Request by {requestDeadline}
-                </Text>
+                {!hasCreditRequest && (
+                  <Text style={styles.requestDeadline}>
+                    Request by {requestDeadline}
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -200,7 +243,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 8,
     padding: 12,
-    height: 160,
+    minHeight: 180, // Increased to accommodate larger button
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -209,19 +252,20 @@ const styles = StyleSheet.create({
   },
   contentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Changed from 'center' to 'flex-start'
     borderRadius: 12,
     padding: 8,
   },
   plantImage: {
-    width: 96,
-    height: 128,
+    width: 80, // Reduced width
+    height: 100, // Reduced height
     borderRadius: 8,
     marginRight: 12,
   },
   infoCol: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Changed from 'center' to 'flex-start'
+    paddingLeft: 8, // Add some padding to separate from image
   },
   plantName: {
     fontWeight: 'bold',
@@ -250,26 +294,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   requestCreditContainer: {
-    marginTop: 8,
+    marginTop: 12, // Increased margin for better spacing
     alignItems: 'flex-end',
+    width: '100%', // Ensure full width
   },
   requestCreditButton: {
-    borderWidth: 1,
-    borderColor: '#4CAF50',
-    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12, // Changed back to 12px as per CSS
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'transparent',
+    width: 156, // Fixed width as per CSS
+    height: 48, // Changed back to 48px as per CSS
+    minHeight: 48,
+    borderWidth: 2,
+    borderColor: '#539461', // Green border color for active state
+    borderRadius: 12,
+  },
+  requestCreditButtonDisabled: {
+    borderColor: '#CDD3D4', // Disabled border color
+    backgroundColor: '#FFFFFF', // Disabled background
   },
   requestCreditText: {
-    color: '#4CAF50',
-    fontSize: 14,
+    fontFamily: 'Inter',
     fontWeight: '600',
+    fontSize: 16, // Changed back to 16px as per CSS
+    lineHeight: 16,
+    color: '#539461', // Green text color for active state
+  },
+  requestCreditTextDisabled: {
+    color: '#CDD3D4', // Disabled text color
   },
   requestDeadline: {
-    fontSize: 12,
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 12, // Reduced font size
+    lineHeight: 16, // Reduced line height
     color: '#647276',
-    marginTop: 4,
+    textAlign: 'right',
+    marginTop: 6, // Reduced margin
   },
 });
 

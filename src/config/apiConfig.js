@@ -46,6 +46,12 @@ export const API_ENDPOINTS = {
   
   // Order APIs
   GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
+  GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
+  
+  // Credit Request APIs
+  REQUEST_CREDIT: `${getBaseUrl()}/requestCredit`,
+  GET_BUYER_CREDIT_REQUESTS: `${getBaseUrl()}/getBuyerCreditRequests`,
+  GET_CREDIT_REQUEST_DETAIL: `${getBaseUrl()}/getCreditRequestDetail`,
   
   // Dropdown APIs
   GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,

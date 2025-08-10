@@ -312,3 +312,151 @@ export const excelGeneratorApi = async (params = {}) => {
     };
   }
 };
+
+/**
+ * Request credit for plant issues
+ * @param {Object} params - Credit request parameters
+ * @param {string} params.orderId - Order ID
+ * @param {string} params.plantCode - Plant code
+ * @param {string} params.issueType - Type of issue (Missing, Dead on Arrival, Damaged)
+ * @param {string} params.description - Optional description of the issue
+ * @param {Array} params.attachments - Optional attachments (images/videos)
+ * @returns {Promise<Object>} Credit request response
+ */
+export const requestCreditApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    console.log('🔍 Requesting credit with params:', params);
+
+    const response = await fetch(API_ENDPOINTS.REQUEST_CREDIT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log('✅ Credit request successful:', data);
+    
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('❌ Request credit API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while requesting credit',
+    };
+  }
+};
+
+/**
+ * Get buyer credit requests
+ * @param {Object} params - Query parameters
+ * @param {string} params.status - Filter by status (optional)
+ * @param {number} params.limit - Number of requests to fetch
+ * @param {number} params.offset - Offset for pagination
+ * @returns {Promise<Object>} Credit requests response
+ */
+export const getBuyerCreditRequestsApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
+    
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_BUYER_CREDIT_REQUESTS}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get buyer credit requests API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching credit requests',
+    };
+  }
+};
+
+/**
+ * Get credit request details
+ * @param {Object} params - Query parameters
+ * @param {string} params.requestId - Credit request ID
+ * @returns {Promise<Object>} Credit request details response
+ */
+export const getCreditRequestDetailApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
+    
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_CREDIT_REQUEST_DETAIL}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get credit request detail API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching credit request details',
+    };
+  }
+};
