@@ -1,32 +1,34 @@
-import React, {useState, useEffect, useMemo} from 'react';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   Alert,
-  SafeAreaView,
   Image,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
-import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import { setupURLPolyfill } from "react-native-url-polyfill";
+import { paymentPaypalVenmoUrl } from '../../../../config';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
-import {getAddressBookEntriesApi} from '../../../components/Api';
+import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
+import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
+import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import TruckBlueIcon from '../../../assets/buyer-icons/truck-blue.svg';
+import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import TagIcon from '../../../assets/icons/greylight/tag.svg';
-import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
-import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
-import TruckBlueIcon from '../../../assets/buyer-icons/truck-blue.svg';
+import { getAddressBookEntriesApi } from '../../../components/Api';
+import { checkoutApi } from '../../../components/Api/checkoutApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import {checkoutApi} from '../../../components/Api/checkoutApi';
-import {globalStyles} from '../../../assets/styles/styles';
-import {formatCurrencyFull} from '../../../utils/formatCurrency';
+import { formatCurrencyFull } from '../../../utils/formatCurrency';
 
 // Function to render the correct country flag
 const renderCountryFlag = (country) => {
@@ -149,6 +151,7 @@ const PlantItemComponent = ({
 const CheckoutScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  setupURLPolyfill();
   
   // Get parameters from navigation (cart items, products, etc.)
   const {
@@ -501,6 +504,40 @@ const CheckoutScreen = () => {
     }
   }, [fromBuyNow, plantData]);
 
+  useEffect(() => {
+    // Handle when app is opened from deep link
+    const handleUrl = (event) => {
+      const url = event.url;
+
+      if (url.startsWith("ileafu://payment-success")) {
+        Alert.alert("Payment Success", "Order completed successfully!",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                navigation.navigate('Orders');
+              }
+            }
+          ],
+          { cancelable: false }
+        );
+        navigation.navigate('Orders');
+      }
+    };
+
+    // Listen to incoming links
+    const subscription = Linking.addEventListener("url", handleUrl);
+
+    // Check if app was opened from a link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl({ url });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   const handleCheckout = async () => {
     try {
       setLoading(true);
@@ -606,7 +643,7 @@ const CheckoutScreen = () => {
               const result = await checkoutApi(orderData);
               
               if (result.success) {
-                const {transactionNumber, paypalOrderId, approvalUrl} = result.data;
+                const {transactionNumber, paypalOrderId, approvalUrl, orderId} = result.data;
                 
                 Alert.alert(
                   'Order Created Successfully!',
@@ -618,7 +655,7 @@ const CheckoutScreen = () => {
                         // TODO: Payment module integration pending
                         // Currently redirecting to orders screen while waiting for payment module to be finished
                         console.log('💳 Payment button clicked - redirecting to orders screen');
-                        navigation.navigate('Orders');
+                        Linking.openURL(`${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${orderId}`);
                       },
                     },
                   ],
