@@ -901,7 +901,7 @@ const AppNavigation = () => {
     <NavigationContainer>
       {isLoggedIn ? (
         isBuyer ? (
-          <AdminTabNavigator  />
+          <BuyerTabNavigator  />
         ) : (
           <MainStack />
         )
