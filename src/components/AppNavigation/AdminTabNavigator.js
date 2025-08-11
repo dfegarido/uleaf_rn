@@ -16,13 +16,15 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
 import HomeIcon from '../../assets/icontabs/home.svg';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
-import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
+import UserManagement from '../../screens/Admin/Home/UserManagement';
 import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
 import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
 import EnrollAdmin from '../../screens/Admin/LeafTrail/EnrollAdmin';
-import UserInformation from '../../screens/Admin/LeafTrail/UserInformation';
+import UserInformation from '../../screens/Admin/Home/UserInformation';
 import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
+import ScanQR from '../../screens/Admin/Home/ScanQR';
+import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
 
 
 const Tab = createBottomTabNavigator();
@@ -141,6 +143,8 @@ function AdminTabs() {
      <Stack.Screen name="EnrollAdmin" options={{headerShown: false}} component={EnrollAdmin} />
      <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
+     <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
+      <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
       </Stack.Navigator>
     );
   }
