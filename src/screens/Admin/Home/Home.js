@@ -22,6 +22,9 @@ import PackingIcon from '../../../assets/admin-icons/packing.svg';
 import ForShippingIcon from '../../../assets/admin-icons/for-shipping.svg';
 import ShippedIcon from '../../../assets/admin-icons/shipped.svg';
 import LiveIcon from '../../../assets/admin-icons/live-icon.svg';
+import UserInformation from './UserInformation';
+import UserManagement from './UserManagement';
+
 
 const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}}) => {
   const {userInfo} = useAuth();
@@ -85,7 +88,7 @@ const BusinessPerformance = () => {
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Leaf Trail / Greenhouse</Text>
 
         <View style={styles.grid}>
-          <IconTile title="Scan QR">
+          <IconTile title="Scan QR" onPress={() => navigation.navigate('ScanQR')}>
             <ScanQrIcon width={48} height={48} />
           </IconTile>
           <IconTile title="Receiving">
@@ -108,9 +111,9 @@ const BusinessPerformance = () => {
     );
   };
   
-  const IconTile = ({title, children}) => {
+  const IconTile = ({title, children, onPress}) => {
     return (
-      <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile]}> 
+      <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile]} onPress={onPress}> 
         {children}
         <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>{title}</Text>
       </TouchableOpacity>
@@ -118,6 +121,8 @@ const BusinessPerformance = () => {
   };
   
   const BehindTheJungle = () => {
+    const navigation = useNavigation();
+  
     return (
       <View style={[styles.sectionContainer, {paddingTop: 24}]}> 
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Behind the Jungle</Text>
@@ -135,7 +140,7 @@ const BusinessPerformance = () => {
           <IconTile title="Jungle Acces...">
             <JungleAccessIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="User Mgmt">
+          <IconTile title="User Mgmt" onPress={() => navigation.navigate('UserManagement')}>
             <UserManagementIcon width={48} height={48} />
           </IconTile>
           <IconTile title="Taxonomy">
