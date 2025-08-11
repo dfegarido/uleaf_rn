@@ -853,7 +853,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                           selectedPotSize === potSize && styles.modalSelectedPotSizeImage
                         ]}>
                           <Image
-                            source={require('../../../assets/buyer-icons/png/ficus-lyrata.png')}
+                            source={imageSource}
                             style={styles.modalPotImage}
                           />
                         </View>
@@ -1187,7 +1187,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   },
   potSizeCards: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Align to left instead of center
     alignItems: 'flex-start',
     gap: 12,
     width: 188,
@@ -1490,18 +1490,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
   recommendationGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around', // Equal spacing around each item
+    justifyContent: 'space-between', // Consistent spacing between columns
     alignItems: 'flex-start',
     marginTop: 16,
-    paddingHorizontal: 0,
+    paddingHorizontal: 12, // Small horizontal padding for container
   },
   recommendationCard: {
-    // Equal width for two columns with equal spacing
-    width: '45%', // 45% width for each card with 10% total for spacing
+    // Equal width for two columns with consistent spacing
+    width: '48%', // 48% width for each card allows for proper 2-column layout
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
     flexDirection: 'column',
     alignItems: 'center',
+    alignSelf: 'flex-start', // Prevent vertical stretching
     padding: 0,
   },
   noRecommendationsContainer: {
@@ -1683,7 +1684,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   },
   potSizeCards: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Align to left instead of center
     alignItems: 'flex-start',
     gap: 12,
     width: 188,
@@ -1734,7 +1735,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   },
   modalPotSizeCards: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Align to left instead of center
     alignItems: 'flex-start',
     gap: 12,
     width: 188,
