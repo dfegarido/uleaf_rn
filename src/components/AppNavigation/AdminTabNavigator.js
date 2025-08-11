@@ -1,0 +1,170 @@
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
+import CartIconSelected from '../../assets/icontabs/buyer-tabs/cart-icon-selected.svg';
+import CartIcon from '../../assets/icontabs/buyer-tabs/cart-solid.svg';
+import ChatIconSelected from '../../assets/icontabs/buyer-tabs/chat-icon-selected.svg';
+import ChatIcon from '../../assets/icontabs/buyer-tabs/chat-solid.svg';
+import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selected.svg';
+import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
+import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
+import OrderIcon from '../../assets/icontabs/order.svg';
+import  AdminHomeScreen  from '../../screens/Admin/Home/Home';
+import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
+import HomeIcon from '../../assets/icontabs/home.svg';
+import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+import UserManagement from '../../screens/Admin/Home/UserManagement';
+import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
+import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
+import EnrollAdmin from '../../screens/Admin/LeafTrail/EnrollAdmin';
+import UserInformation from '../../screens/Admin/Home/UserInformation';
+import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
+import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
+import ScanQR from '../../screens/Admin/Home/ScanQR';
+import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
+
+
+const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
+
+
+
+function AdminTabs() {
+    const navigation = useNavigation();
+    return (
+      <Tab.Navigator
+        initialRouteName="Home"
+        screenOptions={({route}) => ({
+          tabBarStyle: styles.tabBar,
+          tabBarActiveTintColor: '#539461',
+          tabBarLabel: ({focused, color}) => {
+            let labelStyle = focused
+              ? styles.focusedLabel
+              : styles.unfocusedLabel;
+            return (
+              <Text style={[{color}, labelStyle, styles.customLabel]}>
+                {route.name}
+              </Text>
+            );
+          },
+          tabBarIcon: ({color, size, focused}) => {
+            switch (route.name) {
+              case 'Home':
+                return focused ? (
+                  <HomeIconSelected width={size} height={size} />
+                ) : (
+                  <HomeIcon width={size} height={size} />
+                );
+              case 'Live Setup':
+                return focused ? (
+                  <LiveIconSelected width={size} height={size} />
+                ) : (
+                  <LiveIcon width={size} height={size} />
+                );
+              case 'Leaf Trail':
+                return (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      bottom: 3,
+                      width: 70,
+                      height: 70,
+                      backgroundColor: 'transparent',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      shadowColor: '#000',
+                    }}>
+                    <BuyerIcon width={80} height={80} />
+                  </View>
+                );
+              case 'Taxonomy':
+                return focused ? (
+                  <TaxonomyIconSelected width={size} height={size} />
+                ) : (
+                  <TaxonomyIcon width={size} height={size} />
+                );
+              case 'Chat':
+                return focused ? (
+                  <ChatIconSelected width={size} height={size} />
+                ) : (
+                  <ChatIcon width={size} height={size} />
+                );
+            }
+          },
+          headerShown: false,
+        })}>
+        <Tab.Screen
+          name="Home"
+          component={AdminHomeScreen}
+        
+        />
+        <Tab.Screen
+          name="Live Setup"
+          component={LiveSetup} // Use a placeholder component
+          listeners={({navigation}) => ({
+            tabPress: e => {
+              e.preventDefault();
+              // Navigate to cart screen as a separate screen
+              navigation.navigate('Live Setup');
+            },
+          })}
+        />
+        <Tab.Screen name="Leaf Trail" component={LeafTrail} />
+        <Tab.Screen name="Taxonomy" component={Taxonomy} />
+  
+        <Tab.Screen
+         
+          name="Chat"
+          component={MessagesScreen}
+          listeners={({navigation}) => ({
+            tabPress: e => {
+              e.preventDefault();
+              // Use parent navigation to navigate to Chat screen without tabs
+              navigation.getParent()?.navigate('Chat');
+            },
+          })}
+        />
+      </Tab.Navigator>
+    );
+  }
+
+  function AdminTabNavigator() {
+    return (
+      <Stack.Navigator>
+        <Stack.Screen
+          name="AdminTabs"
+          component={AdminTabs}
+          options={{headerShown: false}}
+        />
+     <Stack.Screen name="EnrollAdmin" options={{headerShown: false}} component={EnrollAdmin} />
+     <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
+     <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
+     <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
+      <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
+      </Stack.Navigator>
+    );
+  }
+  
+
+const styles = StyleSheet.create({
+    focusedLabel: {
+      fontWeight: 'bold',
+      fontSize: 10,
+    },
+    unfocusedLabel: {
+      fontWeight: 'normal',
+      fontSize: 10,
+    },
+    customLabel: {
+      marginTop: -4,
+    },
+    tabBar: {
+      paddingBottom: 10,
+    },
+  });
+
+export default  AdminTabNavigator;

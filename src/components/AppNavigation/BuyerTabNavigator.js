@@ -27,6 +27,7 @@ import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
+import {OrderDetailsScreen} from '../../screens/Buyer/Orders';
 import {ScreenCart} from '../../screens/Buyer/Cart';
 import CheckoutScreen from '../../screens/Buyer/Checkout/CheckoutScreen';
 
@@ -45,6 +46,7 @@ import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selecte
 import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
+
 import {ScreenOrders} from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
@@ -192,6 +194,11 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="ScreenRequestCredit"
         component={RequestCredit}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="OrderDetailsScreen"
+        component={OrderDetailsScreen}
         options={{headerShown: false}}
       />
       <Stack.Screen

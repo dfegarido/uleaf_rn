@@ -1,17 +1,19 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
 import {ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import {OrderItemCard} from '../../../components/OrderItemCard';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {searchPlantsApi} from '../../../components/Api/listingBrowseApi';
 import NetInfo from '@react-native-community/netinfo';
+
+// Import the separate screen components
+import ScreenReadyToFly from './ScreenReadyToFly';
+import ScreenPlantsAreHome from './ScreenPlantsAreHome';
+import ScreenJourneyMishap from './ScreenJourneyMishap';
 
 const OrdersHeader = ({activeTab, setActiveTab}) => {
   // Search state
@@ -214,11 +216,11 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{flexGrow: 0, paddingVertical: 4}}
+        style={{flexGrow: 0, paddingVertical: 8}}
         contentContainerStyle={{
           flexDirection: 'row',
           gap: 10,
-          alignItems: 'flex-start',
+          alignItems: 'center',
           paddingHorizontal: 10,
         }}>
         {filterOptions.map((option, idx) => (
@@ -228,8 +230,8 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
               borderRadius: 12,
               borderWidth: 1,
               borderColor: '#CDD3D4',
-              padding: 8,
-              marginTop: 5,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
               flexDirection: 'row',
               alignItems: 'center',
             }}>
@@ -258,81 +260,39 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
 };
 
 const ScreenOrders = () => {
+  const route = useRoute();
   const [activeTab, setActiveTab] = useState('Ready to Fly');
 
-  // Different order items for each tab
-  const getOrderItems = tab => {
-    switch (tab) {
+  // Pass through route params to child screens for refresh functionality
+  const getChildScreenProps = () => ({
+    route: {
+      params: route.params
+    }
+  });
+
+  const renderActiveScreen = () => {
+    const childProps = getChildScreenProps();
+    
+    switch (activeTab) {
       case 'Ready to Fly':
-        return Array.from({length: 10}).map((_, i) => ({
-          id: i,
-          status: 'Ready to Fly',
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Spinacia Oleracea',
-          subtitle: 'Inner Variegated • 2"',
-          price: '65.27',
-          flightInfo: 'Plant Flight May-30',
-          shippingInfo: 'UPS 2nd Day $50, add-on plant $5',
-          flagIcon: <Text style={{fontSize: 18}}>🇹🇭</Text>,
-        }));
-
+        return <ScreenReadyToFly {...childProps} />;
       case 'Plants are Home':
-        return Array.from({length: 8}).map((_, i) => ({
-          id: i + 100,
-          status: 'Plants are Home',
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Monstera Deliciosa',
-          subtitle: 'Variegated • 4"',
-          price: '89.99',
-          flightInfo: 'Delivered May-25',
-          shippingInfo: 'Successfully delivered to your home',
-          flagIcon: <Text style={{fontSize: 18}}>🇺🇸</Text>,
-          showRequestCredit: true,
-          requestDeadline: 'May-31 12:00 AM',
-        }));
-
+        return <ScreenPlantsAreHome {...childProps} />;
       case 'Journey Mishap':
-        const plantStatuses = ['Damaged', 'Missing', 'Dead on Arrival'];
-        return Array.from({length: 6}).map((_, i) => ({
-          id: i + 200,
-          status: 'Journey Mission',
-          image: require('../../../assets/images/plant1.png'),
-          name: 'Philodendron Brasil',
-          subtitle: 'Trailing • 6"',
-          price: '45.50',
-          flightInfo: 'In Transit - May-28',
-          shippingInfo: 'FedEx Ground - Expected delivery June-2',
-          flagIcon: <Text style={{fontSize: 18}}>🇧🇷</Text>,
-          plantStatus: plantStatuses[i % plantStatuses.length],
-          creditApproved: i % 3 === 0, // Show credit approved for every 3rd item
-        }));
-
+        return <ScreenJourneyMishap {...childProps} />;
       default:
-        return [];
+        return <ScreenReadyToFly {...childProps} />;
     }
   };
-
-  const orderItems = getOrderItems(activeTab);
 
   return (
     <View style={styles.container}>
       <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-      <ScrollView
-        style={{flex: 1}}
-        contentContainerStyle={{paddingTop: 200, paddingHorizontal: 1}}>
-        {orderItems.map(item => (
-          <OrderItemCard key={item.id} {...item} />
-        ))}
-        
-        {/* Browse More Plants Component */}
-        <BrowseMorePlants 
-          title="Discover More Plants to Order"
-          initialLimit={6}
-          loadMoreLimit={6}
-          showLoadMore={true}
-          containerStyle={{marginTop: 24, paddingHorizontal: 15}}
-        />
-      </ScrollView>
+      
+      {/* Content area with dynamic screen based on active tab */}
+      <View style={styles.contentContainer}>
+        {renderActiveScreen()}
+      </View>
     </View>
   );
 };
@@ -342,7 +302,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-
+  contentContainer: {
+    flex: 1,
+    paddingTop: 140, // Account for sticky header
+  },
   stickyHeader: {
     position: 'absolute',
     top: 0,
@@ -357,16 +320,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-evenly',
     alignItems: 'center',
     paddingHorizontal: 13,
-  },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 12,
-    gap: 10,
-    width: '100%',
-    height: 58,
   },
   searchContainer: {
     flexDirection: 'column',
@@ -424,68 +377,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     alignItems: 'center',
   },
-  cartCard: {
-    backgroundColor: '#F5F6F6',
-    padding: 10,
-    margin: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  cartTopCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
-  },
-  cartImageContainer: {
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-    overflow: 'hidden',
-    width: 96,
-    height: 128,
-    position: 'relative',
-  },
-  cartImage: {
-    width: 96,
-    height: 128,
-    borderRadius: 12,
-  },
-  cartCheckOverlay: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-
-    borderRadius: 10,
-    padding: 2,
-    zIndex: 2,
-  },
-  cartName: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    flex: 1,
-  },
-  cartSubtitle: {
-    color: '#647276',
-    fontSize: 14,
-    marginVertical: 2,
-  },
-  cartPrice: {
-    fontWeight: 'bold',
-    fontSize: 20,
-    marginVertical: 2,
-  },
-  cartFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    justifyContent: 'space-between',
-  },
-  cartFooterText: {
-    color: '#647276',
-    fontWeight: 'bold',
-  },
   tabContainer: {
     width: '100%',
     backgroundColor: '#FFFFFF',
@@ -502,7 +393,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-
   tabText: {
     fontSize: 14,
     fontWeight: '400',
@@ -522,56 +412,26 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#202325',
   },
-  dropdownContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 8,
-  },
-  dropdownText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#202325',
-    fontFamily: 'Inter',
-  },
-  dropdownArrow: {
-    marginLeft: 8,
-  },
-  arrowText: {
-    fontSize: 12,
-    color: '#647276',
-  },
   // Search Results Styles
   searchResultsContainer: {
     position: 'absolute',
-    top: 52, // Position below the header
-    left: 13, // Match header paddingHorizontal
-    right: 53, // Account for header icons width
+    top: 52,
+    left: 13,
+    right: 53,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#e5e7eb',
     borderRadius: 12,
     maxHeight: 200,
-    zIndex: 9999, // Ensure it appears on top of everything
-    elevation: 15, // Higher elevation for Android shadow
-    shadowColor: '#000', // For iOS shadow
+    zIndex: 9999,
+    elevation: 15,
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 4,
     },
     shadowOpacity: 0.15,
     shadowRadius: 6,
-    // Ensure solid background
     opacity: 1,
   },
   loadingContainer: {
@@ -579,7 +439,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF', // Ensure solid background
+    backgroundColor: '#FFFFFF',
   },
   loadingText: {
     marginLeft: 8,
@@ -589,14 +449,14 @@ const styles = StyleSheet.create({
   },
   searchResultsList: {
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF', // Ensure solid background
+    backgroundColor: '#FFFFFF',
   },
   searchResultItem: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FFFFFF', // Ensure solid background for each item
+    backgroundColor: '#FFFFFF',
   },
   searchResultName: {
     fontSize: 14,
@@ -604,17 +464,11 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     fontFamily: 'Inter',
   },
-  searchResultPrice: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#10b981',
-    fontFamily: 'Inter',
-  },
   noResultsContainer: {
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF', // Ensure solid background
+    backgroundColor: '#FFFFFF',
   },
   noResultsText: {
     fontSize: 14,

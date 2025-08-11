@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   amountValue: {
-    width: 69,
+    minWidth: 69,
     height: 24,
     fontFamily: 'Inter',
     fontStyle: 'normal',

@@ -581,8 +581,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   activeTabTitle: {
-    fontWeight: '900',
-    color: '#202325',
+    fontWeight: '500',
+    color: '#23C16B',
   },
   tabIndicator: {
     width: 140,
