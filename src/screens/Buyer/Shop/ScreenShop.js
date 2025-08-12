@@ -876,7 +876,10 @@ const ScreenShop = ({navigation}) => {
           <View style={styles.headerIcons}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => navigation.navigate('ScreenWishlist')}>
+              onPress={() => {
+                // Wishlist feature temporarily disabled
+                console.log('Wishlist feature is temporarily disabled');
+              }}>
               <Wishicon width={40} height={40} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -1297,7 +1300,7 @@ const ScreenShop = ({navigation}) => {
         
         {/* Browse More Plants Component */}
         <BrowseMorePlants 
-          title="Discover Random Plants"
+          title="More from our Jungle"
           initialLimit={6}
           loadMoreLimit={6}
           showLoadMore={true}

@@ -4,11 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { createAddressBookEntryApi } from '../../../components/Api';
 import DropdownSelect from '../../../components/Dropdown/DropdownSelect';
-const { fetchUSStates, fetchCitiesForState } = require('../../../utils/locationApi');
+// New public (no-auth) location dropdown APIs
+import { getPublicStatesApi, getPublicCitiesApi } from '../../../components/Api/locationDropdownApi';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
-
-console.log('Imports loaded. fetchUSStates:', fetchUSStates);
-console.log('fetchCitiesForState:', fetchCitiesForState);
 
 const AddNewAddressScreen = () => {
   const navigation = useNavigation();
@@ -44,20 +42,20 @@ const AddNewAddressScreen = () => {
     contactNumber: ''
   });
   
-  // Load states from API
+  // Load states from new public endpoint (one-shot; no pagination required client-side)
   useEffect(() => {
     const loadStates = async () => {
       try {
-        console.log('Starting to load initial states...');
-        console.log('fetchUSStates function:', fetchUSStates);
+        console.log('Loading states from public endpoint...');
         setStatesLoading(true);
-        const result = await fetchUSStates(0, 10); // Fetch first 10 states
-        console.log('Initial states fetched successfully:', result);
-        setStates(result.data);
+        const stateList = await getPublicStatesApi();
+        // Sort alphabetically by name just in case
+        stateList.sort((a,b) => a.name.localeCompare(b.name));
+        setStates(stateList);
         setStatesPagination({
-          offset: result.data.length,
-          hasMore: result.hasMore,
-          totalCount: result.totalCount
+          offset: stateList.length,
+            hasMore: false,
+            totalCount: stateList.length
         });
       } catch (error) {
         console.error('Error loading states:', error);
@@ -71,38 +69,10 @@ const AddNewAddressScreen = () => {
   }, []);
 
   // Load more states when reaching end of list
-  const loadMoreStates = async () => {
-    if (!statesPagination.hasMore || loadingMoreStates) {
-      return;
-    }
+  // No-op for now since public endpoint returns full list
+  const loadMoreStates = async () => {};
 
-    try {
-      console.log('Loading more states from offset:', statesPagination.offset);
-      setLoadingMoreStates(true);
-      const result = await fetchUSStates(statesPagination.offset, 10);
-      console.log('More states fetched:', result);
-      
-      setStates(prevStates => {
-        const combined = [...prevStates, ...result.data];
-        // Remove duplicates and sort
-        const unique = [...new Set(combined)];
-        return unique.sort();
-      });
-      
-      setStatesPagination({
-        offset: statesPagination.offset + result.data.length,
-        hasMore: result.hasMore,
-        totalCount: result.totalCount
-      });
-    } catch (error) {
-      console.error('Error loading more states:', error);
-      Alert.alert('Error', 'Failed to load more states. Please try again.');
-    } finally {
-      setLoadingMoreStates(false);
-    }
-  };
-
-  // Load cities when state changes
+  // Load cities for selected state via public endpoint (offset pagination)
   useEffect(() => {
     const loadCities = async () => {
       if (!selectedStateData) {
@@ -116,15 +86,14 @@ const AddNewAddressScreen = () => {
       }
 
       try {
-        console.log('Loading initial cities for state:', selectedStateData.name, 'isoCode:', selectedStateData.isoCode);
+        console.log('Loading initial cities (public) for state:', selectedStateData.name, 'isoCode:', selectedStateData.isoCode);
         setCitiesLoading(true);
-        const result = await fetchCitiesForState(selectedStateData.isoCode, 0, 10); // Use isoCode
-        console.log('Initial cities fetched successfully:', result);
-        setCities(result.data);
+        const { cities: cityNames, pagination } = await getPublicCitiesApi(selectedStateData.isoCode, 50, 0);
+        setCities(cityNames);
         setCitiesPagination({
-          offset: result.data.length,
-          hasMore: result.hasMore,
-          totalCount: result.totalCount
+          offset: pagination.offset + cityNames.length,
+          hasMore: pagination.hasMore,
+          totalCount: pagination.total
         });
       } catch (error) {
         console.error('Error loading cities:', error);
@@ -139,27 +108,19 @@ const AddNewAddressScreen = () => {
 
   // Load more cities when reaching end of list
   const loadMoreCities = async () => {
-    if (!citiesPagination.hasMore || loadingMoreCities || !selectedStateData) {
-      return;
-    }
-
+    if (!citiesPagination.hasMore || loadingMoreCities || !selectedStateData) return;
     try {
-      console.log('Loading more cities from offset:', citiesPagination.offset);
+      console.log('Loading more cities (public) from offset:', citiesPagination.offset);
       setLoadingMoreCities(true);
-      const result = await fetchCitiesForState(selectedStateData.isoCode, citiesPagination.offset, 10); // Use isoCode
-      console.log('More cities fetched:', result);
-      
-      setCities(prevCities => {
-        const combined = [...prevCities, ...result.data];
-        // Remove duplicates and sort
-        const unique = [...new Set(combined)];
-        return unique.sort();
+      const { cities: moreCityNames, pagination } = await getPublicCitiesApi(selectedStateData.isoCode, 50, citiesPagination.offset);
+      setCities(prev => {
+        const merged = [...prev, ...moreCityNames];
+        return Array.from(new Set(merged)).sort();
       });
-      
       setCitiesPagination({
-        offset: citiesPagination.offset + result.data.length,
-        hasMore: result.hasMore,
-        totalCount: result.totalCount
+        offset: pagination.offset + moreCityNames.length,
+        hasMore: pagination.hasMore,
+        totalCount: pagination.total
       });
     } catch (error) {
       console.error('Error loading more cities:', error);
@@ -265,15 +226,15 @@ const AddNewAddressScreen = () => {
             label="State"
             placeholder={statesLoading ? "Loading states..." : "Select"}
             value={state}
-            data={states.map(stateObj => stateObj.name)} // Extract names for display
-            onSelect={(selectedStateName) => {
-              const selectedStateObj = states.find(stateObj => stateObj.name === selectedStateName);
-              setState(selectedStateName);
-              setSelectedStateData(selectedStateObj);
-              setCity(''); // Reset city when state changes
+            data={states.map(s => s.name)}
+            onSelect={(selectedName) => {
+              const sel = states.find(s => s.name === selectedName);
+              setState(selectedName);
+              setSelectedStateData(sel);
+              setCity('');
             }}
             required={true}
-            disabled={statesLoading}
+            disabled={statesLoading || states.length === 0}
             onEndReached={loadMoreStates}
             loading={loadingMoreStates}
           />

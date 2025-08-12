@@ -309,7 +309,7 @@ const ScreenJourneyMishap = () => {
           
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
-            title="Discover More Plants to Order"
+            title="More from our Jungle"
             initialLimit={6}
             loadMoreLimit={6}
             showLoadMore={true}
@@ -355,7 +355,7 @@ const ScreenJourneyMishap = () => {
           
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
-            title="Discover More Plants to Order"
+            title="More from our Jungle"
             initialLimit={6}
             loadMoreLimit={6}
             showLoadMore={true}

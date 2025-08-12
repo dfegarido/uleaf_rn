@@ -318,8 +318,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const handleAddToWishlist = () => {
-    setIsWishlisted(!isWishlisted);
-    console.log('Wishlist toggled:', !isWishlisted);
+    // Wishlist feature temporarily disabled
+    console.log('Wishlist feature is temporarily disabled');
+    // setIsWishlisted(!isWishlisted);
+    // console.log('Wishlist toggled:', !isWishlisted);
     // TODO: Implement wishlist functionality
   };
 
@@ -529,8 +531,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <Text style={styles.socialText}>{loveCount}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.socialButton}
-                onPress={handleAddToWishlist}>
+                style={[styles.socialButton, {opacity: 0.5}]}
+                onPress={() => {
+                  // Wishlist feature temporarily disabled
+                  console.log('Wishlist feature is temporarily disabled');
+                }}
+                disabled={true}>
                 {isWishlisted ? (
                   <WishListSelected width={32} height={32} />
                 ) : (

@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   Alert,
   TextInput,
+  Image,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useAuth} from '../../../auth/AuthProvider';
@@ -97,7 +98,10 @@ const GenusHeader = ({
       <View style={styles.headerIcons}>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => navigation.navigate('ScreenWishlist')}>
+          onPress={() => {
+            // Wishlist feature temporarily disabled
+            console.log('Wishlist feature is temporarily disabled');
+          }}>
           <Wishicon width={40} height={40} />
         </TouchableOpacity>
         <TouchableOpacity
@@ -1029,10 +1033,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No {genus} plants found</Text>
-            <Text style={styles.emptySubtitle}>
-              Try adjusting your filters or search terms
-            </Text>
+            <Image 
+              source={require('../../../assets/images/no-genus.jpg')}
+              style={styles.emptyImage}
+              resizeMode="contain"
+            />
           </View>
         )}
       </ScrollView>
@@ -1310,6 +1315,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
     paddingVertical: 64,
+  },
+  emptyImage: {
+    width: 1000,
+    height: 500,
+    maxWidth: '90%',
+    maxHeight: '70%',
   },
   emptyTitle: {
     fontSize: 18,

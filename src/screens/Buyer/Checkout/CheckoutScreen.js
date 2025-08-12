@@ -1202,7 +1202,7 @@ const CheckoutScreen = () => {
 
         {/* Browse More Plants Component */}
         <BrowseMorePlants 
-          title="Continue Shopping - Discover More Plants"
+          title="More from our Jungle"
           initialLimit={6}
           loadMoreLimit={6}
           showLoadMore={true}
