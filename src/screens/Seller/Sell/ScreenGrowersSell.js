@@ -24,6 +24,7 @@ import {
   InputBox,
   InputDropdown,
   InputCheckBox,
+  InputDropdownSearch,
 } from '../../../components/Input';
 import {ImagePickerModal} from '../../../components/ImagePicker';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
@@ -824,7 +825,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
           <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
             Species <Text style={globalStyles.textXSRed}>*</Text>
           </Text>
-          <InputDropdown
+          <InputDropdownSearch
             options={dropdownOptionSpecies}
             selectedOption={selectedSpecies}
             onSelect={handleSpeciesChange}
