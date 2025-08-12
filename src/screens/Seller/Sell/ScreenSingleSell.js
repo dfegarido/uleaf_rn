@@ -39,9 +39,11 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import SellConfirmDraft from './components/SellConfirmDraft';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
+import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -62,6 +64,7 @@ const heightOptions = [
 import {useNavigationState} from '@react-navigation/native';
 
 const ScreenSingleSell = ({navigation, route}) => {
+  const insets = useSafeAreaInsets();
   const app = getApp();
   const auth = getAuth(app);
   const [loading, setLoading] = useState(false);
@@ -71,17 +74,17 @@ const ScreenSingleSell = ({navigation, route}) => {
   const isFromDuplicateSell = previousRoute?.name === 'ScreenDuplicateSell';
   const isFromDraftSell = previousRoute?.name === 'ScreenDraftSell';
 
-  useEffect(() => {
-    if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
-      navigation.setOptions({
-        headerRight: () => (
-          <TouchableOpacity onPress={() => onPressSave()} color="#000">
-            <Text style={globalStyles.textLGAccent}>Save</Text>
-          </TouchableOpacity>
-        ),
-      });
-    }
-  }, [navigation, plantCode]);
+  // useEffect(() => {
+  //   if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+  //     navigation.setOptions({
+  //       headerRight: () => (
+  //         <TouchableOpacity onPress={() => onPressSave()} color="#000">
+  //           <Text style={globalStyles.textLGAccent}>Save</Text>
+  //         </TouchableOpacity>
+  //       ),
+  //     });
+  //   }
+  // }, [navigation, plantCode]);
 
   // Dropdown
   const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
@@ -701,191 +704,261 @@ const ScreenSingleSell = ({navigation, route}) => {
   // Show success alert
 
   return (
-    <ScrollView style={styles.mainContent}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
-      <View style={styles.formContainer}>
-        <View style={[{paddingBottom: 10}]}>
-          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Genus <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputDropdown
-            options={dropdownOptionGenus}
-            selectedOption={selectedGenus}
-            onSelect={handleGenusChange}
-            placeholder="Choose an option"
-          />
-        </View>
-        <View style={[{paddingBottom: 10}]}>
-          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Species <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputDropdownSearch
-            options={dropdownOptionSpecies}
-            selectedOption={selectedSpecies}
-            onSelect={handleSpeciesChange}
-            placeholder="Choose an option"
-          />
-        </View>
-        <View style={[{paddingBottom: 20}]}>
-          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Variegation <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputDropdown
-            options={dropdownOptionVariegation}
-            selectedOption={selectedVariegation}
-            onSelect={setSelectedVariegation}
-            placeholder="Choose an option"
-            disabled={dropdownVariegationDisable}
-          />
-        </View>
-        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Can't find genus or species name?
-        </Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ScreenProfileRequest')}>
-          <View style={{flexDirection: 'row', paddingTop: 10}}>
-            <QuestionIcon width={20} height={20}></QuestionIcon>
-            <Text style={globalStyles.textMDAccent}> Request here</Text>
-            <ArrowUpIcon width={20} height={20}></ArrowUpIcon>
-          </View>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Is this a mutation?
-        </Text>
-        <View>
-          <InputCheckBox
-            label="Yes"
-            checked={isChecked}
-            onChange={setIsChecked}
-          />
-        </View>
-      </View>
+    <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+      {/* Sticky Header */}
       <View
-        style={[styles.formContainer, {display: isChecked ? 'flex' : 'none'}]}>
-        <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-          Please select one that best discribes the mutated plant
-        </Text>
-        <InputDropdown
-          options={dropdownOptionMutation}
-          selectedOption={selectedMutation}
-          onSelect={setSelectedMutation}
-          placeholder="Choose an option"
-        />
-      </View>
-      <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Picture/s <Text style={globalStyles.textXSRed}>*</Text>
-        </Text>
-        {images.length > 0 && (
-          <>
-            <Text style={styles.label}>Selected Images:</Text>
-            <FlatList
-              data={images}
-              keyExtractor={(uri, index) => index.toString()}
-              horizontal
-              renderItem={({item, index}) => (
-                <View style={styles.imageContainer}>
-                  <Image source={{uri: item}} style={styles.image} />
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeImage(index)}>
-                    <Text style={styles.removeButtonText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-          </>
-        )}
-
-        <ImagePickerModal onImagePicked={handleImagePicked} />
-        <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
-          Take a photo(camera) or select from your library
-        </Text>
-      </View>
-      <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGreyDark]}>
-          Pot Size <Text style={globalStyles.textXSRed}>*</Text>
-        </Text>
-        <View
-          style={{
+        style={[
+          {
             flexDirection: 'row',
             justifyContent: 'space-between',
-            marginVertical: 10,
-          }}>
-          {renderPotSizes()}
-        </View>
-        <View>
-          <View style={{marginTop: 10}}>
-            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
-              Local Price <Text style={globalStyles.textXSRed}>*</Text>
-            </Text>
-            <InputBox
-              placeholder={'Enter price'}
-              value={localPrice}
-              setValue={setLocalPrice}></InputBox>
-          </View>
-          <View style={{marginTop: 10}}>
-            <Text style={globalStyles.textLGGreyDark}>
-              Approximate Height <Text style={globalStyles.textXSRed}>*</Text>
-            </Text>
-            <View
-              style={{
-                flexDirection: 'row',
-                marginTop: 10,
-                justifyContent: 'space-between',
-              }}>
-              {renderHeightOptions()}
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingBottom: 10,
+          },
+        ]}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[
+            styles.iconButton,
+            {
+              borderWidth: 1,
+              borderColor: '#CDD3D4',
+              padding: 5,
+              borderRadius: 10,
+              backgroundColor: '#fff',
+            },
+          ]}>
+          <LeftIcon width={20} height={20} />
+        </TouchableOpacity>
+        <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
+          Single Plant
+        </Text>
+        {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <ScrollView style={styles.mainContent}>
+        {loading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
             </View>
+          </Modal>
+        )}
+        <View style={styles.formContainer}>
+          <View style={[{paddingBottom: 10}]}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+              Genus <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputDropdown
+              options={dropdownOptionGenus}
+              selectedOption={selectedGenus}
+              onSelect={handleGenusChange}
+              placeholder="Choose an option"
+            />
           </View>
-          <Text style={[globalStyles.textSMGreyLight, {paddingTop: 10}]}>
-            For shipping costs calculations only.
+          <View style={[{paddingBottom: 10}]}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+              Species <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputDropdownSearch
+              options={dropdownOptionSpecies}
+              selectedOption={selectedSpecies}
+              onSelect={handleSpeciesChange}
+              placeholder="Choose an option"
+            />
+          </View>
+          <View style={[{paddingBottom: 20}]}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+              Variegation <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputDropdown
+              options={dropdownOptionVariegation}
+              selectedOption={selectedVariegation}
+              onSelect={setSelectedVariegation}
+              placeholder="Choose an option"
+              disabled={dropdownVariegationDisable}
+            />
+          </View>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+            Can't find genus or species name?
           </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ScreenProfileRequest')}>
+            <View style={{flexDirection: 'row', paddingTop: 10}}>
+              <QuestionIcon width={20} height={20}></QuestionIcon>
+              <Text style={globalStyles.textMDAccent}> Request here</Text>
+              <ArrowUpIcon width={20} height={20}></ArrowUpIcon>
+            </View>
+          </TouchableOpacity>
         </View>
-        <View style={{paddingTop: 30}}>
-          {isFromDuplicateSell == false &&
-            !plantCode == false &&
-            isFromDraftSell == false && (
-              <TouchableOpacity
-                style={globalStyles.primaryButton}
-                onPress={() => onPressUpdate('')}>
-                <Text style={globalStyles.primaryButtonText}>
-                  Update Listing
-                </Text>
-              </TouchableOpacity>
-            )}
-
-          {isFromDraftSell == true && (
+        <View style={styles.formContainer}>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+            Is this a mutation?
+          </Text>
+          <View>
+            <InputCheckBox
+              label="Yes"
+              checked={isChecked}
+              onChange={setIsChecked}
+            />
+          </View>
+        </View>
+        <View
+          style={[
+            styles.formContainer,
+            {display: isChecked ? 'flex' : 'none'},
+          ]}>
+          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+            Please select one that best discribes the mutated plant
+          </Text>
+          <InputDropdown
+            options={dropdownOptionMutation}
+            selectedOption={selectedMutation}
+            onSelect={setSelectedMutation}
+            placeholder="Choose an option"
+          />
+        </View>
+        <View style={styles.formContainer}>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+            Picture/s <Text style={globalStyles.textXSRed}>*</Text>
+          </Text>
+          {images.length > 0 && (
             <>
-              <TouchableOpacity
-                style={globalStyles.primaryButton}
-                onPress={() => onPressUpdate('Active')}>
-                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
-              </TouchableOpacity>
-
-              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                <TouchableOpacity
-                  onPress={() => onPressUpdate('Scheduled')}
-                  style={globalStyles.secondaryButtonAccent}>
-                  <Text
-                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                    Publish on Nursery Drop
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.label}>Selected Images:</Text>
+              <FlatList
+                data={images}
+                keyExtractor={(uri, index) => index.toString()}
+                horizontal
+                renderItem={({item, index}) => (
+                  <View style={styles.imageContainer}>
+                    <Image source={{uri: item}} style={styles.image} />
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => removeImage(index)}>
+                      <Text style={styles.removeButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
             </>
           )}
 
-          {isFromDuplicateSell == false &&
-            !plantCode &&
-            isFromDraftSell == false && (
+          <ImagePickerModal onImagePicked={handleImagePicked} />
+          <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
+            Take a photo(camera) or select from your library
+          </Text>
+        </View>
+        <View style={styles.formContainer}>
+          <Text style={[globalStyles.textMDGreyDark]}>
+            Pot Size <Text style={globalStyles.textXSRed}>*</Text>
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginVertical: 10,
+            }}>
+            {renderPotSizes()}
+          </View>
+          <View>
+            <View style={{marginTop: 10}}>
+              <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                Local Price <Text style={globalStyles.textXSRed}>*</Text>
+              </Text>
+              <InputBox
+                placeholder={'Enter price'}
+                value={localPrice}
+                setValue={setLocalPrice}></InputBox>
+            </View>
+            <View style={{marginTop: 10}}>
+              <Text style={globalStyles.textLGGreyDark}>
+                Approximate Height <Text style={globalStyles.textXSRed}>*</Text>
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  marginTop: 10,
+                  justifyContent: 'space-between',
+                }}>
+                {renderHeightOptions()}
+              </View>
+            </View>
+            <Text style={[globalStyles.textSMGreyLight, {paddingTop: 10}]}>
+              For shipping costs calculations only.
+            </Text>
+          </View>
+          <View style={{paddingTop: 30}}>
+            {isFromDuplicateSell == false &&
+              !plantCode == false &&
+              isFromDraftSell == false && (
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={() => onPressUpdate('')}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Update Listing
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+            {isFromDraftSell == true && (
+              <>
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={() => onPressUpdate('Active')}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Publish Now
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                  <TouchableOpacity
+                    onPress={() => onPressUpdate('Scheduled')}
+                    style={globalStyles.secondaryButtonAccent}>
+                    <Text
+                      style={[
+                        globalStyles.textLGAccent,
+                        {textAlign: 'center'},
+                      ]}>
+                      Publish on Nursery Drop
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {isFromDuplicateSell == false &&
+              !plantCode &&
+              isFromDraftSell == false && (
+                <>
+                  <TouchableOpacity
+                    style={globalStyles.primaryButton}
+                    onPress={onPressPublish}>
+                    <Text style={globalStyles.primaryButtonText}>
+                      Publish Now
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View
+                    style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                    <TouchableOpacity
+                      onPress={onPressPublishNurseryDrop}
+                      style={globalStyles.secondaryButtonAccent}>
+                      <Text
+                        style={[
+                          globalStyles.textLGAccent,
+                          {textAlign: 'center'},
+                        ]}>
+                        Publish on Nursery Drop
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+            {isFromDuplicateSell == true && (
               <>
                 <TouchableOpacity
                   style={globalStyles.primaryButton}
@@ -910,36 +983,16 @@ const ScreenSingleSell = ({navigation, route}) => {
                 </View>
               </>
             )}
-
-          {isFromDuplicateSell == true && (
-            <>
-              <TouchableOpacity
-                style={globalStyles.primaryButton}
-                onPress={onPressPublish}>
-                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
-              </TouchableOpacity>
-
-              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                <TouchableOpacity
-                  onPress={onPressPublishNurseryDrop}
-                  style={globalStyles.secondaryButtonAccent}>
-                  <Text
-                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                    Publish on Nursery Drop
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+          </View>
         </View>
-      </View>
-      <SellConfirmDraft
-        visible={onGobackModalVisible}
-        onConfirm={onPressSave}
-        onExit={handleConfirmExit}
-        onCancel={handleCancelExit}
-      />
-    </ScrollView>
+        <SellConfirmDraft
+          visible={onGobackModalVisible}
+          onConfirm={onPressSave}
+          onExit={handleConfirmExit}
+          onCancel={handleCancelExit}
+        />
+      </ScrollView>
+    </View>
   );
 };
 

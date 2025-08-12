@@ -47,12 +47,14 @@ import {retryAsync} from '../../../utils/utils';
 import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import SellConfirmDraft from './components/SellConfirmDraft';
 import {AuthContext} from '../../../auth/AuthProvider';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
 import PlusIcon from '../../../assets/icons/white/plus-regular.svg';
 import EditNoteIcon from '../../../assets/icons/greydark/edit-note.svg';
 import TrashRedIcon from '../../../assets/icons/red/trash.svg';
+import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 const potSizes = [
   {label: '2"-4"', description: '5 - 11 cm'},
@@ -64,6 +66,7 @@ const screenWidth = Dimensions.get('window').width;
 import {useNavigationState} from '@react-navigation/native';
 
 const ScreenSingleWholesale = ({navigation, route}) => {
+  const insets = useSafeAreaInsets();
   const app = getApp();
   const auth = getAuth(app);
   const [loading, setLoading] = useState(false);
@@ -75,17 +78,17 @@ const ScreenSingleWholesale = ({navigation, route}) => {
 
   const {userInfo} = useContext(AuthContext);
 
-  useEffect(() => {
-    if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
-      navigation.setOptions({
-        headerRight: () => (
-          <TouchableOpacity onPress={() => onPressSave()} color="#000">
-            <Text style={globalStyles.textLGAccent}>Save</Text>
-          </TouchableOpacity>
-        ),
-      });
-    }
-  }, [navigation, plantCode]);
+  // useEffect(() => {
+  //   if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+  //     navigation.setOptions({
+  //       headerRight: () => (
+  //         <TouchableOpacity onPress={() => onPressSave()} color="#000">
+  //           <Text style={globalStyles.textLGAccent}>Save</Text>
+  //         </TouchableOpacity>
+  //       ),
+  //     });
+  //   }
+  // }, [navigation, plantCode]);
 
   // Dropdown
   const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
@@ -797,256 +800,325 @@ const ScreenSingleWholesale = ({navigation, route}) => {
   // Show success alert
 
   return (
-    <ScrollView style={styles.mainContent}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
-      {/* ...Genus, Species, Variegation, Request... */}
-      <View style={styles.formContainer}>
-        <View style={[{paddingBottom: 10}]}>
-          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Genus <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputDropdown
-            options={dropdownOptionGenus}
-            selectedOption={selectedGenus}
-            onSelect={handleGenusChange}
-            placeholder="Choose an option"
-          />
-        </View>
-        <View style={[{paddingBottom: 10}]}>
-          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Species <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputDropdownSearch
-            options={dropdownOptionSpecies}
-            selectedOption={selectedSpecies}
-            onSelect={handleSpeciesChange}
-            placeholder="Choose an option"
-          />
-        </View>
-        <View style={[{paddingBottom: 20}]}>
-          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Variegation <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputDropdown
-            options={dropdownOptionVariegation}
-            selectedOption={selectedVariegation}
-            onSelect={setSelectedVariegation}
-            placeholder="Choose an option"
-            disabled={dropdownVariegationDisable}
-          />
-        </View>
-        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Can't find genus or species name?
-        </Text>
+    <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+      {/* Sticky Header */}
+      <View
+        style={[
+          {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingBottom: 10,
+          },
+        ]}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('ScreenProfileRequest')}>
-          <View style={{flexDirection: 'row', paddingTop: 10}}>
-            <QuestionIcon width={20} height={20}></QuestionIcon>
-            <Text style={globalStyles.textMDAccent}> Request here</Text>
-            <ArrowUpIcon width={20} height={20}></ArrowUpIcon>
-          </View>
+          onPress={() => navigation.goBack()}
+          style={[
+            styles.iconButton,
+            {
+              borderWidth: 1,
+              borderColor: '#CDD3D4',
+              padding: 5,
+              borderRadius: 10,
+              backgroundColor: '#fff',
+            },
+          ]}>
+          <LeftIcon width={20} height={20} />
         </TouchableOpacity>
-      </View>
-      {/* Mutations */}
-      <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Is this a mutation?
+        <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
+          Wholesale
         </Text>
-        <InputCheckBox
-          label="Yes"
-          checked={isChecked}
-          onChange={setIsChecked}
-        />
+        {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      {isChecked && (
+      <ScrollView style={styles.mainContent}>
+        {loading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
+        {/* ...Genus, Species, Variegation, Request... */}
         <View style={styles.formContainer}>
-          <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-            Please select one that best discribes the mutated plant
+          <View style={[{paddingBottom: 10}]}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+              Genus <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputDropdown
+              options={dropdownOptionGenus}
+              selectedOption={selectedGenus}
+              onSelect={handleGenusChange}
+              placeholder="Choose an option"
+            />
+          </View>
+          <View style={[{paddingBottom: 10}]}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+              Species <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputDropdownSearch
+              options={dropdownOptionSpecies}
+              selectedOption={selectedSpecies}
+              onSelect={handleSpeciesChange}
+              placeholder="Choose an option"
+            />
+          </View>
+          <View style={[{paddingBottom: 20}]}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+              Variegation <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputDropdown
+              options={dropdownOptionVariegation}
+              selectedOption={selectedVariegation}
+              onSelect={setSelectedVariegation}
+              placeholder="Choose an option"
+              disabled={dropdownVariegationDisable}
+            />
+          </View>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+            Can't find genus or species name?
           </Text>
-          <InputDropdown
-            options={dropdownOptionMutation}
-            selectedOption={selectedMutation}
-            onSelect={setSelectedMutation}
-            placeholder="Choose an option"
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ScreenProfileRequest')}>
+            <View style={{flexDirection: 'row', paddingTop: 10}}>
+              <QuestionIcon width={20} height={20}></QuestionIcon>
+              <Text style={globalStyles.textMDAccent}> Request here</Text>
+              <ArrowUpIcon width={20} height={20}></ArrowUpIcon>
+            </View>
+          </TouchableOpacity>
+        </View>
+        {/* Mutations */}
+        <View style={styles.formContainer}>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+            Is this a mutation?
+          </Text>
+          <InputCheckBox
+            label="Yes"
+            checked={isChecked}
+            onChange={setIsChecked}
           />
         </View>
-      )}
-
-      {/* Main Image Upload */}
-      <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-          Picture/s <Text style={globalStyles.textXSRed}>*</Text>
-        </Text>
-        {images.length > 0 && (
-          <FlatList
-            data={images}
-            keyExtractor={(uri, index) => index.toString()}
-            renderItem={({item, index}) => (
-              <View style={styles.imageContainer}>
-                <Image source={{uri: item}} style={styles.image} />
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeImage(index)}>
-                  <Text style={styles.removeButtonText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            horizontal
-          />
+        {isChecked && (
+          <View style={styles.formContainer}>
+            <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
+              Please select one that best discribes the mutated plant
+            </Text>
+            <InputDropdown
+              options={dropdownOptionMutation}
+              selectedOption={selectedMutation}
+              onSelect={setSelectedMutation}
+              placeholder="Choose an option"
+            />
+          </View>
         )}
-        <ImagePickerModal onImagePicked={handleImagePicked} />
-        <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
-          Take a photo(camera) or select from your library
-        </Text>
-      </View>
 
-      {/* Add Pot Size */}
-      <View style={styles.formContainer}>
-        <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-          Pot Size <Text style={globalStyles.textXSRed}>*</Text>
-        </Text>
-        {/* Display saved pot sizes */}
-        {potSizeList.length > 0 && (
-          <View style={{}}>
-            {potSizeList.map((item, index) => (
-              <View
-                key={index}
-                style={{
-                  borderColor: '#CDD3D4',
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  // alignItems: 'center',
-                  marginBottom: 10, // Optional: spacing between list items
-                }}>
-                {/* Left Side: Image + Info */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: 10,
-                    flex: 1,
-                  }}>
-                  <Image
-                    source={{uri: item.image}}
-                    style={{width: 80, height: 80, borderRadius: 10}}
-                    resizeMode="cover"
-                  />
-                  <View style={{marginLeft: 10, justifyContent: 'center'}}>
-                    <Text style={globalStyles.textLGGreyDark}>{item.size}</Text>
-                    <Text style={globalStyles.textLGGreyLight}>
-                      {item.quantity} in stocks
-                    </Text>
-                  </View>
+        {/* Main Image Upload */}
+        <View style={styles.formContainer}>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+            Picture/s <Text style={globalStyles.textXSRed}>*</Text>
+          </Text>
+          {images.length > 0 && (
+            <FlatList
+              data={images}
+              keyExtractor={(uri, index) => index.toString()}
+              renderItem={({item, index}) => (
+                <View style={styles.imageContainer}>
+                  <Image source={{uri: item}} style={styles.image} />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeImage(index)}>
+                    <Text style={styles.removeButtonText}>✕</Text>
+                  </TouchableOpacity>
                 </View>
+              )}
+              horizontal
+            />
+          )}
+          <ImagePickerModal onImagePicked={handleImagePicked} />
+          <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
+            Take a photo(camera) or select from your library
+          </Text>
+        </View>
 
-                {/* Right Side: Price + Edit Button */}
+        {/* Add Pot Size */}
+        <View style={styles.formContainer}>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
+            Pot Size <Text style={globalStyles.textXSRed}>*</Text>
+          </Text>
+          {/* Display saved pot sizes */}
+          {potSizeList.length > 0 && (
+            <View style={{}}>
+              {potSizeList.map((item, index) => (
                 <View
+                  key={index}
                   style={{
+                    borderColor: '#CDD3D4',
+                    borderWidth: 1,
+                    borderRadius: 10,
                     flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    // alignItems: 'center',
+                    marginBottom: 10, // Optional: spacing between list items
                   }}>
-                  <Text
-                    style={[
-                      globalStyles.textLGGreyLight,
-                      {paddingHorizontal: 5, paddingTop: 10},
-                    ]}>
-                    {userCurrency} {item.price}
-                  </Text>
+                  {/* Left Side: Image + Info */}
                   <View
                     style={{
-                      flexDirection: 'column',
-                      backgroundColor: '#F5F6F6',
-                      justifyContent: 'center',
+                      flexDirection: 'row',
                       alignItems: 'center',
-                      borderTopRightRadius: 10,
+                      padding: 10,
+                      flex: 1,
                     }}>
-                    <TouchableOpacity
+                    <Image
+                      source={{uri: item.image}}
+                      style={{width: 80, height: 80, borderRadius: 10}}
+                      resizeMode="cover"
+                    />
+                    <View style={{marginLeft: 10, justifyContent: 'center'}}>
+                      <Text style={globalStyles.textLGGreyDark}>
+                        {item.size}
+                      </Text>
+                      <Text style={globalStyles.textLGGreyLight}>
+                        {item.quantity} in stocks
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Right Side: Price + Edit Button */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                    }}>
+                    <Text
+                      style={[
+                        globalStyles.textLGGreyLight,
+                        {paddingHorizontal: 5, paddingTop: 10},
+                      ]}>
+                      {userCurrency} {item.price}
+                    </Text>
+                    <View
                       style={{
-                        padding: 6,
-                        borderRadius: 6,
-                      }}
-                      onPress={() => handleEdit(item)} // Add your edit handler
-                    >
-                      <EditNoteIcon width={20} height={20} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={{
-                        padding: 6,
-                        marginTop: 10,
-                        borderRadius: 6,
-                      }}
-                      onPress={() => handleDelete(item)} // Add your edit handler
-                    >
-                      <TrashRedIcon width={20} height={20} />
-                    </TouchableOpacity>
+                        flexDirection: 'column',
+                        backgroundColor: '#F5F6F6',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        borderTopRightRadius: 10,
+                      }}>
+                      <TouchableOpacity
+                        style={{
+                          padding: 6,
+                          borderRadius: 6,
+                        }}
+                        onPress={() => handleEdit(item)} // Add your edit handler
+                      >
+                        <EditNoteIcon width={20} height={20} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{
+                          padding: 6,
+                          marginTop: 10,
+                          borderRadius: 6,
+                        }}
+                        onPress={() => handleDelete(item)} // Add your edit handler
+                      >
+                        <TrashRedIcon width={20} height={20} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={globalStyles.grayButton}
-          onPress={() => openSheet(showSheet)}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <PlusIcon width={20} height={20} />
-            <Text style={globalStyles.grayButtonText}> Add pot size</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Publish buttons */}
-      <View style={styles.formContainer}>
-        <View style={{paddingTop: 30}}>
-          {isFromDuplicateSell == false &&
-            !plantCode == false &&
-            isFromDraftSell == false && (
-              <TouchableOpacity
-                style={globalStyles.primaryButton}
-                onPress={() => onPressUpdate('')}>
-                <Text style={globalStyles.primaryButtonText}>
-                  Update Listing
-                </Text>
-              </TouchableOpacity>
-            )}
-
-          {isFromDraftSell == true && (
-            <>
-              <TouchableOpacity
-                style={globalStyles.primaryButton}
-                onPress={() => onPressUpdate('Active')}>
-                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
-              </TouchableOpacity>
-
-              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                <TouchableOpacity
-                  onPress={() => onPressUpdate('Scheduled')}
-                  style={globalStyles.secondaryButtonAccent}>
-                  <Text
-                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                    Publish on Nursery Drop
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </>
+              ))}
+            </View>
           )}
 
-          {isFromDuplicateSell == false &&
-            !plantCode &&
-            isFromDraftSell == false && (
+          <TouchableOpacity
+            style={globalStyles.grayButton}
+            onPress={() => openSheet(showSheet)}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <PlusIcon width={20} height={20} />
+              <Text style={globalStyles.grayButtonText}> Add pot size</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Publish buttons */}
+        <View style={styles.formContainer}>
+          <View style={{paddingTop: 30}}>
+            {isFromDuplicateSell == false &&
+              !plantCode == false &&
+              isFromDraftSell == false && (
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={() => onPressUpdate('')}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Update Listing
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+            {isFromDraftSell == true && (
+              <>
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={() => onPressUpdate('Active')}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Publish Now
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                  <TouchableOpacity
+                    onPress={() => onPressUpdate('Scheduled')}
+                    style={globalStyles.secondaryButtonAccent}>
+                    <Text
+                      style={[
+                        globalStyles.textLGAccent,
+                        {textAlign: 'center'},
+                      ]}>
+                      Publish on Nursery Drop
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {isFromDuplicateSell == false &&
+              !plantCode &&
+              isFromDraftSell == false && (
+                <>
+                  <TouchableOpacity
+                    style={globalStyles.primaryButton}
+                    onPress={onPressPublish}>
+                    <Text style={globalStyles.primaryButtonText}>
+                      Publish Now
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View
+                    style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+                    <TouchableOpacity
+                      onPress={onPressPublishNurseryDrop}
+                      style={globalStyles.secondaryButtonAccent}>
+                      <Text
+                        style={[
+                          globalStyles.textLGAccent,
+                          {textAlign: 'center'},
+                        ]}>
+                        Publish on Nursery Drop
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+            {isFromDuplicateSell == true && (
               <>
                 <TouchableOpacity
                   style={globalStyles.primaryButton}
@@ -1071,169 +1143,149 @@ const ScreenSingleWholesale = ({navigation, route}) => {
                 </View>
               </>
             )}
-
-          {isFromDuplicateSell == true && (
-            <>
-              <TouchableOpacity
-                style={globalStyles.primaryButton}
-                onPress={onPressPublish}>
-                <Text style={globalStyles.primaryButtonText}>Publish Now</Text>
-              </TouchableOpacity>
-
-              <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                <TouchableOpacity
-                  onPress={onPressPublishNurseryDrop}
-                  style={globalStyles.secondaryButtonAccent}>
-                  <Text
-                    style={[globalStyles.textLGAccent, {textAlign: 'center'}]}>
-                    Publish on Nursery Drop
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+          </View>
         </View>
-      </View>
 
-      {/* Action Sheet */}
-      <ActionSheet
-        visible={showSheet}
-        onClose={() => setShowSheet(false)}
-        heightPercent={'80%'}>
-        <ScrollView style={{padding: 20}} showsVerticalScrollIndicator>
-          <Text style={[globalStyles.textXLGreyDark, {paddingBottom: 30}]}>
-            Add pot size
-          </Text>
+        {/* Action Sheet */}
+        <ActionSheet
+          visible={showSheet}
+          onClose={() => setShowSheet(false)}
+          heightPercent={'80%'}>
+          <ScrollView style={{padding: 20}} showsVerticalScrollIndicator>
+            <Text style={[globalStyles.textXLGreyDark, {paddingBottom: 30}]}>
+              Add pot size
+            </Text>
 
-          {/* Pot image */}
-          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-            Select picture <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          {imagesPotSize.length > 0 && (
-            <FlatList
-              data={imagesPotSize}
-              keyExtractor={(uri, index) => index.toString()}
-              renderItem={({item}) => (
-                <Image source={{uri: item}} style={styles.image} />
-              )}
-              horizontal
+            {/* Pot image */}
+            <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+              Select picture <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            {imagesPotSize.length > 0 && (
+              <FlatList
+                data={imagesPotSize}
+                keyExtractor={(uri, index) => index.toString()}
+                renderItem={({item}) => (
+                  <Image source={{uri: item}} style={styles.image} />
+                )}
+                horizontal
+              />
+            )}
+            <ImagePickerModal
+              onImagePicked={handleImagePickedPotSize}
+              limit={1}
             />
-          )}
-          <ImagePickerModal
-            onImagePicked={handleImagePickedPotSize}
-            limit={1}
-          />
-          <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
-            Take a photo(camera) or select from your library
-          </Text>
+            <Text style={[globalStyles.textSMGreyLight, {textAlign: 'center'}]}>
+              Take a photo(camera) or select from your library
+            </Text>
 
-          {/* Size options */}
-          <Text style={[globalStyles.textMDGreyDark, {marginTop: 20}]}>
-            Pot Size <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginVertical: 10,
-            }}>
-            {potSizes.map((pot, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => onpressSelectPotsize(pot.label)}>
-                <View
-                  style={
-                    selectedPotSize === pot.label
-                      ? styles.cardSelectionSelected
-                      : styles.cardSelection
-                  }>
-                  <Text style={globalStyles.textMDGreyDark}>{pot.label}</Text>
-                  <Text style={globalStyles.textSMGreyLight}>
-                    {pot.description}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {/* Size options */}
+            <Text style={[globalStyles.textMDGreyDark, {marginTop: 20}]}>
+              Pot Size <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginVertical: 10,
+              }}>
+              {potSizes.map((pot, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => onpressSelectPotsize(pot.label)}>
+                  <View
+                    style={
+                      selectedPotSize === pot.label
+                        ? styles.cardSelectionSelected
+                        : styles.cardSelection
+                    }>
+                    <Text style={globalStyles.textMDGreyDark}>{pot.label}</Text>
+                    <Text style={globalStyles.textSMGreyLight}>
+                      {pot.description}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Price and Quantity */}
+            <Text style={[globalStyles.textLGGreyDark, {paddingTop: 10}]}>
+              Local Price <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputBox
+              value={potPrice}
+              setValue={setPotPrice}
+              placeholder={'Enter price'}
+            />
+            <Text style={[globalStyles.textLGGreyDark, {paddingTop: 10}]}>
+              Quantity <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <InputBox
+              value={potQuantity}
+              setValue={setPotQuantity}
+              placeholder={'Enter quantity'}
+            />
+            <Text style={globalStyles.textSMGreyLight}>
+              e.g, 5 quantity is equal to 50 plants
+            </Text>
+
+            {/* Height selection */}
+            <Text style={[globalStyles.textLGGreyDark, {paddingTop: 20}]}>
+              Approximate Height <Text style={globalStyles.textXSRed}>*</Text>
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                marginTop: 10,
+                justifyContent: 'space-between',
+              }}>
+              {['below', 'above'].map(measure => (
+                <TouchableOpacity
+                  key={measure}
+                  onPress={() => onpressSelectAboveBelow({measure})}>
+                  <View
+                    style={
+                      selectedMeasure == measure
+                        ? styles.cardSelectionSelectedMeasure
+                        : styles.cardSelectionMeasure
+                    }>
+                    <Text style={globalStyles.textMDGreyDark}>
+                      {measure === 'below'
+                        ? 'Below 12 inches'
+                        : '12 inches & above'}
+                    </Text>
+                    <Text style={globalStyles.textSMGreyLight}>
+                      {measure === 'below' ? '<30 cm' : '>=30 cm'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text
+              style={[
+                globalStyles.textSMGreyLight,
+                {paddingTop: 10, paddingBottom: 30},
+              ]}>
+              For shipping costs calculations only.
+            </Text>
+          </ScrollView>
+
+          {/* Save button */}
+          <View style={{padding: 20, backgroundColor: '#fff'}}>
+            <TouchableOpacity
+              style={globalStyles.primaryButton}
+              onPress={onPressSavePotSize}>
+              <Text style={globalStyles.primaryButtonText}>Save pot size</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Price and Quantity */}
-          <Text style={[globalStyles.textLGGreyDark, {paddingTop: 10}]}>
-            Local Price <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputBox
-            value={potPrice}
-            setValue={setPotPrice}
-            placeholder={'Enter price'}
-          />
-          <Text style={[globalStyles.textLGGreyDark, {paddingTop: 10}]}>
-            Quantity <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <InputBox
-            value={potQuantity}
-            setValue={setPotQuantity}
-            placeholder={'Enter quantity'}
-          />
-          <Text style={globalStyles.textSMGreyLight}>
-            e.g, 5 quantity is equal to 50 plants
-          </Text>
-
-          {/* Height selection */}
-          <Text style={[globalStyles.textLGGreyDark, {paddingTop: 20}]}>
-            Approximate Height <Text style={globalStyles.textXSRed}>*</Text>
-          </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              marginTop: 10,
-              justifyContent: 'space-between',
-            }}>
-            {['below', 'above'].map(measure => (
-              <TouchableOpacity
-                key={measure}
-                onPress={() => onpressSelectAboveBelow({measure})}>
-                <View
-                  style={
-                    selectedMeasure == measure
-                      ? styles.cardSelectionSelectedMeasure
-                      : styles.cardSelectionMeasure
-                  }>
-                  <Text style={globalStyles.textMDGreyDark}>
-                    {measure === 'below'
-                      ? 'Below 12 inches'
-                      : '12 inches & above'}
-                  </Text>
-                  <Text style={globalStyles.textSMGreyLight}>
-                    {measure === 'below' ? '<30 cm' : '>=30 cm'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text
-            style={[
-              globalStyles.textSMGreyLight,
-              {paddingTop: 10, paddingBottom: 30},
-            ]}>
-            For shipping costs calculations only.
-          </Text>
-        </ScrollView>
-
-        {/* Save button */}
-        <View style={{padding: 20, backgroundColor: '#fff'}}>
-          <TouchableOpacity
-            style={globalStyles.primaryButton}
-            onPress={onPressSavePotSize}>
-            <Text style={globalStyles.primaryButtonText}>Save pot size</Text>
-          </TouchableOpacity>
-        </View>
-      </ActionSheet>
-      <SellConfirmDraft
-        visible={onGobackModalVisible}
-        onConfirm={onPressSave}
-        onExit={handleConfirmExit}
-        onCancel={handleCancelExit}
-      />
-    </ScrollView>
+        </ActionSheet>
+        <SellConfirmDraft
+          visible={onGobackModalVisible}
+          onConfirm={onPressSave}
+          onExit={handleConfirmExit}
+          onCancel={handleCancelExit}
+        />
+      </ScrollView>
+    </View>
   );
 };
 

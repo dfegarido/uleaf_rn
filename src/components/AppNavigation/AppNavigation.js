@@ -443,7 +443,7 @@ const MainStack = () => {
         name="ScreenSingleSell"
         component={ScreenSingleSell}
         options={({navigation}) => ({
-          headerShown: true, // Ensure the header is shown
+          headerShown: false, // Ensure the header is shown
           title: 'Single Plant', // Optionally hide the header title
           headerTitleAlign: 'center',
           animation: 'slide_from_right', // Screen transition animation
@@ -467,7 +467,7 @@ const MainStack = () => {
         name="ScreenWholesaleSell"
         component={ScreenWholesaleSell}
         options={({navigation}) => ({
-          headerShown: true, // Ensure the header is shown
+          headerShown: false, // Ensure the header is shown
           title: 'Wholesale', // Optionally hide the header title
           headerTitleAlign: 'center',
           animation: 'slide_from_right', // Screen transition animation
@@ -491,7 +491,7 @@ const MainStack = () => {
         name="ScreenGrowersSell"
         component={ScreenGrowersSell}
         options={({navigation}) => ({
-          headerShown: true, // Ensure the header is shown
+          headerShown: false, // Ensure the header is shown
           title: "Grower's Choice", // Optionally hide the header title
           headerTitleAlign: 'center',
           animation: 'slide_from_right', // Screen transition animation
@@ -901,7 +901,7 @@ const AppNavigation = () => {
     <NavigationContainer>
       {isLoggedIn ? (
         isBuyer ? (
-          <BuyerTabNavigator  />
+          <BuyerTabNavigator />
         ) : (
           <MainStack />
         )
