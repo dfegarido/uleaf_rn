@@ -42,6 +42,12 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="ileafu" android:host="payment-success" />
         </intent-filter>
+        <intent-filter android:label="payment-cancel">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="ileafu" android:host="payment-cancel" />
+        </intent-filter>
       </activity>
       
       <!-- Notification click handling -->
