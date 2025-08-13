@@ -91,7 +91,13 @@ const DropdownSelect = ({
             <View style={[styles.modalContent, modalStyle]}>
               <FlatList
                 data={data}
-                keyExtractor={(item) => item}
+                // Use a composite key to avoid duplicate key warnings when values repeat (e.g., duplicate city names)
+                keyExtractor={(item, index) => {
+                  if (item == null) return `null-${index}`;
+                  if (typeof item === 'string') return `${item}-${index}`; // string + index ensures uniqueness and stability for appended pagination
+                  // Support object items: prefer explicit id / isoCode / value / name
+                  return item.id || item.isoCode || item.value || `${item.name || 'item'}-${index}`;
+                }}
                 renderItem={renderItem}
                 onEndReached={onEndReached}
                 onEndReachedThreshold={onEndReachedThreshold}

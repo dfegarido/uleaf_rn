@@ -128,7 +128,10 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => navigation.navigate('ScreenWishlist')}>
+            onPress={() => {
+              // Wishlist feature temporarily disabled
+              console.log('Wishlist feature is temporarily disabled');
+            }}>
             <Wishicon width={40} height={40} />
           </TouchableOpacity>
           <TouchableOpacity

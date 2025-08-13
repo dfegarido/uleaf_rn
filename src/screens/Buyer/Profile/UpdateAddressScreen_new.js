@@ -16,7 +16,7 @@ const UpdateAddressScreen = () => {
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
-  const [selectedStateData, setSelectedStateData] = useState(null); // Store both name and isoCode
+  const [selectedStateData, setSelectedStateData] = useState(null);
   const [zipCode, setZipCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [addressId, setAddressId] = useState(null);
@@ -49,7 +49,6 @@ const UpdateAddressScreen = () => {
   // Load states from new public endpoint
   useEffect(() => {
     const loadStates = async () => {
-      // If we're updating an existing address, still load states but don't auto-fetch cities
       try {
         console.log('Loading states from public endpoint...');
         setStatesLoading(true);
@@ -164,7 +163,6 @@ const UpdateAddressScreen = () => {
       
       // Set the selected state data when we have it
       if (addressToUpdate.state) {
-        // We'll find and set the state object when states are loaded
         const stateObj = {
           name: addressToUpdate.state,
           isoCode: addressToUpdate.stateCode || '',
@@ -239,188 +237,6 @@ const UpdateAddressScreen = () => {
     }
   };
 
-  // Manual trigger to load states when user clicks on dropdown
-  const handleStateDropdownClick = async () => {
-    // If we already have a good amount of states, don't fetch more
-    if (states.length > 30 || statesLoading) {
-      return;
-    }
-    
-    // Rate limiting check
-    const now = Date.now();
-    const timeSinceLastCall = now - lastApiCallTime;
-    if (timeSinceLastCall < 2000) {
-      console.log('Rate limiting active, skipping API call');
-      return;
-    }
-    
-    try {
-      console.log('User clicked state dropdown, loading states...');
-      setStatesLoading(true);
-      setLastApiCallTime(now);
-      
-      // Use our complete fallback list instead of making API calls
-      const fallbackStates = [
-        { name: 'Alabama', isoCode: 'AL' },
-        { name: 'Alaska', isoCode: 'AK' },
-        { name: 'Arizona', isoCode: 'AZ' },
-        { name: 'Arkansas', isoCode: 'AR' },
-        { name: 'California', isoCode: 'CA' },
-        { name: 'Colorado', isoCode: 'CO' },
-        { name: 'Connecticut', isoCode: 'CT' },
-        { name: 'Delaware', isoCode: 'DE' },
-        { name: 'Florida', isoCode: 'FL' },
-        { name: 'Georgia', isoCode: 'GA' },
-        { name: 'Hawaii', isoCode: 'HI' },
-        { name: 'Idaho', isoCode: 'ID' },
-        { name: 'Illinois', isoCode: 'IL' },
-        { name: 'Indiana', isoCode: 'IN' },
-        { name: 'Iowa', isoCode: 'IA' },
-        { name: 'Kansas', isoCode: 'KS' },
-        { name: 'Kentucky', isoCode: 'KY' },
-        { name: 'Louisiana', isoCode: 'LA' },
-        { name: 'Maine', isoCode: 'ME' },
-        { name: 'Maryland', isoCode: 'MD' },
-        { name: 'Massachusetts', isoCode: 'MA' },
-        { name: 'Michigan', isoCode: 'MI' },
-        { name: 'Minnesota', isoCode: 'MN' },
-        { name: 'Mississippi', isoCode: 'MS' },
-        { name: 'Missouri', isoCode: 'MO' },
-        { name: 'Montana', isoCode: 'MT' },
-        { name: 'Nebraska', isoCode: 'NE' },
-        { name: 'Nevada', isoCode: 'NV' },
-        { name: 'New Hampshire', isoCode: 'NH' },
-        { name: 'New Jersey', isoCode: 'NJ' },
-        { name: 'New Mexico', isoCode: 'NM' },
-        { name: 'New York', isoCode: 'NY' },
-        { name: 'North Carolina', isoCode: 'NC' },
-        { name: 'North Dakota', isoCode: 'ND' },
-        { name: 'Ohio', isoCode: 'OH' },
-        { name: 'Oklahoma', isoCode: 'OK' },
-        { name: 'Oregon', isoCode: 'OR' },
-        { name: 'Pennsylvania', isoCode: 'PA' },
-        { name: 'Rhode Island', isoCode: 'RI' },
-        { name: 'South Carolina', isoCode: 'SC' },
-        { name: 'South Dakota', isoCode: 'SD' },
-        { name: 'Tennessee', isoCode: 'TN' },
-        { name: 'Texas', isoCode: 'TX' },
-        { name: 'Utah', isoCode: 'UT' },
-        { name: 'Vermont', isoCode: 'VT' },
-        { name: 'Virginia', isoCode: 'VA' },
-        { name: 'Washington', isoCode: 'WA' },
-        { name: 'West Virginia', isoCode: 'WV' },
-        { name: 'Wisconsin', isoCode: 'WI' },
-        { name: 'Wyoming', isoCode: 'WY' },
-        { name: 'District of Columbia', isoCode: 'DC' }
-      ];
-      
-      // Merge with existing states
-      setStates(prevStates => {
-        const combined = [...prevStates, ...fallbackStates];
-        // Remove duplicates by name
-        const uniqueMap = new Map();
-        combined.forEach(state => {
-          if (!uniqueMap.has(state.name)) {
-            uniqueMap.set(state.name, state);
-          }
-        });
-        // Convert back to array and sort
-        return Array.from(uniqueMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-      });
-      
-      // Set pagination to indicate we have all states now
-      setStatesPagination({
-        offset: fallbackStates.length,
-        hasMore: false,
-        totalCount: fallbackStates.length
-      });
-      
-    } catch (error) {
-      console.error('Error loading states on demand:', error);
-      // Don't show alert for rate limit errors
-      if (!error.message.includes('429')) {
-        Alert.alert('Error', 'Failed to load states. Please try again later.');
-      }
-    } finally {
-      setStatesLoading(false);
-    }
-  };
-
-  // Manually load cities for a state when the city dropdown is clicked
-  const handleCityDropdownClick = () => {
-    if (selectedStateData && cities.length === 0) {
-      // If we have isoCode, try to load cities from API with rate limiting
-      if (selectedStateData.isoCode && (Date.now() - lastApiCallTime > 2000)) {
-        selectedStateData._userTriggered = true;
-        setLastApiCallTime(Date.now());
-        setSelectedStateData({...selectedStateData});
-      } else {
-        // Fallback - provide some common cities for the selected state
-        const getCommonCities = (stateName) => {
-          const commonCitiesByState = {
-            'Alabama': ['Birmingham', 'Montgomery', 'Mobile', 'Huntsville', 'Tuscaloosa'],
-            'Alaska': ['Anchorage', 'Fairbanks', 'Juneau', 'Sitka', 'Ketchikan'],
-            'Arizona': ['Phoenix', 'Tucson', 'Mesa', 'Chandler', 'Scottsdale'],
-            'Arkansas': ['Little Rock', 'Fort Smith', 'Fayetteville', 'Springdale', 'Jonesboro'],
-            'California': ['Los Angeles', 'San Francisco', 'San Diego', 'San Jose', 'Sacramento'],
-            'Colorado': ['Denver', 'Colorado Springs', 'Aurora', 'Fort Collins', 'Lakewood'],
-            'Connecticut': ['Bridgeport', 'New Haven', 'Hartford', 'Stamford', 'Waterbury'],
-            'Delaware': ['Wilmington', 'Dover', 'Newark', 'Middletown', 'Smyrna'],
-            'Florida': ['Miami', 'Orlando', 'Tampa', 'Jacksonville', 'Tallahassee'],
-            'Georgia': ['Atlanta', 'Savannah', 'Augusta', 'Columbus', 'Macon'],
-            'Hawaii': ['Honolulu', 'Hilo', 'Kailua', 'Kapolei', 'Kaneohe'],
-            'Idaho': ['Boise', 'Meridian', 'Nampa', 'Idaho Falls', 'Pocatello'],
-            'Illinois': ['Chicago', 'Aurora', 'Rockford', 'Joliet', 'Naperville'],
-            'Indiana': ['Indianapolis', 'Fort Wayne', 'Evansville', 'South Bend', 'Carmel'],
-            'Iowa': ['Des Moines', 'Cedar Rapids', 'Davenport', 'Sioux City', 'Iowa City'],
-            'Kansas': ['Wichita', 'Overland Park', 'Kansas City', 'Olathe', 'Topeka'],
-            'Kentucky': ['Louisville', 'Lexington', 'Bowling Green', 'Owensboro', 'Covington'],
-            'Louisiana': ['New Orleans', 'Baton Rouge', 'Shreveport', 'Lafayette', 'Lake Charles'],
-            'Maine': ['Portland', 'Lewiston', 'Bangor', 'South Portland', 'Auburn'],
-            'Maryland': ['Baltimore', 'Frederick', 'Rockville', 'Gaithersburg', 'Annapolis'],
-            'Massachusetts': ['Boston', 'Worcester', 'Springfield', 'Lowell', 'Cambridge'],
-            'Michigan': ['Detroit', 'Grand Rapids', 'Warren', 'Sterling Heights', 'Ann Arbor'],
-            'Minnesota': ['Minneapolis', 'Saint Paul', 'Rochester', 'Duluth', 'Bloomington'],
-            'Mississippi': ['Jackson', 'Gulfport', 'Southaven', 'Hattiesburg', 'Biloxi'],
-            'Missouri': ['Kansas City', 'St. Louis', 'Springfield', 'Columbia', 'Independence'],
-            'Montana': ['Billings', 'Missoula', 'Great Falls', 'Bozeman', 'Butte'],
-            'Nebraska': ['Omaha', 'Lincoln', 'Bellevue', 'Grand Island', 'Kearney'],
-            'Nevada': ['Las Vegas', 'Henderson', 'Reno', 'North Las Vegas', 'Sparks'],
-            'New Hampshire': ['Manchester', 'Nashua', 'Concord', 'Derry', 'Dover'],
-            'New Jersey': ['Newark', 'Jersey City', 'Paterson', 'Elizabeth', 'Trenton'],
-            'New Mexico': ['Albuquerque', 'Las Cruces', 'Rio Rancho', 'Santa Fe', 'Roswell'],
-            'New York': ['New York City', 'Buffalo', 'Rochester', 'Yonkers', 'Syracuse'],
-            'North Carolina': ['Charlotte', 'Raleigh', 'Greensboro', 'Durham', 'Winston-Salem'],
-            'North Dakota': ['Fargo', 'Bismarck', 'Grand Forks', 'Minot', 'West Fargo'],
-            'Ohio': ['Columbus', 'Cleveland', 'Cincinnati', 'Toledo', 'Akron'],
-            'Oklahoma': ['Oklahoma City', 'Tulsa', 'Norman', 'Broken Arrow', 'Edmond'],
-            'Oregon': ['Portland', 'Salem', 'Eugene', 'Gresham', 'Hillsboro'],
-            'Pennsylvania': ['Philadelphia', 'Pittsburgh', 'Allentown', 'Erie', 'Reading'],
-            'Rhode Island': ['Providence', 'Warwick', 'Cranston', 'Pawtucket', 'East Providence'],
-            'South Carolina': ['Columbia', 'Charleston', 'North Charleston', 'Mount Pleasant', 'Rock Hill'],
-            'South Dakota': ['Sioux Falls', 'Rapid City', 'Aberdeen', 'Brookings', 'Watertown'],
-            'Tennessee': ['Nashville', 'Memphis', 'Knoxville', 'Chattanooga', 'Clarksville'],
-            'Texas': ['Houston', 'San Antonio', 'Dallas', 'Austin', 'Fort Worth'],
-            'Utah': ['Salt Lake City', 'West Valley City', 'Provo', 'West Jordan', 'Orem'],
-            'Vermont': ['Burlington', 'South Burlington', 'Rutland', 'Essex Junction', 'Colchester'],
-            'Virginia': ['Virginia Beach', 'Norfolk', 'Chesapeake', 'Richmond', 'Newport News'],
-            'Washington': ['Seattle', 'Spokane', 'Tacoma', 'Vancouver', 'Bellevue'],
-            'West Virginia': ['Charleston', 'Huntington', 'Morgantown', 'Parkersburg', 'Wheeling'],
-            'Wisconsin': ['Milwaukee', 'Madison', 'Green Bay', 'Kenosha', 'Racine'],
-            'Wyoming': ['Cheyenne', 'Casper', 'Laramie', 'Gillette', 'Rock Springs'],
-            'District of Columbia': ['Washington']
-          };
-          
-          return commonCitiesByState[stateName] || ['Enter city manually'];
-        };
-        
-        // Get common cities for this state and set them
-        const citiesForState = getCommonCities(selectedStateData.name);
-        setCities(citiesForState);
-      }
-    }
-  };
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -439,27 +255,15 @@ const UpdateAddressScreen = () => {
             label="State"
             placeholder={statesLoading ? "Loading states..." : "Select"}
             value={state}
-            data={Array.from(new Set(states.map(stateObj => stateObj.name))).sort()} // Ensure unique state names
-            onSelect={(selectedStateName) => {
-              const selectedStateObj = states.find(stateObj => stateObj.name === selectedStateName);
-              
-              // Add a flag to indicate this change was triggered by user interaction
-              if (selectedStateObj) {
-                selectedStateObj._userTriggered = true;
-              }
-              
-              setState(selectedStateName);
-              setSelectedStateData(selectedStateObj);
-              
-              // Only reset city when state changes and we're not editing an existing address
-              // Or if we're editing but changing to a different state
-              if (!addressToUpdate || (addressToUpdate && selectedStateName !== addressToUpdate.state)) {
-                setCity('');
-              }
+            data={states.map(s => s.name)}
+            onSelect={(selectedName) => {
+              const sel = states.find(s => s.name === selectedName);
+              setState(selectedName);
+              setSelectedStateData(sel);
+              setCity('');
             }}
-            onPress={handleStateDropdownClick}
             required={true}
-            disabled={statesLoading}
+            disabled={statesLoading || states.length === 0}
             onEndReached={loadMoreStates}
             loading={loadingMoreStates}
           />
@@ -475,13 +279,12 @@ const UpdateAddressScreen = () => {
                   : "Select state first"
             }
             value={city}
-            data={Array.from(new Set(cities)).sort()} // Ensure unique city names
+            data={cities}
             onSelect={(selectedCity) => {
               setCity(selectedCity);
             }}
-            onPress={handleCityDropdownClick}
             required={true}
-            disabled={(!selectedStateData && !city) || citiesLoading}
+            disabled={!selectedStateData || citiesLoading}
             onEndReached={loadMoreCities}
             loading={loadingMoreCities}
           />
@@ -683,7 +486,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 22, // 140% of 16px
+    lineHeight: 22,
     color: '#202325',
     flex: 1,
     flexGrow: 1,
@@ -719,7 +522,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 14,
-    lineHeight: 20, // 140% of 14px
+    lineHeight: 20,
     color: '#647276',
     width: 327,
     alignSelf: 'stretch',

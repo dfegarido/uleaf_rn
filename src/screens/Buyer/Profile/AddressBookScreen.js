@@ -21,6 +21,7 @@ import {
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import MapPinIcon from '../../../assets/HeartPinIcon';
 import EditIcon from '../../../assets/EditIcon';
+import AddressBookSkeleton from './AddressBookSkeleton';
 
 const AddressBookScreen = () => {
   const navigation = useNavigation();
@@ -170,10 +171,7 @@ const AddressBookScreen = () => {
       </View>
       
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#699E73" />
-          <Text style={styles.loadingText}>Loading addresses...</Text>
-        </View>
+        <AddressBookSkeleton />
       ) : (
         <ScrollView 
           style={styles.content} 
@@ -497,19 +495,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 1000,
   },
-  // Loading and empty states
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 50,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#556065',
-    fontFamily: 'Inter',
-  },
+  // Empty states
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 50,

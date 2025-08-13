@@ -184,7 +184,10 @@ const CartHeader = () => {
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => navigation.navigate('ScreenWishlist')}>
+            onPress={() => {
+              // Wishlist feature temporarily disabled
+              console.log('Wishlist feature is temporarily disabled');
+            }}>
             <Wishicon width={40} height={40} />
           </TouchableOpacity>
           <TouchableOpacity
@@ -860,7 +863,7 @@ const ScreenCart = () => {
             color: '#202325',
             marginBottom: 16,
           }}>
-            Browse More Plants
+            More from our Jungle
           </Text>
           
           {loadingRecommendations ? (

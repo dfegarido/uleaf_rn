@@ -162,9 +162,13 @@ const ScreenLoginForm = ({navigation}) => {
           </View>
 
           <View style={{paddingTop: 20}}>
-            <Text style={[globalStyles.textLGAccent, {textAlign: 'right'}]}>
-              Forgot password?
-            </Text>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotPasswordContainer}>
+              <Text style={[globalStyles.textLGAccent, styles.forgotPasswordText]}>
+                Forgot password?
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.buttonContainer}>
@@ -232,6 +236,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  forgotPasswordText: {
+    textAlign: 'right',
+    textDecorationLine: 'underline',
   },
 });
 

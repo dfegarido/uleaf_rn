@@ -13,6 +13,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -38,6 +42,49 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./android/gradlew
 
+      - name: Get current version
+        id: get_version
+        run: |
+          # Extract current versionCode and versionName from build.gradle
+          VERSION_CODE=$(grep 'versionCode' android/app/build.gradle | awk '{print $2}')
+          VERSION_NAME=$(grep 'versionName' android/app/build.gradle | awk -F'"' '{print $2}')
+          
+          echo "Current versionCode: $VERSION_CODE"
+          echo "Current versionName: $VERSION_NAME"
+          
+          # Increment versionCode
+          NEW_VERSION_CODE=$((VERSION_CODE + 1))
+          
+          # Generate new version name (semantic versioning: major.minor.patch)
+          # Extract major, minor, patch from current version
+          IFS='.' read -ra VERSION_PARTS <<< "$VERSION_NAME"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION_NAME="$MAJOR.$MINOR.$NEW_PATCH"
+          
+          echo "New versionCode: $NEW_VERSION_CODE"
+          echo "New versionName: $NEW_VERSION_NAME"
+          
+          # Set outputs for next steps
+          echo "new_version_code=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "new_version_name=$NEW_VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "old_version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "old_version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+
+      - name: Update version in build.gradle
+        run: |
+          # Update versionCode and versionName in build.gradle
+          sed -i "s/versionCode ${{ steps.get_version.outputs.old_version_code }}/versionCode ${{ steps.get_version.outputs.new_version_code }}/g" android/app/build.gradle
+          sed -i "s/versionName \"${{ steps.get_version.outputs.old_version_name }}\"/versionName \"${{ steps.get_version.outputs.new_version_name }}\"/g" android/app/build.gradle
+          
+          # Verify changes
+          echo "Updated build.gradle:"
+          grep -A 5 -B 5 "versionCode\|versionName" android/app/build.gradle
+
       - name: Verify Gradle version
         run: ./android/gradlew -p android --version
 
@@ -47,8 +94,30 @@ jobs:
       - name: Build Android Release
         run: ./android/gradlew -p android assembleRelease --warning-mode all
 
+      - name: Rename APK with version
+        run: |
+          cd android/app/build/outputs/apk/release
+          for file in *.apk; do
+            if [[ $file != *"${{ steps.get_version.outputs.new_version_name }}"* ]]; then
+              mv "$file" "${file%.apk}-v${{ steps.get_version.outputs.new_version_name }}-build${{ steps.get_version.outputs.new_version_code }}.apk"
+            fi
+          done
+          ls -la
+
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apks
+          name: app-release-apks-v${{ steps.get_version.outputs.new_version_name }}
           path: android/app/build/outputs/apk/release/*.apk
+
+      - name: Commit version update
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add android/app/build.gradle
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Bump version to v${{ steps.get_version.outputs.new_version_name }} (build ${{ steps.get_version.outputs.new_version_code }}) [skip ci]"
+            git push
+          fi

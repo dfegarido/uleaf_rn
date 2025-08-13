@@ -25,6 +25,7 @@ import {
   ScreenLogin,
   ScreenLoginForm,
   ScreenLoginOtp,
+  ScreenForgotPassword,
 } from '../../screens/Login';
 import {
   ScreenProfile,
@@ -198,6 +199,11 @@ const AuthStack = () => {
           },
           headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
         })}
+      />
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ScreenForgotPassword}
+        options={{headerShown: false, animation: 'slide_from_right'}}
       />
       <Stack.Screen
         name="Signup"

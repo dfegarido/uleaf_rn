@@ -280,10 +280,10 @@ const BuyerProfileScreen = (props) => {
       // For now, using mock data since we don't have specific APIs for these
       // In a real app, these would come from separate API endpoints
       setProfileStats({
-        leafPoints: 120,
-        plantCredits: 85,
-        shippingCredits: 45,
-        buddyRequests: 2,
+        leafPoints: 0,
+        plantCredits: 0,
+        shippingCredits: 0,
+        buddyRequests: 0,
       });
     } catch (error) {
       console.log('Error loading profile stats:', error);
@@ -445,7 +445,10 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ReportIcon width={24} height={24} fill="#556065" />}
             title="My Wishlist"
-            onPress={() => navigation.navigate('ScreenWishlist')}
+            onPress={() => {
+              // Wishlist feature temporarily disabled
+              console.log('Wishlist feature is temporarily disabled');
+            }}
           />
         </View>
 

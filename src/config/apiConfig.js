@@ -64,6 +64,16 @@ export const API_ENDPOINTS = {
   GET_PLANT_GROWTH_FORMS: `${getBaseUrl()}/getPlantGrowthForms`,
   GET_REGIONS_DROPDOWN: `${getBaseUrl()}/getRegionsDropdown`,
   GET_DELIVERY_OPTIONS: `${getBaseUrl()}/getDeliveryOptions`,
+  
+  // Location Dropdown APIs
+  GET_DROPDOWN_STATES: `${getBaseUrl()}/getDropdownStates`,
+  GET_DROPDOWN_CITIES: `${getBaseUrl()}/getDropdownCities`,
+  POPULATE_DROPDOWN_STATES: `${getBaseUrl()}/populateDropdownStates`,
+  POPULATE_DROPDOWN_CITIES: `${getBaseUrl()}/populateDropdownCities`,
+  TRIGGER_LOCATION_DATA_UPDATE: `${getBaseUrl()}/triggerLocationDataUpdate`,
+  // Public (unauthenticated) location endpoints
+  PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
+  PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
 };
 
 // Export configuration
