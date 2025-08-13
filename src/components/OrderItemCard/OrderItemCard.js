@@ -4,6 +4,7 @@ import {useNavigation} from '@react-navigation/native';
 // Import your calendar icon and flag icon as needed
 import CalendarIcon from '../../assets/icons/greylight/calendar-blank-regular.svg'; // Adjust path as needed
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg'; // Replace with Thailand flag SVG if available
+import {calculatePlantFlightDate} from '../../utils/plantFlightUtils';
 
 const OrderItemCard = ({
   status = 'Ready to Fly',
@@ -30,6 +31,12 @@ const OrderItemCard = ({
   creditStatus = 'pending', // Credit request status
 }) => {
   const navigation = useNavigation();
+
+  // Create plant data object for utility function
+  const plantData = {
+    country: countryCode,
+    // You can add other relevant plant data fields here if needed
+  };
 
   // Helper function to get credit status badge color
   const getCreditStatusBadgeStyle = (status) => {
@@ -144,7 +151,7 @@ const OrderItemCard = ({
           <View style={styles.flightInfo}>
             <CalendarIcon width={16} height={16} />
             <Text style={styles.cargoDate}>
-              Plant Flight <Text style={styles.bold}>{airCargoDate}</Text>
+              Plant Flight <Text style={styles.bold}>{calculatePlantFlightDate(plantData)}</Text>
             </Text>
           </View>
           <View style={styles.countryInfo}>
@@ -178,7 +185,7 @@ const OrderItemCard = ({
           <View style={styles.plantFlightDate}>
             <View style={styles.flightContent}>
               <CalendarIcon width={24} height={24} />
-              <Text style={styles.flightDateText}>Plant Flight {airCargoDate}</Text>
+              <Text style={styles.flightDateText}>Plant Flight {calculatePlantFlightDate(plantData)}</Text>
             </View>
             <View style={styles.countrySection}>
               <Text style={styles.countryText}>{countryCode}</Text>

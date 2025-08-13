@@ -26,6 +26,7 @@ import {getBuyerListingsApi, searchPlantsApi} from '../../../components/Api/list
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
 
 import PromoBadgeList from '../../../components/PromoBadgeList';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
@@ -454,6 +455,13 @@ const ScreenCart = () => {
           calculatedOriginalPrice: originalPrice
         });
 
+        // Create plant data object for flight date calculation
+        const plantData = {
+          country: item.listingDetails?.country || 'TH', // Default to Thailand if not specified
+          genus: item.listingDetails?.genus,
+          species: item.listingDetails?.species,
+        };
+
         return {
           id: item.cartId || item.id,
           cartItemId: item.cartId,
@@ -467,7 +475,7 @@ const ScreenCart = () => {
           price: currentPrice,
           originalPrice: originalPrice,
           quantity: item.quantity || 1,
-          flightInfo: `Plant Flight ${item.listingDetails?.flightDate || 'May-30'}`,
+          flightInfo: `Plant Flight ${calculatePlantFlightDate(plantData)}`,
           shippingInfo: isListingUnavailable ? 'Item no longer available' : 'UPS 2nd Day $50, add-on plant $5',
           flagIcon: '🇹🇭',
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity

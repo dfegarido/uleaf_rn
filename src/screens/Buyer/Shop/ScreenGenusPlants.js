@@ -544,7 +544,43 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       console.log('Plants loaded successfully:', res.data?.listings?.length || 0);
 
-      const newPlants = res.data?.listings || [];
+      const rawPlants = res.data?.listings || [];
+      
+      // Filter out plants with invalid data (same logic as BrowseMorePlants and ScreenPlantDetail)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        // Check if plant has a valid price (greater than 0)
+        const hasValidPrice = (plant.finalPrice && plant.finalPrice > 0) ||
+                             (plant.usdPriceNew && plant.usdPriceNew > 0) ||
+                             (plant.usdPrice && plant.usdPrice > 0) ||
+                             (plant.localPriceNew && plant.localPriceNew > 0) ||
+                             (plant.localPrice && plant.localPrice > 0);
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle && hasValidPrice;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid genus plant:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice,
+            hasValidPrice: hasValidPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} genus plants down to ${newPlants.length} valid plants`);
       
       if (refresh) {
         setPlants(newPlants);
@@ -686,7 +722,43 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       console.log('Plants loaded successfully with local filters:', res.data?.listings?.length || 0);
 
-      const newPlants = res.data?.listings || [];
+      const rawPlants = res.data?.listings || [];
+      
+      // Filter out plants with invalid data (same logic as BrowseMorePlants and ScreenPlantDetail)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        // Check if plant has a valid price (greater than 0)
+        const hasValidPrice = (plant.finalPrice && plant.finalPrice > 0) ||
+                             (plant.usdPriceNew && plant.usdPriceNew > 0) ||
+                             (plant.usdPrice && plant.usdPrice > 0) ||
+                             (plant.localPriceNew && plant.localPriceNew > 0) ||
+                             (plant.localPrice && plant.localPrice > 0);
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle && hasValidPrice;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid genus plant (local filters):', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice,
+            hasValidPrice: hasValidPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} genus plants (local filters) down to ${newPlants.length} valid plants`);
       
       if (refresh) {
         setPlants(newPlants);
@@ -974,26 +1046,48 @@ const ScreenGenusPlants = ({navigation, route}) => {
         
         {plants.length > 0 ? (
           <View style={styles.plantsGridContainer}>
-            {plants.map((plant, idx) => (
-              <View 
-                key={plant.plantCode || idx} 
-                style={[
-                  styles.plantCardWrapper,
-                  // Remove right margin for every second item (right column) or if it's the last item
-                  (idx + 1) % 2 === 0 || idx === plants.length - 1 ? { marginRight: 0 } : {}
-                ]}
-              >
-                <PlantItemCard
-                  data={plant}
-                  onPress={() => {
-                    console.log('Navigate to plant detail:', plant.plantCode);
-                    // TODO: Navigate to plant detail screen
-                    // navigation.navigate('PlantDetail', {plantCode: plant.plantCode});
-                  }}
-                  onAddToCart={() => handleAddToCart(plant)}
-                />
-              </View>
-            ))}
+            {plants.map((plant, idx) => {
+              // Additional safety check before rendering
+              if (!plant || 
+                  !plant.plantCode || 
+                  typeof plant.plantCode !== 'string' ||
+                  plant.plantCode.trim() === '') {
+                console.log('Skipping invalid genus plant at render:', plant);
+                return null;
+              }
+              
+              // Ensure title and subtitle are safe
+              const hasValidTitle = (plant.genus && typeof plant.genus === 'string') || 
+                                   (plant.plantName && typeof plant.plantName === 'string');
+              const hasValidSubtitle = (plant.species && typeof plant.species === 'string') || 
+                                      (plant.variegation && typeof plant.variegation === 'string');
+              
+              if (!hasValidTitle || !hasValidSubtitle) {
+                console.log('Skipping genus plant with invalid text fields:', plant);
+                return null;
+              }
+              
+              return (
+                <View 
+                  key={plant.plantCode || `genus-plant-${idx}`} 
+                  style={[
+                    styles.plantCardWrapper,
+                    // Remove right margin for every second item (right column) or if it's the last item
+                    (idx + 1) % 2 === 0 || idx === plants.length - 1 ? { marginRight: 0 } : {}
+                  ]}
+                >
+                  <PlantItemCard
+                    data={plant}
+                    onPress={() => {
+                      console.log('Navigate to plant detail:', plant.plantCode);
+                      // TODO: Navigate to plant detail screen
+                      // navigation.navigate('PlantDetail', {plantCode: plant.plantCode});
+                    }}
+                    onAddToCart={() => handleAddToCart(plant)}
+                  />
+                </View>
+              );
+            }).filter(Boolean)}
             
             {/* Load More Indicator */}
             {loadingMore && (

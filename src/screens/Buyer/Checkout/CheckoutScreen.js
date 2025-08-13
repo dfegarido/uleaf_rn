@@ -29,6 +29,7 @@ import { getAddressBookEntriesApi } from '../../../components/Api';
 import { checkoutApi } from '../../../components/Api/checkoutApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
+import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
 
 // Function to render the correct country flag
 const renderCountryFlag = (country) => {
@@ -181,7 +182,18 @@ const CheckoutScreen = () => {
   });
   
   const [cargoDate, setCargoDate] = useState('2025-02-15');
-  const [selectedFlightDate, setSelectedFlightDate] = useState('May 30');
+  
+  // Initialize flight date with calculated value
+  const getInitialFlightDate = () => {
+    if (plantData?.country) {
+      // Use the plant flight utility to calculate the date
+      return calculatePlantFlightDate({ country: plantData.country });
+    }
+    // Default to Thailand calculation if no country specified
+    return calculatePlantFlightDate({ country: 'TH' });
+  };
+  
+  const [selectedFlightDate, setSelectedFlightDate] = useState(getInitialFlightDate());
   const [paymentMethod, setPaymentMethod] = useState('PAYPAL');
   const [leafPoints, setLeafPoints] = useState(0);
   const [plantCredits, setPlantCredits] = useState(0);
