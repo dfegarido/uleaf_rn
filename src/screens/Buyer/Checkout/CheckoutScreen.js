@@ -193,7 +193,68 @@ const CheckoutScreen = () => {
     return calculatePlantFlightDate({ country: 'TH' });
   };
   
-  const [selectedFlightDate, setSelectedFlightDate] = useState(getInitialFlightDate());
+  // Generate next 3 Saturday flight dates starting from the calculated plant flight date
+  const getFlightDateOptions = () => {
+    const baseFlightDate = getInitialFlightDate();
+    const options = [];
+    
+    // Parse the base flight date (format: "Aug-17")
+    const [monthName, day] = baseFlightDate.split('-');
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthIndex = monthNames.indexOf(monthName);
+    
+    if (monthIndex === -1) {
+      // Fallback if parsing fails
+      return [
+        { label: baseFlightDate, value: baseFlightDate },
+        { label: 'Next Flight', value: 'Next Flight' },
+        { label: 'Later Flight', value: 'Later Flight' }
+      ];
+    }
+    
+    // Create date object for the base flight date
+    const currentYear = new Date().getFullYear();
+    let baseDate = new Date(currentYear, monthIndex, parseInt(day));
+    
+    // If the date is in the past, move to next year
+    if (baseDate < new Date()) {
+      baseDate = new Date(currentYear + 1, monthIndex, parseInt(day));
+    }
+    
+    // Ensure it's a Saturday (day 6)
+    while (baseDate.getDay() !== 6) {
+      baseDate.setDate(baseDate.getDate() + 1);
+    }
+    
+    // Generate 3 Saturday options
+    for (let i = 0; i < 3; i++) {
+      const optionDate = new Date(baseDate);
+      optionDate.setDate(baseDate.getDate() + (i * 7)); // Add weeks
+      
+      const month = monthNames[optionDate.getMonth()];
+      const dayNum = optionDate.getDate();
+      const year = optionDate.getFullYear();
+      
+      options.push({
+        label: `${month} ${dayNum}`,
+        value: `${month} ${dayNum}`,
+        fullDate: optionDate,
+        year: year
+      });
+    }
+    
+    return options;
+  };
+  
+  const flightDateOptions = getFlightDateOptions();
+  
+  // Initialize selectedFlightDate with the first option
+  const [selectedFlightDate, setSelectedFlightDate] = useState(() => {
+    const options = getFlightDateOptions();
+    return options[0]?.value || getInitialFlightDate();
+  });
+  
   const [paymentMethod, setPaymentMethod] = useState('PAYPAL');
   const [leafPoints, setLeafPoints] = useState(0);
   const [plantCredits, setPlantCredits] = useState(0);
@@ -805,44 +866,20 @@ const CheckoutScreen = () => {
               
               {/* Flight Options */}
               <View style={styles.flightOptionsRow}>
-                {/* May 30 Option */}
-                <TouchableOpacity
-                  style={[
-                    styles.optionCard, 
-                    selectedFlightDate === 'May 30' ? styles.selectedOptionCard : styles.unselectedOptionCard
-                  ]}
-                  onPress={() => setSelectedFlightDate('May 30')}>
-                  <Text style={selectedFlightDate === 'May 30' ? styles.optionText : styles.unselectedOptionText}>
-                    May 30
-                  </Text>
-                  <Text style={styles.optionSubtext}>2025</Text>
-                </TouchableOpacity>
-                
-                {/* Jun 15 Option */}
-                <TouchableOpacity
-                  style={[
-                    styles.optionCard, 
-                    selectedFlightDate === 'Jun 15' ? styles.selectedOptionCard : styles.unselectedOptionCard
-                  ]}
-                  onPress={() => setSelectedFlightDate('Jun 15')}>
-                  <Text style={selectedFlightDate === 'Jun 15' ? styles.optionText : styles.unselectedOptionText}>
-                    Jun 15
-                  </Text>
-                  <Text style={styles.optionSubtext}>2025</Text>
-                </TouchableOpacity>
-                
-                {/* Jul 20 Option */}
-                <TouchableOpacity
-                  style={[
-                    styles.optionCard, 
-                    selectedFlightDate === 'Jul 20' ? styles.selectedOptionCard : styles.unselectedOptionCard
-                  ]}
-                  onPress={() => setSelectedFlightDate('Jul 20')}>
-                  <Text style={selectedFlightDate === 'Jul 20' ? styles.optionText : styles.unselectedOptionText}>
-                    Jul 20
-                  </Text>
-                  <Text style={styles.optionSubtext}>2025</Text>
-                </TouchableOpacity>
+                {flightDateOptions.map((option, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.optionCard, 
+                      selectedFlightDate === option.value ? styles.selectedOptionCard : styles.unselectedOptionCard
+                    ]}
+                    onPress={() => setSelectedFlightDate(option.value)}>
+                    <Text style={selectedFlightDate === option.value ? styles.optionText : styles.unselectedOptionText}>
+                      {option.label}
+                    </Text>
+                    <Text style={styles.optionSubtext}>{option.year}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           </View>

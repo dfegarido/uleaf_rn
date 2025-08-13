@@ -52,14 +52,7 @@ const BrowseMorePlants = ({
           const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
                              (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
           
-          // Check if plant has a valid price (greater than 0)
-          const hasValidPrice = (plant.finalPrice && plant.finalPrice > 0) ||
-                               (plant.usdPriceNew && plant.usdPriceNew > 0) ||
-                               (plant.usdPrice && plant.usdPrice > 0) ||
-                               (plant.localPriceNew && plant.localPriceNew > 0) ||
-                               (plant.localPrice && plant.localPrice > 0);
-          
-          const isValid = hasPlantCode && hasTitle && hasSubtitle && hasValidPrice;
+          const isValid = hasPlantCode && hasTitle && hasSubtitle;
           
           if (!isValid) {
             console.log('Filtering out invalid plant:', {
@@ -68,8 +61,7 @@ const BrowseMorePlants = ({
               species: plant?.species,
               variegation: plant?.variegation,
               plantName: plant?.plantName,
-              finalPrice: plant?.finalPrice,
-              hasValidPrice: hasValidPrice
+              finalPrice: plant?.finalPrice
             });
           }
           
