@@ -255,6 +255,89 @@ const CheckoutScreen = () => {
     return options[0]?.value || getInitialFlightDate();
   });
   
+  // Calculate UPS 2nd Day shipping cost based on plant details (matching ScreenPlantDetail logic)
+  const calculateUpsShippingCost = () => {
+    // Get plant data from either cart items or buy now data
+    const plants = useCart ? cartItems : plantItems;
+    
+    if (!plants || plants.length === 0) {
+      return { baseCost: 50, addOnCost: 5, baseCargo: 150 }; // Default
+    }
+
+    // Calculate total items and total plant cost for air base cargo rule
+    const totalItems = plants.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const totalPlantCost = plants.reduce((sum, item) => {
+      const price = parseFloat(item.usdPriceNew || item.usdPrice || 0);
+      const quantity = item.quantity || 1;
+      return sum + (price * quantity);
+    }, 0);
+
+    // Check if air base cargo should be free (>= 15 items AND >= $500 total cost)
+    const isFreeBaseCargo = totalItems >= 15 && totalPlantCost >= 500;
+    
+    // Use the first plant's data to determine shipping rules
+    const firstPlant = plants[0];
+    const listingType = firstPlant.listingType?.toLowerCase() || 'single';
+    
+    console.log('🚚 Shipping calculation debug:', {
+      firstPlant: {
+        listingType: firstPlant.listingType,
+        listingTypeLower: listingType,
+        height: firstPlant.height,
+        approximateHeight: firstPlant.approximateHeight,
+        potSize: firstPlant.potSize,
+        size: firstPlant.size
+      }
+    });
+    
+    switch (listingType) {
+      case 'single':
+      case 'single plant':
+      case 'discounted':
+        // Based on plant height (if available in plant data)
+        const height = parseFloat(firstPlant.height || firstPlant.approximateHeight || 0);
+        return {
+          baseCost: height > 12 ? 70 : 50,
+          addOnCost: height > 12 ? 7 : 5,
+          baseCargo: isFreeBaseCargo ? 0 : 150,
+          rule: `Single plant - Height ${height > 12 ? '>12"' : '≤12"'}${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`
+        };
+        
+      case 'growers':
+      case "grower's choice":
+        // Based on pot size
+        const potSize = firstPlant.potSize || firstPlant.size || '2"';
+        const potSizeNum = parseFloat(potSize.replace('"', '')) || 2;
+        return {
+          baseCost: potSizeNum > 4 ? 70 : 50,
+          addOnCost: potSizeNum > 4 ? 7 : 5,
+          baseCargo: isFreeBaseCargo ? 0 : 150,
+          rule: `Grower's Choice - Pot size ${potSizeNum > 4 ? '>4"' : '≤4"'}${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`
+        };
+        
+      case 'wholesale':
+        // Wholesale has different pricing - only trigger for actual wholesale items
+        const wholePotSize = firstPlant.potSize || firstPlant.size || '2"';
+        const wholePotSizeNum = parseFloat(wholePotSize.replace('"', '')) || 2;
+        return {
+          baseCost: wholePotSizeNum > 4 ? 200 : 150,
+          addOnCost: wholePotSizeNum > 4 ? 25 : 20,
+          baseCargo: 250, // Wholesale always has higher base cargo, not affected by free cargo rule
+          rule: `Wholesale - Pot size ${wholePotSizeNum > 4 ? '>4"' : '≤4"'}`
+        };
+        
+      default:
+        // Default to single plant pricing for any unrecognized listing types
+        const defaultHeight = parseFloat(firstPlant.height || firstPlant.approximateHeight || 0);
+        return {
+          baseCost: defaultHeight > 12 ? 70 : 50,
+          addOnCost: defaultHeight > 12 ? 7 : 5,
+          baseCargo: isFreeBaseCargo ? 0 : 150,
+          rule: `Default (Single plant) - Height ${defaultHeight > 12 ? '>12"' : '≤12"'}${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`
+        };
+    }
+  };
+  
   const [paymentMethod, setPaymentMethod] = useState('PAYPAL');
   const [leafPoints, setLeafPoints] = useState(0);
   const [plantCredits, setPlantCredits] = useState(0);
@@ -382,12 +465,16 @@ const CheckoutScreen = () => {
   }, [useCart, cartItems]);
   
   const orderSummary = useMemo(() => {
+    // Calculate default shipping cost
+    const defaultShippingRates = calculateUpsShippingCost();
+    const defaultShipping = defaultShippingRates.baseCost;
+    
     const defaultSummary = {
       totalItems: 0,
       subtotal: 0,
-      shipping: 15.00,
+      shipping: defaultShipping,
       discount: 0,
-      finalTotal: 15.00,
+      finalTotal: defaultShipping,
     };
 
     if (!plantItems || plantItems.length === 0) {
@@ -425,13 +512,53 @@ const CheckoutScreen = () => {
       console.log('💸 Calculated discount from plant items:', discountAmount);
     }
     
-    // Base shipping cost
-    let shipping = 15.00;
+    // Calculate UPS 2nd Day shipping cost based on plant characteristics
+    const shippingRates = calculateUpsShippingCost();
+    let shipping = shippingRates.baseCost;
     
-    // Add UPS Next Day upgrade if enabled
-    if (upsNextDayEnabled) {
-      shipping += 15.00; // Additional $15 for next day shipping
+    // Add costs for additional plants beyond the first one
+    const totalItemsForShipping = plantItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    if (totalItemsForShipping > 1) {
+      shipping += (totalItemsForShipping - 1) * shippingRates.addOnCost;
     }
+
+    // Calculate wholesale air cargo separately if there are wholesale items
+    let wholesaleAirCargo = 0;
+    let airBaseCargo = shippingRates.baseCargo || 0;
+    
+    const wholesaleItems = plantItems.filter(item => 
+      item.listingType?.toLowerCase() === 'wholesale' || 
+      item.listingType?.toLowerCase().includes('wholesale')
+    );
+    
+    // Rule: If cart has wholesale items, base air cargo becomes zero and wholesale air cargo is populated
+    if (wholesaleItems.length > 0) {
+      airBaseCargo = 0; // Base air cargo becomes zero when wholesale items are present
+      
+      // Calculate wholesale air cargo cost - use the wholesale base cargo from shipping rates
+      const wholesaleQuantity = wholesaleItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      wholesaleAirCargo = shippingRates.baseCargo; // Use the wholesale base cargo (250)
+      
+      // Add additional wholesale item costs if more than 1 wholesale item
+      if (wholesaleQuantity > 1) {
+        wholesaleAirCargo += (wholesaleQuantity - 1) * 50; // $50 per additional wholesale item
+      }
+    }
+    
+    console.log(`📦 UPS 2nd Day Shipping: Base $${shippingRates.baseCost}, Add-on $${shippingRates.addOnCost} × ${totalItemsForShipping - 1} = $${shipping} (${shippingRates.rule})`);
+    console.log(`✈️ Air Cargo: Base Air Cargo $${airBaseCargo}, Wholesale Air Cargo $${wholesaleAirCargo}`);
+    
+    // Add UPS Next Day upgrade if enabled (60% of UPS 2nd day shipping cost)
+    let upsNextDayUpgradeCost = 0;
+    if (upsNextDayEnabled) {
+      upsNextDayUpgradeCost = shipping * 0.60; // 60% of UPS 2nd day shipping cost
+      shipping += upsNextDayUpgradeCost;
+      console.log(`🚀 UPS Next Day upgrade: +$${upsNextDayUpgradeCost.toFixed(2)} (60% of UPS 2nd day $${shipping - upsNextDayUpgradeCost}), UPS shipping now: $${shipping}`);
+    }
+    
+    // Calculate total shipping including air cargo costs
+    const totalShippingCost = shipping + airBaseCargo + wholesaleAirCargo;
+    console.log(`💸 Total Shipping Cost: UPS $${shipping} + Base Air Cargo $${airBaseCargo} + Wholesale Air Cargo $${wholesaleAirCargo} = $${totalShippingCost}`);
     
     // Apply credits
     let creditsApplied = 0;
@@ -445,12 +572,16 @@ const CheckoutScreen = () => {
       creditsApplied += shippingCredits;
     }
     
-    const finalTotal = Math.max(0, subtotal + shipping - creditsApplied);
+    const finalTotal = Math.max(0, subtotal + totalShippingCost - creditsApplied);
 
     const summary = {
       totalItems,
       subtotal,
-      shipping,
+      shipping, // This is just UPS 2nd day shipping (without air cargo)
+      upsNextDayUpgradeCost: upsNextDayUpgradeCost, // Add UPS Next Day upgrade cost to summary
+      airBaseCargo: airBaseCargo, // Add air base cargo to summary
+      wholesaleAirCargo: wholesaleAirCargo, // Add wholesale air cargo to summary
+      totalShippingCost: totalShippingCost, // Total of all shipping costs combined
       discount: discountAmount,
       creditsApplied,
       finalTotal,
@@ -471,6 +602,7 @@ const CheckoutScreen = () => {
     return summary;
   }, [
     plantItems, 
+    cartItems, // Added for shipping calculation
     totalAmount, 
     route.params?.discountAmount,
     upsNextDayEnabled,
@@ -1067,7 +1199,7 @@ const CheckoutScreen = () => {
                       {upsNextDayEnabled ? '+' : '-'}
                     </Text>
                     <Text style={upsNextDayEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {upsNextDayEnabled ? formatCurrencyFull(15) : formatCurrencyFull(0)}
+                      {upsNextDayEnabled ? formatCurrencyFull(orderSummary.upsNextDayUpgradeCost || 0) : formatCurrencyFull(0)}
                     </Text>
                   </View>
                   <View style={[
@@ -1092,25 +1224,25 @@ const CheckoutScreen = () => {
                     </View>
                   </View>
                 </View>
-                <Text style={styles.summaryRowNumber}>$25.00</Text>
+                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.airBaseCargo)}</Text>
               </View>
               
               {/* Wholesale Air Cargo */}
               <View style={styles.wholesaleAirCargoRow}>
                 <Text style={styles.summaryRowLabel}>Wholesale Air Cargo</Text>
-                <Text style={styles.summaryRowNumber}>$18.00</Text>
+                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.wholesaleAirCargo)}</Text>
               </View>
               
               {/* Air Cargo Credit */}
               <View style={styles.airCargoCreditRow}>
                 <Text style={styles.summaryRowLabel}>Air Cargo Shipping Credit</Text>
-                <Text style={styles.airCargoCreditAmount}>-$10.00</Text>
+                <Text style={styles.airCargoCreditAmount}>-$ 0.00</Text>
               </View>
               
               {/* Total */}
               <View style={styles.shippingTotalRow}>
                 <Text style={styles.shippingTotalLabel}>Total Shipping Cost</Text>
-                <Text style={styles.shippingTotalNumber}>{formatCurrencyFull(orderSummary.shipping)}</Text>
+                <Text style={styles.shippingTotalNumber}>{formatCurrencyFull(orderSummary.totalShippingCost)}</Text>
               </View>
             </View>
           </View>
