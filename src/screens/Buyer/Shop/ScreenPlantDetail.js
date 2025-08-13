@@ -38,6 +38,7 @@ import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
 import {getPlantRecommendationsApi} from '../../../components/Api/listingBrowseApi';
 import {addToCartApi} from '../../../components/Api/cartApi';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
+import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
@@ -167,10 +168,46 @@ const ScreenPlantDetail = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load recommendations');
       }
 
-      const recommendationsData = res.data?.recommendations || [];
+      const rawRecommendations = res.data?.recommendations || [];
+      
+      // Filter out plants with invalid data (same logic as BrowseMorePlants)
+      const validRecommendations = rawRecommendations.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        // Check if plant has a valid price (greater than 0)
+        const hasValidPrice = (plant.finalPrice && plant.finalPrice > 0) ||
+                             (plant.usdPriceNew && plant.usdPriceNew > 0) ||
+                             (plant.usdPrice && plant.usdPrice > 0) ||
+                             (plant.localPriceNew && plant.localPriceNew > 0) ||
+                             (plant.localPrice && plant.localPrice > 0);
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle && hasValidPrice;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid recommendation:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice,
+            hasValidPrice: hasValidPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawRecommendations.length} recommendations down to ${validRecommendations.length} valid recommendations`);
       
       // Set recommendations first, then loading state
-      setRecommendations(recommendationsData);
+      setRecommendations(validRecommendations);
       setLoadingRecommendations(false);
 
     } catch (error) {
@@ -435,76 +472,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
       discountedPrice: originalPrice.toFixed(2),
       discountPercent: 0,
     };
-  };
-
-  // Calculate plant flight date based on country
-  const getPlantFlightDate = () => {
-    // Try to get country from different possible locations in the data
-    let country = plantData?.country?.toLowerCase();
-    
-    // If no country in main data, check variations for country info
-    if (!country && plantData?.variations && plantData.variations.length > 0) {
-      // Check if any variation has country info
-      for (const variation of plantData.variations) {
-        if (variation.country) {
-          country = variation.country.toLowerCase();
-          break;
-        }
-      }
-    }
-    
-    // If still no country, check seller data or default to Philippines
-    if (!country) {
-      // Default to Philippines since that seems to be the main origin based on the flag fallback
-      country = 'philippines';
-    }
-    
-    const currentDate = new Date();
-    
-    // Helper function to get next Saturday from a given date
-    const getNextSaturday = (fromDate) => {
-      const date = new Date(fromDate);
-      const daysUntilSaturday = (6 - date.getDay()) % 7; // 6 = Saturday, 0 = Sunday
-      const nextSaturday = new Date(date);
-      
-      if (daysUntilSaturday === 0 && date.getDay() === 6) {
-        // If today is Saturday, get next Saturday (7 days from now)
-        nextSaturday.setDate(date.getDate() + 7);
-      } else if (daysUntilSaturday === 0) {
-        // If today is Sunday, get this Saturday (6 days from now)
-        nextSaturday.setDate(date.getDate() + 6);
-      } else {
-        // Get the upcoming Saturday
-        nextSaturday.setDate(date.getDate() + daysUntilSaturday);
-      }
-      
-      return nextSaturday;
-    };
-
-    // Format date as "Mon-DD" (e.g., "Aug-15")
-    const formatFlightDate = (date) => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${months[date.getMonth()]}-${date.getDate().toString().padStart(2, '0')}`;
-    };
-
-    if (country === 'philippines' || country === 'indonesia') {
-      // Philippines/Indonesia: 28 days + nearest Saturday
-      const date28DaysLater = new Date(currentDate);
-      date28DaysLater.setDate(currentDate.getDate() + 28);
-      const flightDate = getNextSaturday(date28DaysLater);
-      return formatFlightDate(flightDate);
-    } else if (country === 'thailand') {
-      // Thailand: Next Saturday from current date
-      const flightDate = getNextSaturday(currentDate);
-      return formatFlightDate(flightDate);
-    } else {
-      // For other countries, default to Philippines rules (28 days + nearest Saturday)
-      const date28DaysLater = new Date(currentDate);
-      date28DaysLater.setDate(currentDate.getDate() + 28);
-      const flightDate = getNextSaturday(date28DaysLater);
-      return formatFlightDate(flightDate);
-    }
   };
 
   if (loading) {
@@ -842,7 +809,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.plantDetailTextContainer}>
                   <View style={styles.plantDetailTextAndAmount}>
                     <Text style={styles.flightDetailData}>
-                      Plant Flight <Text style={{color: '#539461'}}>{getPlantFlightDate()}</Text>
+                      Plant Flight <Text style={{color: '#539461'}}>{calculatePlantFlightDate(plantData)}</Text>
                     </Text>
                   </View>
                 </View>
@@ -917,9 +884,29 @@ const ScreenPlantDetail = ({navigation, route}) => {
             ) : recommendations.length > 0 ? (
               <View style={styles.recommendationGrid}>
                 {recommendations.map((plant, index) => {
+                  // Additional safety check before rendering
+                  if (!plant || 
+                      !plant.plantCode || 
+                      typeof plant.plantCode !== 'string' ||
+                      plant.plantCode.trim() === '') {
+                    console.log('Skipping invalid recommendation at render:', plant);
+                    return null;
+                  }
+                  
+                  // Ensure title and subtitle are safe
+                  const hasValidTitle = (plant.genus && typeof plant.genus === 'string') || 
+                                       (plant.plantName && typeof plant.plantName === 'string');
+                  const hasValidSubtitle = (plant.species && typeof plant.species === 'string') || 
+                                          (plant.variegation && typeof plant.variegation === 'string');
+                  
+                  if (!hasValidTitle || !hasValidSubtitle) {
+                    console.log('Skipping recommendation with invalid text fields:', plant);
+                    return null;
+                  }
+                  
                   return (
                     <View 
-                      key={plant.id || plant.plantCode || index} 
+                      key={plant.id || plant.plantCode || `rec-${index}`} 
                       style={styles.recommendationCard}
                     >
                       <PlantItemCard 
@@ -933,7 +920,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                       />
                     </View>
                   );
-                })}
+                }).filter(Boolean)}
               </View>
             ) : (
               <View style={styles.noRecommendationsContainer}>
@@ -1003,7 +990,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                   <View style={styles.shippingInfo}>
                     <FlightIcon width={20} height={20} />
                     <Text style={styles.shippingText}>
-                      Plant Flight {getPlantFlightDate()} • {getShippingCost().displayText}
+                      Plant Flight {calculatePlantFlightDate(plantData)} • {getShippingCost().displayText}
                       <Text style={[styles.shippingText, {color: '#539461'}]}>
                         {getShippingCost().mainPrice}
                       </Text>

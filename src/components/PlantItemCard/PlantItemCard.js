@@ -8,6 +8,7 @@ import HeartIcon from '../../assets/buyer-icons/heart.svg';
 import PhilippinesFlag from '../../assets/buyer-icons/philippines-flag.svg';
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaFlag from '../../assets/buyer-icons/indonesia-flag.svg';
+import {calculatePlantFlightDate} from '../../utils/plantFlightUtils';
 
 const placeholderImage = require('../../assets/buyer-icons/png/ficus-lyrata.png');
 const placeholderFlag = require('../../assets/buyer-icons/philippines-flag.svg');
@@ -104,8 +105,12 @@ const PlantItemCard = ({
     flag;
     
   const displayFlightDate = data ? 
-    (plantData.flightDate || 'TBD') :
-    flightDate;
+    calculatePlantFlightDate({ 
+      country: plantData.country || plantData.countryCode || 'TH' // Default to Thailand
+    }) :
+    calculatePlantFlightDate({ 
+      country: country || 'TH' // Use country prop or default to Thailand
+    });
 
   return (
     <View style={[{flexDirection: 'column'}, style]}>
