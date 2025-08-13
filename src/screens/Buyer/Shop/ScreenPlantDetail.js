@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -79,7 +79,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   // Load plant details when screen comes into focus
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       if (plantCode) {
         loadPlantDetails();
       }
@@ -94,8 +94,27 @@ const ScreenPlantDetail = ({navigation, route}) => {
       setLoveCount(plantData.loveCount || 0);
     }
     
-    // Handle new pot size data structure
-    if (plantData?.availablePotSizes && plantData.availablePotSizes.length > 0) {
+    // Handle variations-based pot size structure
+    if (plantData?.variations && plantData.variations.length > 0) {
+      // Extract pot sizes from variations
+      const potSizes = plantData.variations.map(variation => variation.potSize).filter(Boolean);
+      setAvailablePotSizes(potSizes);
+      
+      // Create pot size groups mapping from variations
+      const potSizeGroups = {};
+      plantData.variations.forEach(variation => {
+        if (variation.potSize) {
+          potSizeGroups[variation.potSize] = [variation];
+        }
+      });
+      setPotSizeGroups(potSizeGroups);
+      
+      // Set initial pot size to the first available one
+      if (potSizes.length > 0 && (!selectedPotSize || !potSizes.includes(selectedPotSize))) {
+        setSelectedPotSize(potSizes[0]);
+      }
+    } else if (plantData?.availablePotSizes && plantData.availablePotSizes.length > 0) {
+      // Handle legacy pot size data structure
       setAvailablePotSizes(plantData.availablePotSizes);
       setPotSizeGroups(plantData.potSizeGroups || {});
       
@@ -104,34 +123,36 @@ const ScreenPlantDetail = ({navigation, route}) => {
         setSelectedPotSize(plantData.availablePotSizes[0]);
       }
     } else if (plantData?.potSize) {
-      // Fallback for old data structure
+      // Fallback for old single pot size structure
       setSelectedPotSize(plantData.potSize);
       setAvailablePotSizes([plantData.potSize]);
     }
     
     // Load recommendations when plant data is available and we're not already loading
     if (plantData?.plantCode && !loadingRecommendations && recommendations.length === 0) {
-      console.log('Triggering loadRecommendations from useEffect');
       loadRecommendations();
     }
   }, [plantData, loadingRecommendations, recommendations.length, selectedPotSize]);
 
+  // Log when shipping costs update
+  useEffect(() => {
+    if (plantData && selectedPotSize) {
+      const shippingInfo = getShippingCost();
+    }
+  }, [selectedPotSize, plantData?.listingType, plantData?.approximateHeight]);
+
   const loadRecommendations = async () => {
     // Prevent multiple concurrent calls
     if (loadingRecommendations) {
-      console.log('Recommendations already loading, skipping...');
       return;
     }
     
     if (!plantData?.plantCode) {
-      console.log('No plant code available for recommendations');
       return;
     }
     
     try {
-      console.log('Starting to load plant recommendations for:', plantData.plantCode);
       setLoadingRecommendations(true);
-
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
@@ -147,16 +168,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
       }
 
       const recommendationsData = res.data?.recommendations || [];
-      console.log('Plant recommendations loaded successfully:', recommendationsData.length);
       
       // Set recommendations first, then loading state
       setRecommendations(recommendationsData);
       setLoadingRecommendations(false);
-      
-      console.log('Recommendations state updated successfully');
 
     } catch (error) {
-      console.error('Error loading plant recommendations:', error);
       setRecommendations([]);
       setLoadingRecommendations(false);
     }
@@ -165,7 +182,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const loadPlantDetails = async () => {
     try {
       setLoading(true);
-      console.log('Loading plant details for:', plantCode);
 
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
@@ -177,18 +193,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
       if (!res?.success) {
         throw new Error(res?.error || 'Failed to load plant details');
       }
-
-      console.log('Plant details loaded successfully:', res.data);
-      console.log('🔍 Plant Code from data:', res.data?.plantCode);
-      console.log('🔍 Plant Status:', res.data?.status);
-      console.log('🔍 Available pot sizes:', res.data?.availablePotSizes);
-      console.log('🔍 Pot size groups:', res.data?.potSizeGroups);
-      console.log('Image Primary URL:', res.data?.imagePrimary);
       // Extract the nested data object from the response
       setPlantData(res.data);
 
     } catch (error) {
-      console.error('Error loading plant details:', error);
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
@@ -196,13 +204,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const handleAddToCart = () => {
-    console.log('Opening add to cart modal for:', plantCode);
     setModalAction('add-to-cart');
     setShowAddToCartModal(true);
   };
 
   const handleBuyNow = () => {
-    console.log('Opening buy now modal for:', plantCode);
     setModalAction('buy-now');
     setShowAddToCartModal(true);
   };
@@ -213,19 +219,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
       return;
     }
 
-    console.log('Adding to cart:', {
-      plantCode,
-      potSize: selectedPotSize,
-      quantity,
-      action: modalAction,
-    });
-
     setShowAddToCartModal(false);
 
     if (modalAction === 'buy-now') {
       // Navigate to checkout screen with plant data
-      const selectedPrice = getPriceForSelectedPotSize();
-      const unitPrice = parseFloat(selectedPrice.usdPriceNew || selectedPrice.usdPrice || '0');
+      const discountedPriceData = getDiscountedPrice();
+      const unitPrice = parseFloat(discountedPriceData.discountedPrice);
       navigation.navigate('CheckoutScreen', {
         plantData: plantData,
         selectedPotSize: selectedPotSize,
@@ -251,13 +250,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
           throw new Error(`This plant is currently ${plantData.status} and not available for purchase`);
         }
 
-        console.log('🌱 Attempting to add to cart with data:', {
-          plantCode: plantCode,
-          quantity: quantity,
-          potSize: selectedPotSize,
-          plantData: plantData
-        });
-
         const cartData = {
           plantCode: plantCode,
           quantity: quantity,
@@ -265,25 +257,18 @@ const ScreenPlantDetail = ({navigation, route}) => {
           notes: `${plantData.genus} ${plantData.species} - ${plantData.variegation || 'Standard'}`
         };
 
-        console.log('📦 Sending cart data to API:', cartData);
-
         const response = await addToCartApi(cartData);
-        
-        console.log('📡 API Response:', response);
         
         if (!response.success) {
           throw new Error(response.error || 'Failed to add to cart');
         }
 
         Alert.alert('Success', `Added ${quantity} plant(s) to cart!`);
-        console.log('Item added to cart successfully:', response.data);
         
         // Optional: Trigger cart count refresh
         // You could emit an event or call a context method here
         
       } catch (error) {
-        console.error('❌ Error adding to cart:', error);
-        
         // Enhanced error handling with specific messages
         let errorMessage = 'Failed to add item to cart';
         if (error.message.includes('No active listing found')) {
@@ -319,22 +304,93 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   const handleAddToWishlist = () => {
     // Wishlist feature temporarily disabled
-    console.log('Wishlist feature is temporarily disabled');
     // setIsWishlisted(!isWishlisted);
-    // console.log('Wishlist toggled:', !isWishlisted);
     // TODO: Implement wishlist functionality
   };
 
   const handleLovePress = () => {
     setIsLoved(!isLoved);
     setLoveCount(prevCount => isLoved ? prevCount - 1 : prevCount + 1);
-    console.log('Love toggled:', !isLoved);
     // TODO: Implement love functionality API call
   };
 
   const handleShare = () => {
-    console.log('Share plant:', plantCode);
     // TODO: Implement share functionality
+  };
+
+  // Get shipping cost based on listing type and specifications
+  const getShippingCost = () => {
+    const listingType = plantData?.listingType?.toLowerCase() || 'single';
+    const potSize = selectedPotSize || '2"';
+    const plantHeight = plantData?.approximateHeight || 0;
+    
+    switch (listingType) {
+      case 'single':
+        // Based on plant height
+        const height = parseFloat(plantHeight) || 0;
+        const singleCost = height > 12 ? 70 : 50;
+        const singleAddOn = height > 12 ? 7 : 5;
+        return {
+          cost: singleCost,
+          addOnCost: singleAddOn,
+          baseCargo: 150,
+          description: height > 12 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
+          displayText: height > 12 ? 'UPS 2nd Day ' : 'UPS 2nd Day ',
+          mainPrice: height > 12 ? '$70' : '$50',
+          addOnText: ', add-on plant ',
+          addOnPrice: height > 12 ? '$7' : '$5',
+          rule: `Based on plant height: ${height > 12 ? '>12"' : '≤12"'} = $${singleCost}`
+        };
+        
+      case 'growers':
+      case "grower's choice":
+        // Based on pot size
+        const potSizeNum = parseFloat(potSize.replace('"', '')) || 2;
+        const growersCost = potSizeNum > 4 ? 70 : 50;
+        const growersAddOn = potSizeNum > 4 ? 7 : 5;
+        return {
+          cost: growersCost,
+          addOnCost: growersAddOn,
+          baseCargo: 150,
+          description: potSizeNum > 4 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
+          displayText: potSizeNum > 4 ? 'UPS 2nd Day ' : 'UPS 2nd Day ',
+          mainPrice: potSizeNum > 4 ? '$70' : '$50',
+          addOnText: ', add-on plant ',
+          addOnPrice: potSizeNum > 4 ? '$7' : '$5',
+          rule: `Based on pot size: ${potSizeNum > 4 ? '>4"' : '≤4"'} = $${growersCost}`
+        };
+        
+      case 'wholesale':
+        // Based on pot size
+        const wholePotSizeNum = parseFloat(potSize.replace('"', '')) || 2;
+        const wholesaleCost = wholePotSizeNum > 4 ? 200 : 150;
+        const wholesaleAddOn = wholePotSizeNum > 4 ? 25 : 20;
+        return {
+          cost: wholesaleCost,
+          addOnCost: wholesaleAddOn,
+          baseCargo: 250, // Higher base cargo for wholesale
+          description: wholePotSizeNum > 4 ? 'Wholesale Shipping $200, add-on plant $25' : 'Wholesale Shipping $150, add-on plant $20',
+          displayText: wholePotSizeNum > 4 ? 'Wholesale Shipping ' : 'Wholesale Shipping ',
+          mainPrice: wholePotSizeNum > 4 ? '$200' : '$150',
+          addOnText: ', add-on plant ',
+          addOnPrice: wholePotSizeNum > 4 ? '$25' : '$20',
+          rule: `Based on pot size: ${wholePotSizeNum > 4 ? '>4"' : '≤4"'} = $${wholesaleCost}`
+        };
+        
+      default:
+        // Default to single listing rules
+        return {
+          cost: 50,
+          addOnCost: 5,
+          baseCargo: 150,
+          description: 'UPS 2nd Day $50, add-on plant $5',
+          displayText: 'UPS 2nd Day ',
+          mainPrice: '$50',
+          addOnText: ', add-on plant ',
+          addOnPrice: '$5',
+          rule: 'Default shipping rate'
+        };
+    }
   };
 
   // Get price for selected pot size
@@ -346,6 +402,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         usdPriceNew: selectedPlant.usdPriceNew,
         localPrice: selectedPlant.localPrice,
         localPriceNew: selectedPlant.localPriceNew,
+        discountPercent: selectedPlant.discountPercent,
       };
     }
     // Fallback to main plant data
@@ -354,7 +411,100 @@ const ScreenPlantDetail = ({navigation, route}) => {
       usdPriceNew: plantData?.usdPriceNew,
       localPrice: plantData?.localPrice,
       localPriceNew: plantData?.localPriceNew,
+      discountPercent: plantData?.discountPercent,
     };
+  };
+
+  // Calculate discounted price
+  const getDiscountedPrice = () => {
+    const priceData = getPriceForSelectedPotSize();
+    const originalPrice = parseFloat(priceData.usdPrice || 0);
+    const discountPercent = parseFloat(priceData.discountPercent); // Default 10% discount
+    
+    if (originalPrice > 0 && discountPercent > 0) {
+      const discountedPrice = originalPrice * (1 - discountPercent / 100);
+      return {
+        originalPrice: originalPrice.toFixed(2),
+        discountedPrice: discountedPrice.toFixed(2),
+        discountPercent: discountPercent,
+      };
+    }
+    
+    return {
+      originalPrice: originalPrice.toFixed(2),
+      discountedPrice: originalPrice.toFixed(2),
+      discountPercent: 0,
+    };
+  };
+
+  // Calculate plant flight date based on country
+  const getPlantFlightDate = () => {
+    // Try to get country from different possible locations in the data
+    let country = plantData?.country?.toLowerCase();
+    
+    // If no country in main data, check variations for country info
+    if (!country && plantData?.variations && plantData.variations.length > 0) {
+      // Check if any variation has country info
+      for (const variation of plantData.variations) {
+        if (variation.country) {
+          country = variation.country.toLowerCase();
+          break;
+        }
+      }
+    }
+    
+    // If still no country, check seller data or default to Philippines
+    if (!country) {
+      // Default to Philippines since that seems to be the main origin based on the flag fallback
+      country = 'philippines';
+    }
+    
+    const currentDate = new Date();
+    
+    // Helper function to get next Saturday from a given date
+    const getNextSaturday = (fromDate) => {
+      const date = new Date(fromDate);
+      const daysUntilSaturday = (6 - date.getDay()) % 7; // 6 = Saturday, 0 = Sunday
+      const nextSaturday = new Date(date);
+      
+      if (daysUntilSaturday === 0 && date.getDay() === 6) {
+        // If today is Saturday, get next Saturday (7 days from now)
+        nextSaturday.setDate(date.getDate() + 7);
+      } else if (daysUntilSaturday === 0) {
+        // If today is Sunday, get this Saturday (6 days from now)
+        nextSaturday.setDate(date.getDate() + 6);
+      } else {
+        // Get the upcoming Saturday
+        nextSaturday.setDate(date.getDate() + daysUntilSaturday);
+      }
+      
+      return nextSaturday;
+    };
+
+    // Format date as "Mon-DD" (e.g., "Aug-15")
+    const formatFlightDate = (date) => {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[date.getMonth()]}-${date.getDate().toString().padStart(2, '0')}`;
+    };
+
+    if (country === 'philippines' || country === 'indonesia') {
+      // Philippines/Indonesia: 28 days + nearest Saturday
+      const date28DaysLater = new Date(currentDate);
+      date28DaysLater.setDate(currentDate.getDate() + 28);
+      const flightDate = getNextSaturday(date28DaysLater);
+      return formatFlightDate(flightDate);
+    } else if (country === 'thailand') {
+      // Thailand: Next Saturday from current date
+      const flightDate = getNextSaturday(currentDate);
+      return formatFlightDate(flightDate);
+    } else {
+      // For other countries, default to Philippines rules (28 days + nearest Saturday)
+      const date28DaysLater = new Date(currentDate);
+      date28DaysLater.setDate(currentDate.getDate() + 28);
+      const flightDate = getNextSaturday(date28DaysLater);
+      return formatFlightDate(flightDate);
+    }
   };
 
   if (loading) {
@@ -460,10 +610,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
         style={styles.backgroundImage}
         resizeMode="cover"
         onError={(error) => {
-          console.log('Image load error:', error.nativeEvent.error);
           setImageSource(require('../../../assets/buyer-icons/png/ficus-lyrata.png'));
         }}
-        onLoad={() => console.log('Image loaded successfully')}
       />
       
 
@@ -534,7 +682,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 style={[styles.socialButton, {opacity: 0.5}]}
                 onPress={() => {
                   // Wishlist feature temporarily disabled
-                  console.log('Wishlist feature is temporarily disabled');
                 }}
                 disabled={true}>
                 {isWishlisted ? (
@@ -557,24 +704,40 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
           {/* Price and Pot Size */}
           <View style={styles.priceContainer}>
-            <Text style={styles.price}>
-              ${getPriceForSelectedPotSize().usdPriceNew || getPriceForSelectedPotSize().usdPrice || '0.00'}
-            </Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.price}>
+                ${getDiscountedPrice().discountedPrice}
+              </Text>
+              {getDiscountedPrice().discountPercent > 0 && (
+                <>
+                  <Text style={styles.originalPriceSmall}>
+                    ${getDiscountedPrice().originalPrice}
+                  </Text>
+                  <View style={styles.discountBadgeSmall}>
+                    <Text style={styles.discountTextSmall}>{getDiscountedPrice().discountPercent}% OFF</Text>
+                  </View>
+                </>
+              )}
+            </View>
             <View style={styles.shippingInfo}>
               <FlightIcon width={20} height={20} />
               <Text style={styles.shippingText}>
-                Plant Flight {plantData.flightDate || 'TBD'}
+                {plantData?.listingType?.toLowerCase() === 'wholesale' ? (
+                  <>Initial Wholesale Air Cargo <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text>, add-on wholesale order <Text style={{color: '#539461'}}>$50</Text>.</>
+                ) : (
+                  <>Base Air Cargo <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text></>
+                )}
               </Text>
             </View>
             <View style={styles.potSizeContainer}>
               <View style={styles.potSizeHeader}>
                 <Text style={styles.potSizeLabel}>Pot Size:</Text>
                 <Text style={styles.potSizeValue}>
-                  2"-4" (5 to 11 cm)
+                  {selectedPotSize} | Standard Nursery Pot
                 </Text>
               </View>
               <View style={styles.potSizeCards}>
-                {availablePotSizes.map((potSize) => (
+                {availablePotSizes.length > 0 ? availablePotSizes.map((potSize) => (
                   <TouchableOpacity
                     key={potSize}
                     style={[
@@ -594,7 +757,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
                     </View>
                     <Text style={styles.potSizeCardLabel}>{potSize}</Text>
                   </TouchableOpacity>
-                ))}
+                )) : (
+                  <Text style={styles.noPotSizesText}>No pot sizes available</Text>
+                )}
               </View>
             </View>
           </View>
@@ -653,12 +818,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.plantDetailTextContainer}>
                   <View style={styles.plantDetailTextAndAmount}>
                     <Text style={styles.shippingDetailData}>
-                      UPS 2nd Day $50, add-on plant $5
+                      {getShippingCost().displayText}
+                      <Text style={[styles.shippingDetailData, {color: '#539461'}]}>
+                        {getShippingCost().mainPrice}
+                      </Text>
+                      {getShippingCost().addOnText}
+                      <Text style={[styles.shippingDetailData, {color: '#539461'}]}>
+                        {getShippingCost().addOnPrice}
+                      </Text>
                     </Text>
                   </View>
                 </View>
                 <Text style={styles.shippingDetailLabel}>
-                  Upgrade to Next Day UPS is available at checkout.
+                  {plantData?.listingType ? `${plantData.listingType} - ` : ''}Upgrade to Next Day UPS is available at checkout.
                 </Text>
               </View>
             </View>
@@ -670,7 +842,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.plantDetailTextContainer}>
                   <View style={styles.plantDetailTextAndAmount}>
                     <Text style={styles.flightDetailData}>
-                      Plant Flight {plantData.flightDate || 'May-30'}
+                      Plant Flight <Text style={{color: '#539461'}}>{getPlantFlightDate()}</Text>
                     </Text>
                   </View>
                 </View>
@@ -685,7 +857,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.baseCargoTextContainer}>
                   <View style={styles.baseCargoTextAndAmount}>
                     <Text style={styles.baseCargoDetailData}>
-                      Base Air Cargo $150
+                      {plantData?.listingType?.toLowerCase() === 'wholesale' ? (
+                        <>Initial Wholesale Air Cargo <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text>, add-on wholesale order <Text style={{color: '#539461'}}>$50</Text>.</>
+                      ) : (
+                        <>Base Air Cargo <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text></>
+                      )}
                     </Text>
                     <View style={styles.tooltipContainer}>
                       {/* Tooltip helper icon can be added here */}
@@ -733,11 +909,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>You May Also Like</Text>
             
-            {(() => {
-              console.log('Rendering recommendations section - loadingRecommendations:', loadingRecommendations, 'recommendations.length:', recommendations.length);
-              return null;
-            })()}
-            
             {loadingRecommendations ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#539461" />
@@ -746,7 +917,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
             ) : recommendations.length > 0 ? (
               <View style={styles.recommendationGrid}>
                 {recommendations.map((plant, index) => {
-                  console.log('Rendering recommendation card:', index, plant.plantCode);
                   return (
                     <View 
                       key={plant.id || plant.plantCode || index} 
@@ -819,19 +989,28 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.modalPriceContainer}>
                   <View style={styles.priceRow}>
                     <Text style={styles.modalPrice}>
-                      ${getPriceForSelectedPotSize().usdPriceNew || getPriceForSelectedPotSize().usdPrice || '65.00'}
+                      ${getDiscountedPrice().discountedPrice}
                     </Text>
                     <Text style={styles.originalPrice}>
-                      ${(parseFloat(getPriceForSelectedPotSize().usdPrice || plantData?.usdPrice || 75) * 1.15).toFixed(2)}
+                      ${getDiscountedPrice().originalPrice}
                     </Text>
-                    <View style={styles.discountBadge}>
-                      <Text style={styles.discountText}>15% OFF</Text>
-                    </View>
+                    {getDiscountedPrice().discountPercent > 0 && (
+                      <View style={styles.discountBadge}>
+                        <Text style={styles.discountText}>{getDiscountedPrice().discountPercent}% OFF</Text>
+                      </View>
+                    )}
                   </View>
                   <View style={styles.shippingInfo}>
                     <FlightIcon width={20} height={20} />
                     <Text style={styles.shippingText}>
-                      Plant Flight {plantData?.flightDate || 'May-30'} • UPS 2nd Day $50, add-on plant $5
+                      Plant Flight {getPlantFlightDate()} • {getShippingCost().displayText}
+                      <Text style={[styles.shippingText, {color: '#539461'}]}>
+                        {getShippingCost().mainPrice}
+                      </Text>
+                      {getShippingCost().addOnText}
+                      <Text style={[styles.shippingText, {color: '#539461'}]}>
+                        {getShippingCost().addOnPrice}
+                      </Text>
                     </Text>
                   </View>
                 </View>
@@ -1141,6 +1320,32 @@ const ScreenPlantDetail = ({navigation, route}) => {
     fontWeight: '700',
     color: '#202325',
   },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  originalPriceSmall: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#7F8D91',
+    textDecorationLine: 'line-through',
+  },
+  discountBadgeSmall: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: '#FFE7E2',
+    borderRadius: 6,
+  },
+  discountTextSmall: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 12,
+    color: '#CC512A',
+  },
   shippingInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1360,34 +1565,40 @@ const ScreenPlantDetail = ({navigation, route}) => {
     gap: 12,
     height: 52,
     alignSelf: 'stretch',
+    marginBottom: 12,
   },
   baseCargoDetailContent: {
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 2,
-    height: 52,
     flex: 1,
   },
   baseCargoTextContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 4,
-    height: 28,
     alignSelf: 'stretch',
+    flexWrap: 'wrap',
   },
   baseCargoTextAndAmount: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
     gap: 4,
-    height: 28,
     flex: 1,
+    alignSelf: 'stretch',
+    flexWrap: 'wrap',
   },
   baseCargoDetailData: {
     fontFamily: 'Inter',
-    fontWeight: '700',
+    fontStyle: 'normal',
+    fontWeight: '800',
     fontSize: 16,
     lineHeight: 24,
     color: '#202325',
+    flex: 1,
+    flexWrap: 'wrap',
   },
   tooltipContainer: {
     flexDirection: 'column',
