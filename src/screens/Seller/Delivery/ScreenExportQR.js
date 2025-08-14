@@ -18,6 +18,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../../../config/apiConfig';
 import RNFS from 'react-native-fs';
 import PushNotification from 'react-native-push-notification';
 import FileViewer from 'react-native-file-viewer';
@@ -225,7 +226,7 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator', {
+      const response = await fetch(API_ENDPOINTS.QR_GENERATOR, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -369,7 +370,7 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator/orders', {
+      const response = await fetch(API_ENDPOINTS.QR_GENERATOR_ORDERS, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getProfileInfoApi = async () => {
   try {
@@ -28,10 +29,37 @@ export const getProfileInfoApi = async () => {
         };
       }
     } catch (buyerError) {
-      console.log('Buyer endpoint failed, trying supplier endpoint');
+      console.log('Buyer endpoint failed, trying admin endpoint');
     }
 
-    // If buyer endpoint fails, try supplier endpoint
+    // Try admin endpoint second
+    try {
+      const adminResponse = await fetch(
+        API_ENDPOINTS.GET_ADMIN_INFO,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (adminResponse.ok) {
+        const adminJson = await adminResponse.json();
+        return { 
+          ...adminJson, 
+          user: { 
+            ...adminJson.user, 
+            userType: adminJson.user?.role === 'sub_admin' ? 'sub_admin' : 'admin'
+          } 
+        };
+      }
+    } catch (adminError) {
+      console.log('Admin endpoint failed, trying supplier endpoint');
+    }
+
+    // If buyer and admin endpoints fail, try supplier endpoint
     const supplierResponse = await fetch(
       'https://getsupplierinfo-nstilwgvua-uc.a.run.app/',
       {
@@ -57,7 +85,7 @@ export const getProfileInfoApi = async () => {
       } 
     };
   } catch (error) {
-    console.log('getProfileInfoApi error:', error.message);
-    throw error;
+    console.log('getProfileInfoApi error - all endpoints failed:', error.message);
+    throw new Error('Unable to fetch user profile. User type not supported or network error.');
   }
 };

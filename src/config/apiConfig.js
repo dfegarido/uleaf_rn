@@ -9,13 +9,40 @@ const LOCAL_BASE_URL = 'http://10.0.2.2:5001/i-leaf-u/us-central1';
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
 
-// Get the base URL based on environment
+// Get the base URL based on current environment setting
 const getBaseUrl = () => {
   return USE_LOCAL_API ? LOCAL_BASE_URL : PROD_BASE_URL;
 };
 
-// API Endpoints
-export const API_ENDPOINTS = {
+// Helper function to dynamically switch API environment
+export const setApiEnvironment = (useLocal) => {
+  USE_LOCAL_API = useLocal;
+  console.log(`🔄 API Environment switched to: ${useLocal ? 'LOCAL DEVELOPMENT' : 'PRODUCTION'}`);
+  console.log(`🌐 New Base URL: ${getBaseUrl()}`);
+  
+  // Regenerate endpoints with new base URL
+  updateEndpoints();
+};
+
+// Function to generate endpoints with current base URL
+const generateEndpoints = () => ({
+  // Authentication APIs
+  FIREBASE_LOGIN: `${getBaseUrl()}/firebaseLogin`,
+  SIGN_IN_SUPPLIER: `${getBaseUrl()}/signInSupplier`,
+  VALIDATE_SIGN_IN_PIN: `${getBaseUrl()}/validateSignInPin`,
+  EXCHANGE_CUSTOM_TOKEN: `${getBaseUrl()}/exchangeCustomToken`,
+  
+  // Admin Management APIs
+  CREATE_ADMIN: `${getBaseUrl()}/createAdmin`,
+  ADMIN_LOGIN: `${getBaseUrl()}/adminLogin`,
+  GET_ADMIN_INFO: `${getBaseUrl()}/getAdminInfo`,
+  LIST_ADMINS: `${getBaseUrl()}/listAdmins`,
+  UPDATE_ADMIN: `${getBaseUrl()}/updateAdmin`,
+  
+  // QR Code APIs
+  QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
+  QR_GENERATOR_ORDERS: `${getBaseUrl()}/qrGenerator/orders`,
+  
   // Cart APIs
   ADD_TO_CART: `${getBaseUrl()}/addToCart`,
   GET_CART_ITEMS: `${getBaseUrl()}/getCartItems`,
@@ -74,22 +101,37 @@ export const API_ENDPOINTS = {
   // Public (unauthenticated) location endpoints
   PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
   PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
+});
+
+// API Endpoints - Initially generated with default environment
+export let API_ENDPOINTS = generateEndpoints();
+
+// Function to update endpoints when environment changes
+const updateEndpoints = () => {
+  API_ENDPOINTS = generateEndpoints();
 };
 
 // Export configuration
 export const API_CONFIG = {
-  USE_LOCAL_API,
+  get USE_LOCAL_API() { return USE_LOCAL_API; },
   LOCAL_BASE_URL,
   PROD_BASE_URL,
-  BASE_URL: getBaseUrl(),
+  get BASE_URL() { return getBaseUrl(); },
 };
 
-// Helper function to toggle between local and production
+// Helper function to check current API environment
+export const getCurrentApiEnvironment = () => {
+  return {
+    isLocal: USE_LOCAL_API,
+    baseUrl: getBaseUrl(),
+    environment: USE_LOCAL_API ? 'LOCAL DEVELOPMENT' : 'PRODUCTION'
+  };
+};
+
+// Helper function to toggle between local and production (deprecated - use setApiEnvironment)
 export const setApiMode = (useLocal) => {
-  // Note: In a real app, you might want to use environment variables
-  // or a more sophisticated configuration management system
-  console.log(`API Mode switched to: ${useLocal ? 'LOCAL' : 'PRODUCTION'}`);
-  console.log(`Base URL: ${useLocal ? LOCAL_BASE_URL : PROD_BASE_URL}`);
+  console.warn('⚠️  setApiMode is deprecated. Use setApiEnvironment instead.');
+  setApiEnvironment(useLocal);
 };
 
 // Log current configuration

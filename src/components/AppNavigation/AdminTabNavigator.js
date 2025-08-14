@@ -25,6 +25,13 @@ import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
 import ScanQR from '../../screens/Admin/Home/ScanQR';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
+import {
+  AdminProfileScreen,
+  AdminAccountInformationScreen,
+  AdminUpdatePasswordScreen,
+  AdminTermsOfUseScreen,
+  AdminPrivacyPolicyScreen
+} from '../../screens/Admin/Profile';
 
 
 const Tab = createBottomTabNavigator();
@@ -145,6 +152,13 @@ function AdminTabs() {
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
       <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
+      
+      {/* Admin Profile Screens */}
+      <Stack.Screen name="AdminProfile" options={{headerShown: false}} component={AdminProfileScreen} />
+      <Stack.Screen name="AdminAccountInformation" options={{headerShown: false}} component={AdminAccountInformationScreen} />
+      <Stack.Screen name="AdminUpdatePassword" options={{headerShown: false}} component={AdminUpdatePasswordScreen} />
+      <Stack.Screen name="AdminTermsOfUse" options={{headerShown: false}} component={AdminTermsOfUseScreen} />
+      <Stack.Screen name="AdminPrivacyPolicy" options={{headerShown: false}} component={AdminPrivacyPolicyScreen} />
       </Stack.Navigator>
     );
   }

@@ -1,7 +1,9 @@
+import { API_ENDPOINTS } from '../../config/apiConfig';
+
 export const postSellerPinCodeApi = async (idToken, pin) => {
   try {
     const response = await fetch(
-      'https://validatesigninpin-nstilwgvua-uc.a.run.app',
+      API_ENDPOINTS.VALIDATE_SIGN_IN_PIN,
       {
         method: 'POST', // or 'POST' if your function expects a body
         headers: {

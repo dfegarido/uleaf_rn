@@ -14,6 +14,7 @@ import {getAuth} from '@react-native-firebase/auth';
 import {
   postSellerPinCodeApi,
   postSellerAfterSignInApi,
+  postAdminAfterSignInApi,
   getProfileInfoApi,
 } from '../../components/Api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -43,12 +44,16 @@ const ScreenLoginOtp = ({navigation}) => {
   };
 
   const postRequestPinData = async token => {
-    // If this throws, it must be caught outside
-    const response = await postSellerAfterSignInApi(token, pin);
-
-    // Optionally validate response success
-    if (!response.success) {
-      throw new Error(response.error || 'Verification failed.');
+    // Use the PIN validation API which works for both sellers and admins
+    try {
+      const response = await postSellerPinCodeApi(token, pin);
+      if (response.success) {
+        return response;
+      }
+      throw new Error(response.error || 'PIN verification failed.');
+    } catch (error) {
+      console.log('PIN validation failed:', error.message);
+      throw new Error(error.message || 'PIN verification failed.');
     }
   };
 
