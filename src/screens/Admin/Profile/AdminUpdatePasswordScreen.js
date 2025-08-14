@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,11 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import {updateAdminPasswordApi} from '../../../components/Api';
 
 // Import icons
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -20,6 +23,11 @@ import EyeSlashIcon from '../../../assets/icons/greydark/eye-closed-regular.svg'
 
 const AdminUpdatePasswordScreen = () => {
   const navigation = useNavigation();
+  
+  // Refs for input fields
+  const currentPasswordRef = useRef(null);
+  const newPasswordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
   
   const [loading, setLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -41,16 +49,25 @@ const AdminUpdatePasswordScreen = () => {
   const passwordChecks = PASSWORD_REQUIREMENTS.map(req => req.test(newPassword));
   const isPasswordValid = passwordChecks.every(Boolean);
   const passwordsMatch = newPassword === confirmPassword;
-  const canSubmit = currentPassword && isPasswordValid && passwordsMatch;
+  const isDifferentPassword = currentPassword !== newPassword;
+  const canSubmit = currentPassword.trim() && 
+                   newPassword.trim() && 
+                   confirmPassword.trim() && 
+                   isPasswordValid && 
+                   passwordsMatch && 
+                   isDifferentPassword;
 
   const validateForm = () => {
     let errors = [];
 
-    if (!currentPassword) errors.push('Current password is required.');
-    if (!newPassword) errors.push('New password is required.');
-    if (!confirmPassword) errors.push('Please confirm your new password.');
-    if (!isPasswordValid) errors.push('New password does not meet requirements.');
-    if (!passwordsMatch) errors.push('Passwords do not match.');
+    if (!currentPassword.trim()) errors.push('Current password is required.');
+    if (!newPassword.trim()) errors.push('New password is required.');
+    if (!confirmPassword.trim()) errors.push('Please confirm your new password.');
+    if (!isPasswordValid && newPassword.trim()) errors.push('New password does not meet requirements.');
+    if (!passwordsMatch && confirmPassword.trim()) errors.push('Passwords do not match.');
+    if (currentPassword.trim() === newPassword.trim() && currentPassword.trim() && newPassword.trim()) {
+      errors.push('New password must be different from current password.');
+    }
 
     return errors;
   };
@@ -66,29 +83,53 @@ const AdminUpdatePasswordScreen = () => {
     setLoading(true);
 
     try {
-      // Here you would typically call an API to update the password
-      // For now, we'll just simulate a successful update
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Prepare data for API
+      const passwordData = {
+        oldPassword: currentPassword.trim(),
+        newPassword: newPassword.trim(),
+        confirmPassword: confirmPassword.trim(),
+      };
+
+      // Call API to update password
+      const response = await updateAdminPasswordApi(passwordData);
       
-      Alert.alert(
-        'Success', 
-        'Password updated successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-      
-      // Clear form
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      if (response && response.success) {
+        Alert.alert(
+          'Success', 
+          'Password updated successfully!',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+        
+        // Clear form
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        throw new Error(response?.error || response?.message || 'Failed to update password');
+      }
       
     } catch (error) {
-      console.log('Update Password:', error.message);
-      Alert.alert('Error', 'Failed to update password. Please try again.');
+      console.log('Update Password Error:', error.message);
+      
+      // Show more specific error messages
+      let errorMessage = 'Failed to update password. Please try again.';
+      
+      if (error.message.includes('Current password is incorrect')) {
+        errorMessage = 'Current password is incorrect. Please check and try again.';
+      } else if (error.message.includes('Password must contain')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('New password must be different')) {
+        errorMessage = 'New password must be different from current password.';
+      } else if (error.message.includes('do not match')) {
+        errorMessage = 'New password and confirm password do not match.';
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -102,6 +143,11 @@ const AdminUpdatePasswordScreen = () => {
     showPassword,
     onToggleShow,
     required = false,
+    textContentType = "password",
+    autoComplete = "password",
+    returnKeyType = "next",
+    inputRef,
+    onSubmitEditing,
   }) => (
     <View style={styles.inputSection}>
       <Text style={styles.inputLabel}>
@@ -109,16 +155,32 @@ const AdminUpdatePasswordScreen = () => {
       </Text>
       <View style={styles.passwordField}>
         <TextInput
+          ref={inputRef}
           style={styles.passwordInput}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#888888"
           secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          returnKeyType={returnKeyType}
+          blurOnSubmit={false}
+          onSubmitEditing={onSubmitEditing}
+          clearButtonMode="never"
+          enablesReturnKeyAutomatically={true}
+          keyboardType="default"
+          selectTextOnFocus={false}
+          caretHidden={false}
+          contextMenuHidden={false}
         />
         <TouchableOpacity
           style={styles.eyeButton}
           onPress={onToggleShow}
+          activeOpacity={0.7}
+          delayPressIn={0}
         >
           {showPassword ? (
             <EyeSlashIcon width={20} height={20} fill="#888888" />
@@ -142,7 +204,11 @@ const AdminUpdatePasswordScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -157,7 +223,12 @@ const AdminUpdatePasswordScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={styles.backButton}>
+          style={styles.backButton}
+          activeOpacity={0.7}
+          delayPressIn={0}
+          accessible={true}
+          accessibilityLabel="Go back"
+          accessibilityRole="button">
           <LeftIcon width={24} height={24} fill="#393D40" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Update Password</Text>
@@ -165,7 +236,12 @@ const AdminUpdatePasswordScreen = () => {
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={false}
+        contentContainerStyle={styles.scrollContent}>
         <View style={styles.form}>
           {/* Current Password */}
           <PasswordInput
@@ -175,6 +251,10 @@ const AdminUpdatePasswordScreen = () => {
             placeholder="Enter current password"
             showPassword={showCurrentPassword}
             onToggleShow={() => setShowCurrentPassword(!showCurrentPassword)}
+            textContentType="password"
+            autoComplete="current-password"
+            inputRef={currentPasswordRef}
+            onSubmitEditing={() => newPasswordRef.current?.focus()}
             required
           />
 
@@ -186,6 +266,10 @@ const AdminUpdatePasswordScreen = () => {
             placeholder="Enter new password"
             showPassword={showNewPassword}
             onToggleShow={() => setShowNewPassword(!showNewPassword)}
+            textContentType="newPassword"
+            autoComplete="new-password"
+            inputRef={newPasswordRef}
+            onSubmitEditing={() => confirmPasswordRef.current?.focus()}
             required
           />
 
@@ -211,6 +295,11 @@ const AdminUpdatePasswordScreen = () => {
             placeholder="Confirm new password"
             showPassword={showConfirmPassword}
             onToggleShow={() => setShowConfirmPassword(!showConfirmPassword)}
+            textContentType="newPassword"
+            autoComplete="new-password"
+            returnKeyType="done"
+            inputRef={confirmPasswordRef}
+            onSubmitEditing={canSubmit ? handleUpdatePassword : undefined}
             required
           />
 
@@ -246,7 +335,7 @@ const AdminUpdatePasswordScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -283,6 +372,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   form: {
     padding: 24,
