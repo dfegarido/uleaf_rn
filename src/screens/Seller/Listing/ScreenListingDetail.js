@@ -361,7 +361,8 @@ const ScreenListingDetail = ({navigation, route}) => {
 
       {/* Foreground ScrollView Content */}
       <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
+        // style={[styles.container, {paddingTop: insets.top}]}
+        style={[styles.container]}
         stickyHeaderIndices={[0]}>
         {/* Sticky Header */}
         <View style={[styles.stickyHeader, {paddingBottom: 10}]}>

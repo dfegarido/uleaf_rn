@@ -8,6 +8,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {AuthContext} from '../../auth/AuthProvider';
@@ -67,167 +68,169 @@ const ScreenProfile = ({navigation}) => {
   // ✅ Fetch on mount
 
   return (
-    <ScrollView style={styles.container} stickyHeaderIndices={[0]}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
-      <View
-        style={[
-          styles.stickyHeader,
-          {
-            paddingTop: 30,
-            paddingBottom: 10,
-            backgroundColor: '#DFECDF',
-          },
-        ]}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+      <ScrollView style={styles.container} stickyHeaderIndices={[0]}>
+        {loading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
         <View
           style={[
+            styles.stickyHeader,
             {
-              marginHorizontal: 10,
+              paddingTop: 20,
+              paddingBottom: 10,
+              backgroundColor: '#DFECDF',
             },
           ]}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={{
-              // padding: 5,
+          <View
+            style={[
+              {
+                marginHorizontal: 10,
+              },
+            ]}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={{
+                // padding: 5,
 
-              flexDirection: 'row',
-              justifyContent: 'flex-start',
-              alignItems: 'flex-start',
-            }}>
-            <LeftIcon width={30} hegiht={30} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.avatarWrapper}>
-          {userInfo.profileImage != '' ? (
-            <Image
-              source={{uri: userInfo.profileImage}}
-              style={styles.image}
-              resizeMode="cover"
-            />
-          ) : (
-            <AvatarIcon width={40} height={40} />
-          )}
-        </View>
-        <View>
-          <Text style={globalStyles.textLGGreyDark}>
-            {data?.firstName && data?.lastName
-              ? `${data.firstName} ${data.lastName}`
-              : data?.gardenOrCompanyName || 'User Name'}
-          </Text>
-          <Text style={styles.status}>
-            @{data?.username || data?.email?.split('@')[0] || 'username'}
-          </Text>
-        </View>
-      </View>
-
-      <View style={{backgroundColor: '#fff'}}>
-        {/* Sections */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profile</Text>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenProfileAccount', data)}>
-            <View style={styles.menuLeft}>
-              <ProfileIcon width={20} height={20} />
-              <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                Account Information
-              </Text>
-            </View>
-            <RightIcon width={20} height={20} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenProfilePassword')}>
-            <View style={styles.menuLeft}>
-              <PasswordIcon width={20} height={20} />
-              <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                Password
-              </Text>
-            </View>
-            <RightIcon width={20} height={20} />
-          </TouchableOpacity>
+                flexDirection: 'row',
+                justifyContent: 'flex-start',
+                alignItems: 'flex-start',
+              }}>
+              <LeftIcon width={30} hegiht={30} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenProfileProblem')}>
-            <View style={styles.menuLeft}>
-              <ReportIcon width={20} height={20} />
-              <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                Report a Problem
-              </Text>
-            </View>
-            <RightIcon width={20} height={20} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenProfileRequest')}>
-            <View style={styles.menuLeft}>
-              <PlantIcon width={20} height={20} />
-              <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                Request Genus/Species Name
-              </Text>
-            </View>
-            <RightIcon width={20} height={20} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenProfileChatAdmin')}>
-            <View style={styles.menuLeft}>
-              <ChatIcon width={20} height={20} />
-              <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                Chat with Us
-              </Text>
-            </View>
-            <RightIcon width={20} height={20} />
-          </TouchableOpacity>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.avatarWrapper}>
+            {userInfo.profileImage != '' ? (
+              <Image
+                source={{uri: userInfo.profileImage}}
+                style={styles.image}
+                resizeMode="cover"
+              />
+            ) : (
+              <AvatarIcon width={40} height={40} />
+            )}
+          </View>
+          <View>
+            <Text style={globalStyles.textLGGreyDark}>
+              {data?.firstName && data?.lastName
+                ? `${data.firstName} ${data.lastName}`
+                : data?.gardenOrCompanyName || 'User Name'}
+            </Text>
+            <Text style={styles.status}>
+              @{data?.username || data?.email?.split('@')[0] || 'username'}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Legal</Text>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenTerms')}>
-            <View style={styles.menuLeft}>
-              <EnvelopeIcon width={20} height={20} />
-              <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                Terms of Use
-              </Text>
-            </View>
-            <RightIcon width={20} height={20} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ScreenPrivacy')}>
-            <View style={styles.menuLeft}>
-              <EnvelopeIcon width={20} height={20} />
-              <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                Privacy Policy
-              </Text>
-            </View>
-            <RightIcon width={20} height={20} />
+        <View style={{backgroundColor: '#fff'}}>
+          {/* Sections */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Profile</Text>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ScreenProfileAccount', data)}>
+              <View style={styles.menuLeft}>
+                <ProfileIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                  Account Information
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ScreenProfilePassword')}>
+              <View style={styles.menuLeft}>
+                <PasswordIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                  Password
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Support</Text>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ScreenProfileProblem')}>
+              <View style={styles.menuLeft}>
+                <ReportIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                  Report a Problem
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ScreenProfileRequest')}>
+              <View style={styles.menuLeft}>
+                <PlantIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                  Request Genus/Species Name
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ScreenProfileChatAdmin')}>
+              <View style={styles.menuLeft}>
+                <ChatIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                  Chat with Us
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Legal</Text>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ScreenTerms')}>
+              <View style={styles.menuLeft}>
+                <EnvelopeIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                  Terms of Use
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ScreenPrivacy')}>
+              <View style={styles.menuLeft}>
+                <EnvelopeIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                  Privacy Policy
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Logout */}
+          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

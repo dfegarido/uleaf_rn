@@ -252,7 +252,8 @@ const ScreenHome = ({navigation}) => {
         </Modal>
       )}
       <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
+        // style={[styles.container, {paddingTop: insets.top}]}
+        style={[styles.container]}
         stickyHeaderIndices={[0]}>
         {/* Search and Icons */}
         <View style={styles.stickyHeader}>
