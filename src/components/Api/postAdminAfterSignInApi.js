@@ -1,14 +1,14 @@
 import { API_ENDPOINTS } from '../../config/apiConfig';
 
-export const postSellerAfterSignInApi = async idToken => {
+export const postAdminAfterSignInApi = async idToken => {
   try {
     const response = await fetch(
-      API_ENDPOINTS.SIGN_IN_SUPPLIER,
+      API_ENDPOINTS.ADMIN_LOGIN,
       {
-        method: 'POST', // or 'POST' if your function expects a body
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`, // Pass token in Authorization header
+          Authorization: `Bearer ${idToken}`,
         },
       },
     );
@@ -21,7 +21,7 @@ export const postSellerAfterSignInApi = async idToken => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('postSellerAfterSignInApi error:', error.message);
-    throw error; // optionally rethrow for use in UI
+    console.log('postAdminAfterSignInApi error:', error.message);
+    throw error;
   }
 };

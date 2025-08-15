@@ -894,12 +894,14 @@ const AppNavigation = () => {
   // Extract userType from currentUserInfo with multiple fallbacks
   const userType = currentUserInfo?.user?.userType || 'seller'; // Default to seller if no userType found
   const isBuyer = userType === 'buyer';
+  const isAdmin = userType === 'admin' || userType === 'sub_admin';
 
   // Debug logging
   console.log('=== NAVIGATION DECISION ===');
   console.log('currentUserInfo:', currentUserInfo);
   console.log('userType:', userType);
   console.log('isBuyer:', isBuyer);
+  console.log('isAdmin:', isAdmin);
   console.log('isLoggedIn:', isLoggedIn);
   console.log('========================');
 
@@ -908,6 +910,8 @@ const AppNavigation = () => {
       {isLoggedIn ? (
         isBuyer ? (
           <BuyerTabNavigator />
+        ) : isAdmin ? (
+          <AdminTabNavigator />
         ) : (
           <MainStack />
         )

@@ -28,7 +28,7 @@ import UserManagement from './UserManagement';
 
 const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}}) => {
   const {userInfo} = useAuth();
-  const firstName = userInfo?.firstName || 'Olla';
+  const firstName = userInfo?.user?.firstName || userInfo?.firstName || 'Admin';
   const canGoLive = userInfo?.liveFlag !== 'No';
   const profileImage = userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
 
@@ -82,7 +82,7 @@ const BusinessPerformance = () => {
     );
   };
   
-  const LeafTrailGreenhouse = () => {
+  const LeafTrailGreenhouse = ({navigation}) => {
     return (
       <View style={[styles.sectionContainer, {paddingTop: 24}]}> 
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Leaf Trail / Greenhouse</Text>
@@ -182,13 +182,13 @@ const Home = () => {
     <View style={{flex: 1, backgroundColor: '#fff'}}>
       <AdminHeader
         onPressLive={() => navigation.navigate('LiveBroadcastScreen')}
-        onPressProfile={() => navigation.navigate('ScreenProfile')}
+        onPressProfile={() => navigation.navigate('AdminProfile')}
       />
       <ScrollView
         style={{flex: 1}}
         contentContainerStyle={{paddingBottom: 85}}>
         <BusinessPerformance />
-        <LeafTrailGreenhouse />
+        <LeafTrailGreenhouse navigation={navigation} />
         <BehindTheJungle />
         <NewsEventsRewards />
       </ScrollView>

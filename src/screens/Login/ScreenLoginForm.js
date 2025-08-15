@@ -18,7 +18,7 @@ import {
 } from '../../components/InputGroup/Left';
 import {getApp} from '@react-native-firebase/app';
 import {getAuth, signInWithEmailAndPassword} from '@react-native-firebase/auth';
-import {postSellerAfterSignInApi} from '../../components/Api';
+import {postSellerAfterSignInApi, postAdminAfterSignInApi} from '../../components/Api';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useHeaderHeight} from '@react-navigation/elements';
 
@@ -51,17 +51,34 @@ const ScreenLoginForm = ({navigation}) => {
 
   const loadData = async token => {
     try {
+      // First try seller API
       const postSellerAfterSignInApiData = await postSellerAfterSignInApi(
         token,
       );
-      if (!postSellerAfterSignInApiData?.user) {
+      if (postSellerAfterSignInApiData?.user) {
+        return postSellerAfterSignInApiData;
+      }
+      throw new Error('Seller API returned no user data');
+    } catch (sellerError) {
+      console.log('Seller API failed, trying admin API:', sellerError.message);
+      
+      // If seller API fails, try admin API
+      try {
+        const postAdminAfterSignInApiData = await postAdminAfterSignInApi(
+          token,
+        );
+        if (postAdminAfterSignInApiData?.user) {
+          return postAdminAfterSignInApiData;
+        }
+        throw new Error('Admin API returned no user data');
+      } catch (adminError) {
+        console.log('Admin API also failed:', adminError.message);
+        
+        // If both fail, throw the original seller error for now
         throw new Error(
-          postSellerAfterSignInApiData?.message || 'Login verification failed.',
+          sellerError.message || 'Failed to authenticate user.'
         );
       }
-      return postSellerAfterSignInApiData;
-    } catch (error) {
-      throw new Error(error.message || 'Failed to load seller data.');
     }
   };
 

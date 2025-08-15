@@ -12,19 +12,16 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  Linking,
   PermissionsAndroid,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import RNFS from 'react-native-fs';
-import PushNotification from 'react-native-push-notification';
-import FileViewer from 'react-native-file-viewer';
+import { API_ENDPOINTS } from '../../../config/apiConfig';
 
-// Import icons - using a placeholder for the back arrow and action icon
+// Import icons - using a placeholder for the back arrow and email icon
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import DownloadIcon from '../../../assets/icons/accent/download.svg';
+import DownloadIcon from '../../../assets/icons/accent/download.svg'; // Using download icon for email
 
 const ScreenExportQR = ({navigation}) => {
   const insets = useSafeAreaInsets();
@@ -33,188 +30,8 @@ const ScreenExportQR = ({navigation}) => {
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(false);
 
-  // Function to request storage permission (Android)
-  const requestStoragePermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          {
-            title: 'Storage Permission Required',
-            message: 'This app needs access to storage to download files',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true;
-  };
-
-  // Function to configure push notifications
-  const configurePushNotifications = () => {
-    PushNotification.configure({
-      onRegister: function (token) {
-        console.log('TOKEN:', token);
-      },
-      
-      onNotification: function(notification) {
-        console.log('Notification received:', notification);
-        console.log('User interaction:', notification.userInteraction);
-        console.log('Action:', notification.action);
-        console.log('UserInfo:', notification.userInfo);
-        console.log('Data:', notification.data);
-        
-        // Handle notification tap
-        if (notification.userInteraction) {
-          // Get file path from either userInfo or data
-          const filePath = notification.userInfo?.filePath || 
-                           notification.data?.filePath || 
-                           notification.filePath;
-          
-          console.log('Extracted file path:', filePath);
-          
-          if (filePath) {
-            console.log('Opening file from notification:', filePath);
-            // Small delay to ensure app is in foreground
-            setTimeout(() => {
-              openFile(filePath);
-            }, 500);
-          } else {
-            console.log('No file path found in notification');
-          }
-        }
-        
-        // Required for iOS to complete the notification processing
-        if (notification.finish && typeof notification.finish === 'function') {
-          notification.finish('noData');
-        }
-      },
-      
-      onAction: function (notification) {
-        console.log('ACTION:', notification.action);
-        console.log('NOTIFICATION:', notification);
-        
-        // Handle action button clicks
-        if (notification.action === 'Open') {
-          const filePath = notification.userInfo?.filePath || notification.data?.filePath;
-          if (filePath) {
-            console.log('Opening file from action:', filePath);
-            openFile(filePath);
-          }
-        }
-      },
-      
-      // (optional) Called when Registered Action is pressed and invokeApp is false, if true onNotification will be called (Android)
-      onRegistrationError: function(err) {
-        console.error(err.message, err);
-      },
-      
-      // IOS ONLY (optional): default: all - Permissions to register.
-      permissions: {
-        alert: true,
-        badge: true,
-        sound: true,
-      },
-      
-      // Should the initial notification be popped automatically
-      // default: true
-      popInitialNotification: true,
-      
-      // (optional) default: true
-      // - Specified if permissions (ios) and token (android and ios) will requested or not,
-      // - if not, you must call PushNotification.requestPermissions() later
-      // - if you are not using remote notification or do not have Firebase installed, use this:
-      //     requestPermissions: Platform.OS === 'ios'
-      requestPermissions: Platform.OS === 'ios',
-    });
-
-    // Create notification channel for Android
-    if (Platform.OS === 'android') {
-      PushNotification.createChannel(
-        {
-          channelId: 'ileafu_channel',
-          channelName: 'iLeafU Notifications',
-          channelDescription: 'Notifications for iLeafU app',
-          playSound: false,
-          soundName: 'default',
-          importance: 4,
-          vibrate: true,
-        },
-        (created) => console.log(`createChannel returned '${created}'`)
-      );
-    }
-  };
-
-  // Function to open file safely
-  const openFile = async (filePath) => {
-    try {
-      const fileExists = await RNFS.exists(filePath);
-      if (!fileExists) {
-        Alert.alert('File Not Found', 'The downloaded file could not be found.');
-        return;
-      }
-
-      console.log('Opening file:', filePath);
-
-      // Try using FileViewer first (better cross-platform support)
-      try {
-        await FileViewer.open(filePath, {
-          displayName: 'QR Codes PDF',
-          showOpenWithDialog: true,
-          showAppsSuggestions: true,
-        });
-      } catch (fileViewerError) {
-        console.log('FileViewer failed, trying alternative methods:', fileViewerError);
-        
-        // Fallback to platform-specific methods
-        if (Platform.OS === 'android') {
-          // For Android, try using intent to open PDF
-          const intent = `content://com.android.externalstorage.documents/document/primary:Download/${filePath.split('/').pop()}`;
-          Linking.openURL(intent).catch(() => {
-            // Fallback to file:// protocol
-            Linking.openURL(`file://${filePath}`).catch(() => {
-              Alert.alert(
-                'Cannot Open File', 
-                'Unable to open the PDF file. Please use a file manager to locate and open the file.',
-                [
-                  {
-                    text: 'Open File Manager',
-                    onPress: () => Linking.openURL('content://com.android.externalstorage.documents/document/primary:Download'),
-                  },
-                  {
-                    text: 'OK',
-                    style: 'cancel'
-                  }
-                ]
-              );
-            });
-          });
-        } else {
-          // For iOS
-          Linking.openURL(`file://${filePath}`).catch(() => {
-            Alert.alert('Cannot Open File', 'Unable to open the PDF file.');
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error opening file:', error);
-      Alert.alert('Error', 'Failed to open the file.');
-    }
-  };
-
-  // Initialize notifications on component mount
-  useEffect(() => {
-    configurePushNotifications();
-  }, []);
-
-  // Function to handle download
-  const handleDownload = async () => {
+  // Function to handle email sending
+  const handleSendEmail = async () => {
     try {
       setDownloading(true);
       
@@ -225,7 +42,7 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator', {
+      const response = await fetch(API_ENDPOINTS.QR_GENERATOR, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -236,15 +53,15 @@ const ScreenExportQR = ({navigation}) => {
       if (!response.ok) {
         // Handle different HTTP status codes with user-friendly messages
         if (response.status === 404) {
-          throw new Error('No QR codes available for download at this time.');
+          throw new Error('No QR codes available for email at this time.');
         } else if (response.status === 401) {
           throw new Error('Your session has expired. Please log in again.');
         } else if (response.status === 403) {
-          throw new Error('You do not have permission to download QR codes.');
+          throw new Error('You do not have permission to access QR codes.');
         } else if (response.status === 500) {
           throw new Error('Server error. Please try again later.');
         } else {
-          throw new Error('Unable to download QR codes. Please try again.');
+          throw new Error('Unable to send QR codes email. Please try again.');
         }
       }
 
@@ -253,106 +70,39 @@ const ScreenExportQR = ({navigation}) => {
       // Check if the response indicates no orders found
       if (!data.success || data.error) {
         if (data.error && data.error.includes('No orders found')) {
-          throw new Error('No QR codes available for download at this time.');
+          throw new Error('No QR codes available for email at this time.');
         } else {
-          throw new Error(data.error || 'Unable to download QR codes. Please try again.');
+          throw new Error(data.error || 'Unable to send QR codes email. Please try again.');
         }
       }
 
       // If we get here, the API call was successful
-      Alert.alert('Success', 'QR codes PDF sent to your email');
+      Alert.alert('Success', 'QR codes PDF has been sent to your email address. Please check your inbox.');
       
     } catch (err) {
-      console.error('Error downloading QR codes:', err);
+      console.error('Error sending QR codes email:', err);
       
       // Provide user-friendly error messages
       let userFriendlyMessage;
       
       if (err.message.includes('No authentication token')) {
-        userFriendlyMessage = 'Please log in again to download QR codes.';
+        userFriendlyMessage = 'Please log in again to send QR codes email.';
       } else if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
         userFriendlyMessage = 'No internet connection. Please check your network and try again.';
       } else if (err.message.startsWith('No QR codes available') || 
                  err.message.startsWith('Your session has expired') ||
                  err.message.startsWith('You do not have permission') ||
                  err.message.startsWith('Server error') ||
-                 err.message.startsWith('Unable to download')) {
+                 err.message.startsWith('Unable to send')) {
         // These are already user-friendly messages
         userFriendlyMessage = err.message;
       } else {
-        userFriendlyMessage = 'Unable to download QR codes. Please try again.';
+        userFriendlyMessage = 'Unable to send QR codes email. Please try again.';
       }
 
-      Alert.alert('Download Failed', userFriendlyMessage);
+      Alert.alert('Email Failed', userFriendlyMessage);
     } finally {
       setDownloading(false);
-    }
-  };
-
-  // Function to handle successful download
-  const handleDownloadSuccess = async (downloadPath, fileName) => {
-    try {
-      // Verify file exists
-      const fileExists = await RNFS.exists(downloadPath);
-      if (!fileExists) {
-        throw new Error('File was not saved properly');
-      }
-
-      // Get file stats to verify it's not empty
-      const fileStat = await RNFS.stat(downloadPath);
-      if (fileStat.size === 0) {
-        throw new Error('Downloaded file is empty');
-      }
-
-      console.log(`File downloaded successfully: ${downloadPath}, Size: ${fileStat.size} bytes`);
-
-      // Show push notification
-      PushNotification.localNotification({
-        channelId: 'ileafu_channel',
-        title: 'Download Complete',
-        message: `QR Codes PDF downloaded successfully. Tap to open.`,
-        subText: `File saved to: ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder`,
-        bigText: `QR Codes PDF has been downloaded successfully.\nFile saved to: ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder\nTap this notification to open the file.`,
-        largeIcon: "ic_launcher", // (optional) default: "ic_launcher"
-        smallIcon: "ic_notification", // (optional) default: "ic_notification" with fallback for "ic_launcher"
-        color: '#539461', // (optional) default: system default
-        vibrate: true, // (optional) default: true
-        vibration: 300, // vibration length in milliseconds, ignored if vibrate=false, default: 1000
-        tag: 'pdf_download', // (optional) add tag to message
-        group: 'downloads', // (optional) add group to message
-        ongoing: false, // (optional) set whether this is an "ongoing" notification
-        priority: 'high', // (optional) set notification priority, default: high
-        visibility: 'public', // (optional) set notification visibility, default: private
-        importance: 'high', // (optional) set notification importance, default: high
-        autoCancel: true, // (optional) default: true
-        invokeApp: true, // (optional) This enable click on notification to bring back the application to foreground or stay in background, default: true
-        userInfo: { 
-          filePath: downloadPath,
-          action: 'download_complete'
-        },
-        data: {
-          filePath: downloadPath,
-          action: 'download_complete'
-        }
-      });
-
-      Alert.alert(
-        'Download Complete',
-        `PDF file has been saved to your ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder\n\nFile: ${fileName}`,
-        [
-          {
-            text: 'Open File',
-            onPress: () => openFile(downloadPath),
-          },
-          {
-            text: 'OK',
-            style: 'default'
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Error verifying download:', error);
-      throw error;
     }
   };
 
@@ -369,7 +119,7 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/qrGenerator/orders', {
+      const response = await fetch(API_ENDPOINTS.QR_GENERATOR_ORDERS, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -628,7 +378,7 @@ const ScreenExportQR = ({navigation}) => {
                 styles.actionButton,
                 downloading && styles.actionButtonDisabled
               ]}
-              onPress={handleDownload}
+              onPress={handleSendEmail}
               disabled={downloading}
             >
               {downloading ? (

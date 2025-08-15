@@ -40,20 +40,47 @@ const BrowseMorePlants = ({
       };
       
       const response = await getPlantRecommendationsApi(params);
-      console.log('Plant recommendations API response:', response);
+      console.log('Plant recommendations API response:', response.data.recommendations);
       
       if (response.success && response.data && response.data.recommendations) {
+        // Filter out plants with invalid data
+        const validPlants = response.data.recommendations.filter(plant => {
+          // Ensure plant has required fields and they are strings
+          const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+          const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+          const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                             (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+          
+          const isValid = hasPlantCode && hasTitle && hasSubtitle;
+          
+          if (!isValid) {
+            console.log('Filtering out invalid plant:', {
+              plantCode: plant?.plantCode,
+              genus: plant?.genus,
+              species: plant?.species,
+              variegation: plant?.variegation,
+              plantName: plant?.plantName,
+              finalPrice: plant?.finalPrice
+            });
+          }
+          
+          return isValid;
+        });
+        
+        console.log(`Filtered ${response.data.recommendations.length} plants down to ${validPlants.length} valid plants`);
+        
         if (isInitial) {
-          setPlants(response.data.recommendations);
+          setPlants(validPlants);
         } else {
           // Add new recommendations, filtering out duplicates
           setPlants(prevPlants => {
             const existingPlantCodes = new Set(prevPlants.map(p => p.plantCode));
-            const newPlants = response.data.recommendations.filter(p => !existingPlantCodes.has(p.plantCode));
+            const newPlants = validPlants.filter(p => !existingPlantCodes.has(p.plantCode));
             return [...prevPlants, ...newPlants];
           });
           
-          if (response.data.recommendations.length === 0) {
+          if (validPlants.length === 0) {
             Alert.alert('No more plants', 'No more plants available to load.');
           }
         }
@@ -158,15 +185,37 @@ const BrowseMorePlants = ({
         </View>
       ) : plants.length > 0 ? (
         <View style={styles.plantsGrid}>
-          {plants.map((plant, idx) => (
-            <View key={plant.plantCode || plant.id || idx} style={styles.cardWrapper}>
-              <PlantItemCard
-                data={plant}
-                onPress={onPlantPress ? () => onPlantPress(plant) : undefined}
-                onAddToCart={() => handleAddToCart(plant)}
-              />
-            </View>
-          ))}
+          {plants.map((plant, idx) => {
+            // Additional safety check before rendering
+            if (!plant || 
+                !plant.plantCode || 
+                typeof plant.plantCode !== 'string' ||
+                plant.plantCode.trim() === '') {
+              console.log('Skipping invalid plant at render:', plant);
+              return null;
+            }
+            
+            // Ensure title and subtitle are safe
+            const hasValidTitle = (plant.genus && typeof plant.genus === 'string') || 
+                                 (plant.plantName && typeof plant.plantName === 'string');
+            const hasValidSubtitle = (plant.species && typeof plant.species === 'string') || 
+                                    (plant.variegation && typeof plant.variegation === 'string');
+            
+            if (!hasValidTitle || !hasValidSubtitle) {
+              console.log('Skipping plant with invalid text fields:', plant);
+              return null;
+            }
+            
+            return (
+              <View key={plant.plantCode || plant.id || `plant-${idx}`} style={styles.cardWrapper}>
+                <PlantItemCard
+                  data={plant}
+                  onPress={onPlantPress ? () => onPlantPress(plant) : undefined}
+                  onAddToCart={() => handleAddToCart(plant)}
+                />
+              </View>
+            );
+          }).filter(Boolean)}
         </View>
       ) : (
         <View style={styles.emptyState}>
