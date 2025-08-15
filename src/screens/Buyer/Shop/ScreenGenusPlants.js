@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   Alert,
   TextInput,
+  Image,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useAuth} from '../../../auth/AuthProvider';
@@ -43,13 +44,7 @@ import {
   getCacheData,
   CACHE_KEYS,
 } from '../../../utils/dropdownCache';
-import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
-import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
-import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
-import PriceTagIcon from '../../../assets/buyer-icons/tag-bold.svg';
-import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
-import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
-import PromoBadge from '../../../components/PromoBadge/PromoBadge';
+import PromoBadgeList from '../../../components/PromoBadgeList';
 
 const GenusHeader = ({
   genus,
@@ -58,14 +53,6 @@ const GenusHeader = ({
   setSearchTerm,
   setIsSearchFocused,
 }) => {
-  const promoBadges = [
-    {label: 'Price Drop', icon: PriceDropIcon},
-    {label: 'New Arrivals', icon: NewArrivalsIcon},
-    {label: 'Latest Nursery Drop', icon: LeavesIcon},
-    {label: 'Below $20', icon: PriceTagIcon},
-    {label: 'Unicorn', icon: UnicornIcon},
-    {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
-  ];
   return (
     <View style={styles.stickyHeader}>
     <View style={styles.header}>
@@ -111,7 +98,10 @@ const GenusHeader = ({
       <View style={styles.headerIcons}>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => navigation.navigate('ScreenWishlist')}>
+          onPress={() => {
+            // Wishlist feature temporarily disabled
+            console.log('Wishlist feature is temporarily disabled');
+          }}>
           <Wishicon width={40} height={40} />
         </TouchableOpacity>
         <TouchableOpacity
@@ -122,25 +112,7 @@ const GenusHeader = ({
       </View>
     </View>
     
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={{flexGrow: 0, paddingVertical: 1}}
-      contentContainerStyle={{
-        flexDirection: 'row',
-        gap: 6,
-        alignItems: 'flex-start',
-        paddingHorizontal: 9,
-      }}>
-      {promoBadges.map(badge => (
-        <PromoBadge
-          key={badge.label}
-          icon={badge.icon}
-          label={badge.label}
-          style={{marginRight: 5}}
-        />
-      ))}
-    </ScrollView>
+    <PromoBadgeList navigation={navigation} />
     </View>
   );
 };
@@ -1061,10 +1033,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No {genus} plants found</Text>
-            <Text style={styles.emptySubtitle}>
-              Try adjusting your filters or search terms
-            </Text>
+            <Image 
+              source={require('../../../assets/images/no-genus.jpg')}
+              style={styles.emptyImage}
+              resizeMode="contain"
+            />
           </View>
         )}
       </ScrollView>
@@ -1342,6 +1315,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
     paddingVertical: 64,
+  },
+  emptyImage: {
+    width: 1000,
+    height: 500,
+    maxWidth: '90%',
+    maxHeight: '70%',
   },
   emptyTitle: {
     fontSize: 18,

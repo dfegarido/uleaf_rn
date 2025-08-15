@@ -36,7 +36,10 @@ const PlantItemCard = ({
   price = '$65.27',
   likes = '5K',
   isWishlisted = false,
-  onWishlistPress = () => {},
+  onWishlistPress = () => {
+    // Wishlist feature temporarily disabled
+    console.log('Wishlist feature is temporarily disabled');
+  },
   onPress = () => {},
   flightDate = 'May-30',
   // New props
@@ -84,6 +87,7 @@ const PlantItemCard = ({
   const displayPrice = data ? 
     (plantData.usdPriceNew ? `$${plantData.usdPriceNew}` : 
      plantData.usdPrice ? `$${plantData.usdPrice}` : 
+     plantData.finalPrice ? `$${plantData.finalPrice}` :
      plantData.localPriceNew ? `${plantData.localCurrencySymbol || '$'}${plantData.localPriceNew}` :
      plantData.localPrice ? `${plantData.localCurrencySymbol || '$'}${plantData.localPrice}` : 
      'Price N/A') :
@@ -164,8 +168,12 @@ const PlantItemCard = ({
         <View style={styles.row}>
           <Text style={styles.title} numberOfLines={2}>{displayTitle}</Text>
           <TouchableOpacity
-            onPress={onWishlistPress}
-            style={styles.likeButton}>
+            onPress={() => {
+              // Wishlist feature temporarily disabled
+              console.log('Wishlist feature is temporarily disabled');
+            }}
+            style={[styles.likeButton, {opacity: 0.5}]}
+            disabled={true}>
             {isWishlisted ? (
               <WishListSelected width={22} height={22} />
             ) : (

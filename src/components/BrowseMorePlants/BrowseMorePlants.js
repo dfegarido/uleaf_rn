@@ -159,12 +159,13 @@ const BrowseMorePlants = ({
       ) : plants.length > 0 ? (
         <View style={styles.plantsGrid}>
           {plants.map((plant, idx) => (
-            <PlantItemCard
-              key={plant.plantCode || plant.id || idx}
-              data={plant}
-              onPress={onPlantPress ? () => onPlantPress(plant) : undefined}
-              onAddToCart={() => handleAddToCart(plant)}
-            />
+            <View key={plant.plantCode || plant.id || idx} style={styles.cardWrapper}>
+              <PlantItemCard
+                data={plant}
+                onPress={onPlantPress ? () => onPlantPress(plant) : undefined}
+                onAddToCart={() => handleAddToCart(plant)}
+              />
+            </View>
           ))}
         </View>
       ) : (
@@ -210,15 +211,21 @@ const styles = StyleSheet.create({
   plantsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start', // Align items to top to prevent stretching
+    paddingHorizontal: 12,
+  },
+  cardWrapper: {
+    width: '48%',
+    marginBottom: 12,
+    alignSelf: 'flex-start', // Prevent vertical stretching
   },
   skeletonCard: {
-    width: 191,
-    height: 289,
+    width: '48%',
+    height: 280, // Match the PlantItemCard height
     backgroundColor: '#f0f0f0',
     borderRadius: 12,
-    margin: 1,
+    marginBottom: 16,
     padding: 8,
   },
   skeletonImage: {

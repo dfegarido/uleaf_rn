@@ -22,13 +22,7 @@ import AvatarIcon from '../../../assets/images/avatar.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
-import PriceDropIcon from '../../../assets/buyer-icons/price-drop-icons.svg';
-import NewArrivalsIcon from '../../../assets/buyer-icons/megaphone.svg';
-import PromoBadge from '../../../components/PromoBadge/PromoBadge';
-import PriceTagIcon from '../../../assets/buyer-icons/tag-bold.svg';
-import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
-import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
-import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
+import PromoBadgeList from '../../../components/PromoBadgeList';
 import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
 import WholesaleIcon from '../../../assets/buyer-icons/wholesale-plants-icon.svg';
 import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
@@ -787,15 +781,6 @@ const ScreenShop = ({navigation}) => {
     {label: 'Listing Type', rightIcon: DownIcon},
   ];
 
-  const promoBadges = [
-    {label: 'Price Drop', icon: PriceDropIcon},
-    {label: 'New Arrivals', icon: NewArrivalsIcon},
-    {label: 'Latest Nursery Drop', icon: LeavesIcon},
-    {label: 'Below $20', icon: PriceTagIcon},
-    {label: 'Unicorn', icon: UnicornIcon},
-    {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
-  ];
-
   const onGrowersPress = () => {
     console.log('Growers Pressed');
     // Update filters to show only Grower's Choice listings
@@ -891,7 +876,10 @@ const ScreenShop = ({navigation}) => {
           <View style={styles.headerIcons}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => navigation.navigate('ScreenWishlist')}>
+              onPress={() => {
+                // Wishlist feature temporarily disabled
+                console.log('Wishlist feature is temporarily disabled');
+              }}>
               <Wishicon width={40} height={40} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -1010,25 +998,8 @@ const ScreenShop = ({navigation}) => {
         style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
         contentContainerStyle={{paddingBottom: 170}}>
         
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{flexGrow: 0, paddingVertical: 1}}
-          contentContainerStyle={{
-            flexDirection: 'row',
-            gap: 6,
-            alignItems: 'flex-start',
-            paddingHorizontal: 9,
-          }}>
-          {promoBadges.map(badge => (
-            <PromoBadge
-              key={badge.label}
-              icon={badge.icon}
-              label={badge.label}
-              style={{marginRight: 5}}
-            />
-          ))}
-        </ScrollView>
+        <PromoBadgeList navigation={navigation} />
+        
         <View
           style={{
             flexDirection: 'row',
@@ -1329,7 +1300,7 @@ const ScreenShop = ({navigation}) => {
         
         {/* Browse More Plants Component */}
         <BrowseMorePlants 
-          title="Discover Random Plants"
+          title="More from our Jungle"
           initialLimit={6}
           loadMoreLimit={6}
           showLoadMore={true}

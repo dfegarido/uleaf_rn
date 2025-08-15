@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
@@ -14,9 +15,8 @@ import InputBox from '../../components/Input/InputBox';
 import InfoIcon from '../../assets/buyer-icons/information.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const STATES = ['California', 'Texas', 'New York', 'Florida', 'Illinois'];
-const CITIES = ['Los Angeles', 'Houston', 'New York City', 'Miami', 'Chicago'];
+// New public (no-auth) location dropdown APIs
+import { getPublicStatesApi, getPublicCitiesApi } from '../../components/Api/locationDropdownApi';
 
 const BuyerSignupLocation = () => {
   const navigation = useNavigation();
@@ -24,6 +24,66 @@ const BuyerSignupLocation = () => {
   const [city, setCity] = useState('');
   const [zip, setZip] = useState('');
   const [address, setAddress] = useState('');
+  
+  // States and cities from public API
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [selectedStateData, setSelectedStateData] = useState(null);
+  const [statesLoading, setStatesLoading] = useState(true);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+
+  // Load states from public endpoint
+  useEffect(() => {
+    const loadStates = async () => {
+      try {
+        console.log('Loading states from public endpoint...');
+        setStatesLoading(true);
+        const stateList = await getPublicStatesApi();
+        stateList.sort((a,b) => a.name.localeCompare(b.name));
+        setStates(stateList);
+      } catch (error) {
+        console.error('Error loading states:', error);
+        Alert.alert('Error', 'Failed to load states. Please try again.');
+        // Fallback to some common states
+        setStates([
+          { name: 'California', isoCode: 'CA' },
+          { name: 'Texas', isoCode: 'TX' },
+          { name: 'New York', isoCode: 'NY' },
+          { name: 'Florida', isoCode: 'FL' },
+          { name: 'Illinois', isoCode: 'IL' }
+        ]);
+      } finally {
+        setStatesLoading(false);
+      }
+    };
+
+    loadStates();
+  }, []);
+
+  // Load cities when state changes
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!selectedStateData) {
+        setCities([]);
+        return;
+      }
+
+      try {
+        console.log('Loading cities for state:', selectedStateData.name);
+        setCitiesLoading(true);
+        const { cities: cityNames } = await getPublicCitiesApi(selectedStateData.isoCode, 50, 0);
+        setCities(cityNames);
+      } catch (error) {
+        console.error('Error loading cities:', error);
+        // Fallback to some common cities
+        setCities(['Enter city manually']);
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+
+    loadCities();
+  }, [selectedStateData]);
 
   const handleContinue = async () => {
     // Save location info to AsyncStorage
@@ -81,10 +141,16 @@ const BuyerSignupLocation = () => {
             State<Text style={{color: '#FF5247'}}>*</Text>
           </Text>
           <InputDropdown
-            options={STATES}
+            options={states.map(s => s.name)}
             selectedOption={state}
-            onSelect={setState}
-            placeholder="Select..."
+            onSelect={(selectedName) => {
+              const sel = states.find(s => s.name === selectedName);
+              setState(selectedName);
+              setSelectedStateData(sel);
+              setCity(''); // Reset city when state changes
+            }}
+            placeholder={statesLoading ? "Loading states..." : "Select..."}
+            disabled={statesLoading}
           />
 
           {/* City dropdown */}
@@ -92,10 +158,17 @@ const BuyerSignupLocation = () => {
             City<Text style={{color: '#FF5247'}}>*</Text>
           </Text>
           <InputDropdown
-            options={CITIES}
+            options={cities}
             selectedOption={city}
             onSelect={setCity}
-            placeholder="Select..."
+            placeholder={
+              citiesLoading 
+                ? "Loading cities..." 
+                : selectedStateData 
+                  ? "Select..." 
+                  : "Select state first"
+            }
+            disabled={!selectedStateData || citiesLoading}
           />
 
           {/* Zip code */}
