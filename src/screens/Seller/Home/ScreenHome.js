@@ -337,7 +337,7 @@ const ScreenHome = ({navigation}) => {
             <View style={styles.msgIcon}>
               <MessageIcon width={40} height={40} />
               <View style={styles.msgBadge}>
-                <Text style={styles.msgBadgeText}>23</Text>
+                {/* <Text style={styles.msgBadgeText}>23</Text> */}
               </View>
             </View>
             <Text style={globalStyles.textSMGreyLight}>Messages</Text>
