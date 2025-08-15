@@ -507,7 +507,8 @@ const ScreenMyStore = ({navigation}) => {
 
       {/* Contents */}
       <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
+        // style={[styles.container, {paddingTop: insets.top}]}
+        style={[styles.container]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }>
@@ -841,19 +842,21 @@ const ScreenMyStore = ({navigation}) => {
               </View>
             </View>
           </View>
-          <TouchableOpacity
-            onPress={() => onPressLoadMore()}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '100%',
-              marginTop: 10,
-              marginBottom: 50,
-            }}>
-            <Text style={globalStyles.textLGAccent}>Load More</Text>
-            <ArrowDownIcon width={25} height={20} />
-          </TouchableOpacity>
+          {dataTable.length >= 10 && (
+            <TouchableOpacity
+              onPress={() => onPressLoadMore()}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                marginTop: 10,
+                marginBottom: 50,
+              }}>
+              <Text style={globalStyles.textLGAccent}>Load More</Text>
+              <ArrowDownIcon width={25} height={20} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <ReusableActionSheet
@@ -930,7 +933,7 @@ const styles = StyleSheet.create({
     minHeight: screenHeight,
   },
   image: {
-    width: 166,
+    width: '100%',
     height: 220,
     borderRadius: 12,
     backgroundColor: '#ccc',

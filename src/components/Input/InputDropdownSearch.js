@@ -71,21 +71,25 @@ const InputDropdownSearch = ({
               onChangeText={setSearchText}
             />
 
-            <FlatList
-              data={filteredOptions}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({item}) => (
-                <TouchableOpacity
-                  style={styles.option}
-                  onPress={() => handleSelect(item)}>
-                  <Text style={styles.optionText}>{item}</Text>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
-                <Text style={styles.noResults}>No results found</Text>
-              }
-              keyboardShouldPersistTaps="handled"
-            />
+            {options.length === 0 ? (
+              <Text style={styles.noResults}>No options available</Text>
+            ) : (
+              <FlatList
+                data={filteredOptions}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({item}) => (
+                  <TouchableOpacity
+                    style={styles.option}
+                    onPress={() => handleSelect(item)}>
+                    <Text style={styles.optionText}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.noResults}>No results found</Text>
+                }
+                keyboardShouldPersistTaps="handled"
+              />
+            )}
           </View>
         </TouchableOpacity>
       </Modal>

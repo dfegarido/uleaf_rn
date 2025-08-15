@@ -134,7 +134,8 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
 
       {/* Foreground ScrollView Content */}
       <ScrollView
-        style={[styles.container, {paddingTop: insets.top, marginBottom: 55}]}
+        // style={[styles.container, {paddingTop: insets.top, marginBottom: 55}]}
+        style={[styles.container, {marginBottom: 55}]}
         stickyHeaderIndices={[0]}>
         {/* Sticky Header */}
         <View style={[styles.stickyHeader, {paddingBottom: 10}]}>

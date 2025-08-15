@@ -127,7 +127,8 @@ const ScreenPayout = ({navigation, route}) => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        style={[styles.container, {paddingTop: insets.top}]}
+        // style={[styles.container, {paddingTop: insets.top}]}
+        style={[styles.container]}
         stickyHeaderIndices={[0]}>
         {/* Search and Icons */}
         <View style={styles.stickyHeader}>

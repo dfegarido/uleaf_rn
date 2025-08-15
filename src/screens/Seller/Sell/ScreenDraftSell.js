@@ -9,6 +9,7 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
+  SafeAreaView,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useIsFocused} from '@react-navigation/native';
@@ -138,7 +139,8 @@ const ScreenDraftSell = ({navigation}) => {
   // Load more
 
   return (
-    <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+    // <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+    <SafeAreaView style={[styles.mainContent]}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -402,21 +404,24 @@ const ScreenDraftSell = ({navigation}) => {
             ))}
           </View>
         </ScrollView>
-        <TouchableOpacity
-          onPress={() => onPressLoadMore()}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            marginTop: 10,
-            marginBottom: 50,
-          }}>
-          <Text style={globalStyles.textLGAccent}>Load More</Text>
-          <ArrowDownIcon width={25} height={20} />
-        </TouchableOpacity>
+        {data.length >= 10 && (
+          <TouchableOpacity
+            onPress={() => onPressLoadMore()}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              marginTop: 10,
+              marginBottom: 50,
+            }}>
+            <Text style={globalStyles.textLGAccent}>Load More</Text>
+            <ArrowDownIcon width={25} height={20} />
+          </TouchableOpacity>
+        )}
       </ScrollView>
-    </View>
+      {/* </View> */}
+    </SafeAreaView>
   );
 };
 

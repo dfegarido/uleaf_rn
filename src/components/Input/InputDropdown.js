@@ -53,19 +53,24 @@ const InputDropdown = ({
         onRequestClose={() => setVisible(false)}>
         <TouchableOpacity
           style={styles.modalOverlay}
-          onPress={() => setVisible(false)}>
+          onPress={() => setVisible(false)}
+          activeOpacity={1}>
           <View style={styles.modalContent}>
-            <FlatList
-              data={options}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({item}) => (
-                <TouchableOpacity
-                  style={styles.option}
-                  onPress={() => handleSelect(item)}>
-                  <Text style={styles.optionText}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
+            {options.length === 0 ? (
+              <Text style={styles.noResults}>No options available</Text>
+            ) : (
+              <FlatList
+                data={options}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({item}) => (
+                  <TouchableOpacity
+                    style={styles.option}
+                    onPress={() => handleSelect(item)}>
+                    <Text style={styles.optionText}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -119,6 +124,11 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     color: '#333',
+  },
+  noResults: {
+    paddingVertical: 20,
+    textAlign: 'center',
+    color: '#888',
   },
 });
 

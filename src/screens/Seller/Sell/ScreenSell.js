@@ -219,7 +219,7 @@ const ScreenSell = ({navigation}) => {
         <ActionSheet
           visible={showSheet}
           onClose={() => setShowSheet(false)}
-          heightPercent={'25%'}>
+          heightPercent={'30%'}>
           <View style={{padding: 20}}>
             <TouchableOpacity onPress={handlePressDraft}>
               <View
