@@ -431,9 +431,7 @@ const ScreenListingAction = ({navigation, route}) => {
           </View>
         </Modal>
       )}
-      <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
-        stickyHeaderIndices={[0]}>
+      <ScrollView style={[styles.container]} stickyHeaderIndices={[0]}>
         {/* Search and Icons */}
         <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
           <View style={styles.header}>

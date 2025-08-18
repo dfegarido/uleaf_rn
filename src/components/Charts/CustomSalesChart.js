@@ -54,8 +54,8 @@ const CustomSalesChart = ({data = [], isMonthly = false}) => {
   }
 
   return (
-    <View style={{padding: 0}}>
-      <Text
+    <View style={{paddingTop: 20}}>
+      {/* <Text
         style={{
           textAlign: 'center',
           fontWeight: 'bold',
@@ -63,7 +63,7 @@ const CustomSalesChart = ({data = [], isMonthly = false}) => {
           marginBottom: 10,
         }}>
         {isMonthly ? 'Monthly' : 'Weekly'} Sales Performance
-      </Text>
+      </Text> */}
 
       {/* Legend */}
       <View
