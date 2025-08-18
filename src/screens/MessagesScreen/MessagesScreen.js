@@ -1,21 +1,44 @@
-import { addDoc, arrayRemove, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import {
+  addDoc,
+  arrayRemove,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 import moment from 'moment';
-import React, { useContext, useEffect, useState } from 'react';
-import { Alert, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { db } from '../../../firebase';
+import React, {useContext, useEffect, useState} from 'react';
+import {
+  Alert,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  SafeAreaView,
+} from 'react-native';
+import {db} from '../../../firebase';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 import CreateChat from '../../assets/iconchat/new-chat.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
-import { AuthContext } from '../../auth/AuthProvider';
+import {AuthContext} from '../../auth/AuthProvider';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const MessagesScreen = ({navigation}) => {
-
   const {userInfo} = useContext(AuthContext);
-  const userFullName = userInfo ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim() : 'User';
+  const userFullName = userInfo
+    ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim()
+    : 'User';
 
   const [messages, setMessages] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -33,32 +56,37 @@ const MessagesScreen = ({navigation}) => {
       const q = query(
         collection(db, 'chats'),
         where('participantIds', 'array-contains', userInfo.uid),
-        orderBy('timestamp', 'desc')
+        orderBy('timestamp', 'desc'),
       );
 
       // Use onSnapshot with includeMetadataChanges to handle both cache and server data
-      const unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-        try {
-          // Check if data is from cache or server
-          const source = snapshot.metadata.fromCache ? "cache" : "server";
-          console.log("Data came from " + source);
-          
-          const chats = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          
-          setMessages(chats);
-        } catch (error) {
-          console.error('Error processing chat data:', error);
-        } finally {
+      const unsubscribe = onSnapshot(
+        q,
+        {includeMetadataChanges: true},
+        snapshot => {
+          try {
+            // Check if data is from cache or server
+            const source = snapshot.metadata.fromCache ? 'cache' : 'server';
+            console.log('Data came from ' + source);
+
+            const chats = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+
+            setMessages(chats);
+          } catch (error) {
+            console.error('Error processing chat data:', error);
+          } finally {
+            setLoading(false);
+          }
+        },
+        error => {
+          console.error('Firestore subscription error:', error);
           setLoading(false);
-        }
-      }, error => {
-        console.error('Firestore subscription error:', error);
-        setLoading(false);
-      });
-      
+        },
+      );
+
       return unsubscribe;
     } catch (error) {
       console.error('Error setting up chat listener:', error);
@@ -66,24 +94,23 @@ const MessagesScreen = ({navigation}) => {
     }
   }, [userInfo]);
 
-
-  const markChatAsRead = (item) => {
+  const markChatAsRead = item => {
     updateDoc(doc(db, 'chats', item.id), {
       unreadBy: arrayRemove(userInfo.uid),
     });
-    
+
     navigation.navigate('ChatScreen', item);
-  }
+  };
 
   const createChat = async user => {
     setModalVisible(false);
-    
+
     try {
       // Validate user data before proceeding
       if (!user || !user.uid) {
         throw new Error('Invalid user data');
       }
-      
+
       // Ensure userInfo exists
       if (!userInfo || !userInfo.uid) {
         throw new Error('Your user profile is not available');
@@ -91,42 +118,42 @@ const MessagesScreen = ({navigation}) => {
       // First check if a chat already exists with this user
       const existingChatQuery = query(
         collection(db, 'chats'),
-        where('participantIds', 'array-contains', userInfo.uid)
+        where('participantIds', 'array-contains', userInfo.uid),
       );
-      
+
       const existingChatsSnapshot = await getDocs(existingChatQuery);
       let existingChat = null;
-      
+
       existingChatsSnapshot.forEach(doc => {
         const chatData = doc.data();
         if (chatData.participantIds.includes(user.uid)) {
-          existingChat = { id: doc.id, ...chatData };
+          existingChat = {id: doc.id, ...chatData};
         }
       });
-      
+
       // If chat exists, navigate to it
       if (existingChat) {
         navigation.navigate('ChatScreen', existingChat);
         return;
       }
-      
+
       // Otherwise create a new chat
       // First make sure we have valid data for all required fields
       const currentUserAvatar = userInfo.profilePhotoUrl || '';
       const otherUserAvatar = user.avatarUrl || '';
-      
+
       let chatData = {
         participants: [
-          { 
-            uid: userInfo.uid || '', 
+          {
+            uid: userInfo.uid || '',
             avatarUrl: currentUserAvatar || '', // Ensure empty string if null/undefined
-            name: userFullName || 'User' 
+            name: userFullName || 'User',
           },
-          { 
-            uid: user.uid || '', 
+          {
+            uid: user.uid || '',
             avatarUrl: otherUserAvatar || '', // Ensure empty string if null/undefined
-            name: user.name || 'Contact' 
-          }
+            name: user.name || 'Contact',
+          },
         ],
         participantIds: [userInfo.uid, user.uid].filter(Boolean), // Remove any undefined/null values
         lastMessage: '',
@@ -135,19 +162,19 @@ const MessagesScreen = ({navigation}) => {
         avatarUrl: '',
         name: '',
         type: 'private',
-      }
-      
+      };
+
       console.log('Creating new chat with data:', JSON.stringify(chatData));
-      
+
       try {
         const addChat = await addDoc(collection(db, 'chats'), chatData);
         console.log('Chat created with ID:', addChat.id);
-        
+
         const docRef = doc(db, 'chats', addChat.id);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
-          const newChatData = { id: docSnap.id, ...docSnap.data() };
+          const newChatData = {id: docSnap.id, ...docSnap.data()};
           navigation.navigate('ChatScreen', newChatData);
         } else {
           throw new Error('Failed to get created chat document');
@@ -155,42 +182,57 @@ const MessagesScreen = ({navigation}) => {
       } catch (firestoreError) {
         console.error('Firestore error:', firestoreError);
         Alert.alert(
-          'Error', 
-          'Failed to create chat. There might be an issue with the user data.'
+          'Error',
+          'Failed to create chat. There might be an issue with the user data.',
         );
       }
     } catch (error) {
       console.error('Error creating chat:', error);
       Alert.alert('Error', 'Failed to create chat. Please try again.');
     }
-  }
+  };
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({item}) => {
     // Add null check to handle potential undefined participants
     const participants = item.participants || [];
     const otherUserInfo = participants.find(p => p.uid !== userInfo.uid) || {};
     return (
       <TouchableOpacity
         style={styles.chatItem}
-        onPress={() => markChatAsRead(item)}
-      >
-        <Image 
-          source={DefaultAvatar}
-          style={styles.avatar} 
-        />
+        onPress={() => markChatAsRead(item)}>
+        <Image source={DefaultAvatar} style={styles.avatar} />
         <View style={styles.chatContent}>
           <View style={styles.chatHeader}>
             <View style={styles.chatSubHeader}>
-              <Text style={styles.chatName}>{item.name || (otherUserInfo && otherUserInfo.name) || 'Unknown'}</Text>
-              <Text style={[item.unreadBy && item.unreadBy.includes(userInfo.uid) ? styles.unreadChatTime : styles.chatTime]}>
-                {item.timestamp ? moment(item.timestamp.toDate()).fromNow() : ''}
+              <Text style={styles.chatName}>
+                {item.name ||
+                  (otherUserInfo && otherUserInfo.name) ||
+                  'Unknown'}
+              </Text>
+              <Text
+                style={[
+                  item.unreadBy && item.unreadBy.includes(userInfo.uid)
+                    ? styles.unreadChatTime
+                    : styles.chatTime,
+                ]}>
+                {item.timestamp
+                  ? moment(item.timestamp.toDate()).fromNow()
+                  : ''}
               </Text>
             </View>
             <View style={styles.timeContainer}>
-              {item.unreadBy && item.unreadBy.includes(userInfo.uid) && <View style={styles.unreadDot} />}
+              {item.unreadBy && item.unreadBy.includes(userInfo.uid) && (
+                <View style={styles.unreadDot} />
+              )}
             </View>
           </View>
-          <Text numberOfLines={1} style={[item.unreadBy && item.unreadBy.includes(userInfo.uid) ? styles.unreadChatMessage : styles.chatMessage]}>
+          <Text
+            numberOfLines={1}
+            style={[
+              item.unreadBy && item.unreadBy.includes(userInfo.uid)
+                ? styles.unreadChatMessage
+                : styles.chatMessage,
+            ]}>
             {item.lastMessage || ''}
           </Text>
         </View>
@@ -199,74 +241,83 @@ const MessagesScreen = ({navigation}) => {
   };
 
   // Skeleton loading component for chat items
-  const SkeletonChatItem = ({ index = 0 }) => (
+  const SkeletonChatItem = ({index = 0}) => (
     <View style={styles.chatItem}>
       {/* Avatar skeleton */}
       <View style={styles.skeletonAvatar} />
-      
+
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
           <View style={styles.chatSubHeader}>
             {/* Name skeleton with varying widths */}
-            <View style={[styles.skeletonName, { width: 100 + (index % 3) * 20 }]} />
+            <View
+              style={[styles.skeletonName, {width: 100 + (index % 3) * 20}]}
+            />
             {/* Time skeleton */}
             <View style={styles.skeletonTime} />
           </View>
         </View>
         {/* Message skeleton with varying widths */}
-        <View style={[styles.skeletonMessage, { width: `${60 + (index % 4) * 10}%` }]} />
+        <View
+          style={[styles.skeletonMessage, {width: `${60 + (index % 4) * 10}%`}]}
+        />
       </View>
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <BackSolidIcon />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Messages</Text>
-        <TouchableOpacity style={styles.createChat} onPress={() => setModalVisible(true)}>
-          <CreateChat />
-        </TouchableOpacity>
+    <SafeAreaView>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <BackSolidIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Messages</Text>
+          <TouchableOpacity
+            style={styles.createChat}
+            onPress={() => setModalVisible(true)}>
+            <CreateChat />
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          data={loading ? [] : messages}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={[
+            styles.listContainer,
+            messages.length === 0 && !loading && styles.emptyListContainer,
+          ]}
+          ListEmptyComponent={() =>
+            loading ? (
+              // Show skeleton loading when loading
+              <View style={styles.skeletonContainer}>
+                {Array.from({length: 6}).map((_, idx) => (
+                  <SkeletonChatItem key={idx} index={idx} />
+                ))}
+              </View>
+            ) : (
+              // Show empty state when not loading and no messages
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateTitle}>No Messages Yet</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  Start a conversation with plant enthusiasts and discover
+                  amazing plants!
+                </Text>
+              </View>
+            )
+          }
+        />
+
+        <NewMessageModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          onSelect={user => createChat(user)}
+        />
       </View>
-
-      <FlatList
-        data={loading ? [] : messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={[
-          styles.listContainer,
-          messages.length === 0 && !loading && styles.emptyListContainer
-        ]}
-        ListEmptyComponent={() => (
-          loading ? (
-            // Show skeleton loading when loading
-            <View style={styles.skeletonContainer}>
-              {Array.from({length: 6}).map((_, idx) => (
-                <SkeletonChatItem key={idx} index={idx} />
-              ))}
-            </View>
-          ) : (
-            // Show empty state when not loading and no messages
-            <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateTitle}>No Messages Yet</Text>
-              <Text style={styles.emptyStateSubtitle}>
-                Start a conversation with plant enthusiasts and discover amazing plants!
-              </Text>
-            </View>
-          )
-        )}
-      />
-
-      <NewMessageModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onSelect={(user) => createChat(user)}
-      />
-    </View>
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
