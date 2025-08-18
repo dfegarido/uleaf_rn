@@ -13,6 +13,7 @@ import {
   Image,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
 import SearchIcon from '../../../assets/iconnav/search.svg';
@@ -52,9 +53,10 @@ const GenusHeader = ({
   searchTerm,
   setSearchTerm,
   setIsSearchFocused,
+  insets,
 }) => {
   return (
-    <View style={styles.stickyHeader}>
+    <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
     <View style={styles.header}>
       {/* Back Button */}
       <TouchableOpacity
@@ -119,6 +121,7 @@ const GenusHeader = ({
 
 const ScreenGenusPlants = ({navigation, route}) => {
   const {user} = useAuth();
+  const insets = useSafeAreaInsets();
   const {genus} = route.params || {};
   const {
     globalFilters,
@@ -917,11 +920,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         setIsSearchFocused={setIsSearchFocused}
+        insets={insets}
       />
 
       {/* Search Results - Positioned outside header to appear above content */}
       {isSearchFocused && searchTerm.trim().length >= 2 && (
-        <View style={styles.searchResultsContainer}>
+        <View style={[styles.searchResultsContainer, {top: insets.top + 58}]}>
           {loadingSearch ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#10b981" />
@@ -1012,7 +1016,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       {/* Plants Grid */}
       <ScrollView
-        style={styles.plantsContainer}
+        style={[styles.plantsContainer, {paddingTop: insets.top + 120}]}
         contentContainerStyle={styles.plantsGrid}
         onScroll={({nativeEvent}) => {
           const {layoutMeasurement, contentOffset, contentSize} = nativeEvent;
@@ -1299,7 +1303,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 12,
     backgroundColor: '#fff',
   },
   filterBar: {
@@ -1329,7 +1332,6 @@ const styles = StyleSheet.create({
   },
   plantsContainer: {
     flex: 1,
-    paddingTop: 120,
   },
   plantsGrid: {
     paddingBottom: 100,

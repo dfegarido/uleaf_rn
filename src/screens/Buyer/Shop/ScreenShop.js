@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
@@ -102,6 +103,7 @@ const countryData = [
 
 const ScreenShop = ({navigation}) => {
   const {user} = useAuth();
+  const insets = useSafeAreaInsets();
   const {
     globalFilters,
     updateFilters,
@@ -836,7 +838,7 @@ const ScreenShop = ({navigation}) => {
 
   return (
     <>
-      <View style={styles.stickyHeader}>
+      <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
         <View style={styles.header}>
           <View style={styles.searchContainer}>
             <View style={styles.searchField}>
@@ -995,7 +997,7 @@ const ScreenShop = ({navigation}) => {
       </View>
       <ScrollView
         ref={scrollViewRef}
-        style={[styles.body, {paddingTop: HEADER_HEIGHT}]}
+        style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
         contentContainerStyle={{paddingBottom: 170}}>
         
         <PromoBadgeList navigation={navigation} />
@@ -1524,7 +1526,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 12,
     backgroundColor: '#fff',
   },
   filterButton: {
