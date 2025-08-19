@@ -849,7 +849,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
               Genus <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
-            <InputDropdown
+            <InputDropdownSearch
               options={dropdownOptionGenus}
               selectedOption={selectedGenus}
               onSelect={handleGenusChange}
@@ -871,7 +871,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
               Variegation <Text style={globalStyles.textXSRed}>*</Text>
             </Text>
-            <InputDropdown
+            <InputDropdownSearch
               options={dropdownOptionVariegation}
               selectedOption={selectedVariegation}
               onSelect={setSelectedVariegation}
