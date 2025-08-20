@@ -6,13 +6,30 @@
  * @flow
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {SafeAreaView, StyleSheet, Text} from 'react-native';
 import AppNavigation from './src/components/AppNavigation';
 import {AuthProvider} from './src/auth/AuthProvider';
 import {FilterProvider} from './src/context/FilterContext';
+import { preloadAllDropdownData } from './src/utils/dropdownCache';
+import { getGenusApi, getVariegationApi, getCountryApi, getListingTypeApi, getShippingIndexApi, getAcclimationIndexApi } from './src/components/Api/dropdownApi';
+import { clearExpiredImageCache } from './src/utils/imageCache';
 
 const App = () => {
+  // Warm key caches at startup for faster first paint on buyer screens
+  useEffect(() => {
+    preloadAllDropdownData({
+      getGenusApi,
+      getVariegationApi,
+      getCountryApi,
+      getListingTypeApi,
+      getShippingIndexApi,
+      getAcclimationIndexApi,
+    });
+    // Opportunistically clean expired image cache
+    clearExpiredImageCache();
+  }, []);
+
   return (
     <AuthProvider>
       <FilterProvider>

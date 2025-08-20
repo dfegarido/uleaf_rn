@@ -159,13 +159,6 @@ const PlantItemCard = ({
     // Legacy support: Use provided flightDate prop or fallback to 'N/A'
     (flightDate || 'N/A');
 
-  // Debug log for flight date source
-  if (data && plantData.plantFlightDate) {
-    console.log(`✈️ Using backend flight date: ${plantData.plantFlightDate} for plant ${plantData.id || plantData.plantCode}`);
-  } else if (data && !plantData.plantFlightDate) {
-    console.log(`⚠️ No backend flight date available for plant ${plantData.id || plantData.plantCode}`);
-  }
-
   return (
     <View style={[{flexDirection: 'column'}, style]}>
       <TouchableOpacity

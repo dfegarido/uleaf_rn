@@ -809,11 +809,30 @@ const ScreenGenusPlants = ({navigation, route}) => {
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <Image 
-              source={require('../../../assets/images/no-genus.jpg')}
-              style={styles.emptyImage}
-              resizeMode="contain"
-            />
+            {(() => {
+              const isFromBrowseGenus = !!route?.params?.genus && !route?.params?.filter && !route?.params?.filterType && !route?.params?.filterValue;
+              const label = (route?.params?.filter || route?.params?.filterValue || route?.params?.genus || '').toString();
+              return (
+                <>
+                  {/* Browse Genus: show logo only */}
+                  {isFromBrowseGenus && (
+                    <Image 
+                      source={require('../../../assets/images/no-genus.jpg')}
+                      style={styles.emptyImage}
+                      resizeMode="contain"
+                    />
+                  )}
+                  {/* Other modules (badges/filters): show text only, hide logo */}
+                  {!isFromBrowseGenus && (
+                    <Text style={styles.emptyText}>
+                      {label && label !== 'All' 
+                        ? `No ${label} plants available at the moment.`
+                        : 'No plants available at the moment.'}
+                    </Text>
+                  )}
+                </>
+              );
+            })()}
           </View>
         )}
       </ScrollView>
@@ -1067,6 +1086,13 @@ const styles = StyleSheet.create({
     height: 500,
     maxWidth: '90%',
     maxHeight: '70%',
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#647276',
+    textAlign: 'center',
+    width: '100%'
   },
   emptyTitle: {
     fontSize: 18,

@@ -1,5 +1,25 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
+import { getCachedResponse, setCachedResponse } from '../../utils/apiResponseCache';
+
+// Simple in-memory TTL cache to reduce duplicate GET requests across session
+const __memCache = {
+  store: new Map(),
+  ttlMs: 60 * 1000, // 60s default for list endpoints
+  get(key) {
+    const item = this.store.get(key);
+    if (!item) return null;
+    if (Date.now() > item.expiry) {
+      this.store.delete(key);
+      return null;
+    }
+    return item.value;
+  },
+  set(key, value, ttlOverrideMs) {
+    const ttl = typeof ttlOverrideMs === 'number' ? ttlOverrideMs : this.ttlMs;
+    this.store.set(key, { value, expiry: Date.now() + ttl });
+  }
+};
 
 /**
  * Get plant recommendations
@@ -11,7 +31,7 @@ import {API_ENDPOINTS} from '../../config/apiConfig';
 export const getPlantRecommendationsApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
-    console.log({authToken})
+  // Build query string deterministically
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
@@ -36,9 +56,20 @@ export const getPlantRecommendationsApi = async (params = {}) => {
         queryParams.append(key, String(value));
       }
     });
-    
+    const qs = queryParams.toString();
+
+  // Memory cache key per-user token + endpoint + query
+    const cacheKey = `recs:${authToken?.slice?.(-12) || 'anon'}:${qs}`;
+    const cached = __memCache.get(cacheKey);
+  if (cached) return cached;
+
+  // Try persistent cache (short TTL) as a fallback
+  const userKey = authToken?.slice?.(-12) || 'anon';
+  const persistent = await getCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey);
+  if (persistent) return persistent;
+
     const response = await fetch(
-      `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${qs}`,
       {
         method: 'GET',
         headers: {
@@ -55,11 +86,15 @@ export const getPlantRecommendationsApi = async (params = {}) => {
       );
     }
 
-    const data = await response.json();
-    return {
+  const data = await response.json();
+  const result = {
       success: true,
       data,
-    };
+  };
+  // Cache for a bit longer (2 minutes) as recommendations do not need to be real-time
+  __memCache.set(cacheKey, result, 2 * 60 * 1000);
+  await setCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey, result, 2 * 60 * 1000);
+  return result;
   } catch (error) {
     console.error('Get plant recommendations API error:', error);
     return {
@@ -186,9 +221,21 @@ export const getBuyerListingsApi = async (params = {}) => {
         queryParams.append(key, String(value));
       }
     });
-    console.log("API Query Params:", `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`);
+    const qs = queryParams.toString();
+    console.log("API Query Params:", `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${qs}`);
+
+  // Memory cache key per-user token + endpoint + query
+    const cacheKey = `buyerListings:${authToken?.slice?.(-12) || 'anon'}:${qs}`;
+    const cached = __memCache.get(cacheKey);
+  if (cached) return cached;
+
+  // Try persistent cache next for very common queries (e.g., no filters)
+  const userKey = authToken?.slice?.(-12) || 'anon';
+  const persistent = await getCachedResponse('GET_BUYER_LISTINGS', qs, userKey);
+  if (persistent) return persistent;
+
     const response = await fetch(
-      `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${qs}`,
       {
         method: 'GET',
         headers: {
@@ -205,11 +252,15 @@ export const getBuyerListingsApi = async (params = {}) => {
       );
     }
 
-    const data = await response.json();
-    return {
+  const data = await response.json();
+  const result = {
       success: true,
       data,
-    };
+  };
+  // Cache for 60s in memory; plus 2 minutes on disk for common revisits
+  __memCache.set(cacheKey, result);
+  await setCachedResponse('GET_BUYER_LISTINGS', qs, userKey, result, 2 * 60 * 1000);
+  return result;
   } catch (error) {
     console.error('Get buyer listings API error:', error);
     return {

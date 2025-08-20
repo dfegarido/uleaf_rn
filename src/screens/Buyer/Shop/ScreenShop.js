@@ -119,9 +119,18 @@ const ScreenShop = ({navigation}) => {
     clearFilters
   } = useFilters();
 
+  // Component mount/unmount debugging
+  useEffect(() => {
+    console.log('🏪 ScreenShop: Component mounted');
+    return () => {
+      console.log('🏪 ScreenShop: Component unmounted');
+    };
+  }, []);
+
   // Log auth token and user info when Shop tab is accessed
   useFocusEffect(
     React.useCallback(() => {
+      console.log('🏪 ScreenShop: Screen focused');
       const logAuthInfo = async () => {
         try {
           const token = await AsyncStorage.getItem('authToken');
@@ -181,6 +190,9 @@ const ScreenShop = ({navigation}) => {
   
   // Refresh state
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Browse plants state persistence to prevent unnecessary reloading
+  const [browseMorePlantsKey, setBrowseMorePlantsKey] = useState(1);
   
   // Debounced search effect - triggers after user stops typing
   useEffect(() => {
@@ -251,6 +263,9 @@ const ScreenShop = ({navigation}) => {
         loadBrowseGenusData(),
         loadEventsData(),
       ]);
+      
+      // Force BrowseMorePlants to reload by changing its key
+      setBrowseMorePlantsKey(prev => prev + 1);
     } catch (error) {
       console.error('Error refreshing data:', error);
       // Optionally show user-friendly error message
@@ -793,6 +808,7 @@ const ScreenShop = ({navigation}) => {
 
   // Filter update functions that sync with global state
   const handleSortChange = (value) => {
+    clearFilters();
     updateFilters({ sort: value });
   };
 
@@ -813,6 +829,8 @@ const ScreenShop = ({navigation}) => {
   };
 
   const handleListingTypeChange = (value) => {
+    // Clear all filters first, then apply only the selected listing type filter
+    clearFilters();
     updateFilters({ listingType: value });
   };
 
@@ -824,44 +842,42 @@ const ScreenShop = ({navigation}) => {
     updateFilters({ acclimationIndex: value });
   };
 
-  const handleFilterView = async () => {
-    try {
-      // Apply filters to global state
-      applyFilters(globalFilters);
-      
-      // Build filter parameters for API call using global context
-      const baseParams = {
-        offset: 0,
-        limit: 20,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-      };
-      
-      const filterParams = buildFilterParams(baseParams);
-      
-      // Call buyer listings API with applied filters
-      const response = await getBuyerListingsApi(filterParams);
-      
-      setShowSheet(false);
-      
-      // Navigate to ScreenGenusPlants - the global state will handle the filters
-      // If a specific genus is selected, use it; otherwise navigate to a general filtered view
-      const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 ? globalFilters.genus[0] : 'All';
-      
-      navigation.navigate('ScreenGenusPlants', {
-        genus: targetGenus,
-      });
-    } catch (error) {
-      console.error('Error applying filters:', error);
-      setShowSheet(false);
-      
-      // Still navigate even if API call fails
-      const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 ? globalFilters.genus[0] : 'All';
-      
-      navigation.navigate('ScreenGenusPlants', {
-        genus: targetGenus,
-      });
-    }
+  const handleFilterView = () => {
+    // Apply filters to global state
+    applyFilters(globalFilters);
+    
+    // Close the filter sheet immediately
+    setShowSheet(false);
+    
+    // Navigate immediately - don't wait for API
+    const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 ? globalFilters.genus[0] : 'All';
+    
+    navigation.navigate('ScreenGenusPlants', {
+      genus: targetGenus,
+    });
+    
+    // Call API in background (no await, no blocking)
+    const callFilterApi = async () => {
+      try {
+        const baseParams = {
+          offset: 0,
+          limit: 20,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        };
+        
+        const filterParams = buildFilterParams(baseParams);
+        
+        // Call buyer listings API with applied filters (in background)
+        await getBuyerListingsApi(filterParams);
+        console.log('🔍 Filter API call completed in background');
+      } catch (error) {
+        console.error('Error in background filter API call:', error);
+      }
+    };
+    
+    // Start background API call
+    callFilterApi();
   };
 
   const onPressFilter = pressCode => {
@@ -1528,10 +1544,13 @@ const ScreenShop = ({navigation}) => {
         
         {/* Browse More Plants Component */}
         <BrowseMorePlants 
+          key={`browse-more-${browseMorePlantsKey}`}
           title="More from our Jungle"
           initialLimit={6}
           loadMoreLimit={6}
           showLoadMore={true}
+          autoLoad={true}
+          forceRefresh={refreshing} // Force refresh when user pulls to refresh
           onAddToCart={handleAddToCartFromBrowseMore}
         />
       </ScrollView>
