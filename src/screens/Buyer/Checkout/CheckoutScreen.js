@@ -29,7 +29,6 @@ import { getAddressBookEntriesApi } from '../../../components/Api';
 import { checkoutApi } from '../../../components/Api/checkoutApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
-import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
 
 // Function to render the correct country flag
 const renderCountryFlag = (country) => {
@@ -183,33 +182,119 @@ const CheckoutScreen = () => {
   
   const [cargoDate, setCargoDate] = useState('2025-02-15');
   
-  // Initialize flight date with calculated value
+  // Initialize flight date with backend-provided value or fallback
   const getInitialFlightDate = () => {
-    if (plantData?.country) {
-      // Use the plant flight utility to calculate the date
-      return calculatePlantFlightDate({ country: plantData.country });
+    // For cart checkout, find the latest flight date among all cart items
+    if (useCart && cartItems.length > 0) {
+      const flightDates = [];
+      
+      cartItems.forEach(item => {
+        if (item.flightInfo) {
+          // Extract flight date from flightInfo like "Plant Flight Aug 23" or "Plant Flight Aug-23"
+          const flightDateMatch = item.flightInfo.match(/Plant Flight\s+(\w+)[\s-](\d+)/);
+          if (flightDateMatch) {
+            const [, month, day] = flightDateMatch;
+            
+            // Convert month name to number
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthIndex = monthNames.indexOf(month);
+            
+            if (monthIndex !== -1) {
+              // Create date object for comparison (use current year, adjust if needed)
+              const currentYear = new Date().getFullYear();
+              let flightDate = new Date(currentYear, monthIndex, parseInt(day));
+              
+              // If the date is in the past, move to next year
+              if (flightDate < new Date()) {
+                flightDate = new Date(currentYear + 1, monthIndex, parseInt(day));
+              }
+              
+              flightDates.push({
+                date: flightDate,
+                formatted: `${month} ${day}`
+              });
+            }
+          }
+        }
+      });
+      
+      if (flightDates.length > 0) {
+        // Sort by date and get the latest (furthest out) flight date
+        flightDates.sort((a, b) => b.date - a.date);
+        const latestFlightDate = flightDates[0].formatted;
+        
+        console.log('🛫 Flight dates found in cart:', flightDates.map(f => f.formatted));
+        console.log('🛫 Latest flight date selected:', latestFlightDate);
+        
+        return latestFlightDate;
+      }
     }
-    // Default to Thailand calculation if no country specified
-    return calculatePlantFlightDate({ country: 'TH' });
+    
+    // For buy now or single item, use plant data
+    if (plantData?.plantFlightDate) {
+      // Use the backend-provided plant flight date
+      return plantData.plantFlightDate;
+    }
+    
+    // Default fallback if no backend date available
+    return 'N/A';
   };
   
-  // Generate next 3 Saturday flight dates starting from the calculated plant flight date
+  // Generate next 3 Saturday flight dates starting from the plant flight date
   const getFlightDateOptions = () => {
     const baseFlightDate = getInitialFlightDate();
     const options = [];
     
-    // Parse the base flight date (format: "Aug-17")
-    const [monthName, day] = baseFlightDate.split('-');
+    // Handle case where no flight date is available
+    if (!baseFlightDate || baseFlightDate === 'N/A') {
+      return [
+        { label: 'Flight Date TBD', value: 'TBD' },
+        { label: 'Next Available', value: 'Next Available' },
+        { label: 'Later Flight', value: 'Later Flight' }
+      ];
+    }
+    
+    // Helper function to get next Saturday from a given date
+    const getNextSaturday = (fromDate) => {
+      const date = new Date(fromDate);
+      const currentDay = date.getDay(); // 0 = Sunday, 6 = Saturday
+      
+      let daysUntilSaturday;
+      if (currentDay === 6) {
+        // If it's Saturday, next Saturday is 7 days away
+        daysUntilSaturday = 7;
+      } else {
+        // Days until next Saturday
+        daysUntilSaturday = (6 - currentDay + 7) % 7;
+        if (daysUntilSaturday === 0) daysUntilSaturday = 7;
+      }
+      
+      const nextSaturday = new Date(date);
+      nextSaturday.setDate(date.getDate() + daysUntilSaturday);
+      return nextSaturday;
+    };
+    
+    // Helper function to format date as "MMM DD"
+    const formatFlightDate = (date) => {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${monthNames[date.getMonth()]} ${date.getDate()}`;
+    };
+    
+    // Parse the base flight date (format: "Aug 17" or "Aug-17")
+    const normalizedFlightDate = baseFlightDate.replace('-', ' ');
+    const [monthName, day] = normalizedFlightDate.split(' ');
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const monthIndex = monthNames.indexOf(monthName);
     
     if (monthIndex === -1) {
-      // Fallback if parsing fails
+      // Fallback if parsing fails - use the backend date as-is and generate subsequent Saturdays
       return [
         { label: baseFlightDate, value: baseFlightDate },
-        { label: 'Next Flight', value: 'Next Flight' },
-        { label: 'Later Flight', value: 'Later Flight' }
+        { label: 'Next Saturday', value: 'Next Saturday' },
+        { label: 'Later Saturday', value: 'Later Saturday' }
       ];
     }
     
@@ -222,27 +307,28 @@ const CheckoutScreen = () => {
       baseDate = new Date(currentYear + 1, monthIndex, parseInt(day));
     }
     
-    // Ensure it's a Saturday (day 6)
-    while (baseDate.getDay() !== 6) {
-      baseDate.setDate(baseDate.getDate() + 1);
-    }
+    // Option 1: Use the plant flight date as-is (should already be a Saturday from backend)
+    options.push({
+      label: formatFlightDate(baseDate),
+      value: formatFlightDate(baseDate),
+      fullDate: baseDate
+    });
     
-    // Generate 3 Saturday options
-    for (let i = 0; i < 3; i++) {
-      const optionDate = new Date(baseDate);
-      optionDate.setDate(baseDate.getDate() + (i * 7)); // Add weeks
-      
-      const month = monthNames[optionDate.getMonth()];
-      const dayNum = optionDate.getDate();
-      const year = optionDate.getFullYear();
-      
-      options.push({
-        label: `${month} ${dayNum}`,
-        value: `${month} ${dayNum}`,
-        fullDate: optionDate,
-        year: year
-      });
-    }
+    // Option 2: Next Saturday after the plant flight date
+    const nextSaturday = getNextSaturday(baseDate);
+    options.push({
+      label: formatFlightDate(nextSaturday),
+      value: formatFlightDate(nextSaturday),
+      fullDate: nextSaturday
+    });
+    
+    // Option 3: Saturday after the next Saturday
+    const laterSaturday = getNextSaturday(nextSaturday);
+    options.push({
+      label: formatFlightDate(laterSaturday),
+      value: formatFlightDate(laterSaturday),
+      fullDate: laterSaturday
+    });
     
     return options;
   };
@@ -384,18 +470,18 @@ const CheckoutScreen = () => {
             ? plantData.variegation 
             : 'Standard',
           size: selectedPotSize || '2"',
-          price: parseFloat(plantData.usdPriceNew || plantData.usdPrice || '0'),
-          originalPrice: plantData.usdPriceNew && plantData.usdPrice 
-            ? parseFloat(plantData.usdPrice) 
+          price: parseFloat(plantData.finalPrice || plantData.usdPriceNew || plantData.usdPrice || '0'),
+          originalPrice: plantData.hasDiscount && plantData.originalPrice 
+            ? parseFloat(plantData.originalPrice) 
             : null,
           quantity: quantity,
           title: 'Direct Purchase from Plant Detail',
           country: plantData.country || 'TH',
           shippingMethod: 'Plant / UPS Ground Shipping',
           plantCode: plantCode,
-          listingType: plantData.usdPriceNew ? 'Discounted' : 'Single Plant',
-          discount: plantData.usdPriceNew && plantData.usdPrice 
-            ? `${Math.round(((parseFloat(plantData.usdPrice) - parseFloat(plantData.usdPriceNew)) / parseFloat(plantData.usdPrice)) * 100)}%` 
+          listingType: plantData.hasDiscount ? 'Discounted' : 'Single Plant',
+          discount: plantData.hasDiscount && plantData.discountAmount 
+            ? `${Math.round((plantData.discountAmount / plantData.originalPrice) * 100)}%` 
             : null,
           hasAirCargo: true,
         }
@@ -447,19 +533,13 @@ const CheckoutScreen = () => {
     }
   }, [fromBuyNow, plantData, selectedPotSize, quantity, plantCode, useCart, cartItems, productData]);
 
-  // Set flight date based on cart items' flight info
+  // Update selected flight date when cart items change
   useEffect(() => {
     if (useCart && cartItems.length > 0) {
-      // Get flight info from the first cart item (assuming all items have the same flight)
-      const firstItemFlightInfo = cartItems[0]?.flightInfo;
-      if (firstItemFlightInfo) {
-        // Extract flight date from flightInfo like "Plant Flight May-30"
-        const flightDateMatch = firstItemFlightInfo.match(/(\w+)-(\d+)/);
-        if (flightDateMatch) {
-          const [, month, day] = flightDateMatch;
-          setSelectedFlightDate(`${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`);
-          console.log('🛫 Flight date set from cart items:', `${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`);
-        }
+      const latestFlightDate = getInitialFlightDate();
+      if (latestFlightDate && latestFlightDate !== 'N/A') {
+        setSelectedFlightDate(latestFlightDate);
+        console.log('🛫 Flight date updated from cart analysis:', latestFlightDate);
       }
     }
   }, [useCart, cartItems]);
@@ -1009,7 +1089,7 @@ const CheckoutScreen = () => {
                     <Text style={selectedFlightDate === option.value ? styles.optionText : styles.unselectedOptionText}>
                       {option.label}
                     </Text>
-                    <Text style={styles.optionSubtext}>{option.year}</Text>
+                    <Text style={styles.optionSubtext}>Sat</Text>
                   </TouchableOpacity>
                 ))}
               </View>

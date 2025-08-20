@@ -1,6 +1,11 @@
 import React from 'react';
-import {View, Text, Image, StyleSheet, TouchableOpacity} from 'react-native';
+import {View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import {
+  getCachedImageUri,
+  setCachedImageUri,
+  CACHE_CONFIGS
+} from '../../utils/imageCache';
 import FlightIcon from '../../assets/buyer-icons/flight.svg';
 import WishListSelected from '../../assets/buyer-icons/wishlist-selected.svg';
 import WishListUnselected from '../../assets/buyer-icons/wishlist-unselected.svg';
@@ -8,7 +13,7 @@ import HeartIcon from '../../assets/buyer-icons/heart.svg';
 import PhilippinesFlag from '../../assets/buyer-icons/philippines-flag.svg';
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaFlag from '../../assets/buyer-icons/indonesia-flag.svg';
-import {calculatePlantFlightDate} from '../../utils/plantFlightUtils';
+import { formatCurrencyFull } from '../../utils/formatCurrency';
 
 const placeholderImage = require('../../assets/buyer-icons/png/ficus-lyrata.png');
 const placeholderFlag = require('../../assets/buyer-icons/philippines-flag.svg');
@@ -16,8 +21,32 @@ const placeholderFlag = require('../../assets/buyer-icons/philippines-flag.svg')
 const noteIcon = require('../../assets/buyer-icons/note.svg');
 
 // Function to get flag component based on country
-const getFlagComponent = (country) => {
-  const countryLower = country?.toLowerCase() || '';
+// Helper function to map currency codes to country codes
+const mapCurrencyToCountry = (localCurrency) => {
+  if (!localCurrency) return null;
+  
+  switch (localCurrency.toUpperCase()) {
+    case 'PHP':
+      return 'PH';
+    case 'THB':
+      return 'TH';
+    case 'IDR':
+      return 'ID';
+    default:
+      return null;
+  }
+};
+
+const getFlagComponent = (country, localCurrency) => {
+  // First try to use the country field if available
+  let countryCode = country;
+  
+  // If no country field, try to map from localCurrency
+  if (!countryCode && localCurrency) {
+    countryCode = mapCurrencyToCountry(localCurrency);
+  }
+  
+  const countryLower = countryCode?.toLowerCase() || '';
   if (countryLower.includes('philippines') || countryLower.includes('ph')) {
     return PhilippinesFlag;
   } else if (countryLower.includes('thailand') || countryLower.includes('th')) {
@@ -39,10 +68,11 @@ const PlantItemCard = ({
   isWishlisted = false,
   onWishlistPress = () => {
     // Wishlist feature temporarily disabled
-    console.log('Wishlist feature is temporarily disabled');
   },
   onPress = () => {},
   flightDate = 'May-30',
+  country = null,
+  localCurrency = null,
   // New props
   data = null,
   onAddToCart = () => {},
@@ -50,14 +80,29 @@ const PlantItemCard = ({
 }) => {
   const navigation = useNavigation();
   const [imageError, setImageError] = React.useState(false);
+  const [cachedImageUri, setCachedImageUri] = React.useState(null);
+  const [imageLoading, setImageLoading] = React.useState(true);
   
   // If data prop is provided, use it; otherwise fall back to individual props
   const plantData = data || {};
   
-  // Reset image error when plant data changes
+  // Load cached image when component mounts or imagePrimary changes
   React.useEffect(() => {
-    setImageError(false);
-  }, [plantData?.plantCode, plantData?.imagePrimary]);
+    const loadCachedImage = async () => {
+      if (data && plantData.imagePrimary) {
+        setImageLoading(true);
+        const cached = await getCachedImageUri(plantData.imagePrimary, CACHE_CONFIGS.PLANT_IMAGES.expiryDays);
+        if (cached) {
+          setCachedImageUri(cached);
+        }
+        setImageLoading(false);
+      } else {
+        setImageLoading(false);
+      }
+    };
+    
+    loadCachedImage();
+  }, [plantData?.plantCode, plantData?.imagePrimary, data]);
   
   const handleCardPress = () => {
     if (data && plantData.plantCode) {
@@ -72,10 +117,14 @@ const PlantItemCard = ({
   };
   
   const displayImage = data ? 
-    (plantData.imagePrimary && plantData.imagePrimary.trim() !== '' && !imageError ? 
-      {uri: plantData.imagePrimary} : 
-      placeholderImage) : 
+    (cachedImageUri ? 
+      { uri: cachedImageUri } :
+      (plantData.imagePrimary && plantData.imagePrimary.trim() !== '' ? 
+        {uri: plantData.imagePrimary} : 
+        placeholderImage)) : 
     image;
+  
+  // Debug logging
     
   const displayTitle = data ? 
     (plantData.genus || plantData.plantName || 'Unknown Plant') :
@@ -86,9 +135,9 @@ const PlantItemCard = ({
     subtitle;
     
   const displayPrice = data ? 
-    (plantData.usdPriceNew ? `$${plantData.usdPriceNew}` : 
-     plantData.usdPrice ? `$${plantData.usdPrice}` : 
-     plantData.finalPrice ? `$${plantData.finalPrice}` :
+    (plantData.finalPrice ? formatCurrencyFull(plantData.finalPrice) :
+     plantData.usdPriceNew ? formatCurrencyFull(plantData.usdPriceNew) : 
+     plantData.usdPrice ? formatCurrencyFull(plantData.usdPrice) : 
      plantData.localPriceNew ? `${plantData.localCurrencySymbol || '$'}${plantData.localPriceNew}` :
      plantData.localPrice ? `${plantData.localCurrencySymbol || '$'}${plantData.localPrice}` : 
      'Price N/A') :
@@ -105,12 +154,17 @@ const PlantItemCard = ({
     flag;
     
   const displayFlightDate = data ? 
-    calculatePlantFlightDate({ 
-      country: plantData.country || plantData.countryCode || 'TH' // Default to Thailand
-    }) :
-    calculatePlantFlightDate({ 
-      country: country || 'TH' // Use country prop or default to Thailand
-    });
+    // Use backend-provided plantFlightDate or fallback to 'N/A'
+    (plantData.plantFlightDate || 'N/A') :
+    // Legacy support: Use provided flightDate prop or fallback to 'N/A'
+    (flightDate || 'N/A');
+
+  // Debug log for flight date source
+  if (data && plantData.plantFlightDate) {
+    console.log(`✈️ Using backend flight date: ${plantData.plantFlightDate} for plant ${plantData.id || plantData.plantCode}`);
+  } else if (data && !plantData.plantFlightDate) {
+    console.log(`⚠️ No backend flight date available for plant ${plantData.id || plantData.plantCode}`);
+  }
 
   return (
     <View style={[{flexDirection: 'column'}, style]}>
@@ -125,12 +179,30 @@ const PlantItemCard = ({
             resizeMode="cover"
             onError={(error) => {
               setImageError(true);
+              setImageLoading(false);
             }}
-            onLoad={() => {
-              // Image loaded successfully
+            onLoad={(event) => {
+              setImageLoading(false);
+              
+              // Cache the image if it's from imagePrimary and not already cached
+              if (data && plantData.imagePrimary && !cachedImageUri && event.nativeEvent.source?.uri) {
+                setCachedImageUri(event.nativeEvent.source.uri, plantData.imagePrimary, CACHE_CONFIGS.PLANT_IMAGES.expiryDays);
+              }
             }}
-            key={`${plantData?.plantCode || 'default'}-${imageError}`}
+            onLoadStart={() => {
+              if (!cachedImageUri) {
+                setImageLoading(true);
+              }
+            }}
+            key={`${plantData?.plantCode || 'default'}-${imageError}-${cachedImageUri}`}
           />
+          
+          {/* Loading Overlay */}
+          {imageLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="small" color="#7CBD58" />
+            </View>
+          )}
           
           {/* Listing Type + Country Overlay */}
           <View style={styles.listingOverlay}>
@@ -143,7 +215,7 @@ const PlantItemCard = ({
             </View>
             <View style={styles.countryContainer}>
               {(() => {
-                const FlagComponent = getFlagComponent(plantData.country);
+                const FlagComponent = getFlagComponent(plantData.country, plantData.localCurrency);
                 return <FlagComponent width={24} height={16} style={styles.countryFlag} />;
               })()}
             </View>
@@ -175,7 +247,6 @@ const PlantItemCard = ({
           <TouchableOpacity
             onPress={() => {
               // Wishlist feature temporarily disabled
-              console.log('Wishlist feature is temporarily disabled');
             }}
             style={[styles.likeButton, {opacity: 0.5}]}
             disabled={true}>
@@ -224,6 +295,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 12,
+  },
+  skeletonImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
   },
   listingOverlay: {
     position: 'absolute',
@@ -372,6 +449,18 @@ const styles = StyleSheet.create({
   flightDate: {
     fontWeight: '600',
     color: '#647276',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 12,
+    zIndex: 2,
   },
 });
 

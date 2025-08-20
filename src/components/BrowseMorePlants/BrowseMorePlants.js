@@ -43,6 +43,15 @@ const BrowseMorePlants = ({
       console.log('Plant recommendations API response:', response.data.recommendations);
       
       if (response.success && response.data && response.data.recommendations) {
+        // Log image data for debugging
+        response.data.recommendations.forEach((plant, index) => {
+          console.log(`Plant ${index + 1} image data:`, {
+            plantCode: plant.plantCode,
+            imagePrimary: plant.imagePrimary,
+            hasImagePrimary: !!plant.imagePrimary,
+            imagePrimaryValid: plant.imagePrimary && plant.imagePrimary.trim() !== ''
+          });
+        });
         // Filter out plants with invalid data
         const validPlants = response.data.recommendations.filter(plant => {
           // Ensure plant has required fields and they are strings

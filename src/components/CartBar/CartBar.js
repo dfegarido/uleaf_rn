@@ -131,10 +131,9 @@ const styles = StyleSheet.create({
   },
   checkboxContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     padding: 0,
-    gap: 12,
-    width: 56,
+    gap: 8,
     height: 24,
     flex: 0,
     flexGrow: 0,
@@ -151,7 +150,6 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   checkboxLabel: {
-    width: 20,
     height: 24,
     minHeight: 24,
     fontFamily: 'Inter',

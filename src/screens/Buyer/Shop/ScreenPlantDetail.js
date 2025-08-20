@@ -31,6 +31,8 @@ import ReturnIcon from '../../../assets/icons/greylight/return.svg';
 import VenmoLogo from '../../../assets/buyer-icons/venmo-logo.svg';
 import CartIcon from '../../../assets/icontabs/buyer-tabs/cart-solid.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
 import MinusIcon from '../../../assets/buyer-icons/minus.svg';
 import PlusIcon from '../../../assets/buyer-icons/plus.svg';
@@ -38,7 +40,6 @@ import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
 import {getPlantRecommendationsApi} from '../../../components/Api/listingBrowseApi';
 import {addToCartApi} from '../../../components/Api/cartApi';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
-import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
@@ -88,6 +89,13 @@ const ScreenPlantDetail = ({navigation, route}) => {
   );
 
   useEffect(() => {
+    console.log('🚀 Plant data useEffect triggered with:', {
+      hasPlantData: !!plantData,
+      variationsLength: plantData?.variations?.length || 0,
+      mainPotSize: plantData?.potSize,
+      availablePotSizes: plantData?.availablePotSizes
+    });
+    
     if (plantData?.imagePrimary) {
       setImageSource({uri: plantData.imagePrimary});
     }
@@ -97,8 +105,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
     
     // Handle variations-based pot size structure
     if (plantData?.variations && plantData.variations.length > 0) {
+      console.log('🔍 Processing variations for pot sizes:', plantData.variations);
       // Extract pot sizes from variations
       const potSizes = plantData.variations.map(variation => variation.potSize).filter(Boolean);
+      console.log('🧪 Extracted pot sizes:', potSizes);
       setAvailablePotSizes(potSizes);
       
       // Create pot size groups mapping from variations
@@ -109,9 +119,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
         }
       });
       setPotSizeGroups(potSizeGroups);
+      console.log('📦 Pot size groups:', potSizeGroups);
       
       // Set initial pot size to the first available one
       if (potSizes.length > 0 && (!selectedPotSize || !potSizes.includes(selectedPotSize))) {
+        console.log('🎯 Setting selected pot size to:', potSizes[0]);
         setSelectedPotSize(potSizes[0]);
       }
     } else if (plantData?.availablePotSizes && plantData.availablePotSizes.length > 0) {
@@ -397,7 +409,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         return {
           cost: wholesaleCost,
           addOnCost: wholesaleAddOn,
-          baseCargo: 250, // Higher base cargo for wholesale
+          baseCargo: 150, // Higher base cargo for wholesale
           description: wholePotSizeNum > 4 ? 'Wholesale Shipping $200, add-on plant $25' : 'Wholesale Shipping $150, add-on plant $20',
           displayText: wholePotSizeNum > 4 ? 'Wholesale Shipping ' : 'Wholesale Shipping ',
           mainPrice: wholePotSizeNum > 4 ? '$200' : '$150',
@@ -618,10 +630,72 @@ const ScreenPlantDetail = ({navigation, route}) => {
                   style={styles.flagImage}
                 />
               ) : (
-                <PhilippinesFlag width={28} height={19} style={styles.flagImage} />
+                (() => {
+                  // Helper function to map currency codes to country codes
+                  const mapCurrencyToCountry = (localCurrency) => {
+                    if (!localCurrency) return null;
+                    
+                    switch (localCurrency.toUpperCase()) {
+                      case 'PHP':
+                        return 'PH';
+                      case 'THB':
+                        return 'TH';
+                      case 'IDR':
+                        return 'ID';
+                      default:
+                        return null;
+                    }
+                  };
+
+                  // First try to use the country field if available
+                  let countryCode = plantData.country;
+                  
+                  // If no country field, try to map from localCurrency
+                  if (!countryCode && plantData.localCurrency) {
+                    countryCode = mapCurrencyToCountry(plantData.localCurrency);
+                  }
+
+                  const country = countryCode?.toLowerCase() || '';
+                  if (country.includes('philippines') || country.includes('ph')) {
+                    return <PhilippinesFlag width={28} height={19} style={styles.flagImage} />;
+                  } else if (country.includes('thailand') || country.includes('th')) {
+                    return <ThailandFlag width={28} height={19} style={styles.flagImage} />;
+                  } else if (country.includes('indonesia') || country.includes('id')) {
+                    return <IndonesiaFlag width={28} height={19} style={styles.flagImage} />;
+                  }
+                  // Default to Philippines
+                  return <PhilippinesFlag width={28} height={19} style={styles.flagImage} />;
+                })()
               )}
               <Text style={styles.detailValue}>
-                {plantData.country || 'Philippines'}
+                {(() => {
+                  // Helper function to map currency codes to country codes
+                  const mapCurrencyToCountry = (localCurrency) => {
+                    if (!localCurrency) return null;
+                    
+                    switch (localCurrency.toUpperCase()) {
+                      case 'PHP':
+                        return 'Philippines';
+                      case 'THB':
+                        return 'Thailand';
+                      case 'IDR':
+                        return 'Indonesia';
+                      default:
+                        return null;
+                    }
+                  };
+
+                  // First try to use the country field if available
+                  let countryText = plantData.country;
+                  
+                  // If no country field, try to map from localCurrency
+                  if (!countryText && plantData.localCurrency) {
+                    countryText = mapCurrencyToCountry(plantData.localCurrency);
+                  }
+                  
+                  // If still no country, default to Philippines
+                  return countryText || 'Philippines';
+                })()}
               </Text>
             </View>
           </View>
@@ -801,7 +875,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.plantDetailTextContainer}>
                   <View style={styles.plantDetailTextAndAmount}>
                     <Text style={styles.flightDetailData}>
-                      Plant Flight <Text style={{color: '#539461'}}>{calculatePlantFlightDate(plantData)}</Text>
+                      Plant Flight <Text style={{color: '#539461'}}>{plantData?.plantFlightDate || 'N/A'}</Text>
                     </Text>
                   </View>
                 </View>
@@ -982,7 +1056,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                   <View style={styles.shippingInfo}>
                     <FlightIcon width={20} height={20} />
                     <Text style={styles.shippingText}>
-                      Plant Flight {calculatePlantFlightDate(plantData)} • {getShippingCost().displayText}
+                      Plant Flight {plantData?.plantFlightDate || 'N/A'} • {getShippingCost().displayText}
                       <Text style={[styles.shippingText, {color: '#539461'}]}>
                         {getShippingCost().mainPrice}
                       </Text>

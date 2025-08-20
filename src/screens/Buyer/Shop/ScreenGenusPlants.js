@@ -20,31 +20,15 @@ import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {PlantItemCard} from '../../../components/PlantItemCard';
-import {ReusableActionSheet} from '../../../components/ReusableActionSheet';
 import {
-  getSortApi,
-  getGenusApi,
-  getVariegationApi,
   getBuyerListingsApi,
   addToCartApi,
   searchPlantsApi,
 } from '../../../components/Api';
-import {
-  getCountryApi,
-  getListingTypeApi,
-  getShippingIndexApi,
-  getAcclimationIndexApi,
-} from '../../../components/Api/dropdownApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {
-  setCacheData,
-  getCacheData,
-  CACHE_KEYS,
-} from '../../../utils/dropdownCache';
 import PromoBadgeList from '../../../components/PromoBadgeList';
 
 const GenusHeader = ({
@@ -102,7 +86,6 @@ const GenusHeader = ({
           style={styles.iconButton}
           onPress={() => {
             // Wishlist feature temporarily disabled
-            console.log('Wishlist feature is temporarily disabled');
           }}>
           <Wishicon width={40} height={40} />
         </TouchableOpacity>
@@ -122,38 +105,16 @@ const GenusHeader = ({
 const ScreenGenusPlants = ({navigation, route}) => {
   const {user} = useAuth();
   const insets = useSafeAreaInsets();
-  const {genus} = route.params || {};
+  const {genus, filterType, filterValue} = route.params || {};
   const {
     globalFilters,
     appliedFilters,
     updateFilters,
+    applyFilters,
     buildFilterParams,
     hasAppliedFilters
   } = useFilters();
   const justFiltered = React.useRef(false);
-
-  // Filter modal state
-  const [sortOptions, setSortOptions] = useState([]);
-  const [genusOptions, setGenusOptions] = useState([]);
-  const [variegationOptions, setVariegationOptions] = useState([]);
-  const [code, setCode] = useState(null);
-  const [showSheet, setShowSheet] = useState(false);
-
-  // Price filter state
-  const [priceOptions, setPriceOptions] = useState([
-    {label: '$0 - $20', value: '$0 - $20'},
-    {label: '$21 - $50', value: '$21 - $50'},
-    {label: '$51 - $100', value: '$51 - $100'},
-    {label: '$101 - $200', value: '$101 - $200'},
-    {label: '$201 - $500', value: '$201 - $500'},
-    {label: '$501 +', value: '$501 +'},
-  ]);
-
-  // Additional filter options - will be loaded from APIs
-  const [countryOptions, setCountryOptions] = useState([]);
-  const [listingTypeOptions, setListingTypeOptions] = useState([]);
-  const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
-  const [acclimationIndexOptions, setAcclimationIndexOptions] = useState([]);
 
   // Plants data state
   const [plants, setPlants] = useState([]);
@@ -164,7 +125,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const limit = 20;
+  const limit = 8; // Reduced from 20 to 8
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -176,7 +137,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm.trim().length >= 2) {
-        console.log('🔍 Genus screen search triggered for:', searchTerm);
         performSearch(searchTerm.trim());
       } else if (searchTerm.trim().length === 0) {
         setSearchResults([]);
@@ -229,27 +189,14 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }
   };
 
-  // Load filter options on component mount
+  // Load plants on component mount
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        // Load all dropdown data in parallel
-        // Data will be served from cache if available, otherwise fetched from API and cached
-        await Promise.all([
-          loadSortByData(),
-          loadGenusData(),
-          loadVariegationData(),
-          loadCountryData(),
-          loadListingTypeData(),
-          loadShippingIndexData(),
-          loadAcclimationIndexData(),
-        ]);
-        console.log('All dropdown data loaded successfully');
-        
+      try {        
         // Load plants using global filters if available, otherwise load all plants
         loadPlants(true);
       } catch (error) {
-        console.log('Error loading filter data:', error);
+        console.log('Error loading initial data:', error);
       }
     };
 
@@ -271,235 +218,39 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }, [appliedFilters, hasAppliedFilters]),
   );
 
-  const loadSortByData = async () => {
-    try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.SORT);
-      if (cachedData) {
-        setSortOptions(cachedData);
-        return;
-      }
-
-      // For buyer genus screen, use sort options that match ScreenShop
-      const buyerSortOptions = [
-        {label: 'Newest to Oldest', value: 'Newest to Oldest'},
-        {label: 'Price Low to High', value: 'Price Low to High'},
-        {label: 'Price High to Low', value: 'Price High to Low'},
-        {label: 'Most Loved', value: 'Most Loved'},
-      ];
-
-      setSortOptions(buyerSortOptions);
+  // Handle route parameters (like wholesale filter from shop screen)
+  const routeFilterApplied = React.useRef(false);
+  
+  useEffect(() => {
+    if (filterType && filterValue && !routeFilterApplied.current) {
+      console.log(`🎯 Route parameter filter detected: ${filterType} = ${filterValue}`);
       
-      // Cache the data
-      await setCacheData(CACHE_KEYS.SORT, buyerSortOptions);
-    } catch (error) {
-      console.log('Error loading sort data:', error);
+      // Apply the filter based on filterType
+      if (filterType === 'listingType' && filterValue === 'Wholesale') {
+        // Set local filters to include wholesale
+        setLocalFilters(prev => ({
+          ...prev,
+          listingType: ['Wholesale']
+        }));
+        
+        // Also apply to global filters so it gets used in API calls
+        updateFilters({
+          ...globalFilters,
+          listingType: ['Wholesale']
+        });
+        
+        console.log('✅ Applied wholesale filter from route parameters');
+        
+        // Mark as applied to prevent infinite loop
+        routeFilterApplied.current = true;
+        
+        // Load plants with the wholesale filter
+        setTimeout(() => {
+          loadPlants(true);
+        }, 100); // Small delay to ensure filters are set
+      }
     }
-  };
-
-  const loadGenusData = async () => {
-    try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.GENUS);
-      if (cachedData) {
-        setGenusOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const res = await retryAsync(() => getGenusApi(), 10, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load genus api');
-      }
-
-      let localGenusData = res.data.map(item => ({
-        label: item.name,
-        value: item.name,
-      }));
-
-      setGenusOptions(localGenusData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.GENUS, localGenusData);
-    } catch (error) {
-      console.log('Error loading genus data:', error);
-    }
-  };
-
-  const loadVariegationData = async () => {
-    try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.VARIEGATION);
-      if (cachedData) {
-        setVariegationOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const res = await retryAsync(() => getVariegationApi(), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load variegation api');
-      }
-
-      let localVariegationData = res.data.map(item => ({
-        label: item.name,
-        value: item.name,
-      }));
-
-      setVariegationOptions(localVariegationData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.VARIEGATION, localVariegationData);
-    } catch (error) {
-      console.log('Error loading variegation data:', error);
-    }
-  };
-
-  const loadCountryData = async () => {
-    try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.COUNTRY);
-      if (cachedData) {
-        setCountryOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const res = await retryAsync(() => getCountryApi(), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load country api');
-      }
-
-      let localCountryData = res.data.map(item => ({
-        label: item.name || item.country,
-        value: item.name || item.country,
-      }));
-
-      setCountryOptions(localCountryData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.COUNTRY, localCountryData);
-    } catch (error) {
-      console.log('Error loading country data:', error);
-    }
-  };
-
-  const loadListingTypeData = async () => {
-    try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.LISTING_TYPE);
-      if (cachedData) {
-        setListingTypeOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const res = await retryAsync(() => getListingTypeApi(), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load listing type api');
-      }
-
-      let localListingTypeData = res.data.map(item => ({
-        label: item.name || item.listingType,
-        value: item.name || item.listingType,
-      }));
-
-      setListingTypeOptions(localListingTypeData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.LISTING_TYPE, localListingTypeData);
-    } catch (error) {
-      console.log('Error loading listing type data:', error);
-    }
-  };
-
-  const loadShippingIndexData = async () => {
-    try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.SHIPPING_INDEX);
-      if (cachedData) {
-        setShippingIndexOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const res = await retryAsync(() => getShippingIndexApi(), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load shipping index api');
-      }
-
-      let localShippingIndexData = res.data.map(item => ({
-        label: item.name || item.shippingIndex,
-        value: item.name || item.shippingIndex,
-      }));
-
-      setShippingIndexOptions(localShippingIndexData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.SHIPPING_INDEX, localShippingIndexData);
-    } catch (error) {
-      console.log('Error loading shipping index data:', error);
-    }
-  };
-
-  const loadAcclimationIndexData = async () => {
-    try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.ACCLIMATION_INDEX);
-      if (cachedData) {
-        setAcclimationIndexOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const res = await retryAsync(() => getAcclimationIndexApi(), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load acclimation index api');
-      }
-
-      let localAcclimationIndexData = res.data.map(item => ({
-        label: item.name || item.acclimationIndex,
-        value: item.name || item.acclimationIndex,
-      }));
-
-      setAcclimationIndexOptions(localAcclimationIndexData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, localAcclimationIndexData);
-    } catch (error) {
-      console.log('Error loading acclimation index data:', error);
-    }
-  };
+  }, [filterType, filterValue, updateFilters]);
 
   const loadPlants = async (refresh = false) => {
     try {
@@ -588,8 +339,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
         });
       }
 
-      // Check if there are more plants to load
-      setHasMore(newPlants.length === limit);
+      // Check if there are more plants to load using API response
+      setHasMore(res.data?.hasNextPage || false);
 
       setOffset(prev => prev + (newPlants.length || 0));
 
@@ -758,8 +509,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
         });
       }
 
-      // Check if there are more plants to load
-      setHasMore(newPlants.length === limit);
+      // Check if there are more plants to load using API response
+      setHasMore(res.data?.hasNextPage || false);
 
       setOffset(prev => prev + (newPlants.length || 0));
 
@@ -901,17 +652,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }
   };
 
-  const filterOptions = [
-    {label: 'Sort', leftIcon: SortIcon},
-    {label: 'Price', rightIcon: DownIcon},
-    {label: 'Genus', rightIcon: DownIcon},
-    {label: 'Variegation', rightIcon: DownIcon},
-    {label: 'Country', rightIcon: DownIcon},
-    {label: 'Shipping Index', rightIcon: DownIcon},
-    {label: 'Acclimation Index', rightIcon: DownIcon},
-    {label: 'Listing Type', rightIcon: DownIcon},
-  ];
-
   return (
     <View style={styles.container}>
       <GenusHeader
@@ -966,68 +706,10 @@ const ScreenGenusPlants = ({navigation, route}) => {
         </View>
       )}
 
-      {/* Filter Bar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterBar}
-        contentContainerStyle={styles.filterBarContent}>
-        {filterOptions.map((option, idx) => (
-          <TouchableOpacity
-            key={option.label}
-            onPress={() => {
-              if (option.label === 'Sort') {
-                onPressFilter('SORT');
-              } else if (option.label === 'Price') {
-                onPressFilter('PRICE');
-              } else if (option.label === 'Genus') {
-                onPressFilter('GENUS');
-              } else if (option.label === 'Variegation') {
-                onPressFilter('VARIEGATION');
-              } else if (option.label === 'Country') {
-                onPressFilter('COUNTRY');
-              } else if (option.label === 'Shipping Index') {
-                onPressFilter('SHIPPING_INDEX');
-              } else if (option.label === 'Acclimation Index') {
-                onPressFilter('ACCLIMATION_INDEX');
-              } else if (option.label === 'Listing Type') {
-                onPressFilter('LISTING_TYPE');
-              }
-            }}
-            style={styles.filterButton}>
-            {option.leftIcon && (
-              <option.leftIcon
-                width={20}
-                height={20}
-                style={{marginRight: 4}}
-              />
-            )}
-            <Text style={styles.filterButtonText}>{option.label}</Text>
-            {option.rightIcon && (
-              <option.rightIcon
-                width={20}
-                height={20}
-                style={{marginLeft: 4}}
-              />
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       {/* Plants Grid */}
       <ScrollView
         style={[styles.plantsContainer, {paddingTop: insets.top + 120}]}
         contentContainerStyle={styles.plantsGrid}
-        onScroll={({nativeEvent}) => {
-          const {layoutMeasurement, contentOffset, contentSize} = nativeEvent;
-          const paddingToBottom = 20;
-          if (
-            layoutMeasurement.height + contentOffset.y >=
-            contentSize.height - paddingToBottom
-          ) {
-            handleLoadMore();
-          }
-        }}
         scrollEventThrottle={400}
         refreshing={refreshing}
         onRefresh={() => loadPlants(true)}>
@@ -1077,11 +759,23 @@ const ScreenGenusPlants = ({navigation, route}) => {
               );
             }).filter(Boolean)}
             
-            {/* Load More Indicator */}
-            {loadingMore && (
+            {/* Load More Button */}
+            {hasMore && plants.length > 0 && (
               <View style={styles.loadMoreContainer}>
-                <ActivityIndicator size="small" color="#539461" />
-                <Text style={styles.loadMoreText}>Loading more plants...</Text>
+                <TouchableOpacity 
+                  onPress={handleLoadMore} 
+                  style={styles.loadMoreButton}
+                  disabled={loadingMore}
+                >
+                  <View style={styles.loadMoreTextContainer}>
+                    <Text style={styles.loadMoreText}>
+                      {loadingMore ? 'Loading more...' : 'Load More'}
+                    </Text>
+                    {!loadingMore && (
+                      <DownIcon width={24} height={24} style={styles.loadMoreIcon} />
+                    )}
+                  </View>
+                </TouchableOpacity>
               </View>
             )}
             
@@ -1123,38 +817,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
           </View>
         )}
       </ScrollView>
-
-      {/* Filter Modal */}
-      <ReusableActionSheet
-        code={code}
-        visible={showSheet}
-        onClose={() => setShowSheet(false)}
-        sortOptions={sortOptions}
-        genusOptions={genusOptions}
-        variegationOptions={variegationOptions}
-        priceOptions={priceOptions}
-        countryOptions={countryOptions}
-        listingTypeOptions={listingTypeOptions}
-        shippingIndexOptions={shippingIndexOptions}
-        acclimationIndexOptions={acclimationIndexOptions}
-        sortValue={localFilters.sort}
-        sortChange={handleSortChange}
-        genusValue={localFilters.genus}
-        genusChange={handleGenusChange}
-        variegationValue={localFilters.variegation}
-        variegationChange={handleVariegationChange}
-        priceValue={localFilters.price}
-        priceChange={handlePriceChange}
-        countryValue={localFilters.country}
-        countryChange={handleCountryChange}
-        listingTypeValue={localFilters.listingType}
-        listingTypeChange={handleListingTypeChange}
-        shippingIndexValue={localFilters.shippingIndex}
-        shippingIndexChange={handleShippingIndexChange}
-        acclimationIndexValue={localFilters.acclimationIndex}
-        acclimationIndexChange={handleAcclimationIndexChange}
-        handleSearchSubmit={handleFilterView}
-      />
     </View>
   );
 };
@@ -1305,36 +967,11 @@ const styles = StyleSheet.create({
     zIndex: 10,
     backgroundColor: '#fff',
   },
-  filterBar: {
-    flexGrow: 0,
-    paddingTop: 0,
-    paddingBottom: 8,
-  },
-  filterBarContent: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-  },
-  filterButton: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    padding: 8,
-    marginTop: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#393D40',
-  },
   plantsContainer: {
     flex: 1,
   },
   plantsGrid: {
-    paddingBottom: 100,
+    paddingBottom: 150, // Increased from 100 to 150 for better load more button visibility
     paddingHorizontal: 16,
   },
   plantsGridContainer: {
@@ -1371,13 +1008,42 @@ const styles = StyleSheet.create({
   },
   loadMoreContainer: {
     width: '100%',
-    paddingVertical: 20,
     alignItems: 'center',
+    marginTop: 15,
+    paddingHorizontal: 16,
+  },
+  loadMoreButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    width: '100%',
+    maxWidth: 375,
+    height: 48,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
   },
   loadMoreText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#666',
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 16,
+    color: '#539461',
+    textAlign: 'center',
+  },
+  loadMoreTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    gap: 8,
+    height: 16,
+  },
+  loadMoreIcon: {
+    width: 24,
+    height: 24,
   },
   endOfListContainer: {
     width: '100%',

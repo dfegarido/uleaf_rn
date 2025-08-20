@@ -4,7 +4,6 @@ import {useNavigation} from '@react-navigation/native';
 // Import your calendar icon and flag icon as needed
 import CalendarIcon from '../../assets/icons/greylight/calendar-blank-regular.svg'; // Adjust path as needed
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg'; // Replace with Thailand flag SVG if available
-import {calculatePlantFlightDate} from '../../utils/plantFlightUtils';
 
 const OrderItemCard = ({
   status = 'Ready to Fly',
@@ -151,7 +150,7 @@ const OrderItemCard = ({
           <View style={styles.flightInfo}>
             <CalendarIcon width={16} height={16} />
             <Text style={styles.cargoDate}>
-              Plant Flight <Text style={styles.bold}>{calculatePlantFlightDate(plantData)}</Text>
+              Plant Flight <Text style={styles.bold}>{plantData?.plantFlightDate || airCargoDate || 'N/A'}</Text>
             </Text>
           </View>
           <View style={styles.countryInfo}>
@@ -185,7 +184,7 @@ const OrderItemCard = ({
           <View style={styles.plantFlightDate}>
             <View style={styles.flightContent}>
               <CalendarIcon width={24} height={24} />
-              <Text style={styles.flightDateText}>Plant Flight {calculatePlantFlightDate(plantData)}</Text>
+              <Text style={styles.flightDateText}>Plant Flight {plantData?.plantFlightDate || airCargoDate || 'N/A'}</Text>
             </View>
             <View style={styles.countrySection}>
               <Text style={styles.countryText}>{countryCode}</Text>

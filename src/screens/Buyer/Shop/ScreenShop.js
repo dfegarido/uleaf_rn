@@ -11,6 +11,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
@@ -44,16 +45,16 @@ import {
   event2,
 } from '../../../assets/buyer-icons/png';
 
-// Import genus images from assets/images
-import alocasiaImage from '../../../assets/images/alocasia.png';
-import anthuriumImage from '../../../assets/images/anthurium.png';
-import begoniaImage from '../../../assets/images/begonia.png';
-import hoyaImage from '../../../assets/images/hoya.png';
-import monsteraImage from '../../../assets/images/monstera.png';
-import scindapsusImage from '../../../assets/images/scindapsus.png';
-import syngoniumImage from '../../../assets/images/syngonium.png';
-import philodendronImage from '../../../assets/images/philodendron.png';
-import othersImage from '../../../assets/images/others.png';
+// Import genus images from assets/buyer-icons/png
+import alocasiaImage from '../../../assets/buyer-icons/png/alocasia.png';
+import anthuriumImage from '../../../assets/buyer-icons/png/anthurium.png';
+import begoniaImage from '../../../assets/buyer-icons/png/begonia.png';
+import hoyaImage from '../../../assets/buyer-icons/png/hoya.png';
+import monsteraImage from '../../../assets/buyer-icons/png/monstera.png';
+import scindapsusImage from '../../../assets/buyer-icons/png/scindapsus.png';
+import syngoniumImage from '../../../assets/buyer-icons/png/syngonium.png';
+import philodendronImage from '../../../assets/buyer-icons/png/philodendron.png';
+import othersImage from '../../../assets/buyer-icons/png/others.png';
 
 import {InfoCard} from '../../../components/InfoCards';
 import ScreenWishlist from './ScreenWishlist';
@@ -85,6 +86,11 @@ import {
   getCacheData,
   CACHE_KEYS,
 } from '../../../utils/dropdownCache';
+import {
+  getCachedImageUri,
+  setCachedImageUri,
+  CACHE_CONFIGS
+} from '../../../utils/imageCache';
 
 const countryData = [
   {
@@ -119,11 +125,6 @@ const ScreenShop = ({navigation}) => {
       const logAuthInfo = async () => {
         try {
           const token = await AsyncStorage.getItem('authToken');
-          console.log('=== SHOP TAB ACCESS ===');
-          console.log('Auth Token:', token);
-          console.log('Firebase User:', user);
-          console.log('Global Filters:', globalFilters);
-          console.log('========================');
         } catch (error) {
           console.error('Error getting auth token:', error);
         }
@@ -162,6 +163,14 @@ const ScreenShop = ({navigation}) => {
   const [eventsData, setEventsData] = useState([]);
   const [loadingEventsData, setLoadingEventsData] = useState(true);
   
+  // Events image cache state
+  const [eventImageCache, setEventImageCache] = useState({});
+  const [eventImageLoading, setEventImageLoading] = useState({});
+  
+  // Genus image cache state
+  const [genusImageCache, setGenusImageCache] = useState({});
+  const [genusImageLoading, setGenusImageLoading] = useState({});
+  
   // Search results state
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -170,11 +179,13 @@ const ScreenShop = ({navigation}) => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Refresh state
+  const [refreshing, setRefreshing] = useState(false);
+  
   // Debounced search effect - triggers after user stops typing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm.trim().length >= 2) {
-        console.log('Triggering search after user finished typing:', searchTerm);
         performSearch(searchTerm.trim());
       } else if (searchTerm.trim().length === 0) {
         setSearchResults([]);
@@ -201,27 +212,57 @@ const ScreenShop = ({navigation}) => {
           loadEventsData(),
         ]);
       } catch (error) {
-        console.log('Error loading filter data:', error);
       }
     };
 
     fetchData();
   }, []);
 
-  // Reload genus data when screen comes into focus
+  // Load genus data only if not already loaded
   useFocusEffect(
     React.useCallback(() => {
       const reloadGenusData = async () => {
         try {
-          await loadBrowseGenusData();
+          // Only load if data is not already loaded
+          if (dynamicGenusData.length === 0) {
+            await loadBrowseGenusData();
+          }
         } catch (error) {
-          console.log('Error reloading genus data on focus:', error);
         }
       };
 
       reloadGenusData();
-    }, []),
+    }, [dynamicGenusData.length]),
   );
+
+  // Pull to refresh function
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Reload all data when refreshing
+      await Promise.all([
+        loadSortByData(),
+        loadGenusData(),
+        loadVariegationData(),
+        loadCountryData(),
+        loadListingTypeData(),
+        loadShippingIndexData(),
+        loadAcclimationIndexData(),
+        loadBrowseGenusData(),
+        loadEventsData(),
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      // Optionally show user-friendly error message
+      Alert.alert(
+        'Refresh Error',
+        'Could not refresh data. Please check your connection and try again.',
+        [{text: 'OK'}]
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const loadSortByData = async () => {
     try {
@@ -245,7 +286,6 @@ const ScreenShop = ({navigation}) => {
       // Cache the data
       await setCacheData(CACHE_KEYS.SORT, buyerSortOptions);
     } catch (error) {
-      console.log('Error loading sort data:', error);
     }
   };
 
@@ -287,7 +327,6 @@ const ScreenShop = ({navigation}) => {
       // Cache the data
       await setCacheData(CACHE_KEYS.GENUS, localGenusData);
     } catch (error) {
-      console.log('Error loading genus data:', error);
     }
   };
 
@@ -321,7 +360,6 @@ const ScreenShop = ({navigation}) => {
       // Cache the data
       await setCacheData(CACHE_KEYS.VARIEGATION, localVariegationData);
     } catch (error) {
-      console.log('Error loading variegation data:', error);
     }
   };
 
@@ -355,7 +393,6 @@ const ScreenShop = ({navigation}) => {
       // Cache the data
       await setCacheData(CACHE_KEYS.COUNTRY, localCountryData);
     } catch (error) {
-      console.log('Error loading country data:', error);
     }
   };
 
@@ -389,7 +426,6 @@ const ScreenShop = ({navigation}) => {
       // Cache the data
       await setCacheData(CACHE_KEYS.LISTING_TYPE, localListingTypeData);
     } catch (error) {
-      console.log('Error loading listing type data:', error);
     }
   };
 
@@ -423,7 +459,6 @@ const ScreenShop = ({navigation}) => {
       // Cache the data
       await setCacheData(CACHE_KEYS.SHIPPING_INDEX, localShippingIndexData);
     } catch (error) {
-      console.log('Error loading shipping index data:', error);
     }
   };
 
@@ -457,20 +492,17 @@ const ScreenShop = ({navigation}) => {
       // Cache the data
       await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, localAcclimationIndexData);
     } catch (error) {
-      console.log('Error loading acclimation index data:', error);
     }
   };
 
   const loadBrowseGenusData = async () => {
     try {
       setLoadingGenusData(true);
-      console.log('Starting to load browse genus data...');
 
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
-      console.log('Network connection verified');
 
       // Call the browse plants by genus API to get all genera with representative images
       const browseRes = await retryAsync(
@@ -478,7 +510,6 @@ const ScreenShop = ({navigation}) => {
         3,
         1000,
       );
-      console.log('Browse plants API response received:', browseRes);
 
       if (!browseRes?.success) {
         throw new Error(
@@ -495,8 +526,6 @@ const ScreenShop = ({navigation}) => {
         throw new Error('No genus groups data received from API');
       }
 
-      console.log('Raw genus groups data:', browseRes.genusGroups);
-
       // Create genus image mapping
       const genusImageMap = {
         'alocasia': alocasiaImage,
@@ -511,16 +540,16 @@ const ScreenShop = ({navigation}) => {
       };
 
       // Fallback images array for any unmapped genera
-      // const genusImages = [
-      //   genus1,
-      //   genus2,
-      //   genus3,
-      //   genus4,
-      //   genus5,
-      //   genus6,
-      //   genus7,
-      //   genus8,
-      // ];
+      const genusImages = [
+        genus1,
+        genus2,
+        genus3,
+        genus4,
+        genus5,
+        genus6,
+        genus7,
+        genus8,
+      ];
 
       const mappedGenusData = browseRes.genusGroups.map((genusGroup, index) => {
         // Get the correct genus name from representativePlant.originalGenus
@@ -529,12 +558,12 @@ const ScreenShop = ({navigation}) => {
         // First try to get the specific image for this genus
         let imageSource = genusImageMap[genusGroup.genus.toLowerCase()];
         
-        // If no specific image found, try using representative image from API
+        // If no local image found, try using representative image from API as fallback
         if (!imageSource && genusGroup.representativeImage) {
           imageSource = {uri: genusGroup.representativeImage};
         }
         
-        // // Final fallback to generic images
+        // Final fallback to generic images
         if (!imageSource) {
           imageSource = genusImages[index % genusImages.length];
         }
@@ -542,10 +571,11 @@ const ScreenShop = ({navigation}) => {
         return {
           src: imageSource,
           label: genusGroup.genus,
-          genusName: correctGenusName,
+          genusName: genusGroup.genus.toLowerCase() === 'others' ? 'Others' : correctGenusName,
           plantCount: genusGroup.plantCount,
           speciesCount: genusGroup.speciesCount,
           priceRange: genusGroup.priceRange,
+          representativeImage: genusGroup.representativeImage, // Store for caching
         };
       });
 
@@ -559,19 +589,11 @@ const ScreenShop = ({navigation}) => {
         return 0; // maintain original order for non-others items
       });
 
-      console.log(
-        'Successfully loaded dynamic genus data:',
-        sortedGenusData.length,
-        'items',
-      );
-      console.log('Mapped genus data:', sortedGenusData);
       setDynamicGenusData(sortedGenusData);
+      
+      // Load cached images for genus data
+      await loadCachedGenusImages(sortedGenusData);
     } catch (error) {
-      console.error('Error loading browse genus data:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-      });
       // Don't fallback to static data - keep loading state or show error
       setDynamicGenusData([]);
       // You could show a user-friendly error message here
@@ -583,7 +605,6 @@ const ScreenShop = ({navigation}) => {
   const loadEventsData = async () => {
     try {
       setLoadingEventsData(true);
-      console.log('Starting to load events data...');
 
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
@@ -596,8 +617,11 @@ const ScreenShop = ({navigation}) => {
         throw new Error(res?.message || 'Failed to load events API.');
       }
 
-      console.log('Events data loaded successfully:', res.data);
-      setEventsData(res.data || []);
+      const events = res.data || [];
+      setEventsData(events);
+      
+      // Load cached images for events
+      await loadCachedEventsImages(events);
     } catch (error) {
       console.error('Error loading events data:', error);
       // Set fallback data or empty array on error
@@ -607,10 +631,127 @@ const ScreenShop = ({navigation}) => {
     }
   };
 
+  // Load cached images for events
+  const loadCachedEventsImages = async (events) => {
+    const cache = {};
+    const loadingState = {};
+    
+    for (const event of events) {
+      if (event.image) {
+        const eventId = event.id || event.image;
+        loadingState[eventId] = false;
+        
+        try {
+          const cachedUri = await getCachedImageUri(event.image, CACHE_CONFIGS.EVENTS_IMAGES.expiryDays);
+          if (cachedUri) {
+            cache[eventId] = cachedUri;
+          }
+        } catch (error) {
+        }
+      }
+    }
+    
+    setEventImageCache(cache);
+    setEventImageLoading(loadingState);
+  };
+
+  // Handle events image caching on load
+  const handleEventsImageLoad = async (event, eventUri) => {
+    const eventId = event.id || event.image;
+    
+    try {
+      // Update loading state
+      setEventImageLoading(prev => ({
+        ...prev,
+        [eventId]: false
+      }));
+      
+      // Cache the image if not already cached
+      if (!eventImageCache[eventId] && event.image) {
+        await setCachedImageUri(eventUri, event.image, CACHE_CONFIGS.EVENTS_IMAGES.expiryDays);
+        setEventImageCache(prev => ({
+          ...prev,
+          [eventId]: eventUri
+        }));
+      }
+    } catch (error) {
+    }
+  };
+
+  const handleEventsImageLoadStart = (event) => {
+    const eventId = event.id || event.image;
+    
+    // Only show loading if not cached
+    if (!eventImageCache[eventId]) {
+      setEventImageLoading(prev => ({
+        ...prev,
+        [eventId]: true
+      }));
+    }
+  };
+
+  // Load cached images for genus
+  const loadCachedGenusImages = async (genusData) => {
+    const cache = {};
+    const loadingState = {};
+    
+    for (const genus of genusData) {
+      if (genus.representativeImage) {
+        const genusId = genus.genus || genus.label;
+        loadingState[genusId] = false;
+        
+        try {
+          const cachedUri = await getCachedImageUri(genus.representativeImage, CACHE_CONFIGS.GENUS_IMAGES.expiryDays);
+          if (cachedUri) {
+            cache[genusId] = cachedUri;
+          }
+        } catch (error) {
+        }
+      }
+    }
+    
+    setGenusImageCache(cache);
+    setGenusImageLoading(loadingState);
+  };
+
+  // Handle genus image caching on load
+  const handleGenusImageLoad = async (genus, imageUri) => {
+    const genusId = genus.genus || genus.label;
+    
+    try {
+      // Update loading state
+      setGenusImageLoading(prev => ({
+        ...prev,
+        [genusId]: false
+      }));
+      
+      // Cache the image if not already cached and it's from representativeImage
+      if (!genusImageCache[genusId] && genus.representativeImage && imageUri) {
+        await setCachedImageUri(imageUri, genus.representativeImage, CACHE_CONFIGS.GENUS_IMAGES.expiryDays);
+        setGenusImageCache(prev => ({
+          ...prev,
+          [genusId]: imageUri
+        }));
+      }
+    } catch (error) {
+    }
+  };
+
+  const handleGenusImageLoadStart = (genus) => {
+    const genusId = genus.genus || genus.label;
+    
+    // Only show loading if not cached and using representative image
+    if (!genusImageCache[genusId] && genus.representativeImage) {
+      setGenusImageLoading(prev => ({
+        ...prev,
+        [genusId]: true
+      }));
+    }
+  };
+
   const performSearch = async (searchTerm) => {
     try {
       setLoadingSearch(true);
-      console.log('🔍 Starting search for:', searchTerm);
 
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
@@ -624,8 +765,6 @@ const ScreenShop = ({navigation}) => {
         sortOrder: 'desc'
       };
 
-      console.log('📤 Search params:', searchParams);
-
       const res = await retryAsync(() => searchPlantsApi(searchParams), 3, 1000);
 
       if (!res?.success) {
@@ -633,13 +772,9 @@ const ScreenShop = ({navigation}) => {
       }
 
       const plants = res.data?.plants || [];
-      console.log(`✅ Search completed: found ${plants.length} plants for "${searchTerm}"`);
       setSearchResults(plants);
       
       // Show search results in a separate section or update the main plant list
-      if (plants.length > 0) {
-        console.log('🌱 First result:', plants[0].genus, plants[0].species);
-      }
       
     } catch (error) {
       console.error('❌ Error performing search:', error);
@@ -694,8 +829,6 @@ const ScreenShop = ({navigation}) => {
       // Apply filters to global state
       applyFilters(globalFilters);
       
-      console.log('Applying filters to global state:', globalFilters);
-      
       // Build filter parameters for API call using global context
       const baseParams = {
         offset: 0,
@@ -705,11 +838,9 @@ const ScreenShop = ({navigation}) => {
       };
       
       const filterParams = buildFilterParams(baseParams);
-      console.log('Filter params for API call:', filterParams);
       
       // Call buyer listings API with applied filters
       const response = await getBuyerListingsApi(filterParams);
-      console.log('Buyer listings API response:', response);
       
       setShowSheet(false);
       
@@ -739,15 +870,12 @@ const ScreenShop = ({navigation}) => {
   };
 
   const onGenusPress = async genusName => {
-    console.log('Genus pressed:', genusName);
     
     // Clear FilterContext state
     clearFilters();
-    console.log('FilterContext cleared when browsing genus plants');
     
     // Clear filter-related AsyncStorage when browsing genus plants
     try {
-      console.log('Clearing filter-related AsyncStorage from Shop screen');
       await AsyncStorage.multiRemove([
         'shop_filters',
         'applied_filters', 
@@ -756,9 +884,7 @@ const ScreenShop = ({navigation}) => {
         'buyer_filters',
         'plant_filters'
       ]);
-      console.log('Filter AsyncStorage cleared successfully from Shop screen');
     } catch (error) {
-      console.log('Error clearing filter AsyncStorage from Shop screen:', error);
     }
     
     // Navigate to the genus plants screen
@@ -768,7 +894,6 @@ const ScreenShop = ({navigation}) => {
   };
 
   const retryLoadGenusData = () => {
-    console.log('Retrying to load genus data...');
     loadBrowseGenusData();
   };
 
@@ -784,8 +909,8 @@ const ScreenShop = ({navigation}) => {
   ];
 
   const onGrowersPress = () => {
-    console.log('Growers Pressed');
-    // Update filters to show only Grower's Choice listings
+    // Clear all filters first, then apply only Grower's Choice filter
+    clearFilters();
     updateFilters({ listingType: ["Grower's Choice"] });
     
     // Navigate to genus plants screen with Grower's Choice filter
@@ -797,8 +922,8 @@ const ScreenShop = ({navigation}) => {
   };
   
   const onWholesalePress = () => {
-    console.log('Wholesale Pressed');
-    // Update filters to show only Wholesale listings
+    // Clear all filters first, then apply only Wholesale filter
+    clearFilters();
     updateFilters({ listingType: ["Wholesale"] });
     
     // Navigate to genus plants screen with Wholesale filter
@@ -811,7 +936,6 @@ const ScreenShop = ({navigation}) => {
 
   const handleAddToCartFromBrowseMore = async (plant) => {
     try {
-      console.log('Adding plant to cart from browse more:', plant.plantCode);
       
       const params = {
         plantCode: plant.plantCode,
@@ -819,7 +943,6 @@ const ScreenShop = ({navigation}) => {
       };
       
       const response = await addToCartApi(params);
-      console.log('Add to cart response:', response);
       
       if (response.success) {
         Alert.alert('Success', 'Plant added to cart successfully!');
@@ -880,7 +1003,6 @@ const ScreenShop = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => {
                 // Wishlist feature temporarily disabled
-                console.log('Wishlist feature is temporarily disabled');
               }}>
               <Wishicon width={40} height={40} />
             </TouchableOpacity>
@@ -998,7 +1120,15 @@ const ScreenShop = ({navigation}) => {
       <ScrollView
         ref={scrollViewRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
-        contentContainerStyle={{paddingBottom: 170}}>
+        contentContainerStyle={{paddingBottom: 170}}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#7CBD58']} // Android
+            tintColor="#7CBD58" // iOS
+          />
+        }>
         
         <PromoBadgeList navigation={navigation} />
         
@@ -1069,36 +1199,74 @@ const ScreenShop = ({navigation}) => {
               </View>
             ))
           ) : eventsData.length > 0 ? (
-            eventsData.map((item, idx) => (
-              <TouchableOpacity
-                key={item.id || idx}
-                style={{width: 275}}
-                onPress={() => {
-                  // Handle link navigation if item has a link
-                  if (item.link) {
-                    Linking.openURL(item.link).catch(err => 
-                      console.error('Failed to open link:', err)
-                    );
-                  }
-                }}>
-                <Image
-                  source={{uri: item.image}}
-                  style={{width: 260, height: 120, borderRadius: 16}}
-                  resizeMode="cover"
-                />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: '900',
-                    color: '#393D40',
-                    marginTop: 4,
-                    textAlign: 'left',
-                    paddingHorizontal: 5,
+            eventsData.map((item, idx) => {
+              const eventId = item.id || item.image;
+              const cachedImageUri = eventImageCache[eventId];
+              const isImageLoading = eventImageLoading[eventId];
+              
+              // Determine which image to display
+              const displayImage = cachedImageUri ? { uri: cachedImageUri } : { uri: item.image };
+              
+              return (
+                <TouchableOpacity
+                  key={item.id || idx}
+                  style={{width: 275, position: 'relative'}}
+                  onPress={() => {
+                    // Handle link navigation if item has a link
+                    if (item.link) {
+                      Linking.openURL(item.link).catch(err => 
+                        console.error('Failed to open link:', err)
+                      );
+                    }
                   }}>
-                  {item.name || item.label || 'Deals, Rewards & News'}
-                </Text>
-              </TouchableOpacity>
-            ))
+                  <Image
+                    source={displayImage}
+                    style={{width: 260, height: 120, borderRadius: 16}}
+                    resizeMode="cover"
+                    onLoadStart={() => handleEventsImageLoadStart(item)}
+                    onLoad={(event) => {
+                      handleEventsImageLoad(item, event.nativeEvent.source?.uri);
+                    }}
+                    onError={(error) => {
+                      setEventImageLoading(prev => ({
+                        ...prev,
+                        [eventId]: false
+                      }));
+                    }}
+                    key={`event-${eventId}-${cachedImageUri ? 'cached' : 'original'}`}
+                  />
+                  
+                  {/* Loading overlay for events images */}
+                  {isImageLoading && (
+                    <View style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: 260,
+                      height: 120,
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: 16,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <ActivityIndicator size="small" color="#7CBD58" />
+                    </View>
+                  )}
+                  
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: '900',
+                      color: '#393D40',
+                      marginTop: 4,
+                      textAlign: 'left',
+                      paddingHorizontal: 5,
+                    }}>
+                    {item.name || item.label || 'Deals, Rewards & News'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
           ) : (
             // Fallback when no events data
             <View style={{width: 275}}>
@@ -1169,40 +1337,98 @@ const ScreenShop = ({navigation}) => {
             ))
           ) : dynamicGenusData.length > 0 ? (
             // Show dynamic data from API
-            dynamicGenusData.map((item, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={{
-                  width: '30%',
-                  marginBottom: 18,
-                  alignItems: 'center',
-                }}
-                onPress={() => onGenusPress(item.genusName)}>
-                <Image
-                  source={item.src}
+            dynamicGenusData.map((item, idx) => {
+              const genusId = item.genus || item.label;
+              const cachedImageUri = genusImageCache[genusId];
+              const isImageLoading = genusImageLoading[genusId];
+              
+              // Determine which image to display - prioritize local images, then cached representative images
+              let displayImage = item.src;
+              
+              // Check if we have a local image (imported images are numbers in React Native)
+              if (displayImage && typeof displayImage === 'number') {
+                // Keep the local image - it's already correct
+              } else if (displayImage && typeof displayImage === 'object' && !displayImage.uri) {
+                // This is also a local image (imported as an object)
+                // Keep it as is
+              } else if (item.representativeImage && cachedImageUri) {
+                // Use cached representative image
+                displayImage = { uri: cachedImageUri };
+              } else if (item.representativeImage && !cachedImageUri) {
+                // Use representative image from API
+                displayImage = { uri: item.representativeImage };
+              } else {
+                // Fallback to default genus image
+                displayImage = genus1;
+              }
+              
+              // Final validation - ensure we have a valid image source
+              if (!displayImage) {
+                displayImage = genus1; // Default fallback image
+              }
+              
+              return (
+                <TouchableOpacity
+                  key={idx}
                   style={{
-                    width: 110,
-                    height: 110,
-                    borderRadius: 12,
-                    marginBottom: 6,
+                    width: '30%',
+                    marginBottom: 18,
+                    alignItems: 'center',
+                    position: 'relative',
                   }}
-                  resizeMode="cover"
-                  onError={() => {
-                    console.log(`Failed to load image for ${item.label}`);
-                  }}
-                />
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '800',
-                    color: '#393D40',
-                    textAlign: 'center',
-                    textTransform: 'capitalize',
-                  }}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))
+                  onPress={() => onGenusPress(item.genusName)}>
+                  <Image
+                    source={displayImage}
+                    style={{
+                      width: 110,
+                      height: 110,
+                      borderRadius: 12,
+                      marginBottom: 6,
+                    }}
+                    resizeMode="cover"
+                    onLoadStart={() => handleGenusImageLoadStart(item)}
+                    onLoad={(event) => {
+                      handleGenusImageLoad(item, event.nativeEvent.source?.uri);
+                    }}
+                    onError={(error) => {
+                      setGenusImageLoading(prev => ({
+                        ...prev,
+                        [genusId]: false
+                      }));
+                    }}
+                    key={`genus-${genusId}-${cachedImageUri ? 'cached' : 'original'}`}
+                  />
+                  
+                  {/* Loading overlay for genus images */}
+                  {isImageLoading && (
+                    <View style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: 110,
+                      height: 110,
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: 12,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <ActivityIndicator size="small" color="#7CBD58" />
+                    </View>
+                  )}
+                  
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '800',
+                      color: '#393D40',
+                      textAlign: 'center',
+                      textTransform: 'capitalize',
+                    }}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
           ) : (
             // Show error state when no data is available
             <View
@@ -1265,8 +1491,8 @@ const ScreenShop = ({navigation}) => {
             <TouchableOpacity
               key={idx}
               onPress={() => {
-                console.log('Country pressed:', item.label);
-                // Update filters to show plants from selected country
+                // Clear all filters first, then apply only country filter
+                clearFilters();
                 updateFilters({ country: [item.label] });
                 
                 // Navigate to genus plants screen with country filter

@@ -11,7 +11,7 @@ import {API_ENDPOINTS} from '../../config/apiConfig';
 export const getPlantRecommendationsApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
-    
+    console.log({authToken})
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {

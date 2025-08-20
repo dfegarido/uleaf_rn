@@ -26,7 +26,6 @@ import {getBuyerListingsApi, searchPlantsApi} from '../../../components/Api/list
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
 
 import PromoBadgeList from '../../../components/PromoBadgeList';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
@@ -460,7 +459,137 @@ const ScreenCart = () => {
           country: item.listingDetails?.country || 'TH', // Default to Thailand if not specified
           genus: item.listingDetails?.genus,
           species: item.listingDetails?.species,
+          plantFlightDate: item.listingDetails?.plantFlightDate || 'N/A' // Use API response
         };
+
+        // Get country flag based on country code
+        const getCountryFlag = (countryCode) => {
+          const flags = {
+            'PH': '🇵🇭', // Philippines
+            'TH': '🇹🇭', // Thailand  
+            'ID': '🇮🇩', // Indonesia
+          };
+          
+          // If no country code or empty string, try to infer from plant flight date
+          if (!countryCode || countryCode === '') {
+            const flightDate = item.listingDetails?.plantFlightDate || '';
+            // Quick heuristic based on flight dates
+            if (flightDate.includes('Aug 23')) {
+              return flags['PH']; // Philippines typically has shorter flight times
+            } else if (flightDate.includes('Sep 20')) {
+              return flags['TH']; // Thailand
+            }
+            return flags['TH']; // Default to Thailand
+          }
+          
+          return flags[countryCode] || '🌍'; // Default globe emoji
+        };
+
+        // Calculate shipping cost based on listing type and specifications (matches ScreenPlantDetail logic)
+        const getShippingCost = () => {
+          const listingType = (item.listingDetails?.listingType || 'Single Plant').toLowerCase();
+          const potSize = item.selectedVariation?.potSize || item.potSize || '2"';
+          const plantHeight = item.listingDetails?.approximateHeight || '0';
+          
+          // Convert height description to numeric value
+          const getHeightValue = (heightDesc) => {
+            if (typeof heightDesc === 'number') return heightDesc;
+            if (typeof heightDesc === 'string') {
+              if (heightDesc.includes('12 inches & above') || heightDesc.includes('above')) return 15;
+              if (heightDesc.includes('Below 12') || heightDesc.includes('below')) return 8;
+              const match = heightDesc.match(/(\d+)/);
+              return match ? parseFloat(match[1]) : 0;
+            }
+            return 0;
+          };
+          
+          switch (listingType) {
+            case 'single':
+            case 'single plant':
+              // Based on plant height
+              const height = getHeightValue(plantHeight);
+              const singleCost = height > 12 ? 70 : 50;
+              const singleAddOn = height > 12 ? 7 : 5;
+              return {
+                cost: singleCost,
+                addOnCost: singleAddOn,
+                baseCargo: 150,
+                description: height > 12 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
+                displayText: 'UPS 2nd Day ',
+                mainPrice: height > 12 ? '$70' : '$50',
+                addOnText: ', add-on plant ',
+                addOnPrice: height > 12 ? '$7' : '$5',
+                rule: `Based on plant height: ${height > 12 ? '>12"' : '≤12"'} = $${singleCost}`,
+                baseCost: singleCost
+              };
+              
+            case 'growers':
+            case "grower's choice":
+              // Based on pot size
+              const potSizeNum = parseFloat(potSize.replace('"', '')) || 2;
+              const growersCost = potSizeNum > 4 ? 70 : 50;
+              const growersAddOn = potSizeNum > 4 ? 7 : 5;
+              return {
+                cost: growersCost,
+                addOnCost: growersAddOn,
+                baseCargo: 150,
+                description: potSizeNum > 4 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
+                displayText: 'UPS 2nd Day ',
+                mainPrice: potSizeNum > 4 ? '$70' : '$50',
+                addOnText: ', add-on plant ',
+                addOnPrice: potSizeNum > 4 ? '$7' : '$5',
+                rule: `Based on pot size: ${potSizeNum > 4 ? '>4"' : '≤4"'} = $${growersCost}`,
+                baseCost: growersCost
+              };
+              
+            case 'wholesale':
+              // Based on pot size
+              const wholePotSizeNum = parseFloat(potSize.replace('"', '')) || 2;
+              const wholesaleCost = wholePotSizeNum > 4 ? 200 : 150;
+              const wholesaleAddOn = wholePotSizeNum > 4 ? 25 : 20;
+              return {
+                cost: wholesaleCost,
+                addOnCost: wholesaleAddOn,
+                baseCargo: 150,
+                description: wholePotSizeNum > 4 ? 'Wholesale Shipping $200, add-on plant $25' : 'Wholesale Shipping $150, add-on plant $20',
+                displayText: 'Wholesale Shipping ',
+                mainPrice: wholePotSizeNum > 4 ? '$200' : '$150',
+                addOnText: ', add-on plant ',
+                addOnPrice: wholePotSizeNum > 4 ? '$25' : '$20',
+                rule: `Based on pot size: ${wholePotSizeNum > 4 ? '>4"' : '≤4"'} = $${wholesaleCost}`,
+                baseCost: wholesaleCost
+              };
+              
+            default:
+              // Default to single listing rules
+              return {
+                cost: 50,
+                addOnCost: 5,
+                baseCargo: 150,
+                description: 'UPS 2nd Day $50, add-on plant $5',
+                displayText: 'UPS 2nd Day ',
+                mainPrice: '$50',
+                addOnText: ', add-on plant ',
+                addOnPrice: '$5',
+                rule: 'Default shipping rate',
+                baseCost: 50
+              };
+          }
+        };
+
+        const shippingCost = getShippingCost();
+
+        console.log('🛒 Cart Item Processing:', {
+          plantCode: item.plantCode,
+          country: item.listingDetails?.country,
+          plantFlightDate: item.listingDetails?.plantFlightDate,
+          listingType: item.listingDetails?.listingType,
+          potSize: item.selectedVariation?.potSize || item.potSize,
+          height: item.listingDetails?.approximateHeight,
+          flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
+          shippingCost: shippingCost,
+          shippingRule: shippingCost.rule
+        });
 
         return {
           id: item.cartId || item.id,
@@ -475,9 +604,9 @@ const ScreenCart = () => {
           price: currentPrice,
           originalPrice: originalPrice,
           quantity: item.quantity || 1,
-          flightInfo: `Plant Flight ${calculatePlantFlightDate(plantData)}`,
-          shippingInfo: isListingUnavailable ? 'Item no longer available' : 'UPS 2nd Day $50, add-on plant $5',
-          flagIcon: '🇹🇭',
+          flightInfo: `Plant Flight ${plantData.plantFlightDate}`,
+          shippingInfo: isListingUnavailable ? 'Item no longer available' : `${shippingCost.displayText}${shippingCost.mainPrice}${shippingCost.addOnText}${shippingCost.addOnPrice}`,
+          flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
           isUnavailable: isListingUnavailable,
           listingType: item.listingDetails?.listingType || 'Single Plant' // Add the listing type

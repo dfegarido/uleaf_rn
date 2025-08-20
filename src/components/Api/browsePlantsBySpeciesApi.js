@@ -14,7 +14,7 @@ import {API_ENDPOINTS} from '../../config/apiConfig';
 export const browsePlantsBySpeciesApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
-    
+    console.log({authToken})
     const queryParams = new URLSearchParams();
     
     // Add species filter (required)
