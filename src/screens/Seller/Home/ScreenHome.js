@@ -377,7 +377,7 @@ const ScreenHome = ({navigation}) => {
                   globalStyles.textBold,
                   {paddingBottom: 10},
                 ]}>
-                {totalSales?.symbol ?? 'PHP'} {totalSales?.thisWeek ?? '0'}
+                {totalSales?.symbol ?? ''} {totalSales?.thisWeek ?? '0'}
               </Text>
               <View style={{flexDirection: 'row', gap: 10}}>
                 <Text
