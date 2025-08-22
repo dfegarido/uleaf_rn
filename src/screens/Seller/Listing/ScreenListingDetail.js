@@ -335,7 +335,7 @@ const ScreenListingDetail = ({navigation, route}) => {
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
-  const onPressDeleteConfirm = async () => {
+  const onPressDeleteConfirm = () => {
     setDeleteModalVisible(true);
   };
 
@@ -368,6 +368,7 @@ const ScreenListingDetail = ({navigation, route}) => {
         <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
           <View style={styles.header}>
             <TouchableOpacity
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
               onPress={() => navigation.goBack()}
               style={[
                 styles.iconButton,
@@ -383,6 +384,7 @@ const ScreenListingDetail = ({navigation, route}) => {
             </TouchableOpacity>
 
             <TouchableOpacity
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
               onPress={() => setActionShowSheet(true)}
               style={[
                 styles.iconButton,
