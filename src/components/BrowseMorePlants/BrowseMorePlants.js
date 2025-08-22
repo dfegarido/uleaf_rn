@@ -6,7 +6,6 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import PlantItemCard from '../PlantItemCard/PlantItemCard';
 import { getPlantRecommendationsApi, addToCartApi } from '../Api';
 import CaretDownIcon from '../../assets/icons/accent/caret-down-regular.svg';
@@ -24,14 +23,12 @@ export const resetGlobalPlantRecommendations = () => {
   isGlobalLoading = false;
 };
 
-// Cache key for storing browse more plants data
-const BROWSE_MORE_CACHE_KEY = 'browse_more_plants_cache';
-const CACHE_EXPIRY_TIME = 24 * 60 * 60 * 1000; // 24 hours (much longer cache)
+// Removed AsyncStorage caching (backend now handles image & data freshness)
 
 const BrowseMorePlants = ({
   title = "Discover Random Plants",
-  initialLimit = 6,
-  loadMoreLimit = 6,
+  initialLimit = 4,
+  loadMoreLimit = 4,
   showLoadMore = true,
   onPlantPress = null, // Custom handler for plant press
   onAddToCart = null, // Custom handler for add to cart
@@ -51,48 +48,7 @@ const BrowseMorePlants = ({
     return globalPlantRecommendations.slice(start, end);
   };
 
-  // Load plants from cache and update global state
-  const loadPlantsFromCache = async () => {
-    try {
-      const cachedData = await AsyncStorage.getItem(BROWSE_MORE_CACHE_KEY);
-      if (cachedData) {
-        const { plants: cachedPlants, timestamp } = JSON.parse(cachedData);
-        const now = Date.now();
-        
-        // Check if cache is still valid (within expiry time)
-        if (now - timestamp < CACHE_EXPIRY_TIME && cachedPlants.length > 0) {
-          console.log('🌱 BrowseMorePlants: Loading from cache', cachedPlants.length, 'plants');
-          
-          // Update global state
-          globalPlantRecommendations = cachedPlants;
-          hasGlobalLoaded = true;
-          setPlants(cachedPlants);
-          return true; // Successfully loaded from cache
-        } else {
-          console.log('🌱 BrowseMorePlants: Cache expired or empty');
-          // Remove expired cache
-          await AsyncStorage.removeItem(BROWSE_MORE_CACHE_KEY);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading plants from cache:', error);
-    }
-    return false; // Failed to load from cache
-  };
-
-  // Save plants to cache
-  const savePlantsToCache = async (plantsData) => {
-    try {
-      const cacheData = {
-        plants: plantsData,
-        timestamp: Date.now()
-      };
-      await AsyncStorage.setItem(BROWSE_MORE_CACHE_KEY, JSON.stringify(cacheData));
-      console.log('🌱 BrowseMorePlants: Saved to cache', plantsData.length, 'plants');
-    } catch (error) {
-      console.error('Error saving plants to cache:', error);
-    }
-  };
+  // Removed loadPlantsFromCache & savePlantsToCache (no local caching)
 
   // Simplified load function that respects singleton pattern
   const loadPlants = async (isInitial = true, forceRefresh = false) => {
@@ -146,7 +102,8 @@ const BrowseMorePlants = ({
       const checkInterval = setInterval(() => {
         if (!isGlobalLoading) {
           clearInterval(checkInterval);
-          setPlants(globalPlantRecommendations);
+          // After the other instance finishes, only show the first chunk
+          setPlants(globalPlantRecommendations.slice(0, initialLimit));
         }
       }, 100);
       return;
@@ -159,26 +116,18 @@ const BrowseMorePlants = ({
     try {
       console.log('🌱 BrowseMorePlants: Loading recommendations for the first time this session');
 
-  // Try cache first (only if not forced refresh)
-      if (!forceRefresh) {
-        const cacheLoaded = await loadPlantsFromCache();
-        if (cacheLoaded) {
-          isGlobalLoading = false;
-          setLoading(false);
-          return;
-        }
-      }
+  // Skip local cache logic (always fetch fresh batch)
 
       // Load from API
       console.log('🌱 BrowseMorePlants: Loading recommendations from API...');
   // Fetch a larger batch once, then chunk for UI to avoid subsequent API calls
-  const batchSize = Math.max(30, initialLimit * 5);
+  const batchSize = Math.max(12, initialLimit * 5); // smaller due to lower per-page limit
   const params = { limit: batchSize };
       const response = await getPlantRecommendationsApi(params);
 
       if (response.success && response.data && response.data.recommendations) {
         // Filter valid plants
-        const validPlants = response.data.recommendations.filter(plant => {
+  const validPlants = response.data.recommendations.filter(plant => {
           const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
           const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
                           (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
@@ -190,15 +139,17 @@ const BrowseMorePlants = ({
         console.log(`🌱 Loaded ${validPlants.length} valid plants for global recommendations`);
 
   // Update global state with full batch
-  globalPlantRecommendations = validPlants;
+  // Normalize image fields to include webp versions
+  globalPlantRecommendations = validPlants.map(p => ({
+    ...p,
+    imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+    imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+  }));
         hasGlobalLoaded = true;
   // Show only the first chunk in UI
-  setPlants(validPlants.slice(0, initialLimit));
+  setPlants(globalPlantRecommendations.slice(0, initialLimit));
 
-        // Save to cache
-        if (validPlants.length > 0) {
-          await savePlantsToCache(validPlants);
-        }
+  // No local cache persistence
       } else {
         console.error('Failed to load plant recommendations:', response.data?.message || 'Unknown error');
         setPlants([]);

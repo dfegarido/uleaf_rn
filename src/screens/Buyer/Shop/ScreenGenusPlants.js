@@ -125,7 +125,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const limit = 8; // Reduced from 20 to 8
+  const limit = 4; // Standardized to 4 per requirement
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -298,7 +298,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       console.log('Plants loaded successfully:', res.data?.listings?.length || 0);
 
-      const rawPlants = res.data?.listings || [];
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        // Ensure webp field present for UI preference
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
       
       // Filter out plants with invalid data (same logic as BrowseMorePlants and ScreenPlantDetail)
       const newPlants = rawPlants.filter(plant => {
@@ -330,6 +335,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (refresh) {
         setPlants(newPlants);
+        // For refresh, set offset exactly to the number returned (avoids double-refresh accumulating)
+        setOffset(newPlants.length);
       } else {
         // Filter out duplicates before appending new plants
         setPlants(prev => {
@@ -337,12 +344,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
           const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
           return [...prev, ...uniqueNewPlants];
         });
+        // Increment offset by the page size (use limit for consistency)
+        setOffset(prev => prev + newPlants.length);
       }
 
       // Check if there are more plants to load using API response
       setHasMore(res.data?.hasNextPage || false);
-
-      setOffset(prev => prev + (newPlants.length || 0));
 
     } catch (error) {
       console.error('Error loading plants:', error);
@@ -468,7 +475,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       console.log('Plants loaded successfully with local filters:', res.data?.listings?.length || 0);
 
-      const rawPlants = res.data?.listings || [];
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
       
       // Filter out plants with invalid data (same logic as BrowseMorePlants and ScreenPlantDetail)
       const newPlants = rawPlants.filter(plant => {
@@ -500,6 +511,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (refresh) {
         setPlants(newPlants);
+        setOffset(newPlants.length);
       } else {
         // Filter out duplicates before appending new plants
         setPlants(prev => {
@@ -507,12 +519,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
           const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
           return [...prev, ...uniqueNewPlants];
         });
+        setOffset(prev => prev + newPlants.length);
       }
 
       // Check if there are more plants to load using API response
       setHasMore(res.data?.hasNextPage || false);
-
-      setOffset(prev => prev + (newPlants.length || 0));
 
     } catch (error) {
       console.error('Error loading plants with filters:', error);

@@ -1,11 +1,7 @@
 import React from 'react';
 import {View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-import {
-  getCachedImageUri,
-  setCachedImageUri,
-  CACHE_CONFIGS
-} from '../../utils/imageCache';
+// Removed image caching (AsyncStorage) usage
 import FlightIcon from '../../assets/buyer-icons/flight.svg';
 import WishListSelected from '../../assets/buyer-icons/wishlist-selected.svg';
 import WishListUnselected from '../../assets/buyer-icons/wishlist-unselected.svg';
@@ -80,29 +76,15 @@ const PlantItemCard = ({
 }) => {
   const navigation = useNavigation();
   const [imageError, setImageError] = React.useState(false);
-  const [cachedImageUri, setCachedImageUri] = React.useState(null);
   const [imageLoading, setImageLoading] = React.useState(true);
+  // Placeholder state/effect retained after removing caching hooks to keep hook order stable during fast refresh
+  const [_removedCacheHook] = React.useState(null);
+  React.useEffect(() => { /* no-op */ }, []);
   
   // If data prop is provided, use it; otherwise fall back to individual props
   const plantData = data || {};
   
-  // Load cached image when component mounts or imagePrimary changes
-  React.useEffect(() => {
-    const loadCachedImage = async () => {
-      if (data && plantData.imagePrimary) {
-        setImageLoading(true);
-        const cached = await getCachedImageUri(plantData.imagePrimary, CACHE_CONFIGS.PLANT_IMAGES.expiryDays);
-        if (cached) {
-          setCachedImageUri(cached);
-        }
-        setImageLoading(false);
-      } else {
-        setImageLoading(false);
-      }
-    };
-    
-    loadCachedImage();
-  }, [plantData?.plantCode, plantData?.imagePrimary, data]);
+  // Removed AsyncStorage-based image caching effect
   
   const handleCardPress = () => {
     if (data && plantData.plantCode) {
@@ -116,13 +98,8 @@ const PlantItemCard = ({
     }
   };
   
-  const displayImage = data ? 
-    (cachedImageUri ? 
-      { uri: cachedImageUri } :
-      (plantData.imagePrimary && plantData.imagePrimary.trim() !== '' ? 
-        {uri: plantData.imagePrimary} : 
-        placeholderImage)) : 
-    image;
+  const resolvedPrimary = plantData.imagePrimaryWebp || plantData.imagePrimary || (Array.isArray(plantData.imageCollectionWebp) && plantData.imageCollectionWebp[0]) || plantData.imagePrimaryOriginal;
+  const displayImage = data ? (resolvedPrimary ? { uri: resolvedPrimary } : placeholderImage) : image;
   
   // Debug logging
     
@@ -174,20 +151,13 @@ const PlantItemCard = ({
               setImageError(true);
               setImageLoading(false);
             }}
-            onLoad={(event) => {
+            onLoad={() => {
               setImageLoading(false);
-              
-              // Cache the image if it's from imagePrimary and not already cached
-              if (data && plantData.imagePrimary && !cachedImageUri && event.nativeEvent.source?.uri) {
-                setCachedImageUri(event.nativeEvent.source.uri, plantData.imagePrimary, CACHE_CONFIGS.PLANT_IMAGES.expiryDays);
-              }
             }}
             onLoadStart={() => {
-              if (!cachedImageUri) {
-                setImageLoading(true);
-              }
+              setImageLoading(true);
             }}
-            key={`${plantData?.plantCode || 'default'}-${imageError}-${cachedImageUri}`}
+            key={`${plantData?.plantCode || 'default'}-${imageError}`}
           />
           
           {/* Loading Overlay */}

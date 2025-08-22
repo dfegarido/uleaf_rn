@@ -33,6 +33,7 @@ import {selectedCard} from '../../../assets/buyer-icons/png';
 import DownArrowIcon from '../../../assets/buyer-icons/downicon.svg';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
 
 // Helper function to get a valid image source
 const getValidImageSource = (imageUrl, plantCode) => {
@@ -372,14 +373,15 @@ const ScreenCart = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState([]);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  // Removed bespoke recommendations; will use BrowseMorePlants component
+  // Placeholder hooks to keep hook order stable during Fast Refresh (prevents fewer hooks warning)
+  const [_removedRecommendations] = useState(null);
+  const [_removedLoadingRecommendations] = useState(false);
 
   // Load cart items on component mount
   useEffect(() => {
     loadCartItems();
-    loadRecommendations(); // Load recommendations for empty cart
+  // No bespoke recommendation preload needed now
   }, []);
 
   const loadCartItems = async () => {
@@ -780,40 +782,6 @@ const ScreenCart = () => {
     return totalDiscount;
   };
 
-  const loadRecommendations = async () => {
-    try {
-      setLoadingRecommendations(true);
-      
-      // Check internet connection
-      const netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        console.log('No internet connection for recommendations');
-        return;
-      }
-
-      // Get popular plants sorted by love count for empty cart recommendations
-      const response = await retryAsync(() => getBuyerListingsApi({
-        limit: 6,
-        sortBy: 'loveCount',
-        sortOrder: 'desc'
-      }), 3, 1000);
-      
-      if (!response?.success) {
-        console.log('Failed to load recommendations:', response?.error);
-        return;
-      }
-
-      console.log('Recommendations loaded successfully:', response.data?.listings?.length || 0);
-      setRecommendations(response.data?.listings || []);
-      
-    } catch (error) {
-      console.error('Error loading recommendations:', error);
-      setRecommendations([]);
-    } finally {
-      setLoadingRecommendations(false);
-    }
-  };
-
   const handleAddToCartFromRecommendations = async (plant) => {
     try {
       if (!plant.plantCode) {
@@ -994,77 +962,15 @@ const ScreenCart = () => {
 
         {/* You may also like section - Always visible */}
         <View style={{ paddingHorizontal: 16, marginTop: 32 }}>
-          <Text style={{
-            fontSize: 20,
-            fontWeight: 'bold',
-            color: '#202325',
-            marginBottom: 16,
-          }}>
-            More from our Jungle
-          </Text>
           
-          {loadingRecommendations ? (
-            <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 8 }}>
-              {Array.from({length: 2}).map((_, idx) => (
-                <View key={idx} style={{ flex: 1 }}>
-                  <View style={{
-                    width: '100%',
-                    height: 160,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 12,
-                  }} />
-                  <View style={{
-                    width: '80%',
-                    height: 16,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 4,
-                    marginTop: 8,
-                  }} />
-                  <View style={{
-                    width: '60%',
-                    height: 12,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 4,
-                    marginTop: 4,
-                  }} />
-                </View>
-              ))}
-            </View>
-          ) : recommendations.length > 0 ? (
-            <View style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}>
-              {recommendations.slice(0, 6).map((plant, index) => (
-                <View 
-                  key={plant.id || plant.plantCode || index} 
-                  style={{ 
-                    width: '48%',
-                    marginBottom: 16 
-                  }}
-                >
-                  <PlantItemCard 
-                    data={plant}
-                    onPress={() => {
-                      navigation.navigate('ScreenPlantDetail', { 
-                        plantCode: plant.plantCode,
-                        plantData: plant 
-                      });
-                    }}
-                    onAddToCart={() => handleAddToCartFromRecommendations(plant)}
-                  />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: '#999', fontSize: 14 }}>
-                No recommendations available at the moment
-              </Text>
-            </View>
-          )}
+          <BrowseMorePlants 
+            title="More from our Jungle" 
+            initialLimit={4}
+            loadMoreLimit={4}
+            showLoadMore={true}
+            containerStyle={{paddingTop: 0}}
+            onAddToCart={handleAddToCartFromRecommendations}
+          />
         </View>
       </ScrollView>
       

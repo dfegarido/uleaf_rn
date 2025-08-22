@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect} from 'react'; // keep hook imports grouped
 import {
   View,
   Text,
@@ -119,29 +119,7 @@ const ScreenShop = ({navigation}) => {
     clearFilters
   } = useFilters();
 
-  // Component mount/unmount debugging
-  useEffect(() => {
-    console.log('🏪 ScreenShop: Component mounted');
-    return () => {
-      console.log('🏪 ScreenShop: Component unmounted');
-    };
-  }, []);
-
-  // Log auth token and user info when Shop tab is accessed
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('🏪 ScreenShop: Screen focused');
-      const logAuthInfo = async () => {
-        try {
-          const token = await AsyncStorage.getItem('authToken');
-        } catch (error) {
-          console.error('Error getting auth token:', error);
-        }
-      };
-
-      logAuthInfo();
-    }, [user, globalFilters]),
-  );
+  // (Moved) Effects defined after state declarations to keep hook order stable
 
   // Filter modal state
   const [sortOptions, setSortOptions] = useState([]);
@@ -193,7 +171,37 @@ const ScreenShop = ({navigation}) => {
   
   // Browse plants state persistence to prevent unnecessary reloading
   const [browseMorePlantsKey, setBrowseMorePlantsKey] = useState(1);
+  // Recommendations state
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [recommendationError, setRecommendationError] = useState(null);
   
+  // ----------------------
+  // Hooks (Effects)
+  // ----------------------
+  // Component mount/unmount debugging (moved below state declarations to avoid hook order shift on hot reload)
+  useEffect(() => {
+    console.log('🏪 ScreenShop: Component mounted');
+    return () => {
+      console.log('🏪 ScreenShop: Component unmounted');
+    };
+  }, []);
+
+  // Log auth token and user info when Shop tab is accessed
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🏪 ScreenShop: Screen focused');
+      const logAuthInfo = async () => {
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+        } catch (error) {
+          console.error('Error getting auth token:', error);
+        }
+      };
+      logAuthInfo();
+    }, [user, globalFilters]),
+  );
+
   // Debounced search effect - triggers after user stops typing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -208,7 +216,7 @@ const ScreenShop = ({navigation}) => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  // Load sort, genus, and variegation options on component mount
+  // Initial data load effect
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -222,11 +230,11 @@ const ScreenShop = ({navigation}) => {
           loadAcclimationIndexData(),
           loadBrowseGenusData(),
           loadEventsData(),
+          loadRecommendations(),
         ]);
       } catch (error) {
       }
     };
-
     fetchData();
   }, []);
 
@@ -574,8 +582,9 @@ const ScreenShop = ({navigation}) => {
         let imageSource = genusImageMap[genusGroup.genus.toLowerCase()];
         
         // If no local image found, try using representative image from API as fallback
-        if (!imageSource && genusGroup.representativeImage) {
-          imageSource = {uri: genusGroup.representativeImage};
+        const preferredWebp = genusGroup.representativeImageWebp;
+        if (!imageSource && (preferredWebp || genusGroup.representativeImage)) {
+          imageSource = {uri: preferredWebp || genusGroup.representativeImage};
         }
         
         // Final fallback to generic images
@@ -586,11 +595,12 @@ const ScreenShop = ({navigation}) => {
         return {
           src: imageSource,
           label: genusGroup.genus,
-          genusName: genusGroup.genus.toLowerCase() === 'others' ? 'Others' : correctGenusName,
+            genusName: genusGroup.genus.toLowerCase() === 'others' ? 'Others' : correctGenusName,
           plantCount: genusGroup.plantCount,
           speciesCount: genusGroup.speciesCount,
           priceRange: genusGroup.priceRange,
-          representativeImage: genusGroup.representativeImage, // Store for caching
+          representativeImage: genusGroup.representativeImage, // original
+          representativeImageWebp: genusGroup.representativeImageWebp, // new preferred webp
         };
       });
 
@@ -614,6 +624,29 @@ const ScreenShop = ({navigation}) => {
       // You could show a user-friendly error message here
     } finally {
       setLoadingGenusData(false);
+    }
+  };
+
+  const loadRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true);
+      setRecommendationError(null);
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) throw new Error('No internet connection.');
+      const res = await retryAsync(() => getPlantRecommendationsApi({ limit: 4 }), 3, 800);
+      if (!res?.success || !Array.isArray(res?.plants)) throw new Error(res?.message || 'Failed to load recommendations');
+      // Ensure each plant carries WebP fields; no mapping change needed except fallback additions
+      const withWebp = res.plants.map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary, // keep
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      setRecommendations(withWebp);
+    } catch (e) {
+      setRecommendationError(e.message);
+      setRecommendations([]);
+    } finally {
+      setLoadingRecommendations(false);
     }
   };
 
@@ -861,7 +894,7 @@ const ScreenShop = ({navigation}) => {
       try {
         const baseParams = {
           offset: 0,
-          limit: 20,
+          limit: 4, // standardized
           sortBy: 'createdAt',
           sortOrder: 'desc',
         };
@@ -1367,11 +1400,14 @@ const ScreenShop = ({navigation}) => {
               } else if (displayImage && typeof displayImage === 'object' && !displayImage.uri) {
                 // This is also a local image (imported as an object)
                 // Keep it as is
-              } else if (item.representativeImage && cachedImageUri) {
-                // Use cached representative image
+              } else if ((item.representativeImageWebp || item.representativeImage) && cachedImageUri) {
+                // Use cached representative (likely original or webp) image
                 displayImage = { uri: cachedImageUri };
-              } else if (item.representativeImage && !cachedImageUri) {
-                // Use representative image from API
+              } else if (item.representativeImageWebp) {
+                // Prefer webp directly
+                displayImage = { uri: item.representativeImageWebp };
+              } else if (item.representativeImage) {
+                // Fallback to original image
                 displayImage = { uri: item.representativeImage };
               } else {
                 // Fallback to default genus image
@@ -1541,13 +1577,13 @@ const ScreenShop = ({navigation}) => {
             </TouchableOpacity>
           ))}
         </View>
-        
+
         {/* Browse More Plants Component */}
-        <BrowseMorePlants 
+        <BrowseMorePlants
           key={`browse-more-${browseMorePlantsKey}`}
           title="More from our Jungle"
-          initialLimit={6}
-          loadMoreLimit={6}
+          initialLimit={4}
+          loadMoreLimit={4}
           showLoadMore={true}
           autoLoad={true}
           forceRefresh={refreshing} // Force refresh when user pulls to refresh

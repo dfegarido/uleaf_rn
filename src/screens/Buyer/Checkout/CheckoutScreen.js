@@ -1464,8 +1464,8 @@ const CheckoutScreen = () => {
         {/* Browse More Plants Component */}
         <BrowseMorePlants 
           title="More from our Jungle"
-          initialLimit={6}
-          loadMoreLimit={6}
+          initialLimit={4}
+          loadMoreLimit={4}
           showLoadMore={true}
           containerStyle={{marginTop: 24}}
         />

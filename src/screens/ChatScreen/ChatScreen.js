@@ -219,7 +219,7 @@ const ChatScreen = ({navigation, route}) => {
         <View style={styles.plantRecommendationsContainer}>
           <BrowseMorePlants 
             title="Plants You Might Like"
-            limit={3}
+            limit={4}
             showLoadMore={false}
             containerStyle={styles.chatBrowseMoreContainer}
             horizontal={true}
