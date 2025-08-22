@@ -30,8 +30,29 @@ import { checkoutApi } from '../../../components/Api/checkoutApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
 
+// Helper function to determine country from currency
+const getCountryFromCurrency = (currency) => {
+  if (!currency) return null;
+  
+  switch (currency.toUpperCase()) {
+    case 'PHP':
+      return 'PH';
+    case 'THB':
+      return 'TH';
+    case 'IDR':
+      return 'ID';
+    default:
+      return null;
+  }
+};
+
 // Function to render the correct country flag
 const renderCountryFlag = (country) => {
+  if (!country) {
+    // Default to Indonesia if country is undefined or empty
+    return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
+  }
+
   // Handle emoji flags from cart items
   if (country === '🇹🇭') {
     return <ThailandFlag width={24} height={16} style={styles.flagIcon} />;
@@ -45,21 +66,21 @@ const renderCountryFlag = (country) => {
   
   // Handle text-based country codes
   const countryCode = country?.toUpperCase();
-  
+  console.log({countryCode})
   switch (countryCode) {
     case 'PHILIPPINES':
     case 'PH':
     case 'PHL':
       return <PhilippinesFlag width={24} height={16} style={styles.flagIcon} />;
-    case 'INDONESIA':
-    case 'ID':
-    case 'IDN':
-      return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
     case 'THAILAND':
     case 'TH':
     case 'THA':
-    default:
       return <ThailandFlag width={24} height={16} style={styles.flagIcon} />;
+    case 'INDONESIA':
+    case 'ID':
+    case 'IDN':
+    default:
+      return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
   }
 };
 
@@ -458,6 +479,7 @@ const CheckoutScreen = () => {
   
   // Prepare plant items for display - handle cart data, direct product data, and buy now
   const plantItems = useMemo(() => {
+    console.log("plantData test", plantData)
     if (fromBuyNow && plantData) {
       return [
         {
@@ -476,10 +498,47 @@ const CheckoutScreen = () => {
             : null,
           quantity: quantity,
           title: 'Direct Purchase from Plant Detail',
-          country: plantData.country || 'TH',
+          country: (() => {
+            // Log determination process
+            const directCountry = plantData.country;
+            const variationCurrency = plantData.variations && plantData.variations.length > 0 ? 
+              plantData.variations[0].localCurrency : null;
+            const countryFromVariation = variationCurrency ? 
+              getCountryFromCurrency(variationCurrency) : null;
+            const mainCurrency = plantData.localCurrency;
+            const countryFromMain = mainCurrency ? 
+              getCountryFromCurrency(mainCurrency) : null;
+            
+            // For Grower's Choice and Wholesale, prioritize using variation currency
+            const isGrowersOrWholesale = plantData.listingType === "Grower's Choice" || 
+                                        plantData.listingType === "Wholesale" ||
+                                        plantData.listingType === "Growers Choice";
+            
+            let result;
+            if (isGrowersOrWholesale && countryFromVariation) {
+              // For Grower's Choice and Wholesale, use variation currency country if available
+              result = countryFromVariation;
+            } else {
+              // For other listing types, use direct country first
+              result = directCountry || countryFromVariation || countryFromMain;
+            }
+            
+            console.log('Country determination:', {
+              directCountry,
+              variationCurrency,
+              countryFromVariation,
+              mainCurrency,
+              countryFromMain,
+              listingType: plantData.listingType,
+              isGrowersOrWholesale,
+              result
+            });
+            
+            return result;
+          })(),
           shippingMethod: 'Plant / UPS Ground Shipping',
           plantCode: plantCode,
-          listingType: plantData.hasDiscount ? 'Discounted' : 'Single Plant',
+          listingType: plantData.listingType,
           discount: plantData.hasDiscount && plantData.discountAmount 
             ? `${Math.round((plantData.discountAmount / plantData.originalPrice) * 100)}%` 
             : null,
@@ -498,7 +557,7 @@ const CheckoutScreen = () => {
         originalPrice: item.originalPrice,
         quantity: item.quantity || 1,
         title: 'Delivery Details',
-        country: item.flagIcon || 'TH',
+        country: item.flagIcon,
         shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
         plantCode: item.plantCode,
         listingType: item.listingType || (item.originalPrice ? 'Discounted' : 'Single Plant'),
@@ -1105,13 +1164,13 @@ const CheckoutScreen = () => {
               <PlantItemComponent
                 image={item.image}
                 name={item.name}
-                variation={item.variation || 'Variegated'}
-                size={item.size || '6'}
+                variation={item.variation }
+                size={item.size}
                 price={item.price}
-                quantity={item.quantity || 1}
-                title={item.title || 'Rare Tropical Plants from Thailand'}
-                country={item.country || 'TH'}
-                shippingMethod={item.shippingMethod || 'Plant / UPS Ground Shipping'}
+                quantity={item.quantity }
+                title={item.title }
+                country={item.country}
+                shippingMethod={item.shippingMethod}
                 listingType={item.listingType}
                 discount={item.discount}
                 originalPrice={item.originalPrice}
@@ -1137,7 +1196,7 @@ const CheckoutScreen = () => {
                   {/* Country */}
                   <View style={styles.countryContainer}>
                     <Text style={styles.countryText}></Text>
-                    {renderCountryFlag(item.country || 'TH')}
+                    {renderCountryFlag(item.country)}
                   </View>
                 </View>
                 

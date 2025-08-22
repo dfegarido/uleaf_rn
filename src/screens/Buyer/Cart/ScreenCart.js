@@ -706,13 +706,7 @@ const ScreenCart = () => {
         return;
       }
 
-      const response = await removeFromCartApi({ cartItemId: item.cartItemId });
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to remove item');
-      }
-
-      // Remove item from local state
+      // Optimistically remove item from local state immediately
       setCartItems(prev => prev.filter(cartItem => cartItem.id !== itemId));
       
       // Remove from selectedItems if it was selected
@@ -722,7 +716,17 @@ const ScreenCart = () => {
         return newSet;
       });
 
-      Alert.alert('Success', 'Item removed from cart');
+      // Make API call in the background without waiting for it
+      removeFromCartApi({ cartItemId: item.cartItemId })
+        .then(response => {
+          if (!response.success) {
+            console.error('Error from API when removing item:', response.error);
+            // We could restore the item here, but it's better UX to just log the error
+          }
+        })
+        .catch(error => {
+          console.error('Exception when removing item from cart:', error);
+        });
     } catch (error) {
       console.error('Error removing item:', error);
       Alert.alert('Error', error.message);

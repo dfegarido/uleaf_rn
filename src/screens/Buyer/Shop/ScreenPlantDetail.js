@@ -194,8 +194,31 @@ const ScreenPlantDetail = ({navigation, route}) => {
       // Navigate to checkout screen with plant data
       const discountedPriceData = getDiscountedPrice();
       const unitPrice = parseFloat(discountedPriceData.discountedPrice);
+      
+      // Ensure plantData has a country code
+      const plantDataWithCountry = { ...plantData };
+      // If country is missing, try to determine it from currency
+      if (!plantDataWithCountry.country) {
+        const mapCurrencyToCountry = (localCurrency) => {
+          if (!localCurrency) return 'ID'; // Default to Indonesia
+          
+          switch (localCurrency.toUpperCase()) {
+            case 'PHP':
+              return 'PH';
+            case 'THB':
+              return 'TH';
+            case 'IDR':
+              return 'ID';
+            default:
+              return 'ID'; // Default to Indonesia
+          }
+        };
+        
+        plantDataWithCountry.country = mapCurrencyToCountry(plantDataWithCountry.localCurrency);
+      }
+      
       navigation.navigate('CheckoutScreen', {
-        plantData: plantData,
+        plantData: plantDataWithCountry,
         selectedPotSize: selectedPotSize,
         quantity: quantity,
         plantCode: plantCode,
@@ -219,10 +242,32 @@ const ScreenPlantDetail = ({navigation, route}) => {
           throw new Error(`This plant is currently ${plantData.status} and not available for purchase`);
         }
 
+        // Determine country if not present
+        let country = plantData.country;
+        if (!country) {
+          const mapCurrencyToCountry = (localCurrency) => {
+            if (!localCurrency) return 'ID'; // Default to Indonesia
+            
+            switch (localCurrency.toUpperCase()) {
+              case 'PHP':
+                return 'PH';
+              case 'THB':
+                return 'TH';
+              case 'IDR':
+                return 'ID';
+              default:
+                return 'ID'; // Default to Indonesia
+            }
+          };
+          
+          country = mapCurrencyToCountry(plantData.localCurrency);
+        }
+
         const cartData = {
           plantCode: plantCode,
           quantity: quantity,
           potSize: selectedPotSize,
+          country: country, // Add country to cart data
           notes: `${plantData.genus} ${plantData.species} - ${plantData.variegation || 'Standard'}`
         };
 
