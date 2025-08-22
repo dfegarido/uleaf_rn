@@ -37,9 +37,8 @@ import CloseIcon from '../../../assets/buyer-icons/close.svg';
 import MinusIcon from '../../../assets/buyer-icons/minus.svg';
 import PlusIcon from '../../../assets/buyer-icons/plus.svg';
 import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
-import {getPlantRecommendationsApi} from '../../../components/Api/listingBrowseApi';
 import {addToCartApi} from '../../../components/Api/cartApi';
-import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
@@ -69,9 +68,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [availablePotSizes, setAvailablePotSizes] = useState([]);
   const [potSizeGroups, setPotSizeGroups] = useState({});
   
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState([]);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  // (Replaced manual recommendations with BrowseMorePlants component)
   
   // Add to cart modal state
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
@@ -141,11 +138,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
       setAvailablePotSizes([plantData.potSize]);
     }
     
-    // Load recommendations when plant data is available and we're not already loading
-    if (plantData?.plantCode && !loadingRecommendations && recommendations.length === 0) {
-      loadRecommendations();
-    }
-  }, [plantData, loadingRecommendations, recommendations.length, selectedPotSize]);
+  }, [plantData, selectedPotSize]);
 
   // Log when shipping costs update
   useEffect(() => {
@@ -154,71 +147,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
     }
   }, [selectedPotSize, plantData?.listingType, plantData?.approximateHeight]);
 
-  const loadRecommendations = async () => {
-    // Prevent multiple concurrent calls
-    if (loadingRecommendations) {
-      return;
-    }
-    
-    if (!plantData?.plantCode) {
-      return;
-    }
-    
-    try {
-      setLoadingRecommendations(true);
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const res = await retryAsync(() => getPlantRecommendationsApi({
-        plantCode: plantData.plantCode,
-        limit: 10
-      }), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to load recommendations');
-      }
-
-      const rawRecommendations = res.data?.recommendations || [];
-      
-      // Filter out plants with invalid data (same logic as BrowseMorePlants)
-      const validRecommendations = rawRecommendations.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-          console.log('Filtering out invalid recommendation:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
-        }
-        
-        return isValid;
-      });
-      
-      console.log(`Filtered ${rawRecommendations.length} recommendations down to ${validRecommendations.length} valid recommendations`);
-      
-      // Set recommendations first, then loading state
-      setRecommendations(validRecommendations);
-      setLoadingRecommendations(false);
-
-    } catch (error) {
-      setRecommendations([]);
-      setLoadingRecommendations(false);
-    }
-  };
 
   const loadPlantDetails = async () => {
     try {
@@ -444,6 +372,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
         localPrice: selectedPlant.localPrice,
         localPriceNew: selectedPlant.localPriceNew,
         discountPercent: selectedPlant.discountPercent,
+        originalPrice: selectedPlant.originalPrice,
+        finalPrice: selectedPlant.finalPrice,
       };
     }
     // Fallback to main plant data
@@ -453,28 +383,33 @@ const ScreenPlantDetail = ({navigation, route}) => {
       localPrice: plantData?.localPrice,
       localPriceNew: plantData?.localPriceNew,
       discountPercent: plantData?.discountPercent,
+      originalPrice: plantData?.originalPrice,
+      finalPrice: plantData?.finalPrice,
     };
   };
 
   // Calculate discounted price
   const getDiscountedPrice = () => {
     const priceData = getPriceForSelectedPotSize();
-    const originalPrice = parseFloat(priceData.usdPrice || 0);
-    const discountPercent = parseFloat(priceData.discountPercent); // Default 10% discount
-    
-    if (originalPrice > 0 && discountPercent > 0) {
-      const discountedPrice = originalPrice * (1 - discountPercent / 100);
-      return {
-        originalPrice: originalPrice.toFixed(2),
-        discountedPrice: discountedPrice.toFixed(2),
-        discountPercent: discountPercent,
-      };
+    // Preferred fields per spec
+    const original = parseFloat(priceData.originalPrice ?? priceData.usdPrice ?? 0) || 0;
+    let current = parseFloat(priceData.usdPriceNew ?? priceData.finalPrice ?? priceData.usdPrice ?? original) || 0;
+
+    // Guard: if current is 0 but original exists, fallback to original
+    if (current === 0 && original > 0) current = original;
+
+    let deduction = 0;
+    let discountPercent = 0;
+    if (original > 0 && current < original) {
+      deduction = original - current;
+      discountPercent = (deduction / original) * 100;
     }
-    
+
     return {
-      originalPrice: originalPrice.toFixed(2),
-      discountedPrice: originalPrice.toFixed(2),
-      discountPercent: 0,
+      originalPrice: original.toFixed(2),
+      discountedPrice: current.toFixed(2),
+      deduction: deduction.toFixed(2),
+      discountPercent: parseFloat(discountPercent.toFixed(0)), // whole number percent per common UI convention
     };
   };
 
@@ -607,13 +542,24 @@ const ScreenPlantDetail = ({navigation, route}) => {
             {plantData.genus} {plantData.species}
           </Text>
 
-          {/* Description */}
-          <View style={styles.descriptionContainer}>
+          {/* Variegation + Listing Type */}
+          <View style={styles.variegationTypeRow}>
             {plantData.variegation && plantData.variegation !== 'None' && plantData.variegation.trim() !== '' && (
-              <Text style={styles.variegationLabel}>
+              <Text style={styles.variegationLabel} numberOfLines={1}>
                 {plantData.variegation}
               </Text>
             )}
+            {plantData.listingType && (
+              <View style={styles.listingTypeBadgeDetail}>
+                <Text style={styles.listingTypeBadgeTextDetail} numberOfLines={1}>
+                  {plantData.listingType}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Additional Description */}
+          <View style={styles.descriptionContainer}>
             {plantData.mutation && plantData.mutation !== 'Not specified' && plantData.mutation.trim() !== '' && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Mutation:</Text>
@@ -738,19 +684,23 @@ const ScreenPlantDetail = ({navigation, route}) => {
           {/* Price and Pot Size */}
           <View style={styles.priceContainer}>
             <View style={styles.priceRow}>
-              <Text style={styles.price}>
-                ${getDiscountedPrice().discountedPrice}
-              </Text>
-              {getDiscountedPrice().discountPercent > 0 && (
-                <>
-                  <Text style={styles.originalPriceSmall}>
-                    ${getDiscountedPrice().originalPrice}
-                  </Text>
-                  <View style={styles.discountBadgeSmall}>
-                    <Text style={styles.discountTextSmall}>{getDiscountedPrice().discountPercent}% OFF</Text>
-                  </View>
-                </>
-              )}
+              {(() => {
+                const {originalPrice, discountedPrice, discountPercent} = getDiscountedPrice();
+                const hasDiscount = discountPercent > 0;
+                return (
+                  <>
+                    <Text style={styles.price}>${discountedPrice}</Text>
+                    {hasDiscount && (
+                      <>
+                        <Text style={styles.originalPriceSmall}>${originalPrice}</Text>
+                        <View style={styles.discountBadgeSmall}>
+                          <Text style={styles.discountTextSmall}>{discountPercent}% OFF</Text>
+                        </View>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </View>
             <View style={styles.shippingInfo}>
               <FlightIcon width={20} height={20} />
@@ -938,61 +888,15 @@ const ScreenPlantDetail = ({navigation, route}) => {
           {/* Divider */}
           <View style={styles.divider} />
 
-          {/* You may also like section */}
+          {/* You may also like section (BrowseMorePlants component) */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>You May Also Like</Text>
-            
-            {loadingRecommendations ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#539461" />
-                <Text style={styles.loadingText}>Loading recommendations...</Text>
-              </View>
-            ) : recommendations.length > 0 ? (
-              <View style={styles.recommendationGrid}>
-                {recommendations.map((plant, index) => {
-                  // Additional safety check before rendering
-                  if (!plant || 
-                      !plant.plantCode || 
-                      typeof plant.plantCode !== 'string' ||
-                      plant.plantCode.trim() === '') {
-                    console.log('Skipping invalid recommendation at render:', plant);
-                    return null;
-                  }
-                  
-                  // Ensure title and subtitle are safe
-                  const hasValidTitle = (plant.genus && typeof plant.genus === 'string') || 
-                                       (plant.plantName && typeof plant.plantName === 'string');
-                  const hasValidSubtitle = (plant.species && typeof plant.species === 'string') || 
-                                          (plant.variegation && typeof plant.variegation === 'string');
-                  
-                  if (!hasValidTitle || !hasValidSubtitle) {
-                    console.log('Skipping recommendation with invalid text fields:', plant);
-                    return null;
-                  }
-                  
-                  return (
-                    <View 
-                      key={plant.id || plant.plantCode || `rec-${index}`} 
-                      style={styles.recommendationCard}
-                    >
-                      <PlantItemCard 
-                        data={plant}
-                        onPress={() => {
-                          navigation.push('ScreenPlantDetail', { 
-                            plantCode: plant.plantCode,
-                            plantData: plant 
-                          });
-                        }}
-                      />
-                    </View>
-                  );
-                }).filter(Boolean)}
-              </View>
-            ) : (
-              <View style={styles.noRecommendationsContainer}>
-                <Text style={styles.noRecommendationsText}>No recommendations available</Text>
-              </View>
-            )}
+            <BrowseMorePlants
+              title="You May Also Like"
+              initialLimit={4}
+              loadMoreLimit={4}
+              onPlantPress={(plant) => navigation.push('ScreenPlantDetail', { plantCode: plant.plantCode, plantData: plant })}
+              containerStyle={{paddingVertical:0}}
+            />
           </View>
         </View>
         </ScrollView>
@@ -1041,17 +945,23 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 {/* Price */}
                 <View style={styles.modalPriceContainer}>
                   <View style={styles.priceRow}>
-                    <Text style={styles.modalPrice}>
-                      ${getDiscountedPrice().discountedPrice}
-                    </Text>
-                    <Text style={styles.originalPrice}>
-                      ${getDiscountedPrice().originalPrice}
-                    </Text>
-                    {getDiscountedPrice().discountPercent > 0 && (
-                      <View style={styles.discountBadge}>
-                        <Text style={styles.discountText}>{getDiscountedPrice().discountPercent}% OFF</Text>
-                      </View>
-                    )}
+                    {(() => {
+                      const {originalPrice, discountedPrice, discountPercent} = getDiscountedPrice();
+                      const hasDiscount = discountPercent > 0;
+                      return (
+                        <>
+                          <Text style={styles.modalPrice}>${discountedPrice}</Text>
+                          {hasDiscount && (
+                            <>
+                              <Text style={styles.originalPrice}>${originalPrice}</Text>
+                              <View style={styles.discountBadge}>
+                                <Text style={styles.discountText}>{discountPercent}% OFF</Text>
+                              </View>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </View>
                   <View style={styles.shippingInfo}>
                     <FlightIcon width={20} height={20} />
@@ -1294,10 +1204,39 @@ const ScreenPlantDetail = ({navigation, route}) => {
     paddingVertical: 8,
     gap: 8,
   },
+  variegationTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    gap: 8,
+    minHeight: 28,
+  justifyContent: 'space-between',
+  },
   variegationLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#202325',
+  flexShrink: 1,
+  flex: 1,
+  },
+  listingTypeBadgeDetail: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingTop: 0,
+    paddingBottom: 1,
+    backgroundColor: '#202325',
+    borderRadius: 8,
+    height: 28,
+    minHeight: 28,
+  },
+  listingTypeBadgeTextDetail: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    color: '#FFFFFF',
   },
   detailRow: {
     flexDirection: 'row',
@@ -1366,38 +1305,46 @@ const ScreenPlantDetail = ({navigation, route}) => {
   priceContainer: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    gap: 16,
-  },
-  price: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#202325',
+    gap: 12,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    height: 32,
+  },
+  price: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 28,
+    lineHeight: 32,
+    color: '#539461',
   },
   originalPriceSmall: {
-    fontSize: 16,
+    fontFamily: 'Inter',
     fontWeight: '500',
-    color: '#7F8D91',
+    fontSize: 18,
+    lineHeight: 24,
     textDecorationLine: 'line-through',
+    color: '#7F8D91',
   },
   discountBadgeSmall: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
     paddingVertical: 2,
+    paddingHorizontal: 8,
     backgroundColor: '#FFE7E2',
-    borderRadius: 6,
+    borderRadius: 8,
+    height: 24,
+    minHeight: 24,
   },
   discountTextSmall: {
     fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#CC512A',
+    fontWeight: '700',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#E7522F',
   },
   shippingInfo: {
     flexDirection: 'row',

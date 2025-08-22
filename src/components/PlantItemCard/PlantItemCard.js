@@ -73,6 +73,7 @@ const PlantItemCard = ({
   data = null,
   onAddToCart = () => {},
   style = {},
+  cardStyle = {}, // override internal card dimensions/styling
 }) => {
   const navigation = useNavigation();
   const [imageError, setImageError] = React.useState(false);
@@ -111,14 +112,25 @@ const PlantItemCard = ({
     (plantData.species || plantData.variegation || 'Plant Details') :
     subtitle;
     
-  const displayPrice = data ? 
-    (plantData.finalPrice ? formatCurrencyFull(plantData.finalPrice) :
-     plantData.usdPriceNew ? formatCurrencyFull(plantData.usdPriceNew) : 
-     plantData.usdPrice ? formatCurrencyFull(plantData.usdPrice) : 
-     plantData.localPriceNew ? `${plantData.localCurrencySymbol || '$'}${plantData.localPriceNew}` :
-     plantData.localPrice ? `${plantData.localCurrencySymbol || '$'}${plantData.localPrice}` : 
-     'Price N/A') :
-    price;
+  // Pricing logic (updated to always prioritize usdPriceNew)
+  // Always use usdPriceNew as the primary displayed price when available
+  const displayPrice = data ? (
+    plantData.usdPriceNew != null ? formatCurrencyFull(plantData.usdPriceNew) :
+    plantData.finalPrice != null ? formatCurrencyFull(plantData.finalPrice) :
+    plantData.usdPrice != null ? formatCurrencyFull(plantData.usdPrice) :
+    plantData.localPriceNew != null ? formatCurrencyFull(plantData.localPriceNew) :
+    plantData.localPrice != null ? formatCurrencyFull(plantData.localPrice) :
+    'Price N/A'
+  ) : price;
+
+  // Determine strike-through (original) price for discounted items
+  // Prefer originalPrice from API, but ensure we're showing a valid comparison
+  const rawOriginal = data ? (
+    plantData.originalPrice != null && plantData.usdPriceNew != null ? plantData.originalPrice : 
+    plantData.usdPrice != null && plantData.usdPriceNew != null ? plantData.usdPrice : 
+    null
+  ) : null;
+  const showStrikethrough = data && rawOriginal != null && plantData.usdPriceNew != null && rawOriginal > plantData.usdPriceNew;
     
   const displayLikes = data ? 
     (plantData.loveCount ? `${plantData.loveCount}` : '0') :
@@ -136,10 +148,40 @@ const PlantItemCard = ({
     // Legacy support: Use provided flightDate prop or fallback to 'N/A'
     (flightDate || 'N/A');
 
+  // Determine if discounted for badge (prioritizing usdPriceNew for all discount calculations)
+  const hasDiscount = !!(data && (
+    (plantData.discountPercent && plantData.discountPercent > 0) ||
+    (plantData.originalPrice && plantData.usdPriceNew && plantData.originalPrice > plantData.usdPriceNew) ||
+    (plantData.usdPrice && plantData.usdPriceNew && plantData.usdPrice > plantData.usdPriceNew)
+  ));
+
+  // Compute discount percent (prefer backend discountPercent, else derive from originalPrice/usdPriceNew)
+  let derivedDiscountPercent = null;
+  if (hasDiscount) {
+    if (plantData.discountPercent && plantData.discountPercent > 0) {
+      // Use backend-provided discount percent if available
+      derivedDiscountPercent = Math.round(plantData.discountPercent);
+    } else if (plantData.originalPrice && plantData.usdPriceNew && plantData.originalPrice > plantData.usdPriceNew) {
+      // Calculate discount from originalPrice and usdPriceNew
+      const original = parseFloat(plantData.originalPrice);
+      const current = parseFloat(plantData.usdPriceNew);
+      if (original > 0 && current < original) {
+        derivedDiscountPercent = Math.round(((original - current) / original) * 100);
+      }
+    } else if (plantData.usdPrice && plantData.usdPriceNew && plantData.usdPrice > plantData.usdPriceNew) {
+      // Calculate discount from usdPrice and usdPriceNew
+      const original = parseFloat(plantData.usdPrice);
+      const current = parseFloat(plantData.usdPriceNew);
+      if (original > 0 && current < original) {
+        derivedDiscountPercent = Math.round(((original - current) / original) * 100);
+      }
+    }
+  }
+
   return (
     <View style={[{flexDirection: 'column'}, style]}>
       <TouchableOpacity
-        style={styles.card}
+        style={[styles.card, cardStyle]}
         onPress={handleCardPress}
         activeOpacity={0.9}>
         <View style={styles.imageContainer}>
@@ -184,15 +226,10 @@ const PlantItemCard = ({
             </View>
           </View>
           
-          {/* Discount Badge */}
-          {data && (plantData.discountPercent > 0 || plantData.discountPrice > 0) && (
+          {/* Discount Badge (using "Snip & Save" instead of percentage) */}
+          {hasDiscount && (
             <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>
-                {plantData.discountPercent > 0 
-                  ? `${plantData.discountPercent}% OFF`
-                  : `$${plantData.discountPrice} OFF`
-                }
-              </Text>
+              <Text style={styles.discountText}>Snip & Save</Text>
             </View>
           )}
           
@@ -221,10 +258,10 @@ const PlantItemCard = ({
           </TouchableOpacity>
         </View>
         <Text style={styles.subtitle} numberOfLines={1}>{displaySubtitle}</Text>
-        <View style={styles.row}>
+        <View style={styles.priceRow}>
           <Text style={styles.price}>{displayPrice}</Text>
-          {data && plantData.usdPriceNew && plantData.usdPrice && plantData.usdPrice > plantData.usdPriceNew && (
-            <Text style={styles.oldPrice}>${plantData.usdPrice}</Text>
+          {showStrikethrough && (
+            <Text style={styles.oldPrice}> {formatCurrencyFull(rawOriginal)}</Text>
           )}
         </View>
         
@@ -317,13 +354,13 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: '#FFE7E2',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderTopRightRadius: 8,
     borderBottomRightRadius: 8,
   },
   discountText: {
     color: '#E7522F',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   loveBadge: {
@@ -377,6 +414,12 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 14,
     marginVertical: 2,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 4,
   },
   price: {
     fontWeight: '500',

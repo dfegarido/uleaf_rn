@@ -71,7 +71,6 @@ import {
   getBuyerListingsApi,
   addToCartApi,
   getCartItemsApi,
-  getPlantRecommendationsApi,
 } from '../../../components/Api';
 import {
   getCountryApi,
@@ -154,9 +153,7 @@ const ScreenShop = ({navigation}) => {
   const [eventImageCache, setEventImageCache] = useState({});
   const [eventImageLoading, setEventImageLoading] = useState({});
   
-  // Genus image cache state
-  const [genusImageCache, setGenusImageCache] = useState({});
-  const [genusImageLoading, setGenusImageLoading] = useState({});
+  // (Removed) genus image cache state – no longer needed with static local images
   
   // Search results state
   const [searchResults, setSearchResults] = useState([]);
@@ -171,10 +168,7 @@ const ScreenShop = ({navigation}) => {
   
   // Browse plants state persistence to prevent unnecessary reloading
   const [browseMorePlantsKey, setBrowseMorePlantsKey] = useState(1);
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState([]);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
-  const [recommendationError, setRecommendationError] = useState(null);
+  // (Removed) recommendations state – replaced by BrowseMorePlants component elsewhere
   
   // ----------------------
   // Hooks (Effects)
@@ -230,7 +224,6 @@ const ScreenShop = ({navigation}) => {
           loadAcclimationIndexData(),
           loadBrowseGenusData(),
           loadEventsData(),
-          loadRecommendations(),
         ]);
       } catch (error) {
       }
@@ -519,134 +512,42 @@ const ScreenShop = ({navigation}) => {
   };
 
   const loadBrowseGenusData = async () => {
+    // Local, static genus set (no API).
     try {
       setLoadingGenusData(true);
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      // Call the browse plants by genus API to get all genera with representative images
-      const browseRes = await retryAsync(
-        () => getBrowsePlantByGenusApi(),
-        3,
-        1000,
-      );
-
-      if (!browseRes?.success) {
-        throw new Error(
-          browseRes?.message || 'Failed to load browse genus data',
-        );
-      }
-
-      // Ensure we have genus groups data from the API
-      if (
-        !browseRes.genusGroups ||
-        !Array.isArray(browseRes.genusGroups) ||
-        browseRes.genusGroups.length === 0
-      ) {
-        throw new Error('No genus groups data received from API');
-      }
-
-      // Create genus image mapping
-      const genusImageMap = {
-        'alocasia': alocasiaImage,
-        'anthurium': anthuriumImage,
-        'begonia': begoniaImage,
-        'hoya': hoyaImage,
-        'monstera': monsteraImage,
-        'scindapsus': scindapsusImage,
-        'syngonium': syngoniumImage,
-        'philodendron': philodendronImage,
-        'others': othersImage,
-      };
-
-      // Fallback images array for any unmapped genera
-      const genusImages = [
-        genus1,
-        genus2,
-        genus3,
-        genus4,
-        genus5,
-        genus6,
-        genus7,
-        genus8,
+      const staticGenus = [
+        { key: 'alocasia', label: 'Alocasia', src: alocasiaImage },
+        { key: 'anthurium', label: 'Anthurium', src: anthuriumImage },
+        { key: 'begonia', label: 'Begonia', src: begoniaImage },
+        { key: 'hoya', label: 'Hoya', src: hoyaImage },
+        { key: 'monstera', label: 'Monstera', src: monsteraImage },
+        { key: 'scindapsus', label: 'Scindapsus', src: scindapsusImage },
+        { key: 'syngonium', label: 'Syngonium', src: syngoniumImage },
+        { key: 'philodendron', label: 'Philodendron', src: philodendronImage },
+        { key: 'others', label: 'Others', src: othersImage },
       ];
 
-      const mappedGenusData = browseRes.genusGroups.map((genusGroup, index) => {
-        // Get the correct genus name from representativePlant.originalGenus
-        const correctGenusName = genusGroup.representativePlant?.originalGenus || genusGroup.genus;
-        
-        // First try to get the specific image for this genus
-        let imageSource = genusImageMap[genusGroup.genus.toLowerCase()];
-        
-        // If no local image found, try using representative image from API as fallback
-        const preferredWebp = genusGroup.representativeImageWebp;
-        if (!imageSource && (preferredWebp || genusGroup.representativeImage)) {
-          imageSource = {uri: preferredWebp || genusGroup.representativeImage};
-        }
-        
-        // Final fallback to generic images
-        if (!imageSource) {
-          imageSource = genusImages[index % genusImages.length];
-        }
+      // Map to dynamicGenusData shape expected by UI (omit API-only fields)
+      const mapped = staticGenus.map(g => ({
+        src: g.src,
+        label: g.label,
+        genusName: g.label,
+        plantCount: null,
+        speciesCount: null,
+        priceRange: null,
+        representativeImage: null,
+        representativeImageWebp: null,
+      }));
 
-        return {
-          src: imageSource,
-          label: genusGroup.genus,
-            genusName: genusGroup.genus.toLowerCase() === 'others' ? 'Others' : correctGenusName,
-          plantCount: genusGroup.plantCount,
-          speciesCount: genusGroup.speciesCount,
-          priceRange: genusGroup.priceRange,
-          representativeImage: genusGroup.representativeImage, // original
-          representativeImageWebp: genusGroup.representativeImageWebp, // new preferred webp
-        };
+      // Ensure Others last
+      const sorted = mapped.sort((a,b)=>{
+        const ao = a.label.toLowerCase()==='others';
+        const bo = b.label.toLowerCase()==='others';
+        if (ao && !bo) return 1; if (!ao && bo) return -1; return 0;
       });
-
-      // Sort the data to ensure "others" appears last
-      const sortedGenusData = mappedGenusData.sort((a, b) => {
-        const aIsOthers = a.genusName.toLowerCase() === 'others';
-        const bIsOthers = b.genusName.toLowerCase() === 'others';
-        
-        if (aIsOthers && !bIsOthers) return 1; // a goes to end
-        if (!aIsOthers && bIsOthers) return -1; // b goes to end
-        return 0; // maintain original order for non-others items
-      });
-
-      setDynamicGenusData(sortedGenusData);
-      
-      // Load cached images for genus data
-      await loadCachedGenusImages(sortedGenusData);
-    } catch (error) {
-      // Don't fallback to static data - keep loading state or show error
-      setDynamicGenusData([]);
-      // You could show a user-friendly error message here
+      setDynamicGenusData(sorted);
     } finally {
       setLoadingGenusData(false);
-    }
-  };
-
-  const loadRecommendations = async () => {
-    try {
-      setLoadingRecommendations(true);
-      setRecommendationError(null);
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) throw new Error('No internet connection.');
-      const res = await retryAsync(() => getPlantRecommendationsApi({ limit: 4 }), 3, 800);
-      if (!res?.success || !Array.isArray(res?.plants)) throw new Error(res?.message || 'Failed to load recommendations');
-      // Ensure each plant carries WebP fields; no mapping change needed except fallback additions
-      const withWebp = res.plants.map(p => ({
-        ...p,
-        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary, // keep
-        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
-      }));
-      setRecommendations(withWebp);
-    } catch (e) {
-      setRecommendationError(e.message);
-      setRecommendations([]);
-    } finally {
-      setLoadingRecommendations(false);
     }
   };
 
@@ -738,64 +639,7 @@ const ScreenShop = ({navigation}) => {
     }
   };
 
-  // Load cached images for genus
-  const loadCachedGenusImages = async (genusData) => {
-    const cache = {};
-    const loadingState = {};
-    
-    for (const genus of genusData) {
-      if (genus.representativeImage) {
-        const genusId = genus.genus || genus.label;
-        loadingState[genusId] = false;
-        
-        try {
-          const cachedUri = await getCachedImageUri(genus.representativeImage, CACHE_CONFIGS.GENUS_IMAGES.expiryDays);
-          if (cachedUri) {
-            cache[genusId] = cachedUri;
-          }
-        } catch (error) {
-        }
-      }
-    }
-    
-    setGenusImageCache(cache);
-    setGenusImageLoading(loadingState);
-  };
-
-  // Handle genus image caching on load
-  const handleGenusImageLoad = async (genus, imageUri) => {
-    const genusId = genus.genus || genus.label;
-    
-    try {
-      // Update loading state
-      setGenusImageLoading(prev => ({
-        ...prev,
-        [genusId]: false
-      }));
-      
-      // Cache the image if not already cached and it's from representativeImage
-      if (!genusImageCache[genusId] && genus.representativeImage && imageUri) {
-        await setCachedImageUri(imageUri, genus.representativeImage, CACHE_CONFIGS.GENUS_IMAGES.expiryDays);
-        setGenusImageCache(prev => ({
-          ...prev,
-          [genusId]: imageUri
-        }));
-      }
-    } catch (error) {
-    }
-  };
-
-  const handleGenusImageLoadStart = (genus) => {
-    const genusId = genus.genus || genus.label;
-    
-    // Only show loading if not cached and using representative image
-    if (!genusImageCache[genusId] && genus.representativeImage) {
-      setGenusImageLoading(prev => ({
-        ...prev,
-        [genusId]: true
-      }));
-    }
-  };
+  // (Removed) genus image caching helpers – static local images render instantly
 
   const performSearch = async (searchTerm) => {
     try {
@@ -1385,102 +1229,39 @@ const ScreenShop = ({navigation}) => {
               </View>
             ))
           ) : dynamicGenusData.length > 0 ? (
-            // Show dynamic data from API
-            dynamicGenusData.map((item, idx) => {
-              const genusId = item.genus || item.label;
-              const cachedImageUri = genusImageCache[genusId];
-              const isImageLoading = genusImageLoading[genusId];
-              
-              // Determine which image to display - prioritize local images, then cached representative images
-              let displayImage = item.src;
-              
-              // Check if we have a local image (imported images are numbers in React Native)
-              if (displayImage && typeof displayImage === 'number') {
-                // Keep the local image - it's already correct
-              } else if (displayImage && typeof displayImage === 'object' && !displayImage.uri) {
-                // This is also a local image (imported as an object)
-                // Keep it as is
-              } else if ((item.representativeImageWebp || item.representativeImage) && cachedImageUri) {
-                // Use cached representative (likely original or webp) image
-                displayImage = { uri: cachedImageUri };
-              } else if (item.representativeImageWebp) {
-                // Prefer webp directly
-                displayImage = { uri: item.representativeImageWebp };
-              } else if (item.representativeImage) {
-                // Fallback to original image
-                displayImage = { uri: item.representativeImage };
-              } else {
-                // Fallback to default genus image
-                displayImage = genus1;
-              }
-              
-              // Final validation - ensure we have a valid image source
-              if (!displayImage) {
-                displayImage = genus1; // Default fallback image
-              }
-              
-              return (
-                <TouchableOpacity
-                  key={idx}
+            // Static local genus data
+            dynamicGenusData.map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={{
+                  width: '30%',
+                  marginBottom: 18,
+                  alignItems: 'center',
+                  position: 'relative',
+                }}
+                onPress={() => onGenusPress(item.genusName)}>
+                <Image
+                  source={item.src || genus1}
                   style={{
-                    width: '30%',
-                    marginBottom: 18,
-                    alignItems: 'center',
-                    position: 'relative',
+                    width: 110,
+                    height: 110,
+                    borderRadius: 12,
+                    marginBottom: 6,
                   }}
-                  onPress={() => onGenusPress(item.genusName)}>
-                  <Image
-                    source={displayImage}
-                    style={{
-                      width: 110,
-                      height: 110,
-                      borderRadius: 12,
-                      marginBottom: 6,
-                    }}
-                    resizeMode="cover"
-                    onLoadStart={() => handleGenusImageLoadStart(item)}
-                    onLoad={(event) => {
-                      handleGenusImageLoad(item, event.nativeEvent.source?.uri);
-                    }}
-                    onError={(error) => {
-                      setGenusImageLoading(prev => ({
-                        ...prev,
-                        [genusId]: false
-                      }));
-                    }}
-                    key={`genus-${genusId}-${cachedImageUri ? 'cached' : 'original'}`}
-                  />
-                  
-                  {/* Loading overlay for genus images */}
-                  {isImageLoading && (
-                    <View style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: 110,
-                      height: 110,
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: 12,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}>
-                      <ActivityIndicator size="small" color="#7CBD58" />
-                    </View>
-                  )}
-                  
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '800',
-                      color: '#393D40',
-                      textAlign: 'center',
-                      textTransform: 'capitalize',
-                    }}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })
+                  resizeMode="cover"
+                />
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '800',
+                    color: '#393D40',
+                    textAlign: 'center',
+                    textTransform: 'capitalize',
+                  }}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))
           ) : (
             // Show error state when no data is available
             <View

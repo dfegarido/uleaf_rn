@@ -759,6 +759,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
                 >
                   <PlantItemCard
                     data={plant}
+                    cardStyle={{ height: 220, margin: 8}}
                     onPress={() => {
                       console.log('Navigate to plant detail:', plant.plantCode);
                       // TODO: Navigate to plant detail screen
