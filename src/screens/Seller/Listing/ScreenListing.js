@@ -645,7 +645,7 @@ const ScreenListing = ({navigation}) => {
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
-  const onPressDeleteConfirm = async () => {
+  const onPressDeleteConfirm = () => {
     setDeleteModalVisible(true);
   };
 
