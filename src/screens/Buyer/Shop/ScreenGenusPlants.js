@@ -38,6 +38,7 @@ const GenusHeader = ({
   setSearchTerm,
   setIsSearchFocused,
   insets,
+  onBadgePress, // handler passed from parent to handle badge clicks in-place
 }) => {
   return (
     <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
@@ -97,7 +98,7 @@ const GenusHeader = ({
       </View>
     </View>
     
-    <PromoBadgeList navigation={navigation} />
+  <PromoBadgeList navigation={navigation} onBadgePress={onBadgePress} />
     </View>
   );
 };
@@ -547,6 +548,50 @@ const ScreenGenusPlants = ({navigation, route}) => {
     acclimationIndex: globalFilters.acclimationIndex || [],
   });
 
+  // Map PromoBadge labels to filter changes
+  const BADGE_LABEL_TO_FILTER = {
+    'Price Drop': { price: ['$0 - $20'] },
+    'New Arrivals': { sort: ['Newest to Oldest'] },
+    'Latest Nursery Drop': { listingType: ['Latest Nursery Drop'] },
+    'Below $20': { price: ['$0 - $20'] },
+    'Unicorn': { listingType: ['Unicorn'] },
+    'Top 5 Buyer Wish List': { listingType: ['Top 5 Buyer Wish List'] },
+  };
+
+  // Handler for PromoBadge clicks in genus screen — apply the badge's filter locally and reload
+  const handleBadgePress = (badge) => {
+    try {
+      const label = badge?.label;
+      if (!label) return;
+
+      // Determine filter mapping
+      const mapped = BADGE_LABEL_TO_FILTER[label] || { listingType: [label] };
+
+      // Clear existing local filters and apply the mapped filter so badge acts as a single-filter
+      const newLocalFilters = {
+        sort: [],
+        price: [],
+        genus: [],
+        variegation: [],
+        country: [],
+        listingType: [],
+        shippingIndex: [],
+        acclimationIndex: [],
+        ...mapped,
+      };
+
+      setLocalFilters(newLocalFilters);
+
+      // Apply immediately (in-place) and reload plants with the new local filters
+      setLoading(true);
+      setPlants([]);
+      justFiltered.current = true;
+      loadPlantsWithFilters(newLocalFilters, true);
+    } catch (e) {
+      console.error('Error handling badge press:', e);
+    }
+  };
+
   // Update local filters when global filters change (e.g., from another screen)
   useEffect(() => {
     setLocalFilters({
@@ -672,6 +717,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         setSearchTerm={setSearchTerm}
         setIsSearchFocused={setIsSearchFocused}
         insets={insets}
+        onBadgePress={handleBadgePress}
       />
 
       {/* Search Results - Positioned outside header to appear above content */}

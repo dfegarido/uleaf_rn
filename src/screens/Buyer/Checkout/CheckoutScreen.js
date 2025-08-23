@@ -929,11 +929,42 @@ const CheckoutScreen = () => {
           price: plantData.usdPriceNew || plantData.usdPrice,
           originalPrice: plantData.usdPrice,
           country: plantData.country,
+          // Include flight/cargo date and plant source country for backend
+          flightDate: plantData.flightDate || plantData.plantFlightDate || cargoDate,
+          plantSourceCountry: plantData.country || plantData.plantSourceCountry || null,
         }];
         orderData.useCart = false;
       } else if (useCart && cartItems.length > 0) {
         // Use cart items with enhanced data
         orderData.useCart = true;
+        
+        // Console log cart items to debug plantSourceCountry
+        console.log('Cart items for checkout:', cartItems);
+        
+        // When using cart, we need to add plantSourceCountry to each item
+        // Also map the cart item data to a properly formatted productData array
+        orderData.productData = cartItems.map(item => {
+          // Extract country from cart item
+          const country = item.country || 
+            // Check for flag emoji to convert to country code
+            (item.flagIcon === '🇵🇭' ? 'PH' : 
+             item.flagIcon === '🇹🇭' ? 'TH' :
+             item.flagIcon === '🇮🇩' ? 'ID' : 
+             // Fall back to extracting from currency if available
+             (item.localCurrency ? getCountryFromCurrency(item.localCurrency) : 'ID'));
+          
+          return {
+            plantCode: item.plantCode,
+            quantity: item.quantity || 1,
+            potSize: item.potSize || item.size,
+            price: item.price,
+            // Include flight date and plantSourceCountry fields
+            flightDate: item.flightDate || cargoDate,
+            plantSourceCountry: country,
+          };
+        });
+        
+        // Keep the legacy cartItems structure for backward compatibility
         orderData.cartItems = cartItems.map(item => ({
           cartItemId: item.cartItemId,
           plantCode: item.plantCode,
@@ -947,7 +978,12 @@ const CheckoutScreen = () => {
           availableQuantity: item.availableQuantity,
           isUnavailable: item.isUnavailable,
           flagIcon: item.flagIcon,
-          subtitle: item.subtitle
+          subtitle: item.subtitle,
+          plantSourceCountry: item.country || 
+            (item.flagIcon === '🇵🇭' ? 'PH' : 
+             item.flagIcon === '🇹🇭' ? 'TH' :
+             item.flagIcon === '🇮🇩' ? 'ID' : 
+             (item.localCurrency ? getCountryFromCurrency(item.localCurrency) : 'ID'))
         }));
         // The API can use either the cart items from backend or the passed cart items
       } else if (productData && productData.length > 0) {

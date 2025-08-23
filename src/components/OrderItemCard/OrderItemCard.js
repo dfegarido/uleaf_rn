@@ -4,12 +4,14 @@ import {useNavigation} from '@react-navigation/native';
 // Import your calendar icon and flag icon as needed
 import CalendarIcon from '../../assets/icons/greylight/calendar-blank-regular.svg'; // Adjust path as needed
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg'; // Replace with Thailand flag SVG if available
+import DefaultPlaneIcon from '../../assets/buyer-icons/plane-gray.svg'; // Import default plane icon
 
 const OrderItemCard = ({
   status = 'Ready to Fly',
   airCargoDate = 'May-30',
   countryCode = 'TH',
   flag: FlagIcon = ThailandFlag,
+  planeIcon: PlaneIcon = DefaultPlaneIcon,
   image,
   plantName = 'Plant genus species name',
   variety = 'Inner Variegated',
@@ -36,6 +38,22 @@ const OrderItemCard = ({
     country: countryCode,
     // You can add other relevant plant data fields here if needed
   };
+
+  // Resolve plantDetails from available sources (product-level, full order, or passed image)
+  const resolvedPlantDetails = (
+    fullOrderData?.plantDetails ||
+    (fullOrderData?.products && Array.isArray(fullOrderData.products)
+      ? fullOrderData.products.find(p => p.plantCode === plantCode)?.plantDetails
+      : null)
+  ) || null;
+
+  // Prefer imageCollectionWebp first, then imagePrimaryWebp, then legacy image fields, then the incoming `image` prop
+  const resolvedImageUri = (resolvedPlantDetails && (
+    (Array.isArray(resolvedPlantDetails.imageCollectionWebp) && resolvedPlantDetails.imageCollectionWebp[0]) ||
+    resolvedPlantDetails.imagePrimaryWebp ||
+    (Array.isArray(resolvedPlantDetails.imageCollection) && resolvedPlantDetails.imageCollection[0]) ||
+    resolvedPlantDetails.image
+  )) || (typeof image === 'string' ? image : null);
 
   // Helper function to get credit status badge color
   const getCreditStatusBadgeStyle = (status) => {
@@ -107,7 +125,7 @@ const OrderItemCard = ({
         day: 'numeric' 
       }) : 'Wednesday, January 8th 2025',
       plant: {
-        image: image,
+        image: resolvedImageUri || image,
         code: plantCode,
         country: countryCode,
         name: plantName,
@@ -148,7 +166,7 @@ const OrderItemCard = ({
       {!showCreditStatus && (
         <View style={styles.flightRow}>
           <View style={styles.flightInfo}>
-            <CalendarIcon width={16} height={16} />
+            <PlaneIcon width={16} height={16} />
             <Text style={styles.cargoDate}>
               Plant Flight <Text style={styles.bold}>{plantData?.plantFlightDate || airCargoDate || 'N/A'}</Text>
             </Text>
@@ -183,7 +201,7 @@ const OrderItemCard = ({
           {/* Plant / Flight Date */}
           <View style={styles.plantFlightDate}>
             <View style={styles.flightContent}>
-              <CalendarIcon width={24} height={24} />
+              <PlaneIcon width={24} height={24} />
               <Text style={styles.flightDateText}>Plant Flight {plantData?.plantFlightDate || airCargoDate || 'N/A'}</Text>
             </View>
             <View style={styles.countrySection}>
@@ -201,7 +219,13 @@ const OrderItemCard = ({
       ]}>
         {/* Main Content */}
         <View style={styles.contentRow}>
-          <Image source={image} style={styles.plantImage} resizeMode="cover" />
+          <Image
+            source={
+              resolvedImageUri ? { uri: resolvedImageUri } : (typeof image === 'object' ? image : null)
+            }
+            style={styles.plantImage}
+            resizeMode="cover"
+          />
           <View style={styles.infoCol}>
             <Text style={styles.plantName}>{plantName}</Text>
             <Text style={styles.variety}>

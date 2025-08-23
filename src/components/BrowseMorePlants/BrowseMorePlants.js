@@ -87,11 +87,49 @@ const BrowseMorePlants = ({
 
   // Global function to load plant recommendations (singleton pattern)
   const loadGlobalPlantRecommendations = async (forceRefresh = false) => {
-    // If already loaded in this app session and not forced refresh, use existing data
+    // If already loaded in this app session and not forced refresh, do NOT use the full
+    // global batch on mount — fetch a small initial page instead. This prevents the
+    // component from immediately exposing a large cached batch (e.g. 20 items).
     if (hasGlobalLoaded && !forceRefresh) {
-      console.log('🌱 BrowseMorePlants: Using existing global recommendations (', globalPlantRecommendations.length, 'plants)');
-      // Only show initial chunk on mount
-      setPlants(globalPlantRecommendations.slice(0, initialLimit));
+      console.log('🌱 BrowseMorePlants: Global cache present; fetching a small initial page instead of reusing full cache');
+      try {
+        setLoading(true);
+        const resp = await getPlantRecommendationsApi({ limit: initialLimit });
+        if (resp.success && resp.data && Array.isArray(resp.data.recommendations)) {
+          let validPlants = resp.data.recommendations.filter(plant => {
+            const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+            const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+                             (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+            const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') ||
+                               (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+            return hasPlantCode && hasTitle && hasSubtitle;
+          });
+
+          // If client-side validation filtered out everything, fall back to using raw items
+          // (server may not populate all subtitle fields; better to show something than nothing)
+          if (validPlants.length === 0 && Array.isArray(resp.data.recommendations) && resp.data.recommendations.length > 0) {
+            console.warn('🌱 BrowseMorePlants: Client filters removed all items; falling back to raw recommendations');
+            validPlants = resp.data.recommendations.slice(0);
+          }
+
+          // Normalize webp fields if present
+          const normalized = validPlants.map(p => ({
+            ...p,
+            imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimary,
+            imageCollectionWebp: p.imageCollectionWebp || p.imageCollection,
+          }));
+
+          setPlants(normalized.slice(0, initialLimit));
+        } else {
+          setPlants([]);
+        }
+      } catch (err) {
+        console.error('🌱 BrowseMorePlants: Error fetching small initial page:', err);
+        setPlants([]);
+      } finally {
+        setLoading(false);
+      }
+
       return;
     }
 
@@ -127,7 +165,7 @@ const BrowseMorePlants = ({
 
       if (response.success && response.data && response.data.recommendations) {
         // Filter valid plants
-  const validPlants = response.data.recommendations.filter(plant => {
+  let validPlants = response.data.recommendations.filter(plant => {
           const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
           const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
                           (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
@@ -135,6 +173,12 @@ const BrowseMorePlants = ({
                              (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
           return hasPlantCode && hasTitle && hasSubtitle;
         });
+
+        // If filtering removed everything, fall back to server recommendations
+        if (validPlants.length === 0 && Array.isArray(response.data.recommendations) && response.data.recommendations.length > 0) {
+          console.warn('🌱 BrowseMorePlants: Client filters removed all items for global batch; falling back to raw recommendations');
+          validPlants = response.data.recommendations.slice(0);
+        }
 
         console.log(`🌱 Loaded ${validPlants.length} valid plants for global recommendations`);
 

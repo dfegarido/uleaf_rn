@@ -182,10 +182,8 @@ const OrderDetailsScreen = () => {
                            detailedOrder.products[0].variegation || 'Standard',
                 size: detailedOrder.products[0].plantDetails?.potSize || 
                       detailedOrder.products[0].potSize || 'N/A',
-                price: `$${(detailedOrder.products[0].price || 
-                          detailedOrder.products[0].unitPrice || 
-                          detailedOrder.pricing?.itemTotal || 
-                          detailedOrder.pricing?.subtotal || 0).toFixed(2)}`,
+                // Prefer the overall order final total for display; fall back to product/unit/subtotals
+                price: `$${( (typeof detailedOrder.pricing?.finalTotal === 'number' ? detailedOrder.pricing.finalTotal : (detailedOrder.products[0].price ?? detailedOrder.products[0].unitPrice ?? detailedOrder.pricing?.itemTotal ?? detailedOrder.pricing?.subtotal ?? 0)) ).toFixed(2)}`,
                 quantity: detailedOrder.products[0].quantity || 1,
                 scientificName: detailedOrder.products[0].plantDetails?.scientificName || '',
                 description: detailedOrder.products[0].plantDetails?.description || '',
@@ -275,11 +273,8 @@ const OrderDetailsScreen = () => {
           name: plantDetails?.title || product?.plantName || `${product?.genus || ''} ${product?.species || ''}`.trim() || 'Unknown Plant',
           variegation: product?.variegation || plantDetails?.variegation || 'Standard',
           size: product?.potSize || plantDetails?.potSize || 'N/A',
-          price: `$${(product?.price || 
-                     product?.unitPrice || 
-                     realOrder.pricing?.itemTotal || 
-                     realOrder.pricing?.subtotal || 
-                     plantDetails?.price || 0).toFixed(2)}`,
+                // Prefer showing order final total when available, otherwise fall back to product/unit/subtotals
+                price: `$${( (typeof realOrder.pricing?.finalTotal === 'number' ? realOrder.pricing.finalTotal : (product?.price ?? product?.unitPrice ?? realOrder.pricing?.itemTotal ?? realOrder.pricing?.subtotal ?? plantDetails?.price ?? 0)) ).toFixed(2)}`,
           quantity: product?.quantity || 1,
           scientificName: plantDetails?.scientificName || `${product?.genus || ''} ${product?.species || ''}`.trim(),
           description: plantDetails?.description || '',
@@ -773,11 +768,7 @@ const OrderDetailsScreen = () => {
 
                   {/* Variegation + Size */}
                   <View style={styles.variationSizeRow}>
-                    <Text style={styles.variationText}>{order.plant.variegation}</Text>
-                    <View style={styles.dividerContainer}>
-                      <View style={styles.divider} />
-                    </View>
-                    <Text style={styles.sizeText}>{order.plant.size}</Text>
+                    <Text style={styles.variationText}>{`${order.plant.variegation} * ${order.plant.size}`}</Text>
                   </View>
                 </View>
 
@@ -999,7 +990,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
   },
   backButton: {
-    padding: 8,
+    paddingVertical: 8,
+    paddingLeft: 0,
   },
   headerTitle: {
     fontFamily: 'Inter',
@@ -1181,14 +1173,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   imageContainer: {
-    width: 96,
-    height: 128,
+  width: 80,
+  height: 100,
     borderRadius: 6,
     overflow: 'hidden',
   },
   plantImage: {
-    width: 96,
-    height: 128,
+  width: 80,
+  height: 100,
   },
   plantDetails: {
     flex: 1,
@@ -1272,10 +1264,10 @@ const styles = StyleSheet.create({
     color: '#647276',
   },
   priceQuantityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 24,
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  // allow content to size naturally
   },
   priceText: {
     fontFamily: 'Inter',
@@ -1285,10 +1277,11 @@ const styles = StyleSheet.create({
     color: '#202325',
   },
   quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  // don't stretch; keep content snug to the price
+  minWidth: 44,
   },
   quantityNumber: {
     fontFamily: 'Inter',
@@ -1524,8 +1517,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
   },
+  // Invoice header wrapper for skeleton
+  invoiceHeader: {
+    paddingHorizontal: 15,
+    paddingBottom: 12,
+  },
+  // Flight info row wrapper used by the skeleton
+  flightInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
   skeletonInvoiceNumber: {
-    width: 120,
+    width: 140,
     height: 24,
     marginBottom: 8,
   },
@@ -1554,9 +1559,10 @@ const styles = StyleSheet.create({
     width: 200,
     height: 16,
   },
+  // Match actual plant image dimensions in the real layout
   skeletonPlantImage: {
-    width: 80,
-    height: 80,
+    width: 96,
+    height: 128,
     borderRadius: 12,
     marginRight: 16,
   },

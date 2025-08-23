@@ -66,7 +66,7 @@ export const getOrdersApi = async (params = {}) => {
 export const getBuyerOrdersApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
-    
+    console.log({authToken})
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {

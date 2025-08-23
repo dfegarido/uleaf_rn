@@ -219,7 +219,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
       }
       
       navigation.navigate('CheckoutScreen', {
-        plantData: plantDataWithCountry,
+        plantData: {
+          ...plantDataWithCountry,
+          // pass through backend-provided flight/cargo dates if present so checkout initializes correctly
+          flightDate: plantData.plantFlightDate || plantData.flightDate || null,
+          cargoDate: plantData.cargoDate || null,
+        },
         selectedPotSize: selectedPotSize,
         quantity: quantity,
         plantCode: plantCode,

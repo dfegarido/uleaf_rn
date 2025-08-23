@@ -4,22 +4,31 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import {OrderItemCard, OrderItemCardSkeleton} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
 
 const ScreenPlantsAreHome = () => {
   const route = useRoute();
+  const PAGE_SIZE = 4;
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   // Load orders from API
-  const loadOrders = async (isRefresh = false) => {
+  const loadOrders = async (isRefresh = false, append = false) => {
     try {
-      if (!isRefresh) {
+      if (append) {
+        setLoadingMore(true);
+      } else if (!isRefresh) {
         setLoading(true);
       }
       setError(null);
@@ -29,9 +38,10 @@ const ScreenPlantsAreHome = () => {
         throw new Error('No internet connection');
       }
 
+      const limit = PAGE_SIZE;
       const params = {
-        limit: 20,
-        offset: 0,
+        limit,
+        offset: append ? (page + 1) * limit : 0,
         status: 'delivered'
       };
 
@@ -49,7 +59,13 @@ const ScreenPlantsAreHome = () => {
       const transformedOrders = ordersData.map(order => 
         transformOrderToComponentFormat(order)
       );
-      setOrders(transformedOrders);
+      if (append) {
+        setOrders(prev => [...prev, ...transformedOrders]);
+        setPage(prev => prev + 1);
+      } else {
+        setOrders(transformedOrders);
+        setPage(0);
+      }
 
     } catch (error) {
       console.error('Error loading Plants are Home orders:', error);
@@ -57,6 +73,7 @@ const ScreenPlantsAreHome = () => {
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       if (isRefresh) {
         setRefreshing(false);
       }
@@ -70,10 +87,13 @@ const ScreenPlantsAreHome = () => {
     
     return {
       status: 'Plants are Home',
-      airCargoDate: order.cargoDateFormatted || 'TBD',
+      airCargoDate: order.flightDateFormatted || order.cargoDateFormatted || 'TBD',
       countryCode: getCountryCode(order),
       flag: getCountryFlag(order),
-      image: plantDetails?.image ? 
+      planeIcon: PlaneGrayIcon, // Add plane icon
+      image: plantDetails?.imageCollectionWebp?.[0] ? 
+        { uri: plantDetails.imageCollectionWebp[0] } :
+        plantDetails?.image ? 
         { uri: plantDetails.image } : 
         plantDetails?.imageCollection?.[0] ?
         { uri: plantDetails.imageCollection[0] } :
@@ -99,19 +119,30 @@ const ScreenPlantsAreHome = () => {
 
   // Helper functions for display formatting
   const getCountryCode = (order) => {
-    return order.products?.[0]?.supplierCode || 'US';
+    // Prefer explicit order-level plant source country
+    if (order.plantSourceCountry) return order.plantSourceCountry;
+
+    // Then prefer product-level plantSourceCountry
+    if (order.products && order.products.length > 0) {
+      return order.products[0].plantSourceCountry || order.products[0].supplierCode || 'ID';
+    }
+
+    // Default to Indonesia
+    return 'ID';
   };
 
   const getCountryFlag = (order) => {
     const countryCode = getCountryCode(order);
     const flagMap = {
       'TH': ThailandFlag,
-      'US': ThailandFlag, // Use default flag for now
-      'BR': ThailandFlag,
-      'ID': ThailandFlag,
-      'NL': ThailandFlag
+      'PH': PhilippinesFlag,
+      'ID': IndonesiaFlag,
+      // Use Indonesia as sensible default for other codes
+      'US': IndonesiaFlag,
+      'BR': IndonesiaFlag,
+      'NL': IndonesiaFlag
     };
-    return flagMap[countryCode] || ThailandFlag;
+    return flagMap[countryCode] || IndonesiaFlag;
   };
 
   const getRequestDeadline = (order) => {
@@ -140,6 +171,11 @@ const ScreenPlantsAreHome = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadOrders(true);
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    await loadOrders(false, true);
   };
 
   return (
@@ -200,14 +236,39 @@ const ScreenPlantsAreHome = () => {
             ))
           )}
           
+          {/* Show skeletons while loading more */}
+          {loadingMore && (
+            <View style={{paddingHorizontal: 0, marginTop: 12}}>
+              {Array.from({length: PAGE_SIZE}).map((_, i) => (
+                <OrderItemCardSkeleton key={`load-more-skel-${i}`} />
+              ))}
+            </View>
+          )}
+
+          {/* Load more orders button */}
+          <View style={{width: '100%', alignItems: 'center', marginTop: 12, paddingHorizontal: 16}}>
+            <TouchableOpacity
+              onPress={handleLoadMore}
+              style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 24, width: '100%', maxWidth: 375, height: 48, borderRadius: 12, backgroundColor: 'transparent'}}
+              disabled={loadingMore}
+            >
+              <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8, gap: 8, height: 16}}>
+                <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, lineHeight: 16, color: '#539461', textAlign: 'center'}}>{loadingMore ? 'Loading more...' : 'Load More'}</Text>
+                {!loadingMore && (<CaretDownIcon width={24} height={24} style={{width:24, height:24}} />)}
+              </View>
+            </TouchableOpacity>
+          </View>
+
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={6}
-            loadMoreLimit={6}
+            initialLimit={4}
+            loadMoreLimit={4}
             showLoadMore={true}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15}}
+            containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 32}}
           />
+
+          
         </ScrollView>
       )}
     </View>
