@@ -690,19 +690,27 @@ const ScreenShop = ({navigation}) => {
   };
 
   const handlePriceChange = (value) => {
-    updateFilters({ price: value });
+  // Clear other filters so selecting Price becomes a single active filter
+  clearFilters();
+  updateFilters({ price: value });
   };
 
   const handleGenusChange = (value) => {
-    updateFilters({ genus: value });
+  // Clear other filters so selecting Genus becomes a single active filter
+  clearFilters();
+  updateFilters({ genus: value });
   };
 
   const handleVariegationChange = (value) => {
-    updateFilters({ variegation: value });
+  // Clear other filters so selecting Variegation becomes a single active filter
+  clearFilters();
+  updateFilters({ variegation: value });
   };
 
   const handleCountryChange = (value) => {
-    updateFilters({ country: value });
+  // Clear other filters so selecting Country becomes a single active filter
+  clearFilters();
+  updateFilters({ country: value });
   };
 
   const handleListingTypeChange = (value) => {
@@ -712,11 +720,15 @@ const ScreenShop = ({navigation}) => {
   };
 
   const handleShippingIndexChange = (value) => {
-    updateFilters({ shippingIndex: value });
+  // Clear other filters so selecting Shipping Index becomes a single active filter
+  clearFilters();
+  updateFilters({ shippingIndex: value });
   };
 
   const handleAcclimationIndexChange = (value) => {
-    updateFilters({ acclimationIndex: value });
+  // Clear other filters so selecting Acclimation Index becomes a single active filter
+  clearFilters();
+  updateFilters({ acclimationIndex: value });
   };
 
   const handleFilterView = () => {
@@ -759,6 +771,15 @@ const ScreenShop = ({navigation}) => {
 
   const onPressFilter = pressCode => {
     setCode(pressCode);
+    // If opening the price filter, clear any existing price selection so the
+    // user sees an unselected list before choosing an option.
+    if (pressCode === 'PRICE') {
+      try {
+        updateFilters({ price: '' });
+      } catch (e) {
+        console.warn('Failed to clear price filter before opening sheet:', e);
+      }
+    }
     setShowSheet(true);
   };
 

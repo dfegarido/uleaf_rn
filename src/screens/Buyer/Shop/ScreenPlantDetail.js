@@ -198,6 +198,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
       // Ensure plantData has a country code
       const plantDataWithCountry = { ...plantData };
       // If country is missing, try to determine it from currency
+
       if (!plantDataWithCountry.country) {
         const mapCurrencyToCountry = (localCurrency) => {
           if (!localCurrency) return 'ID'; // Default to Indonesia
@@ -646,7 +647,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
                     countryCode = mapCurrencyToCountry(plantData.localCurrency);
                   }
 
-                  const country = countryCode?.toLowerCase() || '';
+                  // If still not found and listing is Grower's Choice / Wholesale,
+                  // attempt to derive localCurrency from variations
+                  if (!countryCode && plantData.variations && plantData.variations.length > 0 && (plantData.listingType && (plantData.listingType.toLowerCase().includes("grower") || plantData.listingType.toLowerCase().includes('wholesale')))) {
+                    const v = plantData.variations.find(x => x.localCurrency || x.lowestVariationLocalCurrency || x.localCurrencySymbol);
+                    if (v) {
+                      const currencyFromVar = (v.localCurrency || v.lowestVariationLocalCurrency || '').toString();
+                      if (currencyFromVar) {
+                        countryCode = mapCurrencyToCountry(currencyFromVar) || currencyFromVar;
+                      }
+                    }
+                  }
+
+                  const country = countryCode?.toString().toLowerCase() || '';
                   if (country.includes('philippines') || country.includes('ph')) {
                     return <PhilippinesFlag width={28} height={19} style={styles.flagImage} />;
                   } else if (country.includes('thailand') || country.includes('th')) {
@@ -660,32 +673,31 @@ const ScreenPlantDetail = ({navigation, route}) => {
               )}
               <Text style={styles.detailValue}>
                 {(() => {
-                  // Helper function to map currency codes to country codes
-                  const mapCurrencyToCountry = (localCurrency) => {
-                    if (!localCurrency) return null;
-                    
-                    switch (localCurrency.toUpperCase()) {
-                      case 'PHP':
-                        return 'Philippines';
-                      case 'THB':
-                        return 'Thailand';
-                      case 'IDR':
-                        return 'Indonesia';
-                      default:
-                        return null;
-                    }
-                  };
+                      // Helper to map currency -> display name
+                      const mapCurrencyToCountryText = (localCurrency) => {
+                        if (!localCurrency) return null;
+                        switch (localCurrency.toUpperCase()) {
+                          case 'PHP': return 'Philippines';
+                          case 'THB': return 'Thailand';
+                          case 'IDR': return 'Indonesia';
+                          default: return null;
+                        }
+                      };
 
-                  // First try to use the country field if available
-                  let countryText = plantData.country;
-                  
-                  // If no country field, try to map from localCurrency
-                  if (!countryText && plantData.localCurrency) {
-                    countryText = mapCurrencyToCountry(plantData.localCurrency);
-                  }
-                  
-                  // If still no country, default to Philippines
-                  return countryText || 'Philippines';
+                      // Prefer explicit country, then localCurrency, then check variations for growers/wholesale
+                      let countryText = plantData.country || null;
+                      if (!countryText && plantData.localCurrency) {
+                        countryText = mapCurrencyToCountryText(plantData.localCurrency);
+                      }
+                      if (!countryText && plantData.variations && plantData.variations.length > 0 && (plantData.listingType && (plantData.listingType.toLowerCase().includes("grower") || plantData.listingType.toLowerCase().includes('wholesale')))) {
+                        const v = plantData.variations.find(x => x.localCurrency || x.lowestVariationLocalCurrency || x.localCurrencySymbol);
+                        if (v) {
+                          const currencyFromVar = (v.localCurrency || v.lowestVariationLocalCurrency || '').toString();
+                          if (currencyFromVar) countryText = mapCurrencyToCountryText(currencyFromVar) || currencyFromVar;
+                        }
+                      }
+                      // If still no country, default to Philippines
+                      return countryText || 'Philippines';
                 })()}
               </Text>
             </View>

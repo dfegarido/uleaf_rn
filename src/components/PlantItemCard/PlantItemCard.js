@@ -99,7 +99,7 @@ const PlantItemCard = ({
     }
   };
   
-  const resolvedPrimary = plantData.imagePrimaryWebp || plantData.imagePrimary || (Array.isArray(plantData.imageCollectionWebp) && plantData.imageCollectionWebp[0]) || plantData.imagePrimaryOriginal;
+  const resolvedPrimary = plantData.imagePrimaryWebp || plantData.imagePrimary || (Array.isArray(plantData.imageCollectionWebp) && plantData.imageCollectionWebp[0]) || (Array.isArray(plantData.imageCollection) && plantData.imageCollection[0]) || (Array.isArray(plantData.images) && plantData.images[0]) || plantData.imagePrimaryOriginal;
   const displayImage = data ? (resolvedPrimary ? { uri: resolvedPrimary } : placeholderImage) : image;
   
   // Debug logging
