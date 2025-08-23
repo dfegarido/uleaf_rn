@@ -162,6 +162,7 @@ const ScreenShop = ({navigation}) => {
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   
   // Refresh state
   const [refreshing, setRefreshing] = useState(false);
@@ -188,6 +189,13 @@ const ScreenShop = ({navigation}) => {
       const logAuthInfo = async () => {
         try {
           const token = await AsyncStorage.getItem('authToken');
+          // Load cached profile photo URL for header avatar
+          try {
+            const cached = await AsyncStorage.getItem('profilePhotoUrl');
+            if (cached) setProfilePhotoUrl(cached);
+          } catch (e) {
+            console.warn('Failed to read cached profilePhotoUrl in ScreenShop:', e?.message || e);
+          }
         } catch (error) {
           console.error('Error getting auth token:', error);
         }
@@ -872,6 +880,8 @@ const ScreenShop = ({navigation}) => {
   const HEADER_HEIGHT = 110;
 
   const scrollViewRef = useRef(null);
+  // Local import of reusable Avatar component to avoid modifying top-level imports
+  const Avatar = require('../../../components/Avatar/Avatar').default;
 
   return (
     <>
@@ -923,7 +933,8 @@ const ScreenShop = ({navigation}) => {
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
-              <AvatarIcon width={40} height={40} />
+              {/* Reusable Avatar component will show cached profilePhotoUrl or fallback icon */}
+              <Avatar size={40} imageUri={profilePhotoUrl} />
             </TouchableOpacity>
           </View>
         </View>

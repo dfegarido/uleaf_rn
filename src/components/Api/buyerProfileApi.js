@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Base URL for API endpoints
 const BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -22,6 +23,23 @@ export const getBuyerProfileApi = async () => {
     }
 
     const json = await response.json();
+    // Persist profilePhotoUrl so header image can be populated on app start
+    try {
+      if (json && json.profilePhotoUrl) {
+        await AsyncStorage.setItem('profilePhotoUrl', json.profilePhotoUrl);
+      }
+    } catch (e) {
+      console.warn('Failed to cache profilePhotoUrl:', e?.message || e);
+    }
+
+    // Persist full buyer profile for offline / fast access
+    try {
+      await AsyncStorage.setItem('buyerProfile', JSON.stringify(json));
+      await AsyncStorage.setItem('buyerProfileCachedAt', String(Date.now()));
+    } catch (e) {
+      console.warn('Failed to cache buyerProfile:', e?.message || e);
+    }
+
     return json;
   } catch (error) {
     console.log('getBuyerProfileApi error:', error.message);

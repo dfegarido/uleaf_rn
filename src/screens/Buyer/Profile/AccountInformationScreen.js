@@ -70,7 +70,7 @@ const DropdownIcon = () => (
 
 const AccountInformationScreen = () => {
   const navigation = useNavigation();
-  const {userInfo} = useContext(AuthContext);
+  const {userInfo, updateProfileImage} = useContext(AuthContext);
   const isFocused = useIsFocused();
   
   const [loading, setLoading] = useState(false);
@@ -255,7 +255,7 @@ const AccountInformationScreen = () => {
     );
   };
 
-  // Handle photo selection and upload
+  // Handle photo selection and upload via server multipart/form-data endpoint
   const handlePhotoUpload = async (imageUri) => {
     if (!imageUri) return;
 
@@ -268,8 +268,17 @@ const AccountInformationScreen = () => {
         return;
       }
 
-      await uploadProfilePhotoApi(imageUri);
-      setProfilePhotoUri(imageUri);
+      // Upload via server endpoint which expects form-data field 'profilePhoto'
+      const result = await uploadProfilePhotoApi(imageUri);
+
+      // Server returns profilePhotoUrl on success
+      const newUrl = result?.profilePhotoUrl || result?.profileImage || null;
+      if (!newUrl) throw new Error('Upload succeeded but server did not return a URL.');
+
+      // Update local UI and global auth cache
+      setProfilePhotoUri(newUrl);
+      if (typeof updateProfileImage === 'function') updateProfileImage(newUrl);
+
       Alert.alert('Success', 'Profile photo updated successfully!');
     } catch (error) {
       console.log('Photo upload error:', error);

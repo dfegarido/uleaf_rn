@@ -182,6 +182,8 @@ const Divider = () => <View style={styles.divider} />;
 
 const BuyerProfileScreen = (props) => {
   const navigation = useNavigation();
+  // Local require for reusable Avatar component
+  const Avatar = require('../../../components/Avatar/Avatar').default;
   const {logout, userInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -323,7 +325,7 @@ const BuyerProfileScreen = (props) => {
               {loading ? (
                 <View style={styles.skeletonAvatar} />
               ) : (
-                <AvatarIcon width={56} height={56} />
+                <Avatar size={56} />
               )}
             </View>
             <View style={styles.information}>

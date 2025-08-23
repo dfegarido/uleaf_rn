@@ -1,5 +1,6 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
+import {getBuyerProfileApi} from './buyerProfileApi';
 
 /**
  * Browse plants by species using getBuyerListings with species filter
@@ -15,6 +16,15 @@ export const browsePlantsBySpeciesApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
     console.log({authToken})
+    // Try to fetch buyer profile to include profilePhotoUrl in headers (optional)
+    let profilePhotoUrl = '';
+    try {
+      const profile = await getBuyerProfileApi();
+      profilePhotoUrl = profile?.profilePhotoUrl || '';
+      console.log('Retrieved profilePhotoUrl for headers:', profilePhotoUrl);
+    } catch (profileErr) {
+      console.log('Could not fetch buyer profile for header enrichment:', profileErr?.message || profileErr);
+    }
     const queryParams = new URLSearchParams();
     
     // Add species filter (required)
@@ -40,6 +50,7 @@ export const browsePlantsBySpeciesApi = async (params = {}) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
+          'profilePhotoUrl': profilePhotoUrl,
         },
       },
     );

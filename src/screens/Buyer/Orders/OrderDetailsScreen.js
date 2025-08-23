@@ -28,6 +28,8 @@ import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 const OrderDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  // Local require for reusable Avatar component
+  const Avatar = require('../../../components/Avatar/Avatar').default;
   
   // Get order data from navigation params
   const {orderData, activeTab} = route.params || {};
@@ -492,7 +494,9 @@ const OrderDetailsScreen = () => {
             <BackIcon width={24} height={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Order Details</Text>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity style={styles.headerSpacer} onPress={() => navigation.navigate('ScreenProfile')}>
+            <Avatar size={40} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -654,7 +658,9 @@ const OrderDetailsScreen = () => {
             <BackIcon width={24} height={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Order Details</Text>
-          <View style={styles.headerSpacer} />
+          <TouchableOpacity style={styles.headerSpacer} onPress={() => navigation.navigate('ScreenProfile')}>
+            <Avatar size={40} />
+          </TouchableOpacity>
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>
@@ -675,7 +681,9 @@ const OrderDetailsScreen = () => {
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Order Details</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity style={styles.headerSpacer} onPress={() => navigation.navigate('ScreenProfile')}>
+          <Avatar size={40} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>

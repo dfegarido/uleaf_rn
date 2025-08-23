@@ -80,6 +80,8 @@ const CartHeader = () => {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
+  // Local import of reusable Avatar component
+  const Avatar = require('../../../components/Avatar/Avatar').default;
 
   // Debounced search effect - triggers after user stops typing
   useEffect(() => {
@@ -194,7 +196,8 @@ const CartHeader = () => {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.navigate('ScreenProfile')}>
-            <AvatarIcon width={40} height={40} />
+            {/* Reusable Avatar component will show cached profilePhotoUrl or fallback icon */}
+            <Avatar size={40} />
           </TouchableOpacity>
         </View>
       </View>

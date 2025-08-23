@@ -94,7 +94,7 @@ export {getAddressBookEntriesApi} from './getAddressBookEntriesApi';
 export {createAddressBookEntryApi} from './createAddressBookEntryApi';
 export {updateAddressBookEntryApi} from './updateAddressBookEntryApi';
 export {deleteAddressBookEntryApi} from './deleteAddressBookEntryApi';
-export {uploadProfilePhotoApi} from './uploadProfilePhotoApi';
+// uploadProfilePhotoApi is deprecated in favor of direct Firebase uploads (uploadImageToFirebaseProfile)
 export {getBrowsePlantByGenusApi} from './getBrowsePlantByGenus';
 export {postBuyerUpdateInfoApi} from './postBuyerUpdateInfoApi';
 export {getPriceFilterApi} from './getPriceFilterApi';

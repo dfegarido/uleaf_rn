@@ -6,25 +6,28 @@ export const uploadProfilePhotoApi = async imageUri => {
   const token = await getStoredAuthToken();
   console.log('Auth token retrieved.');
 
-  // Convert image to blob
-  console.log('Fetching image URI to create blob:', imageUri);
-  const response = await fetch(imageUri);
-  console.log('Image fetch status:', response.status);
-  if (!response.ok) {
-    console.error(`Failed to fetch image: ${response.status}`);
-    throw new Error(`Failed to fetch image: ${response.status}`);
-  }
-  const blob = await response.blob();
-  console.log('Blob created, size:', blob.size);
-
-  // Get a filename from the URI, which the backend requires.
+  // Prepare file for upload using React Native friendly FormData file object
+  // (This avoids some issues with fetch() on Android content:// URIs)
+  console.log('Preparing file for upload, imageUri:', imageUri);
   const filename = imageUri.split('/').pop();
   console.log('Filename extracted:', filename);
 
-  // Create FormData and append the blob
+  // Infer mime type from extension (fallback to image/jpeg)
+  const ext = filename && filename.includes('.') ? filename.split('.').pop().toLowerCase() : '';
+  const mimeMap = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp'
+  };
+  const mimeType = mimeMap[ext] || 'image/jpeg';
+  console.log('Inferred mimeType:', mimeType);
+
   const formData = new FormData();
-  formData.append('profilePhoto', blob, filename);
-  console.log('FormData created.');
+  // React Native accepts an object with uri, name and type for file uploads
+  formData.append('profilePhoto', { uri: imageUri, name: filename, type: mimeType });
+  console.log('FormData created (RN file object).');
 
   const url = 'http://192.168.0.208:5001/i-leaf-u/us-central1/uploadProfilePhoto';
   console.log('Uploading to URL:', url);
