@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, View, Text } from 'react-native';
 import AttachIcon from '../../assets/iconchat/attach.svg';
 
 const MessageInput = ({onSend}) => {
   const [message, setMessage] = useState('');
+
+  const handleSend = () => {
+    if (message.trim()) {
+      onSend(message);
+      setMessage('');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -13,22 +20,14 @@ const MessageInput = ({onSend}) => {
           placeholder="Message..."
           value={message}
           onChangeText={setMessage}
-          onSubmitEditing={() => {
-            if (message.trim()) {
-              onSend(message);
-              setMessage('');
-            }
-          }}
+          onSubmitEditing={handleSend}
           returnKeyType="send"
+          placeholderTextColor="#999"
         />
         <TouchableOpacity
-          onPress={() => {
-            if (message.trim()) {
-              onSend(message);
-              setMessage('');
-            }
-          }}>
-          <AttachIcon />
+          onPress={handleSend}
+          style={styles.sendButton}>
+          <Text style={styles.sendText}>Send</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -55,7 +54,18 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     color: '#000', // Force black text color
+    fontSize: 16,
   },
+  sendButton: {
+    padding: 8,
+    backgroundColor: '#5ca15c',
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  sendText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  }
 });
 
 export default MessageInput;

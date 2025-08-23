@@ -22,7 +22,13 @@ import MessageInput from '../../components/MessageInput/MessageInput';
 import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const ChatScreen = ({navigation, route}) => {
-  const { avatarUrl, name, id, participantIds = [], participants = [] } = route.params || {};
+  const routeParams = route?.params || {};
+  console.log('ChatScreen route params:', routeParams);
+  const avatarUrl = routeParams.avatarUrl || '';
+  const name = routeParams.name || routeParams.title || 'Chat';
+  const id = routeParams.id || routeParams.chatId || null;
+  const participantIds = Array.isArray(routeParams.participantIds) ? routeParams.participantIds : (Array.isArray(routeParams.participants) ? routeParams.participants.map(p => p.uid).filter(Boolean) : []);
+  const participants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
   
@@ -32,6 +38,45 @@ const ChatScreen = ({navigation, route}) => {
     : {};
 
   const [messages, setMessages] = useState([]);
+
+  // Send a message: create message doc and update chat metadata
+  const sendMessage = async (text) => {
+    if (!id) {
+      console.warn('Attempted to send message without chat id');
+      return;
+    }
+
+    if (!text || !text.trim()) return;
+
+    try {
+      const newMsg = {
+        chatId: id,
+        senderId: userInfo?.uid || null,
+        text: text.trim(),
+        timestamp: Timestamp.now(),
+      };
+
+      // Add message to messages collection
+      await addDoc(collection(db, 'messages'), newMsg);
+
+      // Mark chat lastMessage and update timestamp, mark unread for other participants
+      const otherParticipantIds = Array.isArray(participantIds)
+        ? participantIds.filter(pid => pid && pid !== userInfo?.uid)
+        : [];
+
+      try {
+        await updateDoc(doc(db, 'chats', id), {
+          lastMessage: newMsg.text,
+          timestamp: Timestamp.now(),
+          unreadBy: arrayUnion(...otherParticipantIds),
+        });
+      } catch (err) {
+        console.warn('Failed to update chat metadata:', err);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
 
   // Helper function to detect plant-related conversation
   const isPlantRelatedConversation = () => {
@@ -47,107 +92,83 @@ const ChatScreen = ({navigation, route}) => {
 
   // Helper function for safe avatar display
   const getAvatarSource = () => {
-    // Always use the default local image for now
+    try {
+      // First try to use the provided avatarUrl if it exists and is valid
+      if (otherUserInfo?.avatarUrl && typeof otherUserInfo.avatarUrl === 'string' && otherUserInfo.avatarUrl.trim() !== '') {
+        return { uri: otherUserInfo.avatarUrl };
+      } else if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
+        return { uri: avatarUrl };
+      }
+    } catch (error) {
+      console.log('Error loading avatar, using default:', error);
+    }
+    
+    // Fallback to the default image
     return require('../../assets/images/AvatarBig.png');
   };
 
   useEffect(() => {
     if (!id) {
-      console.error('No chat ID provided');
-      return () => {};
+      console.error('No chat ID provided - cannot load messages');
+      setMessages([]);
+      return;
     }
-    
+
     try {
       const q = query(
-        collection(db, 'messages'), 
+        collection(db, 'messages'),
         where('chatId', '==', id),
         orderBy('timestamp', 'asc')
       );
-      
-      const unsubscribe = onSnapshot(q, 
+
+      const unsubscribe = onSnapshot(
+        q,
         { includeMetadataChanges: true },
         snapshot => {
           try {
-            // Check if data is from cache or server
-            const source = snapshot.metadata.fromCache ? "cache" : "server";
-            console.log(`Chat messages came from ${source}`);
-            
             const messagesFirestore = snapshot.docs.map(doc => ({
               id: doc.id,
               chatId: id,
               ...doc.data(),
             }));
-            
+
             setMessages(messagesFirestore);
-            
-            // Scroll to bottom when new messages are loaded
-            setTimeout(() => {
-              if (flatListRef?.current && messagesFirestore.length > 0) {
-                flatListRef?.current.scrollToEnd({ animated: false });
-              }
-            }, 200);
           } catch (error) {
             console.error('Error processing message data:', error);
+            setMessages([]);
           }
         },
         error => {
           console.error('Error getting messages:', error);
+          setMessages([]);
         }
       );
 
       return () => unsubscribe();
     } catch (error) {
       console.error('Error setting up messages listener:', error);
-      return () => {};
+      setMessages([]);
     }
   }, [id]);
 
+  // Auto-scroll when messages change
   useEffect(() => {
     if (flatListRef?.current && messages.length > 0) {
-      flatListRef?.current.scrollToEnd({ animated: false });
+      flatListRef.current.scrollToEnd({ animated: false });
     }
-  }, []);
+  }, [messages]);
 
-  const sendMessage = async newMessage => {
-    try {
-      if (!newMessage || !newMessage.trim()) {
-        console.log('Cannot send empty message');
-        return;
-      }
-      
-      if (!id) {
-        console.error('No chat ID found');
-        return;
-      }
-      
-      // Create message data
-      const messageData = {
-        text: newMessage,
-        senderId: userInfo?.uid,
-        senderName: userInfo ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim() : 'User',
-        timestamp: Timestamp.now(),
-        chatId: id,
-      };
-
-      // Add message to collection
-      await addDoc(collection(db, 'messages'), messageData);
-      
-      // Get participant IDs to mark as unread, ensuring valid array
-      let unreadParticipants = [];
-      if (Array.isArray(participantIds) && participantIds.length > 0) {
-        unreadParticipants = participantIds.filter(uid => uid && uid !== userInfo?.uid);
-      }
-      
-      // Update chat with last message
-      await updateDoc(doc(db, 'chats', id), {
-        lastMessage: messageData.text,
-        timestamp: messageData.timestamp,
-        ...(unreadParticipants.length > 0 ? { unreadBy: arrayUnion(...unreadParticipants) } : {})
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
+  // Render
+  if (!id) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.missingContainer}>
+          <Text style={styles.missingTitle}>No chat selected</Text>
+          <Text style={styles.missingSubtitle}>Tap a chat from your messages list to open the conversation.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -159,17 +180,17 @@ const ChatScreen = ({navigation, route}) => {
           <BackSolidIcon size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.userInfo}>
-          <Image 
+          <Image
             source={getAvatarSource()}
             style={styles.avatar}
           />
           <View style={styles.userInfoText}>
-            <Text style={styles.title}>{otherUserInfo?.name || name || "Chat"}</Text>
+            <Text style={styles.title}>{otherUserInfo?.name || name || 'Chat'}</Text>
             <Text style={styles.subtitle}>Active now</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.options} 
-          onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, ...{participants} })}>
+        <TouchableOpacity style={styles.options}
+          onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, participants })}>
           <OptionIcon />
         </TouchableOpacity>
       </View>
@@ -179,27 +200,24 @@ const ChatScreen = ({navigation, route}) => {
         ref={flatListRef}
         data={messages}
         keyExtractor={(item, index) => item.id || `message-${index}`}
-        renderItem={({item, index}) => {
-          if (item.type === 'date') {
-            return <DateSeparator text={item.text} />;
-          }
+        renderItem={({ item, index }) => {
+          if (!item) return null;
+          if (item.type === 'date') return <DateSeparator text={item.text} />;
 
           const nextMsg = messages[index + 1];
-          const isMe = item?.senderId === userInfo.uid;
-          const nextMsgIsMe = nextMsg?.senderId === userInfo.uid;
-          const showAvatar =
-            !isMe &&
-            (!nextMsg || nextMsgIsMe || nextMsgIsMe !== isMe);
+          const isMe = item?.senderId === userInfo?.uid;
+          const nextMsgIsMe = nextMsg?.senderId === userInfo?.uid;
+          const showAvatar = !isMe && (!nextMsg || nextMsgIsMe || nextMsgIsMe !== isMe);
 
           return (
             <ChatBubble
-              text={item.text}
+              text={item.text || 'Empty message'}
               isMe={isMe}
               showAvatar={showAvatar}
             />
           );
         }}
-        contentContainerStyle={{paddingVertical: 10}}
+        contentContainerStyle={{ paddingVertical: 10 }}
         onContentSizeChange={() => {
           setTimeout(() => {
             if (flatListRef?.current && messages.length > 0) {
@@ -217,7 +235,7 @@ const ChatScreen = ({navigation, route}) => {
       {/* Plant Recommendations for plant-related conversations */}
       {messages.length > 3 && isPlantRelatedConversation() && (
         <View style={styles.plantRecommendationsContainer}>
-          <BrowseMorePlants 
+          <BrowseMorePlants
             title="Plants You Might Like"
             limit={4}
             showLoadMore={false}

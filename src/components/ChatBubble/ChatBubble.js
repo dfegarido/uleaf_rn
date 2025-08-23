@@ -13,7 +13,7 @@ const ChatBubble = ({text, isMe, showAvatar }) => {
         ]}>
         <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>
       </View>
-      {isMe}
+      {/* Removed incorrectly placed {isMe} here */}
     </View>
   );
 }

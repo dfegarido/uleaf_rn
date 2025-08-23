@@ -94,12 +94,35 @@ const MessagesScreen = ({navigation}) => {
     }
   }, [userInfo]);
 
-  const markChatAsRead = item => {
-    updateDoc(doc(db, 'chats', item.id), {
-      unreadBy: arrayRemove(userInfo.uid),
-    });
+  const markChatAsRead = async item => {
+    try {
+      // Ensure we have an id to update
+      if (!item || !item.id) {
+        console.warn('markChatAsRead called with invalid item:', item);
+        return;
+      }
 
-    navigation.navigate('ChatScreen', item);
+      // Await update to ensure chat doc is updated before navigating
+      await updateDoc(doc(db, 'chats', item.id), {
+        unreadBy: arrayRemove(userInfo.uid),
+      });
+
+      // Sanitize navigation params to ensure ChatScreen receives expected fields
+      const safeParams = {
+        id: item.id,
+        participantIds: Array.isArray(item.participantIds) ? item.participantIds : [],
+        participants: Array.isArray(item.participants) ? item.participants : [],
+        avatarUrl: item.avatarUrl || '',
+        name: item.name || (item.participants && item.participants[0] && item.participants[0].name) || 'Chat',
+      };
+
+  console.log('Navigating to ChatScreen with params:', safeParams);
+  navigation.navigate('ChatScreen', safeParams);
+    } catch (error) {
+      console.error('Error marking chat as read or navigating:', error);
+      // Fallback: still attempt to navigate with minimal params
+      navigation.navigate('ChatScreen', { id: item?.id });
+    }
   };
 
   const createChat = async user => {
@@ -266,7 +289,7 @@ const MessagesScreen = ({navigation}) => {
   );
 
   return (
-    <SafeAreaView>
+    <SafeAreaView style={{flex: 1}}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -281,8 +304,9 @@ const MessagesScreen = ({navigation}) => {
         </View>
 
         <FlatList
+          style={{flex: 1}}
           data={loading ? [] : messages}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => (item && item.id) ? item.id : `chat-${index}`}
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContainer,
@@ -323,6 +347,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F3F5',
+  },
+  createChat: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
