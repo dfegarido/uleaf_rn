@@ -58,12 +58,32 @@ const ScreenJourneyMishap = () => {
         throw new Error(response.error || 'Failed to load Journey Mishap data');
       }
 
+      // Support both response formats:
+      // 1. Legacy: response.data.data.creditRequests (array of credit requests with linked order/listing details)
+      // 2. New: response.data.data.plants (array of plants with credit request info)
       const creditRequestsData = response.data?.data?.creditRequests || [];
+      const plantsData = response.data?.data?.plants || [];
       
-      // Transform comprehensive Journey Mishap data to component format
-      const transformedOrders = await Promise.all(
-        creditRequestsData.map(creditRequest => transformJourneyMishapDataToComponentFormat(creditRequest))
-      );
+      console.log('API Response Structure:', {
+        hasCreditRequests: creditRequestsData.length > 0,
+        hasPlants: plantsData.length > 0
+      });
+      
+      let transformedOrders = [];
+      
+      if (plantsData.length > 0) {
+        // New API format: plants array with credit request info
+        console.log('📦 Processing Journey Mishap plants:', plantsData.length);
+        transformedOrders = await Promise.all(
+          plantsData.map(plant => transformPlantToComponentFormat(plant))
+        );
+      } else {
+        // Legacy API format: credit requests with linked collections
+        console.log('📦 Processing Journey Mishap credit requests:', creditRequestsData.length);
+        transformedOrders = await Promise.all(
+          creditRequestsData.map(creditRequest => transformJourneyMishapDataToComponentFormat(creditRequest))
+        );
+      }
 
       if (append) {
         setOrders(prev => [...prev, ...transformedOrders]);
@@ -152,8 +172,16 @@ const ScreenJourneyMishap = () => {
     const transformedObject = {
       status: creditRequest.issueType || 'Credit Requested',
       airCargoDate: orderDetails.flightDateFormatted || orderDetails.cargoDateFormatted || orderDetails.orderDate || orderDetails.createdAt || 'TBD',
-      countryCode: getCountryCode({ products: [{ plantSourceCountry: orderDetails.plantSourceCountry || listingDetails.plantSourceCountry, supplierCode: orderDetails.supplierCode || listingDetails.supplierCode }] }),
-      flag: getCountryFlag({ products: [{ plantSourceCountry: orderDetails.plantSourceCountry || listingDetails.plantSourceCountry, supplierCode: orderDetails.supplierCode || listingDetails.supplierCode }] }),
+      countryCode: getCountryCode({
+        plantSourceCountry: orderDetails.plantSourceCountry || listingDetails.plantSourceCountry,
+        orderDetails: orderDetails,
+        listingDetails: listingDetails
+      }),
+      flag: getCountryFlag({
+        plantSourceCountry: orderDetails.plantSourceCountry || listingDetails.plantSourceCountry,
+        orderDetails: orderDetails,
+        listingDetails: listingDetails
+      }),
       planeIcon: PlaneGrayIcon,
       image: finalImage,
       plantName: productPlantDetails?.title || orderProduct?.plantName || orderProduct?.title || 'Unknown Plant',
@@ -219,14 +247,141 @@ const ScreenJourneyMishap = () => {
     return transformedObject;
   };
 
-  // Helper functions for display formatting
-  const getCountryCode = (order) => {
-    const p = order.products?.[0] || {};
-    return p.plantSourceCountry || p.supplierCode || 'ID';
+  // Transform API plant with credit request to component format (for new API response)
+  const transformPlantToComponentFormat = async (plant) => {
+    const plantDetails = plant.plantDetails || {};
+    const order = plant.order || {};
+    const creditRequest = plant.creditRequestStatus?.latestRequest || {};
+    
+    // Image resolution with fallbacks
+    const finalImage = plantDetails?.imageCollectionWebp?.[0] ?
+      { uri: plantDetails.imageCollectionWebp[0] } :
+      plantDetails?.imagePrimaryWebp ?
+      { uri: plantDetails.imagePrimaryWebp } :
+      plantDetails?.imagePrimary ? 
+      { uri: plantDetails.imagePrimary } :
+      plantDetails?.image ? 
+      { uri: plantDetails.image } : 
+      plantDetails?.imageCollection?.[0] ?
+      { uri: plantDetails.imageCollection[0] } :
+      plant.image ? 
+      { uri: plant.image } :
+      require('../../../assets/images/plant1.png');
+
+    return {
+      status: creditRequest.issueType || plant.creditRequestStatus?.issueType || 'Credit Requested',
+      airCargoDate: order.flightDateFormatted || order.cargoDateFormatted || order.orderDate || order.createdAt || 'TBD',
+      countryCode: getCountryCode(plant),
+      flag: getCountryFlag(plant),
+      planeIcon: PlaneGrayIcon,
+      image: finalImage,
+      plantName: plantDetails?.title || plant.plantName || `${plant.genus || ''} ${plant.species || ''}`.trim() || 'Unknown Plant',
+      variety: plant.variegation || plantDetails?.variegation || 'Standard',
+      size: plant.potSize || plantDetails?.potSize || '',
+      price: `$${(
+        plant.unitPrice ||
+        plant.productTotal ||
+        order.pricing?.finalTotal || 
+        order.finalTotal || 
+        order.totalAmount ||
+        creditRequest.orderAmount || 
+        creditRequest.amount ||
+        creditRequest.totalAmount ||
+        0
+      ).toFixed(2)}`,
+      quantity: plant.quantity || 1,
+      plantCode: plant.plantCode || '',
+      // Journey Mishap specific fields
+      showCreditStatus: true,
+      creditRequestStatus: creditRequest.status || plant.creditRequestStatus?.status || 'pending',
+      issueType: creditRequest.issueType || plant.creditRequestStatus?.issueType || 'Plant Issue',
+      requestDate: creditRequest.requestDate || creditRequest.createdAt || plant.creditRequestStatus?.createdAt || new Date().toISOString(),
+      totalCreditRequests: 1,
+      hasActiveCreditRequests: creditRequest.status === 'pending' || plant.creditRequestStatus?.status === 'pending',
+      // Order details for navigation
+      orderId: order.id,
+      transactionNumber: order.transactionNumber || order.id,
+      products: [{
+        plantCode: plant.plantCode,
+        ...plant,
+        plantDetails: plantDetails,
+        plantName: plant.plantName || plantDetails?.title,
+        image: plant.image || plantDetails?.image,
+      }],
+      creditRequests: [creditRequest],
+      fullOrderData: {
+        ...order,
+        id: order.id,
+        creditRequests: [creditRequest],
+        products: [{
+          plantCode: plant.plantCode,
+          ...plant,
+          plantDetails: plantDetails,
+          plantName: plant.plantName || plantDetails?.title,
+          image: plant.image || plantDetails?.image,
+        }]
+      }
+    };
   };
 
-  const getCountryFlag = (order) => {
-    const countryCode = getCountryCode(order);
+  // Helper functions for display formatting
+  const getCountryCode = (orderOrPlant) => {
+    // For plant records: prefer direct plantSourceCountry
+    if (orderOrPlant.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.plantSourceCountry);
+    }
+    
+    // Fall back to order's plantSourceCountry if available
+    if (orderOrPlant.order?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.order.plantSourceCountry);
+    }
+    
+    // Look in the plant's details
+    if (orderOrPlant.plantDetails?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.plantDetails.plantSourceCountry);
+    }
+    
+    // Handle legacy order structure
+    if (orderOrPlant.products && orderOrPlant.products.length > 0) {
+      const p = orderOrPlant.products[0];
+      if (p.plantSourceCountry) {
+        return validateCountryCode(p.plantSourceCountry);
+      }
+    }
+    
+    // Legacy creditRequest with orderDetails
+    if (orderOrPlant.orderDetails?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.orderDetails.plantSourceCountry);
+    }
+    
+    // Legacy listing details
+    if (orderOrPlant.listingDetails?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.listingDetails.plantSourceCountry);
+    }
+    
+    // Default fallback
+    return 'ID'; // Default to Indonesia
+  };
+  
+  // Ensure we only return valid country codes
+  const validateCountryCode = (code) => {
+    if (!code) return 'ID';
+    
+    // Valid country codes we support
+    const validCodes = ['PH', 'TH', 'ID'];
+    const upperCode = code.toUpperCase();
+    
+    if (validCodes.includes(upperCode)) {
+      return upperCode;
+    }
+    
+    // Log unexpected codes to help debug
+    console.log(`Journey Mishap: Unexpected country code found: ${code}, using default ID`);
+    return 'ID'; // Default to Indonesia for unknown codes
+  };
+
+  const getCountryFlag = (orderOrPlant) => {
+    const countryCode = getCountryCode(orderOrPlant);
     const flagMap = {
       'PH': PhilippinesFlag,
       'ID': IndonesiaFlag,

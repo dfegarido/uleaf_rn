@@ -73,9 +73,11 @@ export const getBuyerOrdersApi = async (params = {}) => {
         queryParams.append(key, params[key].toString());
       }
     });
-    
+
+    const url = `${API_ENDPOINTS.GET_BUYER_ORDERS}?${queryParams.toString()}`
+    console.log("url", url)
     const response = await fetch(
-      `${API_ENDPOINTS.GET_BUYER_ORDERS}?${queryParams.toString()}`,
+      url,
       {
         method: 'GET',
         headers: {
@@ -109,24 +111,34 @@ export const getBuyerOrdersApi = async (params = {}) => {
 /**
  * Get detailed information for a specific order
  * @param {Object} params - Query parameters
- * @param {string} params.orderId - Order ID (optional if transactionNumber provided)
- * @param {string} params.transactionNumber - Transaction number (optional if orderId provided)
+ * @param {string} params.orderId - Order ID (backend may still require transactionNumber+plantCode)
+ * @param {string} params.transactionNumber - Transaction number (required with plantCode)
+ * @param {string} params.plantCode - Plant code (required with transactionNumber)
  * @returns {Promise<Object>} Order detail response with comprehensive information and images
  */
 export const getOrderDetailApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
-    
-    if (!params.orderId && !params.transactionNumber) {
-      throw new Error('Either orderId or transactionNumber is required');
+
+    // Check if we have required parameters for one of the valid modes:
+    // Mode 1: transactionNumber + plantCode for specific plant lookup
+    // Mode 2: orderId for legacy order lookup
+    if (!(params.transactionNumber && params.plantCode) && !params.orderId) {
+      throw new Error('Either both transactionNumber+plantCode OR orderId is required');
     }
     
     const queryParams = new URLSearchParams();
+    // Add orderId parameter if present
     if (params.orderId) {
       queryParams.append('orderId', params.orderId);
     }
+    // Add transactionNumber parameter if present
     if (params.transactionNumber) {
       queryParams.append('transactionNumber', params.transactionNumber);
+    }
+    // Add plantCode parameter if present
+    if (params.plantCode) {
+      queryParams.append('plantCode', params.plantCode);
     }
     
     const url = `${API_ENDPOINTS.GET_ORDER_DETAIL}?${queryParams.toString()}`;

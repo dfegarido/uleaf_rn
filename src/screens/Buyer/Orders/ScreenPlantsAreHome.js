@@ -52,13 +52,28 @@ const ScreenPlantsAreHome = () => {
         throw new Error(response.error || 'Failed to load orders');
       }
 
+      // Support both response formats:
+      // 1. Legacy: response.data.data.orders (array of orders with products)
+      // 2. New: response.data.data.plants (array of plants with embedded order)
+      const plantsData = response.data?.data?.plants || [];
       const ordersData = response.data?.data?.orders || [];
-      console.log('📦 Loaded Plants are Home orders:', ordersData.length);
       
-      // Transform API data to component format
-      const transformedOrders = ordersData.map(order => 
-        transformOrderToComponentFormat(order)
-      );
+      console.log('API Response Structure:', {
+        hasPlants: plantsData.length > 0,
+        hasOrders: ordersData.length > 0
+      });
+      
+      let transformedOrders = [];
+      
+      if (plantsData.length > 0) {
+        // New API format: plants array with embedded order
+        console.log('📦 Processing Plants are Home plants:', plantsData.length);
+        transformedOrders = plantsData.map(plant => transformPlantToComponentFormat(plant));
+      } else {
+        // Legacy API format: orders array with products
+        console.log('📦 Processing Plants are Home orders:', ordersData.length);
+        transformedOrders = ordersData.map(order => transformOrderToComponentFormat(order));
+      }
       if (append) {
         setOrders(prev => [...prev, ...transformedOrders]);
         setPage(prev => prev + 1);
@@ -93,6 +108,10 @@ const ScreenPlantsAreHome = () => {
       planeIcon: PlaneGrayIcon, // Add plane icon
       image: plantDetails?.imageCollectionWebp?.[0] ? 
         { uri: plantDetails.imageCollectionWebp[0] } :
+        plantDetails?.imagePrimaryWebp ?
+        { uri: plantDetails.imagePrimaryWebp } :
+        plantDetails?.imagePrimary ? 
+        { uri: plantDetails.imagePrimary } :
         plantDetails?.image ? 
         { uri: plantDetails.image } : 
         plantDetails?.imageCollection?.[0] ?
@@ -117,31 +136,110 @@ const ScreenPlantsAreHome = () => {
     };
   };
 
-  // Helper functions for display formatting
-  const getCountryCode = (order) => {
-    // Prefer explicit order-level plant source country
-    if (order.plantSourceCountry) return order.plantSourceCountry;
-
-    // Then prefer product-level plantSourceCountry
-    if (order.products && order.products.length > 0) {
-      return order.products[0].plantSourceCountry || order.products[0].supplierCode || 'ID';
-    }
-
-    // Default to Indonesia
-    return 'ID';
+  // Transform API plant data to component expected format (for new API response)
+  const transformPlantToComponentFormat = (plant) => {
+    const plantDetails = plant.plantDetails || {};
+    const order = plant.order || {};
+    
+    return {
+      status: 'Plants are Home',
+      airCargoDate: plant.flightDateFormatted || order.flightDateFormatted || order.cargoDateFormatted || 'TBD',
+      countryCode: getCountryCode(plant),
+      flag: getCountryFlag(plant),
+      planeIcon: PlaneGrayIcon, // Add plane icon
+      image: plantDetails?.imageCollectionWebp?.[0] ? 
+        { uri: plantDetails.imageCollectionWebp[0] } :
+        plantDetails?.imagePrimaryWebp ?
+        { uri: plantDetails.imagePrimaryWebp } :
+        plantDetails?.imagePrimary ? 
+        { uri: plantDetails.imagePrimary } :
+        plantDetails?.image ? 
+        { uri: plantDetails.image } : 
+        plantDetails?.imageCollection?.[0] ?
+        { uri: plantDetails.imageCollection[0] } :
+        plant.image ? 
+        { uri: plant.image } :
+        require('../../../assets/images/plant1.png'),
+      plantName: plantDetails?.title || plant.plantName || `${plant.genus || ''} ${plant.species || ''}`.trim() || 'Unknown Plant',
+      variety: plant.variegation || plantDetails?.variegation || 'Standard',
+      size: plant.potSize || plantDetails?.potSize || '',
+      price: `$${(order.pricing?.finalTotal || plant.unitPrice || plant.productTotal || 0).toFixed(2)}`,
+      quantity: plant.quantity || 1,
+      plantCode: plant.plantCode || '',
+      // Plants are Home specific fields
+      showRequestCredit: true,
+      requestDeadline: getRequestDeadline(order),
+      creditRequestStatus: plant.creditRequestStatus, // Pass the credit request status from API
+      // Order details for navigation
+      orderId: order.id,
+      transactionNumber: order.transactionNumber || order.id,
+      // Create a "products" array with this plant as the only item for compatibility
+      products: [plant], 
+      // Add full order and plant data for navigation/details
+      fullOrderData: {
+        ...order,
+        products: [plant], // Make compatible with code expecting order.products[]
+        plants: [plant]    // New field for newer code expecting plants[]
+      }
+    };
   };
 
-  const getCountryFlag = (order) => {
-    const countryCode = getCountryCode(order);
+  // Helper functions for display formatting
+  const getCountryCode = (orderOrPlant) => {
+    // For plant records: prefer direct plantSourceCountry
+    if (orderOrPlant.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.plantSourceCountry);
+    }
+    
+    // Fall back to order's plantSourceCountry if available
+    if (orderOrPlant.order?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.order.plantSourceCountry);
+    }
+    
+    // Look in the plant's details
+    if (orderOrPlant.plantDetails?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.plantDetails.plantSourceCountry);
+    }
+    
+    // For legacy order records with products
+    if (orderOrPlant.products && orderOrPlant.products.length > 0) {
+      if (orderOrPlant.products[0].plantSourceCountry) {
+        return validateCountryCode(orderOrPlant.products[0].plantSourceCountry);
+      }
+    }
+    
+    // Default fallback
+    return 'ID'; // Default to Indonesia
+  };
+  
+  // Ensure we only return valid country codes
+  const validateCountryCode = (code) => {
+    if (!code) return 'ID';
+    
+    // Valid country codes we support
+    const validCodes = ['PH', 'TH', 'ID'];
+    const upperCode = code.toUpperCase();
+    
+    if (validCodes.includes(upperCode)) {
+      return upperCode;
+    }
+    
+    // Log unexpected codes to help debug
+    console.log(`Unexpected country code found: ${code}, using default ID`);
+    return 'ID'; // Default to Indonesia for unknown codes
+  };
+
+  const getCountryFlag = (orderOrPlant) => {
+    const countryCode = getCountryCode(orderOrPlant);
+    
+    // Map country codes to flag components
     const flagMap = {
       'TH': ThailandFlag,
       'PH': PhilippinesFlag,
       'ID': IndonesiaFlag,
-      // Use Indonesia as sensible default for other codes
-      'US': IndonesiaFlag,
-      'BR': IndonesiaFlag,
-      'NL': IndonesiaFlag
     };
+    
+    // Use matching flag or default to Indonesia
     return flagMap[countryCode] || IndonesiaFlag;
   };
 

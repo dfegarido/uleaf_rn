@@ -42,7 +42,7 @@ const ScreenReadyToFly = () => {
       const params = {
         limit,
         offset: append ? (page + 1) * limit : 0,
-        statuses: ['pending_payment', 'confirmed', "Ready to Fly"],
+        status: ["Ready to Fly"],
         includeDetails: true, // Get detailed order information
       };
 
@@ -53,26 +53,23 @@ const ScreenReadyToFly = () => {
         throw new Error(response.error || 'Failed to load orders');
       }
 
-  const ordersData = response.data?.data?.orders || [];
-      console.log('📦 Loaded Ready to Fly orders:', ordersData.length);
-      
-      // Debug: Log the first order's relevant fields
-      if (ordersData.length > 0) {
-        console.log('First order details:', {
-          id: ordersData[0].id,
-          flightDate: ordersData[0].flightDate,
-          flightDateFormatted: ordersData[0].flightDateFormatted,
-          plantSourceCountry: ordersData[0].plantSourceCountry,
-          firstProduct: ordersData[0].products?.[0] ? {
-            plantCode: ordersData[0].products[0].plantCode,
-            plantSourceCountry: ordersData[0].products[0].plantSourceCountry,
-            flightDateFormatted: ordersData[0].products[0].flightDateFormatted
-          } : null
+      // New API returns a flattened plants[] array where each plant contains its order metadata
+      const plantsData = response.data?.data?.plants || [];
+      console.log('📦 Loaded Ready to Fly plant records:', plantsData.length);
+
+      // Debug: Log the first plant's relevant fields
+      if (plantsData.length > 0) {
+        console.log('First plant record:', {
+          listingId: plantsData[0].listingId,
+          plantCode: plantsData[0].plantCode,
+          flightDateFormatted: plantsData[0].flightDateFormatted,
+          plantSourceCountry: plantsData[0].plantSourceCountry,
+          orderId: plantsData[0].order?.id,
         });
       }
-      
-      // Transform API data to component format
-      const transformedOrders = ordersData.map(order => transformOrderToComponentFormat(order));
+
+      // Transform plant-level API data to component expected format
+      const transformedOrders = plantsData.map(plant => transformPlantToComponentFormat(plant));
       if (append) {
         setOrders(prev => [...prev, ...transformedOrders]);
         setPage(prev => prev + 1);
@@ -94,53 +91,61 @@ const ScreenReadyToFly = () => {
     }
   };
 
-  // Transform API order data to component expected format
-  const transformOrderToComponentFormat = (order) => {
-    const product = order.products?.[0]; // Get first product for display
-    const plantDetails = product?.plantDetails;
-    
+  // Transform API plant-level data to component expected format
+  const transformPlantToComponentFormat = (plant) => {
+    const plantDetails = plant.plantDetails || {};
+    const orderMeta = plant.order || {};
+
+    // Build a minimal order-like object to satisfy components that expect fullOrderData.products
+    const fullOrderLike = {
+      ...orderMeta,
+      products: [plant]
+    };
+
     return {
-      status: 'Ready to Fly',
-      // Use the flightDateFormatted from the order data
-      airCargoDate: order.flightDateFormatted || order.cargoDateFormatted || 'TBD',
-      // Use plantSourceCountry from order
-      countryCode: getCountryCode(order),
-      flag: getCountryFlag(order),
-      planeIcon: PlaneGrayIcon, // Add plane icon
-      image: plantDetails?.imageCollectionWebp?.[0] ? 
-        { uri: plantDetails.imageCollectionWebp[0] } :
-        plantDetails?.image ? 
-        { uri: plantDetails.image } : 
-        plantDetails?.imageCollection?.[0] ?
-        { uri: plantDetails.imageCollection[0] } :
-        require('../../../assets/images/plant1.png'),
-      plantName: plantDetails?.title || product?.plantName || 'Unknown Plant',
-      variety: product?.variegation || 'Standard',
-      size: product?.potSize || '',
-      price: `$${(order.pricing?.finalTotal || 0).toFixed(2)}`,
-      quantity: product?.quantity || 1,
-      plantCode: product?.plantCode || '',
-      // Order details for navigation
-      orderId: order.id,
-      transactionNumber: order.transactionNumber || order.id,
-      products: order.products || [],
-      // Add full order data for navigation
-      fullOrderData: order
+      status: orderMeta.status || 'Ready to Fly',
+      // Use the flightDateFormatted from the plant record first, then order metadata
+      airCargoDate: plant.flightDateFormatted || orderMeta.flightDateFormatted || plant.flightDate || 'TBD',
+      countryCode: getCountryCode(plant),
+      flag: getCountryFlag(plant),
+      planeIcon: PlaneGrayIcon,
+      image: plantDetails?.imageCollectionWebp?.[0] ? { uri: plantDetails.imageCollectionWebp[0] } : (plantDetails?.image ? { uri: plantDetails.image } : (plantDetails?.imageCollection?.[0] ? { uri: plantDetails.imageCollection[0] } : require('../../../assets/images/plant1.png'))),
+      plantName: plantDetails?.title || plant.plantName || 'Unknown Plant',
+      variety: plant.variegation || plantDetails?.variegation || 'Standard',
+      size: plant.potSize || plantDetails?.potSize || '',
+      price: `$${((orderMeta.pricing?.finalTotal ?? plant.productTotal ?? plant.unitPrice) || 0).toFixed(2)}`,
+      quantity: plant.quantity || 1,
+      plantCode: plant.plantCode || '',
+      // For navigation and downstream components, provide order identifiers and a fullOrderData compatible object
+      orderId: orderMeta.id,
+      transactionNumber: orderMeta.transactionNumber || orderMeta.id,
+      products: [plant],
+      fullOrderData: fullOrderLike,
+      // include original plant record for any additional fields
+      _rawPlantRecord: plant
     };
   };
 
   // Helper functions for display formatting
-  const getCountryCode = (order) => {
-    // Prefer order-level plantSourceCountry, then first product's plantSourceCountry
-    if (order.plantSourceCountry) {
-      return order.plantSourceCountry;
+  const getCountryCode = (record) => {
+    if (!record) return 'ID';
+
+    // Prefer explicit plant-level country first
+    if (record.plantSourceCountry) return record.plantSourceCountry;
+
+    // If record contains an order metadata object, prefer its plantSourceCountry
+    if (record.order && record.order.plantSourceCountry) return record.order.plantSourceCountry;
+
+    // If this is an order-like object with products, prefer the first product's plantSourceCountry
+    if (record.products && record.products.length > 0) {
+      return record.products[0].plantSourceCountry || record.products[0].supplierCountry || 'ID';
     }
-    
-    if (order.products && order.products.length > 0) {
-      return order.products[0].plantSourceCountry || 'ID'; // Default to Indonesia
-    }
-    
-    return 'ID'; // Default to Indonesia if no country info available
+
+    // As a last resort, check nested plantDetails for any explicit country field
+    if (record.plantDetails && record.plantDetails.plantSourceCountry) return record.plantDetails.plantSourceCountry;
+
+    // Do NOT return supplierCode or sellerCode (they are identifiers, not country codes)
+    return 'ID';
   };
 
   const getCountryFlag = (order) => {

@@ -120,79 +120,109 @@ const OrderDetailsScreen = () => {
         }
       };
 
-      // Always try to fetch detailed data first if we have an identifier
-      if (orderData && (orderData.id || orderData.transactionNumber || orderData.fullOrderData?.id || orderData.fullOrderData?.transactionNumber)) {
+  // Always try to fetch detailed data first if we have valid parameters for the API
+  // The API supports two modes:
+  // 1. transactionNumber + plantCode for specific plant lookup
+  // 2. orderId for legacy order lookup
+  const hasTransactionAndPlant = !!(orderData && 
+    (orderData.transactionNumber || orderData.fullOrderData?.transactionNumber) && 
+    (orderData.plant?.code || orderData.plantCode || orderData.product?.plantCode || orderData.fullOrderData?.products?.[0]?.plantCode));
+  
+  const hasOrderId = !!(orderData && (orderData.id || orderData.fullOrderData?.id));
+  const canFetchDetail = hasTransactionAndPlant || hasOrderId;
+  
+  if (canFetchDetail) {
         try {
           let response;
           const apiParams = {};
-          
+
           // Determine the best identifier to use
-          if (orderData.id) {
-            apiParams.orderId = orderData.id;
-          } else if (orderData.transactionNumber) {
-            apiParams.transactionNumber = orderData.transactionNumber;
-          } else if (orderData.fullOrderData?.id) {
-            apiParams.orderId = orderData.fullOrderData.id;
-          } else if (orderData.fullOrderData?.transactionNumber) {
-            apiParams.transactionNumber = orderData.fullOrderData.transactionNumber;
-          }
-          
+          apiParams.transactionNumber = orderData.fullOrderData.transactionNumber;
+          // Prefer passing the plantCode so backend returns the per-plant record
+          apiParams.plantCode = orderData?.plant?.code || orderData?.plantCode || orderData?.product?.plantCode || orderData?.fullOrderData?.products?.[0]?.plantCode;
+
           console.log('Fetching order details with params:', apiParams);
-          
+
           // Use same API for all tabs - getOrderDetailApi handles all order types
           console.log('🔍 Using getOrderDetailApi for order details');
           response = await getOrderDetailApi(apiParams);
           
-          // Fix API response structure - it's response.data.data.order
-          if (response.success && response.data?.data?.order) {
-            const detailedOrder = response.data.data.order;
+          // API response shapes:
+          // 1. Single plant with embedded order: { plantCode, plantName, order: {...} }
+          // 2. Array of plants: { plants: [{...}, {...}], order: {...} }
+          if (response.success && response.data?.data) {
+            const apiData = response.data.data;
+            console.log('API response data structure:', Object.keys(apiData));
+
+            // Choose the relevant plant record based on response structure
+            const requestedPlantCode = apiParams.plantCode || orderData?.plantCode || orderData?.product?.plantCode || orderData?.fullOrderData?.products?.[0]?.plantCode;
+            let plantRecord = null;
+
+            if (Array.isArray(apiData.plants) && apiData.plants.length > 0) {
+              // Structure with plants array
+              plantRecord = requestedPlantCode ? apiData.plants.find(p => p.plantCode === requestedPlantCode) : apiData.plants[0];
+              if (!plantRecord) plantRecord = apiData.plants[0];
+            } else if (apiData.plantCode || apiData.listingId) {
+              // Single plant record structure (direct plant object with embedded order)
+              plantRecord = apiData;
+            }
+
+            // Extract order metadata based on response structure
+            const detailedOrder = Array.isArray(apiData.plants) 
+              ? (apiData.order || {}) 
+              : (apiData.order || {});
+              
             console.log('✅ Successfully fetched detailed order:', {
-              id: detailedOrder.id,
-              transactionNumber: detailedOrder.transactionNumber,
-              hasCreditRequests: !!detailedOrder.creditRequests,
-              creditRequestsLength: detailedOrder.creditRequests?.length || 0,
-              creditRequestsData: detailedOrder.creditRequests,
-              allKeys: Object.keys(detailedOrder),
-              activeTab: activeTab
+              responsePaths: Object.keys(apiData),
+              hasPlantArray: Array.isArray(apiData.plants),
+              hasPlantCode: !!apiData.plantCode,
+              hasOrderObject: !!apiData.order,
+              plantCode: plantRecord?.plantCode,
+              orderId: detailedOrder.id,
+              transactionNumber: detailedOrder.transactionNumber
             });
             
             // Transform the comprehensive API data for the UI based on active tab
             const transformedOrder = {
               // Order level data
               invoiceNumber: detailedOrder.transactionNumber || detailedOrder.id || 'N/A',
-              plantFlight: detailedOrder.cargoDateFormatted || formatCargoDate(detailedOrder.cargoDate),
+              plantFlight: detailedOrder.cargoDateFormatted || plantRecord?.flightDateFormatted || formatCargoDate(detailedOrder.cargoDate) || formatCargoDate(plantRecord?.flightDate),
               trackingNumber: activeTab === 'Journey Mishap' ? 'Credit Request Tracking' : (detailedOrder.trackingNumber || 'Not Available'),
               orderDate: formatOrderDate(detailedOrder.orderDate) || formatOrderDate(detailedOrder.createdAt),
               status: activeTab === 'Journey Mishap' ? 'Credit Requested' : (detailedOrder.status || 'Ready to Fly'),
-              
-              // Enhanced plant data from comprehensive API
-              plant: detailedOrder.products?.[0] ? {
-                image: detailedOrder.products[0].plantDetails?.image ? 
-                  { uri: detailedOrder.products[0].plantDetails.image } : 
-                  detailedOrder.products[0].plantDetails?.imageCollection?.[0] ?
-                  { uri: detailedOrder.products[0].plantDetails.imageCollection[0] } :
+
+              // Enhanced plant data from API per-plant record
+              plant: plantRecord ? {
+                // Image handling with priority for webp formats
+                image: plantRecord.plantDetails?.imageCollectionWebp?.[0] ? 
+                  { uri: plantRecord.plantDetails.imageCollectionWebp[0] } :
+                  plantRecord.plantDetails?.imagePrimaryWebp ? 
+                  { uri: plantRecord.plantDetails.imagePrimaryWebp } :
+                  plantRecord.plantDetails?.imagePrimary ? 
+                  { uri: plantRecord.plantDetails.imagePrimary } :
+                  plantRecord.plantDetails?.image ? 
+                  { uri: plantRecord.plantDetails.image } : 
+                  plantRecord.plantDetails?.imageCollection?.[0] ?
+                  { uri: plantRecord.plantDetails.imageCollection[0] } :
+                  plantRecord.image ? 
+                  { uri: plantRecord.image } :
                   require('../../../assets/images/plant1.png'),
-                code: detailedOrder.products[0].plantCode || 'N/A',
-                country: detailedOrder.products[0].supplierCode || detailedOrder.supplierCode || 'TH',
-                name: detailedOrder.products[0].plantDetails?.title || 
-                      detailedOrder.products[0].plantName || 
-                      detailedOrder.products[0].plantDetails?.scientificName ||
-                      'Unknown Plant',
-                variegation: detailedOrder.products[0].plantDetails?.variegation || 
-                           detailedOrder.products[0].variegation || 'Standard',
-                size: detailedOrder.products[0].plantDetails?.potSize || 
-                      detailedOrder.products[0].potSize || 'N/A',
-                // Prefer the overall order final total for display; fall back to product/unit/subtotals
-                price: `$${( (typeof detailedOrder.pricing?.finalTotal === 'number' ? detailedOrder.pricing.finalTotal : (detailedOrder.products[0].price ?? detailedOrder.products[0].unitPrice ?? detailedOrder.pricing?.itemTotal ?? detailedOrder.pricing?.subtotal ?? 0)) ).toFixed(2)}`,
-                quantity: detailedOrder.products[0].quantity || 1,
-                scientificName: detailedOrder.products[0].plantDetails?.scientificName || '',
-                description: detailedOrder.products[0].plantDetails?.description || '',
-                careLevel: detailedOrder.products[0].plantDetails?.careLevel || '',
-                rarityLevel: detailedOrder.products[0].plantDetails?.rarityLevel || '',
+                code: plantRecord.plantCode || 'N/A',
+                country: plantRecord.plantSourceCountry || plantRecord.order?.plantSourceCountry || plantRecord.supplierCode || 'TH',
+                name: plantRecord.plantDetails?.title || plantRecord.plantName || `${plantRecord.genus || ''} ${plantRecord.species || ''}`.trim() || 'Unknown Plant',
+                variegation: plantRecord.variegation || plantRecord.plantDetails?.variegation || 'Standard',
+                size: plantRecord.potSize || plantRecord.plantDetails?.potSize || 'N/A',
+                // Prefer using the productTotal or unitPrice from the plant record when available
+                price: `$${((typeof detailedOrder.pricing?.finalTotal === 'number' ? detailedOrder.pricing.finalTotal : (plantRecord.productTotal ?? plantRecord.unitPrice ?? detailedOrder.pricing?.itemTotal ?? detailedOrder.pricing?.subtotal ?? 0))).toFixed(2)}`,
+                quantity: plantRecord.quantity || 1,
+                scientificName: plantRecord.plantDetails?.scientificName || `${plantRecord.genus || ''} ${plantRecord.species || ''}`.trim(),
+                description: plantRecord.plantDetails?.description || '',
+                careLevel: plantRecord.plantDetails?.careLevel || '',
+                rarityLevel: plantRecord.plantDetails?.rarityLevel || '',
                 // Journey Mishap specific credit data
                 ...(activeTab === 'Journey Mishap' && {
-                  creditRequests: detailedOrder.creditRequests || [],
-                  creditRequestStatus: detailedOrder.creditRequests?.[0]?.status || 'pending'
+                  creditRequests: plantRecord.creditRequestStatus?.requests || plantRecord.creditRequests || [],
+                  creditRequestStatus: plantRecord.creditRequestStatus?.hasRequest ? (plantRecord.creditRequestStatus?.latestRequest?.status || 'pending') : (plantRecord.creditRequestStatus || 'pending')
                 })
               } : {
                 image: require('../../../assets/images/plant1.png'),
@@ -203,38 +233,25 @@ const OrderDetailsScreen = () => {
                 size: 'N/A',
                 price: '$0.00',
                 quantity: 1,
-                ...(activeTab === 'Journey Mishap' && {
-                  creditRequests: [],
-                  creditRequestStatus: 'pending'
-                })
+                ...(activeTab === 'Journey Mishap' && { creditRequests: [], creditRequestStatus: 'pending' })
               },
-              
+
               // Enhanced delivery data
-              deliveryAddress: detailedOrder.deliveryDetails?.address ? 
-                `${detailedOrder.deliveryDetails.address.street || ''}\n${detailedOrder.deliveryDetails.address.city || ''}, ${detailedOrder.deliveryDetails.address.state || ''} ${detailedOrder.deliveryDetails.address.zipCode || ''}\n${detailedOrder.deliveryDetails.address.country || ''}`.trim() :
-                'Address not available',
-              
+              deliveryAddress: detailedOrder.deliveryDetails?.address ? `${detailedOrder.deliveryDetails.address.street || ''}\n${detailedOrder.deliveryDetails.address.city || ''}, ${detailedOrder.deliveryDetails.address.state || ''} ${detailedOrder.deliveryDetails.address.zipCode || ''}\n${detailedOrder.deliveryDetails.address.country || ''}`.trim() : 'Address not available',
+
               // Additional comprehensive data
-              supplierName: detailedOrder.supplierInfo?.supplierName || 
-                          detailedOrder.supplierName || 
-                          detailedOrder.products?.[0]?.plantDetails?.supplierName ||
-                          'Unknown Supplier',
-              
-              // Store the full detailed order for future use
-              _fullDetailedOrder: detailedOrder,
-              
-              // Add credit request status from the detailed order
-              creditRequestStatus: detailedOrder.products?.[0]?.creditRequestStatus || {
-                hasRequest: false,
-                requests: [],
-                latestRequest: null
-              },
-              
-              // Journey Mishap specific fields
+              supplierName: plantRecord.supplierName || plantRecord.plantDetails?.supplierName || detailedOrder.supplierInfo?.supplierName || detailedOrder.supplierName || 'Unknown Supplier',
+
+              // Store the full API payload for future use/navigation
+              _fullDetailedOrder: apiData,
+
+              // Add credit request status from the plant record if available
+              creditRequestStatus: plantRecord?.creditRequestStatus || { hasRequest: false, requests: [], latestRequest: null },
+
               ...(activeTab === 'Journey Mishap' && {
-                totalCreditRequests: detailedOrder.creditRequests?.length || 0,
-                creditRequests: detailedOrder.creditRequests || [],
-                hasActiveCreditRequests: detailedOrder.creditRequests?.length > 0
+                totalCreditRequests: detailedOrder.creditRequests?.length || plantRecord?.creditRequestStatus?.requests?.length || 0,
+                creditRequests: detailedOrder.creditRequests || plantRecord?.creditRequestStatus?.requests || [],
+                hasActiveCreditRequests: (detailedOrder.creditRequests?.length || plantRecord?.creditRequestStatus?.requests?.length) > 0
               })
             };
             
@@ -246,6 +263,16 @@ const OrderDetailsScreen = () => {
           }
         } catch (error) {
           console.error('Error fetching detailed order data:', error);
+          
+          // Special handling for the case where backend still requires transactionNumber + plantCode
+          // even when orderId is provided
+          if (error.message && error.message.includes('transactionNumber and plantCode are required') && orderData.fullOrderData) {
+            console.log('Backend API requires transactionNumber + plantCode. Using local order data instead.');
+            // Continue to local data path - don't show error to user
+          } else {
+            // Show error for other failure types
+            Alert.alert('Error', 'Failed to load order details. Please try again.');
+          }
           // Fall through to use existing data if API call fails
         }
       }
