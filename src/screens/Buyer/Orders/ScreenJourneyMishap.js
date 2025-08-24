@@ -4,23 +4,32 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import {OrderItemCard, OrderItemCardSkeleton} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import {getBuyerCreditRequestsApi, getJourneyMishapDataApi} from '../../../components/Api/orderManagementApi';
 import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
 import NetInfo from '@react-native-community/netinfo';
 
 const ScreenJourneyMishap = () => {
   const route = useRoute();
+  const PAGE_SIZE = 4;
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   // Load credit requests from API using the new comprehensive Journey Mishap API
-  const loadOrders = async (isRefresh = false) => {
+  const loadOrders = async (isRefresh = false, append = false) => {
     try {
-      if (!isRefresh) {
+      if (append) {
+        setLoadingMore(true);
+      } else if (!isRefresh) {
         setLoading(true);
       }
       setError(null);
@@ -30,9 +39,10 @@ const ScreenJourneyMishap = () => {
         throw new Error('No internet connection');
       }
 
+      const limit = PAGE_SIZE;
       const params = {
-        limit: 20,
-        offset: 0,
+        limit,
+        offset: append ? (page + 1) * limit : 0,
         includeOrderDetails: true,
         includeListingDetails: true,
         includePlantDetails: true,
@@ -48,16 +58,40 @@ const ScreenJourneyMishap = () => {
         throw new Error(response.error || 'Failed to load Journey Mishap data');
       }
 
+      // Support both response formats:
+      // 1. Legacy: response.data.data.creditRequests (array of credit requests with linked order/listing details)
+      // 2. New: response.data.data.plants (array of plants with credit request info)
       const creditRequestsData = response.data?.data?.creditRequests || [];
+      const plantsData = response.data?.data?.plants || [];
       
-      // Transform comprehensive Journey Mishap data to component format
-      const transformedOrders = await Promise.all(
-        creditRequestsData.map(creditRequest => 
-          transformJourneyMishapDataToComponentFormat(creditRequest)
-        )
-      );
+      console.log('API Response Structure:', {
+        hasCreditRequests: creditRequestsData.length > 0,
+        hasPlants: plantsData.length > 0
+      });
+      
+      let transformedOrders = [];
+      
+      if (plantsData.length > 0) {
+        // New API format: plants array with credit request info
+        console.log('📦 Processing Journey Mishap plants:', plantsData.length);
+        transformedOrders = await Promise.all(
+          plantsData.map(plant => transformPlantToComponentFormat(plant))
+        );
+      } else {
+        // Legacy API format: credit requests with linked collections
+        console.log('📦 Processing Journey Mishap credit requests:', creditRequestsData.length);
+        transformedOrders = await Promise.all(
+          creditRequestsData.map(creditRequest => transformJourneyMishapDataToComponentFormat(creditRequest))
+        );
+      }
 
-      setOrders(transformedOrders);
+      if (append) {
+        setOrders(prev => [...prev, ...transformedOrders]);
+        setPage(prev => prev + 1);
+      } else {
+        setOrders(transformedOrders);
+        setPage(0);
+      }
 
     } catch (error) {
       console.error('Error loading Journey Mishap orders:', error);
@@ -65,6 +99,7 @@ const ScreenJourneyMishap = () => {
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       if (isRefresh) {
         setRefreshing(false);
       }
@@ -104,11 +139,15 @@ const ScreenJourneyMishap = () => {
       }
     }
 
-    const finalImage = productPlantDetails?.image ? 
+    const finalImage = productPlantDetails?.imageCollectionWebp?.[0] ?
+      { uri: productPlantDetails.imageCollectionWebp[0] } :
+      productPlantDetails?.image ? 
       { uri: productPlantDetails.image } : 
       productPlantDetails?.imageCollection?.[0] ?
       { uri: productPlantDetails.imageCollection[0] } :
-      // Check actual order product image fields
+      // Check actual order product image fields (prefer webp)
+      orderProduct?.imageCollectionWebp?.[0] ?
+      { uri: orderProduct.imageCollectionWebp[0] } :
       orderProduct?.imagePrimary && orderProduct.imagePrimary !== "" ?
       { uri: orderProduct.imagePrimary } :
       orderProduct?.images?.[0] ?
@@ -121,7 +160,9 @@ const ScreenJourneyMishap = () => {
       { uri: orderProduct.image } :
       orderProduct?.imageCollection?.[0] ?
       { uri: orderProduct.imageCollection[0] } :
-      // Try fallback plant data
+      // Try fallback plant data (prefer webp)
+      fallbackPlantData?.imageCollectionWebp?.[0] ?
+      { uri: fallbackPlantData.imageCollectionWebp[0] } :
       fallbackPlantData?.image ?
       { uri: fallbackPlantData.image } :
       fallbackPlantData?.imageCollection?.[0] ?
@@ -130,9 +171,18 @@ const ScreenJourneyMishap = () => {
 
     const transformedObject = {
       status: creditRequest.issueType || 'Credit Requested',
-      airCargoDate: orderDetails.cargoDateFormatted || orderDetails.orderDate || orderDetails.createdAt || 'TBD',
-      countryCode: getCountryCode({ products: [{ supplierCode: orderDetails.supplierCode || listingDetails.supplierCode }] }),
-      flag: getCountryFlag({ products: [{ supplierCode: orderDetails.supplierCode || listingDetails.supplierCode }] }),
+      airCargoDate: orderDetails.flightDateFormatted || orderDetails.cargoDateFormatted || orderDetails.orderDate || orderDetails.createdAt || 'TBD',
+      countryCode: getCountryCode({
+        plantSourceCountry: orderDetails.plantSourceCountry || listingDetails.plantSourceCountry,
+        orderDetails: orderDetails,
+        listingDetails: listingDetails
+      }),
+      flag: getCountryFlag({
+        plantSourceCountry: orderDetails.plantSourceCountry || listingDetails.plantSourceCountry,
+        orderDetails: orderDetails,
+        listingDetails: listingDetails
+      }),
+      planeIcon: PlaneGrayIcon,
       image: finalImage,
       plantName: productPlantDetails?.title || orderProduct?.plantName || orderProduct?.title || 'Unknown Plant',
       variety: orderProduct?.variegation || productPlantDetails?.variegation || plantDetails?.variegation || listingDetails?.variegation || 'Standard',
@@ -197,84 +247,147 @@ const ScreenJourneyMishap = () => {
     return transformedObject;
   };
 
-  // Transform credit request data to component expected format (Legacy - fallback for old API)
-  const transformCreditRequestToComponentFormat = (creditRequest) => {
-    const orderData = creditRequest.orderData || {};
-    const plantDetails = creditRequest.plantDetails || {};
+  // Transform API plant with credit request to component format (for new API response)
+  const transformPlantToComponentFormat = async (plant) => {
+    const plantDetails = plant.plantDetails || {};
+    const order = plant.order || {};
+    const creditRequest = plant.creditRequestStatus?.latestRequest || {};
     
+    // Image resolution with fallbacks
+    const finalImage = plantDetails?.imageCollectionWebp?.[0] ?
+      { uri: plantDetails.imageCollectionWebp[0] } :
+      plantDetails?.imagePrimaryWebp ?
+      { uri: plantDetails.imagePrimaryWebp } :
+      plantDetails?.imagePrimary ? 
+      { uri: plantDetails.imagePrimary } :
+      plantDetails?.image ? 
+      { uri: plantDetails.image } : 
+      plantDetails?.imageCollection?.[0] ?
+      { uri: plantDetails.imageCollection[0] } :
+      plant.image ? 
+      { uri: plant.image } :
+      require('../../../assets/images/plant1.png');
+
     return {
-      status: creditRequest.issueType || 'Credit Requested',
-      airCargoDate: orderData.cargoDateFormatted || orderData.orderDate || 'TBD',
-      countryCode: getCountryCode({ products: [{ supplierCode: orderData.supplierCode }] }),
-      flag: getCountryFlag({ products: [{ supplierCode: orderData.supplierCode }] }),
-      image: plantDetails?.image ? 
-        { uri: plantDetails.image } : 
-        plantDetails?.imageCollection?.[0] ?
-        { uri: plantDetails.imageCollection[0] } :
-        require('../../../assets/images/plant1.png'),
-      plantName: plantDetails?.title || plantDetails?.plantName || 'Unknown Plant',
-      variety: plantDetails?.variegation || 'Standard',
-      size: plantDetails?.potSize || '',
+      status: creditRequest.issueType || plant.creditRequestStatus?.issueType || 'Credit Requested',
+      airCargoDate: order.flightDateFormatted || order.cargoDateFormatted || order.orderDate || order.createdAt || 'TBD',
+      countryCode: getCountryCode(plant),
+      flag: getCountryFlag(plant),
+      planeIcon: PlaneGrayIcon,
+      image: finalImage,
+      plantName: plantDetails?.title || plant.plantName || `${plant.genus || ''} ${plant.species || ''}`.trim() || 'Unknown Plant',
+      variety: plant.variegation || plantDetails?.variegation || 'Standard',
+      size: plant.potSize || plantDetails?.potSize || '',
       price: `$${(
-        orderData.pricing?.finalTotal || 
-        orderData.finalTotal || 
-        orderData.totalAmount || 
-        orderData.total ||
-        plantDetails?.price || 
-        plantDetails?.finalPrice ||
+        plant.unitPrice ||
+        plant.productTotal ||
+        order.pricing?.finalTotal || 
+        order.finalTotal || 
+        order.totalAmount ||
         creditRequest.orderAmount || 
         creditRequest.amount ||
         creditRequest.totalAmount ||
-        orderData.products?.[0]?.price ||
-        orderData.products?.[0]?.finalPrice ||
         0
       ).toFixed(2)}`,
-      quantity: plantDetails?.quantity || 1,
-      plantCode: creditRequest.plantCode || '',
+      quantity: plant.quantity || 1,
+      plantCode: plant.plantCode || '',
       // Journey Mishap specific fields
       showCreditStatus: true,
-      creditRequestStatus: creditRequest.status || 'pending',
-      issueType: creditRequest.issueType || 'Plant Issue',
-      requestDate: creditRequest.requestDate || creditRequest.createdAt || new Date().toISOString(),
+      creditRequestStatus: creditRequest.status || plant.creditRequestStatus?.status || 'pending',
+      issueType: creditRequest.issueType || plant.creditRequestStatus?.issueType || 'Plant Issue',
+      requestDate: creditRequest.requestDate || creditRequest.createdAt || plant.creditRequestStatus?.createdAt || new Date().toISOString(),
       totalCreditRequests: 1,
-      hasActiveCreditRequests: creditRequest.status === 'pending',
+      hasActiveCreditRequests: creditRequest.status === 'pending' || plant.creditRequestStatus?.status === 'pending',
       // Order details for navigation
-      orderId: creditRequest.orderId,
-      transactionNumber: orderData.transactionNumber || creditRequest.orderId,
-      products: [{ 
-        plantCode: creditRequest.plantCode,
+      orderId: order.id,
+      transactionNumber: order.transactionNumber || order.id,
+      products: [{
+        plantCode: plant.plantCode,
+        ...plant,
         plantDetails: plantDetails,
-        ...plantDetails 
+        plantName: plant.plantName || plantDetails?.title,
+        image: plant.image || plantDetails?.image,
       }],
       creditRequests: [creditRequest],
       fullOrderData: {
-        ...orderData,
-        id: creditRequest.orderId,
+        ...order,
+        id: order.id,
         creditRequests: [creditRequest],
-        products: [{ 
-          plantCode: creditRequest.plantCode,
+        products: [{
+          plantCode: plant.plantCode,
+          ...plant,
           plantDetails: plantDetails,
-          ...plantDetails 
+          plantName: plant.plantName || plantDetails?.title,
+          image: plant.image || plantDetails?.image,
         }]
       }
     };
   };
 
   // Helper functions for display formatting
-  const getCountryCode = (order) => {
-    return order.products?.[0]?.supplierCode || 'US';
+  const getCountryCode = (orderOrPlant) => {
+    // For plant records: prefer direct plantSourceCountry
+    if (orderOrPlant.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.plantSourceCountry);
+    }
+    
+    // Fall back to order's plantSourceCountry if available
+    if (orderOrPlant.order?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.order.plantSourceCountry);
+    }
+    
+    // Look in the plant's details
+    if (orderOrPlant.plantDetails?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.plantDetails.plantSourceCountry);
+    }
+    
+    // Handle legacy order structure
+    if (orderOrPlant.products && orderOrPlant.products.length > 0) {
+      const p = orderOrPlant.products[0];
+      if (p.plantSourceCountry) {
+        return validateCountryCode(p.plantSourceCountry);
+      }
+    }
+    
+    // Legacy creditRequest with orderDetails
+    if (orderOrPlant.orderDetails?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.orderDetails.plantSourceCountry);
+    }
+    
+    // Legacy listing details
+    if (orderOrPlant.listingDetails?.plantSourceCountry) {
+      return validateCountryCode(orderOrPlant.listingDetails.plantSourceCountry);
+    }
+    
+    // Default fallback
+    return 'ID'; // Default to Indonesia
+  };
+  
+  // Ensure we only return valid country codes
+  const validateCountryCode = (code) => {
+    if (!code) return 'ID';
+    
+    // Valid country codes we support
+    const validCodes = ['PH', 'TH', 'ID'];
+    const upperCode = code.toUpperCase();
+    
+    if (validCodes.includes(upperCode)) {
+      return upperCode;
+    }
+    
+    // Log unexpected codes to help debug
+    console.log(`Journey Mishap: Unexpected country code found: ${code}, using default ID`);
+    return 'ID'; // Default to Indonesia for unknown codes
   };
 
-  const getCountryFlag = (order) => {
-    const countryCode = getCountryCode(order);
+  const getCountryFlag = (orderOrPlant) => {
+    const countryCode = getCountryCode(orderOrPlant);
     const flagMap = {
+      'PH': PhilippinesFlag,
+      'ID': IndonesiaFlag,
       'TH': ThailandFlag,
-      'US': ThailandFlag, // Use default flag for now
-      'BR': ThailandFlag,
-      'ID': ThailandFlag,
-      'NL': ThailandFlag
     };
-    return flagMap[countryCode] || ThailandFlag;
+    return flagMap[countryCode] || IndonesiaFlag;
   };
 
   // Load orders when component mounts
@@ -295,6 +408,11 @@ const ScreenJourneyMishap = () => {
     await loadOrders(true);
   };
 
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    await loadOrders(false, true);
+  };
+
   return (
     <View style={styles.container}>
       {loading ? (
@@ -310,8 +428,8 @@ const ScreenJourneyMishap = () => {
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={6}
-            loadMoreLimit={6}
+            initialLimit={4}
+            loadMoreLimit={4}
             showLoadMore={true}
             containerStyle={{marginTop: 24, paddingHorizontal: 15}}
           />
@@ -353,14 +471,37 @@ const ScreenJourneyMishap = () => {
             ))
           )}
           
+          {/* Show skeletons while loading more */}
+          {loadingMore && (
+            <View style={{paddingHorizontal: 0, marginTop: 12}}>
+              {Array.from({length: PAGE_SIZE}).map((_, i) => (
+                <OrderItemCardSkeleton key={`load-more-skel-${i}`} />
+              ))}
+            </View>
+          )}
+
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={6}
-            loadMoreLimit={6}
+            initialLimit={4}
+            loadMoreLimit={4}
             showLoadMore={true}
             containerStyle={{marginTop: 24, paddingHorizontal: 15}}
           />
+
+          {/* Load more orders button */}
+          <View style={{width: '100%', alignItems: 'center', marginTop: 12, paddingHorizontal: 16}}>
+            <TouchableOpacity
+              onPress={handleLoadMore}
+              style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 24, width: '100%', maxWidth: 375, height: 48, borderRadius: 12, backgroundColor: 'transparent'}}
+              disabled={loadingMore}
+            >
+              <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8, gap: 8, height: 16}}>
+                <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, lineHeight: 16, color: '#539461', textAlign: 'center'}}>{loadingMore ? 'Loading more...' : 'Load More'}</Text>
+                {!loadingMore && (<CaretDownIcon width={24} height={24} style={{width:24, height:24}} />)}
+              </View>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       )}
     </View>

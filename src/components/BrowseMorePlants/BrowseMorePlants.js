@@ -10,103 +10,200 @@ import PlantItemCard from '../PlantItemCard/PlantItemCard';
 import { getPlantRecommendationsApi, addToCartApi } from '../Api';
 import CaretDownIcon from '../../assets/icons/accent/caret-down-regular.svg';
 
+// Global state for plant recommendations - shared across all instances
+let globalPlantRecommendations = [];
+let isGlobalLoading = false;
+let hasGlobalLoaded = false; // Track if we've ever loaded recommendations in this app session
+
+// Function to reset global state (can be called from outside when needed)
+export const resetGlobalPlantRecommendations = () => {
+  console.log('🌱 Resetting global plant recommendations');
+  globalPlantRecommendations = [];
+  hasGlobalLoaded = false;
+  isGlobalLoading = false;
+};
+
+// Removed AsyncStorage caching (backend now handles image & data freshness)
+
 const BrowseMorePlants = ({
   title = "Discover Random Plants",
-  initialLimit = 6,
-  loadMoreLimit = 6,
+  initialLimit = 4,
+  loadMoreLimit = 4,
   showLoadMore = true,
   onPlantPress = null, // Custom handler for plant press
   onAddToCart = null, // Custom handler for add to cart
   containerStyle = {},
   autoLoad = true, // Whether to load plants automatically on mount
+  forceRefresh = false, // Force refresh from API, bypassing cache and global state
 }) => {
-  const [plants, setPlants] = useState([]);
+  const [plants, setPlants] = useState(globalPlantRecommendations);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Load initial plants
-  const loadPlants = async (isInitial = true) => {
-    try {
-      if (isInitial) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
+  // Helper to compute next chunk from global data without refetching
+  const getNextChunk = (currentCount) => {
+    if (!Array.isArray(globalPlantRecommendations) || globalPlantRecommendations.length === 0) return [];
+    const start = currentCount;
+    const end = start + loadMoreLimit;
+    return globalPlantRecommendations.slice(start, end);
+  };
+
+  // Removed loadPlantsFromCache & savePlantsToCache (no local caching)
+
+  // Simplified load function that respects singleton pattern
+  const loadPlants = async (isInitial = true, forceRefresh = false) => {
+    if (isInitial) {
+      // For initial load, use the global singleton pattern
+      await loadGlobalPlantRecommendations(forceRefresh);
+    } else {
+      // For "load more", add additional plants from global cache (no API call)
+      if (globalPlantRecommendations.length === 0) {
+        console.log('🌱 No global data available for load more');
+        return;
       }
-      
-      console.log('Loading plant recommendations...');
-      
-      const params = {
-        limit: isInitial ? initialLimit : loadMoreLimit,
-      };
-      
+
+      setLoadingMore(true);
+      try {
+        setPlants(prevPlants => {
+          const next = getNextChunk(prevPlants.length);
+          if (next.length === 0) {
+            Alert.alert('No more plants', 'No more plants available to load.');
+            return prevPlants;
+          }
+
+          // Filter out duplicates by plantCode
+          const existingPlantCodes = new Set(prevPlants.map(p => p.plantCode));
+          const uniqueNext = next.filter(p => p && p.plantCode && !existingPlantCodes.has(p.plantCode));
+          return [...prevPlants, ...uniqueNext];
+        });
+      } catch (error) {
+        console.error('Error loading more plants:', error);
+        Alert.alert('Error', 'Something went wrong. Please try again.');
+      } finally {
+        setLoadingMore(false);
+      }
+    }
+  };
+
+  // Global function to load plant recommendations (singleton pattern)
+  const loadGlobalPlantRecommendations = async (forceRefresh = false) => {
+    // If already loaded in this app session and not forced refresh, do NOT use the full
+    // global batch on mount — fetch a small initial page instead. This prevents the
+    // component from immediately exposing a large cached batch (e.g. 20 items).
+    if (hasGlobalLoaded && !forceRefresh) {
+      console.log('🌱 BrowseMorePlants: Global cache present; fetching a small initial page instead of reusing full cache');
+      try {
+        setLoading(true);
+        const resp = await getPlantRecommendationsApi({ limit: initialLimit });
+        if (resp.success && resp.data && Array.isArray(resp.data.recommendations)) {
+          let validPlants = resp.data.recommendations.filter(plant => {
+            const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+            const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+                             (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+            const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') ||
+                               (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+            return hasPlantCode && hasTitle && hasSubtitle;
+          });
+
+          // If client-side validation filtered out everything, fall back to using raw items
+          // (server may not populate all subtitle fields; better to show something than nothing)
+          if (validPlants.length === 0 && Array.isArray(resp.data.recommendations) && resp.data.recommendations.length > 0) {
+            console.warn('🌱 BrowseMorePlants: Client filters removed all items; falling back to raw recommendations');
+            validPlants = resp.data.recommendations.slice(0);
+          }
+
+          // Normalize webp fields if present
+          const normalized = validPlants.map(p => ({
+            ...p,
+            imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimary,
+            imageCollectionWebp: p.imageCollectionWebp || p.imageCollection,
+          }));
+
+          setPlants(normalized.slice(0, initialLimit));
+        } else {
+          setPlants([]);
+        }
+      } catch (err) {
+        console.error('🌱 BrowseMorePlants: Error fetching small initial page:', err);
+        setPlants([]);
+      } finally {
+        setLoading(false);
+      }
+
+      return;
+    }
+
+    // If another instance is already loading, wait for it
+    if (isGlobalLoading) {
+      console.log('🌱 BrowseMorePlants: Another instance is loading, waiting...');
+      // Poll until loading is complete
+      const checkInterval = setInterval(() => {
+        if (!isGlobalLoading) {
+          clearInterval(checkInterval);
+          // After the other instance finishes, only show the first chunk
+          setPlants(globalPlantRecommendations.slice(0, initialLimit));
+        }
+      }, 100);
+      return;
+    }
+
+    // Start loading
+    isGlobalLoading = true;
+  setLoading(true);
+
+    try {
+      console.log('🌱 BrowseMorePlants: Loading recommendations for the first time this session');
+
+  // Skip local cache logic (always fetch fresh batch)
+
+      // Load from API
+      console.log('🌱 BrowseMorePlants: Loading recommendations from API...');
+  // Fetch a larger batch once, then chunk for UI to avoid subsequent API calls
+  const batchSize = Math.max(12, initialLimit * 5); // smaller due to lower per-page limit
+  const params = { limit: batchSize };
       const response = await getPlantRecommendationsApi(params);
-      console.log('Plant recommendations API response:', response.data.recommendations);
-      
+
       if (response.success && response.data && response.data.recommendations) {
-        // Filter out plants with invalid data
-        const validPlants = response.data.recommendations.filter(plant => {
-          // Ensure plant has required fields and they are strings
+        // Filter valid plants
+  let validPlants = response.data.recommendations.filter(plant => {
           const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
           const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
                           (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
           const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
                              (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-          
-          const isValid = hasPlantCode && hasTitle && hasSubtitle;
-          
-          if (!isValid) {
-            console.log('Filtering out invalid plant:', {
-              plantCode: plant?.plantCode,
-              genus: plant?.genus,
-              species: plant?.species,
-              variegation: plant?.variegation,
-              plantName: plant?.plantName,
-              finalPrice: plant?.finalPrice
-            });
-          }
-          
-          return isValid;
+          return hasPlantCode && hasTitle && hasSubtitle;
         });
-        
-        console.log(`Filtered ${response.data.recommendations.length} plants down to ${validPlants.length} valid plants`);
-        
-        if (isInitial) {
-          setPlants(validPlants);
-        } else {
-          // Add new recommendations, filtering out duplicates
-          setPlants(prevPlants => {
-            const existingPlantCodes = new Set(prevPlants.map(p => p.plantCode));
-            const newPlants = validPlants.filter(p => !existingPlantCodes.has(p.plantCode));
-            return [...prevPlants, ...newPlants];
-          });
-          
-          if (validPlants.length === 0) {
-            Alert.alert('No more plants', 'No more plants available to load.');
-          }
+
+        // If filtering removed everything, fall back to server recommendations
+        if (validPlants.length === 0 && Array.isArray(response.data.recommendations) && response.data.recommendations.length > 0) {
+          console.warn('🌱 BrowseMorePlants: Client filters removed all items for global batch; falling back to raw recommendations');
+          validPlants = response.data.recommendations.slice(0);
         }
+
+        console.log(`🌱 Loaded ${validPlants.length} valid plants for global recommendations`);
+
+  // Update global state with full batch
+  // Normalize image fields to include webp versions
+  globalPlantRecommendations = validPlants.map(p => ({
+    ...p,
+    imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+    imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+  }));
+        hasGlobalLoaded = true;
+  // Show only the first chunk in UI
+  setPlants(globalPlantRecommendations.slice(0, initialLimit));
+
+  // No local cache persistence
       } else {
         console.error('Failed to load plant recommendations:', response.data?.message || 'Unknown error');
-        if (isInitial) {
-          setPlants([]);
-        }
-        if (!isInitial) {
-          Alert.alert('Error', 'Failed to load more plants. Please try again.');
-        }
+        setPlants([]);
       }
     } catch (error) {
       console.error('Error loading plant recommendations:', error);
-      if (isInitial) {
-        setPlants([]);
-      }
-      if (!isInitial) {
-        Alert.alert('Error', 'Something went wrong. Please try again.');
-      }
+      setPlants([]);
     } finally {
-      if (isInitial) {
-        setLoading(false);
-      } else {
-        setLoadingMore(false);
-      }
+      isGlobalLoading = false;
+      setLoading(false);
     }
   };
 
@@ -146,10 +243,20 @@ const BrowseMorePlants = ({
 
   // Auto-load on mount if enabled
   useEffect(() => {
+    console.log('🌱 BrowseMorePlants useEffect triggered:', { autoLoad, plantsCount: plants.length, forceRefresh });
     if (autoLoad) {
-      loadPlants(true);
+      console.log('🌱 BrowseMorePlants: Loading plants because autoLoad is true');
+      loadPlants(true, forceRefresh);
     }
-  }, [autoLoad]);
+  }, [autoLoad, forceRefresh]);
+
+  // Component mount/unmount debugging
+  useEffect(() => {
+    console.log('🌱 BrowseMorePlants: Component mounted');
+    return () => {
+      console.log('🌱 BrowseMorePlants: Component unmounted');
+    };
+  }, []);
 
   // Skeleton loading component
   const SkeletonCard = () => (
@@ -177,7 +284,7 @@ const BrowseMorePlants = ({
       <Text style={styles.title}>{title}</Text>
       
       {/* Plants Grid */}
-      {loading ? (
+  {loading ? (
         <View style={styles.plantsGrid}>
           {Array.from({length: initialLimit}).map((_, idx) => (
             <SkeletonCard key={idx} />

@@ -29,10 +29,30 @@ import { getAddressBookEntriesApi } from '../../../components/Api';
 import { checkoutApi } from '../../../components/Api/checkoutApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
-import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
+
+// Helper function to determine country from currency
+const getCountryFromCurrency = (currency) => {
+  if (!currency) return null;
+  
+  switch (currency.toUpperCase()) {
+    case 'PHP':
+      return 'PH';
+    case 'THB':
+      return 'TH';
+    case 'IDR':
+      return 'ID';
+    default:
+      return null;
+  }
+};
 
 // Function to render the correct country flag
 const renderCountryFlag = (country) => {
+  if (!country) {
+    // Default to Indonesia if country is undefined or empty
+    return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
+  }
+
   // Handle emoji flags from cart items
   if (country === '🇹🇭') {
     return <ThailandFlag width={24} height={16} style={styles.flagIcon} />;
@@ -46,21 +66,21 @@ const renderCountryFlag = (country) => {
   
   // Handle text-based country codes
   const countryCode = country?.toUpperCase();
-  
+  console.log({countryCode})
   switch (countryCode) {
     case 'PHILIPPINES':
     case 'PH':
     case 'PHL':
       return <PhilippinesFlag width={24} height={16} style={styles.flagIcon} />;
-    case 'INDONESIA':
-    case 'ID':
-    case 'IDN':
-      return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
     case 'THAILAND':
     case 'TH':
     case 'THA':
-    default:
       return <ThailandFlag width={24} height={16} style={styles.flagIcon} />;
+    case 'INDONESIA':
+    case 'ID':
+    case 'IDN':
+    default:
+      return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
   }
 };
 
@@ -183,33 +203,119 @@ const CheckoutScreen = () => {
   
   const [cargoDate, setCargoDate] = useState('2025-02-15');
   
-  // Initialize flight date with calculated value
+  // Initialize flight date with backend-provided value or fallback
   const getInitialFlightDate = () => {
-    if (plantData?.country) {
-      // Use the plant flight utility to calculate the date
-      return calculatePlantFlightDate({ country: plantData.country });
+    // For cart checkout, find the latest flight date among all cart items
+    if (useCart && cartItems.length > 0) {
+      const flightDates = [];
+      
+      cartItems.forEach(item => {
+        if (item.flightInfo) {
+          // Extract flight date from flightInfo like "Plant Flight Aug 23" or "Plant Flight Aug-23"
+          const flightDateMatch = item.flightInfo.match(/Plant Flight\s+(\w+)[\s-](\d+)/);
+          if (flightDateMatch) {
+            const [, month, day] = flightDateMatch;
+            
+            // Convert month name to number
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthIndex = monthNames.indexOf(month);
+            
+            if (monthIndex !== -1) {
+              // Create date object for comparison (use current year, adjust if needed)
+              const currentYear = new Date().getFullYear();
+              let flightDate = new Date(currentYear, monthIndex, parseInt(day));
+              
+              // If the date is in the past, move to next year
+              if (flightDate < new Date()) {
+                flightDate = new Date(currentYear + 1, monthIndex, parseInt(day));
+              }
+              
+              flightDates.push({
+                date: flightDate,
+                formatted: `${month} ${day}`
+              });
+            }
+          }
+        }
+      });
+      
+      if (flightDates.length > 0) {
+        // Sort by date and get the latest (furthest out) flight date
+        flightDates.sort((a, b) => b.date - a.date);
+        const latestFlightDate = flightDates[0].formatted;
+        
+        console.log('🛫 Flight dates found in cart:', flightDates.map(f => f.formatted));
+        console.log('🛫 Latest flight date selected:', latestFlightDate);
+        
+        return latestFlightDate;
+      }
     }
-    // Default to Thailand calculation if no country specified
-    return calculatePlantFlightDate({ country: 'TH' });
+    
+    // For buy now or single item, use plant data
+    if (plantData?.plantFlightDate) {
+      // Use the backend-provided plant flight date
+      return plantData.plantFlightDate;
+    }
+    
+    // Default fallback if no backend date available
+    return 'N/A';
   };
   
-  // Generate next 3 Saturday flight dates starting from the calculated plant flight date
+  // Generate next 3 Saturday flight dates starting from the plant flight date
   const getFlightDateOptions = () => {
     const baseFlightDate = getInitialFlightDate();
     const options = [];
     
-    // Parse the base flight date (format: "Aug-17")
-    const [monthName, day] = baseFlightDate.split('-');
+    // Handle case where no flight date is available
+    if (!baseFlightDate || baseFlightDate === 'N/A') {
+      return [
+        { label: 'Flight Date TBD', value: 'TBD' },
+        { label: 'Next Available', value: 'Next Available' },
+        { label: 'Later Flight', value: 'Later Flight' }
+      ];
+    }
+    
+    // Helper function to get next Saturday from a given date
+    const getNextSaturday = (fromDate) => {
+      const date = new Date(fromDate);
+      const currentDay = date.getDay(); // 0 = Sunday, 6 = Saturday
+      
+      let daysUntilSaturday;
+      if (currentDay === 6) {
+        // If it's Saturday, next Saturday is 7 days away
+        daysUntilSaturday = 7;
+      } else {
+        // Days until next Saturday
+        daysUntilSaturday = (6 - currentDay + 7) % 7;
+        if (daysUntilSaturday === 0) daysUntilSaturday = 7;
+      }
+      
+      const nextSaturday = new Date(date);
+      nextSaturday.setDate(date.getDate() + daysUntilSaturday);
+      return nextSaturday;
+    };
+    
+    // Helper function to format date as "MMM DD"
+    const formatFlightDate = (date) => {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${monthNames[date.getMonth()]} ${date.getDate()}`;
+    };
+    
+    // Parse the base flight date (format: "Aug 17" or "Aug-17")
+    const normalizedFlightDate = baseFlightDate.replace('-', ' ');
+    const [monthName, day] = normalizedFlightDate.split(' ');
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const monthIndex = monthNames.indexOf(monthName);
     
     if (monthIndex === -1) {
-      // Fallback if parsing fails
+      // Fallback if parsing fails - use the backend date as-is and generate subsequent Saturdays
       return [
         { label: baseFlightDate, value: baseFlightDate },
-        { label: 'Next Flight', value: 'Next Flight' },
-        { label: 'Later Flight', value: 'Later Flight' }
+        { label: 'Next Saturday', value: 'Next Saturday' },
+        { label: 'Later Saturday', value: 'Later Saturday' }
       ];
     }
     
@@ -222,27 +328,28 @@ const CheckoutScreen = () => {
       baseDate = new Date(currentYear + 1, monthIndex, parseInt(day));
     }
     
-    // Ensure it's a Saturday (day 6)
-    while (baseDate.getDay() !== 6) {
-      baseDate.setDate(baseDate.getDate() + 1);
-    }
+    // Option 1: Use the plant flight date as-is (should already be a Saturday from backend)
+    options.push({
+      label: formatFlightDate(baseDate),
+      value: formatFlightDate(baseDate),
+      fullDate: baseDate
+    });
     
-    // Generate 3 Saturday options
-    for (let i = 0; i < 3; i++) {
-      const optionDate = new Date(baseDate);
-      optionDate.setDate(baseDate.getDate() + (i * 7)); // Add weeks
-      
-      const month = monthNames[optionDate.getMonth()];
-      const dayNum = optionDate.getDate();
-      const year = optionDate.getFullYear();
-      
-      options.push({
-        label: `${month} ${dayNum}`,
-        value: `${month} ${dayNum}`,
-        fullDate: optionDate,
-        year: year
-      });
-    }
+    // Option 2: Next Saturday after the plant flight date
+    const nextSaturday = getNextSaturday(baseDate);
+    options.push({
+      label: formatFlightDate(nextSaturday),
+      value: formatFlightDate(nextSaturday),
+      fullDate: nextSaturday
+    });
+    
+    // Option 3: Saturday after the next Saturday
+    const laterSaturday = getNextSaturday(nextSaturday);
+    options.push({
+      label: formatFlightDate(laterSaturday),
+      value: formatFlightDate(laterSaturday),
+      fullDate: laterSaturday
+    });
     
     return options;
   };
@@ -372,6 +479,7 @@ const CheckoutScreen = () => {
   
   // Prepare plant items for display - handle cart data, direct product data, and buy now
   const plantItems = useMemo(() => {
+    console.log("plantData test", plantData)
     if (fromBuyNow && plantData) {
       return [
         {
@@ -384,18 +492,55 @@ const CheckoutScreen = () => {
             ? plantData.variegation 
             : 'Standard',
           size: selectedPotSize || '2"',
-          price: parseFloat(plantData.usdPriceNew || plantData.usdPrice || '0'),
-          originalPrice: plantData.usdPriceNew && plantData.usdPrice 
-            ? parseFloat(plantData.usdPrice) 
+          price: parseFloat(plantData.finalPrice || plantData.usdPriceNew || plantData.usdPrice || '0'),
+          originalPrice: plantData.hasDiscount && plantData.originalPrice 
+            ? parseFloat(plantData.originalPrice) 
             : null,
           quantity: quantity,
           title: 'Direct Purchase from Plant Detail',
-          country: plantData.country || 'TH',
+          country: (() => {
+            // Log determination process
+            const directCountry = plantData.country;
+            const variationCurrency = plantData.variations && plantData.variations.length > 0 ? 
+              plantData.variations[0].localCurrency : null;
+            const countryFromVariation = variationCurrency ? 
+              getCountryFromCurrency(variationCurrency) : null;
+            const mainCurrency = plantData.localCurrency;
+            const countryFromMain = mainCurrency ? 
+              getCountryFromCurrency(mainCurrency) : null;
+            
+            // For Grower's Choice and Wholesale, prioritize using variation currency
+            const isGrowersOrWholesale = plantData.listingType === "Grower's Choice" || 
+                                        plantData.listingType === "Wholesale" ||
+                                        plantData.listingType === "Growers Choice";
+            
+            let result;
+            if (isGrowersOrWholesale && countryFromVariation) {
+              // For Grower's Choice and Wholesale, use variation currency country if available
+              result = countryFromVariation;
+            } else {
+              // For other listing types, use direct country first
+              result = directCountry || countryFromVariation || countryFromMain;
+            }
+            
+            console.log('Country determination:', {
+              directCountry,
+              variationCurrency,
+              countryFromVariation,
+              mainCurrency,
+              countryFromMain,
+              listingType: plantData.listingType,
+              isGrowersOrWholesale,
+              result
+            });
+            
+            return result;
+          })(),
           shippingMethod: 'Plant / UPS Ground Shipping',
           plantCode: plantCode,
-          listingType: plantData.usdPriceNew ? 'Discounted' : 'Single Plant',
-          discount: plantData.usdPriceNew && plantData.usdPrice 
-            ? `${Math.round(((parseFloat(plantData.usdPrice) - parseFloat(plantData.usdPriceNew)) / parseFloat(plantData.usdPrice)) * 100)}%` 
+          listingType: plantData.listingType,
+          discount: plantData.hasDiscount && plantData.discountAmount 
+            ? `${Math.round((plantData.discountAmount / plantData.originalPrice) * 100)}%` 
             : null,
           hasAirCargo: true,
         }
@@ -412,7 +557,7 @@ const CheckoutScreen = () => {
         originalPrice: item.originalPrice,
         quantity: item.quantity || 1,
         title: 'Delivery Details',
-        country: item.flagIcon || 'TH',
+        country: item.flagIcon,
         shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
         plantCode: item.plantCode,
         listingType: item.listingType || (item.originalPrice ? 'Discounted' : 'Single Plant'),
@@ -447,19 +592,13 @@ const CheckoutScreen = () => {
     }
   }, [fromBuyNow, plantData, selectedPotSize, quantity, plantCode, useCart, cartItems, productData]);
 
-  // Set flight date based on cart items' flight info
+  // Update selected flight date when cart items change
   useEffect(() => {
     if (useCart && cartItems.length > 0) {
-      // Get flight info from the first cart item (assuming all items have the same flight)
-      const firstItemFlightInfo = cartItems[0]?.flightInfo;
-      if (firstItemFlightInfo) {
-        // Extract flight date from flightInfo like "Plant Flight May-30"
-        const flightDateMatch = firstItemFlightInfo.match(/(\w+)-(\d+)/);
-        if (flightDateMatch) {
-          const [, month, day] = flightDateMatch;
-          setSelectedFlightDate(`${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`);
-          console.log('🛫 Flight date set from cart items:', `${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`);
-        }
+      const latestFlightDate = getInitialFlightDate();
+      if (latestFlightDate && latestFlightDate !== 'N/A') {
+        setSelectedFlightDate(latestFlightDate);
+        console.log('🛫 Flight date updated from cart analysis:', latestFlightDate);
       }
     }
   }, [useCart, cartItems]);
@@ -790,11 +929,42 @@ const CheckoutScreen = () => {
           price: plantData.usdPriceNew || plantData.usdPrice,
           originalPrice: plantData.usdPrice,
           country: plantData.country,
+          // Include flight/cargo date and plant source country for backend
+          flightDate: plantData.flightDate || plantData.plantFlightDate || cargoDate,
+          plantSourceCountry: plantData.country || plantData.plantSourceCountry || null,
         }];
         orderData.useCart = false;
       } else if (useCart && cartItems.length > 0) {
         // Use cart items with enhanced data
         orderData.useCart = true;
+        
+        // Console log cart items to debug plantSourceCountry
+        console.log('Cart items for checkout:', cartItems);
+        
+        // When using cart, we need to add plantSourceCountry to each item
+        // Also map the cart item data to a properly formatted productData array
+        orderData.productData = cartItems.map(item => {
+          // Extract country from cart item
+          const country = item.country || 
+            // Check for flag emoji to convert to country code
+            (item.flagIcon === '🇵🇭' ? 'PH' : 
+             item.flagIcon === '🇹🇭' ? 'TH' :
+             item.flagIcon === '🇮🇩' ? 'ID' : 
+             // Fall back to extracting from currency if available
+             (item.localCurrency ? getCountryFromCurrency(item.localCurrency) : 'ID'));
+          
+          return {
+            plantCode: item.plantCode,
+            quantity: item.quantity || 1,
+            potSize: item.potSize || item.size,
+            price: item.price,
+            // Include flight date and plantSourceCountry fields
+            flightDate: item.flightDate || cargoDate,
+            plantSourceCountry: country,
+          };
+        });
+        
+        // Keep the legacy cartItems structure for backward compatibility
         orderData.cartItems = cartItems.map(item => ({
           cartItemId: item.cartItemId,
           plantCode: item.plantCode,
@@ -808,7 +978,12 @@ const CheckoutScreen = () => {
           availableQuantity: item.availableQuantity,
           isUnavailable: item.isUnavailable,
           flagIcon: item.flagIcon,
-          subtitle: item.subtitle
+          subtitle: item.subtitle,
+          plantSourceCountry: item.country || 
+            (item.flagIcon === '🇵🇭' ? 'PH' : 
+             item.flagIcon === '🇹🇭' ? 'TH' :
+             item.flagIcon === '🇮🇩' ? 'ID' : 
+             (item.localCurrency ? getCountryFromCurrency(item.localCurrency) : 'ID'))
         }));
         // The API can use either the cart items from backend or the passed cart items
       } else if (productData && productData.length > 0) {
@@ -1009,7 +1184,7 @@ const CheckoutScreen = () => {
                     <Text style={selectedFlightDate === option.value ? styles.optionText : styles.unselectedOptionText}>
                       {option.label}
                     </Text>
-                    <Text style={styles.optionSubtext}>{option.year}</Text>
+                    <Text style={styles.optionSubtext}>Sat</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -1025,13 +1200,13 @@ const CheckoutScreen = () => {
               <PlantItemComponent
                 image={item.image}
                 name={item.name}
-                variation={item.variation || 'Variegated'}
-                size={item.size || '6'}
+                variation={item.variation }
+                size={item.size}
                 price={item.price}
-                quantity={item.quantity || 1}
-                title={item.title || 'Rare Tropical Plants from Thailand'}
-                country={item.country || 'TH'}
-                shippingMethod={item.shippingMethod || 'Plant / UPS Ground Shipping'}
+                quantity={item.quantity }
+                title={item.title }
+                country={item.country}
+                shippingMethod={item.shippingMethod}
                 listingType={item.listingType}
                 discount={item.discount}
                 originalPrice={item.originalPrice}
@@ -1057,7 +1232,7 @@ const CheckoutScreen = () => {
                   {/* Country */}
                   <View style={styles.countryContainer}>
                     <Text style={styles.countryText}></Text>
-                    {renderCountryFlag(item.country || 'TH')}
+                    {renderCountryFlag(item.country)}
                   </View>
                 </View>
                 
@@ -1384,8 +1559,8 @@ const CheckoutScreen = () => {
         {/* Browse More Plants Component */}
         <BrowseMorePlants 
           title="More from our Jungle"
-          initialLimit={6}
-          loadMoreLimit={6}
+          initialLimit={4}
+          loadMoreLimit={4}
           showLoadMore={true}
           containerStyle={{marginTop: 24}}
         />

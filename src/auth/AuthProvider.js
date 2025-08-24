@@ -2,6 +2,7 @@
 import React, {createContext, useState, useEffect, useContext} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getAuth, signOut, onIdTokenChanged} from '@react-native-firebase/auth';
+import {getBuyerProfileApi} from '../components/Api/buyerProfileApi';
 
 export const AuthContext = createContext();
 
@@ -28,6 +29,24 @@ export const AuthProvider = ({children}) => {
         const storedUserInfo = await AsyncStorage.getItem('userInfo');
         if (storedUserInfo) {
           setUserInfo(JSON.parse(storedUserInfo));
+        }
+        // If logged in, fetch buyer profile to ensure AsyncStorage has buyerProfile/profilePhotoUrl
+        if (token) {
+          try {
+            const profile = await getBuyerProfileApi();
+            if (profile) {
+              // Merge with existing stored userInfo if any
+              const merged = {
+                ...(storedUserInfo ? JSON.parse(storedUserInfo) : {}),
+                ...profile,
+                profileImage: profile.profilePhotoUrl || (storedUserInfo ? JSON.parse(storedUserInfo).profileImage : ''),
+              };
+              setUserInfo(merged);
+              await AsyncStorage.setItem('userInfo', JSON.stringify(merged));
+            }
+          } catch (e) {
+            console.warn('Failed to fetch buyer profile on startup:', e?.message || e);
+          }
         }
       } catch (e) {
         console.log('Error checking login status', e);
@@ -80,10 +99,15 @@ export const AuthProvider = ({children}) => {
 
   const updateProfileImage = async newImage => {
     try {
+      // Strip any cache-busting query params to store canonical URL
+      const canonical = typeof newImage === 'string' ? newImage.split('?')[0] : newImage;
+      const timestamp = Date.now();
+
       setUserInfo(prev => {
         const updatedUserInfo = {
           ...prev,
-          profileImage: newImage,
+          profileImage: canonical,
+          profileImageTimestamp: timestamp,
         };
 
         // Save to AsyncStorage

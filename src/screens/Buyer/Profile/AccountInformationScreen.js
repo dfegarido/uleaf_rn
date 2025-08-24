@@ -21,6 +21,8 @@ import {retryAsync} from '../../../utils/utils';
 import {getProfileInfoApi, postBuyerUpdateInfoApi, uploadProfilePhotoApi} from '../../../components/Api';
 import {AuthContext} from '../../../auth/AuthProvider';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
+import Avatar from '../../../components/Avatar/Avatar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import icons
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -48,12 +50,6 @@ const EditIcon = () => (
   </Svg>
 );
 
-// US Flag Icon Component (simplified)
-const USFlagIcon = () => (
-  <View style={styles.flagIcon}>
-    <Text style={styles.flagEmoji}>🇺🇸</Text>
-  </View>
-);
 
 // Dropdown Icon Component
 const DropdownIcon = () => (
@@ -68,9 +64,21 @@ const DropdownIcon = () => (
   </Svg>
 );
 
+// Simple skeleton UI used while profile data is loading
+const SkeletonProfile = () => (
+  <View style={styles.skeletonContainer}>
+    <View style={styles.skeletonAvatar} />
+    <View style={styles.skeletonLine} />
+    <View style={styles.skeletonInput} />
+    <View style={styles.skeletonInput} />
+    <View style={styles.skeletonInput} />
+    <View style={styles.skeletonButton} />
+  </View>
+);
+
 const AccountInformationScreen = () => {
   const navigation = useNavigation();
-  const {userInfo} = useContext(AuthContext);
+  const {userInfo, updateProfileImage} = useContext(AuthContext);
   const isFocused = useIsFocused();
   
   const [loading, setLoading] = useState(false);
@@ -102,6 +110,17 @@ const AccountInformationScreen = () => {
     setLoading(true);
     const fetchData = async () => {
       try {
+        // Try to load the profile photo from AsyncStorage first
+        try {
+          const storedPhotoUrl = await AsyncStorage.getItem('profilePhotoUrlWithTimestamp') || 
+                                 await AsyncStorage.getItem('profilePhotoUrl');
+          if (storedPhotoUrl) {
+            setProfilePhotoUri(storedPhotoUrl);
+          }
+        } catch (e) {
+          console.warn('Failed to get profile photo from AsyncStorage:', e);
+        }
+        
         await loadProfileData();
       } catch (error) {
         console.log('Fetching profile details:', error);
@@ -255,7 +274,7 @@ const AccountInformationScreen = () => {
     );
   };
 
-  // Handle photo selection and upload
+  // Handle photo selection and upload via server multipart/form-data endpoint
   const handlePhotoUpload = async (imageUri) => {
     if (!imageUri) return;
 
@@ -268,12 +287,127 @@ const AccountInformationScreen = () => {
         return;
       }
 
-      await uploadProfilePhotoApi(imageUri);
-      setProfilePhotoUri(imageUri);
+      // Get and display current user ID for debugging purposes
+      let currentUserId = null;
+      try {
+        const firebase = require('../../../../firebase');
+        currentUserId = firebase.auth().currentUser?.uid;
+        console.log('Current user ID for upload:', currentUserId);
+        
+        // Check if user ID matches hardcoded server ID
+        const hardcodedTestId = "IxsO07FVxxYE5pw944YTEkBt0QJ3";
+        if (currentUserId && currentUserId !== hardcodedTestId) {
+          console.warn(`Warning: Your user ID (${currentUserId}) doesn't match the hardcoded server ID (${hardcodedTestId})`);
+        }
+      } catch (e) {
+        console.log('Could not get current user ID:', e.message);
+      }
+
+      console.log('Starting profile photo upload with URI:', imageUri);
+      
+      // Upload via server endpoint which expects form-data field 'profilePhoto'
+      const result = await uploadProfilePhotoApi(imageUri);
+      console.log('Upload API response:', result);
+
+      // Check if the server response indicates an error
+      if (!result.success) {
+        throw new Error(result.error || result.message || 'Server reported an error during upload');
+      }
+
+      // Server returns profilePhotoUrl on success
+      const newUrl = result?.profilePhotoUrl || result?.profileImage || null;
+      if (!newUrl) throw new Error('Upload succeeded but server did not return a URL.');
+
+      console.log('New profile photo URL:', newUrl);
+
+      // Update local UI with a cache-busted URL for immediate refresh
+      const timestamp = Date.now();
+      const localCacheBusted = `${newUrl}${newUrl.includes('?') ? '&' : '?'}cb=${timestamp}`;
+      setProfilePhotoUri(localCacheBusted);
+
+      // Store the URL in AsyncStorage for other screens to access
+      try {
+        // Store both the canonical URL and the cache-busted URL
+        await AsyncStorage.setItem('profilePhotoUrl', newUrl);
+        await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', localCacheBusted);
+        
+        // Also store in buyerProfile if it exists
+        const profileRaw = await AsyncStorage.getItem('buyerProfile');
+        if (profileRaw) {
+          try {
+            const profile = JSON.parse(profileRaw);
+            profile.profilePhotoUrl = newUrl;
+            await AsyncStorage.setItem('buyerProfile', JSON.stringify(profile));
+          } catch (e) {
+            console.warn('Failed to update buyerProfile in AsyncStorage:', e);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to store profile photo URL in AsyncStorage:', e);
+      }
+
+      // Persist canonical URL into AuthContext with the same timestamp for consistency
+      if (typeof updateProfileImage === 'function') {
+        console.log('Updating profile image in AuthContext (canonical)');
+        // Force the timestamp in AuthContext to match our local one for consistent updates
+        await updateProfileImage(newUrl);
+        
+        // Force Avatar components to refresh by triggering a state update
+        setTimeout(() => {
+          // Re-apply profile URI with a fresh timestamp after a short delay
+          setProfilePhotoUri(`${newUrl}${newUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`);
+        }, 100);
+      }
+
       Alert.alert('Success', 'Profile photo updated successfully!');
     } catch (error) {
-      console.log('Photo upload error:', error);
-      Alert.alert('Error', error.message || 'Failed to upload photo. Please try again.');
+      console.error('Photo upload error:', error);
+      // Provide more specific error message based on the type of error
+      let errorMessage = 'Failed to upload photo. Please try again.';
+      
+      if (error.serverResponse) {
+        // This is a server response error with details
+        errorMessage = error.message || 'Server error during photo upload';
+        
+        // Check for typical test/development errors
+        if (error.message && error.message.toLowerCase().includes('testing')) {
+          const firebase = require('../../../../firebase');
+          const currentUserId = firebase.auth().currentUser?.uid;
+          const hardcodedTestId = "IxsO07FVxxYE5pw944YTEkBt0QJ3";
+          
+          if (currentUserId && currentUserId !== hardcodedTestId) {
+            errorMessage += `\n\nServer using test ID: ${hardcodedTestId}\nYour ID: ${currentUserId}\n\nThe server is currently in test mode using a hardcoded user ID.`;
+          }
+        }
+      } else if (error.message) {
+        // Use the error message if available
+        errorMessage = error.message;
+      }
+      
+      Alert.alert(
+        'Error',
+        errorMessage,
+        [
+          {
+            text: 'OK',
+            style: 'cancel'
+          },
+          {
+            text: 'Debug Details',
+            onPress: () => {
+              if (error.serverResponse) {
+                Alert.alert(
+                  'Debug Info',
+                  JSON.stringify(error.serverResponse, null, 2),
+                  [{ text: 'OK' }]
+                );
+              } else {
+                Alert.alert('Debug Info', 'No detailed server response available');
+              }
+            }
+          }
+        ]
+      );
     } finally {
       setUploadingPhoto(false);
     }
@@ -331,41 +465,37 @@ const AccountInformationScreen = () => {
 
   return (
     <View style={styles.container}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
+      {loading ? (
+        <SkeletonProfile />
+      ) : (
+        <>
+          <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}>
+              <LeftIcon width={24} height={24} fill="#393D40" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Account Information</Text>
+            <View style={styles.headerSpacer} />
           </View>
-        </Modal>
-      )}
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}>
-          <LeftIcon width={24} height={24} fill="#393D40" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Account Information</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Content */}
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Form */}
-        <View style={styles.form}>
+  <View style={styles.form}>
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              {profilePhotoUri ? (
-                <Image 
-                  source={{ uri: profilePhotoUri }} 
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <AvatarIcon width={96} height={96} />
-              )}
+              {/* Use the shared Avatar component with imageUri to force refresh */}
+              <Avatar 
+                size={96}
+                imageUri={profilePhotoUri}
+                style={styles.avatarImage}
+                onPress={null} // Disable default navigation
+              />
               {uploadingPhoto && (
                 <View style={styles.uploadingOverlay}>
                   <ActivityIndicator size="large" color="#539461" />
@@ -471,7 +601,9 @@ const AccountInformationScreen = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+          </ScrollView>
+        </>
+      )}
 
       {/* Country Picker Modal */}
       <Modal 
@@ -635,6 +767,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 48,
+  },
+  // Skeleton styles
+  skeletonContainer: {
+    padding: 24,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    width: 375,
+    alignSelf: 'center',
+  },
+  skeletonAvatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#E6EAEA',
+    marginBottom: 16,
+  },
+  skeletonLine: {
+    width: 200,
+    height: 16,
+    backgroundColor: '#E6EAEA',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  skeletonInput: {
+    width: 327,
+    height: 48,
+    backgroundColor: '#F2F5F4',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  skeletonButton: {
+    width: 327,
+    height: 48,
+    backgroundColor: '#E6EAEA',
+    borderRadius: 12,
+    marginTop: 16,
   },
   editButton: {
     position: 'absolute',

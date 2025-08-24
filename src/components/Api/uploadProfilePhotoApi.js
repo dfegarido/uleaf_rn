@@ -1,67 +1,75 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_CONFIG } from '../../config/apiConfig';
 
-export const uploadProfilePhotoApi = async imageUri => {
+export const uploadProfilePhotoApi = async (imageUri, overrideToken = null) => {
   console.log('Starting uploadProfilePhotoApi...');
-  
-  const token = await getStoredAuthToken();
-  console.log('Auth token retrieved.');
+  const token = overrideToken || await getStoredAuthToken();
 
-  // Convert image to blob
-  console.log('Fetching image URI to create blob:', imageUri);
-  const response = await fetch(imageUri);
-  console.log('Image fetch status:', response.status);
-  if (!response.ok) {
-    console.error(`Failed to fetch image: ${response.status}`);
-    throw new Error(`Failed to fetch image: ${response.status}`);
-  }
-  const blob = await response.blob();
-  console.log('Blob created, size:', blob.size);
+  // Build headers like your snippet
+  const myHeaders = new Headers();
+  myHeaders.append('Authorization', `Bearer ${token || ''}`);
 
-  // Get a filename from the URI, which the backend requires.
-  const filename = imageUri.split('/').pop();
-  console.log('Filename extracted:', filename);
+  // Build formdata
+  const formdata = new FormData();
+  // For React Native, append an object with uri, name and type
+  const filename = typeof imageUri === 'string' ? imageUri.split('/').pop() : 'photo.jpg';
+  const ext = filename && filename.includes('.') ? filename.split('.').pop().toLowerCase() : '';
+  const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
+  const mimeType = mimeMap[ext] || 'image/jpeg';
+  formdata.append('profilePhoto', { uri: imageUri, name: filename, type: mimeType });
 
-  // Create FormData and append the blob
-  const formData = new FormData();
-  formData.append('profilePhoto', blob, filename);
-  console.log('FormData created.');
-
-  const url = 'http://192.168.0.208:5001/i-leaf-u/us-central1/uploadProfilePhoto';
+  // Use API_CONFIG to get base URL for local/prod
+  const base = API_CONFIG.BASE_URL;
+  const url = `${base}/uploadProfilePhoto`;
   console.log('Uploading to URL:', url);
 
-  // Pre-flight OPTIONS request for debugging CORS
-  console.log('Performing pre-flight OPTIONS request to check CORS...');
+  const requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: formdata,
+    redirect: 'follow'
+  };
+
   try {
-    const optionsResponse = await fetch(url, { method: 'OPTIONS' });
-    console.log(`Pre-flight OPTIONS request status: ${optionsResponse.status}`);
-    if (!optionsResponse.ok) {
-        console.warn(`Pre-flight OPTIONS request failed with status: ${optionsResponse.status}. This might indicate a CORS or server configuration issue.`);
+    const response = await fetch(url, requestOptions);
+    const text = await response.text();
+    console.log('Upload response status:', response.status);
+    console.log('Raw response text:', text);
+
+    let result = null;
+    try { result = JSON.parse(text); } catch (e) { /* not JSON */ }
+
+    if (response.ok) {
+      return result || { success: true, raw: text };
     }
-  } catch (e) {
-      console.error('Pre-flight OPTIONS request threw an error:', e);
-  }
 
-  console.log('Proceeding with POST request...');
-  const uploadResponse = await fetch(
-    url,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    },
-  );
-  
-  console.log('Upload response status:', uploadResponse.status);
-  const result = await uploadResponse.json();
-  console.log('Upload response JSON:', result);
+    const err = new Error((result && (result.message || result.error)) || `Server error (${response.status})`);
+    err.status = response.status;
+    err.serverResponse = result || { raw: text };
+    throw err;
+  } catch (error) {
+    console.error('Network error during upload (primary URL):', error);
+    // Retry fallback: if using Android emulator address 10.0.2.2, try localhost/127.0.0.1
+    try {
+      if (base.includes('10.0.2.2')) {
+        const altBase = base.replace('10.0.2.2', '127.0.0.1');
+        const altUrl = `${altBase}/uploadProfilePhoto`;
+        console.log('Retrying upload to alternate URL:', altUrl);
+        const response2 = await fetch(altUrl, requestOptions);
+        const text2 = await response2.text();
+        let result2 = null;
+        try { result2 = JSON.parse(text2); } catch (e) {}
+        if (response2.ok) return result2 || { success: true, raw: text2 };
+        const err2 = new Error((result2 && (result2.message || result2.error)) || `Server error (${response2.status})`);
+        err2.status = response2.status;
+        err2.serverResponse = result2 || { raw: text2 };
+        throw err2;
+      }
+    } catch (retryErr) {
+      console.error('Retry attempt failed:', retryErr);
+      throw retryErr;
+    }
 
-  if (uploadResponse.ok && result.success) {
-    console.log('Profile photo uploaded successfully:', result.profilePhotoUrl);
-    return result;
-  } else {
-    console.error('Upload failed:', result);
-    throw new Error(result.message || result.error || 'Unknown error during upload');
+    throw error;
   }
 };

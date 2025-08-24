@@ -31,6 +31,7 @@ const ScreenProfile = ({navigation}) => {
   const {logout, userInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({});
+  const [cachedProfilePhoto, setCachedProfilePhoto] = useState('');
 
   // ✅ Fetch on mount
   const isFocused = useIsFocused();
@@ -40,6 +41,14 @@ const ScreenProfile = ({navigation}) => {
     const fetchData = async () => {
       try {
         await loadListingData();
+        // Load cached profile photo URL if available
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const cached = await AsyncStorage.getItem('profilePhotoUrl');
+          if (cached) setCachedProfilePhoto(cached);
+        } catch (e) {
+          console.warn('Failed to read cached profile photo:', e?.message || e);
+        }
       } catch (error) {
         console.log('Fetching details:', error);
       } finally {
@@ -109,9 +118,9 @@ const ScreenProfile = ({navigation}) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarWrapper}>
-            {userInfo.profileImage != '' ? (
+            {(cachedProfilePhoto || userInfo.profileImage) ? (
               <Image
-                source={{uri: userInfo.profileImage}}
+                source={{uri: cachedProfilePhoto || userInfo.profileImage}}
                 style={styles.image}
                 resizeMode="cover"
               />

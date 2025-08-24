@@ -26,7 +26,6 @@ import {getBuyerListingsApi, searchPlantsApi} from '../../../components/Api/list
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {calculatePlantFlightDate} from '../../../utils/plantFlightUtils';
 
 import PromoBadgeList from '../../../components/PromoBadgeList';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
@@ -34,6 +33,7 @@ import {selectedCard} from '../../../assets/buyer-icons/png';
 import DownArrowIcon from '../../../assets/buyer-icons/downicon.svg';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
 
 // Helper function to get a valid image source
 const getValidImageSource = (imageUrl, plantCode) => {
@@ -80,6 +80,8 @@ const CartHeader = () => {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
+  // Local import of reusable Avatar component
+  const Avatar = require('../../../components/Avatar/Avatar').default;
 
   // Debounced search effect - triggers after user stops typing
   useEffect(() => {
@@ -194,7 +196,8 @@ const CartHeader = () => {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.navigate('ScreenProfile')}>
-            <AvatarIcon width={40} height={40} />
+            {/* Reusable Avatar component will show cached profilePhotoUrl or fallback icon */}
+            <Avatar size={40} />
           </TouchableOpacity>
         </View>
       </View>
@@ -373,14 +376,15 @@ const ScreenCart = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState([]);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  // Removed bespoke recommendations; will use BrowseMorePlants component
+  // Placeholder hooks to keep hook order stable during Fast Refresh (prevents fewer hooks warning)
+  const [_removedRecommendations] = useState(null);
+  const [_removedLoadingRecommendations] = useState(false);
 
   // Load cart items on component mount
   useEffect(() => {
     loadCartItems();
-    loadRecommendations(); // Load recommendations for empty cart
+  // No bespoke recommendation preload needed now
   }, []);
 
   const loadCartItems = async () => {
@@ -460,7 +464,137 @@ const ScreenCart = () => {
           country: item.listingDetails?.country || 'TH', // Default to Thailand if not specified
           genus: item.listingDetails?.genus,
           species: item.listingDetails?.species,
+          plantFlightDate: item.listingDetails?.plantFlightDate || 'N/A' // Use API response
         };
+
+        // Get country flag based on country code
+        const getCountryFlag = (countryCode) => {
+          const flags = {
+            'PH': '🇵🇭', // Philippines
+            'TH': '🇹🇭', // Thailand  
+            'ID': '🇮🇩', // Indonesia
+          };
+          
+          // If no country code or empty string, try to infer from plant flight date
+          if (!countryCode || countryCode === '') {
+            const flightDate = item.listingDetails?.plantFlightDate || '';
+            // Quick heuristic based on flight dates
+            if (flightDate.includes('Aug 23')) {
+              return flags['PH']; // Philippines typically has shorter flight times
+            } else if (flightDate.includes('Sep 20')) {
+              return flags['TH']; // Thailand
+            }
+            return flags['TH']; // Default to Thailand
+          }
+          
+          return flags[countryCode] || '🌍'; // Default globe emoji
+        };
+
+        // Calculate shipping cost based on listing type and specifications (matches ScreenPlantDetail logic)
+        const getShippingCost = () => {
+          const listingType = (item.listingDetails?.listingType || 'Single Plant').toLowerCase();
+          const potSize = item.selectedVariation?.potSize || item.potSize || '2"';
+          const plantHeight = item.listingDetails?.approximateHeight || '0';
+          
+          // Convert height description to numeric value
+          const getHeightValue = (heightDesc) => {
+            if (typeof heightDesc === 'number') return heightDesc;
+            if (typeof heightDesc === 'string') {
+              if (heightDesc.includes('12 inches & above') || heightDesc.includes('above')) return 15;
+              if (heightDesc.includes('Below 12') || heightDesc.includes('below')) return 8;
+              const match = heightDesc.match(/(\d+)/);
+              return match ? parseFloat(match[1]) : 0;
+            }
+            return 0;
+          };
+          
+          switch (listingType) {
+            case 'single':
+            case 'single plant':
+              // Based on plant height
+              const height = getHeightValue(plantHeight);
+              const singleCost = height > 12 ? 70 : 50;
+              const singleAddOn = height > 12 ? 7 : 5;
+              return {
+                cost: singleCost,
+                addOnCost: singleAddOn,
+                baseCargo: 150,
+                description: height > 12 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
+                displayText: 'UPS 2nd Day ',
+                mainPrice: height > 12 ? '$70' : '$50',
+                addOnText: ', add-on plant ',
+                addOnPrice: height > 12 ? '$7' : '$5',
+                rule: `Based on plant height: ${height > 12 ? '>12"' : '≤12"'} = $${singleCost}`,
+                baseCost: singleCost
+              };
+              
+            case 'growers':
+            case "grower's choice":
+              // Based on pot size
+              const potSizeNum = parseFloat(potSize.replace('"', '')) || 2;
+              const growersCost = potSizeNum > 4 ? 70 : 50;
+              const growersAddOn = potSizeNum > 4 ? 7 : 5;
+              return {
+                cost: growersCost,
+                addOnCost: growersAddOn,
+                baseCargo: 150,
+                description: potSizeNum > 4 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
+                displayText: 'UPS 2nd Day ',
+                mainPrice: potSizeNum > 4 ? '$70' : '$50',
+                addOnText: ', add-on plant ',
+                addOnPrice: potSizeNum > 4 ? '$7' : '$5',
+                rule: `Based on pot size: ${potSizeNum > 4 ? '>4"' : '≤4"'} = $${growersCost}`,
+                baseCost: growersCost
+              };
+              
+            case 'wholesale':
+              // Based on pot size
+              const wholePotSizeNum = parseFloat(potSize.replace('"', '')) || 2;
+              const wholesaleCost = wholePotSizeNum > 4 ? 200 : 150;
+              const wholesaleAddOn = wholePotSizeNum > 4 ? 25 : 20;
+              return {
+                cost: wholesaleCost,
+                addOnCost: wholesaleAddOn,
+                baseCargo: 150,
+                description: wholePotSizeNum > 4 ? 'Wholesale Shipping $200, add-on plant $25' : 'Wholesale Shipping $150, add-on plant $20',
+                displayText: 'Wholesale Shipping ',
+                mainPrice: wholePotSizeNum > 4 ? '$200' : '$150',
+                addOnText: ', add-on plant ',
+                addOnPrice: wholePotSizeNum > 4 ? '$25' : '$20',
+                rule: `Based on pot size: ${wholePotSizeNum > 4 ? '>4"' : '≤4"'} = $${wholesaleCost}`,
+                baseCost: wholesaleCost
+              };
+              
+            default:
+              // Default to single listing rules
+              return {
+                cost: 50,
+                addOnCost: 5,
+                baseCargo: 150,
+                description: 'UPS 2nd Day $50, add-on plant $5',
+                displayText: 'UPS 2nd Day ',
+                mainPrice: '$50',
+                addOnText: ', add-on plant ',
+                addOnPrice: '$5',
+                rule: 'Default shipping rate',
+                baseCost: 50
+              };
+          }
+        };
+
+        const shippingCost = getShippingCost();
+
+        console.log('🛒 Cart Item Processing:', {
+          plantCode: item.plantCode,
+          country: item.listingDetails?.country,
+          plantFlightDate: item.listingDetails?.plantFlightDate,
+          listingType: item.listingDetails?.listingType,
+          potSize: item.selectedVariation?.potSize || item.potSize,
+          height: item.listingDetails?.approximateHeight,
+          flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
+          shippingCost: shippingCost,
+          shippingRule: shippingCost.rule
+        });
 
         return {
           id: item.cartId || item.id,
@@ -475,9 +609,9 @@ const ScreenCart = () => {
           price: currentPrice,
           originalPrice: originalPrice,
           quantity: item.quantity || 1,
-          flightInfo: `Plant Flight ${calculatePlantFlightDate(plantData)}`,
-          shippingInfo: isListingUnavailable ? 'Item no longer available' : 'UPS 2nd Day $50, add-on plant $5',
-          flagIcon: '🇹🇭',
+          flightInfo: `Plant Flight ${plantData.plantFlightDate}`,
+          shippingInfo: isListingUnavailable ? 'Item no longer available' : `${shippingCost.displayText}${shippingCost.mainPrice}${shippingCost.addOnText}${shippingCost.addOnPrice}`,
+          flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
           isUnavailable: isListingUnavailable,
           listingType: item.listingDetails?.listingType || 'Single Plant' // Add the listing type
@@ -575,13 +709,7 @@ const ScreenCart = () => {
         return;
       }
 
-      const response = await removeFromCartApi({ cartItemId: item.cartItemId });
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to remove item');
-      }
-
-      // Remove item from local state
+      // Optimistically remove item from local state immediately
       setCartItems(prev => prev.filter(cartItem => cartItem.id !== itemId));
       
       // Remove from selectedItems if it was selected
@@ -591,7 +719,17 @@ const ScreenCart = () => {
         return newSet;
       });
 
-      Alert.alert('Success', 'Item removed from cart');
+      // Make API call in the background without waiting for it
+      removeFromCartApi({ cartItemId: item.cartItemId })
+        .then(response => {
+          if (!response.success) {
+            console.error('Error from API when removing item:', response.error);
+            // We could restore the item here, but it's better UX to just log the error
+          }
+        })
+        .catch(error => {
+          console.error('Exception when removing item from cart:', error);
+        });
     } catch (error) {
       console.error('Error removing item:', error);
       Alert.alert('Error', error.message);
@@ -649,40 +787,6 @@ const ScreenCart = () => {
     
     console.log('Total calculated discount:', totalDiscount);
     return totalDiscount;
-  };
-
-  const loadRecommendations = async () => {
-    try {
-      setLoadingRecommendations(true);
-      
-      // Check internet connection
-      const netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        console.log('No internet connection for recommendations');
-        return;
-      }
-
-      // Get popular plants sorted by love count for empty cart recommendations
-      const response = await retryAsync(() => getBuyerListingsApi({
-        limit: 6,
-        sortBy: 'loveCount',
-        sortOrder: 'desc'
-      }), 3, 1000);
-      
-      if (!response?.success) {
-        console.log('Failed to load recommendations:', response?.error);
-        return;
-      }
-
-      console.log('Recommendations loaded successfully:', response.data?.listings?.length || 0);
-      setRecommendations(response.data?.listings || []);
-      
-    } catch (error) {
-      console.error('Error loading recommendations:', error);
-      setRecommendations([]);
-    } finally {
-      setLoadingRecommendations(false);
-    }
   };
 
   const handleAddToCartFromRecommendations = async (plant) => {
@@ -865,77 +969,15 @@ const ScreenCart = () => {
 
         {/* You may also like section - Always visible */}
         <View style={{ paddingHorizontal: 16, marginTop: 32 }}>
-          <Text style={{
-            fontSize: 20,
-            fontWeight: 'bold',
-            color: '#202325',
-            marginBottom: 16,
-          }}>
-            More from our Jungle
-          </Text>
           
-          {loadingRecommendations ? (
-            <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 8 }}>
-              {Array.from({length: 2}).map((_, idx) => (
-                <View key={idx} style={{ flex: 1 }}>
-                  <View style={{
-                    width: '100%',
-                    height: 160,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 12,
-                  }} />
-                  <View style={{
-                    width: '80%',
-                    height: 16,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 4,
-                    marginTop: 8,
-                  }} />
-                  <View style={{
-                    width: '60%',
-                    height: 12,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 4,
-                    marginTop: 4,
-                  }} />
-                </View>
-              ))}
-            </View>
-          ) : recommendations.length > 0 ? (
-            <View style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}>
-              {recommendations.slice(0, 6).map((plant, index) => (
-                <View 
-                  key={plant.id || plant.plantCode || index} 
-                  style={{ 
-                    width: '48%',
-                    marginBottom: 16 
-                  }}
-                >
-                  <PlantItemCard 
-                    data={plant}
-                    onPress={() => {
-                      navigation.navigate('ScreenPlantDetail', { 
-                        plantCode: plant.plantCode,
-                        plantData: plant 
-                      });
-                    }}
-                    onAddToCart={() => handleAddToCartFromRecommendations(plant)}
-                  />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: '#999', fontSize: 14 }}>
-                No recommendations available at the moment
-              </Text>
-            </View>
-          )}
+          <BrowseMorePlants 
+            title="More from our Jungle" 
+            initialLimit={4}
+            loadMoreLimit={4}
+            showLoadMore={true}
+            containerStyle={{paddingTop: 0}}
+            onAddToCart={handleAddToCartFromRecommendations}
+          />
         </View>
       </ScrollView>
       

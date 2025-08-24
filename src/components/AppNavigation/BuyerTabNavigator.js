@@ -64,7 +64,12 @@ const LivePlaceholder = () => (
 // Create a Shop Stack Navigator to include shop-related screens
 function ShopStackNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        lazy: false, // Disable lazy loading to keep screens mounted
+        detachPreviousScreen: false, // Keep previous screens in memory
+      }}
+    >
       <Stack.Screen
         name="ScreenShop"
         component={ScreenShop}

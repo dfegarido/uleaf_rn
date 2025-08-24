@@ -64,6 +64,7 @@ const generateEndpoints = () => ({
   SEARCH_LISTING: `${getBaseUrl()}/searchListing`,
   SEARCH_PLANTS: `${getBaseUrl()}/searchPlants`,
   GET_BUYER_LISTINGS: `${getBaseUrl()}/getBuyerListings`,
+  GET_BUYER_LISTING: `${getBaseUrl()}/getBuyerListing`, // Single plant detail
   GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   
@@ -102,6 +103,9 @@ const generateEndpoints = () => ({
   // Public (unauthenticated) location endpoints
   PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
   PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
+  
+  // User related endpoints
+  SEARCH_USER: `${getBaseUrl()}/searchUser`,
 });
 
 // API Endpoints - Initially generated with default environment

@@ -24,6 +24,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {ImagePickerNoButton} from '../../components/ImagePicker';
 import {uploadImageToFirebaseProfile} from '../../utils/uploadImageToFirebaseProfile';
 import {AuthContext} from '../../auth/AuthProvider';
+import Avatar from '../../components/Avatar/Avatar';
 
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 import CameraIcon from '../../assets/icons/accent/camera.svg';
@@ -31,7 +32,7 @@ import CameraIcon from '../../assets/icons/accent/camera.svg';
 import {postProfileUpdateInfoApi} from '../../components/Api';
 
 const ScreenProfileAccount = ({navigation, route}) => {
-  const {updateProfileImage} = useContext(AuthContext);
+  const {updateProfileImage, userInfo} = useContext(AuthContext);
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -94,8 +95,18 @@ const ScreenProfileAccount = ({navigation, route}) => {
       isImageChange: isImageChange,
     };
     setOriginalData(originalValues);
-    profileImage != '' && setImages([profileImage]);
+    // Prefer authoritative profile image from AuthContext when available
+    const contextImage = userInfo?.profileImage || '';
+    const initialImage = contextImage || (profileImage || '');
+    if (initialImage) setImages([initialImage]);
   }, [firstName, lastName, contactNumber, gardenOrCompanyName, country]);
+
+  // Keep local images in sync when AuthContext profile image changes elsewhere
+  useEffect(() => {
+    if (userInfo?.profileImage) {
+      setImages([userInfo.profileImage]);
+    }
+  }, [userInfo?.profileImage]);
 
   // Check for changes in form fields
   useEffect(() => {
@@ -262,28 +273,27 @@ const ScreenProfileAccount = ({navigation, route}) => {
         <View style={{marginHorizontal: 20}}>
           <View style={{flexDirection: 'row', justifyContent: 'center'}}>
             <View style={{position: 'relative'}}>
-              {images[0] ? (
-                // Show picked image
-                <Image
-                  source={{uri: images[0]}}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
-              ) : (
-                // Show default image
-                <Image
-                  source={require('../../assets/images/AvatarBig.png')}
-                  style={styles.image}
-                  resizeMode="contain"
-                />
-              )}
+              {/* Use shared Avatar component so profile updates propagate across screens */}
+              {(() => {
+                // Determine the canonical image and timestamp to build a cache-busted URI
+                const canonical = userInfo?.profileImage || images[0] || '';
+                const ts = userInfo?.profileImageTimestamp || Date.now();
+                const avatarUri = canonical ? `${canonical}${canonical.includes('?') ? '&' : '?'}cb=${ts}` : null;
+                return (
+                  <Avatar
+                    size={120}
+                    imageUri={avatarUri}
+                    rounded
+                  />
+                );
+              })()}
 
               <TouchableOpacity
                 onPress={() => setModalVisible(true)}
                 style={{
                   position: 'absolute',
                   bottom: 5,
-                  right: 5, // ⬅️ Add this line to move it to bottom-right
+                  right: 5,
                   backgroundColor: '#F2F7F3',
                   padding: 10,
                   borderRadius: 20,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 // Pre-load and cache the avatar image to prevent RCTImageView errors
 const AvatarImage = require('../../assets/images/AvatarBig.png');
@@ -35,10 +36,10 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
     try {
       setLoading(true);
       
-      // Build URL with query parameter
-      const apiUrl = `https://us-central1-i-leaf-u.cloudfunctions.net/searchUser?query=${query}&userType=buyer&limit=5&offset=0`;
+      // Build URL with query parameter using apiConfig
+      const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${query}&userType=buyer&limit=5&offset=0`;
       console.log('Fetching users from:', apiUrl);
-      // Make API request
+      // Make API requestquest
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
@@ -54,20 +55,44 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
       
       if (data && data.success && data.results) {
         // Map API response to the expected format
-        const formattedUsers = data.results.map(user => ({
-          id: user.id,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-          avatarUrl: AvatarImage, // Use pre-loaded image to avoid RCTImageView errors
-          uid: user.id,
-          email: user.email,
-          createdAt: user.createdAt
-        }));
+        const formattedUsers = data.results.map(async user => {
+          // Try to get the profile photo from AsyncStorage if available
+          let avatarUrl = AvatarImage; // Default avatar image
+          console.log('Processing user:', user);
+          if (user.profileImage) {
+            // Use server provided profile image if available
+            avatarUrl = { uri: user.profileImage };
+          } else {
+            // Try to get from AsyncStorage if the user ID matches current user
+            try {
+              // Check if there's a cached avatar for this user ID
+              const storedPhotoUrl = await AsyncStorage.getItem(`profilePhotoUrlWithTimestamp_${user.id}`);
+              if (storedPhotoUrl) {
+                avatarUrl = { uri: storedPhotoUrl };
+              }
+            } catch (err) {
+              console.log('Failed to load avatar from storage:', err);
+            }
+          }
+          
+          return {
+            id: user.id,
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            avatarUrl: avatarUrl,
+            uid: user.id,
+            email: user.email,
+            createdAt: user.createdAt
+          };
+        });
         
-        setUsers(formattedUsers);
-        setFilteredUsers(formattedUsers);
+        // Resolve all promises from async mapping
+        const resolvedUsers = await Promise.all(formattedUsers);
+        
+        setUsers(resolvedUsers);
+        setFilteredUsers(resolvedUsers);
         
         // Log search results info
-        console.log(`Found ${formattedUsers.length} users for query "${query}"`);
+        console.log(`Found ${resolvedUsers.length} users for query "${query}"`);
       } else {
         throw new Error('Invalid response format');
       }
@@ -161,11 +186,11 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
                     index !== filteredUsers.length - 1 && styles.userItemBorder
                   ]}
                 >
-                  {/* <Image 
-                    source={AvatarImage}
+                  <Image 
+                    source={user.avatarUrl}
                     style={styles.avatar}
                     defaultSource={AvatarImage}
-                  /> */}
+                  />
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{user.name}</Text>
                     {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
@@ -276,10 +301,11 @@ const styles = StyleSheet.create({
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: '#539461',
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E5E8EA',
   },
   userInfo: {
     flex: 1,

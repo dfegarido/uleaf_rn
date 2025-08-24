@@ -15,8 +15,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Modal,
-  ActivityIndicator,
   Alert,
   RefreshControl,
 } from 'react-native';
@@ -184,16 +182,18 @@ const Divider = () => <View style={styles.divider} />;
 
 const BuyerProfileScreen = (props) => {
   const navigation = useNavigation();
+  // Local require for reusable Avatar component
+  const Avatar = require('../../../components/Avatar/Avatar').default;
   const {logout, userInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState({});
   const [addressBookCount, setAddressBookCount] = useState(0);
   const [profileStats, setProfileStats] = useState({
-    leafPoints: 0,
-    plantCredits: 0,
-    shippingCredits: 0,
-    buddyRequests: 0,
+      leafPoints: 0,
+      plantCredits: 0,
+      shippingCredits: 0,
+  buddyRequests: 0,
   });
 
   // ✅ Fetch on mount
@@ -292,13 +292,7 @@ const BuyerProfileScreen = (props) => {
 
   return (
     <View style={styles.container}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
+  {/* Show skeleton placeholders in header when loading instead of modal spinner */}
       <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
 
       {/* Header */}
@@ -328,19 +322,31 @@ const BuyerProfileScreen = (props) => {
         <View style={styles.profileSection}>
           <View style={styles.nameSection}>
             <View style={styles.avatarContainer}>
-              <AvatarIcon width={56} height={56} />
+              {loading ? (
+                <View style={styles.skeletonAvatar} />
+              ) : (
+                <Avatar size={56} />
+              )}
             </View>
             <View style={styles.information}>
               <View style={styles.nameRow}>
-                <Text style={styles.nameText}>
-                  {data?.firstName && data?.lastName 
-                    ? `${data.firstName} ${data.lastName}` 
-                    : data?.gardenOrCompanyName || 'User Name'}
-                </Text>
+                {loading ? (
+                  <View style={styles.skeletonName} />
+                ) : (
+                  <Text style={styles.nameText}>
+                    {data?.firstName && data?.lastName 
+                      ? `${data.firstName} ${data.lastName}` 
+                      : data?.gardenOrCompanyName }
+                  </Text>
+                )}
               </View>
-              <Text style={styles.usernameText}>
-                @{data?.username || data?.email?.split('@')[0] || 'username'}
-              </Text>
+              {loading ? (
+                <View style={styles.skeletonSubtitle} />
+              ) : (
+                <Text style={styles.usernameText}>
+                  @{data?.username || data?.email?.split('@')[0] }
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -872,11 +878,25 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     flex: 1,
   },
-  loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  // Skeleton placeholders for loading state
+  skeletonAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 1000,
+    backgroundColor: '#e0e0e0',
+  },
+  skeletonName: {
+    height: 24,
+    width: '60%',
+    backgroundColor: '#e0e0e0',
+    borderRadius: 6,
+  },
+  skeletonSubtitle: {
+    height: 16,
+    width: '40%',
+    backgroundColor: '#e0e0e0',
+    borderRadius: 6,
+    marginTop: 6,
   },
 });
 

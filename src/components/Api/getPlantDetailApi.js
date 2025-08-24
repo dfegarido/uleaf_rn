@@ -1,11 +1,12 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const getPlantDetailApi = async (plantCode) => {
   try {
     const token = await getStoredAuthToken();
-
+    console.log("authToken", token)
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerListing?plantCode=${plantCode}`,
+      `${API_ENDPOINTS.GET_BUYER_LISTING}?plantCode=${plantCode}`,
       {
         method: 'GET',
         headers: {
