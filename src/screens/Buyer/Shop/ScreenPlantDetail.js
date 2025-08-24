@@ -951,7 +951,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
           <View style={styles.divider} />
 
           {/* You may also like section (BrowseMorePlants component) */}
-          <View style={styles.sectionContainer}>
+          
             <BrowseMorePlants
               title="You May Also Like"
               initialLimit={4}
@@ -959,7 +959,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
               onPlantPress={(plant) => navigation.push('ScreenPlantDetail', { plantCode: plant.plantCode, plantData: plant })}
               containerStyle={{paddingVertical:0}}
             />
-          </View>
+        
         </View>
         </ScrollView>
 

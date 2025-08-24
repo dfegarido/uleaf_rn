@@ -244,7 +244,7 @@ const PlantItemCard = ({
       <View style={styles.infoContainer}>
         <View style={styles.row}>
           <Text style={styles.title} numberOfLines={2}>{displayTitle}</Text>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => {
               // Wishlist feature temporarily disabled
             }}
@@ -255,7 +255,7 @@ const PlantItemCard = ({
             ) : (
               <WishListUnselected width={20} height={20} />
             )}
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
         <Text style={styles.subtitle} numberOfLines={1}>{displaySubtitle}</Text>
         <View style={styles.priceRow}>
