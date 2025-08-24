@@ -103,6 +103,9 @@ const generateEndpoints = () => ({
   // Public (unauthenticated) location endpoints
   PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
   PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
+  
+  // User related endpoints
+  SEARCH_USER: `${getBaseUrl()}/searchUser`,
 });
 
 // API Endpoints - Initially generated with default environment

@@ -32,7 +32,6 @@ import CreateChat from '../../assets/iconchat/new-chat.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import {AuthContext} from '../../auth/AuthProvider';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
-import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const MessagesScreen = ({navigation}) => {
   const {userInfo} = useContext(AuthContext);
@@ -43,6 +42,64 @@ const MessagesScreen = ({navigation}) => {
   const [messages, setMessages] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Map of uid -> image source (either {uri: ...} or local numeric require)
+  const [avatarMap, setAvatarMap] = useState({});
+
+  // Fetch avatars from buyers collection for given chats' participant UIDs
+  async function fetchAvatarsForChats(chats = []) {
+    try {
+      if (!Array.isArray(chats) || chats.length === 0) return;
+
+      // Collect unique other participant UIDs
+      const uidsToFetch = new Set();
+      
+      chats.forEach(chat => {
+        const participants = chat.participants || [];
+
+        participants.forEach(p => {
+          const uid = p && p.uid;
+          if (uid && uid !== userInfo.uid ) {
+            uidsToFetch.add(uid);
+          }
+        });
+      });
+
+
+  if (uidsToFetch.size === 0) return;
+
+      // Fetch each buyer doc and update avatarMap
+      const updates = {};
+      for (const uid of uidsToFetch) {
+        try {
+          const buyerDocRef = doc(db, 'buyer', uid);
+          const buyerSnap = await getDoc(buyerDocRef);
+          if (buyerSnap) {
+            const data = buyerSnap.data();
+
+            const url = data?.profilePhotoUrl || null;
+            if (url && typeof url === 'string') {
+              updates[uid] = { uri: url };
+            } else {
+              // fallback to default avatar
+              updates[uid] = DefaultAvatar;
+            }
+          } else {
+            updates[uid] = DefaultAvatar;
+          }
+        } catch (err) {
+          updates[uid] = DefaultAvatar;
+        }
+      }
+
+
+
+      if (Object.keys(updates).length > 0) {
+        setAvatarMap(prev => ({...prev, ...updates}));
+      }
+    } catch (err) {
+      // silent failure
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -59,15 +116,14 @@ const MessagesScreen = ({navigation}) => {
         orderBy('timestamp', 'desc'),
       );
 
-      // Use onSnapshot with includeMetadataChanges to handle both cache and server data
-      const unsubscribe = onSnapshot(
+  // Use onSnapshot with includeMetadataChanges to handle both cache and server data
+  const unsubscribe = onSnapshot(
         q,
         {includeMetadataChanges: true},
         snapshot => {
           try {
-            // Check if data is from cache or server
+            // Check if data is from cache or server (no logging)
             const source = snapshot.metadata.fromCache ? 'cache' : 'server';
-            console.log('Data came from ' + source);
 
             const chats = snapshot.docs.map(doc => ({
               id: doc.id,
@@ -75,6 +131,8 @@ const MessagesScreen = ({navigation}) => {
             }));
 
             setMessages(chats);
+            // Fire-and-forget: populate avatarMap for participant UIDs we don't yet have
+            fetchAvatarsForChats(chats).catch(() => {});
           } catch (error) {
             console.error('Error processing chat data:', error);
           } finally {
@@ -82,23 +140,22 @@ const MessagesScreen = ({navigation}) => {
           }
         },
         error => {
-          console.error('Firestore subscription error:', error);
           setLoading(false);
         },
       );
 
       return unsubscribe;
     } catch (error) {
-      console.error('Error setting up chat listener:', error);
       setLoading(false);
     }
   }, [userInfo]);
+
+  
 
   const markChatAsRead = async item => {
     try {
       // Ensure we have an id to update
       if (!item || !item.id) {
-        console.warn('markChatAsRead called with invalid item:', item);
         return;
       }
 
@@ -116,7 +173,6 @@ const MessagesScreen = ({navigation}) => {
         name: item.name || (item.participants && item.participants[0] && item.participants[0].name) || 'Chat',
       };
 
-  console.log('Navigating to ChatScreen with params:', safeParams);
   navigation.navigate('ChatScreen', safeParams);
     } catch (error) {
       console.error('Error marking chat as read or navigating:', error);
@@ -181,17 +237,18 @@ const MessagesScreen = ({navigation}) => {
         participantIds: [userInfo.uid, user.uid].filter(Boolean), // Remove any undefined/null values
         lastMessage: '',
         timestamp: new Date(),
-        unreadBy: [user.uid].filter(Boolean), // Remove any undefined/null values
-        avatarUrl: '',
-        name: '',
+  unreadBy: [user.uid].filter(Boolean), // Remove any undefined/null values
+  // Pre-fill chat-level avatar and name with the other participant where possible
+  avatarUrl: otherUserAvatar || '',
+  name: user.name || '',
         type: 'private',
       };
 
-      console.log('Creating new chat with data:', JSON.stringify(chatData));
+  // creating new chat
 
       try {
         const addChat = await addDoc(collection(db, 'chats'), chatData);
-        console.log('Chat created with ID:', addChat.id);
+  // chat created
 
         const docRef = doc(db, 'chats', addChat.id);
         const docSnap = await getDoc(docRef);
@@ -202,28 +259,34 @@ const MessagesScreen = ({navigation}) => {
         } else {
           throw new Error('Failed to get created chat document');
         }
-      } catch (firestoreError) {
-        console.error('Firestore error:', firestoreError);
+  } catch (firestoreError) {
         Alert.alert(
           'Error',
           'Failed to create chat. There might be an issue with the user data.',
         );
       }
     } catch (error) {
-      console.error('Error creating chat:', error);
       Alert.alert('Error', 'Failed to create chat. Please try again.');
     }
   };
 
   const renderItem = ({item}) => {
-    // Add null check to handle potential undefined participants
-    const participants = item.participants || [];
+  // Add null check to handle potential undefined participants
+  const participants = item.participants || [];
     const otherUserInfo = participants.find(p => p.uid !== userInfo.uid) || {};
+    // Determine avatar source: prefer participant-provided avatar, then avatarMap, then default
+    let avatarSource = DefaultAvatar;
+    if (otherUserInfo && otherUserInfo.avatarUrl) {
+      if (Object.prototype.toString.call(otherUserInfo.avatarUrl) === '[object Object]' && otherUserInfo.avatarUrl.uri) {
+        avatarSource = { uri: otherUserInfo.avatarUrl?.uri };
+      }
+    }
+
     return (
       <TouchableOpacity
         style={styles.chatItem}
         onPress={() => markChatAsRead(item)}>
-        <Image source={DefaultAvatar} style={styles.avatar} />
+        <Image source={avatarSource} style={styles.avatar} />
         <View style={styles.chatContent}>
           <View style={styles.chatHeader}>
             <View style={styles.chatSubHeader}>

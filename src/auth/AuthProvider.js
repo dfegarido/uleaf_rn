@@ -99,10 +99,15 @@ export const AuthProvider = ({children}) => {
 
   const updateProfileImage = async newImage => {
     try {
+      // Strip any cache-busting query params to store canonical URL
+      const canonical = typeof newImage === 'string' ? newImage.split('?')[0] : newImage;
+      const timestamp = Date.now();
+
       setUserInfo(prev => {
         const updatedUserInfo = {
           ...prev,
-          profileImage: newImage,
+          profileImage: canonical,
+          profileImageTimestamp: timestamp,
         };
 
         // Save to AsyncStorage

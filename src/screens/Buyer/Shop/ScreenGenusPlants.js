@@ -16,6 +16,8 @@ import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Avatar from '../../../components/Avatar/Avatar';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
@@ -39,6 +41,7 @@ const GenusHeader = ({
   setIsSearchFocused,
   insets,
   onBadgePress, // handler passed from parent to handle badge clicks in-place
+  profilePhotoUri,
 }) => {
   return (
     <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
@@ -93,7 +96,15 @@ const GenusHeader = ({
         <TouchableOpacity
           style={styles.iconButton}
           onPress={() => navigation.navigate('ScreenProfile')}>
-          <AvatarIcon width={40} height={40} />
+          {profilePhotoUri ? (
+            <Avatar 
+              source={{ uri: profilePhotoUri }} 
+              style={styles.avatar} 
+              size={40}
+            />
+          ) : (
+            <AvatarIcon width={40} height={40} />
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -133,6 +144,28 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  
+  // Profile photo state
+  const [profilePhotoUri, setProfilePhotoUri] = useState(null);
+  
+  // Load profile photo from AsyncStorage
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadProfilePhoto = async () => {
+        try {
+          const photoUrl = await AsyncStorage.getItem('profilePhotoUrlWithTimestamp') || 
+                           await AsyncStorage.getItem('profilePhotoUrl');
+          if (photoUrl) {
+            setProfilePhotoUri(photoUrl);
+          }
+        } catch (error) {
+          console.warn('Failed to load profile photo from AsyncStorage:', error);
+        }
+      };
+      
+      loadProfilePhoto();
+    }, [])
+  );
 
   // Debounced search effect - triggers after user stops typing
   useEffect(() => {
@@ -718,6 +751,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         setIsSearchFocused={setIsSearchFocused}
         insets={insets}
         onBadgePress={handleBadgePress}
+        profilePhotoUri={profilePhotoUri}
       />
 
       {/* Search Results - Positioned outside header to appear above content */}
@@ -993,14 +1027,13 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   avatar: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    padding: 0,
-    width: 32,
-    minWidth: 32,
-    height: 32,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#E5E8EA',
     minHeight: 32,
-    borderRadius: 1000,
     position: 'relative',
     flex: 0,
   },

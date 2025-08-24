@@ -70,7 +70,7 @@ const Avatar = ({size = 40, imageUri, onPress, style, rounded = true}) => {
     return () => {
       mounted = false;
     };
-  }, [imageUri, user]);
+  }, [imageUri, user?.profileImage, user?.profileImageTimestamp]);
 
   const containerStyle = [
     {width: size, height: size, borderRadius: rounded ? size / 2 : 4, overflow: 'hidden'},
@@ -79,6 +79,7 @@ const Avatar = ({size = 40, imageUri, onPress, style, rounded = true}) => {
 
   const content = uri ? (
     <Image
+      key={`avatar-image-${uri}`} 
       source={{uri}}
       style={{width: size, height: size}}
       resizeMode="cover"

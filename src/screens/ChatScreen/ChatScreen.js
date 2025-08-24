@@ -23,7 +23,6 @@ import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants
 
 const ChatScreen = ({navigation, route}) => {
   const routeParams = route?.params || {};
-  console.log('ChatScreen route params:', routeParams);
   const avatarUrl = routeParams.avatarUrl || '';
   const name = routeParams.name || routeParams.title || 'Chat';
   const id = routeParams.id || routeParams.chatId || null;
@@ -36,13 +35,18 @@ const ChatScreen = ({navigation, route}) => {
   const otherUserInfo = Array.isArray(participants) && participants.length > 0
     ? participants.find(p => p?.uid !== userInfo?.uid) || participants[0]
     : {};
+    
+  // Process avatarUrl if it's a number (e.g., requiring a local asset) or other non-string type
+  if (otherUserInfo?.avatarUrl !== undefined && typeof otherUserInfo.avatarUrl !== 'string') {
+    // If it's a number, it might be referencing a local asset ID
+    // We'll keep it as is and handle it in getAvatarSource()
+  }
 
   const [messages, setMessages] = useState([]);
 
   // Send a message: create message doc and update chat metadata
   const sendMessage = async (text) => {
     if (!id) {
-      console.warn('Attempted to send message without chat id');
       return;
     }
 
@@ -71,10 +75,10 @@ const ChatScreen = ({navigation, route}) => {
           unreadBy: arrayUnion(...otherParticipantIds),
         });
       } catch (err) {
-        console.warn('Failed to update chat metadata:', err);
+        // ignore update failures
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      // ignore send errors
     }
   };
 
@@ -93,23 +97,29 @@ const ChatScreen = ({navigation, route}) => {
   // Helper function for safe avatar display
   const getAvatarSource = () => {
     try {
-      // First try to use the provided avatarUrl if it exists and is valid
-      if (otherUserInfo?.avatarUrl && typeof otherUserInfo.avatarUrl === 'string' && otherUserInfo.avatarUrl.trim() !== '') {
-        return { uri: otherUserInfo.avatarUrl };
-      } else if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
-        return { uri: avatarUrl };
+      const au = otherUserInfo?.avatarUrl;
+      // Prefer other user's avatar when present and valid
+      if (au !== undefined && au !== null) {
+        if (typeof au === 'string' && au.trim() !== '') {
+          return { uri: au.trim() };
+        }
+        if (typeof au === 'object' && au !== null && typeof au.uri === 'string' && au.uri.trim() !== '') {
+          return { uri: au.uri.trim() };
+        }
+
       }
+
+      
     } catch (error) {
-      console.log('Error loading avatar, using default:', error);
+      // silent fallback
     }
-    
-    // Fallback to the default image
+
+    // Explicit, deterministic fallback to default avatar
     return require('../../assets/images/AvatarBig.png');
   };
 
   useEffect(() => {
     if (!id) {
-      console.error('No chat ID provided - cannot load messages');
       setMessages([]);
       return;
     }
@@ -134,19 +144,16 @@ const ChatScreen = ({navigation, route}) => {
 
             setMessages(messagesFirestore);
           } catch (error) {
-            console.error('Error processing message data:', error);
             setMessages([]);
           }
         },
         error => {
-          console.error('Error getting messages:', error);
           setMessages([]);
         }
       );
 
       return () => unsubscribe();
     } catch (error) {
-      console.error('Error setting up messages listener:', error);
       setMessages([]);
     }
   }, [id]);
