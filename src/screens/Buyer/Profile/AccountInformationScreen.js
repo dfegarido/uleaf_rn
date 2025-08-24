@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useContext} from 'react';
+import React, {useState, useEffect, useContext, useRef} from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   Image,
   Platform,
   PermissionsAndroid,
+  findNodeHandle,
+  UIManager,
 } from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -94,6 +96,9 @@ const AccountInformationScreen = () => {
   const [profilePhotoUri, setProfilePhotoUri] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
+  
+  // Ref for Avatar component
+  const avatarRef = useRef(null);
 
   // Track original values to detect changes
   const [originalData, setOriginalData] = useState({});
@@ -352,10 +357,30 @@ const AccountInformationScreen = () => {
         // Force the timestamp in AuthContext to match our local one for consistent updates
         await updateProfileImage(newUrl);
         
+        // Also update userInfo in AsyncStorage directly for immediate consistency across screens
+        try {
+          const userInfoStr = await AsyncStorage.getItem('userInfo');
+          if (userInfoStr) {
+            const userInfoObj = JSON.parse(userInfoStr);
+            userInfoObj.profileImage = newUrl;
+            userInfoObj.profileImageTimestamp = timestamp;
+            userInfoObj.profileImageWithTimestamp = localCacheBusted;
+            await AsyncStorage.setItem('userInfo', JSON.stringify(userInfoObj));
+            console.log('Updated userInfo in AsyncStorage with new profile image');
+          }
+        } catch (e) {
+          console.warn('Error updating userInfo in AsyncStorage:', e);
+        }
+        
         // Force Avatar components to refresh by triggering a state update
         setTimeout(() => {
           // Re-apply profile URI with a fresh timestamp after a short delay
           setProfilePhotoUri(`${newUrl}${newUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`);
+          
+          // Refresh the avatar component using ref
+          if (avatarRef.current) {
+            avatarRef.current.refresh();
+          }
         }, 100);
       }
 
@@ -491,6 +516,7 @@ const AccountInformationScreen = () => {
             <View style={styles.avatarContainer}>
               {/* Use the shared Avatar component with imageUri to force refresh */}
               <Avatar 
+                ref={avatarRef}
                 size={96}
                 imageUri={profilePhotoUri}
                 style={styles.avatarImage}
