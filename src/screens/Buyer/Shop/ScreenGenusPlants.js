@@ -748,7 +748,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <GenusHeader
         genus={genus}
         navigation={navigation}
@@ -934,7 +934,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -1127,6 +1127,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 15,
     paddingHorizontal: 16,
+    paddingBottom: 100,
   },
   loadMoreButton: {
     flexDirection: 'row',

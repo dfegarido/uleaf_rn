@@ -12,7 +12,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
@@ -931,6 +931,7 @@ const ScreenCart = () => {
   return (
     <View style={styles.container}>
       <CartHeader insets={insets} />
+      <SafeAreaView style={{flex: 1}}>
       <ScrollView
         style={[styles.container]}
         contentContainerStyle={{paddingTop: HEADER_HEIGHT + insets.top, paddingBottom: totalBottomPadding}}
@@ -1006,6 +1007,7 @@ const ScreenCart = () => {
           />
         </>
       )}
+      </SafeAreaView>
     </View>
   );
 };

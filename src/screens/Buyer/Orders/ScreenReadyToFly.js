@@ -3,7 +3,7 @@ import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
@@ -202,7 +202,7 @@ const ScreenReadyToFly = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {loading ? (
         <ScrollView
           style={{flex: 1}}
@@ -296,7 +296,7 @@ const ScreenReadyToFly = () => {
           
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

@@ -31,12 +31,12 @@ const CartBar = ({
 
   // Calculate total height including safe area and tab bar
   const tabBarHeight = 60; // Standard tab bar height
-  const cartBarContentHeight = 124;
-  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
-  const totalHeight = cartBarContentHeight + safeBottomPadding + tabBarHeight;
+  const cartBarContentHeight = 130;
+  const safeBottomPadding = Math.max(insets.bottom, 10); // At least 10px padding
+  const totalHeight = cartBarContentHeight + safeBottomPadding;
 
   return (
-    <View style={[styles.cartBar, { height: totalHeight, paddingBottom: safeBottomPadding + tabBarHeight }]}>
+    <View style={[styles.cartBar, { height: totalHeight }]}>
       <View style={styles.content}>
         {/* Select + Amount */}
         <View style={styles.selectAmountRow}>

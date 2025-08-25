@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {getProfileInfoApi, postBuyerUpdateInfoApi, uploadProfilePhotoApi} from '../../../components/Api';
@@ -491,7 +491,7 @@ const AccountInformationScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
       {loading ? (
         <SkeletonProfile />
       ) : (
@@ -499,7 +499,7 @@ const AccountInformationScreen = () => {
           <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
           {/* Header */}
-          <View style={[styles.header, {paddingTop: insets.top + 10}]}>
+          <View style={[styles.header, {paddingTop: insets.top }]}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               style={styles.backButton}>
@@ -703,7 +703,7 @@ const AccountInformationScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 

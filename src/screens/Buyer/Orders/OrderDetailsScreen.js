@@ -11,6 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {getOrderDetailApi} from '../../../components/Api/orderManagementApi';
 
 // Import icons
@@ -28,6 +29,7 @@ import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 const OrderDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   // Local require for reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
   
@@ -674,7 +676,7 @@ const OrderDetailsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
@@ -686,7 +688,10 @@ const OrderDetailsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) }}>
         {/* Status Details */}
         <View style={styles.statusDetails}>
           {/* Title */}

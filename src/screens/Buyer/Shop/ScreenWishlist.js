@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import WishListCard from '../../../components/WishListCard/WishListCard';
@@ -100,7 +100,7 @@ const ScreenWishlist = ({navigation}) => {
   
   return (
     <>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <View style={[styles.header, {paddingTop: insets.top + 10}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <BackSolidIcon width={24} height={24} />
@@ -120,7 +120,7 @@ const ScreenWishlist = ({navigation}) => {
             <WishListCard key={idx} {...product} />
           ))}
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </>
   );
 };

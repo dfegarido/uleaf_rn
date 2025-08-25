@@ -3,7 +3,7 @@ import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
 import {ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
@@ -297,14 +297,14 @@ const ScreenOrders = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, {paddingTop: HEADER_HEIGHT }]}>
       <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       
       {/* Content area with dynamic screen based on active tab */}
-      <View style={[styles.contentContainer, {paddingTop: HEADER_HEIGHT + insets.top}]}>
+      <View style={[styles.contentContainer]}>
         {renderActiveScreen()}
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -312,6 +312,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    minHeight: 1000,
   },
   contentContainer: {
     flex: 1,

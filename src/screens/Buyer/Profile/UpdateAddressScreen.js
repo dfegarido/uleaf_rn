@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { createAddressBookEntryApi, updateAddressBookEntryApi } from '../../../components/Api';
@@ -422,7 +423,7 @@ const UpdateAddressScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -545,7 +546,7 @@ const UpdateAddressScreen = () => {
       <View style={styles.homeIndicator}>
         <View style={styles.gestureBar} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

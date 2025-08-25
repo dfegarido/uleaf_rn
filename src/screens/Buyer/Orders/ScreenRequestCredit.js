@@ -15,6 +15,7 @@ import {useAuth} from '../../../auth/AuthProvider';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import LiveIcon from '../../../assets/icontabs/buyer-tabs/live-solid.svg';
 import ImageIcon from '../../../assets/iconchat/image.svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ScreenRequestCredit = () => {
   const navigation = useNavigation();
@@ -131,7 +132,7 @@ const ScreenRequestCredit = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -243,7 +244,7 @@ const ScreenRequestCredit = () => {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

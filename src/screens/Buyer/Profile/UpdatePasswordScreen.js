@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import { postProfileUpdatePasswordApi } from '../../../components/Api';
@@ -125,9 +126,9 @@ const UpdatePasswordScreen = () => {
   // Password strength and checklist logic can be added here
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, {paddingTop: insets.top + 10}]}>
+      <View style={[styles.header, {paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <LeftIcon width={24} height={24} fill="#393D40" />
         </TouchableOpacity>
@@ -255,7 +256,7 @@ const UpdatePasswordScreen = () => {
       <View style={styles.homeIndicator}>
         <View style={styles.gestureBar} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -269,10 +270,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
     width: '100%',
-    marginTop: 24,
   },
   backButton: {
     width: 24,

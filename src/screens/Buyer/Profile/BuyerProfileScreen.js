@@ -9,7 +9,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../../auth/AuthProvider';
 import Svg, {Path} from 'react-native-svg';
 import {useIsFocused} from '@react-navigation/native';
@@ -299,7 +299,7 @@ const BuyerProfileScreen = (props) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
   {/* Show skeleton placeholders in header when loading instead of modal spinner */}
       <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
 
@@ -317,7 +317,7 @@ const BuyerProfileScreen = (props) => {
         }
       >
         {/* Header */}
-        <View style={[styles.header, {paddingTop: insets.top + 10}]}>
+        <View style={[styles.header, {paddingTop: insets.top }]}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}>
@@ -520,7 +520,7 @@ const BuyerProfileScreen = (props) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -542,7 +542,6 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
   },
   headerTitle: {
     fontSize: 18,

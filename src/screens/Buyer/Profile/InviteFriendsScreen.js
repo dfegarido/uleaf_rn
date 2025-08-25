@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import RightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import Svg, { Path } from 'react-native-svg';
@@ -62,11 +62,11 @@ const InviteFriendsScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
-      <View style={[styles.header, {paddingTop: insets.top + 10}]}>
+      <View style={[styles.header, {paddingTop: insets.top}]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -125,7 +125,7 @@ const InviteFriendsScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -142,7 +142,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     width: '100%',
     height: 60,
-    marginTop: 24,
     minHeight: 100,
   },
   backButton: {

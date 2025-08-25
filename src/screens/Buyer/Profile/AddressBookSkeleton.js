@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {View, StyleSheet, Animated} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 const AddressBookSkeleton = () => {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -64,11 +65,11 @@ const AddressBookSkeleton = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <AddressCardSkeleton />
       <AddressCardSkeleton />
       <AddressCardSkeleton />
-    </View>
+    </SafeAreaView>
   );
 };
 

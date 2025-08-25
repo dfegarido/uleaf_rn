@@ -883,7 +883,8 @@ const ScreenShop = ({navigation}) => {
 
   const HEADER_HEIGHT = 110;
 
-  const scrollViewRef = useRef(null);
+  const headerScrollRef = useRef(null);
+  const mainScrollRef = useRef(null);
   // Local import of reusable Avatar component to avoid modifying top-level imports
   const Avatar = require('../../../components/Avatar/Avatar').default;
 
@@ -945,7 +946,7 @@ const ScreenShop = ({navigation}) => {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          ref={scrollViewRef}
+          ref={headerScrollRef}
           style={{flexGrow: 0, paddingVertical: 4}}
           contentContainerStyle={{
             flexDirection: 'row',
@@ -1007,7 +1008,7 @@ const ScreenShop = ({navigation}) => {
 
         {/* Search Results Dropdown */}
         {isSearchFocused && searchTerm.trim().length >= 2 && (
-          <View style={styles.searchResultsContainer}>
+          <View style={[styles.searchResultsContainer, {top: insets.top + 52}]}>
             {loadingSearch ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#10b981" />
@@ -1047,7 +1048,7 @@ const ScreenShop = ({navigation}) => {
         )}
       </View>
       <ScrollView
-        ref={scrollViewRef}
+        ref={mainScrollRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
         contentContainerStyle={{paddingBottom: totalBottomPadding}}
         refreshControl={
@@ -1447,7 +1448,7 @@ const ScreenShop = ({navigation}) => {
 const styles = StyleSheet.create({
   body: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff'
   },
   container: {
     flex: 1,

@@ -7,8 +7,10 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  SafeAreaView
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 // Import SVG icons
 import LiveIcon from '../../../assets/iconnav/live.svg';
@@ -294,7 +296,7 @@ const LiveScreen = ({navigation}) => {
     : liveStreams.filter(stream => stream.isLive);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <LiveHeader navigation={navigation} />
       <LiveTabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -315,7 +317,7 @@ const LiveScreen = ({navigation}) => {
           ))}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 

@@ -8,6 +8,7 @@ import {
   ScrollView,
   StatusBar,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -54,7 +55,7 @@ const ReportAProblemScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
@@ -111,7 +112,7 @@ const ReportAProblemScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
