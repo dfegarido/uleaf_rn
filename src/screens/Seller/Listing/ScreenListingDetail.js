@@ -360,10 +360,7 @@ const ScreenListingDetail = ({navigation, route}) => {
       {/* Fullscreen Background Carousel */}
 
       {/* Foreground ScrollView Content */}
-      <ScrollView
-        // style={[styles.container, {paddingTop: insets.top}]}
-        style={[styles.container]}
-        stickyHeaderIndices={[0]}>
+      <ScrollView style={[styles.container]} stickyHeaderIndices={[0]}>
         {/* Sticky Header */}
         <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
           <View style={styles.header} pointerEvents="box-none">
