@@ -336,6 +336,7 @@ const ScreenListingDetail = ({navigation, route}) => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const onPressDeleteConfirm = () => {
+    setActionShowSheet(false);
     setDeleteModalVisible(true);
   };
 
@@ -362,9 +363,7 @@ const ScreenListingDetail = ({navigation, route}) => {
       {/* Foreground ScrollView Content */}
       <ScrollView style={[styles.container]} stickyHeaderIndices={[0]}>
         {/* Sticky Header */}
-        <View
-          style={[styles.stickyHeader, {paddingBottom: 10}]}
-          pointerEvents="box-none">
+        <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
           <View style={styles.header}>
             <TouchableOpacity
               hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
