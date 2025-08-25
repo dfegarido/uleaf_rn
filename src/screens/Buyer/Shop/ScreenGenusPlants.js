@@ -117,6 +117,12 @@ const GenusHeader = ({
 const ScreenGenusPlants = ({navigation, route}) => {
   const {user} = useAuth();
   const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  
   const {genus, filterType, filterValue} = route.params || {};
   const {
     globalFilters,
@@ -800,7 +806,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       {/* Plants Grid */}
       <ScrollView
         style={[styles.plantsContainer, {paddingTop: insets.top + 120}]}
-        contentContainerStyle={styles.plantsGrid}
+        contentContainerStyle={[styles.plantsGrid, {paddingBottom: totalBottomPadding}]}
         scrollEventThrottle={400}
         refreshing={refreshing}
         onRefresh={() => loadPlants(true)}>
@@ -1081,7 +1087,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   plantsGrid: {
-    paddingBottom: 150, // Increased from 100 to 150 for better load more button visibility
+    // paddingBottom handled dynamically based on safe area
     paddingHorizontal: 16,
   },
   plantsGridContainer: {

@@ -8,10 +8,12 @@ import {
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 const PrivacyPolicyScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const privacyData = [
     {
@@ -68,7 +70,7 @@ const PrivacyPolicyScreen = () => {
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: insets.top + 10}]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -107,10 +109,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
     width: '100%',
-    height: 60,
+    minHeight: 100,
   },
   backButton: {
     width: 24,

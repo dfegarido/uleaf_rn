@@ -109,6 +109,10 @@ const countryData = [
 const ScreenShop = ({navigation}) => {
   const {user} = useAuth();
   const insets = useSafeAreaInsets();
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   const {
     globalFilters,
     updateFilters,
@@ -1045,7 +1049,7 @@ const ScreenShop = ({navigation}) => {
       <ScrollView
         ref={scrollViewRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
-        contentContainerStyle={{paddingBottom: 170}}
+        contentContainerStyle={{paddingBottom: totalBottomPadding}}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

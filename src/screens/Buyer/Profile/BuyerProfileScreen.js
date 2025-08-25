@@ -1,12 +1,3 @@
-// Custom Shipping Credits Icon Component (from Figma SVG)
-const ShippingCreditsIcon = ({width = 24, height = 24, fill = "white"}) => (
-  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M18.7499 13.5H11.5593L13.6602 11.3991C14.4198 11.7816 15.2567 11.9855 16.1071 11.9953C16.9631 11.9976 17.803 11.7633 18.5343 11.3184C20.758 9.97218 21.9496 6.85593 21.7218 2.98218C21.7111 2.7987 21.6334 2.62554 21.5034 2.49558C21.3734 2.36562 21.2003 2.2879 21.0168 2.27718C17.143 2.04937 14.0268 3.24093 12.6796 5.46468C11.803 6.91312 11.7805 8.6625 12.599 10.3397L11.2499 11.6887L10.1052 10.5441C10.6677 9.30187 10.6274 8.01281 9.97492 6.93656C8.95585 5.25 6.6196 4.35093 3.7246 4.52062C3.54144 4.53154 3.36863 4.60922 3.23888 4.73896C3.10914 4.86871 3.03145 5.04152 3.02054 5.22468C2.84991 8.11875 3.74991 10.455 5.43741 11.475C6.00197 11.8197 6.65094 12.0014 7.31241 12C7.91252 11.994 8.50444 11.8601 9.04866 11.6072L10.1896 12.75L9.4396 13.5H5.24991C5.051 13.5 4.86024 13.579 4.71958 13.7197C4.57893 13.8603 4.49991 14.0511 4.49991 14.25C4.49991 14.4489 4.57893 14.6397 4.71958 14.7803C4.86024 14.921 5.051 15 5.24991 15H6.14898L7.38742 20.5753C7.45969 20.9094 7.64465 21.2085 7.91128 21.4223C8.17791 21.6362 8.50998 21.7519 8.85179 21.75H15.149C15.4907 21.7516 15.8226 21.6358 16.0891 21.4219C16.3557 21.2081 16.5408 20.9092 16.6134 20.5753L17.8518 15H18.7499C18.9488 15 19.1396 14.921 19.2802 14.7803C19.4209 14.6397 19.4999 14.4489 19.4999 14.25C19.4999 14.0511 19.4209 13.8603 19.2802 13.7197C19.1396 13.579 18.9488 13.5 18.7499 13.5Z"
-      fill={fill}
-    />
-  </Svg>
-);
 import React, {useContext, useEffect, useState} from 'react';
 import {
   View,
@@ -18,6 +9,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AuthContext} from '../../../auth/AuthProvider';
 import Svg, {Path} from 'react-native-svg';
 import {useIsFocused} from '@react-navigation/native';
@@ -39,6 +31,15 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import { useNavigation } from '@react-navigation/native';
 
+// Custom Shipping Credits Icon Component (from Figma SVG)
+const ShippingCreditsIcon = ({width = 24, height = 24, fill = "white"}) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M18.7499 13.5H11.5593L13.6602 11.3991C14.4198 11.7816 15.2567 11.9855 16.1071 11.9953C16.9631 11.9976 17.803 11.7633 18.5343 11.3184C20.758 9.97218 21.9496 6.85593 21.7218 2.98218C21.7111 2.7987 21.6334 2.62554 21.5034 2.49558C21.3734 2.36562 21.2003 2.2879 21.0168 2.27718C17.143 2.04937 14.0268 3.24093 12.6796 5.46468C11.803 6.91312 11.7805 8.6625 12.599 10.3397L11.2499 11.6887L10.1052 10.5441C10.6677 9.30187 10.6274 8.01281 9.97492 6.93656C8.95585 5.25 6.6196 4.35093 3.7246 4.52062C3.54144 4.53154 3.36863 4.60922 3.23888 4.73896C3.10914 4.86871 3.03145 5.04152 3.02054 5.22468C2.84991 8.11875 3.74991 10.455 5.43741 11.475C6.00197 11.8197 6.65094 12.0014 7.31241 12C7.91252 11.994 8.50444 11.8601 9.04866 11.6072L10.1896 12.75L9.4396 13.5H5.24991C5.051 13.5 4.86024 13.579 4.71958 13.7197C4.57893 13.8603 4.49991 14.0511 4.49991 14.25C4.49991 14.4489 4.57893 14.6397 4.71958 14.7803C4.86024 14.921 5.051 15 5.24991 15H6.14898L7.38742 20.5753C7.45969 20.9094 7.64465 21.2085 7.91128 21.4223C8.17791 21.6362 8.50998 21.7519 8.85179 21.75H15.149C15.4907 21.7516 15.8226 21.6358 16.0891 21.4219C16.3557 21.2081 16.5408 20.9092 16.6134 20.5753L17.8518 15H18.7499C18.9488 15 19.1396 14.921 19.2802 14.7803C19.4209 14.6397 19.4999 14.4489 19.4999 14.25C19.4999 14.0511 19.4209 13.8603 19.2802 13.7197C19.1396 13.579 18.9488 13.5 18.7499 13.5Z"
+      fill={fill}
+    />
+  </Svg>
+);
 
 // Custom Leaf Icon Component
 const LeafIcon = ({width = 24, height = 24, fill = "white"}) => (
@@ -182,6 +183,13 @@ const Divider = () => <View style={styles.divider} />;
 
 const BuyerProfileScreen = (props) => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  
   // Local require for reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
   const {logout, userInfo} = useContext(AuthContext);
@@ -295,20 +303,10 @@ const BuyerProfileScreen = (props) => {
   {/* Show skeleton placeholders in header when loading instead of modal spinner */}
       <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}>
-          <LeftIcon width={24} height={24} fill="#393D40" />
-        </TouchableOpacity>
-        <View style={styles.headerSpacer} />
-        <View style={styles.headerSpacer} />
-      </View>
-
       <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{paddingBottom: totalBottomPadding}}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -318,6 +316,16 @@ const BuyerProfileScreen = (props) => {
           />
         }
       >
+        {/* Header */}
+        <View style={[styles.header, {paddingTop: insets.top + 10}]}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}>
+            <LeftIcon width={24} height={24} fill="#393D40" />
+          </TouchableOpacity>
+          <View style={styles.headerSpacer} />
+          <View style={styles.headerSpacer} />
+        </View>
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.nameSection}>
@@ -526,7 +534,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 10,
     backgroundColor: '#DFECDF',
   },
   backButton: {
@@ -534,6 +542,7 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 24,
   },
   headerTitle: {
     fontSize: 18,

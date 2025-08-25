@@ -3,6 +3,7 @@ import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
 import {ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
@@ -15,7 +16,11 @@ import ScreenReadyToFly from './ScreenReadyToFly';
 import ScreenPlantsAreHome from './ScreenPlantsAreHome';
 import ScreenJourneyMishap from './ScreenJourneyMishap';
 
+// Header height constant for safe area calculations
+const HEADER_HEIGHT = 140;
+
 const OrdersHeader = ({activeTab, setActiveTab}) => {
+  const insets = useSafeAreaInsets();
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -101,7 +106,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
   };
 
   return (
-    <View style={styles.stickyHeader}>
+    <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <View style={styles.searchField}>
@@ -266,6 +271,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
 
 const ScreenOrders = () => {
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('Ready to Fly');
 
   // Pass through route params to child screens for refresh functionality
@@ -295,7 +301,7 @@ const ScreenOrders = () => {
       <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       
       {/* Content area with dynamic screen based on active tab */}
-      <View style={styles.contentContainer}>
+      <View style={[styles.contentContainer, {paddingTop: HEADER_HEIGHT + insets.top}]}>
         {renderActiveScreen()}
       </View>
     </View>
@@ -309,7 +315,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingTop: 140, // Account for sticky header
   },
   stickyHeader: {
     position: 'absolute',
@@ -317,7 +322,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100, // Lower than search results
-    paddingTop: 12,
     backgroundColor: '#fff',
   },
   header: {

@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {getProfileInfoApi, postBuyerUpdateInfoApi, uploadProfilePhotoApi} from '../../../components/Api';
@@ -80,6 +81,7 @@ const SkeletonProfile = () => (
 
 const AccountInformationScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const {userInfo, updateProfileImage} = useContext(AuthContext);
   const isFocused = useIsFocused();
   
@@ -497,7 +499,7 @@ const AccountInformationScreen = () => {
           <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, {paddingTop: insets.top + 10}]}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               style={styles.backButton}>
@@ -508,7 +510,11 @@ const AccountInformationScreen = () => {
           </View>
 
           {/* Content */}
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={styles.content} 
+            contentContainerStyle={{paddingBottom: Math.max(insets.bottom, 20)}}
+            showsVerticalScrollIndicator={false}
+          >
         {/* Form */}
   <View style={styles.form}>
           {/* Avatar Section */}
@@ -705,15 +711,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    paddingTop: 24,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingBottom: 12,
+    paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
     width: '100%',
-    height: 60,
   },
   backButton: {
     width: 24,
