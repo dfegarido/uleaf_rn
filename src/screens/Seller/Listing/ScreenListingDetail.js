@@ -366,7 +366,7 @@ const ScreenListingDetail = ({navigation, route}) => {
         stickyHeaderIndices={[0]}>
         {/* Sticky Header */}
         <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
-          <View style={styles.header}>
+          <View style={styles.header} pointerEvents="box-none">
             <TouchableOpacity
               hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
               onPress={() => navigation.goBack()}

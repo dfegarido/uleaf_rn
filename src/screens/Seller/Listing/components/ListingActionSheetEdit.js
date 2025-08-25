@@ -56,7 +56,7 @@ const ListingActionSheet = ({
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={onPressDelete}
+                onPress={() => onPressDelete()}
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
