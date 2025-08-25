@@ -4,6 +4,10 @@
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+    <!-- Allow content to extend into display cutout (notch) short edges -->
+    <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    <!-- Make navigation bar translucent so app can extend beneath it -->
+    <item name="android:windowTranslucentNavigation">true</item>
     </style>
 
 </resources>
