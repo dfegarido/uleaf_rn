@@ -83,13 +83,13 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
           ))}
         </View>
 
-        {Platform.OS === 'ios' && isKeyboardVisible && (
+        {/* {Platform.OS === 'ios' && isKeyboardVisible && (
           <View style={styles.doneBar}>
             <TouchableOpacity onPress={dismissKeyboard}>
               <Text style={styles.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
-        )}
+        )} */}
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
