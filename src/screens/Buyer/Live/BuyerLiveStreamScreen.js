@@ -24,6 +24,7 @@ import ShareIcon from '../../../assets/live-icon/share.svg';
 import ShopIcon from '../../../assets/live-icon/shop.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const APP_ID = '77bffba08cc144228a447e99bae16ec1';
 // Note: You should generate a new token from Agora console if this one is expired
@@ -205,7 +206,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
   }, [joined, remoteUid, navigation, sessionEnded]);
 
   return (
-     <View style={styles.container}>
+     <SafeAreaView style={styles.container}>
       <View style={styles.stream}>
         {joined && remoteUid ? (
           <RtcSurfaceView
@@ -317,7 +318,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
           </View>
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

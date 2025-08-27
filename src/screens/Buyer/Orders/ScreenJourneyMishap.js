@@ -3,6 +3,7 @@ import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
@@ -16,6 +17,13 @@ import NetInfo from '@react-native-community/netinfo';
 
 const ScreenJourneyMishap = () => {
   const route = useRoute();
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  
   const PAGE_SIZE = 4;
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -414,11 +422,11 @@ const ScreenJourneyMishap = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {loading ? (
         <ScrollView
           style={{flex: 1}}
-          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1}}>
+          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}>
           
           {/* Render skeleton loading cards */}
           {Array.from({length: 3}).map((_, index) => (
@@ -437,7 +445,7 @@ const ScreenJourneyMishap = () => {
       ) : (
         <ScrollView
           style={{flex: 1}}
-          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1}}
+          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -504,7 +512,7 @@ const ScreenJourneyMishap = () => {
           </View>
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

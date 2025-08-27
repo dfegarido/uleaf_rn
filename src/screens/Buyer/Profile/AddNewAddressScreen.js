@@ -7,9 +7,11 @@ import DropdownSelect from '../../../components/Dropdown/DropdownSelect';
 // New public (no-auth) location dropdown APIs
 import { getPublicStatesApi, getPublicCitiesApi } from '../../../components/Api/locationDropdownApi';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 
 const AddNewAddressScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
@@ -209,7 +211,7 @@ const AddNewAddressScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -319,7 +321,7 @@ const AddNewAddressScreen = () => {
       <View style={styles.homeIndicator}>
         <View style={styles.gestureBar} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

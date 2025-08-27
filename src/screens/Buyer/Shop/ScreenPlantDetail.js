@@ -15,6 +15,7 @@ import {
   Dimensions,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ShareIcon from '../../../assets/buyer-icons/share-gray.svg';
@@ -75,6 +76,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [selectedPotSize, setSelectedPotSize] = useState('2"');
   const [quantity, setQuantity] = useState(1);
   const [modalAction, setModalAction] = useState('add-to-cart'); // 'add-to-cart' or 'buy-now'
+  const insets = useSafeAreaInsets();
 
   // Load plant details when screen comes into focus
   useFocusEffect(
@@ -560,7 +562,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Background Plant Image */}
       <Image
         source={imageSource}
@@ -583,7 +585,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scrollContainer}>
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) }}>
 
 
           {/* Content */}
@@ -964,7 +968,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         </ScrollView>
 
         {/* Action Bar */}
-        <View style={styles.actionBar}>
+        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, 8), height: 72 + Math.max(insets.bottom, 8) }]}>
           <TouchableOpacity 
             style={styles.cartButton}
             onPress={() => navigation.navigate('ScreenCart')}>
@@ -1132,7 +1136,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };const styles = StyleSheet.create({
   container: {
@@ -1217,6 +1221,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 44,
   },
   shareButton: {
     flexDirection: 'row',
@@ -1729,6 +1734,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     paddingHorizontal: 24,
     paddingVertical: 12,
     gap: 8,
+    height: 72, // base height: paddingVertical(24) + button height(48)
   },
   cartButton: {
     width: 48,

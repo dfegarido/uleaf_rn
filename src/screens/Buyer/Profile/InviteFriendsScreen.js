@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import RightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import Svg, { Path } from 'react-native-svg';
@@ -47,6 +48,7 @@ const CopyIcon = ({width = 24, height = 24, fill = "black"}) => (
 
 const InviteFriendsScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [zipCode, setZipCode] = useState('');
 
   const handleSendInvites = () => {
@@ -60,11 +62,11 @@ const InviteFriendsScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: insets.top}]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -123,7 +125,7 @@ const InviteFriendsScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -136,10 +138,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
     width: '100%',
     height: 60,
+    minHeight: 100,
   },
   backButton: {
     width: 24,

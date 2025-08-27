@@ -36,6 +36,9 @@ const ScreenLoginForm = ({navigation}) => {
   const adjustedHeight =
     screenHeight - insets.top - insets.bottom - headerHeight;
 
+  // Calculate proper bottom padding for safe area
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -188,7 +191,7 @@ const ScreenLoginForm = ({navigation}) => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.buttonContainer}>
+          <View style={[styles.buttonContainer, {marginBottom: safeBottomPadding + 20}]}>
             <View style={styles.loginAccountContainer}>
               <Text style={{color: '#000', textAlign: 'center'}}>
                 By clicking login, you agree to the ileafU's{' '}
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    marginBottom: 30,
+    // marginBottom handled dynamically based on safe area
     marginHorizontal: 10,
   },
   loginAccountContainer: {

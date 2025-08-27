@@ -12,6 +12,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
@@ -73,7 +74,10 @@ const getValidImageSource = (imageUrl, plantCode) => {
   }
 };
 
-const CartHeader = () => {
+// Header height constant for safe area calculations
+const HEADER_HEIGHT = 110;
+
+const CartHeader = ({insets}) => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -140,7 +144,7 @@ const CartHeader = () => {
   };
   
   return (
-    <View style={styles.stickyHeader}>
+    <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
       <View style={styles.header}>
         {/* Back Button */}
         <TouchableOpacity 
@@ -371,10 +375,17 @@ const CartComponent = ({
 
 const ScreenCart = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Calculate proper bottom padding for CartBar + tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height
+  const cartBarContentHeight = 124;
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = cartBarContentHeight + safeBottomPadding + tabBarHeight + 16; // Extra 16px for spacing
   
   // Removed bespoke recommendations; will use BrowseMorePlants component
   // Placeholder hooks to keep hook order stable during Fast Refresh (prevents fewer hooks warning)
@@ -848,10 +859,10 @@ const ScreenCart = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <CartHeader />
+        <CartHeader insets={insets} />
         <ScrollView
           style={[styles.container]}
-          contentContainerStyle={{paddingTop: 120, paddingBottom: 170}}
+          contentContainerStyle={{paddingTop: HEADER_HEIGHT + insets.top, paddingBottom: totalBottomPadding}}
           showsVerticalScrollIndicator={false}>
           
           {/* Skeleton loading for cart items */}
@@ -919,10 +930,11 @@ const ScreenCart = () => {
 
   return (
     <View style={styles.container}>
-      <CartHeader />
+      <CartHeader insets={insets} />
+      <SafeAreaView style={{flex: 1}}>
       <ScrollView
         style={[styles.container]}
-        contentContainerStyle={{paddingTop: 120, paddingBottom: 170}}
+        contentContainerStyle={{paddingTop: HEADER_HEIGHT + insets.top, paddingBottom: totalBottomPadding}}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -995,6 +1007,7 @@ const ScreenCart = () => {
           />
         </>
       )}
+      </SafeAreaView>
     </View>
   );
 };
@@ -1011,7 +1024,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 12,
     backgroundColor: '#fff',
   },
   header: {

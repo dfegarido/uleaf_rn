@@ -4,13 +4,13 @@ import {
   Alert,
   Image,
   Linking,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from "react-native-url-polyfill";
 import { paymentPaypalVenmoUrl } from '../../../../config';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
@@ -173,6 +173,7 @@ const CheckoutScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   setupURLPolyfill();
+  const insets = useSafeAreaInsets();
   
   // Get parameters from navigation (cart items, products, etc.)
   const {
@@ -1120,7 +1121,8 @@ const CheckoutScreen = () => {
       <ScrollView 
         style={styles.scrollableContent}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContentContainer}>
+        contentContainerStyle={[styles.scrollContentContainer, { paddingBottom: 100 + Math.max(insets.bottom, 8) }]}
+        >
         
         {/* Shipping Address Section */}
         <View style={styles.shipping}>
@@ -1567,8 +1569,8 @@ const CheckoutScreen = () => {
 
       </ScrollView>
 
-      {/* Fixed Checkout Bar */}
-      <View style={styles.checkoutBar}>
+  {/* Fixed Checkout Bar */}
+  <View style={[styles.checkoutBar, { paddingBottom: Math.max(insets.bottom, 8), height: 98 + Math.max(insets.bottom, 8) }]}>
         {/* Content */}
         <View style={styles.checkoutContent}>
           {/* Summary */}
@@ -2892,7 +2894,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     lineHeight: 22, // 140% of 16px
-    color: '#647276',
+    textAlign: 'right',
+    color: '#393D40',
     flex: 0,
   },
   typeDiscount: {
@@ -3348,7 +3351,7 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   buttonLabel: {
-    width: 91,
+    width: 500,
     height: 16,
     fontFamily: 'Inter',
     fontStyle: 'normal',

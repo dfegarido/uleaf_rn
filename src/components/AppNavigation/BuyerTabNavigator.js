@@ -6,6 +6,7 @@ import {useNavigation} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 // Import buyer screens
 import {BuyerLiveStreamScreen} from '../../screens/Buyer/Live';
@@ -217,11 +218,13 @@ function BuyerTabNavigator() {
 
 function BuyerTabs() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   return (
-    <Tab.Navigator
+    <SafeAreaView style={{flex: 1}} edges={["bottom"]}>
+      <Tab.Navigator
       initialRouteName="Shop"
       screenOptions={({route}) => ({
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar],
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused
@@ -314,7 +317,8 @@ function BuyerTabs() {
         name="Chat"
         component={MessagesScreen}
       />
-    </Tab.Navigator>
+      </Tab.Navigator>
+    </SafeAreaView>
   );
 }
 
@@ -331,7 +335,7 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   tabBar: {
-    paddingBottom: 10,
+    paddingBottom: 5,
   },
 });
 
