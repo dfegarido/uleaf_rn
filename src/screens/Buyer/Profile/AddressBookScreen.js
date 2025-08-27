@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { retryAsync } from '../../../utils/utils';
 import {
@@ -25,6 +26,7 @@ import AddressBookSkeleton from './AddressBookSkeleton';
 
 const AddressBookScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   
   const [addresses, setAddresses] = useState([]);
@@ -153,9 +155,9 @@ const AddressBookScreen = () => {
   };
   
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: insets.top }]}>
         <View style={styles.headerControls}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <LeftIcon width={24} height={24} fill="#393D40" />
@@ -256,7 +258,7 @@ const AddressBookScreen = () => {
       <View style={styles.homeIndicator}>
         <View style={styles.gestureBar} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -269,13 +271,13 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    padding: 0,
+    paddingBottom: 10,
+    paddingHorizontal: 0,
     backgroundColor: '#FFFFFF',
     width: '100%',
-    height: 58,
-    minHeight: 58,
     flex: 0,
     order: 1,
+    minHeight: 100,
     alignSelf: 'stretch',
     flexGrow: 0,
   },
@@ -284,7 +286,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 6,
+
     paddingHorizontal: 16,
     paddingBottom: 12,
     width: '100%',

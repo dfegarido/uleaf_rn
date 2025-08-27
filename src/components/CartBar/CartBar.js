@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, Dimensions} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import CheckBox from '../CheckBox/CheckBox';
 import UpwardIcon from '../../assets/buyer-icons/upward.svg';
 
@@ -13,6 +14,8 @@ const CartBar = ({
   discountAmount = 0,
   onCheckoutPress,
 }) => {
+  const insets = useSafeAreaInsets();
+  
   const formattedTotal = totalAmount.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -26,8 +29,14 @@ const CartBar = ({
     maximumFractionDigits: 2
   });
 
+  // Calculate total height including safe area and tab bar
+  const tabBarHeight = 60; // Standard tab bar height
+  const cartBarContentHeight = 130;
+  const safeBottomPadding = Math.max(insets.bottom, 10); // At least 10px padding
+  const totalHeight = cartBarContentHeight + safeBottomPadding;
+
   return (
-    <View style={styles.cartBar}>
+    <View style={[styles.cartBar, { height: totalHeight }]}>
       <View style={styles.content}>
         {/* Select + Amount */}
         <View style={styles.selectAmountRow}>
@@ -78,11 +87,6 @@ const CartBar = ({
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Home Indicator */}
-      <View style={styles.homeIndicator}>
-        <View style={styles.gestureBar} />
-      </View>
     </View>
   );
 };
@@ -91,7 +95,6 @@ const styles = StyleSheet.create({
   cartBar: {
     position: 'absolute',
     width: screenWidth,
-    height: 158,
     left: 0,
     bottom: 0,
     backgroundColor: '#FFFFFF',
@@ -295,23 +298,6 @@ const styles = StyleSheet.create({
     flex: 0,
     flexGrow: 0,
     alignItems: 'center',
-  },
-  homeIndicator: {
-    width: screenWidth,
-    height: 34,
-    minHeight: 34,
-    backgroundColor: '#FFFFFF',
-    flex: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gestureBar: {
-    width: 148,
-    height: 5,
-    backgroundColor: '#202325',
-    borderRadius: 100,
-    position: 'absolute',
-    bottom: 8,
   },
 });
 

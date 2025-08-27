@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
 import {getAuth} from '@react-native-firebase/auth';
@@ -21,6 +22,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AuthContext} from '../../auth/AuthProvider';
 
 const ScreenLoginOtp = ({navigation}) => {
+  const insets = useSafeAreaInsets();
+  // Calculate proper bottom padding for safe area
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  
   const [pin, setPin] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [idToken, setIdToken] = useState('');
@@ -165,7 +170,7 @@ const ScreenLoginOtp = ({navigation}) => {
           Enter the 4-digit that we have sent via the email
         </Text>
         <OtpInput length={4} onChangeOtp={setPin} />
-        <View style={styles.buttonContainer}>
+        <View style={[styles.buttonContainer, {marginBottom: safeBottomPadding + 20}]}>
           <TouchableOpacity
             style={globalStyles.primaryButton}
             onPress={handlePressLogin}>
@@ -203,7 +208,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    marginBottom: 30,
+    // marginBottom handled dynamically based on safe area
     marginHorizontal: 10,
   },
   loginAccountContainer: {

@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import OptionIcon from '../../assets/iconchat/option.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -22,6 +23,13 @@ import MessageInput from '../../components/MessageInput/MessageInput';
 import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const ChatScreen = ({navigation, route}) => {
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for tab bar + safe area (this screen is accessed from tab navigation)
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  
   const routeParams = route?.params || {};
   const avatarUrl = routeParams.avatarUrl || '';
   const name = routeParams.name || routeParams.title || 'Chat';
@@ -180,7 +188,7 @@ const ChatScreen = ({navigation, route}) => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: insets.top + 12}]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -224,7 +232,7 @@ const ChatScreen = ({navigation, route}) => {
             />
           );
         }}
-        contentContainerStyle={{ paddingVertical: 10 }}
+        contentContainerStyle={{ paddingVertical: 10, paddingBottom: totalBottomPadding }}
         onContentSizeChange={() => {
           setTimeout(() => {
             if (flatListRef?.current && messages.length > 0) {
@@ -263,10 +271,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderColor: '#ddd',
+    marginTop: 12,
   },
   backButton: {
     marginRight: 12,

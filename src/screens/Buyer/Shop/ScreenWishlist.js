@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import WishListCard from '../../../components/WishListCard/WishListCard';
@@ -90,10 +91,17 @@ const products = [
 ];
 
 const ScreenWishlist = ({navigation}) => {
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  
   return (
     <>
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.header, {paddingTop: insets.top + 10}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <BackSolidIcon width={24} height={24} />
           </TouchableOpacity>
@@ -105,12 +113,14 @@ const ScreenWishlist = ({navigation}) => {
             <AvatarIcon width={32} height={32} />
           </TouchableOpacity>
         </View>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{paddingBottom: totalBottomPadding}}>
           {products.map((product, idx) => (
             <WishListCard key={idx} {...product} />
           ))}
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </>
   );
 };
@@ -125,7 +135,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 10,
   },
   headerTitle: {
     fontSize: 18,

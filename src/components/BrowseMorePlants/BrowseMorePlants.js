@@ -435,6 +435,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginTop: 15,
+    marginBottom: 100,
     paddingHorizontal: 16, // Add padding to match the 375px width constraint
   },
   loadMoreButton: {

@@ -243,7 +243,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
       )}
       <ScrollView style={[styles.container]}>
         {/* Search and Icons */}
-        <View style={styles.stickyHeader}>
+        <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
@@ -413,7 +413,6 @@ const styles = StyleSheet.create({
   stickyHeader: {
     backgroundColor: '#fff',
     zIndex: 10,
-    paddingTop: 12,
     paddingBottom: 12,
   },
   loadingOverlay: {

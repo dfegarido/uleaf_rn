@@ -24,6 +24,7 @@ import {
   View,
   SafeAreaView,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {db} from '../../../firebase';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
@@ -34,6 +35,13 @@ import {AuthContext} from '../../auth/AuthProvider';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 
 const MessagesScreen = ({navigation}) => {
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  
   const {userInfo} = useContext(AuthContext);
   const userFullName = userInfo
     ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim()
@@ -354,7 +362,7 @@ const MessagesScreen = ({navigation}) => {
   return (
     <SafeAreaView style={{flex: 1}}>
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, {paddingTop: insets.top + 20}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <BackSolidIcon />
           </TouchableOpacity>
@@ -373,6 +381,7 @@ const MessagesScreen = ({navigation}) => {
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContainer,
+            {paddingBottom: totalBottomPadding},
             messages.length === 0 && !loading && styles.emptyListContainer,
           ]}
           ListEmptyComponent={() =>
@@ -421,7 +430,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 20,
+    paddingBottom: 20,
     paddingHorizontal: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
@@ -19,8 +20,12 @@ import {AuthContext} from '../../auth/AuthProvider';
 
 const ScreenLogin = ({navigation}) => {
   const {setIsLoggedIn} = useContext(AuthContext);
+  const insets = useSafeAreaInsets();
   const app = getApp();
   const auth = getAuth(app);
+
+  // Calculate proper bottom padding for safe area
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,7 +77,7 @@ const ScreenLogin = ({navigation}) => {
           style={{width: 350, height: 350}}
         />
       </View>
-      <View style={styles.buttonContainer}>
+      <View style={[styles.buttonContainer, {marginBottom: safeBottomPadding + 20}]}>
         <TouchableOpacity
           style={globalStyles.primaryButton}
           onPress={handlePressCreateAccount}>
@@ -117,7 +122,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    marginBottom: 30,
+    // marginBottom handled dynamically based on safe area
     marginHorizontal: 20,
   },
   loginAccountContainer: {

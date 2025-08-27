@@ -109,6 +109,10 @@ const countryData = [
 const ScreenShop = ({navigation}) => {
   const {user} = useAuth();
   const insets = useSafeAreaInsets();
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height  
+  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   const {
     globalFilters,
     updateFilters,
@@ -879,7 +883,8 @@ const ScreenShop = ({navigation}) => {
 
   const HEADER_HEIGHT = 110;
 
-  const scrollViewRef = useRef(null);
+  const headerScrollRef = useRef(null);
+  const mainScrollRef = useRef(null);
   // Local import of reusable Avatar component to avoid modifying top-level imports
   const Avatar = require('../../../components/Avatar/Avatar').default;
 
@@ -941,7 +946,7 @@ const ScreenShop = ({navigation}) => {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          ref={scrollViewRef}
+          ref={headerScrollRef}
           style={{flexGrow: 0, paddingVertical: 4}}
           contentContainerStyle={{
             flexDirection: 'row',
@@ -1003,7 +1008,7 @@ const ScreenShop = ({navigation}) => {
 
         {/* Search Results Dropdown */}
         {isSearchFocused && searchTerm.trim().length >= 2 && (
-          <View style={styles.searchResultsContainer}>
+          <View style={[styles.searchResultsContainer, {top: insets.top + 52}]}>
             {loadingSearch ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#10b981" />
@@ -1043,9 +1048,9 @@ const ScreenShop = ({navigation}) => {
         )}
       </View>
       <ScrollView
-        ref={scrollViewRef}
+        ref={mainScrollRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
-        contentContainerStyle={{paddingBottom: 170}}
+        contentContainerStyle={{paddingBottom: totalBottomPadding}}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1443,7 +1448,7 @@ const ScreenShop = ({navigation}) => {
 const styles = StyleSheet.create({
   body: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff'
   },
   container: {
     flex: 1,
