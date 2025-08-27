@@ -453,6 +453,7 @@ const ScreenListing = ({navigation}) => {
   const onPressUpdateStockShow = ({id}) => {
     let selectedItem = dataTable.find(item => item.id === id);
     setselectedItemStockUpdate(selectedItem);
+    setActionShowSheet(false);
     setShowSheetUpdateStocks(!showSheetUpdateStocks);
   };
 
@@ -646,6 +647,7 @@ const ScreenListing = ({navigation}) => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const onPressDeleteConfirm = () => {
+    setActionShowSheet(false);
     setDeleteModalVisible(true);
   };
 
