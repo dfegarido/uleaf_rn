@@ -28,6 +28,7 @@ import ChatIcon from '../../assets/icons/greydark/chat-circle-dots-regular.svg';
 import EnvelopeIcon from '../../assets/icons/greydark/envelope.svg';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
+import AvatarIcon from '../../../assets/images/avatar.svg';
 
 const ScreenProfile = ({navigation}) => {
   const insets = useSafeAreaInsets();
