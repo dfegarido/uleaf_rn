@@ -512,7 +512,12 @@ const ScreenDelivery = ({navigation}) => {
   // Action Sheet
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: '#fff',
+        paddingTop: insets.top,
+      }}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -625,10 +630,10 @@ const ScreenDelivery = ({navigation}) => {
       {/* Filter Cards */}
 
       <ScrollView
-        // refreshControl={
-        //   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        // }
-        style={[styles.container, {paddingTop: insets.top}]}>
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 30,
+        }}
+        style={[styles.container]}>
         <View
           style={{
             backgroundColor: '#fff',

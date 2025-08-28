@@ -243,7 +243,8 @@ const ScreenHome = ({navigation}) => {
   // Dropdown
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -251,69 +252,69 @@ const ScreenHome = ({navigation}) => {
           </View>
         </Modal>
       )}
-      <ScrollView
-        // style={[styles.container, {paddingTop: insets.top}]}
-        style={[styles.container]}
-        stickyHeaderIndices={[0]}>
-        {/* Search and Icons */}
-        <View style={styles.stickyHeader}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={{flex: 1}}
-              onPress={() => navigation.navigate('ScreenSearchListing')}>
-              {/* <InputGroupLeftIcon
+
+      {/* Search and Icons */}
+      <View style={styles.stickyHeader}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={{flex: 1}}
+            onPress={() => navigation.navigate('ScreenSearchListing')}>
+            {/* <InputGroupLeftIcon
                 IconLeftComponent={SearchIcon}
                 placeholder={'Search ileafU'}
               /> */}
-              <View
-                style={{
-                  justifyContent: 'center',
-                  // alignItems: 'center',
-                  borderColor: '#ccc',
-                  borderWidth: 1,
-                  borderRadius: 8,
-                  paddingHorizontal: 10,
-                  height: 48,
-                  backgroundColor: '#fff',
-                }}>
-                <View style={{flexDirection: 'row'}}>
-                  <SearchIcon width={20} height={20} />
-                  <Text
-                    style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
-                    Search ileafU
-                  </Text>
-                </View>
+            <View
+              style={{
+                justifyContent: 'center',
+                // alignItems: 'center',
+                borderColor: '#ccc',
+                borderWidth: 1,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                height: 48,
+                backgroundColor: '#fff',
+              }}>
+              <View style={{flexDirection: 'row'}}>
+                <SearchIcon width={20} height={20} />
+                <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
+                  Search ileafU
+                </Text>
               </View>
-            </TouchableOpacity>
-
-            <View style={styles.headerIcons}>
-              {userInfo?.liveFlag != 'No' && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('LiveBroadcastScreen')}
-                  style={styles.iconButton}>
-                  <LiveIcon width={40} height={40} />
-                  {/* <Text style={styles.liveTag}>LIVE</Text> */}
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => navigation.navigate('ScreenProfile')}>
-                {userInfo?.profileImage != '' &&
-                userInfo?.profileImage != null ? (
-                  <Image
-                    source={{uri: userInfo?.profileImage}}
-                    style={styles.image}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <AvatarIcon width={40} height={40} />
-                )}
-              </TouchableOpacity>
             </View>
+          </TouchableOpacity>
+
+          <View style={styles.headerIcons}>
+            {userInfo?.liveFlag != 'No' && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('LiveBroadcastScreen')}
+                style={styles.iconButton}>
+                <LiveIcon width={40} height={40} />
+                {/* <Text style={styles.liveTag}>LIVE</Text> */}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('ScreenProfile')}>
+              {userInfo?.profileImage != '' &&
+              userInfo?.profileImage != null ? (
+                <Image
+                  source={{uri: userInfo?.profileImage}}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
+              ) : (
+                <AvatarIcon width={40} height={40} />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
-        {/* Search and Icons */}
-
+      </View>
+      {/* Search and Icons */}
+      <ScrollView
+        // style={[styles.container, {paddingTop: insets.top}]}
+        style={[styles.container]}
+        // stickyHeaderIndices={[0]}
+      >
         {/* Top Navigation */}
         <View style={styles.topNav}>
           <TouchableOpacity
@@ -593,7 +594,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
-    paddingVertical: 16,
+    // paddingVertical: 16,
+    paddingBottom: 16,
     paddingHorizontal: 20,
   },
   topNavItem: {
@@ -682,6 +684,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#DFECDF',
     zIndex: 10,
     paddingTop: 12,
+    paddingBottom: 10,
   },
   loadingOverlay: {
     flex: 1,

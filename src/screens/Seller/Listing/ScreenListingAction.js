@@ -423,7 +423,8 @@ const ScreenListingAction = ({navigation, route}) => {
   // For confirm
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#202325'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#202325', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -431,134 +432,134 @@ const ScreenListingAction = ({navigation, route}) => {
           </View>
         </Modal>
       )}
-      <ScrollView style={[styles.container]} stickyHeaderIndices={[0]}>
-        {/* Search and Icons */}
-        <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={[
-                styles.iconButton,
-                {
-                  borderRadius: 10,
-                  backgroundColor: 'transparent',
-                },
-              ]}>
-              <BackIcon width={30} height={30} />
-            </TouchableOpacity>
-            <View
-              style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <View style={{backgroundColor: 'transparent'}}>
-                <InputCheckBox
-                  label=""
-                  checked={isAllSelected}
-                  onChange={toggleSelectAll}
-                />
-              </View>
-
-              <Text style={[globalStyles.textMDWhite, {paddingLeft: 5}]}>
-                Select All
-              </Text>
+      {/* Search and Icons */}
+      <View style={[styles.stickyHeader]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[
+              styles.iconButton,
+              {
+                borderRadius: 10,
+                backgroundColor: 'transparent',
+              },
+            ]}>
+            <BackIcon width={30} height={30} />
+          </TouchableOpacity>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+            <View style={{backgroundColor: 'transparent'}}>
+              <InputCheckBox
+                label=""
+                checked={isAllSelected}
+                onChange={toggleSelectAll}
+              />
             </View>
+
+            <Text style={[globalStyles.textMDWhite, {paddingLeft: 5}]}>
+              Select All
+            </Text>
           </View>
-          {/* Filter Cards */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{
-              flexGrow: 0,
-              paddingVertical: 20,
-              paddingHorizontal: 20,
-            }}
-            contentContainerStyle={{
-              flexDirection: 'row',
-              gap: 10,
-              alignItems: 'flex-start',
-            }}>
-            {/* Activate */}
-            {(activeTab === 'All' || activeTab === 'Inactive') && (
-              <TouchableOpacity onPress={onPressActivate}>
-                <View style={{padding: 10, flexDirection: 'row'}}>
-                  <CheckIcon width={20} height={20} />
-                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                    Activate
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Deactivate */}
-            {(activeTab === 'All' || activeTab === 'Active') && (
-              <TouchableOpacity onPress={onPressDeactivate}>
-                <View style={{padding: 10, flexDirection: 'row'}}>
-                  <ExCircleIcon width={20} height={20} />
-                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                    Deactivate
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Apply Discount */}
-            {(activeTab === 'All' || activeTab === 'Active') && (
-              <TouchableOpacity onPress={() => setShowSheetDiscount(true)}>
-                <View style={{padding: 10, flexDirection: 'row'}}>
-                  <DiscountIcon width={20} height={20} />
-                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                    Discount
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Remove Discount */}
-            {activeTab === 'Discounted' && (
-              <TouchableOpacity
-                onPress={() =>
-                  setRemoveDiscountModalVisible(!removeDiscountModalVisible)
-                }>
-                <View style={{padding: 10, flexDirection: 'row'}}>
-                  <DiscountIcon width={20} height={20} />
-                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                    Remove Discount
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Publish now */}
-            {activeTab === 'Scheduled' && (
-              <TouchableOpacity
-                onPress={() =>
-                  setPublishNowModalVisible(!publishNowModalVisible)
-                }>
-                <View style={{padding: 10, flexDirection: 'row'}}>
-                  <PublishIcon width={20} height={20} />
-                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                    Publish
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Renew */}
-            {activeTab === 'Expired' && (
-              <TouchableOpacity
-                onPress={() => setRenewModalVisible(!renewModalVisible)}>
-                <View
-                  style={{padding: 10, flexDirection: 'row', marginRight: 20}}>
-                  <RenewIcon width={20} height={20} />
-                  <Text style={{marginHorizontal: 5, color: '#fff'}}>
-                    Renew
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-          {/* Filter Cards */}
         </View>
-        {/* Search and Icons */}
+        {/* Filter Cards */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{
+            flexGrow: 0,
+            paddingVertical: 20,
+            paddingHorizontal: 20,
+          }}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+          }}>
+          {/* Activate */}
+          {(activeTab === 'All' || activeTab === 'Inactive') && (
+            <TouchableOpacity onPress={onPressActivate}>
+              <View style={{padding: 10, flexDirection: 'row'}}>
+                <CheckIcon width={20} height={20} />
+                <Text style={{marginHorizontal: 5, color: '#fff'}}>
+                  Activate
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
+          {/* Deactivate */}
+          {(activeTab === 'All' || activeTab === 'Active') && (
+            <TouchableOpacity onPress={onPressDeactivate}>
+              <View style={{padding: 10, flexDirection: 'row'}}>
+                <ExCircleIcon width={20} height={20} />
+                <Text style={{marginHorizontal: 5, color: '#fff'}}>
+                  Deactivate
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Apply Discount */}
+          {(activeTab === 'All' || activeTab === 'Active') && (
+            <TouchableOpacity onPress={() => setShowSheetDiscount(true)}>
+              <View style={{padding: 10, flexDirection: 'row'}}>
+                <DiscountIcon width={20} height={20} />
+                <Text style={{marginHorizontal: 5, color: '#fff'}}>
+                  Discount
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Remove Discount */}
+          {activeTab === 'Discounted' && (
+            <TouchableOpacity
+              onPress={() =>
+                setRemoveDiscountModalVisible(!removeDiscountModalVisible)
+              }>
+              <View style={{padding: 10, flexDirection: 'row'}}>
+                <DiscountIcon width={20} height={20} />
+                <Text style={{marginHorizontal: 5, color: '#fff'}}>
+                  Remove Discount
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Publish now */}
+          {activeTab === 'Scheduled' && (
+            <TouchableOpacity
+              onPress={() =>
+                setPublishNowModalVisible(!publishNowModalVisible)
+              }>
+              <View style={{padding: 10, flexDirection: 'row'}}>
+                <PublishIcon width={20} height={20} />
+                <Text style={{marginHorizontal: 5, color: '#fff'}}>
+                  Publish
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Renew */}
+          {activeTab === 'Expired' && (
+            <TouchableOpacity
+              onPress={() => setRenewModalVisible(!renewModalVisible)}>
+              <View
+                style={{padding: 10, flexDirection: 'row', marginRight: 20}}>
+                <RenewIcon width={20} height={20} />
+                <Text style={{marginHorizontal: 5, color: '#fff'}}>Renew</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+        {/* Filter Cards */}
+      </View>
+      {/* Search and Icons */}
+      <ScrollView
+        style={[styles.container]}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 30,
+        }}>
         <View
           style={{
             backgroundColor: '#fff',
@@ -694,7 +695,7 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: '#202325',
-    zIndex: 10,
+    // zIndex: 10,
     paddingTop: 12,
   },
   contents: {

@@ -453,6 +453,7 @@ const ScreenListing = ({navigation}) => {
   const onPressUpdateStockShow = ({id}) => {
     let selectedItem = dataTable.find(item => item.id === id);
     setselectedItemStockUpdate(selectedItem);
+    setActionShowSheet(false);
     setShowSheetUpdateStocks(!showSheetUpdateStocks);
   };
 
@@ -646,11 +647,13 @@ const ScreenListing = ({navigation}) => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const onPressDeleteConfirm = () => {
+    setActionShowSheet(false);
     setDeleteModalVisible(true);
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {/* Search and Icons */}
       <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
         <View style={styles.header}>
@@ -777,6 +780,9 @@ const ScreenListing = ({navigation}) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         style={[styles.container]}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom,
+        }}
         // stickyHeaderIndices={[0]}
       >
         {loading && (
@@ -1053,7 +1059,7 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: '#fff',
-    zIndex: 10,
+    // zIndex: 10,
     paddingTop: 12,
   },
   contents: {

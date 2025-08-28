@@ -289,7 +289,8 @@ const ScreenDeliveryReceived = ({navigation}) => {
   // Load more
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -414,6 +415,9 @@ const ScreenDeliveryReceived = ({navigation}) => {
       {/* Filter Cards */}
 
       <ScrollView
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 30,
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

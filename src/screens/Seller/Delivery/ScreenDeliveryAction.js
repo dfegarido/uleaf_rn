@@ -208,7 +208,8 @@ const ScreenDeliveryAction = ({navigation, route}) => {
   // Casuality
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#202325'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#202325', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>

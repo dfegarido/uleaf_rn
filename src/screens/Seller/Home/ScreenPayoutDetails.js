@@ -109,7 +109,8 @@ const ScreenPayoutDetails = ({navigation, route}) => {
   // Export
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -117,33 +118,36 @@ const ScreenPayoutDetails = ({navigation, route}) => {
           </View>
         </Modal>
       )}
-      <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
-        stickyHeaderIndices={[0]}>
-        {/* Header */}
-        <View style={styles.stickyHeader}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'flex-start',
-                alignItems: 'flex-start',
-              }}>
-              <LeftIcon width={30} height={30} />
-            </TouchableOpacity>
-            <View style={{flex: 1}}>
-              <Text
-                style={[
-                  globalStyles.textLGGreyDark,
-                  {textAlign: 'center', paddingRight: 20},
-                ]}>
-                Payout Details
-              </Text>
-            </View>
+      {/* Header */}
+      <View style={styles.stickyHeader}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-start',
+              alignItems: 'flex-start',
+            }}>
+            <LeftIcon width={30} height={30} />
+          </TouchableOpacity>
+          <View style={{flex: 1}}>
+            <Text
+              style={[
+                globalStyles.textLGGreyDark,
+                {textAlign: 'center', paddingRight: 20},
+              ]}>
+              Payout Details
+            </Text>
           </View>
         </View>
-
+      </View>
+      <ScrollView
+        style={[
+          styles.container,
+          {paddingTop: insets.top, paddingBottom: insets.bottom},
+        ]}
+        // stickyHeaderIndices={[0]}
+      >
         {/* Main Content */}
         <View>
           <View

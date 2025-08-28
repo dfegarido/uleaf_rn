@@ -803,7 +803,11 @@ const ScreenGrowersSell = ({navigation, route}) => {
   // Show success alert
 
   return (
-    <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+    <View
+      style={[
+        styles.mainContent,
+        {paddingTop: insets.top + 10, paddingBottom: insets.bottom},
+      ]}>
       {/* Sticky Header */}
       <View
         style={[
@@ -838,7 +842,11 @@ const ScreenGrowersSell = ({navigation, route}) => {
           </TouchableOpacity>
         )}
       </View>
-      <ScrollView style={styles.mainContent}>
+      <ScrollView
+        style={styles.mainContent}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom,
+        }}>
         {loading && (
           <Modal transparent animationType="fade">
             <View style={styles.loadingOverlay}>

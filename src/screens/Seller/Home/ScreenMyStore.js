@@ -373,7 +373,8 @@ const ScreenMyStore = ({navigation}) => {
   // Pin Action
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -924,7 +925,7 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: '#fff',
-    zIndex: 10,
+    // zIndex: 10,
     paddingTop: 12,
   },
   contents: {

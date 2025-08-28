@@ -97,7 +97,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
     setOriginalData(originalValues);
     // Prefer authoritative profile image from AuthContext when available
     const contextImage = userInfo?.profileImage || '';
-    const initialImage = contextImage || (profileImage || '');
+    const initialImage = contextImage || profileImage || '';
     if (initialImage) setImages([initialImage]);
   }, [firstName, lastName, contactNumber, gardenOrCompanyName, country]);
 
@@ -278,14 +278,10 @@ const ScreenProfileAccount = ({navigation, route}) => {
                 // Determine the canonical image and timestamp to build a cache-busted URI
                 const canonical = userInfo?.profileImage || images[0] || '';
                 const ts = userInfo?.profileImageTimestamp || Date.now();
-                const avatarUri = canonical ? `${canonical}${canonical.includes('?') ? '&' : '?'}cb=${ts}` : null;
-                return (
-                  <Avatar
-                    size={120}
-                    imageUri={avatarUri}
-                    rounded
-                  />
-                );
+                const avatarUri = canonical
+                  ? `${canonical}${canonical.includes('?') ? '&' : '?'}cb=${ts}`
+                  : null;
+                return <Avatar size={120} imageUri={avatarUri} rounded />;
               })()}
 
               <TouchableOpacity
