@@ -423,7 +423,8 @@ const ScreenListingAction = ({navigation, route}) => {
   // For confirm
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#202325'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#202325', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -432,7 +433,7 @@ const ScreenListingAction = ({navigation, route}) => {
         </Modal>
       )}
       {/* Search and Icons */}
-      <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
+      <View style={[styles.stickyHeader]}>
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -554,7 +555,11 @@ const ScreenListingAction = ({navigation, route}) => {
         {/* Filter Cards */}
       </View>
       {/* Search and Icons */}
-      <ScrollView style={[styles.container]}>
+      <ScrollView
+        style={[styles.container]}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 30,
+        }}>
         <View
           style={{
             backgroundColor: '#fff',
@@ -690,7 +695,7 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: '#202325',
-    zIndex: 10,
+    // zIndex: 10,
     paddingTop: 12,
   },
   contents: {

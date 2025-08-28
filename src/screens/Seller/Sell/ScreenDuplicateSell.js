@@ -235,10 +235,13 @@ const ScreenDuplicateSell = ({navigation}) => {
                 {/* Listing Type */}
                 <View
                   style={[styles.cell, {width: 150, alignItems: 'flex-start'}]}>
-                  <View
-                    style={[styles.badgeContainer, {backgroundColor: '#000'}]}>
+                  <View style={[styles.badgeContainer]}>
                     {item.listingType != 'Single Plant' && (
-                      <Text style={[styles.badge, {color: '#fff'}]}>
+                      <Text
+                        style={[
+                          styles.badge,
+                          {color: '#fff', backgroundColor: '#000'},
+                        ]}>
                         {item.listingType}
                       </Text>
                     )}

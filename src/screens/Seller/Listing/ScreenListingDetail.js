@@ -341,7 +341,8 @@ const ScreenListingDetail = ({navigation, route}) => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -361,7 +362,12 @@ const ScreenListingDetail = ({navigation, route}) => {
       {/* Fullscreen Background Carousel */}
 
       {/* Foreground ScrollView Content */}
-      <ScrollView style={[styles.container]} stickyHeaderIndices={[0]}>
+      <ScrollView
+        style={[styles.container]}
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom,
+        }}>
         {/* Sticky Header */}
         <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
           <View style={styles.header}>

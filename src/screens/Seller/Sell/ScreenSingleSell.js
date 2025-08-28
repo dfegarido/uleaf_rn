@@ -704,7 +704,7 @@ const ScreenSingleSell = ({navigation, route}) => {
   // Show success alert
 
   return (
-    <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+    <View style={[styles.mainContent, {paddingTop: insets.top + 10}]}>
       {/* Sticky Header */}
       <View
         style={[
@@ -739,7 +739,11 @@ const ScreenSingleSell = ({navigation, route}) => {
           </TouchableOpacity>
         )}
       </View>
-      <ScrollView style={styles.mainContent}>
+      <ScrollView
+        style={styles.mainContent}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom,
+        }}>
         {loading && (
           <Modal transparent animationType="fade">
             <View style={styles.loadingOverlay}>

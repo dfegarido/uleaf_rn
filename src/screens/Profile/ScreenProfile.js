@@ -18,6 +18,8 @@ import {retryAsync} from '../../utils/utils';
 
 import {getProfileInfoApi} from '../../components/Api';
 
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+
 import ProfileIcon from '../../assets/icons/greydark/profile.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
 import ReportIcon from '../../assets/icons/greydark/question-regular.svg';
@@ -28,6 +30,7 @@ import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 
 const ScreenProfile = ({navigation}) => {
+  const insets = useSafeAreaInsets();
   const {logout, userInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({});
@@ -43,7 +46,8 @@ const ScreenProfile = ({navigation}) => {
         await loadListingData();
         // Load cached profile photo URL if available
         try {
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const AsyncStorage =
+            require('@react-native-async-storage/async-storage').default;
           const cached = await AsyncStorage.getItem('profilePhotoUrl');
           if (cached) setCachedProfilePhoto(cached);
         } catch (e) {
@@ -77,8 +81,14 @@ const ScreenProfile = ({navigation}) => {
   // ✅ Fetch on mount
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-      <ScrollView style={styles.container} stickyHeaderIndices={[0]}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+      <ScrollView
+        style={styles.container}
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={{
+          marginBottom: insets.bottom + 30,
+        }}>
         {loading && (
           <Modal transparent animationType="fade">
             <View style={styles.loadingOverlay}>
@@ -90,7 +100,7 @@ const ScreenProfile = ({navigation}) => {
           style={[
             styles.stickyHeader,
             {
-              paddingTop: 20,
+              paddingTop: 10,
               paddingBottom: 10,
               backgroundColor: '#DFECDF',
             },
@@ -118,7 +128,7 @@ const ScreenProfile = ({navigation}) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarWrapper}>
-            {(cachedProfilePhoto || userInfo.profileImage) ? (
+            {cachedProfilePhoto || userInfo.profileImage ? (
               <Image
                 source={{uri: cachedProfilePhoto || userInfo.profileImage}}
                 style={styles.image}

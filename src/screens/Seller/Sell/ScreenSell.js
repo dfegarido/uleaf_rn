@@ -110,7 +110,7 @@ const ScreenSell = ({navigation}) => {
   // Most love
 
   return (
-    <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+    <View style={[styles.mainContent, {paddingTop: insets.top + 10}]}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>

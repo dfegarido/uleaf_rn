@@ -130,7 +130,7 @@ const ScreenSearchListing = ({navigation}) => {
   };
 
   return (
-    <View style={[styles.mainContent, {paddingTop: insets.top}]}>
+    <SafeAreaView style={[styles.mainContent, {paddingTop: insets.top}]}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -214,7 +214,7 @@ const ScreenSearchListing = ({navigation}) => {
           </TouchableOpacity>
         ))}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 

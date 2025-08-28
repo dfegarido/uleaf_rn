@@ -115,7 +115,8 @@ const ScreenPayout = ({navigation, route}) => {
   // Load more
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -123,40 +124,40 @@ const ScreenPayout = ({navigation, route}) => {
           </View>
         </Modal>
       )}
+      {/* Search and Icons */}
+      <View style={styles.stickyHeader}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={{
+              // padding: 5,
+              // backgroundColor: '#fff',
+              flexDirection: 'row',
+              justifyContent: 'flex-start',
+              alignItems: 'flex-start',
+            }}>
+            <LeftIcon width={30} hegiht={30} />
+          </TouchableOpacity>
+          <View style={{flex: 1}}>
+            <Text
+              style={[
+                globalStyles.textLGGreyDark,
+                {textAlign: 'center', paddingRight: 20},
+              ]}>
+              Payouts
+            </Text>
+          </View>
+        </View>
+      </View>
+      {/* Search and Icons */}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         // style={[styles.container, {paddingTop: insets.top}]}
         style={[styles.container]}
-        stickyHeaderIndices={[0]}>
-        {/* Search and Icons */}
-        <View style={styles.stickyHeader}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={{
-                // padding: 5,
-                // backgroundColor: '#fff',
-                flexDirection: 'row',
-                justifyContent: 'flex-start',
-                alignItems: 'flex-start',
-              }}>
-              <LeftIcon width={30} hegiht={30} />
-            </TouchableOpacity>
-            <View style={{flex: 1}}>
-              <Text
-                style={[
-                  globalStyles.textLGGreyDark,
-                  {textAlign: 'center', paddingRight: 20},
-                ]}>
-                Payouts
-              </Text>
-            </View>
-          </View>
-        </View>
-        {/* Search and Icons */}
-
+        // stickyHeaderIndices={[0]}
+      >
         {/* Main Content */}
         <View style={{marginHorizontal: 20}}>
           <View
