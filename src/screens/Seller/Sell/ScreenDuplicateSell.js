@@ -61,22 +61,22 @@ const ScreenDuplicateSell = ({navigation}) => {
     fetchData();
   };
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={() => alert('Edit Profile')}
-          style={{
-            borderColor: '#ccc',
-            padding: 10,
-            borderWidth: 1,
-            borderRadius: 10,
-          }}>
-          <SearchIcon width={20} height={20} />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation]);
+  // useLayoutEffect(() => {
+  //   navigation.setOptions({
+  //     headerRight: () => (
+  //       <TouchableOpacity
+  //         onPress={() => alert('Edit Profile')}
+  //         style={{
+  //           borderColor: '#ccc',
+  //           padding: 10,
+  //           borderWidth: 1,
+  //           borderRadius: 10,
+  //         }}>
+  //         <SearchIcon width={20} height={20} />
+  //       </TouchableOpacity>
+  //     ),
+  //   });
+  // }, [navigation]);
 
   useEffect(() => {
     setLoading(true);

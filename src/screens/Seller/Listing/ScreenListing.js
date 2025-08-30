@@ -451,13 +451,15 @@ const ScreenListing = ({navigation}) => {
   const [showSheetUpdateStocks, setShowSheetUpdateStocks] = useState(false);
 
   const onPressUpdateStockShow = ({id}) => {
+    setActionShowSheet(false);
     let selectedItem = dataTable.find(item => item.id === id);
     setselectedItemStockUpdate(selectedItem);
-    setActionShowSheet(false);
     setShowSheetUpdateStocks(!showSheetUpdateStocks);
   };
 
   const onPressUpdateStockPost = async () => {
+    setActionShowSheet(false);
+    setShowSheetUpdateStocks(false);
     setLoading(true);
     try {
       const {variations, plantCode} = selectedItemStockUpdate;
@@ -480,6 +482,7 @@ const ScreenListing = ({navigation}) => {
       setNextToken('');
       setNextTokenParam('');
       fetchData();
+      Alert.alert('Update Listing', 'Listing stocks updated successfully!');
     } catch (error) {
       console.log('Error updating stock:', error.message);
       Alert.alert('Update stocks', error.message);
@@ -622,6 +625,8 @@ const ScreenListing = ({navigation}) => {
   // Delete Item
   const onPressDelete = async () => {
     setLoading(true);
+    setActionShowSheet(false);
+    setDeleteModalVisible(false);
     try {
       let plantCode = selectedItemStockUpdate?.plantCode;
       const response = await postListingDeleteApi(plantCode);
@@ -633,6 +638,9 @@ const ScreenListing = ({navigation}) => {
       setNextToken('');
       setNextTokenParam('');
       fetchData();
+      setActionShowSheet(false);
+      setDeleteModalVisible(false);
+      Alert.alert('Delete Listing', 'Listing deleted successfully!');
     } catch (error) {
       console.log('Error pin table action:', error.message);
       Alert.alert('Delete item', error.message);
@@ -860,7 +868,7 @@ const ScreenListing = ({navigation}) => {
             code={actionSheetCode}
             visible={showActionSheet}
             onClose={() => setActionShowSheet(false)}
-            onPressUpdateStockShow={setShowSheetUpdateStocks}
+            onPressUpdateStockShow={() => setShowSheetUpdateStocks(true)}
             onPressEdit={() =>
               navigation.navigate('ScreenListingDetail', {
                 onGoBack: setIsInitialFetchRefresh(prev => !prev),
