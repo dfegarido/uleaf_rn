@@ -31,6 +31,7 @@ const BuyerSignupLocation = () => {
   const [selectedStateData, setSelectedStateData] = useState(null);
   const [statesLoading, setStatesLoading] = useState(true);
   const [citiesLoading, setCitiesLoading] = useState(false);
+  const [checkingLocation, setCheckingLocation] = useState(false);
 
   // Load states from public endpoint
   useEffect(() => {
@@ -86,24 +87,44 @@ const BuyerSignupLocation = () => {
   }, [selectedStateData]);
 
   const handleContinue = async () => {
-    // Save location info to AsyncStorage
+    setCheckingLocation(true);
     try {
-      const prev = await AsyncStorage.getItem('buyerSignupData');
-      const prevData = prev ? JSON.parse(prev) : {};
-      await AsyncStorage.setItem(
-        'buyerSignupData',
-        JSON.stringify({
-          ...prevData,
-          state,
-          city,
-          zipCode: zip,
-          address,
-        }),
-      );
-    } catch (e) {
-      console.error('Failed to save location info', e);
+      // Get public IP
+      const ipRes = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipRes.json();
+      const ip = ipData.ip;
+
+      // Get geolocation info using apiip.net
+      const geoRes = await fetch(`https://apiip.net/api/check?accessKey=58e625be-685c-4695-b7f0-1fc7a990725d&ip=${ip}`);
+      const geoData = await geoRes.json();
+      console.log('Geolocation data:', geoData.countryCode);
+      if (geoData && geoData.countryCode === 'US') {
+        // Save location info to AsyncStorage
+        try {
+          const prev = await AsyncStorage.getItem('buyerSignupData');
+          const prevData = prev ? JSON.parse(prev) : {};
+          await AsyncStorage.setItem(
+            'buyerSignupData',
+            JSON.stringify({
+              ...prevData,
+              state,
+              city,
+              zipCode: zip,
+              address,
+            }),
+          );
+        } catch (e) {
+          // silent fail
+        }
+        navigation.navigate('BuyerGettingToKnow');
+      } else {
+        Alert.alert('Registration Restricted', 'Registration is only allowed for users located in the United States.');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Unable to verify your location. Please check your internet connection and try again.');
+    } finally {
+      setCheckingLocation(false);
     }
-    navigation.navigate('BuyerGettingToKnow');
   };
 
   return (

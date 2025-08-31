@@ -95,6 +95,7 @@ export const getBuyerOrdersApi = async (params = {}) => {
     }
 
     const data = await response.json();
+    console.log("data.plants", data.data.order)
     return {
       success: true,
       data,

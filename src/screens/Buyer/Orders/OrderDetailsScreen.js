@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -11,7 +10,7 @@ import {
   Animated,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import {getOrderDetailApi} from '../../../components/Api/orderManagementApi';
 
 // Import icons
@@ -487,9 +486,9 @@ const OrderDetailsScreen = () => {
     );
 
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Math.min(insets.top, 12) }] }>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => navigation.goBack()}>
@@ -652,8 +651,8 @@ const OrderDetailsScreen = () => {
   // Show loading state if order is not yet loaded
   if (!order) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+        <View style={[styles.header, { paddingTop: Math.min(insets.top, 12) }] }>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => navigation.goBack()}>
@@ -673,10 +672,10 @@ const OrderDetailsScreen = () => {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+    return (
+      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: Math.min(insets.top, 25) }] }>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}>

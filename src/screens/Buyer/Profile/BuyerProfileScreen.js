@@ -165,15 +165,15 @@ const CreditCard = ({title, value, color, hasArrow = false, icon, isPlantCredits
   </View>
 );
 
-const MenuItem = ({icon, title, rightText, onPress}) => (
-  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
+const MenuItem = ({icon, title, rightText, onPress, disabled = false}) => (
+  <TouchableOpacity style={[styles.menuItem, disabled && styles.menuItemDisabled]} onPress={onPress} disabled={disabled}>
     <View style={styles.menuLeft}>
       {icon}
       <Text style={styles.menuTitle}>{title}</Text>
     </View>
     <View style={styles.menuRight}>
       {rightText && <Text style={styles.menuRightText}>{rightText}</Text>}
-      <RightIcon width={24} height={24} fill="#556065" />
+      {!disabled && <RightIcon width={24} height={24} fill="#556065" />}
     </View>
   </TouchableOpacity>
 );
@@ -186,7 +186,7 @@ const BuyerProfileScreen = (props) => {
   const insets = useSafeAreaInsets();
   
   // Calculate proper bottom padding for tab bar + safe area
-  const tabBarHeight = 60; // Standard tab bar height  
+  const tabBarHeight = 60; // Standard tab bar height
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
@@ -299,7 +299,7 @@ const BuyerProfileScreen = (props) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
   {/* Show skeleton placeholders in header when loading instead of modal spinner */}
       <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
 
@@ -316,8 +316,8 @@ const BuyerProfileScreen = (props) => {
           />
         }
       >
-        {/* Header */}
-        <View style={[styles.header, {paddingTop: insets.top }]}>
+  {/* Header */}
+  <View style={[styles.header, {paddingTop: Math.min(insets.top, 10) }]}> 
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}>
@@ -427,8 +427,9 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ReportIcon width={24} height={24} fill="#556065" />}
             title="Venmo"
-            rightText="****1234"
+            rightText="Still in progress for developing"
             onPress={() => {}}
+            disabled={true}
           />
 
           <MenuItem
@@ -542,6 +543,7 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 30,
   },
   headerTitle: {
     fontSize: 18,
@@ -558,7 +560,7 @@ const styles = StyleSheet.create({
   },
   profileSection: {
     backgroundColor: '#DFECDF',
-    paddingTop: 20,
+    paddingTop: 10,
     paddingHorizontal: 24,
     paddingBottom: 24,
     gap: 10,
@@ -798,6 +800,9 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     paddingVertical: 8,
     gap: 8,
+  },
+  menuItemDisabled: {
+    opacity: 0.5,
   },
   menuRightText: {
     fontSize: 16,

@@ -211,19 +211,23 @@ const PlantItemCard = ({
           
           {/* Listing Type + Country Overlay */}
           <View style={styles.listingOverlay}>
-            <View style={styles.listingTypeContainer}>
-              <View style={styles.listingTypeBadge}>
-                <Text style={styles.listingTypeText}>
-                  {plantData.listingType || 'Single Plant'}
-                </Text>
+            {plantData.listingType !== 'Single Plant' && (
+              <View style={styles.listingTypeContainer}>
+                <View style={styles.listingTypeBadge}>
+                  <Text style={styles.listingTypeText} numberOfLines={1}>
+                    {plantData.listingType}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.countryContainer}>
-              {(() => {
-                const FlagComponent = getFlagComponent(plantData.country, plantData.localCurrency);
-                return <FlagComponent width={24} height={16} style={styles.countryFlag} />;
-              })()}
-            </View>
+            )}
+          </View>
+
+          {/* Flag pinned absolutely inside image container to ensure it never overflows */}
+          <View style={styles.countryContainer}>
+            {(() => {
+              const FlagComponent = getFlagComponent(plantData.country, plantData.localCurrency);
+              return <FlagComponent width={24} height={16} style={styles.countryFlag} />;
+            })()}
           </View>
           
           {/* Discount Badge (using "Snip & Save" instead of percentage) */}
@@ -303,32 +307,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   listingOverlay: {
-    position: 'absolute',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    gap: 6,
-    zIndex: 1,
+  position: 'absolute',
+  flexDirection: 'row',
+  justifyContent: 'flex-start',
+  alignItems: 'center',
+  paddingHorizontal: 8,
+  paddingVertical: 8,
+  // gap is not supported on all RN versions; use margin/padding for spacing
+  zIndex: 1,
   },
   listingTypeContainer: {
-    width: 126,
+    width: 120,
     height: 24,
     flexDirection: 'column',
     alignItems: 'flex-start',
-    flex: 1,
+    flex: 0,
   },
   listingTypeBadge: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 1,
     backgroundColor: '#202325',
     borderRadius: 6,
     height: 24,
     minHeight: 24,
+    maxWidth: 120,
   },
   listingTypeText: {
     fontFamily: 'Inter',
@@ -336,12 +341,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     color: '#FFFFFF',
+    paddingHorizontal: 2,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   countryContainer: {
-    width: 24,
-    height: 16,
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+    position: 'absolute',
+    top: 10,
+    right: 8,
+    width: 28,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
   countryFlag: {
     width: 24,
