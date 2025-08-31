@@ -275,7 +275,13 @@ const CartComponent = ({
   
   return (
   <View style={styles.cartCard}>
-    <TouchableOpacity style={styles.cartTopCard} onPress={onPress}>
+    <TouchableOpacity
+      style={[styles.cartTopCard, isUnavailable && styles.unavailableCard]}
+      onPress={onPress}
+      disabled={isUnavailable}
+      activeOpacity={isUnavailable ? 1 : 0.7}
+      accessibilityState={{ disabled: isUnavailable }}
+    >
       <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
         <View
           style={[
@@ -283,7 +289,7 @@ const CartComponent = ({
             {borderColor: checked ? '#539461' : 'transparent'},
           ]}>
           <Image source={image} style={styles.cartImage} />
-          {checked && (
+          {checked && !isUnavailable && (
             <View style={styles.cartCheckOverlay}>
               <Image source={selectedCard} style={{width: 24, height: 24}} />
             </View>
@@ -630,6 +636,12 @@ const ScreenCart = () => {
       }) || [];
 
       setCartItems(transformedItems);
+      // Remove any unavailable items from current selection so they don't
+      // contribute to totals or checkout even if previously selected.
+      setSelectedItems(prev => {
+        const availableIds = new Set(transformedItems.filter(it => !it.isUnavailable).map(it => it.id));
+        return new Set([...prev].filter(id => availableIds.has(id)));
+      });
       console.log('Cart items loaded:', transformedItems.length);
       console.log('First cart item:', transformedItems[0]); // Debug log to see the actual data
 
@@ -748,6 +760,13 @@ const ScreenCart = () => {
   };
 
   const toggleItemSelection = itemId => {
+    // Prevent selecting unavailable items
+    const item = cartItems.find(c => c.id === itemId);
+    if (item?.isUnavailable) {
+      // Ignore selection toggles for unavailable items
+      return;
+    }
+
     setSelectedItems(prev => {
       const newSet = new Set(prev);
       if (newSet.has(itemId)) {
@@ -760,16 +779,21 @@ const ScreenCart = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedItems.size === cartItems.length) {
+    // Only toggle selection for available items. Unavailable items should not be
+    // selected as part of "Select All" and must not contribute to totals.
+    const availableItems = cartItems.filter(item => !item.isUnavailable);
+    if (selectedItems.size === availableItems.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(cartItems.map(item => item.id)));
+      setSelectedItems(new Set(availableItems.map(item => item.id)));
     }
   };
 
   const calculateTotalAmount = () => {
+    // Sum only selected items that are available. Unavailable items must not
+    // contribute to the total plant cost.
     return cartItems
-      .filter(item => selectedItems.has(item.id))
+      .filter(item => selectedItems.has(item.id) && !item.isUnavailable)
       .reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
@@ -782,14 +806,15 @@ const ScreenCart = () => {
       cartItems.filter(item => selectedItems.has(item.id)).length);
     
     // Process each selected item
+    // Only consider selected and available items when computing discounts.
     cartItems
-      .filter(item => selectedItems.has(item.id))
+      .filter(item => selectedItems.has(item.id) && !item.isUnavailable)
       .forEach(item => {
         // Log the item for debugging
         console.log('Processing item for discount:', item.name, 'Original:', item.originalPrice, 'Current:', item.price);
         
         // If the item has an originalPrice, calculate the difference
-        if (item.originalPrice && item.originalPrice > item.price) {
+  if (item.originalPrice && item.originalPrice > item.price) {
           const itemDiscount = (item.originalPrice - item.price) * item.quantity;
           console.log('Item discount from original price:', itemDiscount);
           totalDiscount += itemDiscount;
@@ -838,16 +863,26 @@ const ScreenCart = () => {
   };
 
   const handleCheckout = () => {
+    // Only include selected AND available items in checkout
     const selectedCartItems = cartItems.filter(item => 
-      selectedItems.has(item.id)
+      selectedItems.has(item.id) && !item.isUnavailable
     );
-    
+
     if (selectedCartItems.length === 0) {
-      Alert.alert('No Items Selected', 'Please select items to checkout');
+      Alert.alert('No Items Selected', 'Please select available items to checkout');
       return;
     }
-    
-    // Navigate to checkout screen with selected items
+
+    // If some previously-selected items were unavailable, inform the user
+    const hadUnavailableSelected = Array.from(selectedItems).some(id => {
+      const it = cartItems.find(ci => ci.id === id);
+      return it && it.isUnavailable;
+    });
+    if (hadUnavailableSelected) {
+      Alert.alert('Notice', 'Unavailable items were removed from your selection and will not be checked out.');
+    }
+
+    // Navigate to checkout screen with selected available items
     navigation.navigate('CheckoutScreen', {
       cartItems: selectedCartItems,
       useCart: true, // Use real cart data
@@ -998,9 +1033,14 @@ const ScreenCart = () => {
           {/* Log discount amount for debugging */}
           {console.log('Discount amount passed to CartBar:', calculateDiscountAmount())}
           <CartBar
-            isSelectAllChecked={selectedItems.size === cartItems.length && cartItems.length > 0}
+            // Determine available items count for consistent "Select All" behavior
+            isSelectAllChecked={(() => {
+              const availableItems = cartItems.filter(item => !item.isUnavailable);
+              return selectedItems.size === availableItems.length && availableItems.length > 0;
+            })()}
             onSelectAllToggle={toggleSelectAll}
-            selectedItemsCount={selectedItems.size}
+            // Only show selected count for available items
+            selectedItemsCount={(() => cartItems.filter(item => selectedItems.has(item.id) && !item.isUnavailable).length)()}
             totalAmount={calculateTotalAmount()}
             discountAmount={calculateDiscountAmount()}
             onCheckoutPress={handleCheckout}
@@ -1184,6 +1224,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     alignSelf: 'stretch',
+  },
+  unavailableCard: {
+    opacity: 0.6,
+    backgroundColor: '#F0F0F0',
   },
   cartImageContainer: {
     flexDirection: 'column',

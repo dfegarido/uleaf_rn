@@ -26,6 +26,7 @@ import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.s
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import TagIcon from '../../../assets/icons/greylight/tag.svg';
 import { getAddressBookEntriesApi } from '../../../components/Api';
+import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import { checkoutApi } from '../../../components/Api/checkoutApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
@@ -203,6 +204,8 @@ const CheckoutScreen = () => {
   });
   
   const [cargoDate, setCargoDate] = useState('2025-02-15');
+  // Track if buyer already has a paid order for the selected cargo date
+  const [priorPaidAirBaseCargoAmount, setPriorPaidAirBaseCargoAmount] = useState(0);
   
   // Initialize flight date with backend-provided value or fallback
   const getInitialFlightDate = () => {
@@ -603,6 +606,66 @@ const CheckoutScreen = () => {
       }
     }
   }, [useCart, cartItems]);
+
+  // Fetch buyer orders and check if any order has status 'Ready To Fly'.
+  // This is defensive: the API can return an array, a single object, or nested shapes.
+  // When a matching prior-paid order exists we credit the current cart's base air cargo
+  // so the effective base air cargo on checkout becomes $0.
+  useEffect(() => {
+    let mounted = true;
+    const checkReadyToFlyOrders = async () => {
+      try {
+        const params = { limit: 50, status: 'Ready to Fly' };
+
+        const resp = await getBuyerOrdersApi(params);
+        if (!mounted) return;
+
+        // Normalize possible response shapes into an array of orders
+        let orders = [];
+        try {
+          if (Array.isArray(resp?.data?.orders)) orders = resp.data.orders;
+          else if (Array.isArray(resp?.data)) orders = resp.data;
+          else if (Array.isArray(resp?.data?.data)) orders = resp.data.data;
+          else if (resp?.data?.data?.plants && Array.isArray(resp.data.data.plants)) orders = resp.data.data.plants;
+          else if (resp?.data && typeof resp.data === 'object') {
+            // resp.data might be a single order object
+            const maybe = resp.data.orders || resp.data.order || resp.data;
+            orders = Array.isArray(maybe) ? maybe : [maybe];
+          }
+        } catch (e) {
+          // Fallback to empty array on unexpected shapes
+          orders = [];
+        }
+
+        console.log('🔎 Buyer orders fetched (status=Ready to Fly) preview:', {
+          respPreview: resp?.data || resp,
+          ordersCount: orders.length
+        });
+
+        // Detect if any order (or nested order object) has status 'Ready to Fly'
+        const hasReadyToFly = orders.some(o => {
+          const statusCandidate = (o?.status || o?.order?.status || o?.order?.statusText || '').toString().toLowerCase();
+          return statusCandidate.includes('ready to fly') || statusCandidate.includes('readytofly');
+        });
+
+        if (hasReadyToFly && resp?.success !== false) {
+          const shippingRates = calculateUpsShippingCost();
+          const baseCargoAmount = shippingRates?.baseCargo || 150;
+          // Credit the buyer the full base cargo for the current cart so effective becomes $0
+          setPriorPaidAirBaseCargoAmount(baseCargoAmount);
+          console.log('Found Ready To Fly order(s) — applying air base cargo credit of', baseCargoAmount);
+        } else {
+          setPriorPaidAirBaseCargoAmount(0);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch buyer orders for Ready To Fly check:', error);
+        setPriorPaidAirBaseCargoAmount(0);
+      }
+    };
+
+    checkReadyToFlyOrders();
+    return () => { mounted = false; };
+  }, [cargoDate, selectedFlightDate]);
   
   const orderSummary = useMemo(() => {
     // Calculate default shipping cost
@@ -696,9 +759,13 @@ const CheckoutScreen = () => {
       console.log(`🚀 UPS Next Day upgrade: +$${upsNextDayUpgradeCost.toFixed(2)} (60% of UPS 2nd day $${shipping - upsNextDayUpgradeCost}), UPS shipping now: $${shipping}`);
     }
     
-    // Calculate total shipping including air cargo costs
-    const totalShippingCost = shipping + airBaseCargo + wholesaleAirCargo;
-    console.log(`💸 Total Shipping Cost: UPS $${shipping} + Base Air Cargo $${airBaseCargo} + Wholesale Air Cargo $${wholesaleAirCargo} = $${totalShippingCost}`);
+  // Apply prior-paid air base cargo credit (if any) - ensure we don't go negative
+  const appliedAirBaseCargoCredit = Math.min(priorPaidAirBaseCargoAmount || 0, airBaseCargo || 0);
+  const effectiveAirBaseCargo = Math.max(0, (airBaseCargo || 0) - appliedAirBaseCargoCredit);
+
+  // Calculate total shipping including air cargo costs
+  const totalShippingCost = shipping + effectiveAirBaseCargo + wholesaleAirCargo;
+  console.log(`💸 Total Shipping Cost: UPS $${shipping} + Effective Base Air Cargo $${effectiveAirBaseCargo} + Wholesale Air Cargo $${wholesaleAirCargo} (credit applied: $${appliedAirBaseCargoCredit}) = $${totalShippingCost}`);
     
     // Apply credits
     let creditsApplied = 0;
@@ -719,7 +786,9 @@ const CheckoutScreen = () => {
       subtotal,
       shipping, // This is just UPS 2nd day shipping (without air cargo)
       upsNextDayUpgradeCost: upsNextDayUpgradeCost, // Add UPS Next Day upgrade cost to summary
-      airBaseCargo: airBaseCargo, // Add air base cargo to summary
+  airBaseCargo: airBaseCargo, // Original air base cargo (before credit)
+  airBaseCargoCreditApplied: appliedAirBaseCargoCredit, // Credit applied because buyer already paid base cargo
+  airBaseCargoEffective: effectiveAirBaseCargo, // Effective base cargo after credit
       wholesaleAirCargo: wholesaleAirCargo, // Add wholesale air cargo to summary
       totalShippingCost: totalShippingCost, // Total of all shipping costs combined
       discount: discountAmount,
@@ -751,7 +820,8 @@ const CheckoutScreen = () => {
     shippingCreditsEnabled,
     leafPoints,
     plantCredits,
-    shippingCredits
+  shippingCredits,
+  priorPaidAirBaseCargoAmount
   ]);
 
   const quantityBreakdown = useMemo(() => {
@@ -1391,17 +1461,10 @@ const CheckoutScreen = () => {
                 </TouchableOpacity>
               </View>
               
-              {/* Base Air Cargo */}
+              {/* Base Air Cargo (effective after any prior-paid credit) */}
               <View style={styles.baseAirCargoRow}>
-                <View style={styles.labelTooltip}>
-                  <Text style={styles.summaryRowLabel}>Base Air Cargo</Text>
-                  <View style={styles.tooltip}>
-                    <View style={styles.helper}>
-                      {/* Tooltip icon would go here */}
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.airBaseCargo)}</Text>
+                <Text style={styles.summaryRowLabel}>Base Air Cargo</Text>
+                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.airBaseCargoEffective ?? orderSummary.airBaseCargo)}</Text>
               </View>
               
               {/* Wholesale Air Cargo */}
@@ -1410,11 +1473,13 @@ const CheckoutScreen = () => {
                 <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.wholesaleAirCargo)}</Text>
               </View>
               
-              {/* Air Cargo Credit */}
-              <View style={styles.airCargoCreditRow}>
-                <Text style={styles.summaryRowLabel}>Air Cargo Shipping Credit</Text>
-                <Text style={styles.airCargoCreditAmount}>-$ 0.00</Text>
-              </View>
+              {/* Air Cargo Credit (shown when applied) */}
+              {(orderSummary.airBaseCargoCreditApplied || 0) > 0 && (
+                <View style={styles.airCargoCreditRow}>
+                  <Text style={styles.summaryRowLabel}>Air Cargo Shipping Credit</Text>
+                  <Text style={styles.airCargoCreditAmount}>-{formatCurrencyFull(orderSummary.airBaseCargoCreditApplied)}</Text>
+                </View>
+              )}
               
               {/* Total */}
               <View style={styles.shippingTotalRow}>
@@ -2116,6 +2181,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#647276',
     flex: 1,
+    width: '100%',
   },
   summaryRowNumber: {
     fontFamily: 'Inter',
@@ -2448,6 +2514,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
     flex: 0,
     alignSelf: 'stretch',
+    
   },
   labelTooltip: {
     flexDirection: 'row',
@@ -2457,6 +2524,7 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 32,
     flex: 1,
+    width: '100%',
   },
   tooltip: {
     flexDirection: 'column',
