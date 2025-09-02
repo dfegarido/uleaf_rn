@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Modal, Animated, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Modal, Animated, ScrollView, StatusBar } from 'react-native';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -8,11 +9,11 @@ import EditIcon from '../../../assets/admin-icons/edit.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import CheckedBoxIcon from '../../../assets/admin-icons/checked-box.svg';
 import EnrollAdmin from '../LeafTrail/EnrollAdmin';
-const LeafTrailHeader = ({ onPressAdd = () => {}, onSearchChange = () => {}, onPressRole = () => {} }) => {
+const LeafTrailHeader = ({ insets, onPressAdd = () => {}, onSearchChange = () => {}, onPressRole = () => {} }) => {
   const navigation = useNavigation();
 
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, { paddingTop: insets.top + 24 }]}>
       <View style={styles.topRow}>
         <TouchableOpacity
           accessibilityRole="button"
@@ -166,11 +167,17 @@ const UserCard = ({ user, onEdit }) => {
 
 const UserManagement = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [isRoleModalVisible, setRoleModalVisible] = useState(false);
   const [roles, setRoles] = useState([
     { key: 'seller', label: 'Seller', selected: true },
     { key: 'buyer', label: 'Buyer', selected: true },
   ]);
+
+  // Calculate proper bottom padding for admin tab bar + safe area
+  const tabBarHeight = 60; // Standard admin tab bar height
+  const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 20; // Extra 20px for spacing
 
   const [users] = useState([
     { id: 1, name: 'Alyssa Navarro', username: 'alyssa', status: 'Deactivated', role: 'Seller' },
@@ -203,15 +210,17 @@ const UserManagement = () => {
 
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F5F6F6' }}>
-      <LeafTrailHeader onPressRole={() => setRoleModalVisible(true)} />
-
-    
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F6F6' }} edges={['left', 'right']}>
+      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+      <LeafTrailHeader insets={insets} onPressRole={() => setRoleModalVisible(true)} />
 
       <ScrollView 
         style={styles.usersList}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.usersListContent}
+        contentContainerStyle={[
+          styles.usersListContent,
+          { paddingBottom: totalBottomPadding }
+        ]}
       >
         {users.map(user => (
           <UserCard key={user.id} user={user} onEdit={handleEditUser} />
@@ -226,7 +235,7 @@ const UserManagement = () => {
         onView={applyView}
         onClose={() => setRoleModalVisible(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -236,7 +245,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'column',
     paddingHorizontal: 16,
-    paddingTop: 12,
     paddingBottom: 8,
     backgroundColor: '#fff',
   },
