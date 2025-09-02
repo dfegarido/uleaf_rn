@@ -71,7 +71,7 @@ const renderCountryFlag = country => {
 
   // Handle text-based country codes
   const countryCode = country?.toUpperCase();
-  console.log({countryCode});
+  
   switch (countryCode) {
     case 'PHILIPPINES':
     case 'PH':
@@ -274,13 +274,9 @@ const CheckoutScreen = () => {
         // Sort by date and get the latest (furthest out) flight date
         flightDates.sort((a, b) => b.date - a.date);
         const latestFlightDate = flightDates[0].formatted;
-
-        console.log(
-          '🛫 Flight dates found in cart:',
-          flightDates.map(f => f.formatted),
-        );
-        console.log('🛫 Latest flight date selected:', latestFlightDate);
-
+        
+        
+        
         return latestFlightDate;
       }
     }
@@ -443,20 +439,9 @@ const CheckoutScreen = () => {
     const isFreeBaseCargo = totalItems >= 15 && totalPlantCost >= 500;
 
     // Use the first plant's data to determine shipping rules
-    const firstPlant = plants[0];
-    const listingType = firstPlant.listingType?.toLowerCase() || 'single';
-
-    console.log('🚚 Shipping calculation debug:', {
-      firstPlant: {
-        listingType: firstPlant.listingType,
-        listingTypeLower: listingType,
-        height: firstPlant.height,
-        approximateHeight: firstPlant.approximateHeight,
-        potSize: firstPlant.potSize,
-        size: firstPlant.size,
-      },
-    });
-
+  const firstPlant = plants[0];
+  const listingType = firstPlant.listingType?.toLowerCase() || 'single';
+    
     switch (listingType) {
       case 'single':
       case 'single plant':
@@ -529,27 +514,27 @@ const CheckoutScreen = () => {
   // Toggle handlers
   const toggleUpsNextDay = () => {
     setUpsNextDayEnabled(!upsNextDayEnabled);
-    console.log('UPS Next Day toggled:', !upsNextDayEnabled);
+    
   };
 
   const toggleLeafPoints = () => {
     setLeafPointsEnabled(!leafPointsEnabled);
-    console.log('Leaf Points toggled:', !leafPointsEnabled);
+    
   };
 
   const togglePlantCredits = () => {
     setPlantCreditsEnabled(!plantCreditsEnabled);
-    console.log('Plant Credits toggled:', !plantCreditsEnabled);
+    
   };
 
   const toggleShippingCredits = () => {
     setShippingCreditsEnabled(!shippingCreditsEnabled);
-    console.log('Shipping Credits toggled:', !shippingCreditsEnabled);
+    
   };
 
   // Prepare plant items for display - handle cart data, direct product data, and buy now
   const plantItems = useMemo(() => {
-    console.log('plantData test', plantData);
+    
     if (fromBuyNow && plantData) {
       return [
         {
@@ -606,18 +591,9 @@ const CheckoutScreen = () => {
               // For other listing types, use direct country first
               result = directCountry || countryFromVariation || countryFromMain;
             }
-
-            console.log('Country determination:', {
-              directCountry,
-              variationCurrency,
-              countryFromVariation,
-              mainCurrency,
-              countryFromMain,
-              listingType: plantData.listingType,
-              isGrowersOrWholesale,
-              result,
-            });
-
+            
+            
+            
             return result;
           })(),
           shippingMethod: 'Plant / UPS Ground Shipping',
@@ -705,10 +681,7 @@ const CheckoutScreen = () => {
       const latestFlightDate = getInitialFlightDate();
       if (latestFlightDate && latestFlightDate !== 'N/A') {
         setSelectedFlightDate(latestFlightDate);
-        console.log(
-          '🛫 Flight date updated from cart analysis:',
-          latestFlightDate,
-        );
+        
       }
     }
   }, [useCart, cartItems]);
@@ -747,10 +720,7 @@ const CheckoutScreen = () => {
           orders = [];
         }
 
-        console.log('🔎 Buyer orders fetched (status=Ready to Fly) preview:', {
-          respPreview: resp?.data || resp,
-          ordersCount: orders.length,
-        });
+        
 
         // Detect if any order (or nested order object) has status 'Ready to Fly'
         const hasReadyToFly = orders.some(o => {
@@ -773,10 +743,7 @@ const CheckoutScreen = () => {
           const baseCargoAmount = shippingRates?.baseCargo || 150;
           // Credit the buyer the full base cargo for the current cart so effective becomes $0
           setPriorPaidAirBaseCargoAmount(baseCargoAmount);
-          console.log(
-            'Found Ready To Fly order(s) — applying air base cargo credit of',
-            baseCargoAmount,
-          );
+          
         } else {
           setPriorPaidAirBaseCargoAmount(0);
         }
@@ -809,7 +776,7 @@ const CheckoutScreen = () => {
     };
 
     if (!plantItems || plantItems.length === 0) {
-      console.log('🛒 No plant items for order summary');
+      
       return defaultSummary;
     }
 
@@ -823,21 +790,18 @@ const CheckoutScreen = () => {
     if (totalAmount && totalAmount > 0) {
       // Use the exact total from cart calculation
       subtotal = totalAmount;
-      console.log('💰 Using cart total amount:', totalAmount);
+      
     } else {
       // Calculate from plant items (for Buy Now flow)
-      subtotal = plantItems.reduce(
-        (sum, item) => sum + item.price * (item.quantity || 1),
-        0,
-      );
-      console.log('💰 Calculated subtotal from plant items:', subtotal);
+      subtotal = plantItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+      
     }
 
     // Calculate discount amount from route params if available
     let discountAmount = 0;
     if (route.params?.discountAmount) {
       discountAmount = route.params.discountAmount;
-      console.log('💸 Using cart discount amount:', discountAmount);
+      
     } else {
       // Calculate discount from plant items
       discountAmount = plantItems.reduce((sum, item) => {
@@ -846,7 +810,7 @@ const CheckoutScreen = () => {
         }
         return sum;
       }, 0);
-      console.log('💸 Calculated discount from plant items:', discountAmount);
+      
     }
 
     // Calculate UPS 2nd Day shipping cost based on plant characteristics
@@ -888,47 +852,21 @@ const CheckoutScreen = () => {
         wholesaleAirCargo += (wholesaleQuantity - 1) * 50; // $50 per additional wholesale item
       }
     }
-
-    console.log(
-      `📦 UPS 2nd Day Shipping: Base $${shippingRates.baseCost}, Add-on $${
-        shippingRates.addOnCost
-      } × ${totalItemsForShipping - 1} = $${shipping} (${shippingRates.rule})`,
-    );
-    console.log(
-      `✈️ Air Cargo: Base Air Cargo $${airBaseCargo}, Wholesale Air Cargo $${wholesaleAirCargo}`,
-    );
-
+    
+    
+    
     // Add UPS Next Day upgrade if enabled (60% of UPS 2nd day shipping cost)
     let upsNextDayUpgradeCost = 0;
     if (upsNextDayEnabled) {
       upsNextDayUpgradeCost = shipping * 0.6; // 60% of UPS 2nd day shipping cost
       shipping += upsNextDayUpgradeCost;
-      console.log(
-        `🚀 UPS Next Day upgrade: +$${upsNextDayUpgradeCost.toFixed(
-          2,
-        )} (60% of UPS 2nd day $${
-          shipping - upsNextDayUpgradeCost
-        }), UPS shipping now: $${shipping}`,
-      );
+      
     }
 
-    // Apply prior-paid air base cargo credit (if any) - ensure we don't go negative
-    const appliedAirBaseCargoCredit = Math.min(
-      priorPaidAirBaseCargoAmount || 0,
-      airBaseCargo || 0,
-    );
-    const effectiveAirBaseCargo = Math.max(
-      0,
-      (airBaseCargo || 0) - appliedAirBaseCargoCredit,
-    );
-
-    // Calculate total shipping including air cargo costs
-    const totalShippingCost =
-      shipping + effectiveAirBaseCargo + wholesaleAirCargo;
-    console.log(
-      `💸 Total Shipping Cost: UPS $${shipping} + Effective Base Air Cargo $${effectiveAirBaseCargo} + Wholesale Air Cargo $${wholesaleAirCargo} (credit applied: $${appliedAirBaseCargoCredit}) = $${totalShippingCost}`,
-    );
-
+  // Calculate total shipping including air cargo costs
+  const totalShippingCost = shipping + effectiveAirBaseCargo + wholesaleAirCargo;
+  
+    
     // Apply credits
     let creditsApplied = 0;
     if (leafPointsEnabled) {
@@ -961,17 +899,7 @@ const CheckoutScreen = () => {
       finalTotal,
     };
 
-    console.log('🛒 Order Summary:', {
-      ...summary,
-      plantItemsCount: plantItems.length,
-      routeParams: route.params ? Object.keys(route.params) : 'none',
-      toggleStates: {
-        upsNextDayEnabled,
-        leafPointsEnabled,
-        plantCreditsEnabled,
-        shippingCreditsEnabled,
-      },
-    });
+    
 
     return summary;
   }, [

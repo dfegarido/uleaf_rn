@@ -221,8 +221,8 @@ const BuyerProfileScreen = (props) => {
         loadAddressBookCount(),
         loadProfileStats(),
       ]);
-    } catch (error) {
-      console.log('Error loading profile data:', error);
+  } catch (error) {
+      
       Alert.alert(
         'Error',
         'Failed to load profile information. Please check your connection and try again.',
@@ -240,8 +240,8 @@ const BuyerProfileScreen = (props) => {
     setRefreshing(true);
     try {
       await loadAllProfileData();
-    } catch (error) {
-      console.log('Error refreshing profile:', error);
+  } catch (error) {
+      
     } finally {
       setRefreshing(false);
     }
@@ -258,8 +258,6 @@ const BuyerProfileScreen = (props) => {
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load profile data');
     }
-
-    console.log('Profile data loaded:', res);
     setData(res.user || res);
   };
 
@@ -267,7 +265,6 @@ const BuyerProfileScreen = (props) => {
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
-        console.log('No internet connection for address book');
         return;
       }
 
@@ -275,10 +272,9 @@ const BuyerProfileScreen = (props) => {
       
       if (res?.success && res?.addresses) {
         setAddressBookCount(res.addresses.length);
-        console.log('Address book count loaded:', res.addresses.length);
       }
-    } catch (error) {
-      console.log('Error loading address book count:', error);
+  } catch (error) {
+      
       // Don't throw error for address book as it's not critical
     }
   };
@@ -293,8 +289,8 @@ const BuyerProfileScreen = (props) => {
         shippingCredits: 0,
         buddyRequests: 0,
       });
-    } catch (error) {
-      console.log('Error loading profile stats:', error);
+  } catch (error) {
+      
     }
   };
 
@@ -462,7 +458,7 @@ const BuyerProfileScreen = (props) => {
             title="My Wishlist"
             onPress={() => {
               // Wishlist feature temporarily disabled
-              console.log('Wishlist feature is temporarily disabled');
+              
             }}
           />
         </View>

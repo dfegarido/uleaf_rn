@@ -29,6 +29,10 @@ const OrderDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  // Silence debug console.log in this module (buyer Order Details screen)
+  if (typeof console !== 'undefined' && console.log) {
+    console.log = () => {};
+  }
   // Local require for reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
   
