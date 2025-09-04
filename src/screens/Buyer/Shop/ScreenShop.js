@@ -1389,7 +1389,10 @@ const ScreenShop = ({navigation}) => {
                   fontSize: 14,
                   fontWeight: '900',
                   color: '#393D40',
-                }}>
+                  width: '100%'
+                }}
+                numberOfLines={1}
+                ellipsizeMode="tail">
                 {item.label}
               </Text>
             </TouchableOpacity>

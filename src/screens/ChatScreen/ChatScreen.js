@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import OptionIcon from '../../assets/iconchat/option.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -51,6 +51,7 @@ const ChatScreen = ({navigation, route}) => {
   }
 
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Send a message: create message doc and update chat metadata
   const sendMessage = async (text) => {
@@ -133,6 +134,7 @@ const ChatScreen = ({navigation, route}) => {
     }
 
     try {
+  setLoading(true);
       const q = query(
         collection(db, 'messages'),
         where('chatId', '==', id),
@@ -151,12 +153,15 @@ const ChatScreen = ({navigation, route}) => {
             }));
 
             setMessages(messagesFirestore);
+            setLoading(false);
           } catch (error) {
             setMessages([]);
+            setLoading(false);
           }
         },
         error => {
           setMessages([]);
+          setLoading(false);
         }
       );
 
@@ -173,6 +178,13 @@ const ChatScreen = ({navigation, route}) => {
     }
   }, [messages]);
 
+  // Skeleton message for loading state
+  const SkeletonMessage = ({isMe = false, index = 0}) => (
+    <View style={[styles.skeletonRow, isMe ? styles.skeletonRowRight : styles.skeletonRowLeft]} key={`skeleton-${index}`}>
+      <View style={styles.skeletonBubble} />
+    </View>
+  );
+
   // Render
   if (!id) {
     return (
@@ -186,9 +198,9 @@ const ChatScreen = ({navigation, route}) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       {/* Header */}
-      <View style={[styles.header, {paddingTop: insets.top + 12}]}>
+      <View style={[styles.header, {paddingTop: Math.min(insets.top, 8)}]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -208,44 +220,52 @@ const ChatScreen = ({navigation, route}) => {
           onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, participants })}>
           <OptionIcon />
         </TouchableOpacity>
-      </View>
+  </View>
 
       {/* Chat Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item, index) => item.id || `message-${index}`}
-        renderItem={({ item, index }) => {
-          if (!item) return null;
-          if (item.type === 'date') return <DateSeparator text={item.text} />;
+      {loading ? (
+        <View style={{flex: 1, paddingVertical: 10, paddingHorizontal: 12}}>
+          {Array.from({length: 6}).map((_, idx) => (
+            <SkeletonMessage key={`sk-${idx}`} isMe={idx % 3 === 0} index={idx} />
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item, index) => item.id || `message-${index}`}
+          renderItem={({ item, index }) => {
+            if (!item) return null;
+            if (item.type === 'date') return <DateSeparator text={item.text} />;
 
-          const nextMsg = messages[index + 1];
-          const isMe = item?.senderId === userInfo?.uid;
-          const nextMsgIsMe = nextMsg?.senderId === userInfo?.uid;
-          const showAvatar = !isMe && (!nextMsg || nextMsgIsMe || nextMsgIsMe !== isMe);
+            const nextMsg = messages[index + 1];
+            const isMe = item?.senderId === userInfo?.uid;
+            const nextMsgIsMe = nextMsg?.senderId === userInfo?.uid;
+            const showAvatar = !isMe && (!nextMsg || nextMsgIsMe || nextMsgIsMe !== isMe);
 
-          return (
-            <ChatBubble
-              text={item.text || 'Empty message'}
-              isMe={isMe}
-              showAvatar={showAvatar}
-            />
-          );
-        }}
-        contentContainerStyle={{ paddingVertical: 10, paddingBottom: totalBottomPadding }}
-        onContentSizeChange={() => {
-          setTimeout(() => {
+            return (
+              <ChatBubble
+                text={item.text || 'Empty message'}
+                isMe={isMe}
+                showAvatar={showAvatar}
+              />
+            );
+          }}
+          contentContainerStyle={{ paddingVertical: 10, paddingBottom: totalBottomPadding }}
+          onContentSizeChange={() => {
+            setTimeout(() => {
+              if (flatListRef?.current && messages.length > 0) {
+                flatListRef?.current.scrollToEnd({ animated: true });
+              }
+            }, 100);
+          }}
+          onLayout={() => {
             if (flatListRef?.current && messages.length > 0) {
-              flatListRef?.current.scrollToEnd({ animated: true });
+              flatListRef?.current.scrollToEnd({ animated: false });
             }
-          }, 100);
-        }}
-        onLayout={() => {
-          if (flatListRef?.current && messages.length > 0) {
-            flatListRef?.current.scrollToEnd({ animated: false });
-          }
-        }}
-      />
+          }}
+        />
+      )}
 
       {/* Plant Recommendations for plant-related conversations */}
       {messages.length > 3 && isPlantRelatedConversation() && (
@@ -262,21 +282,24 @@ const ChatScreen = ({navigation, route}) => {
 
       {/* Input */}
       <MessageInput onSend={sendMessage} />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#f1f1f1'},
+  container: {
+    flex: 1,
+    backgroundColor: '#f1f1f1',
+    paddingTop: 25,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingBottom: 12,
+  paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderColor: '#ddd',
-    marginTop: 12,
   },
   backButton: {
     marginRight: 12,
@@ -313,6 +336,23 @@ const styles = StyleSheet.create({
   },
   chatBrowseMoreContainer: {
     marginBottom: 0,
+  },
+  skeletonRow: {
+    height: 36,
+    marginBottom: 12,
+    justifyContent: 'flex-start',
+  },
+  skeletonRowRight: {
+    alignItems: 'flex-end',
+  },
+  skeletonRowLeft: {
+    alignItems: 'flex-start',
+  },
+  skeletonBubble: {
+    width: '60%',
+    height: 16,
+    borderRadius: 12,
+    backgroundColor: '#e0e0e0',
   },
 });
 

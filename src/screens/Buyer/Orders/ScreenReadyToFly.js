@@ -63,7 +63,7 @@ const ScreenReadyToFly = () => {
 
       // New API returns a flattened plants[] array where each plant contains its order metadata
       const plantsData = response.data?.data?.plants || [];
-      console.log('📦 Loaded Ready to Fly plant records:', plantsData.length);
+      console.log('📦 Loaded Ready to Fly plant records:', plantsData);
 
       // Debug: Log the first plant's relevant fields
       if (plantsData.length > 0) {

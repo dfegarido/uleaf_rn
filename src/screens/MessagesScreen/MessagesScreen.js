@@ -22,9 +22,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  SafeAreaView,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {db} from '../../../firebase';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
@@ -360,9 +359,9 @@ const MessagesScreen = ({navigation}) => {
   );
 
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaView style={{flex: 1}} edges={["left", "right", "bottom"]}>
       <View style={styles.container}>
-        <View style={[styles.header, {paddingTop: insets.top + 20}]}>
+        <View style={[styles.header, {paddingTop: Math.min(insets.top, 8)}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <BackSolidIcon />
           </TouchableOpacity>
@@ -435,6 +434,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+    marginTop: 25,
   },
   headerTitle: {
     fontSize: 20,
