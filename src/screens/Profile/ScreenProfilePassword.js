@@ -88,10 +88,13 @@ const ScreenProfilePassword = ({navigation}) => {
           </View>
         </Modal>
       )}
-      <View style={{flex: 1}}>
+      <View style={{flex: 1, paddingBottom: insets.bottom}}>
         <ScrollView
           style={[styles.container, {paddingTop: insets.top}]}
-          contentContainerStyle={{paddingBottom: 120}}
+          // contentContainerStyle={{paddingBottom: 120}}
+          // contentContainerStyle={{
+          //   marginBottom: insets.bottom + 30,
+          // }}
           stickyHeaderIndices={[0]}>
           {/* Header */}
           <View style={styles.stickyHeader}>

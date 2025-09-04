@@ -845,177 +845,165 @@ const ScreenListing = ({navigation}) => {
               />
             </View>
           )}
-
-          <ReusableActionSheet
-            code={code}
-            visible={showSheet}
-            onClose={() => setShowSheet(false)}
-            sortOptions={sortOptions}
-            genusOptions={genusOptions}
-            variegationOptions={variegationOptions}
-            listingTypeOptions={listingTypeOptions}
-            sortValue={reusableSort}
-            sortChange={setReusableSort}
-            genusValue={reusableGenus}
-            genusChange={setReusableGenus}
-            variegationValue={reusableVariegation}
-            variegationChange={setReusableVariegation}
-            listingTypeValue={reusableListingType}
-            listingTypeChange={setReusableListingType}
-            handleSearchSubmit={handleFilterView}
-          />
-          <ListingActionSheet
-            code={actionSheetCode}
-            visible={showActionSheet}
-            onClose={() => setActionShowSheet(false)}
-            onPressUpdateStockShow={() => setShowSheetUpdateStocks(true)}
-            onPressEdit={() =>
-              navigation.navigate('ScreenListingDetail', {
-                onGoBack: setIsInitialFetchRefresh(prev => !prev),
-                plantCode: selectedItemStockUpdate.plantCode,
-              })
-            }
-            onPressDelete={onPressDeleteConfirm}
-          />
-
-          <ActionSheet
-            visible={showSheetUpdateStocks}
-            onClose={() => setShowSheetUpdateStocks(false)}
-            heightPercent={'50%'}>
-            <View style={styles.sheetTitleContainer}>
-              <Text style={styles.sheetTitle}>Update Stocks</Text>
-              <TouchableOpacity onPress={() => setShowSheetUpdateStocks(false)}>
-                <ExIcon width={20} height={20} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{paddingHorizontal: 20}}>
-              {Array.isArray(selectedItemStockUpdate.variations) &&
-              selectedItemStockUpdate.variations.length > 0 ? (
-                selectedItemStockUpdate.variations.map((variation, index) => (
-                  <View key={variation.id || index} style={{marginTop: 10}}>
-                    <Text
-                      style={[
-                        globalStyles.textLGGreyDark,
-                        {paddingBottom: 10},
-                      ]}>
-                      Pot size: {variation.potSize || 'N/A'}
-                    </Text>
-                    <Text
-                      style={[
-                        globalStyles.textLGGreyDark,
-                        {paddingBottom: 10},
-                      ]}>
-                      Current Quantity
-                    </Text>
-                    <InputBox
-                      placeholder="Quantity"
-                      value={quantities[variation.id] || ''}
-                      setValue={text =>
-                        setQuantities(prev => ({...prev, [variation.id]: text}))
-                      }
-                    />
-                  </View>
-                ))
-              ) : selectedItemStockUpdate.potSize ? (
-                <View style={{marginTop: 10}}>
-                  <Text
-                    style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
-                    Pot size: {selectedItemStockUpdate.potSize}
-                  </Text>
-                  <Text
-                    style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
-                    Current Quantity
-                  </Text>
-                  <InputBox
-                    placeholder="Quantity"
-                    value={quantities.single || ''}
-                    setValue={text =>
-                      setQuantities(prev => ({...prev, single: text}))
-                    }
-                  />
-                </View>
-              ) : null}
-            </View>
-            <TouchableOpacity
-              onPress={() => onPressUpdateStockPost()}
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                paddingHorizontal: 20,
-                width: '100%',
-                paddingBottom: 10,
-              }}>
-              <View style={globalStyles.primaryButton}>
-                <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
-                  Update Stocks
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </ActionSheet>
-
-          <ActionSheet
-            visible={showSheetDiscount}
-            onClose={() => setShowSheetDiscount(false)}
-            heightPercent={'40%'}>
-            <View style={{height: '100%'}}>
-              <View style={styles.sheetTitleContainer}>
-                <Text style={styles.sheetTitle}>Apply Discount</Text>
-                <TouchableOpacity onPress={() => setShowSheetDiscount(false)}>
-                  <ExIcon width={20} height={20} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={{marginHorizontal: 20}}>
-                <View>
-                  <Text
-                    style={[globalStyles.textMDGreyLight, {paddingBottom: 10}]}>
-                    Discount price
-                  </Text>
-                  <InputGroupAddon
-                    addonText={userInfo?.currencySymbol ?? ''}
-                    position="left"
-                    value={discountPriceSheet}
-                    onChangeText={setDiscountPriceSheet}
-                    placeholder="Enter price"
-                  />
-                </View>
-                <View style={{paddingTop: 20}}>
-                  <Text
-                    style={[globalStyles.textMDGreyLight, {paddingBottom: 10}]}>
-                    or discount on percentage
-                  </Text>
-                  <InputGroupAddon
-                    addonText="% OFF"
-                    position="right"
-                    value={discountPercentageSheet}
-                    onChangeText={setDiscountPercentageSheet}
-                    placeholder="Enter percentage"
-                  />
-                </View>
-                <View style={{paddingTop: 20}}>
-                  <TouchableOpacity
-                    style={{
-                      // position: 'absolute',
-                      // bottom: 0,
-                      width: '100%',
-                    }}
-                    onPress={onPressUpdateApplyDiscountPost}>
-                    <View style={globalStyles.primaryButton}>
-                      <Text
-                        style={[
-                          globalStyles.textMDWhite,
-                          {textAlign: 'center'},
-                        ]}>
-                        Apply Discount
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </ActionSheet>
         </View>
       </ScrollView>
+
+      <ReusableActionSheet
+        code={code}
+        visible={showSheet}
+        onClose={() => setShowSheet(false)}
+        sortOptions={sortOptions}
+        genusOptions={genusOptions}
+        variegationOptions={variegationOptions}
+        listingTypeOptions={listingTypeOptions}
+        sortValue={reusableSort}
+        sortChange={setReusableSort}
+        genusValue={reusableGenus}
+        genusChange={setReusableGenus}
+        variegationValue={reusableVariegation}
+        variegationChange={setReusableVariegation}
+        listingTypeValue={reusableListingType}
+        listingTypeChange={setReusableListingType}
+        handleSearchSubmit={handleFilterView}
+      />
+      <ListingActionSheet
+        code={actionSheetCode}
+        visible={showActionSheet}
+        onClose={() => setActionShowSheet(false)}
+        onPressUpdateStockShow={() => setShowSheetUpdateStocks(true)}
+        onPressEdit={() =>
+          navigation.navigate('ScreenListingDetail', {
+            onGoBack: setIsInitialFetchRefresh(prev => !prev),
+            plantCode: selectedItemStockUpdate.plantCode,
+          })
+        }
+        onPressDelete={onPressDeleteConfirm}
+      />
+
+      <ActionSheet
+        visible={showSheetUpdateStocks}
+        onClose={() => setShowSheetUpdateStocks(false)}
+        heightPercent={'50%'}>
+        <View style={styles.sheetTitleContainer}>
+          <Text style={styles.sheetTitle}>Update Stocks</Text>
+          <TouchableOpacity onPress={() => setShowSheetUpdateStocks(false)}>
+            <ExIcon width={20} height={20} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={{paddingHorizontal: 20}}>
+          {Array.isArray(selectedItemStockUpdate.variations) &&
+          selectedItemStockUpdate.variations.length > 0 ? (
+            selectedItemStockUpdate.variations.map((variation, index) => (
+              <View key={variation.id || index} style={{marginTop: 10}}>
+                <Text
+                  style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                  Pot size: {variation.potSize || 'N/A'}
+                </Text>
+                <Text
+                  style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                  Current Quantity
+                </Text>
+                <InputBox
+                  placeholder="Quantity"
+                  value={quantities[variation.id] || ''}
+                  setValue={text =>
+                    setQuantities(prev => ({...prev, [variation.id]: text}))
+                  }
+                />
+              </View>
+            ))
+          ) : selectedItemStockUpdate.potSize ? (
+            <View style={{marginTop: 10}}>
+              <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                Pot size: {selectedItemStockUpdate.potSize}
+              </Text>
+              <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 10}]}>
+                Current Quantity
+              </Text>
+              <InputBox
+                placeholder="Quantity"
+                value={quantities.single || ''}
+                setValue={text =>
+                  setQuantities(prev => ({...prev, single: text}))
+                }
+              />
+            </View>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          onPress={() => onPressUpdateStockPost()}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            paddingHorizontal: 20,
+            width: '100%',
+            paddingBottom: 10,
+          }}>
+          <View style={globalStyles.primaryButton}>
+            <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+              Update Stocks
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </ActionSheet>
+
+      <ActionSheet
+        visible={showSheetDiscount}
+        onClose={() => setShowSheetDiscount(false)}
+        heightPercent={'40%'}>
+        <View style={{height: '100%'}}>
+          <View style={styles.sheetTitleContainer}>
+            <Text style={styles.sheetTitle}>Apply Discount</Text>
+            <TouchableOpacity onPress={() => setShowSheetDiscount(false)}>
+              <ExIcon width={20} height={20} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={{marginHorizontal: 20}}>
+            <View>
+              <Text style={[globalStyles.textMDGreyLight, {paddingBottom: 10}]}>
+                Discount price
+              </Text>
+              <InputGroupAddon
+                addonText={userInfo?.currencySymbol ?? ''}
+                position="left"
+                value={discountPriceSheet}
+                onChangeText={setDiscountPriceSheet}
+                placeholder="Enter price"
+              />
+            </View>
+            <View style={{paddingTop: 20}}>
+              <Text style={[globalStyles.textMDGreyLight, {paddingBottom: 10}]}>
+                or discount on percentage
+              </Text>
+              <InputGroupAddon
+                addonText="% OFF"
+                position="right"
+                value={discountPercentageSheet}
+                onChangeText={setDiscountPercentageSheet}
+                placeholder="Enter percentage"
+              />
+            </View>
+            <View style={{paddingTop: 20}}>
+              <TouchableOpacity
+                style={{
+                  // position: 'absolute',
+                  // bottom: 0,
+                  width: '100%',
+                }}
+                onPress={onPressUpdateApplyDiscountPost}>
+                <View style={globalStyles.primaryButton}>
+                  <Text
+                    style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                    Apply Discount
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </ActionSheet>
+
       <ConfirmDelete
         visible={deleteModalVisible}
         onDelete={onPressDelete}
