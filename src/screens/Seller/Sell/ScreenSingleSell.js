@@ -205,7 +205,8 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [selectedGenus, setSelectedGenus] = useState('');
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    setLoading(true);
+    setTimeout(() => setLoading(true), 300);
+    // setLoading(true);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
@@ -223,7 +224,8 @@ const ScreenSingleSell = ({navigation, route}) => {
     // setdropdownVariegationDisable(false);
     setSelectedVariegation('');
     setSelectedSpecies(species);
-    setLoading(true);
+    // setLoading(true);
+    setTimeout(() => setLoading(true), 300);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
