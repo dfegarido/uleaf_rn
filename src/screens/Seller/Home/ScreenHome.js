@@ -330,7 +330,10 @@ const ScreenHome = ({navigation}) => {
             style={styles.topNavItem}
             onPress={() => navigation.navigate('ScreenPayout')}>
             <PayoutsIcon width={40} height={40} />
-            <Text style={globalStyles.textSMGreyLight}>Payouts</Text>
+            <Text
+              style={[globalStyles.textSMGreyLight, globalStyles.textSemiBold]}>
+              Payouts
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.topNavItem}
@@ -341,7 +344,10 @@ const ScreenHome = ({navigation}) => {
                 {/* <Text style={styles.msgBadgeText}>23</Text> */}
               </View>
             </View>
-            <Text style={globalStyles.textSMGreyLight}>Messages</Text>
+            <Text
+              style={[globalStyles.textSMGreyLight, globalStyles.textSemiBold]}>
+              Messages
+            </Text>
           </TouchableOpacity>
         </View>
         {/* Top Navigation */}
