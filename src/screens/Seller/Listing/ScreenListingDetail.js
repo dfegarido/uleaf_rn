@@ -942,7 +942,7 @@ const ScreenListingDetail = ({navigation, route}) => {
         code={listingData?.listingType}
         visible={showActionSheet}
         onClose={() => setActionShowSheet(false)}
-        onPressUpdateStockShow={setShowSheetUpdateStocks}
+        onPressUpdateStockShow={() => setShowSheetUpdateStocks(true)}
         showSheetUpdateStocks={showSheetUpdateStocks}
         onPressEdit={() => {
           if (listingData?.listingType == 'Single Plant') {

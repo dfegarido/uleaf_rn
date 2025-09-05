@@ -241,7 +241,11 @@ const ScreenProfileAccount = ({navigation, route}) => {
           </View>
         </Modal>
       )}
-      <ScrollView style={[styles.container]}>
+      <ScrollView
+        style={[styles.container]}
+        contentContainerStyle={{
+          marginBottom: insets.bottom + 30,
+        }}>
         {/* Search and Icons */}
         <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
           <View style={styles.header}>

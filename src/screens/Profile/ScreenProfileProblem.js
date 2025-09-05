@@ -105,7 +105,8 @@ const ScreenProfileProblem = ({navigation}) => {
   // Update
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingBottom: insets.bottom}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -115,6 +116,9 @@ const ScreenProfileProblem = ({navigation}) => {
       )}
       <ScrollView
         style={[styles.container, {paddingTop: insets.top}]}
+        // contentContainerStyle={{
+        //   marginBottom: insets.bottom + 30,
+        // }}
         stickyHeaderIndices={[0]}>
         {/* Header */}
         <View style={styles.stickyHeader}>

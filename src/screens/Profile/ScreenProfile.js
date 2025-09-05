@@ -83,9 +83,18 @@ const ScreenProfile = ({navigation}) => {
 
   return (
     <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+      style={{
+        flex: 1,
+        backgroundColor: '#fff',
+        paddingTop: insets.top,
+      }}>
       <ScrollView
-        style={styles.container}
+        style={[
+          styles.container,
+          // {
+          //   marginBottom: insets.bottom + 120,
+          // },
+        ]}
         stickyHeaderIndices={[0]}
         contentContainerStyle={{
           marginBottom: insets.bottom + 30,
