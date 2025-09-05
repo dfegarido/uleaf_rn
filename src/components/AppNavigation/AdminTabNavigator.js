@@ -20,7 +20,7 @@ import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 import UserManagement from '../../screens/Admin/Home/UserManagement';
 import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
 import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
-import EnrollAdmin from '../../screens/Admin/LeafTrail/EnrollAdmin';
+import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import UserInformation from '../../screens/Admin/Home/UserInformation';
 import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
@@ -154,7 +154,7 @@ function AdminTabs() {
           component={AdminTabs}
           options={{headerShown: false}}
         />
-     <Stack.Screen name="EnrollAdmin" options={{headerShown: false}} component={EnrollAdmin} />
+     <Stack.Screen name="EnrollSeller" options={{headerShown: false}} component={EnrollSeller} />
      <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />

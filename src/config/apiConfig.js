@@ -39,6 +39,8 @@ const generateEndpoints = () => ({
   LIST_ADMINS: `${getBaseUrl()}/listAdmins`,
   UPDATE_ADMIN: `${getBaseUrl()}/updateAdmin`,
   UPDATE_ADMIN_PASSWORD: `${getBaseUrl()}/updateAdminPassword`,
+  GET_ALL_USERS: `${getBaseUrl()}/getAllUsers`,
+  UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
   
   // QR Code APIs
   QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
