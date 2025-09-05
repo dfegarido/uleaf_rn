@@ -131,7 +131,7 @@ export const globalStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
   textSemiBold: {
-    fontWeight: 'semibold',
+    fontWeight: '600',
   },
   textRegular: {
     fontWeight: 'regular',
@@ -157,7 +157,6 @@ export const globalStyles = StyleSheet.create({
   textXLGreyDark: {
     color: colors.greyDark,
     fontSize: fontSize.xl,
-   
   },
   textXXLGreyDark: {
     color: colors.greyDark,
