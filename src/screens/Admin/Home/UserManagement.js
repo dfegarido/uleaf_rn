@@ -37,13 +37,13 @@ const LeafTrailHeader = ({ insets, onPressAdd = () => {}, onSearchChange = () =>
         </View>
 
         <TouchableOpacity style={styles.addButton} onPress={onPressAdd}>
-          <PlusIcon width={24} height={24} />
+          <PlusIcon />
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity activeOpacity={0.5} style={styles.roleChip} onPress={onPressRole}>
         <Text style={styles.roleText}>User Roles</Text>
-        <DownIcon width={16} height={16} />
+        <DownIcon style={{ marginLeft: 10 }}  width={16} height={16} />
       </TouchableOpacity>
     </View>
   );
@@ -341,7 +341,13 @@ const UserManagement = () => {
   };
 
   const handleEditUser = (user) => {
-    navigation.navigate('UserInformation', { user });
+    // Ensure user status is properly formatted for the UserInformation screen
+    const formattedUser = {
+      ...user,
+      // Keep the original status case for display but ensure it's correctly recognized
+      status: user.status
+    };
+    navigation.navigate('UserInformation', { user: formattedUser });
   };
 
   // Handle user status update
@@ -574,8 +580,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 8,
-    width: 114,
+    padding: 5,
+    width: 120,
     height: 34,
     minHeight: 34,
     backgroundColor: '#FFFFFF',
@@ -587,7 +593,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
     color: '#393D40',
-    marginRight: 4,
+    marginRight: 10,
   },
   usersList: {
     flex: 1,

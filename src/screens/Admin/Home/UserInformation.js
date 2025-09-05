@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, TextInput, Modal, SafeAreaView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -9,48 +9,19 @@ import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 import { API_ENDPOINTS, API_CONFIG } from '../../../config/apiConfig';
-
-const UserInformationHeader = ({ user }) => {
-  const navigation = useNavigation();
-
-  return (
-    <View style={styles.headerContainer}>
-      <View style={styles.topRow}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          activeOpacity={0.8}
-        >
-          <BackIcon width={24} height={24} />
-        </TouchableOpacity>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.headerTitle}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)} Information</Text>
-        </View>
-
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.deleteButton}
-          activeOpacity={0.8}
-        >
-          <View style={styles.deleteButtonContainer}>
-            <TrashIcon width={40} height={40} />
-          </View>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+import { deleteUserApi } from '../../../components/Api/deleteUserApi';
+import { UserInformationHeader } from './UserInformationHeader';
 
 const UserInformation = () => {
+  const navigation = useNavigation();
   const route = useRoute();
   const { user } = route.params || {};
   const [isVideoLiveEnabled, setIsVideoLiveEnabled] = useState(false);
-  const [isAccountActive, setIsAccountActive] = useState(user?.status === 'Active');
+  const [isAccountActive, setIsAccountActive] = useState(user?.status?.toLowerCase() === 'active');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
   
   // Available countries
   const countries = [
@@ -149,9 +120,14 @@ const UserInformation = () => {
       const countryCode = user.country && user.country.length <= 2 ? user.country : '';
       const countryName = getFullCountryName(user.country) || '';
 
+      console.log('Setting initial fields:', { 
+        country: countryName || 'Philippines', 
+        countryCode: countryCode || 'PH' 
+      });
+
       setEditableFields({
-        country: countryName,
-        countryCode: countryCode,
+        country: countryName || 'Philippines',
+        countryCode: countryCode || 'PH',
         gardenOrCompanyName: user.gardenOrCompanyName || '',
         firstName: firstName || '',
         lastName: lastName || '',
@@ -244,6 +220,17 @@ const UserInformation = () => {
       handleProfileUpdate();
     } else {
       // If we're not editing, enter edit mode
+      // Make sure country information is properly set before entering edit mode
+      if (!editableFields.country && user.country) {
+        const countryCode = user.country && user.country.length <= 2 ? user.country : '';
+        const countryName = getFullCountryName(user.country) || '';
+        
+        setEditableFields(prev => ({
+          ...prev,
+          country: countryName,
+          countryCode: countryCode || getCountryCodeFromName(countryName)
+        }));
+      }
       setIsEditing(true);
     }
   };
@@ -268,7 +255,7 @@ const UserInformation = () => {
       setIsUpdatingStatus(true);
       
       // Determine the new status (opposite of current)
-      const newStatus = isAccountActive ? 'de-activate' : 'active';
+      const newStatus = isAccountActive ? 'inactive' : 'active';
       
       // Get auth token
       const authToken = await getStoredAuthToken();
@@ -334,11 +321,63 @@ const UserInformation = () => {
   };
 
   // Get current status text based on toggle state
-  const currentStatus = isAccountActive ? 'Active' : 'Deactivated';
+  const currentStatus = isAccountActive ? 'Active' : 'Inactive';
+
+  // Handle user deletion with useCallback to avoid React hook errors
+  const confirmDeleteUser = useCallback(async () => {
+    try {
+      setIsDeletingUser(true);
+      
+      const userId = user.id || user.userId;
+      console.log('Deleting user with ID:', userId);
+      
+      const response = await deleteUserApi(userId, "Deleted by administrator");
+      console.log('Delete response:', response);
+      
+      Alert.alert(
+        "Success",
+        "User account has been deleted successfully",
+        [
+          { 
+            text: "OK",
+            onPress: () => navigation.goBack()
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      
+      Alert.alert(
+        "Error",
+        `Failed to delete user: ${error.message}`,
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsDeletingUser(false);
+    }
+  }, [user, navigation]);
+
+  const handleDeleteUser = useCallback(() => {
+    Alert.alert(
+      "Delete User",
+      `Are you sure you want to delete this user account? This action cannot be undone.`,
+      [
+        { 
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: confirmDeleteUser
+        }
+      ]
+    );
+  }, [confirmDeleteUser]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <UserInformationHeader user={user} />
+      <UserInformationHeader user={user} onDeleteUser={handleDeleteUser} isDeleting={isDeletingUser} />
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile Section */}
@@ -359,7 +398,7 @@ const UserInformation = () => {
               <View style={styles.alertContent}>
                 <Text style={styles.alertTitle}>Inactive account</Text>
                 <Text style={styles.alertMessage}>
-                  The account has been deactivated due to failure to post for 4 consecutive weeks.
+                  This account is currently inactive. Toggle the account status to activate it.
                 </Text>
               </View>
             </View>
@@ -406,8 +445,8 @@ const UserInformation = () => {
                   {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
-                  <Text style={{ color: editableFields.country ? '#1F2937' : '#9CA3AF' }}>
-                    {editableFields.country || 'Select country'}
+                  <Text style={{ color: editableFields.country ? '#1F2937' : '#9CA3AF', marginLeft: 8 }}>
+                    {editableFields.country || 'Philippines'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -878,8 +917,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 0,
+    marginBottom: 100,
   },
   updateButtonText: {
     color: '#FFFFFF',
