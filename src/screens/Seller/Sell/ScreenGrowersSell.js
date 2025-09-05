@@ -208,7 +208,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
   // Dropdown Genus
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    setLoading(true);
+    setTimeout(() => setLoading(true), 300);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
@@ -223,7 +223,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
   // Dropdown Species
   const handleSpeciesChange = async species => {
     setSelectedSpecies(species);
-    setLoading(true);
+    setTimeout(() => setLoading(true), 300);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
