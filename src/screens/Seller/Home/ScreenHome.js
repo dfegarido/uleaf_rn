@@ -118,7 +118,7 @@ const ScreenHome = ({navigation}) => {
       throw new Error(res?.message || 'Failed to load summary API.');
     }
 
-    console.log(res);
+    // console.log(res);
     setTotalSales(res.stats.currency);
     setPlantSold(res.stats.plantsSold);
     setPlantListed(res.stats.listingsCreated);
