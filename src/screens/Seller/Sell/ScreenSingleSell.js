@@ -205,7 +205,7 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [selectedGenus, setSelectedGenus] = useState('');
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    setTimeout(() => setLoading(true), 300);
+    // setTimeout(() => setLoading(true), 300);
     // setLoading(true);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
@@ -213,7 +213,7 @@ const ScreenSingleSell = ({navigation, route}) => {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
   // Dropdown Genus
@@ -225,14 +225,14 @@ const ScreenSingleSell = ({navigation, route}) => {
     setSelectedVariegation('');
     setSelectedSpecies(species);
     // setLoading(true);
-    setTimeout(() => setLoading(true), 300);
+    // setTimeout(() => setLoading(true), 300);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
   // Dropdown Species
