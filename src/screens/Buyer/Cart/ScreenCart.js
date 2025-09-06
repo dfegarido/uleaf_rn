@@ -74,11 +74,6 @@ const getValidImageSource = (imageUrl, plantCode) => {
   }
 };
 
-// Silence debug console.log in this module (buyer Cart screen)
-if (typeof console !== 'undefined' && console.log) {
-  console.log = () => {}; // no-op
-}
-
 // Header height constant for safe area calculations
 const HEADER_HEIGHT = 110;
 

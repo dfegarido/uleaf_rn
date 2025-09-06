@@ -853,6 +853,17 @@ const CheckoutScreen = () => {
       }
     }
     
+    // Calculate air base cargo credit and effective air base cargo
+    // If buyer has already paid air base cargo for this flight date, apply credit
+    let appliedAirBaseCargoCredit = 0;
+    let effectiveAirBaseCargo = airBaseCargo;
+    
+    if (priorPaidAirBaseCargoAmount > 0 && airBaseCargo > 0) {
+      // Apply the credit (reduce the air base cargo by the amount already paid)
+      appliedAirBaseCargoCredit = Math.min(airBaseCargo, priorPaidAirBaseCargoAmount);
+      effectiveAirBaseCargo = Math.max(0, airBaseCargo - appliedAirBaseCargoCredit);
+    }
+    
     
     
     // Add UPS Next Day upgrade if enabled (60% of UPS 2nd day shipping cost)

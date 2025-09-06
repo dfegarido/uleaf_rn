@@ -24,7 +24,7 @@ export const getOrdersApi = async (params = {}) => {
     });
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getOrders?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_ORDERS}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {

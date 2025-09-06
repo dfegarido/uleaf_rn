@@ -76,6 +76,7 @@ const generateEndpoints = () => ({
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
   
   // Order APIs
+  GET_ORDERS: `${getBaseUrl()}/getOrders`,
   GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
   GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
   

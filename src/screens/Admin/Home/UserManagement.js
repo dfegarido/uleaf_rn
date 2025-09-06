@@ -26,15 +26,23 @@ const LeafTrailHeader = ({ insets, onPressAdd = () => {}, onSearchChange = () =>
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
 
-        <View style={styles.searchContainer}>
-          <SearchIcon width={20} height={20} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search users..."
-            placeholderTextColor="#647276"
-            onChangeText={onSearchChange}
-          />
-        </View>
+        <TouchableOpacity 
+          style={styles.searchContainerWrapper} 
+          activeOpacity={1}
+          onPress={() => {}}
+        >
+          <View style={styles.searchContainer}>
+            <SearchIcon width={20} height={20} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search users..."
+              placeholderTextColor="#647276"
+              onChangeText={onSearchChange}
+              editable={true}
+              pointerEvents="auto"
+            />
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.addButton} onPress={onPressAdd}>
           <PlusIcon />
@@ -544,6 +552,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
+  searchContainerWrapper: {
+    flex: 1,
+  },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -557,6 +568,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
+    zIndex: 1,
   },
   searchInput: {
     flex: 1,
@@ -564,6 +576,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: '#647276',
+    padding: 0,
+    height: '100%',
   },
   addButton: {
     width: 40,
