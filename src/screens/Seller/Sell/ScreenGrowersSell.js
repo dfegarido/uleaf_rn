@@ -634,6 +634,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
     }
 
     const newPotSize = res.data.variations.map(variation => ({
+      // id: variation.id,
       id: variation.id,
       image: variation.imagePrimary ?? null,
       size: variation.potSize ?? '',
@@ -706,6 +707,8 @@ const ScreenGrowersSell = ({navigation, route}) => {
             item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
         })),
       };
+
+      // console.log(data);
 
       const response = await postSellUpdateApi(data);
 
@@ -838,10 +841,17 @@ const ScreenGrowersSell = ({navigation, route}) => {
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
           Grower's Choice
         </Text>
-        {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
             <Text style={globalStyles.textLGAccent}>Save</Text>
           </TouchableOpacity>
+        )} */}
+        {isFromDuplicateSell || !plantCode || isFromDraftSell ? (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text>{''}</Text> // empty string element
         )}
       </View>
       <ScrollView
