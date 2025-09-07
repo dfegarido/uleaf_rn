@@ -270,6 +270,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
     console.log(userInfo);
 
     const newPotSize = {
+      id: idVariation,
       image: imagesPotSize?.[0] ?? null,
       size: selectedPotSize,
       price: potPrice,
@@ -312,10 +313,12 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [idVariation, setIdVariation] = useState(null);
 
   const handleEdit = item => {
     const index = potSizeList.findIndex(pot => pot === item);
     if (index !== -1) {
+      setIdVariation(item.id);
       setEditingIndex(index);
       setImagesPotSize(item.image ? [item.image] : []);
       setSelectPotSize(item.size);

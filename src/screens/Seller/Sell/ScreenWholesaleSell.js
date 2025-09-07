@@ -267,9 +267,9 @@ const ScreenSingleWholesale = ({navigation, route}) => {
 
   const onPressSavePotSize = () => {
     console.log(userInfo);
-    setUserCurrency(userInfo?.currencySymbol ?? '');
 
     const newPotSize = {
+      id: idVariation,
       image: imagesPotSize?.[0] ?? null,
       size: selectedPotSize,
       price: potPrice,
@@ -282,12 +282,12 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       return;
     }
 
-    if (newPotSize.price === 0) {
+    if (newPotSize.price == 0) {
       Alert.alert('Invalid Price', 'Price cannot be zero.');
       return;
     }
 
-    if (newPotSize.quantity === 0) {
+    if (newPotSize.quantity == 0) {
       Alert.alert('Invalid Quantity', 'Quantity cannot be zero.');
       return;
     }
@@ -312,10 +312,12 @@ const ScreenSingleWholesale = ({navigation, route}) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [idVariation, setIdVariation] = useState(null);
 
   const handleEdit = item => {
     const index = potSizeList.findIndex(pot => pot === item);
     if (index !== -1) {
+      setIdVariation(item.id);
       setEditingIndex(index);
       setImagesPotSize(item.image ? [item.image] : []);
       setSelectPotSize(item.size);
