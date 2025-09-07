@@ -841,10 +841,17 @@ const ScreenGrowersSell = ({navigation, route}) => {
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
           Grower's Choice
         </Text>
-        {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
             <Text style={globalStyles.textLGAccent}>Save</Text>
           </TouchableOpacity>
+        )} */}
+        {isFromDuplicateSell || !plantCode || isFromDraftSell ? (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text>{''}</Text> // empty string element
         )}
       </View>
       <ScrollView

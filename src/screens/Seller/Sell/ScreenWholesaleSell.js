@@ -836,10 +836,17 @@ const ScreenSingleWholesale = ({navigation, route}) => {
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
           Wholesale
         </Text>
-        {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
             <Text style={globalStyles.textLGAccent}>Save</Text>
           </TouchableOpacity>
+        )} */}
+        {isFromDuplicateSell || !plantCode || isFromDraftSell ? (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text>{''}</Text> // empty string element
         )}
       </View>
       <ScrollView
