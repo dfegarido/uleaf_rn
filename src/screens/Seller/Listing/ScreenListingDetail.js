@@ -944,7 +944,10 @@ const ScreenListingDetail = ({navigation, route}) => {
         code={listingData?.listingType}
         visible={showActionSheet}
         onClose={() => setActionShowSheet(false)}
-        onPressUpdateStockShow={() => setShowSheetUpdateStocks(true)}
+        onPressUpdateStockShow={() => {
+          setActionShowSheet(false);
+          setShowSheetUpdateStocks(true);
+        }}
         // onPressUpdateStockShow={setShowSheetUpdateStocks}
         // showSheetUpdateStocks={showSheetUpdateStocks}
         onPressEdit={() => {
