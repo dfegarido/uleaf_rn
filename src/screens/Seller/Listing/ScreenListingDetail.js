@@ -944,9 +944,9 @@ const ScreenListingDetail = ({navigation, route}) => {
         code={listingData?.listingType}
         visible={showActionSheet}
         onClose={() => setActionShowSheet(false)}
-        onPressUpdateStockShow={setShowSheetUpdateStocks}
+        onPressUpdateStockShow={() => setShowSheetUpdateStocks(true)}
         // onPressUpdateStockShow={setShowSheetUpdateStocks}
-        showSheetUpdateStocks={showSheetUpdateStocks}
+        // showSheetUpdateStocks={showSheetUpdateStocks}
         onPressEdit={() => {
           if (listingData?.listingType == 'Single Plant') {
             navigation.navigate('ScreenSingleSell', {
