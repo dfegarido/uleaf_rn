@@ -870,7 +870,10 @@ const ScreenListing = ({navigation}) => {
         code={actionSheetCode}
         visible={showActionSheet}
         onClose={() => setActionShowSheet(false)}
-        onPressUpdateStockShow={() => setShowSheetUpdateStocks(true)}
+        onPressUpdateStockShow={() => {
+          setActionShowSheet(false);
+          setShowSheetUpdateStocks(true);
+        }}
         onPressEdit={() =>
           navigation.navigate('ScreenListingDetail', {
             onGoBack: setIsInitialFetchRefresh(prev => !prev),
