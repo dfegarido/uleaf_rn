@@ -105,7 +105,7 @@ const ListingActionSheet = ({
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => onPressUpdateStockShow()}
+                onPress={onPressUpdateStockShow}
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
