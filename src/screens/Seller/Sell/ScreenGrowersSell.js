@@ -707,6 +707,8 @@ const ScreenGrowersSell = ({navigation, route}) => {
         })),
       };
 
+      // console.log(data);
+
       const response = await postSellUpdateApi(data);
 
       if (!response?.success) {
