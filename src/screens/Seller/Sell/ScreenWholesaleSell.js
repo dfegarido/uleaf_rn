@@ -631,6 +631,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     }
 
     const newPotSize = res.data.variations.map(variation => ({
+      id: variation.id,
       image: variation.imagePrimary ?? null,
       size: variation.potSize ?? '',
       price: variation.localPrice ?? 0,
