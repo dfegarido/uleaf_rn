@@ -693,13 +693,13 @@ const ScreenSingleWholesale = ({navigation, route}) => {
             ? 'Publish Now'
             : 'Publish on Nursery Drop',
         variation: uploadedPotSizeList.map(item => ({
+          id: item.id,
           imagePrimary: item.image,
           potSize: item.size,
           localPrice: Number(item.price),
           availableQty: Number(item.quantity),
           approximateHeight:
             item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
-          localCurrencySymbol: userCurrency,
         })),
       };
 

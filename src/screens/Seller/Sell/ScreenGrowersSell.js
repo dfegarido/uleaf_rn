@@ -696,6 +696,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
             ? 'Publish Now'
             : 'Publish on Nursery Drop',
         variation: uploadedPotSizeList.map(item => ({
+          id: item.id,
           imagePrimary: item.image,
           potSize: item.size,
           localPrice: Number(item.price),
