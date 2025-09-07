@@ -460,7 +460,7 @@ const ScreenListing = ({navigation}) => {
   const onPressUpdateStockPost = async () => {
     setActionShowSheet(false);
     setShowSheetUpdateStocks(false);
-    setLoading(true);
+    // setLoading(true);
     try {
       const {variations, plantCode} = selectedItemStockUpdate;
 
@@ -487,7 +487,7 @@ const ScreenListing = ({navigation}) => {
       console.log('Error updating stock:', error.message);
       Alert.alert('Update stocks', error.message);
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
   // Add stocks
