@@ -634,6 +634,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
     }
 
     const newPotSize = res.data.variations.map(variation => ({
+      // id: variation.id,
       id: variation.id,
       image: variation.imagePrimary ?? null,
       size: variation.potSize ?? '',
