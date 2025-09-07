@@ -699,6 +699,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
           availableQty: Number(item.quantity),
           approximateHeight:
             item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
+          localCurrencySymbol: userCurrency,
         })),
       };
 
