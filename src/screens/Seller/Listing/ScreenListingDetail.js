@@ -278,6 +278,8 @@ const ScreenListingDetail = ({navigation, route}) => {
   }, [listingData]); // <-- include this if you want it to re-run when listingData changes
 
   const onPressUpdateStockPost = async () => {
+    setActionShowSheet(false);
+    setShowSheetUpdateStocks(false);
     setLoading(true);
     try {
       // Extract pot sizes and map their IDs to corresponding quantities from qtyMap
