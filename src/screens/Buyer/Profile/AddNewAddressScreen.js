@@ -199,8 +199,7 @@ const AddNewAddressScreen = () => {
       } else {
         throw new Error(response?.message || 'Failed to add address');
       }
-    } catch (error) {
-      console.log('Error adding address:', error);
+      } catch (error) {
       Alert.alert(
         'Error', 
         error.message || 'Failed to add address. Please try again.'

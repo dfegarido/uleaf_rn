@@ -129,8 +129,8 @@ const AccountInformationScreen = () => {
         }
         
         await loadProfileData();
-      } catch (error) {
-        console.log('Fetching profile details:', error);
+    } catch (error) {
+      
       } finally {
         setLoading(false);
       }
@@ -172,8 +172,6 @@ const AccountInformationScreen = () => {
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load profile api');
     }
-
-    console.log('Profile data:', res);
     setData(res);
     
     // Store original data for comparison
@@ -346,16 +344,16 @@ const AccountInformationScreen = () => {
             profile.profilePhotoUrl = newUrl;
             await AsyncStorage.setItem('buyerProfile', JSON.stringify(profile));
           } catch (e) {
-            console.warn('Failed to update buyerProfile in AsyncStorage:', e);
+            
           }
         }
-      } catch (e) {
-        console.warn('Failed to store profile photo URL in AsyncStorage:', e);
-      }
+  } catch (e) {
+        
+  }
 
       // Persist canonical URL into AuthContext with the same timestamp for consistency
-      if (typeof updateProfileImage === 'function') {
-        console.log('Updating profile image in AuthContext (canonical)');
+  if (typeof updateProfileImage === 'function') {
+        
         // Force the timestamp in AuthContext to match our local one for consistent updates
         await updateProfileImage(newUrl);
         
@@ -368,10 +366,10 @@ const AccountInformationScreen = () => {
             userInfoObj.profileImageTimestamp = timestamp;
             userInfoObj.profileImageWithTimestamp = localCacheBusted;
             await AsyncStorage.setItem('userInfo', JSON.stringify(userInfoObj));
-            console.log('Updated userInfo in AsyncStorage with new profile image');
+            
           }
         } catch (e) {
-          console.warn('Error updating userInfo in AsyncStorage:', e);
+          
         }
         
         // Force Avatar components to refresh by triggering a state update

@@ -7,6 +7,11 @@ export * from './updateAdminInfoApi';
 export * from './updateAdminPasswordApi';
 export {postAdminAfterSignInApi} from './postAdminAfterSignInApi';
 
+// Admin User Management APIs
+export * from './getAllUsersApi';
+export * from './updateUserStatusApi';
+export * from './deleteUserApi';
+
 // Buyer Profile APIs
 export * from './getBuyerProfileApi';
 

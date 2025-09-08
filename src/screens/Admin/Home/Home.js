@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, TouchableOpacity, Image, StyleSheet, ScrollView} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import LiveSetupIcon from '../../../assets/admin-icons/live-setup.svg';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
 import {useAuth} from '../../../auth/AuthProvider';
@@ -26,14 +27,14 @@ import UserInformation from './UserInformation';
 import UserManagement from './UserManagement';
 
 
-const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}}) => {
+const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}, insets}) => {
   const {userInfo} = useAuth();
   const firstName = userInfo?.user?.firstName || userInfo?.firstName || 'Admin';
   const canGoLive = userInfo?.liveFlag !== 'No';
   const profileImage = userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
 
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, {paddingTop: insets.top}]}>
       <Text style={styles.headerTitle}>{`Welcome ${firstName}`}</Text>
 
       <View style={styles.headerActions}>
@@ -177,22 +178,30 @@ const BusinessPerformance = () => {
 
 const Home = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for admin tab bar + safe area
+  const tabBarHeight = 60; // Standard admin tab bar height
+  const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
 
   return (
-    <View style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       <AdminHeader
         onPressLive={() => navigation.navigate('LiveBroadcastScreen')}
         onPressProfile={() => navigation.navigate('AdminProfile')}
+        insets={insets}
       />
       <ScrollView
         style={{flex: 1}}
-        contentContainerStyle={{paddingBottom: 85}}>
+        contentContainerStyle={{paddingBottom: totalBottomPadding}}
+        showsVerticalScrollIndicator={false}>
         <BusinessPerformance />
         <LeafTrailGreenhouse navigation={navigation} />
         <BehindTheJungle />
         <NewsEventsRewards />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -204,7 +213,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
     paddingBottom: 8,
     backgroundColor: '#fff',
   },

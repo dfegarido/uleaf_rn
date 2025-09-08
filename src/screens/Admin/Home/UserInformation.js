@@ -1,48 +1,47 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, TextInput, Modal, SafeAreaView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import TrashIcon from '../../../assets/admin-icons/trash-can.svg';
 import CheckedBoxIcon from '../../../assets/admin-icons/checked-box.svg';
-
-const UserInformationHeader = ({ user }) => {
-  const navigation = useNavigation();
-
-  return (
-    <View style={styles.headerContainer}>
-      <View style={styles.topRow}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          activeOpacity={0.8}
-        >
-          <BackIcon width={24} height={24} />
-        </TouchableOpacity>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.headerTitle}>{user.role} Information</Text>
-        </View>
-
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.deleteButton}
-          activeOpacity={0.8}
-        >
-          <View style={styles.deleteButtonContainer}>
-            <TrashIcon width={40} height={40} />
-          </View>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+import PhFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
+import { API_ENDPOINTS, API_CONFIG } from '../../../config/apiConfig';
+import { deleteUserApi } from '../../../components/Api/deleteUserApi';
+import { UserInformationHeader } from './UserInformationHeader';
 
 const UserInformation = () => {
+  const navigation = useNavigation();
   const route = useRoute();
   const { user } = route.params || {};
   const [isVideoLiveEnabled, setIsVideoLiveEnabled] = useState(false);
-  const [isAccountActive, setIsAccountActive] = useState(user?.status === 'Active');
+  const [isAccountActive, setIsAccountActive] = useState(user?.status?.toLowerCase() === 'active');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  
+  // Available countries
+  const countries = [
+    { code: 'PH', name: 'Philippines' },
+    { code: 'TH', name: 'Thailand' },
+    { code: 'ID', name: 'Indonesia' }
+  ];
+  
+  // Editable fields state
+  const [editableFields, setEditableFields] = useState({
+    country: user?.country || '',
+    countryCode: user?.countryCode || '',
+    gardenOrCompanyName: user?.gardenOrCompanyName || '',
+    firstName: '',
+    lastName: '',
+    contactNumber: user?.contactNumber || user?.phone || ''
+  });
+  
+  // Form editing mode
+  const [isEditing, setIsEditing] = useState(false);
 
   if (!user) {
     return (
@@ -62,30 +61,330 @@ const UserInformation = () => {
     const colors = ['#E3F2FD', '#FFF3E0', '#E8F5E8', '#FFF9C4', '#F3E5F5', '#FFE0B2', '#E0F2F1'];
     return colors[(id - 1) % colors.length];
   };
+  
+  // Convert country name to country code
+  const getCountryCodeFromName = (countryName) => {
+    if (!countryName) return '';
+    
+    const nameToCodeMap = {
+      'Philippines': 'PH',
+      'Thailand': 'TH',
+      'Indonesia': 'ID'
+    };
+    
+    // If it's already a country code, just return it
+    if (Object.values(nameToCodeMap).includes(countryName)) {
+      return countryName;
+    }
+    
+    // Return the code if it exists in our map, otherwise return the name
+    return nameToCodeMap[countryName] || countryName;
+  };
+  
+  // Convert country code to full country name
+  const getFullCountryName = (countryCode) => {
+    if (!countryCode) return '';
+    
+    const countryMap = {
+      'PH': 'Philippines',
+      'TH': 'Thailand',
+      'ID': 'Indonesia'
+    };
+    
+    // If it's already a full country name, just return it
+    if (Object.values(countryMap).includes(countryCode)) {
+      return countryCode;
+    }
+    
+    // Return the full name if it exists in our map, otherwise return the code
+    return countryMap[countryCode] || countryCode;
+  };
 
-  // Extract first and last name from user.name
-  const nameParts = user.name.split(' ');
-  const firstName = nameParts[0] || '';
-  const lastName = nameParts.slice(1).join(' ') || '';
+  // Extract first and last name properly
+  let firstName = user?.firstName || '';
+  let lastName = user?.lastName || '';
+  
+  // Fallback to splitting user.name if firstName and lastName are not available
+  if ((!firstName || !lastName) && user?.name) {
+    const nameParts = user.name.split(' ');
+    const extractedFirstName = nameParts[0] || '';
+    const extractedLastName = nameParts.slice(1).join(' ') || '';
+    if (!firstName) firstName = extractedFirstName;
+    if (!lastName) lastName = extractedLastName;
+  }
+
+  // Set editable fields initial values from user data
+  useEffect(() => {
+    if (user) {
+      // Handle country code and name conversion
+      const countryCode = user.country && user.country.length <= 2 ? user.country : '';
+      const countryName = getFullCountryName(user.country) || '';
+
+      console.log('Setting initial fields:', { 
+        country: countryName || 'Philippines', 
+        countryCode: countryCode || 'PH' 
+      });
+
+      setEditableFields({
+        country: countryName || 'Philippines',
+        countryCode: countryCode || 'PH',
+        gardenOrCompanyName: user.gardenOrCompanyName || '',
+        firstName: firstName || '',
+        lastName: lastName || '',
+        contactNumber: user.contactNumber || user.phone || ''
+      });
+    }
+  }, [user]);
+
+  // Handle user profile update
+  const handleProfileUpdate = async () => {
+    if (isUpdatingProfile) return;
+    
+    try {
+      setIsUpdatingProfile(true);
+      
+      // Get auth token
+      const authToken = await getStoredAuthToken();
+      if (!authToken) {
+        throw new Error('Authentication token not available');
+      }
+      
+      // Prepare request data
+      const requestData = {
+        userId: user.id || user.userId,
+        // Send the 2-letter country code (PH, TH, ID) to the API
+        country: editableFields.countryCode || getCountryCodeFromName(editableFields.country),
+        gardenOrCompanyName: editableFields.gardenOrCompanyName,
+        firstName: editableFields.firstName,
+        lastName: editableFields.lastName,
+        contactNumber: editableFields.contactNumber
+      };
+      
+      console.log('Updating user profile:', requestData);
+      
+      // Make API call to update user
+      const response = await fetch(`${API_CONFIG.BASE_URL}/updateUserStatus`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      const responseText = await response.text();
+      console.log('Response:', responseText);
+      
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Error parsing response:', e);
+        throw new Error('Invalid response from server');
+      }
+      
+      if (!response.ok) {
+        throw new Error(responseData.error || responseData.message || 'Failed to update user profile');
+      }
+      
+      // Turn off editing mode
+      setIsEditing(false);
+      
+      // Show success message
+      Alert.alert(
+        "Success",
+        "User profile updated successfully.",
+        [{ text: "OK" }]
+      );
+      
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      
+      // Show error message
+      Alert.alert(
+        "Error",
+        `Failed to update user profile: ${error.message}`,
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  // Toggle editing mode
+  const toggleEditMode = () => {
+    if (isUpdatingProfile) return;
+    
+    if (isEditing) {
+      // If we're currently editing, submit the changes
+      handleProfileUpdate();
+    } else {
+      // If we're not editing, enter edit mode
+      // Make sure country information is properly set before entering edit mode
+      if (!editableFields.country && user.country) {
+        const countryCode = user.country && user.country.length <= 2 ? user.country : '';
+        const countryName = getFullCountryName(user.country) || '';
+        
+        setEditableFields(prev => ({
+          ...prev,
+          country: countryName,
+          countryCode: countryCode || getCountryCodeFromName(countryName)
+        }));
+      }
+      setIsEditing(true);
+    }
+  };
+  
+  // Handle country selection
+  const handleCountrySelect = (country) => {
+    // Store the full country name for display, but keep track of the code too
+    setEditableFields(prev => ({
+      ...prev, 
+      country: country.name,
+      countryCode: country.code // Store the code for API calls
+    }));
+    setIsCountryModalVisible(false);
+  };
 
   // Handle account status toggle
-  const handleAccountStatusToggle = () => {
-    setIsAccountActive(!isAccountActive);
+  const handleAccountStatusToggle = async () => {
+    // Don't allow multiple simultaneous updates
+    if (isUpdatingStatus) return;
+    
+    try {
+      setIsUpdatingStatus(true);
+      
+      // Determine the new status (opposite of current)
+      const newStatus = isAccountActive ? 'inactive' : 'active';
+      
+      // Get auth token
+      const authToken = await getStoredAuthToken();
+      if (!authToken) {
+        throw new Error('Authentication token not available');
+      }
+      
+      // Prepare request data
+      const requestData = {
+        userId: user.id || user.userId,
+        status: newStatus
+      };
+      
+      console.log('Updating user status:', requestData);
+      
+      // Make API call to update user status
+      const response = await fetch(`${API_CONFIG.BASE_URL}/updateUserStatus`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      const responseText = await response.text();
+      console.log('Response:', responseText);
+      
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Error parsing response:', e);
+        throw new Error('Invalid response from server');
+      }
+      
+      if (!response.ok) {
+        throw new Error(responseData.error || responseData.message || 'Failed to update user status');
+      }
+      
+      // Update local state
+      setIsAccountActive(!isAccountActive);
+      
+      // Show success message
+      Alert.alert(
+        "Success",
+        `User account has been ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully.`,
+        [{ text: "OK" }]
+      );
+      
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      
+      // Show error message
+      Alert.alert(
+        "Error",
+        `Failed to update user status: ${error.message}`,
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   // Get current status text based on toggle state
-  const currentStatus = isAccountActive ? 'Active' : 'Deactivated';
+  const currentStatus = isAccountActive ? 'Active' : 'Inactive';
+
+  // Handle user deletion with useCallback to avoid React hook errors
+  const confirmDeleteUser = useCallback(async () => {
+    try {
+      setIsDeletingUser(true);
+      
+      const userId = user.id || user.userId;
+      console.log('Deleting user with ID:', userId);
+      
+      const response = await deleteUserApi(userId, "Deleted by administrator");
+      console.log('Delete response:', response);
+      
+      Alert.alert(
+        "Success",
+        "User account has been deleted successfully",
+        [
+          { 
+            text: "OK",
+            onPress: () => navigation.goBack()
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      
+      Alert.alert(
+        "Error",
+        `Failed to delete user: ${error.message}`,
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsDeletingUser(false);
+    }
+  }, [user, navigation]);
+
+  const handleDeleteUser = useCallback(() => {
+    Alert.alert(
+      "Delete User",
+      `Are you sure you want to delete this user account? This action cannot be undone.`,
+      [
+        { 
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: confirmDeleteUser
+        }
+      ]
+    );
+  }, [confirmDeleteUser]);
 
   return (
-    <View style={styles.container}>
-      <UserInformationHeader user={user} />
+    <SafeAreaView style={styles.container}>
+      <UserInformationHeader user={user} onDeleteUser={handleDeleteUser} isDeleting={isDeletingUser} />
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <View style={[styles.avatar, { backgroundColor: getProfileColor(user.id) }]}>
-              <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
+              <Text style={styles.avatarText}>{firstName ? firstName.charAt(0) : (user.username ? user.username.charAt(0) : '?')}</Text>
             </View>
             <Text style={styles.username}>@{user.username}</Text>
           </View>
@@ -99,7 +398,7 @@ const UserInformation = () => {
               <View style={styles.alertContent}>
                 <Text style={styles.alertTitle}>Inactive account</Text>
                 <Text style={styles.alertMessage}>
-                  The account has been deactivated due to failure to post for 4 consecutive weeks.
+                  This account is currently inactive. Toggle the account status to activate it.
                 </Text>
               </View>
             </View>
@@ -112,15 +411,20 @@ const UserInformation = () => {
               <Text style={[styles.statusText, { color: getStatusColor(currentStatus) }]}>
                 {currentStatus}
               </Text>
-              <TouchableOpacity 
-                style={[styles.toggleSwitch, { backgroundColor: isAccountActive ? '#23C16B' : '#D1D5DB' }]}
-                onPress={handleAccountStatusToggle}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.toggleHandle, { 
-                  transform: [{ translateX: isAccountActive ? 20 : 0 }] 
-                }]} />
-              </TouchableOpacity>
+              {isUpdatingStatus ? (
+                <ActivityIndicator size="small" color="#0ea5e9" style={{ marginLeft: 10 }} />
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.toggleSwitch, { backgroundColor: isAccountActive ? '#23C16B' : '#D1D5DB' }]}
+                  onPress={handleAccountStatusToggle}
+                  activeOpacity={0.8}
+                  disabled={isUpdatingStatus}
+                >
+                  <View style={[styles.toggleHandle, { 
+                    transform: [{ translateX: isAccountActive ? 20 : 0 }] 
+                  }]} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -132,47 +436,100 @@ const UserInformation = () => {
           {/* Country */}
           <View style={styles.formRow}>
             <Text style={styles.formLabel}>Country*</Text>
-            <View style={styles.dropdownContainer}>
-              <Text style={styles.dropdownText}>Philippines</Text>
-              <Text style={styles.dropdownIcon}>▼</Text>
-            </View>
+            {isEditing ? (
+              <TouchableOpacity 
+                style={styles.textInput}
+                onPress={() => setIsCountryModalVisible(true)}
+              >
+                <View style={styles.countryFlagContainer}>
+                  {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
+                  {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
+                  {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
+                  <Text style={{ color: editableFields.country ? '#1F2937' : '#9CA3AF', marginLeft: 8 }}>
+                    {editableFields.country || 'Philippines'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.dropdownContainer}>
+                <View style={styles.countryFlagContainer}>
+                  {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
+                  {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
+                  {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
+                  <Text style={styles.dropdownText}>{editableFields.country || 'Philippines'}</Text>
+                </View>
+                <Text style={styles.dropdownIcon}>▼</Text>
+              </View>
+            )}
           </View>
           
-          {/* Garden/Company Name */}
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Garden / company name*</Text>
-            <Text style={styles.formValue}>{user.role === 'Seller' ? 'Meteor Garden' : 'N/A'}</Text>
-          </View>
+          {/* Garden/Company Name - Only show for non-Buyer roles */}
+          {user.role !== 'Buyer' && user.role !== 'buyer' && (
+            <View style={styles.formRow}>
+              <Text style={styles.formLabel}>Garden / company name*</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.textInput}
+                  value={editableFields.gardenOrCompanyName}
+                  onChangeText={(text) => setEditableFields(prev => ({...prev, gardenOrCompanyName: text}))}
+                  placeholder="Enter garden or company name"
+                />
+              ) : (
+                <Text style={styles.formValue}>{editableFields.gardenOrCompanyName || (user.role === 'Seller' ? 'Not provided' : 'N/A')}</Text>
+              )}
+            </View>
+          )}
           
           {/* First Name */}
           <View style={styles.formRow}>
             <Text style={styles.formLabel}>First name*</Text>
-            <Text style={styles.formValue}>{firstName}</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editableFields.firstName}
+                onChangeText={(text) => setEditableFields(prev => ({...prev, firstName: text}))}
+                placeholder="Enter first name"
+              />
+            ) : (
+              <Text style={styles.formValue}>{editableFields.firstName || 'Not provided'}</Text>
+            )}
           </View>
           
           {/* Last Name */}
           <View style={styles.formRow}>
             <Text style={styles.formLabel}>Last name*</Text>
-            <Text style={styles.formValue}>{lastName}</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editableFields.lastName}
+                onChangeText={(text) => setEditableFields(prev => ({...prev, lastName: text}))}
+                placeholder="Enter last name"
+              />
+            ) : (
+              <Text style={styles.formValue}>{editableFields.lastName || 'Not provided'}</Text>
+            )}
           </View>
           
           {/* Contact Number */}
           <View style={styles.formRow}>
             <Text style={styles.formLabel}>Contact number*</Text>
-            <View style={styles.phoneContainer}>
-              <View style={styles.countryCode}>
-                <Text style={styles.flagIcon}>🇵🇭</Text>
-                <Text style={styles.codeText}>+63</Text>
-                <Text style={styles.codeIcon}>▼</Text>
-              </View>
-              <Text style={styles.phonePlaceholder}>XXX-XXX-XXXX</Text>
-            </View>
+            {isEditing ? (
+              <TextInput
+                style={styles.textInput}
+                value={editableFields.contactNumber}
+                onChangeText={(text) => setEditableFields(prev => ({...prev, contactNumber: text}))}
+                placeholder="Enter contact number"
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <Text style={styles.formValue}>{editableFields.contactNumber || 'Not provided'}</Text>
+            )}
           </View>
           
           {/* Email Address */}
           <View style={styles.formRow}>
             <Text style={styles.formLabel}>Email address*</Text>
-            <Text style={styles.formValue}>{user.username}@gmail.com</Text>
+            <Text style={styles.formValue}>{user.email || (user.username ? `${user.username}@gmail.com` : 'Not provided')}</Text>
           </View>
           
           {/* Video Live Features - Only show for certain roles */}
@@ -204,11 +561,64 @@ const UserInformation = () => {
         </View>
 
         {/* Update Account Button */}
-        <TouchableOpacity style={styles.updateButton} activeOpacity={0.8}>
-          <Text style={styles.updateButtonText}>Update Account</Text>
+        <TouchableOpacity 
+          style={[styles.updateButton, isUpdatingProfile && styles.disabledButton]} 
+          activeOpacity={0.8}
+          onPress={toggleEditMode}
+          disabled={isUpdatingProfile}
+        >
+          {isUpdatingProfile ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.updateButtonText}>
+              {isEditing ? 'Save Changes' : 'Edit Information'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+      
+      {/* Country Selection Modal */}
+      <Modal
+        visible={isCountryModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsCountryModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Country</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setIsCountryModalVisible(false)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView>
+              {countries.map((country) => (
+                <TouchableOpacity
+                  key={country.code}
+                  style={styles.countryOption}
+                  onPress={() => handleCountrySelect(country)}
+                >
+                  <View style={styles.countryFlagContainer}>
+                    {country.code === 'PH' && <PhFlag width={24} height={24} />}
+                    {country.code === 'TH' && <ThFlag width={24} height={24} />}
+                    {country.code === 'ID' && <IdFlag width={24} height={24} />}
+                    <Text style={styles.countryName}>{country.name}</Text>
+                  </View>
+                  {editableFields.country === country.name && (
+                    <CheckedBoxIcon width={24} height={24} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
@@ -466,7 +876,7 @@ const styles = StyleSheet.create({
   phonePlaceholder: {
     flex: 1,
     fontSize: 16,
-    color: '#9CA3AF',
+    color: '#1F2937',
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
@@ -507,19 +917,85 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 0,
+    marginBottom: 100,
   },
   updateButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
+  disabledButton: {
+    backgroundColor: '#93C5FD',
+    opacity: 0.7,
+  },
+  textInput: {
+    fontSize: 16,
+    color: '#1F2937',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0ea5e9',
+  },
   errorText: {
     fontSize: 16,
     color: '#EF4444',
     textAlign: 'center',
     marginTop: 100,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F2F6',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: '#6B7280',
+  },
+  countryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F2F6',
+  },
+  countryFlagContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  countryName: {
+    fontSize: 16,
+    color: '#1F2937',
+    marginLeft: 8,
   },
 });
 

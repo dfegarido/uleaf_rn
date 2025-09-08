@@ -5,6 +5,7 @@ import {useNavigation} from '@react-navigation/native';
 import CalendarIcon from '../../assets/icons/greylight/calendar-blank-regular.svg'; // Adjust path as needed
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg'; // Replace with Thailand flag SVG if available
 import DefaultPlaneIcon from '../../assets/buyer-icons/plane-gray.svg'; // Import default plane icon
+import { getOrderDetailApi } from '../Api/orderManagementApi';
 
 const OrderItemCard = ({
   status = 'Ready to Fly',
@@ -104,26 +105,65 @@ const OrderItemCard = ({
     navigation.navigate('ScreenRequestCredit', navigationData);
   };
 
-  const handleCardPress = () => {
-    // Navigate to order details screen with enhanced data structure
+  const handleCardPress = async () => {
+    // Helper to safely format dates from ISO string / Firestore timestamp / Date
+    const formatOrderDate = (value) => {
+      if (!value) return 'Unknown';
+      try {
+        if (typeof value === 'string') {
+          const d = new Date(value);
+          if (!isNaN(d)) return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          return value;
+        }
+        if (typeof value === 'object' && (value._seconds != null || value.seconds != null)) {
+          const s = value._seconds ?? value.seconds;
+          const d = new Date(s * 1000);
+          return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        if (value instanceof Date) {
+          return value.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        return String(value);
+      } catch {
+        return 'Unknown';
+      }
+    };
+
+    // Prefer fetching the exact order-detail payload and pass it to the screen
+    try {
+      const transactionNumber = fullOrderData?.transactionNumber;
+      const codeForPlant = plantCode;
+      if (transactionNumber && codeForPlant) {
+        console.log('OrderItemCard - Fetching order detail before navigation', { transactionNumber, plantCode: codeForPlant });
+        const resp = await getOrderDetailApi({ transactionNumber, plantCode: codeForPlant });
+        if (resp.success && resp.data?.data) {
+          console.log('OrderItemCard - Passing API payload to OrderDetailsScreen');
+          navigation.navigate('OrderDetailsScreen', {
+            // Minimal orderData context (ids, tab), actual data in orderDetailPayload
+            orderData: {
+              id: fullOrderData?.id,
+              transactionNumber,
+              plantCode: codeForPlant,
+            },
+            orderDetailPayload: resp.data.data,
+            activeTab: activeTab,
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('OrderItemCard - Pre-fetch order detail failed, falling back to local data', e?.message);
+    }
+
+    // Fallback: navigate with locally composed data (robust date handling)
     const orderDataToPass = {
-      // Include direct identifiers for the new API
       id: fullOrderData?.id,
       transactionNumber: fullOrderData?.transactionNumber,
-      
-      // Include the full order data for fallback
       fullOrderData: fullOrderData,
-      
-      // Legacy format for backward compatibility
       invoiceNumber: fullOrderData?.transactionNumber || plantCode,
       plantFlight: airCargoDate,
       trackingNumber: fullOrderData?.trackingNumber || '1Z999AA1234567890',
-      orderDate: fullOrderData?.orderDate ? new Date(fullOrderData.orderDate.seconds * 1000).toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      }) : 'Wednesday, January 8th 2025',
+      orderDate: formatOrderDate(fullOrderData?.orderDate) || 'Wednesday, January 8th 2025',
       plant: {
         image: resolvedImageUri || image,
         code: plantCode,
@@ -136,12 +176,9 @@ const OrderItemCard = ({
       },
       deliveryAddress: '123 Main Street\nNew York, NY 10001\nUnited States',
     };
-    
-    console.log('OrderItemCard - Navigating with orderData:', orderDataToPass);
-    navigation.navigate('OrderDetailsScreen', {
-      orderData: orderDataToPass,
-      activeTab: activeTab
-    });
+
+    console.log('OrderItemCard - Navigating with fallback orderData:', orderDataToPass);
+    navigation.navigate('OrderDetailsScreen', { orderData: orderDataToPass, activeTab: activeTab });
   };
 
   return (
