@@ -152,8 +152,7 @@ const BuyerSignupLocation = () => {
           <View style={styles.infoBox}>
             <InfoIcon width={20} height={20} style={styles.infoBoxIcon} />
             <Text style={styles.infoBoxText}>
-              We only serve U.S. buyers. Accounts cannot be created outside the
-              United States.
+              Our green marketplace blooms just for buyers in the continental United States. Accounts won’t grow beyond this region.
             </Text>
           </View>
 

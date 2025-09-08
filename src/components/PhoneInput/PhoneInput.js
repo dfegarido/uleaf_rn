@@ -56,9 +56,10 @@ const countries = [
   },
 ];
 
-const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
+const PhoneInput = ({initialPhoneNumber = '', onChange, usOnly = false}) => {
+  const usCountry = countries.find(c => c.code === 'US');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(countries[0]);
+  const [selectedCountry, setSelectedCountry] = useState(usOnly ? usCountry : countries[0]);
   const [modalVisible, setModalVisible] = useState(false);
 
   // Detect and set country from initialPhoneNumber
@@ -67,14 +68,17 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
       const found = countries.find(c =>
         initialPhoneNumber.startsWith(c.callingCode),
       );
-      if (found) {
+      if (found && (!usOnly || found.code === 'US' || true)) {
         setSelectedCountry(found);
         setPhoneNumber(initialPhoneNumber.replace(found.callingCode, ''));
+      } else if (usOnly) {
+        setSelectedCountry(usCountry);
+        setPhoneNumber(initialPhoneNumber.replace(usCountry.callingCode, ''));
       } else {
         setPhoneNumber(initialPhoneNumber);
       }
     }
-  }, [initialPhoneNumber]);
+  }, [initialPhoneNumber, usOnly]);
 
   // Update parent with final full number
   useEffect(() => {
@@ -84,6 +88,7 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
   }, [selectedCountry, phoneNumber]);
 
   const onSelectCountry = country => {
+    if (usOnly && country.code !== 'US') return;
     setSelectedCountry(country);
     setModalVisible(false);
   };
@@ -91,14 +96,21 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
   return (
     <View>
       <View style={styles.inputContainer}>
-        <TouchableOpacity
-          style={styles.countryPicker}
-          onPress={() => setModalVisible(true)}>
-          <Text style={styles.flag}>{selectedCountry.flag}</Text>
-          <Text style={styles.callingCode}>{selectedCountry.callingCode}</Text>
-          <DownIcon width={20} height={20} />
-        </TouchableOpacity>
-
+        {usOnly ? (
+          <View style={styles.countryPicker}>
+            <Text style={styles.flag}>{selectedCountry.flag}</Text>
+            <Text style={styles.callingCode}>{selectedCountry.callingCode}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.countryPicker}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text style={styles.flag}>{selectedCountry.flag}</Text>
+            <Text style={styles.callingCode}>{selectedCountry.callingCode}</Text>
+            <DownIcon width={20} height={20} />
+          </TouchableOpacity>
+        )}
         <TextInput
           style={styles.input}
           placeholder="XXX-XXX-XXXX"
@@ -109,33 +121,35 @@ const PhoneInput = ({initialPhoneNumber = '', onChange}) => {
         />
       </View>
 
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalContainer}>
-          <View style={styles.modal}>
-            <FlatList
-              data={countries}
-              keyExtractor={item => item.code}
-              renderItem={({item}) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => onSelectCountry(item)}>
-                  <Text style={styles.flag}>{item.flag}</Text>
-                  <Text style={styles.countryText}>
-                    {item.name} ({item.callingCode})
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={styles.closeButton}>
-              <Text style={{textAlign: 'center', fontWeight: 'bold'}}>
-                Close
-              </Text>
-            </TouchableOpacity>
+      {!usOnly && (
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <View style={styles.modalContainer}>
+            <View style={styles.modal}>
+              <FlatList
+                data={countries}
+                keyExtractor={item => item.code}
+                renderItem={({item}) => (
+                  <TouchableOpacity
+                    style={styles.countryItem}
+                    onPress={() => onSelectCountry(item)}>
+                    <Text style={styles.flag}>{item.flag}</Text>
+                    <Text style={styles.countryText}>
+                      {item.name} ({item.callingCode})
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={styles.closeButton}>
+                <Text style={{textAlign: 'center', fontWeight: 'bold'}}>
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </View>
   );
 };
