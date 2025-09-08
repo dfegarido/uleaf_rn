@@ -237,6 +237,7 @@ const AuthStack = () => {
           animation: 'slide_from_right', // Screen transition animation
           headerLeft: () => (
             <TouchableOpacity
+              style={{paddingTop: 8}} // Move back arrow down
               onPress={() =>
                 navigation.canGoBack() ? navigation.goBack() : null
               }>
@@ -247,6 +248,7 @@ const AuthStack = () => {
             elevation: 0, // For Android
             shadowOpacity: 0, // For iOS
             borderBottomWidth: 0, // For iOS
+            paddingTop: 16, // Add padding to header container
           },
           headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
         })}

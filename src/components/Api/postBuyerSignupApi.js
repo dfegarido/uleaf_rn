@@ -17,9 +17,12 @@ export const postBuyerSignupApi = async signupData => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || `HTTP error! status: ${response.status}`,
-      );
+      // Pass through the complete error response for detailed handling
+      const errorMessage = errorData.details 
+        ? JSON.stringify(errorData) 
+        : errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

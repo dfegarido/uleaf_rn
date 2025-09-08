@@ -7,6 +7,8 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
@@ -32,6 +34,65 @@ const BuyerSignupLocation = () => {
   const [statesLoading, setStatesLoading] = useState(true);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [checkingLocation, setCheckingLocation] = useState(false);
+
+  // Load existing data when component mounts
+  useEffect(() => {
+    const loadExistingData = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('buyerSignupData');
+        if (stored) {
+          const data = JSON.parse(stored);
+          console.log('Loading existing location data:', data);
+          
+          // Populate location fields with existing data if available
+          if (data.state) setState(data.state);
+          if (data.city) setCity(data.city);
+          if (data.zipCode) setZip(data.zipCode);
+          if (data.address) setAddress(data.address);
+        }
+      } catch (e) {
+        console.error('Failed to load existing location data', e);
+      }
+    };
+
+    loadExistingData();
+  }, []); // Empty dependency array - only run on mount
+
+  // Clear data when navigating away from buyer signup flow
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      const targetRouteName = e.data?.action?.payload?.name;
+      
+      // List of allowed buyer signup screens
+      const buyerSignupScreens = [
+        'BuyerSignup',
+        'BuyerSignupLocation', 
+        'BuyerGettingToKnow',
+        'BuyerCompleteYourAccount'
+      ];
+
+      // If navigating to a screen outside buyer signup flow, clear data
+      if (targetRouteName && !buyerSignupScreens.includes(targetRouteName)) {
+        AsyncStorage.removeItem('buyerSignupData').catch(e => 
+          console.error('Failed to clear signup data:', e)
+        );
+        console.log('Cleared buyer signup data - navigating to:', targetRouteName);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  // Update selectedStateData when states are loaded and we have a saved state
+  useEffect(() => {
+    if (states.length > 0 && state && !selectedStateData) {
+      const savedStateData = states.find(s => s.name === state);
+      if (savedStateData) {
+        setSelectedStateData(savedStateData);
+        console.log('Restored selectedStateData:', savedStateData);
+      }
+    }
+  }, [states, state, selectedStateData]); // Include selectedStateData to prevent infinite loops
 
   // Load states from public endpoint
   useEffect(() => {
@@ -129,9 +190,17 @@ const BuyerSignupLocation = () => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView 
+        style={{flex: 1}} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          enableOnAndroid={true}
+        >
         <View style={styles.container}>
           {/* Top nav: back arrow and step indicator */}
           <View style={styles.topRow}>
@@ -205,7 +274,7 @@ const BuyerSignupLocation = () => {
             Address Line<Text style={{color: '#FF5247'}}>*</Text>
           </Text>
           <InputBox
-            placeholder="Street address, apartment, suite, unit, building, floor, etc."
+            placeholder="Street address, apt, suite, unit, etc."
             value={address}
             setValue={setAddress}
           />
@@ -213,15 +282,16 @@ const BuyerSignupLocation = () => {
           {/* Spacer */}
           <View style={{flex: 1, minHeight: 24}} />
         </View>
-      </ScrollView>
-      {/* Continue button at bottom */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[globalStyles.primaryButton, {marginBottom: 8}]}
-          onPress={handleContinue}>
-          <Text style={globalStyles.primaryButtonText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
+        </ScrollView>
+        {/* Continue button at bottom */}
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[globalStyles.primaryButton, {marginBottom: 8}]}
+            onPress={handleContinue}>
+            <Text style={globalStyles.primaryButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -234,13 +304,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 8, // Further reduced to match good positioning
     backgroundColor: '#fff',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 32,
+    marginTop: 32, // Increased from 8 to 16 for better positioning
+    paddingTop: 16, // Increased from 8 to 16 for better positioning
   },
   backBtn: {
     padding: 8,

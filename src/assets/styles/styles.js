@@ -407,6 +407,8 @@ export const getComponentStyles = (colorScheme = 'light') => {
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 16,
+      marginTop: 16, // Added margin top for better positioning
+      paddingTop: 16, // Added padding top for better positioning
     },
     errorText: {
       color: '#FF5247',
