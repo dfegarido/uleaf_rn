@@ -13,12 +13,90 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import InputDropdown from '../../components/Input/InputDropdown';
+import InputDropdownPaginated from '../../components/Input/InputDropdownPaginated';
 import InputBox from '../../components/Input/InputBox';
 import InfoIcon from '../../assets/buyer-icons/information.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// New public (no-auth) location dropdown APIs
-import { getPublicStatesApi, getPublicCitiesApi } from '../../components/Api/locationDropdownApi';
+// GeoDB API for location data using centralized config
+import { getUSStatesSimple, getStateCitiesSimple, getAllUSCitiesSimple } from '../../components/Api/geoDbApi';
+
+// Restricted states and territories configuration
+const RESTRICTED_LOCATIONS = {
+  STATES: [
+    'Alaska',
+    'Hawaii'
+  ],
+  TERRITORIES: [
+    'Puerto Rico',
+    'Guam', 
+    'American Samoa',
+    'U.S. Virgin Islands',
+    'United States Virgin Islands',
+    'Northern Mariana Islands',
+    'Commonwealth of the Northern Mariana Islands'
+  ],
+  // ISO codes for restricted locations
+  RESTRICTED_CODES: [
+    'AK', // Alaska
+    'HI', // Hawaii
+    'PR', // Puerto Rico
+    'GU', // Guam
+    'AS', // American Samoa
+    'VI', // U.S. Virgin Islands
+    'MP'  // Northern Mariana Islands
+  ]
+};
+
+// Filter function to remove restricted states/territories
+const filterRestrictedStates = (states) => {
+  return states.filter(state => {
+    // Check by ISO code (most reliable)
+    if (RESTRICTED_LOCATIONS.RESTRICTED_CODES.includes(state.isoCode)) {
+      console.log(`🚫 Filtering out restricted state: ${state.name} (${state.isoCode})`);
+      return false;
+    }
+    
+    // Check by name (backup method)
+    const stateName = state.name;
+    const isRestrictedState = RESTRICTED_LOCATIONS.STATES.some(restricted => 
+      stateName.toLowerCase().includes(restricted.toLowerCase())
+    );
+    const isRestrictedTerritory = RESTRICTED_LOCATIONS.TERRITORIES.some(restricted => 
+      stateName.toLowerCase().includes(restricted.toLowerCase())
+    );
+    
+    if (isRestrictedState || isRestrictedTerritory) {
+      console.log(`🚫 Filtering out restricted location: ${stateName}`);
+      return false;
+    }
+    
+    return true;
+  });
+};
+
+// Filter function to remove cities in restricted territories
+const filterRestrictedCities = (cities, stateData) => {
+  // If the state itself is restricted, return empty array
+  if (RESTRICTED_LOCATIONS.RESTRICTED_CODES.includes(stateData?.isoCode)) {
+    console.log(`🚫 State ${stateData.name} is restricted - no cities will be shown`);
+    return [];
+  }
+  
+  // Filter out cities that might be in territories
+  return cities.filter(cityName => {
+    const isInTerritory = RESTRICTED_LOCATIONS.TERRITORIES.some(territory => 
+      cityName.toLowerCase().includes(territory.toLowerCase())
+    );
+    
+    if (isInTerritory) {
+      console.log(`🚫 Filtering out city in restricted territory: ${cityName}`);
+      return false;
+    }
+    
+    return true;
+  });
+};
 
 const BuyerSignupLocation = () => {
   const navigation = useNavigation();
@@ -34,6 +112,14 @@ const BuyerSignupLocation = () => {
   const [statesLoading, setStatesLoading] = useState(true);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [checkingLocation, setCheckingLocation] = useState(false);
+  
+  // Pagination state
+  const [statesOffset, setStatesOffset] = useState(0);
+  const [citiesOffset, setCitiesOffset] = useState(0);
+  const [statesHasMore, setStatesHasMore] = useState(true);
+  const [citiesHasMore, setCitiesHasMore] = useState(true);
+  const [loadingMoreStates, setLoadingMoreStates] = useState(false);
+  const [loadingMoreCities, setLoadingMoreCities] = useState(false);
 
   // Load existing data when component mounts
   useEffect(() => {
@@ -94,56 +180,169 @@ const BuyerSignupLocation = () => {
     }
   }, [states, state, selectedStateData]); // Include selectedStateData to prevent infinite loops
 
-  // Load states from public endpoint
-  useEffect(() => {
-    const loadStates = async () => {
-      try {
-        console.log('Loading states from public endpoint...');
+  // Load states from GeoDB API with pagination
+  const loadStates = async (isLoadMore = false) => {
+    try {
+      const currentOffset = isLoadMore ? statesOffset : 0;
+      console.log(`🇺🇸 Loading US states from GeoDB API... (offset: ${currentOffset})`);
+      
+      if (isLoadMore) {
+        setLoadingMoreStates(true);
+      } else {
         setStatesLoading(true);
-        const stateList = await getPublicStatesApi();
-        stateList.sort((a,b) => a.name.localeCompare(b.name));
-        setStates(stateList);
-      } catch (error) {
-        console.error('Error loading states:', error);
-        Alert.alert('Error', 'Failed to load states. Please try again.');
-        // Fallback to some common states
+        setStates([]); // Clear existing states for fresh load
+        setStatesOffset(0);
+      }
+      
+      const response = await getUSStatesSimple(5, currentOffset);
+      
+      if (response.success && response.states) {
+        // Transform to match existing component structure
+        const stateList = response.states.map(state => ({
+          name: state.name,
+          isoCode: state.code,
+          id: state.id
+        }));
+        
+        // Filter out restricted states and territories
+        const filteredStates = filterRestrictedStates(stateList);
+        console.log(`📊 Filtered ${stateList.length - filteredStates.length} restricted states/territories`);
+        
+        // Sort alphabetically
+        filteredStates.sort((a, b) => a.name.localeCompare(b.name));
+        
+        if (isLoadMore) {
+          // Append to existing states
+          setStates(prevStates => [...prevStates, ...filteredStates]);
+        } else {
+          // Replace states
+          setStates(filteredStates);
+        }
+        
+        // Update pagination state
+        setStatesOffset(currentOffset + 5);
+        setStatesHasMore(response.hasMore);
+        
+        console.log(`✅ Successfully loaded ${stateList.length} US states from GeoDB API (total: ${isLoadMore ? states.length + stateList.length : stateList.length}, hasMore: ${response.hasMore})`);
+      } else {
+        console.error('❌ GeoDB API returned error:', response.error);
+        throw new Error(response.error || 'Failed to load states from GeoDB');
+      }
+    } catch (error) {
+      console.error('❌ Error loading states from GeoDB API:', error.message);
+      
+      if (!isLoadMore) {
+        Alert.alert(
+          'Location Service Issue', 
+          'Could not load states from location service. Using fallback list.',
+          [{ text: 'OK' }]
+        );
+        
+        // Fallback to common states if GeoDB fails
         setStates([
           { name: 'California', isoCode: 'CA' },
           { name: 'Texas', isoCode: 'TX' },
           { name: 'New York', isoCode: 'NY' },
           { name: 'Florida', isoCode: 'FL' },
-          { name: 'Illinois', isoCode: 'IL' }
+          { name: 'Illinois', isoCode: 'IL' },
+          { name: 'Pennsylvania', isoCode: 'PA' },
+          { name: 'Ohio', isoCode: 'OH' },
+          { name: 'Georgia', isoCode: 'GA' },
+          { name: 'North Carolina', isoCode: 'NC' },
+          { name: 'Michigan', isoCode: 'MI' }
         ]);
-      } finally {
+        setStatesHasMore(false);
+      }
+    } finally {
+      if (isLoadMore) {
+        setLoadingMoreStates(false);
+      } else {
         setStatesLoading(false);
       }
-    };
+    }
+  };
 
+  useEffect(() => {
     loadStates();
   }, []);
 
-  // Load cities when state changes
-  useEffect(() => {
-    const loadCities = async () => {
-      if (!selectedStateData) {
-        setCities([]);
-        return;
-      }
+  // Load cities when state changes using GeoDB API with pagination
+  const loadCities = async (isLoadMore = false) => {
+    if (!selectedStateData) {
+      setCities([]);
+      return;
+    }
 
-      try {
-        console.log('Loading cities for state:', selectedStateData.name);
+    try {
+      const currentOffset = isLoadMore ? citiesOffset : 0;
+      console.log(`🏙️ Loading cities for state from GeoDB API: ${selectedStateData.name} (offset: ${currentOffset})`);
+      
+      if (isLoadMore) {
+        setLoadingMoreCities(true);
+      } else {
         setCitiesLoading(true);
-        const { cities: cityNames } = await getPublicCitiesApi(selectedStateData.isoCode, 50, 0);
-        setCities(cityNames);
-      } catch (error) {
-        console.error('Error loading cities:', error);
-        // Fallback to some common cities
+        setCities([]); // Clear existing cities for fresh load
+        setCitiesOffset(0);
+      }
+      
+      // Load cities from GeoDB API
+      const response = await getStateCitiesSimple(selectedStateData.isoCode, 5, currentOffset);
+      
+      if (response.success && response.cities && response.cities.length > 0) {
+        // Extract just city names and remove duplicates
+        const cityNames = [...new Set(response.cities.map(city => city.name))];
+        
+        // Filter out cities in restricted territories
+        const filteredCities = filterRestrictedCities(cityNames, selectedStateData);
+        console.log(`📊 Filtered ${cityNames.length - filteredCities.length} cities in restricted territories`);
+        
+        // Sort alphabetically
+        filteredCities.sort();
+        
+        if (isLoadMore) {
+          // Append to existing cities
+          setCities(prevCities => {
+            const combined = [...prevCities, ...filteredCities];
+            return [...new Set(combined)]; // Remove duplicates across pages
+          });
+        } else {
+          // Replace cities
+          setCities(filteredCities);
+        }
+        
+        // Update pagination state
+        setCitiesOffset(currentOffset + 5);
+        setCitiesHasMore(response.hasMore);
+        
+        console.log(`✅ Successfully loaded ${cityNames.length} unique cities for ${selectedStateData.name} (total: ${isLoadMore ? 'appended' : cityNames.length}, hasMore: ${response.hasMore})`);
+      } else {
+        console.log(`⚠️ No cities found for ${selectedStateData.name} from GeoDB API`);
+        
+        if (!isLoadMore) {
+          // Provide option to enter manually
+          setCities(['Enter city manually']);
+          setCitiesHasMore(false);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading cities from GeoDB API:', error.message);
+      console.log('📝 Providing manual entry option for cities');
+      
+      if (!isLoadMore) {
+        // Fallback option
         setCities(['Enter city manually']);
-      } finally {
+        setCitiesHasMore(false);
+      }
+    } finally {
+      if (isLoadMore) {
+        setLoadingMoreCities(false);
+      } else {
         setCitiesLoading(false);
       }
-    };
+    }
+  };
 
+  useEffect(() => {
     loadCities();
   }, [selectedStateData]);
 
@@ -229,7 +428,7 @@ const BuyerSignupLocation = () => {
           <Text style={styles.label}>
             State<Text style={{color: '#FF5247'}}>*</Text>
           </Text>
-          <InputDropdown
+          <InputDropdownPaginated
             options={states.map(s => s.name)}
             selectedOption={state}
             onSelect={(selectedName) => {
@@ -238,15 +437,18 @@ const BuyerSignupLocation = () => {
               setSelectedStateData(sel);
               setCity(''); // Reset city when state changes
             }}
-            placeholder={statesLoading ? "Loading states..." : "Select..."}
+            placeholder={statesLoading ? "Loading US states..." : "Select..."}
             disabled={statesLoading}
+            onLoadMore={() => loadStates(true)}
+            hasMore={statesHasMore}
+            loadingMore={loadingMoreStates}
           />
 
           {/* City dropdown */}
           <Text style={styles.label}>
             City<Text style={{color: '#FF5247'}}>*</Text>
           </Text>
-          <InputDropdown
+          <InputDropdownPaginated
             options={cities}
             selectedOption={city}
             onSelect={setCity}
@@ -258,6 +460,9 @@ const BuyerSignupLocation = () => {
                   : "Select state first"
             }
             disabled={!selectedStateData || citiesLoading}
+            onLoadMore={() => loadCities(true)}
+            hasMore={citiesHasMore}
+            loadingMore={loadingMoreCities}
           />
 
           {/* Zip code */}

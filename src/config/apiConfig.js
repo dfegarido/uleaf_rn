@@ -9,6 +9,84 @@ const LOCAL_BASE_URL = 'http://10.0.2.2:5001/i-leaf-u/us-central1';
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
 
+// GeoDB API Configuration (RapidAPI)
+export const GEODATABASE_CONFIG = {
+  BASE_URL: 'https://wft-geo-db.p.rapidapi.com/v1/geo',
+  RAPIDAPI_KEY: 'd7ac6389f5mshb6e1f69e3c5375fp151d2bjsnbf5584eb11fd',
+  RAPIDAPI_HOST: 'wft-geo-db.p.rapidapi.com',
+  
+  // Create headers for GeoDB API requests (Multiple formats for compatibility)
+  createHeaders: () => {
+    const headers = new Headers();
+    headers.append("x-rapidapi-key", GEODATABASE_CONFIG.RAPIDAPI_KEY);
+    headers.append("x-rapidapi-host", GEODATABASE_CONFIG.RAPIDAPI_HOST);
+    return headers;
+  },
+  
+  // Create headers as plain object (sometimes more compatible)
+  createHeadersObject: () => ({
+    "X-RapidAPI-Key": GEODATABASE_CONFIG.RAPIDAPI_KEY,
+    "X-RapidAPI-Host": GEODATABASE_CONFIG.RAPIDAPI_HOST,
+    "Content-Type": "application/json"
+  }),
+  
+  // Create headers exactly like your working code
+  createHeadersExact: () => {
+    const myHeaders = new Headers();
+    myHeaders.append("x-rapidapi-key", GEODATABASE_CONFIG.RAPIDAPI_KEY);
+    myHeaders.append("x-rapidapi-host", GEODATABASE_CONFIG.RAPIDAPI_HOST);
+    return myHeaders;
+  },
+  
+  // Create request options for GeoDB API
+  createRequestOptions: (method = "GET") => ({
+    method: method,
+    headers: GEODATABASE_CONFIG.createHeadersExact(),
+    redirect: "follow"
+  }),
+  
+  // Create request options with object headers
+  createRequestOptionsObject: (method = "GET") => ({
+    method: method,
+    headers: GEODATABASE_CONFIG.createHeadersObject()
+  }),
+  
+  // GeoDB API Endpoints
+  ENDPOINTS: {
+    COUNTRIES: () => `${GEODATABASE_CONFIG.BASE_URL}/countries`,
+    US_REGIONS: (limit = 55, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/US/regions?limit=${limit}&offset=${offset}`,
+    COUNTRY_REGIONS: (countryCode, limit = 50, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/${countryCode}/regions?limit=${limit}&offset=${offset}`,
+    REGION_CITIES: (countryCode, regionCode, limit = 100, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/${countryCode}/regions/${regionCode}/cities?limit=${limit}&offset=${offset}`,
+    COUNTRY_CITIES: (countryCode, limit = 100, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/${countryCode}/cities?limit=${limit}&offset=${offset}`,
+    
+    // New general cities endpoint
+    ALL_CITIES: (limit = 5, offset = 0, namePrefix = '', countryIds = 'US') => {
+      let url = `${GEODATABASE_CONFIG.BASE_URL}/cities?limit=${limit}&offset=${offset}`;
+      if (countryIds) url += `&countryIds=${countryIds}`;
+      if (namePrefix) url += `&namePrefix=${namePrefix}`;
+      return url;
+    },
+    
+    // Search cities with state filter
+    SEARCH_CITIES: (limit = 5, offset = 0, namePrefix = '', stateCode = '', countryIds = 'US') => {
+      let url = `${GEODATABASE_CONFIG.BASE_URL}/cities?limit=${limit}&offset=${offset}`;
+      if (countryIds) url += `&countryIds=${countryIds}`;
+      if (namePrefix) url += `&namePrefix=${namePrefix}`;
+      if (stateCode) url += `&regionCode=${stateCode}`;
+      return url;
+    },
+    
+    // Alias for backward compatibility
+    STATE_CITIES: (countryCode, stateCode, limit = 5, offset = 0) => 
+      `${GEODATABASE_CONFIG.BASE_URL}/cities?limit=${limit}&offset=${offset}&countryIds=${countryCode}&regionCode=${stateCode}`,
+    
+    SEARCH_PLACES: (namePrefix, limit = 10, offset = 0, types = ['CITY']) => {
+      const typeQuery = types.length > 0 ? `&types=${types.join(',')}` : '';
+      return `${GEODATABASE_CONFIG.BASE_URL}/places?namePrefix=${encodeURIComponent(namePrefix)}&limit=${limit}&offset=${offset}${typeQuery}`;
+    }
+  }
+};
+
 // Get the base URL based on current environment setting
 const getBaseUrl = () => {
   return USE_LOCAL_API ? LOCAL_BASE_URL : PROD_BASE_URL;

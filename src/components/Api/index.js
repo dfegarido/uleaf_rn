@@ -28,6 +28,10 @@ export * from './creditApi';
 // Dropdown Data APIs
 export * from './dropdownApi';
 
+// Geographic Data APIs (GeoDB)
+export * from './geoDbApi';
+
+
 // Location Dropdown APIs
 export * from './locationDropdownApi';
 

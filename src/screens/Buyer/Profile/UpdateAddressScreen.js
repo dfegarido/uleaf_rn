@@ -5,9 +5,86 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { createAddressBookEntryApi, updateAddressBookEntryApi } from '../../../components/Api';
 import DropdownSelect from '../../../components/Dropdown/DropdownSelect';
-// New public (no-auth) location dropdown APIs
-import { getPublicStatesApi, getPublicCitiesApi } from '../../../components/Api/locationDropdownApi';
+// GeoDB API for location data using centralized config
+import { getUSStatesSimple, getStateCitiesSimple } from '../../../components/Api/geoDbApi';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
+
+// Restricted states and territories configuration
+const RESTRICTED_LOCATIONS = {
+  STATES: [
+    'Alaska',
+    'Hawaii'
+  ],
+  TERRITORIES: [
+    'Puerto Rico',
+    'Guam', 
+    'American Samoa',
+    'U.S. Virgin Islands',
+    'United States Virgin Islands',
+    'Northern Mariana Islands',
+    'Commonwealth of the Northern Mariana Islands'
+  ],
+  // ISO codes for restricted locations
+  RESTRICTED_CODES: [
+    'AK', // Alaska
+    'HI', // Hawaii
+    'PR', // Puerto Rico
+    'GU', // Guam
+    'AS', // American Samoa
+    'VI', // U.S. Virgin Islands
+    'MP'  // Northern Mariana Islands
+  ]
+};
+
+// Filter function to remove restricted states/territories
+const filterRestrictedStates = (states) => {
+  return states.filter(state => {
+    // Check by ISO code (most reliable)
+    if (RESTRICTED_LOCATIONS.RESTRICTED_CODES.includes(state.isoCode)) {
+      console.log(`🚫 Filtering out restricted state: ${state.name} (${state.isoCode})`);
+      return false;
+    }
+    
+    // Check by name (backup method)
+    const stateName = state.name;
+    const isRestrictedState = RESTRICTED_LOCATIONS.STATES.some(restricted => 
+      stateName.toLowerCase().includes(restricted.toLowerCase())
+    );
+    const isRestrictedTerritory = RESTRICTED_LOCATIONS.TERRITORIES.some(restricted => 
+      stateName.toLowerCase().includes(restricted.toLowerCase())
+    );
+    
+    if (isRestrictedState || isRestrictedTerritory) {
+      console.log(`🚫 Filtering out restricted location: ${stateName}`);
+      return false;
+    }
+    
+    return true;
+  });
+};
+
+// Filter function to remove cities in restricted territories
+const filterRestrictedCities = (cities, stateData) => {
+  // If the state itself is restricted, return empty array
+  if (RESTRICTED_LOCATIONS.RESTRICTED_CODES.includes(stateData?.isoCode)) {
+    console.log(`🚫 State ${stateData.name} is restricted - no cities will be shown`);
+    return [];
+  }
+  
+  // Filter out cities that might be in territories
+  return cities.filter(cityName => {
+    const isInTerritory = RESTRICTED_LOCATIONS.TERRITORIES.some(territory => 
+      cityName.toLowerCase().includes(territory.toLowerCase())
+    );
+    
+    if (isInTerritory) {
+      console.log(`🚫 Filtering out city in restricted territory: ${cityName}`);
+      return false;
+    }
+    
+    return true;
+  });
+};
 
 const UpdateAddressScreen = () => {
   const navigation = useNavigation();
@@ -22,7 +99,7 @@ const UpdateAddressScreen = () => {
   const [loading, setLoading] = useState(false);
   const [addressId, setAddressId] = useState(null);
   
-  // States and cities from API
+  // States and cities from GeoDB API
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
   const [statesLoading, setStatesLoading] = useState(true);
@@ -47,91 +124,224 @@ const UpdateAddressScreen = () => {
     contactNumber: ''
   });
   
-  // Load states from new public endpoint
-  useEffect(() => {
-    const loadStates = async () => {
-      // If we're updating an existing address, still load states but don't auto-fetch cities
-      try {
-        console.log('Loading states from public endpoint...');
+  // Load states from GeoDB API with pagination
+  const loadStates = async (isLoadMore = false) => {
+    try {
+      const currentOffset = isLoadMore ? statesPagination.offset : 0;
+      console.log(`🇺🇸 Loading US states from GeoDB API... (offset: ${currentOffset})`);
+      
+      if (isLoadMore) {
+        setLoadingMoreStates(true);
+      } else {
         setStatesLoading(true);
-        const stateList = await getPublicStatesApi();
-        stateList.sort((a,b) => a.name.localeCompare(b.name));
-        setStates(stateList);
+        setStates([]); // Clear existing states for fresh load
         setStatesPagination({
-          offset: stateList.length,
-          hasMore: false,
-          totalCount: stateList.length
+          offset: 0,
+          hasMore: true,
+          totalCount: 0
         });
-      } catch (error) {
-        console.error('Error loading states:', error);
-        Alert.alert('Error', 'Failed to load states. Please try again.');
-      } finally {
+      }
+      
+      const response = await getUSStatesSimple(5, currentOffset);
+      
+      if (response.success && response.states) {
+        // Transform to match existing component structure
+        const stateList = response.states.map(state => ({
+          name: state.name,
+          isoCode: state.code,
+          id: state.id
+        }));
+        
+        // Filter out restricted states and territories
+        const filteredStates = filterRestrictedStates(stateList);
+        console.log(`📊 Filtered ${stateList.length - filteredStates.length} restricted states/territories`);
+        
+        // Sort alphabetically
+        filteredStates.sort((a, b) => a.name.localeCompare(b.name));
+        
+        if (isLoadMore) {
+          // Append to existing states
+          setStates(prevStates => [...prevStates, ...filteredStates]);
+        } else {
+          // Replace states
+          setStates(filteredStates);
+        }
+        
+        // Update pagination state
+        setStatesPagination({
+          offset: currentOffset + 5,
+          hasMore: response.hasMore,
+          totalCount: response.totalCount
+        });
+        
+        console.log(`✅ Successfully loaded ${filteredStates.length} US states from GeoDB API (total: ${isLoadMore ? states.length + filteredStates.length : filteredStates.length}, hasMore: ${response.hasMore})`);
+      } else {
+        console.error('❌ GeoDB API returned error:', response.error);
+        throw new Error(response.error || 'Failed to load states from GeoDB');
+      }
+    } catch (error) {
+      console.error('❌ Error loading states from GeoDB API:', error.message);
+      
+      if (!isLoadMore) {
+        Alert.alert(
+          'Location Service Issue', 
+          'Could not load states from location service. Using fallback list.',
+          [{ text: 'OK' }]
+        );
+        
+        // Fallback to common states if GeoDB fails (excluding restricted states)
+        const fallbackStates = [
+          { name: 'California', isoCode: 'CA' },
+          { name: 'Texas', isoCode: 'TX' },
+          { name: 'New York', isoCode: 'NY' },
+          { name: 'Florida', isoCode: 'FL' },
+          { name: 'Illinois', isoCode: 'IL' },
+          { name: 'Pennsylvania', isoCode: 'PA' },
+          { name: 'Ohio', isoCode: 'OH' },
+          { name: 'Georgia', isoCode: 'GA' },
+          { name: 'North Carolina', isoCode: 'NC' },
+          { name: 'Michigan', isoCode: 'MI' },
+          { name: 'Virginia', isoCode: 'VA' },
+          { name: 'Washington', isoCode: 'WA' },
+          { name: 'Arizona', isoCode: 'AZ' },
+          { name: 'Massachusetts', isoCode: 'MA' },
+          { name: 'Tennessee', isoCode: 'TN' }
+        ];
+        
+        // Apply filtering to fallback states as well
+        const filteredFallbackStates = filterRestrictedStates(fallbackStates);
+        setStates(filteredFallbackStates);
+        setStatesPagination({
+          offset: filteredFallbackStates.length,
+          hasMore: false,
+          totalCount: filteredFallbackStates.length
+        });
+      }
+    } finally {
+      if (isLoadMore) {
+        setLoadingMoreStates(false);
+      } else {
         setStatesLoading(false);
       }
-    };
+    }
+  };
 
+  // Load states from GeoDB API
+  useEffect(() => {
     loadStates();
   }, []);
 
-  // No-op for states since public endpoint returns full list
-  const loadMoreStates = async () => {};
+  // Load more states when reaching end of list
+  const loadMoreStates = async () => {
+    if (!statesPagination.hasMore || loadingMoreStates) return;
+    await loadStates(true);
+  };
 
-  // Load cities for selected state via public endpoint (offset pagination)
-  useEffect(() => {
-    const loadCities = async () => {
-      if (!selectedStateData) {
-        setCities([]);
+  // Load cities when state changes using GeoDB API with pagination
+  const loadCities = async (isLoadMore = false) => {
+    if (!selectedStateData) {
+      setCities([]);
+      setCitiesPagination({
+        offset: 0,
+        hasMore: true,
+        totalCount: 0
+      });
+      return;
+    }
+
+    try {
+      const currentOffset = isLoadMore ? citiesPagination.offset : 0;
+      console.log(`🏙️ Loading cities for state from GeoDB API: ${selectedStateData.name} (offset: ${currentOffset})`);
+      
+      if (isLoadMore) {
+        setLoadingMoreCities(true);
+      } else {
+        setCitiesLoading(true);
+        setCities([]); // Clear existing cities for fresh load
         setCitiesPagination({
           offset: 0,
           hasMore: true,
           totalCount: 0
         });
-        return;
       }
-
-      try {
-        console.log('Loading initial cities (public) for state:', selectedStateData.name, 'isoCode:', selectedStateData.isoCode);
-        setCitiesLoading(true);
-        const { cities: cityNames, pagination } = await getPublicCitiesApi(selectedStateData.isoCode, 50, 0);
-        setCities(cityNames);
+      
+      // Load cities from GeoDB API
+      const response = await getStateCitiesSimple(selectedStateData.isoCode, 5, currentOffset);
+      
+      if (response.success && response.cities && response.cities.length > 0) {
+        // Extract just city names and remove duplicates
+        const cityNames = [...new Set(response.cities.map(city => city.name))];
+        
+        // Filter out cities in restricted territories
+        const filteredCities = filterRestrictedCities(cityNames, selectedStateData);
+        console.log(`📊 Filtered ${cityNames.length - filteredCities.length} cities in restricted territories`);
+        
+        // Sort alphabetically
+        filteredCities.sort();
+        
+        if (isLoadMore) {
+          // Append to existing cities
+          setCities(prevCities => {
+            const combined = [...prevCities, ...filteredCities];
+            return [...new Set(combined)]; // Remove duplicates across pages
+          });
+        } else {
+          // Replace cities
+          setCities(filteredCities);
+        }
+        
+        // Update pagination state
         setCitiesPagination({
-          offset: pagination.offset + cityNames.length,
-          hasMore: pagination.hasMore,
-          totalCount: pagination.total
+          offset: currentOffset + 5,
+          hasMore: response.hasMore,
+          totalCount: response.totalCount
         });
-      } catch (error) {
-        console.error('Error loading cities:', error);
-        Alert.alert('Error', 'Failed to load cities. Please try again.');
-      } finally {
+        
+        console.log(`✅ Successfully loaded ${filteredCities.length} filtered cities for ${selectedStateData.name} (original: ${cityNames.length}, hasMore: ${response.hasMore})`);
+      } else {
+        console.log(`⚠️ No cities found for ${selectedStateData.name} from GeoDB API`);
+        
+        if (!isLoadMore) {
+          // Provide option to enter manually
+          setCities(['Enter city manually']);
+          setCitiesPagination({
+            offset: 1,
+            hasMore: false,
+            totalCount: 1
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading cities from GeoDB API:', error.message);
+      console.log('📝 Providing manual entry option for cities');
+      
+      if (!isLoadMore) {
+        // Fallback option
+        setCities(['Enter city manually']);
+        setCitiesPagination({
+          offset: 1,
+          hasMore: false,
+          totalCount: 1
+        });
+      }
+    } finally {
+      if (isLoadMore) {
+        setLoadingMoreCities(false);
+      } else {
         setCitiesLoading(false);
       }
-    };
+    }
+  };
 
+  // Load cities for selected state via GeoDB API
+  useEffect(() => {
     loadCities();
   }, [selectedStateData]);
 
   // Load more cities when reaching end of list
   const loadMoreCities = async () => {
     if (!citiesPagination.hasMore || loadingMoreCities || !selectedStateData) return;
-    try {
-      console.log('Loading more cities (public) from offset:', citiesPagination.offset);
-      setLoadingMoreCities(true);
-      const { cities: moreCityNames, pagination } = await getPublicCitiesApi(selectedStateData.isoCode, 50, citiesPagination.offset);
-      setCities(prev => {
-        const merged = [...prev, ...moreCityNames];
-        return Array.from(new Set(merged)).sort();
-      });
-      setCitiesPagination({
-        offset: pagination.offset + moreCityNames.length,
-        hasMore: pagination.hasMore,
-        totalCount: pagination.total
-      });
-    } catch (error) {
-      console.error('Error loading more cities:', error);
-      Alert.alert('Error', 'Failed to load more cities. Please try again.');
-    } finally {
-      setLoadingMoreCities(false);
-    }
+    await loadCities(true);
   };
 
   // Load user info from AsyncStorage and initialize address data
@@ -240,185 +450,22 @@ const UpdateAddressScreen = () => {
     }
   };
 
-  // Manual trigger to load states when user clicks on dropdown
+  // Manual trigger to load more states when user clicks on dropdown
   const handleStateDropdownClick = async () => {
-    // If we already have a good amount of states, don't fetch more
-    if (states.length > 30 || statesLoading) {
+    // If we already have states loaded or are loading, don't fetch more
+    if (states.length > 10 || statesLoading) {
       return;
     }
     
-    // Rate limiting check
-    const now = Date.now();
-    const timeSinceLastCall = now - lastApiCallTime;
-    if (timeSinceLastCall < 2000) {
-      console.log('Rate limiting active, skipping API call');
-      return;
-    }
-    
-    try {
-      console.log('User clicked state dropdown, loading states...');
-      setStatesLoading(true);
-      setLastApiCallTime(now);
-      
-      // Use our complete fallback list instead of making API calls
-      const fallbackStates = [
-        { name: 'Alabama', isoCode: 'AL' },
-        { name: 'Alaska', isoCode: 'AK' },
-        { name: 'Arizona', isoCode: 'AZ' },
-        { name: 'Arkansas', isoCode: 'AR' },
-        { name: 'California', isoCode: 'CA' },
-        { name: 'Colorado', isoCode: 'CO' },
-        { name: 'Connecticut', isoCode: 'CT' },
-        { name: 'Delaware', isoCode: 'DE' },
-        { name: 'Florida', isoCode: 'FL' },
-        { name: 'Georgia', isoCode: 'GA' },
-        { name: 'Hawaii', isoCode: 'HI' },
-        { name: 'Idaho', isoCode: 'ID' },
-        { name: 'Illinois', isoCode: 'IL' },
-        { name: 'Indiana', isoCode: 'IN' },
-        { name: 'Iowa', isoCode: 'IA' },
-        { name: 'Kansas', isoCode: 'KS' },
-        { name: 'Kentucky', isoCode: 'KY' },
-        { name: 'Louisiana', isoCode: 'LA' },
-        { name: 'Maine', isoCode: 'ME' },
-        { name: 'Maryland', isoCode: 'MD' },
-        { name: 'Massachusetts', isoCode: 'MA' },
-        { name: 'Michigan', isoCode: 'MI' },
-        { name: 'Minnesota', isoCode: 'MN' },
-        { name: 'Mississippi', isoCode: 'MS' },
-        { name: 'Missouri', isoCode: 'MO' },
-        { name: 'Montana', isoCode: 'MT' },
-        { name: 'Nebraska', isoCode: 'NE' },
-        { name: 'Nevada', isoCode: 'NV' },
-        { name: 'New Hampshire', isoCode: 'NH' },
-        { name: 'New Jersey', isoCode: 'NJ' },
-        { name: 'New Mexico', isoCode: 'NM' },
-        { name: 'New York', isoCode: 'NY' },
-        { name: 'North Carolina', isoCode: 'NC' },
-        { name: 'North Dakota', isoCode: 'ND' },
-        { name: 'Ohio', isoCode: 'OH' },
-        { name: 'Oklahoma', isoCode: 'OK' },
-        { name: 'Oregon', isoCode: 'OR' },
-        { name: 'Pennsylvania', isoCode: 'PA' },
-        { name: 'Rhode Island', isoCode: 'RI' },
-        { name: 'South Carolina', isoCode: 'SC' },
-        { name: 'South Dakota', isoCode: 'SD' },
-        { name: 'Tennessee', isoCode: 'TN' },
-        { name: 'Texas', isoCode: 'TX' },
-        { name: 'Utah', isoCode: 'UT' },
-        { name: 'Vermont', isoCode: 'VT' },
-        { name: 'Virginia', isoCode: 'VA' },
-        { name: 'Washington', isoCode: 'WA' },
-        { name: 'West Virginia', isoCode: 'WV' },
-        { name: 'Wisconsin', isoCode: 'WI' },
-        { name: 'Wyoming', isoCode: 'WY' },
-        { name: 'District of Columbia', isoCode: 'DC' }
-      ];
-      
-      // Merge with existing states
-      setStates(prevStates => {
-        const combined = [...prevStates, ...fallbackStates];
-        // Remove duplicates by name
-        const uniqueMap = new Map();
-        combined.forEach(state => {
-          if (!uniqueMap.has(state.name)) {
-            uniqueMap.set(state.name, state);
-          }
-        });
-        // Convert back to array and sort
-        return Array.from(uniqueMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-      });
-      
-      // Set pagination to indicate we have all states now
-      setStatesPagination({
-        offset: fallbackStates.length,
-        hasMore: false,
-        totalCount: fallbackStates.length
-      });
-      
-    } catch (error) {
-      console.error('Error loading states on demand:', error);
-      // Don't show alert for rate limit errors
-      if (!error.message.includes('429')) {
-        Alert.alert('Error', 'Failed to load states. Please try again later.');
-      }
-    } finally {
-      setStatesLoading(false);
-    }
+    // Load more states using GeoDB API
+    await loadMoreStates();
   };
 
-  // Manually load cities for a state when the city dropdown is clicked
+  // Load cities when city dropdown is clicked
   const handleCityDropdownClick = () => {
-    if (selectedStateData && cities.length === 0) {
-      // If we have isoCode, try to load cities from API with rate limiting
-      if (selectedStateData.isoCode && (Date.now() - lastApiCallTime > 2000)) {
-        selectedStateData._userTriggered = true;
-        setLastApiCallTime(Date.now());
-        setSelectedStateData({...selectedStateData});
-      } else {
-        // Fallback - provide some common cities for the selected state
-        const getCommonCities = (stateName) => {
-          const commonCitiesByState = {
-            'Alabama': ['Birmingham', 'Montgomery', 'Mobile', 'Huntsville', 'Tuscaloosa'],
-            'Alaska': ['Anchorage', 'Fairbanks', 'Juneau', 'Sitka', 'Ketchikan'],
-            'Arizona': ['Phoenix', 'Tucson', 'Mesa', 'Chandler', 'Scottsdale'],
-            'Arkansas': ['Little Rock', 'Fort Smith', 'Fayetteville', 'Springdale', 'Jonesboro'],
-            'California': ['Los Angeles', 'San Francisco', 'San Diego', 'San Jose', 'Sacramento'],
-            'Colorado': ['Denver', 'Colorado Springs', 'Aurora', 'Fort Collins', 'Lakewood'],
-            'Connecticut': ['Bridgeport', 'New Haven', 'Hartford', 'Stamford', 'Waterbury'],
-            'Delaware': ['Wilmington', 'Dover', 'Newark', 'Middletown', 'Smyrna'],
-            'Florida': ['Miami', 'Orlando', 'Tampa', 'Jacksonville', 'Tallahassee'],
-            'Georgia': ['Atlanta', 'Savannah', 'Augusta', 'Columbus', 'Macon'],
-            'Hawaii': ['Honolulu', 'Hilo', 'Kailua', 'Kapolei', 'Kaneohe'],
-            'Idaho': ['Boise', 'Meridian', 'Nampa', 'Idaho Falls', 'Pocatello'],
-            'Illinois': ['Chicago', 'Aurora', 'Rockford', 'Joliet', 'Naperville'],
-            'Indiana': ['Indianapolis', 'Fort Wayne', 'Evansville', 'South Bend', 'Carmel'],
-            'Iowa': ['Des Moines', 'Cedar Rapids', 'Davenport', 'Sioux City', 'Iowa City'],
-            'Kansas': ['Wichita', 'Overland Park', 'Kansas City', 'Olathe', 'Topeka'],
-            'Kentucky': ['Louisville', 'Lexington', 'Bowling Green', 'Owensboro', 'Covington'],
-            'Louisiana': ['New Orleans', 'Baton Rouge', 'Shreveport', 'Lafayette', 'Lake Charles'],
-            'Maine': ['Portland', 'Lewiston', 'Bangor', 'South Portland', 'Auburn'],
-            'Maryland': ['Baltimore', 'Frederick', 'Rockville', 'Gaithersburg', 'Annapolis'],
-            'Massachusetts': ['Boston', 'Worcester', 'Springfield', 'Lowell', 'Cambridge'],
-            'Michigan': ['Detroit', 'Grand Rapids', 'Warren', 'Sterling Heights', 'Ann Arbor'],
-            'Minnesota': ['Minneapolis', 'Saint Paul', 'Rochester', 'Duluth', 'Bloomington'],
-            'Mississippi': ['Jackson', 'Gulfport', 'Southaven', 'Hattiesburg', 'Biloxi'],
-            'Missouri': ['Kansas City', 'St. Louis', 'Springfield', 'Columbia', 'Independence'],
-            'Montana': ['Billings', 'Missoula', 'Great Falls', 'Bozeman', 'Butte'],
-            'Nebraska': ['Omaha', 'Lincoln', 'Bellevue', 'Grand Island', 'Kearney'],
-            'Nevada': ['Las Vegas', 'Henderson', 'Reno', 'North Las Vegas', 'Sparks'],
-            'New Hampshire': ['Manchester', 'Nashua', 'Concord', 'Derry', 'Dover'],
-            'New Jersey': ['Newark', 'Jersey City', 'Paterson', 'Elizabeth', 'Trenton'],
-            'New Mexico': ['Albuquerque', 'Las Cruces', 'Rio Rancho', 'Santa Fe', 'Roswell'],
-            'New York': ['New York City', 'Buffalo', 'Rochester', 'Yonkers', 'Syracuse'],
-            'North Carolina': ['Charlotte', 'Raleigh', 'Greensboro', 'Durham', 'Winston-Salem'],
-            'North Dakota': ['Fargo', 'Bismarck', 'Grand Forks', 'Minot', 'West Fargo'],
-            'Ohio': ['Columbus', 'Cleveland', 'Cincinnati', 'Toledo', 'Akron'],
-            'Oklahoma': ['Oklahoma City', 'Tulsa', 'Norman', 'Broken Arrow', 'Edmond'],
-            'Oregon': ['Portland', 'Salem', 'Eugene', 'Gresham', 'Hillsboro'],
-            'Pennsylvania': ['Philadelphia', 'Pittsburgh', 'Allentown', 'Erie', 'Reading'],
-            'Rhode Island': ['Providence', 'Warwick', 'Cranston', 'Pawtucket', 'East Providence'],
-            'South Carolina': ['Columbia', 'Charleston', 'North Charleston', 'Mount Pleasant', 'Rock Hill'],
-            'South Dakota': ['Sioux Falls', 'Rapid City', 'Aberdeen', 'Brookings', 'Watertown'],
-            'Tennessee': ['Nashville', 'Memphis', 'Knoxville', 'Chattanooga', 'Clarksville'],
-            'Texas': ['Houston', 'San Antonio', 'Dallas', 'Austin', 'Fort Worth'],
-            'Utah': ['Salt Lake City', 'West Valley City', 'Provo', 'West Jordan', 'Orem'],
-            'Vermont': ['Burlington', 'South Burlington', 'Rutland', 'Essex Junction', 'Colchester'],
-            'Virginia': ['Virginia Beach', 'Norfolk', 'Chesapeake', 'Richmond', 'Newport News'],
-            'Washington': ['Seattle', 'Spokane', 'Tacoma', 'Vancouver', 'Bellevue'],
-            'West Virginia': ['Charleston', 'Huntington', 'Morgantown', 'Parkersburg', 'Wheeling'],
-            'Wisconsin': ['Milwaukee', 'Madison', 'Green Bay', 'Kenosha', 'Racine'],
-            'Wyoming': ['Cheyenne', 'Casper', 'Laramie', 'Gillette', 'Rock Springs'],
-            'District of Columbia': ['Washington']
-          };
-          
-          return commonCitiesByState[stateName] || ['Enter city manually'];
-        };
-        
-        // Get common cities for this state and set them
-        const citiesForState = getCommonCities(selectedStateData.name);
-        setCities(citiesForState);
-      }
+    if (selectedStateData && cities.length === 0 && !citiesLoading) {
+      // Trigger city loading
+      loadCities();
     }
   };
 
