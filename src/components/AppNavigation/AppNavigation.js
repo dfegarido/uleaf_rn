@@ -1,8 +1,8 @@
 /* eslint-disable react/no-unstable-nested-components */
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {NavigationContainer} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import React, {useContext, useEffect, useState} from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -10,22 +10,22 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {AuthContext} from '../../auth/AuthProvider';
+import { AuthContext } from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
-import {ChatScreen} from '../../screens/ChatScreen';
+import { ChatScreen } from '../../screens/ChatScreen';
 import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
-import {LiveBroadcastScreen} from '../../screens/Live';
+import { LiveBroadcastScreen } from '../../screens/Live';
 
-import {ScreenPrivacy, ScreenTerms} from '../../screens/Legal';
+import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
 import {
+  ScreenForgotPassword,
   ScreenLogin,
   ScreenLoginForm,
   ScreenLoginOtp,
-  ScreenForgotPassword,
 } from '../../screens/Login';
 import {
   ScreenProfile,
@@ -86,17 +86,16 @@ import SellIcon from '../../assets/icontabs/sell.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import BuyerSignupActivationCode from '../../screens/BuyerSignup/BuyerSignupLocation';
-import BuyerSignup from '../../screens/BuyerSignup/BuyerSignup';
-import BuyerSignupLocation from '../../screens/BuyerSignup/BuyerSignupLocation';
+import ScreenRequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
+import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
+import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import {
   BuyerCompleteYourAccount,
   BuyerGettingToKnow,
 } from '../../screens/BuyerSignup';
-import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
-import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
+import BuyerSignup from '../../screens/BuyerSignup/BuyerSignup';
+import BuyerSignupLocation from '../../screens/BuyerSignup/BuyerSignupLocation';
 import AdminTabNavigator from './AdminTabNavigator';
-import ScreenRequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
