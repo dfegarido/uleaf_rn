@@ -77,3 +77,5 @@ BUILD_DOCUMENTATION.md
 android/app/my-release-key.jks
 android/upload-keystore.jks
 android/app/build.gradle
+gradle.properties
+build.gradle
