@@ -268,6 +268,15 @@ export const getCountryApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
     
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getCountryApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
+    }
+    
     const response = await fetch(
       API_ENDPOINTS.GET_COUNTRY,
       {
@@ -304,6 +313,15 @@ export const getCountryApi = async () => {
 export const getListingTypeApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
+    
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getListingTypeApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
+    }
     
     const response = await fetch(
       API_ENDPOINTS.GET_LISTING_TYPE,
@@ -342,6 +360,15 @@ export const getShippingIndexApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
     
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getShippingIndexApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
+    }
+    
     const response = await fetch(
       API_ENDPOINTS.GET_SHIPPING_INDEX,
       {
@@ -378,6 +405,15 @@ export const getShippingIndexApi = async () => {
 export const getAcclimationIndexApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
+    
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getAcclimationIndexApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
+    }
     
     const response = await fetch(
       API_ENDPOINTS.GET_ACCLIMATION_INDEX,
