@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -106,8 +108,8 @@ const PackingListItem = ({ item }) => (
 // --- MAIN SCREEN ---
 const PackingScreen = ({navigation}) => {
   const [packingData, setPackingData] = useState(null);
-        // const [isLoading, setIsLoading] = useState(true);
-        // const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
     
     // useEffect hook to fetch data when the component mounts
   useEffect(() => {
@@ -131,6 +133,13 @@ const PackingScreen = ({navigation}) => {
     <SafeAreaProvider>
       <SafeAreaView style={styles.screenContainer} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        {isLoading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
         <ScreenHeader navigation={navigation}/>
         <FlatList
           data={packingData?.data || {}}
@@ -154,6 +163,12 @@ export default PackingScreen;
 
 // --- STYLES ---
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   screenContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',

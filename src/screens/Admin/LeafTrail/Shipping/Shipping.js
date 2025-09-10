@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -170,8 +172,9 @@ const ShippingListItem = ({ item }) => (
 // --- MAIN SCREEN ---
 const ShippingScreen = ({navigation}) => {
   const [shippingData, setShippingData] = useState(null);
-          // const [isLoading, setIsLoading] = useState(true);
-          // const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   useEffect(() => {
       const fetchData = async () => {
       try {
@@ -194,6 +197,13 @@ const ShippingScreen = ({navigation}) => {
     <SafeAreaProvider>
       <SafeAreaView style={styles.screenContainer} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        {isLoading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
         <ScreenHeader navigation={navigation}/>
         <FlatList
           data={shippingData?.data || {}}
@@ -218,6 +228,12 @@ export default ShippingScreen;
 
 // --- STYLES ---
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   screenContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',

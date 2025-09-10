@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -98,8 +100,8 @@ const ScreenHeader = ({navigation}) => (
 // --- MAIN SCREEN COMPONENT (Updated) ---
 const SortingScreen = ({navigation}) => {
   const [sortingData, setSortingData] = useState(null);
-      // const [isLoading, setIsLoading] = useState(true);
-      // const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // useEffect hook to fetch data when the component mounts
   useEffect(() => {
@@ -127,7 +129,13 @@ const SortingScreen = ({navigation}) => {
           'backgroundColor' is for Android.
       */}
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+      {isLoading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
       <ScreenHeader navigation={navigation} />
       
       <FlatList
@@ -148,6 +156,12 @@ const SortingScreen = ({navigation}) => {
 
 // --- STYLES (unchanged) ---
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   screenContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
