@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {InputBox, InputCheckBox} from '../../components/Input';
@@ -22,6 +24,54 @@ const BuyerGettingToKnow = () => {
   const [email, setEmail] = useState('');
   const [receiveEmail, setReceiveEmail] = useState(true);
   const [errors, setErrors] = useState({});
+
+  // Load existing data when component mounts
+  useEffect(() => {
+    const loadExistingData = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('buyerSignupData');
+        if (stored) {
+          const data = JSON.parse(stored);
+          console.log('Loading existing signup data:', data);
+          
+          // Populate fields with existing data if available
+          if (data.firstName) setFirstName(data.firstName);
+          if (data.lastName) setLastName(data.lastName);
+          if (data.contactNumber) setContactNumber(data.contactNumber);
+          if (data.email) setEmail(data.email);
+        }
+      } catch (e) {
+        console.error('Failed to load existing signup data', e);
+      }
+    };
+
+    loadExistingData();
+  }, []); // Empty dependency array - only run once on mount
+
+  // Clear data when navigating away from buyer signup flow
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      const targetRouteName = e.data?.action?.payload?.name;
+      
+      // List of allowed buyer signup screens
+      const buyerSignupScreens = [
+        'BuyerSignup',
+        'BuyerSignupLocation', 
+        'BuyerGettingToKnow',
+        'BuyerCompleteYourAccount'
+      ];
+
+      // If navigating to a screen outside buyer signup flow, clear data
+      if (targetRouteName && !buyerSignupScreens.includes(targetRouteName)) {
+        AsyncStorage.removeItem('buyerSignupData').catch(e => 
+          console.error('Failed to clear signup data:', e)
+        );
+        console.log('Cleared buyer signup data - navigating to:', targetRouteName);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const validate = () => {
     const newErrors = {};
@@ -61,9 +111,18 @@ const BuyerGettingToKnow = () => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView 
+        style={{flex: 1}} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          bounces={false}
+        >
         <View style={styles.container}>
           <View style={styles.topRow}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -132,15 +191,16 @@ const BuyerGettingToKnow = () => {
           {/* Spacer */}
           <View style={{flex: 1, minHeight: 24}} />
         </View>
-      </ScrollView>
-      {/* Continue button at bottom */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[globalStyles.primaryButton, {marginBottom: 8}]}
-          onPress={handleContinue}>
-          <Text style={globalStyles.primaryButtonText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
+        </ScrollView>
+        {/* Continue button at bottom */}
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[globalStyles.primaryButton, {marginBottom: 8}]}
+            onPress={handleContinue}>
+            <Text style={globalStyles.primaryButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -148,18 +208,20 @@ const BuyerGettingToKnow = () => {
 const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: 100, // Extra padding to ensure content is scrollable above keyboard
   },
   container: {
-    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 8, // Further reduced to match good positioning
+    paddingBottom: 24,
     backgroundColor: '#fff',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 32,
+    marginTop: 32, // Increased from 8 to 16 for better positioning
+    paddingTop: 16, // Increased from 8 to 16 for better positioning
   },
   backBtn: {
     padding: 8,

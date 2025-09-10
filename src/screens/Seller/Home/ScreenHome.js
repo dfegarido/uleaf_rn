@@ -118,7 +118,7 @@ const ScreenHome = ({navigation}) => {
       throw new Error(res?.message || 'Failed to load summary API.');
     }
 
-    console.log(res);
+    // console.log(res);
     setTotalSales(res.stats.currency);
     setPlantSold(res.stats.plantsSold);
     setPlantListed(res.stats.listingsCreated);
@@ -286,7 +286,7 @@ const ScreenHome = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => navigation.navigate('LiveBroadcastScreen')}
+                onPress={() => {}}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}
@@ -330,7 +330,10 @@ const ScreenHome = ({navigation}) => {
             style={styles.topNavItem}
             onPress={() => navigation.navigate('ScreenPayout')}>
             <PayoutsIcon width={40} height={40} />
-            <Text style={globalStyles.textSMGreyLight}>Payouts</Text>
+            <Text
+              style={[globalStyles.textSMGreyLight, globalStyles.textSemiBold]}>
+              Payouts
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.topNavItem}
@@ -341,7 +344,10 @@ const ScreenHome = ({navigation}) => {
                 {/* <Text style={styles.msgBadgeText}>23</Text> */}
               </View>
             </View>
-            <Text style={globalStyles.textSMGreyLight}>Messages</Text>
+            <Text
+              style={[globalStyles.textSMGreyLight, globalStyles.textSemiBold]}>
+              Messages
+            </Text>
           </TouchableOpacity>
         </View>
         {/* Top Navigation */}

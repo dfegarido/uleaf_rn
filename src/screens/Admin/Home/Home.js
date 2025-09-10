@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
 import DiscountsIcon from '../../../assets/admin-icons/discounts.svg';
 import ForShippingIcon from '../../../assets/admin-icons/for-shipping.svg';
@@ -25,14 +25,14 @@ import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
 
 
-const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}}) => {
+const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}, insets}) => {
   const {userInfo} = useAuth();
   const firstName = userInfo?.user?.firstName || userInfo?.firstName || 'Admin';
   const canGoLive = userInfo?.liveFlag !== 'No';
   const profileImage = userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
 
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, {paddingTop: insets.top}]}>
       <Text style={styles.headerTitle}>{`Welcome ${firstName}`}</Text>
 
       <View style={styles.headerActions}>
@@ -176,23 +176,29 @@ const BusinessPerformance = () => {
 
 const Home = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for admin tab bar + safe area
+  const tabBarHeight = 60; // Standard admin tab bar height
+  const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
 
   return (
-    <SafeAreaView style={{flex: 1}}>
-      <View style={{flex: 1, backgroundColor: '#fff'}}>
-        <AdminHeader
-          onPressLive={() => navigation.navigate('LiveBroadcastScreen')}
-          onPressProfile={() => navigation.navigate('AdminProfile')}
-        />
-        <ScrollView
-          style={{flex: 1}}
-          contentContainerStyle={{paddingBottom: 85}}>
-          <BusinessPerformance />
-          <LeafTrailGreenhouse navigation={navigation} />
-          <BehindTheJungle />
-          <NewsEventsRewards />
-        </ScrollView>
-      </View>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+      <AdminHeader
+        onPressLive={() => navigation.navigate('LiveBroadcastScreen')}
+        onPressProfile={() => navigation.navigate('AdminProfile')}
+        insets={insets}
+      />
+      <ScrollView
+        style={{flex: 1}}
+        contentContainerStyle={{paddingBottom: totalBottomPadding}}
+        showsVerticalScrollIndicator={false}>
+        <BusinessPerformance />
+        <LeafTrailGreenhouse navigation={navigation} />
+        <BehindTheJungle />
+        <NewsEventsRewards />
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -205,7 +211,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
     paddingBottom: 8,
     backgroundColor: '#fff',
   },

@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Animated,
 } from 'react-native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../../auth/AuthProvider';
 import {useIsFocused} from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
@@ -25,16 +26,25 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
 
 // Custom Header Component
-const ProfileHeader = () => {
+const ProfileHeader = ({insets}) => {
   const navigation = useNavigation();
   
   return (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <LeftIcon width={24} height={24} fill="#393D40" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Admin Profile</Text>
-      <View style={styles.headerSpacer} />
+    <View style={[styles.headerContainer, {paddingTop: insets.top}]}>
+      <View style={styles.headerControls}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <LeftIcon width={24} height={24} fill="#393D40" />
+        </TouchableOpacity>
+        <View style={styles.navbarRight}>
+          <TouchableOpacity 
+            style={styles.switchLink}
+            disabled={true}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.switchText}>Switch to Seller</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 };
@@ -114,10 +124,16 @@ const AdminProfileScreen = () => {
   const navigation = useNavigation();
   const {userInfo, logout} = useContext(AuthContext);
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [adminData, setAdminData] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // Calculate proper bottom padding for admin tab bar + safe area
+  const tabBarHeight = 60; // Standard admin tab bar height
+  const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 24; // Extra 24px for spacing
 
   // Fetch admin info from API
   const fetchAdminInfo = async (showInitialLoading = false) => {
@@ -173,7 +189,7 @@ const AdminProfileScreen = () => {
   console.log('Admin Profile - UserInfo:', userInfo);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -184,10 +200,12 @@ const AdminProfileScreen = () => {
       
       <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
       
-      <ProfileHeader />
+      <ProfileHeader insets={insets} />
       
       <ScrollView 
         style={styles.content}
+        contentContainerStyle={{paddingBottom: totalBottomPadding}}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -244,7 +262,7 @@ const AdminProfileScreen = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -253,13 +271,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  header: {
+  headerContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: '100%',
+    height: 70,
+    minHeight: 58,
+    backgroundColor: '#DFECDF',
+  },
+  headerControls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#DFECDF',
+    paddingTop: 6,
+    paddingBottom: 12,
+    width: '100%',
+    height: 58,
+    minHeight: 58,
   },
   backButton: {
     width: 24,
@@ -267,14 +296,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#393D40',
+  navbarRight: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    flex: 1,
+    height: 22,
   },
-  headerSpacer: {
-    width: 24,
-    height: 24,
+  switchLink: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    height: 22,
+  },
+  switchText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'right',
+    color: '#699E73',
+    opacity: 0.5, // Disabled state
   },
   content: {
     flex: 1,
@@ -378,7 +421,6 @@ const styles = StyleSheet.create({
   actionSection: {
     paddingHorizontal: 16,
     paddingVertical: 24,
-    paddingBottom: 40,
   },
   logoutButton: {
     backgroundColor: '#E4E7E9',

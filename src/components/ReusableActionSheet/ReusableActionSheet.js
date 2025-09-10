@@ -196,7 +196,9 @@ const ReusableActionSheet = ({
                 width: '100%',
                 backgroundColor: '#fff',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity
+                onPress={resetGenusSelection}
+                style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -248,7 +250,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity onPress={resetSelection} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -307,7 +309,9 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity
+                onPress={resetListingTypeSelection}
+                style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>

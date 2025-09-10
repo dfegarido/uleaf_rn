@@ -891,7 +891,7 @@ const AppNavigation = () => {
   const currentUserInfo = userInfo || asyncUserInfo;
 
   // Extract userType from currentUserInfo with multiple fallbacks
-  const userType = 'admin'; // Default to seller if no userType found
+  const userType = currentUserInfo?.user?.userType || 'seller'; // Default to seller if no userType found
   const isBuyer = userType === 'buyer';
   const isAdmin = userType === 'admin' || userType === 'sub_admin';
 

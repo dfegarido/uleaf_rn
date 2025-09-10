@@ -4,10 +4,87 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { createAddressBookEntryApi } from '../../../components/Api';
 import DropdownSelect from '../../../components/Dropdown/DropdownSelect';
-// New public (no-auth) location dropdown APIs
-import { getPublicStatesApi, getPublicCitiesApi } from '../../../components/Api/locationDropdownApi';
+// GeoDB API for location data using centralized config
+import { getUSStatesSimple, getStateCitiesSimple } from '../../../components/Api/geoDbApi';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+
+// Restricted states and territories configuration
+const RESTRICTED_LOCATIONS = {
+  STATES: [
+    'Alaska',
+    'Hawaii'
+  ],
+  TERRITORIES: [
+    'Puerto Rico',
+    'Guam', 
+    'American Samoa',
+    'U.S. Virgin Islands',
+    'United States Virgin Islands',
+    'Northern Mariana Islands',
+    'Commonwealth of the Northern Mariana Islands'
+  ],
+  // ISO codes for restricted locations
+  RESTRICTED_CODES: [
+    'AK', // Alaska
+    'HI', // Hawaii
+    'PR', // Puerto Rico
+    'GU', // Guam
+    'AS', // American Samoa
+    'VI', // U.S. Virgin Islands
+    'MP'  // Northern Mariana Islands
+  ]
+};
+
+// Filter function to remove restricted states/territories
+const filterRestrictedStates = (states) => {
+  return states.filter(state => {
+    // Check by ISO code (most reliable)
+    if (RESTRICTED_LOCATIONS.RESTRICTED_CODES.includes(state.isoCode)) {
+      console.log(`🚫 Filtering out restricted state: ${state.name} (${state.isoCode})`);
+      return false;
+    }
+    
+    // Check by name (backup method)
+    const stateName = state.name;
+    const isRestrictedState = RESTRICTED_LOCATIONS.STATES.some(restricted => 
+      stateName.toLowerCase().includes(restricted.toLowerCase())
+    );
+    const isRestrictedTerritory = RESTRICTED_LOCATIONS.TERRITORIES.some(restricted => 
+      stateName.toLowerCase().includes(restricted.toLowerCase())
+    );
+    
+    if (isRestrictedState || isRestrictedTerritory) {
+      console.log(`🚫 Filtering out restricted location: ${stateName}`);
+      return false;
+    }
+    
+    return true;
+  });
+};
+
+// Filter function to remove cities in restricted territories
+const filterRestrictedCities = (cities, stateData) => {
+  // If the state itself is restricted, return empty array
+  if (RESTRICTED_LOCATIONS.RESTRICTED_CODES.includes(stateData?.isoCode)) {
+    console.log(`🚫 State ${stateData.name} is restricted - no cities will be shown`);
+    return [];
+  }
+  
+  // Filter out cities that might be in territories
+  return cities.filter(cityName => {
+    const isInTerritory = RESTRICTED_LOCATIONS.TERRITORIES.some(territory => 
+      cityName.toLowerCase().includes(territory.toLowerCase())
+    );
+    
+    if (isInTerritory) {
+      console.log(`🚫 Filtering out city in restricted territory: ${cityName}`);
+      return false;
+    }
+    
+    return true;
+  });
+};
 
 const AddNewAddressScreen = () => {
   const navigation = useNavigation();
@@ -19,7 +96,7 @@ const AddNewAddressScreen = () => {
   const [zipCode, setZipCode] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // States and cities from API
+  // States and cities from GeoDB API
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
   const [statesLoading, setStatesLoading] = useState(true);
@@ -44,92 +121,224 @@ const AddNewAddressScreen = () => {
     contactNumber: ''
   });
   
-  // Load states from new public endpoint (one-shot; no pagination required client-side)
-  useEffect(() => {
-    const loadStates = async () => {
-      try {
-        console.log('Loading states from public endpoint...');
+  // Load states from GeoDB API with pagination
+  const loadStates = async (isLoadMore = false) => {
+    try {
+      const currentOffset = isLoadMore ? statesPagination.offset : 0;
+      console.log(`🇺🇸 Loading US states from GeoDB API... (offset: ${currentOffset})`);
+      
+      if (isLoadMore) {
+        setLoadingMoreStates(true);
+      } else {
         setStatesLoading(true);
-        const stateList = await getPublicStatesApi();
-        // Sort alphabetically by name just in case
-        stateList.sort((a,b) => a.name.localeCompare(b.name));
-        setStates(stateList);
+        setStates([]); // Clear existing states for fresh load
         setStatesPagination({
-          offset: stateList.length,
-            hasMore: false,
-            totalCount: stateList.length
+          offset: 0,
+          hasMore: true,
+          totalCount: 0
         });
-      } catch (error) {
-        console.error('Error loading states:', error);
-        Alert.alert('Error', 'Failed to load states. Please try again.');
-      } finally {
+      }
+      
+      const response = await getUSStatesSimple(5, currentOffset);
+      
+      if (response.success && response.states) {
+        // Transform to match existing component structure
+        const stateList = response.states.map(state => ({
+          name: state.name,
+          isoCode: state.code,
+          id: state.id
+        }));
+        
+        // Filter out restricted states and territories
+        const filteredStates = filterRestrictedStates(stateList);
+        console.log(`📊 Filtered ${stateList.length - filteredStates.length} restricted states/territories`);
+        
+        // Sort alphabetically
+        filteredStates.sort((a, b) => a.name.localeCompare(b.name));
+        
+        if (isLoadMore) {
+          // Append to existing states
+          setStates(prevStates => [...prevStates, ...filteredStates]);
+        } else {
+          // Replace states
+          setStates(filteredStates);
+        }
+        
+        // Update pagination state
+        setStatesPagination({
+          offset: currentOffset + 5,
+          hasMore: response.hasMore,
+          totalCount: response.totalCount
+        });
+        
+        console.log(`✅ Successfully loaded ${filteredStates.length} US states from GeoDB API (total: ${isLoadMore ? states.length + filteredStates.length : filteredStates.length}, hasMore: ${response.hasMore})`);
+      } else {
+        console.error('❌ GeoDB API returned error:', response.error);
+        throw new Error(response.error || 'Failed to load states from GeoDB');
+      }
+    } catch (error) {
+      console.error('❌ Error loading states from GeoDB API:', error.message);
+      
+      if (!isLoadMore) {
+        Alert.alert(
+          'Location Service Issue', 
+          'Could not load states from location service. Using fallback list.',
+          [{ text: 'OK' }]
+        );
+        
+        // Fallback to common states if GeoDB fails (excluding restricted states)
+        const fallbackStates = [
+          { name: 'California', isoCode: 'CA' },
+          { name: 'Texas', isoCode: 'TX' },
+          { name: 'New York', isoCode: 'NY' },
+          { name: 'Florida', isoCode: 'FL' },
+          { name: 'Illinois', isoCode: 'IL' },
+          { name: 'Pennsylvania', isoCode: 'PA' },
+          { name: 'Ohio', isoCode: 'OH' },
+          { name: 'Georgia', isoCode: 'GA' },
+          { name: 'North Carolina', isoCode: 'NC' },
+          { name: 'Michigan', isoCode: 'MI' },
+          { name: 'Virginia', isoCode: 'VA' },
+          { name: 'Washington', isoCode: 'WA' },
+          { name: 'Arizona', isoCode: 'AZ' },
+          { name: 'Massachusetts', isoCode: 'MA' },
+          { name: 'Tennessee', isoCode: 'TN' }
+        ];
+        
+        // Apply filtering to fallback states as well
+        const filteredFallbackStates = filterRestrictedStates(fallbackStates);
+        setStates(filteredFallbackStates);
+        setStatesPagination({
+          offset: filteredFallbackStates.length,
+          hasMore: false,
+          totalCount: filteredFallbackStates.length
+        });
+      }
+    } finally {
+      if (isLoadMore) {
+        setLoadingMoreStates(false);
+      } else {
         setStatesLoading(false);
       }
-    };
+    }
+  };
 
+  // Load states from new public endpoint (one-shot; no pagination required client-side)
+  useEffect(() => {
     loadStates();
   }, []);
 
   // Load more states when reaching end of list
-  // No-op for now since public endpoint returns full list
-  const loadMoreStates = async () => {};
+  const loadMoreStates = async () => {
+    if (!statesPagination.hasMore || loadingMoreStates) return;
+    await loadStates(true);
+  };
 
-  // Load cities for selected state via public endpoint (offset pagination)
-  useEffect(() => {
-    const loadCities = async () => {
-      if (!selectedStateData) {
-        setCities([]);
+  // Load cities when state changes using GeoDB API with pagination
+  const loadCities = async (isLoadMore = false) => {
+    if (!selectedStateData) {
+      setCities([]);
+      setCitiesPagination({
+        offset: 0,
+        hasMore: true,
+        totalCount: 0
+      });
+      return;
+    }
+
+    try {
+      const currentOffset = isLoadMore ? citiesPagination.offset : 0;
+      console.log(`🏙️ Loading cities for state from GeoDB API: ${selectedStateData.name} (offset: ${currentOffset})`);
+      
+      if (isLoadMore) {
+        setLoadingMoreCities(true);
+      } else {
+        setCitiesLoading(true);
+        setCities([]); // Clear existing cities for fresh load
         setCitiesPagination({
           offset: 0,
           hasMore: true,
           totalCount: 0
         });
-        return;
       }
-
-      try {
-        console.log('Loading initial cities (public) for state:', selectedStateData.name, 'isoCode:', selectedStateData.isoCode);
-        setCitiesLoading(true);
-        const { cities: cityNames, pagination } = await getPublicCitiesApi(selectedStateData.isoCode, 50, 0);
-        setCities(cityNames);
+      
+      // Load cities from GeoDB API
+      const response = await getStateCitiesSimple(selectedStateData.isoCode, 5, currentOffset);
+      
+      if (response.success && response.cities && response.cities.length > 0) {
+        // Extract just city names and remove duplicates
+        const cityNames = [...new Set(response.cities.map(city => city.name))];
+        
+        // Filter out cities in restricted territories
+        const filteredCities = filterRestrictedCities(cityNames, selectedStateData);
+        console.log(`📊 Filtered ${cityNames.length - filteredCities.length} cities in restricted territories`);
+        
+        // Sort alphabetically
+        filteredCities.sort();
+        
+        if (isLoadMore) {
+          // Append to existing cities
+          setCities(prevCities => {
+            const combined = [...prevCities, ...filteredCities];
+            return [...new Set(combined)]; // Remove duplicates across pages
+          });
+        } else {
+          // Replace cities
+          setCities(filteredCities);
+        }
+        
+        // Update pagination state
         setCitiesPagination({
-          offset: pagination.offset + cityNames.length,
-          hasMore: pagination.hasMore,
-          totalCount: pagination.total
+          offset: currentOffset + 5,
+          hasMore: response.hasMore,
+          totalCount: response.totalCount
         });
-      } catch (error) {
-        console.error('Error loading cities:', error);
-        Alert.alert('Error', 'Failed to load cities. Please try again.');
-      } finally {
+        
+        console.log(`✅ Successfully loaded ${filteredCities.length} filtered cities for ${selectedStateData.name} (original: ${cityNames.length}, hasMore: ${response.hasMore})`);
+      } else {
+        console.log(`⚠️ No cities found for ${selectedStateData.name} from GeoDB API`);
+        
+        if (!isLoadMore) {
+          // Provide option to enter manually
+          setCities(['Enter city manually']);
+          setCitiesPagination({
+            offset: 1,
+            hasMore: false,
+            totalCount: 1
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading cities from GeoDB API:', error.message);
+      console.log('📝 Providing manual entry option for cities');
+      
+      if (!isLoadMore) {
+        // Fallback option
+        setCities(['Enter city manually']);
+        setCitiesPagination({
+          offset: 1,
+          hasMore: false,
+          totalCount: 1
+        });
+      }
+    } finally {
+      if (isLoadMore) {
+        setLoadingMoreCities(false);
+      } else {
         setCitiesLoading(false);
       }
-    };
+    }
+  };
 
+  // Load cities for selected state via public endpoint (offset pagination)
+  useEffect(() => {
     loadCities();
   }, [selectedStateData]);
 
   // Load more cities when reaching end of list
   const loadMoreCities = async () => {
     if (!citiesPagination.hasMore || loadingMoreCities || !selectedStateData) return;
-    try {
-      console.log('Loading more cities (public) from offset:', citiesPagination.offset);
-      setLoadingMoreCities(true);
-      const { cities: moreCityNames, pagination } = await getPublicCitiesApi(selectedStateData.isoCode, 50, citiesPagination.offset);
-      setCities(prev => {
-        const merged = [...prev, ...moreCityNames];
-        return Array.from(new Set(merged)).sort();
-      });
-      setCitiesPagination({
-        offset: pagination.offset + moreCityNames.length,
-        hasMore: pagination.hasMore,
-        totalCount: pagination.total
-      });
-    } catch (error) {
-      console.error('Error loading more cities:', error);
-      Alert.alert('Error', 'Failed to load more cities. Please try again.');
-    } finally {
-      setLoadingMoreCities(false);
-    }
+    await loadCities(true);
   };
 
   // Load user info from AsyncStorage
@@ -199,8 +408,7 @@ const AddNewAddressScreen = () => {
       } else {
         throw new Error(response?.message || 'Failed to add address');
       }
-    } catch (error) {
-      console.log('Error adding address:', error);
+      } catch (error) {
       Alert.alert(
         'Error', 
         error.message || 'Failed to add address. Please try again.'

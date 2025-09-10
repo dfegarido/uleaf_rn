@@ -278,7 +278,9 @@ const ScreenListingDetail = ({navigation, route}) => {
   }, [listingData]); // <-- include this if you want it to re-run when listingData changes
 
   const onPressUpdateStockPost = async () => {
-    setLoading(true);
+    setActionShowSheet(false);
+    setShowSheetUpdateStocks(false);
+    // setLoading(true);
     try {
       // Extract pot sizes and map their IDs to corresponding quantities from qtyMap
       const potSizes = listingData?.variations.map(
@@ -303,7 +305,7 @@ const ScreenListingDetail = ({navigation, route}) => {
       console.log('Error updating stock:', error.message);
       Alert.alert('Update stocks', error.message);
     } finally {
-      setLoading(false);
+      // setLoading(false);
       setActionShowSheet(false);
       setShowSheetUpdateStocks(false);
     }
@@ -942,8 +944,12 @@ const ScreenListingDetail = ({navigation, route}) => {
         code={listingData?.listingType}
         visible={showActionSheet}
         onClose={() => setActionShowSheet(false)}
-        onPressUpdateStockShow={setShowSheetUpdateStocks}
-        showSheetUpdateStocks={showSheetUpdateStocks}
+        onPressUpdateStockShow={() => {
+          setActionShowSheet(false);
+          setShowSheetUpdateStocks(true);
+        }}
+        // onPressUpdateStockShow={setShowSheetUpdateStocks}
+        // showSheetUpdateStocks={showSheetUpdateStocks}
         onPressEdit={() => {
           if (listingData?.listingType == 'Single Plant') {
             navigation.navigate('ScreenSingleSell', {

@@ -83,7 +83,8 @@ const ScreenProfileRequest = ({navigation}) => {
   // // Update
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView
+      style={{flex: 1, backgroundColor: '#fff', paddingBottom: insets.bottom}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>

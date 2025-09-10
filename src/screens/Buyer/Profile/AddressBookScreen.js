@@ -50,13 +50,9 @@ const AddressBookScreen = () => {
 
       if (res?.success && res?.data) {
         setAddresses(res.data);
-        console.log('Addresses loaded:', res.data);
-        console.log('First address structure:', res.data[0]);
-      } else {
-        console.log('Failed to load addresses:', res?.message);
       }
-    } catch (error) {
-      console.log('Error loading addresses:', error);
+  } catch (error) {
+      
       Alert.alert(
         'Error',
         'Failed to load addresses. Please check your connection and try again.',
@@ -71,16 +67,16 @@ const AddressBookScreen = () => {
     setRefreshing(true);
     try {
       await loadAddresses();
-    } catch (error) {
-      console.log('Error refreshing addresses:', error);
+  } catch (error) {
+      
     } finally {
       setRefreshing(false);
     }
   };
 
   const toggleDefaultAddress = async (addressId, currentDefault) => {
-    try {
-      console.log('Toggling default address - ID:', addressId, 'Current default:', currentDefault);
+  try {
+      
       
       // Validate addressId
       if (!addressId) {
@@ -105,8 +101,8 @@ const AddressBookScreen = () => {
       } else {
         throw new Error(res?.message || 'Failed to update address');
       }
-    } catch (error) {
-      console.log('Error updating default address:', error);
+  } catch (error) {
+      
       Alert.alert('Error', 'Failed to update default address');
       // Revert the optimistic update
       await loadAddresses();
@@ -138,8 +134,8 @@ const AddressBookScreen = () => {
       } else {
         throw new Error(res?.message || 'Failed to delete address');
       }
-    } catch (error) {
-      console.log('Error deleting address:', error);
+  } catch (error) {
+      
       Alert.alert('Error', 'Failed to delete address');
     }
   };

@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,54 @@ const GROW_OPTIONS = [
 const BuyerSignup = () => {
   const navigation = useNavigation();
   const [selected, setSelected] = useState([]);
+
+  // Load existing data when component mounts
+  useEffect(() => {
+    const loadExistingData = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('buyerSignupData');
+        if (stored) {
+          const data = JSON.parse(stored);
+          console.log('Loading existing grow plants data:', data);
+          
+          // Restore growPlants selection
+          if (data.growPlants) {
+            const savedSelections = data.growPlants.split(',');
+            setSelected(savedSelections);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load existing grow plants data', e);
+      }
+    };
+
+    loadExistingData();
+  }, []); // Empty dependency array - only run once on mount
+
+  // Clear data when navigating away from buyer signup flow
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      const targetRouteName = e.data?.action?.payload?.name;
+      
+      // List of allowed buyer signup screens
+      const buyerSignupScreens = [
+        'BuyerSignup',
+        'BuyerSignupLocation', 
+        'BuyerGettingToKnow',
+        'BuyerCompleteYourAccount'
+      ];
+
+      // If navigating to a screen outside buyer signup flow, clear data
+      if (targetRouteName && !buyerSignupScreens.includes(targetRouteName)) {
+        AsyncStorage.removeItem('buyerSignupData').catch(e => 
+          console.error('Failed to clear signup data:', e)
+        );
+        console.log('Cleared buyer signup data - navigating to:', targetRouteName);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const handleContinue = async () => {
     try {
@@ -95,13 +143,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 8, // Further reduced to match good positioning
     backgroundColor: '#fff',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 32,
+    marginTop: 32, // Increased from 8 to 16 for better positioning
+    paddingTop: 16, // Increased from 8 to 16 for better positioning
   },
   backBtn: {
     padding: 8,

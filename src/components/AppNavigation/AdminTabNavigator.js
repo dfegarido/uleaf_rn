@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
 import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
@@ -15,7 +16,7 @@ import AdminHomeScreen from '../../screens/Admin/Home/Home';
 import ScanQR from '../../screens/Admin/Home/ScanQR';
 import UserInformation from '../../screens/Admin/Home/UserInformation';
 import UserManagement from '../../screens/Admin/Home/UserManagement';
-import EnrollAdmin from '../../screens/Admin/LeafTrail/EnrollAdmin';
+import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
 import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
 import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
@@ -37,22 +38,27 @@ const Stack = createNativeStackNavigator();
 
 function AdminTabs() {
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
     return (
-      <Tab.Navigator
-        initialRouteName="Home"
-        screenOptions={({route}) => ({
-          tabBarStyle: styles.tabBar,
-          tabBarActiveTintColor: '#539461',
-          tabBarLabel: ({focused, color}) => {
-            let labelStyle = focused
-              ? styles.focusedLabel
-              : styles.unfocusedLabel;
-            return (
-              <Text style={[{color}, labelStyle, styles.customLabel]}>
-                {route.name}
-              </Text>
-            );
-          },
+      <SafeAreaView style={{flex: 1}} edges={["bottom"]}>
+        <Tab.Navigator
+          initialRouteName="Home"
+          screenOptions={({route}) => ({
+            tabBarStyle: [styles.tabBar, {
+              paddingBottom: Math.max(insets.bottom, 10),
+              height: 60 + Math.max(insets.bottom, 10)
+            }],
+            tabBarActiveTintColor: '#539461',
+            tabBarLabel: ({focused, color}) => {
+              let labelStyle = focused
+                ? styles.focusedLabel
+                : styles.unfocusedLabel;
+              return (
+                <Text style={[{color}, labelStyle, styles.customLabel]}>
+                  {route.name}
+                </Text>
+              );
+            },
           tabBarIcon: ({color, size, focused}) => {
             switch (route.name) {
               case 'Home':
@@ -131,6 +137,7 @@ function AdminTabs() {
           })}
         />
       </Tab.Navigator>
+      </SafeAreaView>
     );
   }
 
@@ -142,7 +149,7 @@ function AdminTabs() {
           component={AdminTabs}
           options={{headerShown: false}}
         />
-     <Stack.Screen name="EnrollAdmin" options={{headerShown: false}} component={EnrollAdmin} />
+     <Stack.Screen name="EnrollSeller" options={{headerShown: false}} component={EnrollSeller} />
      <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />

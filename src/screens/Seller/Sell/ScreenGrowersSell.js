@@ -208,14 +208,14 @@ const ScreenGrowersSell = ({navigation, route}) => {
   // Dropdown Genus
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    setLoading(true);
+    // setTimeout(() => setLoading(true), 300);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
   // Dropdown Genus
@@ -223,14 +223,14 @@ const ScreenGrowersSell = ({navigation, route}) => {
   // Dropdown Species
   const handleSpeciesChange = async species => {
     setSelectedSpecies(species);
-    setLoading(true);
+    // setTimeout(() => setLoading(true), 300);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
   // Dropdown Species
@@ -270,6 +270,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
     console.log(userInfo);
 
     const newPotSize = {
+      id: idVariation,
       image: imagesPotSize?.[0] ?? null,
       size: selectedPotSize,
       price: potPrice,
@@ -312,10 +313,12 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [idVariation, setIdVariation] = useState(null);
 
   const handleEdit = item => {
     const index = potSizeList.findIndex(pot => pot === item);
     if (index !== -1) {
+      setIdVariation(item.id);
       setEditingIndex(index);
       setImagesPotSize(item.image ? [item.image] : []);
       setSelectPotSize(item.size);
@@ -634,6 +637,8 @@ const ScreenGrowersSell = ({navigation, route}) => {
     }
 
     const newPotSize = res.data.variations.map(variation => ({
+      // id: variation.id,
+      id: variation.id,
       image: variation.imagePrimary ?? null,
       size: variation.potSize ?? '',
       price: variation.localPrice ?? 0,
@@ -696,6 +701,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
             ? 'Publish Now'
             : 'Publish on Nursery Drop',
         variation: uploadedPotSizeList.map(item => ({
+          id: item.id,
           imagePrimary: item.image,
           potSize: item.size,
           localPrice: Number(item.price),
@@ -704,6 +710,8 @@ const ScreenGrowersSell = ({navigation, route}) => {
             item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
         })),
       };
+
+      // console.log(data);
 
       const response = await postSellUpdateApi(data);
 
@@ -836,10 +844,17 @@ const ScreenGrowersSell = ({navigation, route}) => {
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
           Grower's Choice
         </Text>
-        {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
             <Text style={globalStyles.textLGAccent}>Save</Text>
           </TouchableOpacity>
+        )} */}
+        {isFromDuplicateSell || !plantCode || isFromDraftSell ? (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text>{''}</Text> // empty string element
         )}
       </View>
       <ScrollView

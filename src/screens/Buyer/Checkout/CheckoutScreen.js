@@ -1,5 +1,9 @@
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-import React, { useEffect, useMemo, useState } from 'react';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   Alert,
   Image,
@@ -8,11 +12,11 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { setupURLPolyfill } from "react-native-url-polyfill";
-import { paymentPaypalVenmoUrl } from '../../../../config';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {setupURLPolyfill} from 'react-native-url-polyfill';
+import {paymentPaypalVenmoUrl} from '../../../../config';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
@@ -25,16 +29,16 @@ import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import TagIcon from '../../../assets/icons/greylight/tag.svg';
-import { getAddressBookEntriesApi } from '../../../components/Api';
-import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
-import { checkoutApi } from '../../../components/Api/checkoutApi';
+import {getAddressBookEntriesApi} from '../../../components/Api';
+import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
+import {checkoutApi} from '../../../components/Api/checkoutApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import { formatCurrencyFull } from '../../../utils/formatCurrency';
+import {formatCurrencyFull} from '../../../utils/formatCurrency';
 
 // Helper function to determine country from currency
-const getCountryFromCurrency = (currency) => {
+const getCountryFromCurrency = currency => {
   if (!currency) return null;
-  
+
   switch (currency.toUpperCase()) {
     case 'PHP':
       return 'PH';
@@ -48,7 +52,7 @@ const getCountryFromCurrency = (currency) => {
 };
 
 // Function to render the correct country flag
-const renderCountryFlag = (country) => {
+const renderCountryFlag = country => {
   if (!country) {
     // Default to Indonesia if country is undefined or empty
     return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
@@ -64,10 +68,10 @@ const renderCountryFlag = (country) => {
   if (country === '🇮🇩') {
     return <IndonesiaFlag width={24} height={16} style={styles.flagIcon} />;
   }
-  
+
   // Handle text-based country codes
   const countryCode = country?.toUpperCase();
-  console.log({countryCode})
+  
   switch (countryCode) {
     case 'PHILIPPINES':
     case 'PH':
@@ -107,26 +111,26 @@ const PlantItemComponent = ({
     <View style={styles.plantImage}>
       <Image source={image} style={styles.plantImageContainer} />
     </View>
-    
+
     {/* Plant Details */}
     <View style={styles.plantDetails}>
       {/* Name */}
       <View style={styles.plantName}>
         <Text style={styles.plantNameText}>{name}</Text>
-        
+
         {/* Variegation + Size */}
         <View style={styles.variationSize}>
           <Text style={styles.variationText}>{variation}</Text>
-          
+
           {/* Divider */}
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
           </View>
-          
+
           <Text style={styles.sizeNumber}>{size}</Text>
         </View>
       </View>
-      
+
       {/* Type + Discount (if available) */}
       {(listingType || discount) && (
         <View style={styles.typeDiscount}>
@@ -136,7 +140,7 @@ const PlantItemComponent = ({
               <Text style={styles.listingTypeLabel}>{listingType}</Text>
             </View>
           )}
-          
+
           {/* Discount Badge */}
           {discount && (
             <View style={styles.discountBadge}>
@@ -146,20 +150,23 @@ const PlantItemComponent = ({
           )}
         </View>
       )}
-      
+
       {/* Price + Quantity */}
       <View style={styles.priceQuantity}>
         {/* Price */}
         <View style={styles.priceContainer}>
-          <Text style={[styles.priceNumber, discount && styles.discountedPrice]}>
+          <Text
+            style={[styles.priceNumber, discount && styles.discountedPrice]}>
             {formatCurrencyFull(price)}
           </Text>
           {/* Original Price (if discounted) */}
           {originalPrice && discount && (
-            <Text style={styles.originalPriceText}>{formatCurrencyFull(originalPrice)}</Text>
+            <Text style={styles.originalPriceText}>
+              {formatCurrencyFull(originalPrice)}
+            </Text>
           )}
         </View>
-        
+
         {/* Quantity */}
         <View style={styles.quantityContainer}>
           <Text style={styles.quantityNumber}>{quantity}</Text>
@@ -175,7 +182,7 @@ const CheckoutScreen = () => {
   const route = useRoute();
   setupURLPolyfill();
   const insets = useSafeAreaInsets();
-  
+
   // Get parameters from navigation (cart items, products, etc.)
   const {
     cartItems = [],
@@ -197,94 +204,112 @@ const CheckoutScreen = () => {
       city: 'New York',
       state: 'NY',
       zipCode: '10001',
-      country: 'US'
+      country: 'US',
     },
     contactPhone: '+1-555-0123',
-    specialInstructions: 'Leave at front door'
+    specialInstructions: 'Leave at front door',
   });
-  
+
   const [cargoDate, setCargoDate] = useState('2025-02-15');
   // Track if buyer already has a paid order for the selected cargo date
-  const [priorPaidAirBaseCargoAmount, setPriorPaidAirBaseCargoAmount] = useState(0);
-  
+  const [priorPaidAirBaseCargoAmount, setPriorPaidAirBaseCargoAmount] =
+    useState(0);
+
   // Initialize flight date with backend-provided value or fallback
   const getInitialFlightDate = () => {
     // For cart checkout, find the latest flight date among all cart items
     if (useCart && cartItems.length > 0) {
       const flightDates = [];
-      
+
       cartItems.forEach(item => {
         if (item.flightInfo) {
           // Extract flight date from flightInfo like "Plant Flight Aug 23" or "Plant Flight Aug-23"
-          const flightDateMatch = item.flightInfo.match(/Plant Flight\s+(\w+)[\s-](\d+)/);
+          const flightDateMatch = item.flightInfo.match(
+            /Plant Flight\s+(\w+)[\s-](\d+)/,
+          );
           if (flightDateMatch) {
             const [, month, day] = flightDateMatch;
-            
+
             // Convert month name to number
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthNames = [
+              'Jan',
+              'Feb',
+              'Mar',
+              'Apr',
+              'May',
+              'Jun',
+              'Jul',
+              'Aug',
+              'Sep',
+              'Oct',
+              'Nov',
+              'Dec',
+            ];
             const monthIndex = monthNames.indexOf(month);
-            
+
             if (monthIndex !== -1) {
               // Create date object for comparison (use current year, adjust if needed)
               const currentYear = new Date().getFullYear();
               let flightDate = new Date(currentYear, monthIndex, parseInt(day));
-              
+
               // If the date is in the past, move to next year
               if (flightDate < new Date()) {
-                flightDate = new Date(currentYear + 1, monthIndex, parseInt(day));
+                flightDate = new Date(
+                  currentYear + 1,
+                  monthIndex,
+                  parseInt(day),
+                );
               }
-              
+
               flightDates.push({
                 date: flightDate,
-                formatted: `${month} ${day}`
+                formatted: `${month} ${day}`,
               });
             }
           }
         }
       });
-      
+
       if (flightDates.length > 0) {
         // Sort by date and get the latest (furthest out) flight date
         flightDates.sort((a, b) => b.date - a.date);
         const latestFlightDate = flightDates[0].formatted;
         
-        console.log('🛫 Flight dates found in cart:', flightDates.map(f => f.formatted));
-        console.log('🛫 Latest flight date selected:', latestFlightDate);
+        
         
         return latestFlightDate;
       }
     }
-    
+
     // For buy now or single item, use plant data
     if (plantData?.plantFlightDate) {
       // Use the backend-provided plant flight date
       return plantData.plantFlightDate;
     }
-    
+
     // Default fallback if no backend date available
     return 'N/A';
   };
-  
+
   // Generate next 3 Saturday flight dates starting from the plant flight date
   const getFlightDateOptions = () => {
     const baseFlightDate = getInitialFlightDate();
     const options = [];
-    
+
     // Handle case where no flight date is available
     if (!baseFlightDate || baseFlightDate === 'N/A') {
       return [
-        { label: 'Flight Date TBD', value: 'TBD' },
-        { label: 'Next Available', value: 'Next Available' },
-        { label: 'Later Flight', value: 'Later Flight' }
+        {label: 'Flight Date TBD', value: 'TBD'},
+        {label: 'Next Available', value: 'Next Available'},
+        {label: 'Later Flight', value: 'Later Flight'},
       ];
     }
-    
+
     // Helper function to get next Saturday from a given date
-    const getNextSaturday = (fromDate) => {
+    const getNextSaturday = fromDate => {
       const date = new Date(fromDate);
       const currentDay = date.getDay(); // 0 = Sunday, 6 = Saturday
-      
+
       let daysUntilSaturday;
       if (currentDay === 6) {
         // If it's Saturday, next Saturday is 7 days away
@@ -294,126 +319,146 @@ const CheckoutScreen = () => {
         daysUntilSaturday = (6 - currentDay + 7) % 7;
         if (daysUntilSaturday === 0) daysUntilSaturday = 7;
       }
-      
+
       const nextSaturday = new Date(date);
       nextSaturday.setDate(date.getDate() + daysUntilSaturday);
       return nextSaturday;
     };
-    
+
     // Helper function to format date as "MMM DD"
-    const formatFlightDate = (date) => {
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const formatFlightDate = date => {
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return `${monthNames[date.getMonth()]} ${date.getDate()}`;
     };
-    
+
     // Parse the base flight date (format: "Aug 17" or "Aug-17")
     const normalizedFlightDate = baseFlightDate.replace('-', ' ');
     const [monthName, day] = normalizedFlightDate.split(' ');
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const monthIndex = monthNames.indexOf(monthName);
-    
+
     if (monthIndex === -1) {
       // Fallback if parsing fails - use the backend date as-is and generate subsequent Saturdays
       return [
-        { label: baseFlightDate, value: baseFlightDate },
-        { label: 'Next Saturday', value: 'Next Saturday' },
-        { label: 'Later Saturday', value: 'Later Saturday' }
+        {label: baseFlightDate, value: baseFlightDate},
+        {label: 'Next Saturday', value: 'Next Saturday'},
+        {label: 'Later Saturday', value: 'Later Saturday'},
       ];
     }
-    
+
     // Create date object for the base flight date
     const currentYear = new Date().getFullYear();
     let baseDate = new Date(currentYear, monthIndex, parseInt(day));
-    
+
     // If the date is in the past, move to next year
     if (baseDate < new Date()) {
       baseDate = new Date(currentYear + 1, monthIndex, parseInt(day));
     }
-    
+
     // Option 1: Use the plant flight date as-is (should already be a Saturday from backend)
     options.push({
       label: formatFlightDate(baseDate),
       value: formatFlightDate(baseDate),
-      fullDate: baseDate
+      fullDate: baseDate,
     });
-    
+
     // Option 2: Next Saturday after the plant flight date
     const nextSaturday = getNextSaturday(baseDate);
     options.push({
       label: formatFlightDate(nextSaturday),
       value: formatFlightDate(nextSaturday),
-      fullDate: nextSaturday
+      fullDate: nextSaturday,
     });
-    
+
     // Option 3: Saturday after the next Saturday
     const laterSaturday = getNextSaturday(nextSaturday);
     options.push({
       label: formatFlightDate(laterSaturday),
       value: formatFlightDate(laterSaturday),
-      fullDate: laterSaturday
+      fullDate: laterSaturday,
     });
-    
+
     return options;
   };
-  
+
   const flightDateOptions = getFlightDateOptions();
-  
+
   // Initialize selectedFlightDate with the first option
   const [selectedFlightDate, setSelectedFlightDate] = useState(() => {
     const options = getFlightDateOptions();
     return options[0]?.value || getInitialFlightDate();
   });
-  
+
   // Calculate UPS 2nd Day shipping cost based on plant details (matching ScreenPlantDetail logic)
   const calculateUpsShippingCost = () => {
     // Get plant data from either cart items or buy now data
     const plants = useCart ? cartItems : plantItems;
-    
+
     if (!plants || plants.length === 0) {
-      return { baseCost: 50, addOnCost: 5, baseCargo: 150 }; // Default
+      return {baseCost: 50, addOnCost: 5, baseCargo: 150}; // Default
     }
 
     // Calculate total items and total plant cost for air base cargo rule
-    const totalItems = plants.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const totalItems = plants.reduce(
+      (sum, item) => sum + (item.quantity || 1),
+      0,
+    );
     const totalPlantCost = plants.reduce((sum, item) => {
       const price = parseFloat(item.usdPriceNew || item.usdPrice || 0);
       const quantity = item.quantity || 1;
-      return sum + (price * quantity);
+      return sum + price * quantity;
     }, 0);
 
     // Check if air base cargo should be free (>= 15 items AND >= $500 total cost)
     const isFreeBaseCargo = totalItems >= 15 && totalPlantCost >= 500;
-    
+
     // Use the first plant's data to determine shipping rules
-    const firstPlant = plants[0];
-    const listingType = firstPlant.listingType?.toLowerCase() || 'single';
-    
-    console.log('🚚 Shipping calculation debug:', {
-      firstPlant: {
-        listingType: firstPlant.listingType,
-        listingTypeLower: listingType,
-        height: firstPlant.height,
-        approximateHeight: firstPlant.approximateHeight,
-        potSize: firstPlant.potSize,
-        size: firstPlant.size
-      }
-    });
+  const firstPlant = plants[0];
+  const listingType = firstPlant.listingType?.toLowerCase() || 'single';
     
     switch (listingType) {
       case 'single':
       case 'single plant':
       case 'discounted':
         // Based on plant height (if available in plant data)
-        const height = parseFloat(firstPlant.height || firstPlant.approximateHeight || 0);
+        const height = parseFloat(
+          firstPlant.height || firstPlant.approximateHeight || 0,
+        );
         return {
           baseCost: height > 12 ? 70 : 50,
           addOnCost: height > 12 ? 7 : 5,
           baseCargo: isFreeBaseCargo ? 0 : 150,
-          rule: `Single plant - Height ${height > 12 ? '>12"' : '≤12"'}${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`
+          rule: `Single plant - Height ${height > 12 ? '>12"' : '≤12"'}${
+            isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''
+          }`,
         };
-        
+
       case 'growers':
       case "grower's choice":
         // Based on pot size
@@ -423,9 +468,11 @@ const CheckoutScreen = () => {
           baseCost: potSizeNum > 4 ? 70 : 50,
           addOnCost: potSizeNum > 4 ? 7 : 5,
           baseCargo: isFreeBaseCargo ? 0 : 150,
-          rule: `Grower's Choice - Pot size ${potSizeNum > 4 ? '>4"' : '≤4"'}${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`
+          rule: `Grower's Choice - Pot size ${potSizeNum > 4 ? '>4"' : '≤4"'}${
+            isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''
+          }`,
         };
-        
+
       case 'wholesale':
         // Wholesale has different pricing - only trigger for actual wholesale items
         const wholePotSize = firstPlant.potSize || firstPlant.size || '2"';
@@ -434,90 +481,108 @@ const CheckoutScreen = () => {
           baseCost: wholePotSizeNum > 4 ? 200 : 150,
           addOnCost: wholePotSizeNum > 4 ? 25 : 20,
           baseCargo: 250, // Wholesale always has higher base cargo, not affected by free cargo rule
-          rule: `Wholesale - Pot size ${wholePotSizeNum > 4 ? '>4"' : '≤4"'}`
+          rule: `Wholesale - Pot size ${wholePotSizeNum > 4 ? '>4"' : '≤4"'}`,
         };
-        
+
       default:
         // Default to single plant pricing for any unrecognized listing types
-        const defaultHeight = parseFloat(firstPlant.height || firstPlant.approximateHeight || 0);
+        const defaultHeight = parseFloat(
+          firstPlant.height || firstPlant.approximateHeight || 0,
+        );
         return {
           baseCost: defaultHeight > 12 ? 70 : 50,
           addOnCost: defaultHeight > 12 ? 7 : 5,
           baseCargo: isFreeBaseCargo ? 0 : 150,
-          rule: `Default (Single plant) - Height ${defaultHeight > 12 ? '>12"' : '≤12"'}${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`
+          rule: `Default (Single plant) - Height ${
+            defaultHeight > 12 ? '>12"' : '≤12"'
+          }${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`,
         };
     }
   };
-  
+
   const [paymentMethod, setPaymentMethod] = useState('PAYPAL');
   const [leafPoints, setLeafPoints] = useState(0);
   const [plantCredits, setPlantCredits] = useState(0);
   const [shippingCredits, setShippingCredits] = useState(0);
-  
+
   // Toggle states for switches
   const [upsNextDayEnabled, setUpsNextDayEnabled] = useState(false);
   const [leafPointsEnabled, setLeafPointsEnabled] = useState(false);
   const [plantCreditsEnabled, setPlantCreditsEnabled] = useState(false);
   const [shippingCreditsEnabled, setShippingCreditsEnabled] = useState(false);
-  
+
   // Toggle handlers
   const toggleUpsNextDay = () => {
     setUpsNextDayEnabled(!upsNextDayEnabled);
-    console.log('UPS Next Day toggled:', !upsNextDayEnabled);
+    
   };
-  
+
   const toggleLeafPoints = () => {
     setLeafPointsEnabled(!leafPointsEnabled);
-    console.log('Leaf Points toggled:', !leafPointsEnabled);
+    
   };
-  
+
   const togglePlantCredits = () => {
     setPlantCreditsEnabled(!plantCreditsEnabled);
-    console.log('Plant Credits toggled:', !plantCreditsEnabled);
+    
   };
-  
+
   const toggleShippingCredits = () => {
     setShippingCreditsEnabled(!shippingCreditsEnabled);
-    console.log('Shipping Credits toggled:', !shippingCreditsEnabled);
+    
   };
-  
+
   // Prepare plant items for display - handle cart data, direct product data, and buy now
   const plantItems = useMemo(() => {
-    console.log("plantData test", plantData)
+    
     if (fromBuyNow && plantData) {
       return [
         {
           id: plantCode || Math.random().toString(),
-          image: plantData.imagePrimary 
-            ? { uri: plantData.imagePrimary } 
+          image: plantData.imagePrimary
+            ? {uri: plantData.imagePrimary}
             : require('../../../assets/buyer-icons/png/ficus-lyrata.png'),
-          name: `${plantData.genus || ''} ${plantData.species || ''}`.trim() || 'Unknown Plant',
-          variation: plantData.variegation && plantData.variegation !== 'None' 
-            ? plantData.variegation 
-            : 'Standard',
+          name:
+            `${plantData.genus || ''} ${plantData.species || ''}`.trim() ||
+            'Unknown Plant',
+          variation:
+            plantData.variegation && plantData.variegation !== 'None'
+              ? plantData.variegation
+              : 'Standard',
           size: selectedPotSize || '2"',
-          price: parseFloat(plantData.finalPrice || plantData.usdPriceNew || plantData.usdPrice || '0'),
-          originalPrice: plantData.hasDiscount && plantData.originalPrice 
-            ? parseFloat(plantData.originalPrice) 
-            : null,
+          price: parseFloat(
+            plantData.finalPrice ||
+              plantData.usdPriceNew ||
+              plantData.usdPrice ||
+              '0',
+          ),
+          originalPrice:
+            plantData.hasDiscount && plantData.originalPrice
+              ? parseFloat(plantData.originalPrice)
+              : null,
           quantity: quantity,
           title: 'Direct Purchase from Plant Detail',
           country: (() => {
             // Log determination process
             const directCountry = plantData.country;
-            const variationCurrency = plantData.variations && plantData.variations.length > 0 ? 
-              plantData.variations[0].localCurrency : null;
-            const countryFromVariation = variationCurrency ? 
-              getCountryFromCurrency(variationCurrency) : null;
+            const variationCurrency =
+              plantData.variations && plantData.variations.length > 0
+                ? plantData.variations[0].localCurrency
+                : null;
+            const countryFromVariation = variationCurrency
+              ? getCountryFromCurrency(variationCurrency)
+              : null;
             const mainCurrency = plantData.localCurrency;
-            const countryFromMain = mainCurrency ? 
-              getCountryFromCurrency(mainCurrency) : null;
-            
+            const countryFromMain = mainCurrency
+              ? getCountryFromCurrency(mainCurrency)
+              : null;
+
             // For Grower's Choice and Wholesale, prioritize using variation currency
-            const isGrowersOrWholesale = plantData.listingType === "Grower's Choice" || 
-                                        plantData.listingType === "Wholesale" ||
-                                        plantData.listingType === "Growers Choice";
-            
+            const isGrowersOrWholesale =
+              plantData.listingType === "Grower's Choice" ||
+              plantData.listingType === 'Wholesale' ||
+              plantData.listingType === 'Growers Choice';
+
             let result;
             if (isGrowersOrWholesale && countryFromVariation) {
               // For Grower's Choice and Wholesale, use variation currency country if available
@@ -527,36 +592,35 @@ const CheckoutScreen = () => {
               result = directCountry || countryFromVariation || countryFromMain;
             }
             
-            console.log('Country determination:', {
-              directCountry,
-              variationCurrency,
-              countryFromVariation,
-              mainCurrency,
-              countryFromMain,
-              listingType: plantData.listingType,
-              isGrowersOrWholesale,
-              result
-            });
+            
             
             return result;
           })(),
           shippingMethod: 'Plant / UPS Ground Shipping',
           plantCode: plantCode,
           listingType: plantData.listingType,
-          discount: plantData.hasDiscount && plantData.discountAmount 
-            ? `${Math.round((plantData.discountAmount / plantData.originalPrice) * 100)}%` 
-            : null,
+          discount:
+            plantData.hasDiscount && plantData.discountAmount
+              ? `${Math.round(
+                  (plantData.discountAmount / plantData.originalPrice) * 100,
+                )}%`
+              : null,
           hasAirCargo: true,
-        }
+        },
       ];
     } else if (useCart && cartItems.length > 0) {
-
       return cartItems.map(item => ({
         id: item.id || item.cartItemId,
         image: item.image || require('../../../assets/images/plant1.png'),
         name: item.name || 'Unknown Plant',
         variation: item.subtitle?.split(' • ')[0] || 'Standard',
-        size: item.subtitle?.split(' • ')[1]?.replace(' pot', '').replace(' inch', '"') || item.potSize || '2"',
+        size:
+          item.subtitle
+            ?.split(' • ')[1]
+            ?.replace(' pot', '')
+            .replace(' inch', '"') ||
+          item.potSize ||
+          '2"',
         price: item.price || 0,
         originalPrice: item.originalPrice,
         quantity: item.quantity || 1,
@@ -564,8 +628,14 @@ const CheckoutScreen = () => {
         country: item.flagIcon,
         shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
         plantCode: item.plantCode,
-        listingType: item.listingType || (item.originalPrice ? 'Discounted' : 'Single Plant'),
-        discount: item.originalPrice ? `${Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)}%` : null,
+        listingType:
+          item.listingType ||
+          (item.originalPrice ? 'Discounted' : 'Single Plant'),
+        discount: item.originalPrice
+          ? `${Math.round(
+              ((item.originalPrice - item.price) / item.originalPrice) * 100,
+            )}%`
+          : null,
         hasAirCargo: true,
         // Additional cart-specific data
         availableQuantity: item.availableQuantity,
@@ -594,7 +664,16 @@ const CheckoutScreen = () => {
     } else {
       return [];
     }
-  }, [fromBuyNow, plantData, selectedPotSize, quantity, plantCode, useCart, cartItems, productData]);
+  }, [
+    fromBuyNow,
+    plantData,
+    selectedPotSize,
+    quantity,
+    plantCode,
+    useCart,
+    cartItems,
+    productData,
+  ]);
 
   // Update selected flight date when cart items change
   useEffect(() => {
@@ -602,7 +681,7 @@ const CheckoutScreen = () => {
       const latestFlightDate = getInitialFlightDate();
       if (latestFlightDate && latestFlightDate !== 'N/A') {
         setSelectedFlightDate(latestFlightDate);
-        console.log('🛫 Flight date updated from cart analysis:', latestFlightDate);
+        
       }
     }
   }, [useCart, cartItems]);
@@ -615,7 +694,7 @@ const CheckoutScreen = () => {
     let mounted = true;
     const checkReadyToFlyOrders = async () => {
       try {
-        const params = { limit: 50, status: 'Ready to Fly' };
+        const params = {limit: 50, status: 'Ready to Fly'};
 
         const resp = await getBuyerOrdersApi(params);
         if (!mounted) return;
@@ -626,7 +705,11 @@ const CheckoutScreen = () => {
           if (Array.isArray(resp?.data?.orders)) orders = resp.data.orders;
           else if (Array.isArray(resp?.data)) orders = resp.data;
           else if (Array.isArray(resp?.data?.data)) orders = resp.data.data;
-          else if (resp?.data?.data?.plants && Array.isArray(resp.data.data.plants)) orders = resp.data.data.plants;
+          else if (
+            resp?.data?.data?.plants &&
+            Array.isArray(resp.data.data.plants)
+          )
+            orders = resp.data.data.plants;
           else if (resp?.data && typeof resp.data === 'object') {
             // resp.data might be a single order object
             const maybe = resp.data.orders || resp.data.order || resp.data;
@@ -637,15 +720,22 @@ const CheckoutScreen = () => {
           orders = [];
         }
 
-        console.log('🔎 Buyer orders fetched (status=Ready to Fly) preview:', {
-          respPreview: resp?.data || resp,
-          ordersCount: orders.length
-        });
+        
 
         // Detect if any order (or nested order object) has status 'Ready to Fly'
         const hasReadyToFly = orders.some(o => {
-          const statusCandidate = (o?.status || o?.order?.status || o?.order?.statusText || '').toString().toLowerCase();
-          return statusCandidate.includes('ready to fly') || statusCandidate.includes('readytofly');
+          const statusCandidate = (
+            o?.status ||
+            o?.order?.status ||
+            o?.order?.statusText ||
+            ''
+          )
+            .toString()
+            .toLowerCase();
+          return (
+            statusCandidate.includes('ready to fly') ||
+            statusCandidate.includes('readytofly')
+          );
         });
 
         if (hasReadyToFly && resp?.success !== false) {
@@ -653,25 +743,30 @@ const CheckoutScreen = () => {
           const baseCargoAmount = shippingRates?.baseCargo || 150;
           // Credit the buyer the full base cargo for the current cart so effective becomes $0
           setPriorPaidAirBaseCargoAmount(baseCargoAmount);
-          console.log('Found Ready To Fly order(s) — applying air base cargo credit of', baseCargoAmount);
+          
         } else {
           setPriorPaidAirBaseCargoAmount(0);
         }
       } catch (error) {
-        console.warn('Failed to fetch buyer orders for Ready To Fly check:', error);
+        console.warn(
+          'Failed to fetch buyer orders for Ready To Fly check:',
+          error,
+        );
         setPriorPaidAirBaseCargoAmount(0);
       }
     };
 
     checkReadyToFlyOrders();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [cargoDate, selectedFlightDate]);
-  
+
   const orderSummary = useMemo(() => {
     // Calculate default shipping cost
     const defaultShippingRates = calculateUpsShippingCost();
     const defaultShipping = defaultShippingRates.baseCost;
-    
+
     const defaultSummary = {
       totalItems: 0,
       subtotal: 0,
@@ -681,46 +776,52 @@ const CheckoutScreen = () => {
     };
 
     if (!plantItems || plantItems.length === 0) {
-      console.log('🛒 No plant items for order summary');
+      
       return defaultSummary;
     }
 
-    const totalItems = plantItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
-    
+    const totalItems = plantItems.reduce(
+      (sum, item) => sum + (item.quantity || 1),
+      0,
+    );
+
     // Use the totalAmount passed from cart if available, otherwise calculate from plantItems
     let subtotal;
     if (totalAmount && totalAmount > 0) {
       // Use the exact total from cart calculation
       subtotal = totalAmount;
-      console.log('💰 Using cart total amount:', totalAmount);
+      
     } else {
       // Calculate from plant items (for Buy Now flow)
       subtotal = plantItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
-      console.log('💰 Calculated subtotal from plant items:', subtotal);
+      
     }
-    
+
     // Calculate discount amount from route params if available
     let discountAmount = 0;
     if (route.params?.discountAmount) {
       discountAmount = route.params.discountAmount;
-      console.log('💸 Using cart discount amount:', discountAmount);
+      
     } else {
       // Calculate discount from plant items
       discountAmount = plantItems.reduce((sum, item) => {
         if (item.originalPrice && item.originalPrice > item.price) {
-          return sum + ((item.originalPrice - item.price) * (item.quantity || 1));
+          return sum + (item.originalPrice - item.price) * (item.quantity || 1);
         }
         return sum;
       }, 0);
-      console.log('💸 Calculated discount from plant items:', discountAmount);
+      
     }
-    
+
     // Calculate UPS 2nd Day shipping cost based on plant characteristics
     const shippingRates = calculateUpsShippingCost();
     let shipping = shippingRates.baseCost;
-    
+
     // Add costs for additional plants beyond the first one
-    const totalItemsForShipping = plantItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const totalItemsForShipping = plantItems.reduce(
+      (sum, item) => sum + (item.quantity || 1),
+      0,
+    );
     if (totalItemsForShipping > 1) {
       shipping += (totalItemsForShipping - 1) * shippingRates.addOnCost;
     }
@@ -728,44 +829,54 @@ const CheckoutScreen = () => {
     // Calculate wholesale air cargo separately if there are wholesale items
     let wholesaleAirCargo = 0;
     let airBaseCargo = shippingRates.baseCargo || 0;
-    
-    const wholesaleItems = plantItems.filter(item => 
-      item.listingType?.toLowerCase() === 'wholesale' || 
-      item.listingType?.toLowerCase().includes('wholesale')
+
+    const wholesaleItems = plantItems.filter(
+      item =>
+        item.listingType?.toLowerCase() === 'wholesale' ||
+        item.listingType?.toLowerCase().includes('wholesale'),
     );
-    
+
     // Rule: If cart has wholesale items, base air cargo becomes zero and wholesale air cargo is populated
     if (wholesaleItems.length > 0) {
       airBaseCargo = 0; // Base air cargo becomes zero when wholesale items are present
-      
+
       // Calculate wholesale air cargo cost - use the wholesale base cargo from shipping rates
-      const wholesaleQuantity = wholesaleItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      const wholesaleQuantity = wholesaleItems.reduce(
+        (sum, item) => sum + (item.quantity || 1),
+        0,
+      );
       wholesaleAirCargo = shippingRates.baseCargo; // Use the wholesale base cargo (250)
-      
+
       // Add additional wholesale item costs if more than 1 wholesale item
       if (wholesaleQuantity > 1) {
         wholesaleAirCargo += (wholesaleQuantity - 1) * 50; // $50 per additional wholesale item
       }
     }
     
-    console.log(`📦 UPS 2nd Day Shipping: Base $${shippingRates.baseCost}, Add-on $${shippingRates.addOnCost} × ${totalItemsForShipping - 1} = $${shipping} (${shippingRates.rule})`);
-    console.log(`✈️ Air Cargo: Base Air Cargo $${airBaseCargo}, Wholesale Air Cargo $${wholesaleAirCargo}`);
+    // Calculate air base cargo credit and effective air base cargo
+    // If buyer has already paid air base cargo for this flight date, apply credit
+    let appliedAirBaseCargoCredit = 0;
+    let effectiveAirBaseCargo = airBaseCargo;
+    
+    if (priorPaidAirBaseCargoAmount > 0 && airBaseCargo > 0) {
+      // Apply the credit (reduce the air base cargo by the amount already paid)
+      appliedAirBaseCargoCredit = Math.min(airBaseCargo, priorPaidAirBaseCargoAmount);
+      effectiveAirBaseCargo = Math.max(0, airBaseCargo - appliedAirBaseCargoCredit);
+    }
+    
+    
     
     // Add UPS Next Day upgrade if enabled (60% of UPS 2nd day shipping cost)
     let upsNextDayUpgradeCost = 0;
     if (upsNextDayEnabled) {
-      upsNextDayUpgradeCost = shipping * 0.60; // 60% of UPS 2nd day shipping cost
+      upsNextDayUpgradeCost = shipping * 0.6; // 60% of UPS 2nd day shipping cost
       shipping += upsNextDayUpgradeCost;
-      console.log(`🚀 UPS Next Day upgrade: +$${upsNextDayUpgradeCost.toFixed(2)} (60% of UPS 2nd day $${shipping - upsNextDayUpgradeCost}), UPS shipping now: $${shipping}`);
+      
     }
-    
-  // Apply prior-paid air base cargo credit (if any) - ensure we don't go negative
-  const appliedAirBaseCargoCredit = Math.min(priorPaidAirBaseCargoAmount || 0, airBaseCargo || 0);
-  const effectiveAirBaseCargo = Math.max(0, (airBaseCargo || 0) - appliedAirBaseCargoCredit);
 
   // Calculate total shipping including air cargo costs
   const totalShippingCost = shipping + effectiveAirBaseCargo + wholesaleAirCargo;
-  console.log(`💸 Total Shipping Cost: UPS $${shipping} + Effective Base Air Cargo $${effectiveAirBaseCargo} + Wholesale Air Cargo $${wholesaleAirCargo} (credit applied: $${appliedAirBaseCargoCredit}) = $${totalShippingCost}`);
+  
     
     // Apply credits
     let creditsApplied = 0;
@@ -778,17 +889,20 @@ const CheckoutScreen = () => {
     if (shippingCreditsEnabled) {
       creditsApplied += shippingCredits;
     }
-    
-    const finalTotal = Math.max(0, subtotal + totalShippingCost - creditsApplied);
+
+    const finalTotal = Math.max(
+      0,
+      subtotal + totalShippingCost - creditsApplied,
+    );
 
     const summary = {
       totalItems,
       subtotal,
       shipping, // This is just UPS 2nd day shipping (without air cargo)
       upsNextDayUpgradeCost: upsNextDayUpgradeCost, // Add UPS Next Day upgrade cost to summary
-  airBaseCargo: airBaseCargo, // Original air base cargo (before credit)
-  airBaseCargoCreditApplied: appliedAirBaseCargoCredit, // Credit applied because buyer already paid base cargo
-  airBaseCargoEffective: effectiveAirBaseCargo, // Effective base cargo after credit
+      airBaseCargo: airBaseCargo, // Original air base cargo (before credit)
+      airBaseCargoCreditApplied: appliedAirBaseCargoCredit, // Credit applied because buyer already paid base cargo
+      airBaseCargoEffective: effectiveAirBaseCargo, // Effective base cargo after credit
       wholesaleAirCargo: wholesaleAirCargo, // Add wholesale air cargo to summary
       totalShippingCost: totalShippingCost, // Total of all shipping costs combined
       discount: discountAmount,
@@ -796,23 +910,13 @@ const CheckoutScreen = () => {
       finalTotal,
     };
 
-    console.log('🛒 Order Summary:', {
-      ...summary,
-      plantItemsCount: plantItems.length,
-      routeParams: route.params ? Object.keys(route.params) : 'none',
-      toggleStates: {
-        upsNextDayEnabled,
-        leafPointsEnabled,
-        plantCreditsEnabled,
-        shippingCreditsEnabled,
-      }
-    });
+    
 
     return summary;
   }, [
-    plantItems, 
+    plantItems,
     cartItems, // Added for shipping calculation
-    totalAmount, 
+    totalAmount,
     route.params?.discountAmount,
     upsNextDayEnabled,
     leafPointsEnabled,
@@ -820,8 +924,8 @@ const CheckoutScreen = () => {
     shippingCreditsEnabled,
     leafPoints,
     plantCredits,
-  shippingCredits,
-  priorPaidAirBaseCargoAmount
+    shippingCredits,
+    priorPaidAirBaseCargoAmount,
   ]);
 
   const quantityBreakdown = useMemo(() => {
@@ -835,12 +939,16 @@ const CheckoutScreen = () => {
     }
 
     const singlePlant = plantItems.reduce((sum, item) => {
-      if (item.listingType === 'Single Plant' || item.listingType === 'Discounted' || !item.listingType) {
+      if (
+        item.listingType === 'Single Plant' ||
+        item.listingType === 'Discounted' ||
+        !item.listingType
+      ) {
         return sum + (item.quantity || 1);
       }
       return sum;
     }, 0);
-    
+
     const wholesale = plantItems.reduce((sum, item) => {
       if (item.listingType === 'Wholesale') {
         return sum + (item.quantity || 1);
@@ -860,38 +968,49 @@ const CheckoutScreen = () => {
       const fetchDefaultAddress = async () => {
         try {
           const response = await getAddressBookEntriesApi();
-          
+
           if (response?.success && response?.data) {
             // Look for the default address
-            const defaultAddress = response.data.find(address => address.isDefault);
-            
+            const defaultAddress = response.data.find(
+              address => address.isDefault,
+            );
+
             if (defaultAddress) {
               console.log('Default address found:', defaultAddress);
               setDeliveryDetails({
                 address: {
-                  street: defaultAddress.streetAddress || defaultAddress.address || '',
+                  street:
+                    defaultAddress.streetAddress ||
+                    defaultAddress.address ||
+                    '',
                   city: defaultAddress.city || '',
                   state: defaultAddress.state || '',
-                  zipCode: defaultAddress.postalCode || defaultAddress.zipCode || '',
-                  country: defaultAddress.country || 'US'
+                  zipCode:
+                    defaultAddress.postalCode || defaultAddress.zipCode || '',
+                  country: defaultAddress.country || 'US',
                 },
                 contactPhone: defaultAddress.phoneNumber || '+1-555-0123',
-                specialInstructions: 'Leave at front door'
+                specialInstructions: 'Leave at front door',
               });
             } else if (response.data.length > 0) {
               // If no default address is set, use the first one
               const firstAddress = response.data[0];
-              console.log('No default address found, using first address:', firstAddress);
+              console.log(
+                'No default address found, using first address:',
+                firstAddress,
+              );
               setDeliveryDetails({
                 address: {
-                  street: firstAddress.streetAddress || firstAddress.address || '',
+                  street:
+                    firstAddress.streetAddress || firstAddress.address || '',
                   city: firstAddress.city || '',
                   state: firstAddress.state || '',
-                  zipCode: firstAddress.postalCode || firstAddress.zipCode || '',
-                  country: firstAddress.country || 'US'
+                  zipCode:
+                    firstAddress.postalCode || firstAddress.zipCode || '',
+                  country: firstAddress.country || 'US',
                 },
                 contactPhone: firstAddress.phoneNumber || '+1-555-0123',
-                specialInstructions: 'Leave at front door'
+                specialInstructions: 'Leave at front door',
               });
             }
           }
@@ -901,7 +1020,7 @@ const CheckoutScreen = () => {
       };
 
       fetchDefaultAddress();
-    }, [])
+    }, []),
   );
 
   // Handle Buy Now specific data updates
@@ -911,7 +1030,7 @@ const CheckoutScreen = () => {
       if (plantData.flightDate) {
         setSelectedFlightDate(plantData.flightDate);
       }
-      
+
       // Update cargo date if available
       if (plantData.cargoDate) {
         setCargoDate(plantData.cargoDate);
@@ -921,31 +1040,33 @@ const CheckoutScreen = () => {
 
   useEffect(() => {
     // Handle when app is opened from deep link
-    const handleUrl = (event) => {
+    const handleUrl = event => {
       const url = event.url;
 
-      if (url.startsWith("ileafu://payment-success")) {
-        Alert.alert("Payment Success", "Order completed successfully!",
+      if (url.startsWith('ileafu://payment-success')) {
+        Alert.alert(
+          'Payment Success',
+          'Order completed successfully!',
           [
             {
-              text: "OK",
+              text: 'OK',
               onPress: () => {
                 navigation.navigate('Orders');
-              }
-            }
+              },
+            },
           ],
-          { cancelable: false }
+          {cancelable: false},
         );
         navigation.navigate('Orders');
       }
     };
 
     // Listen to incoming links
-    const subscription = Linking.addEventListener("url", handleUrl);
+    const subscription = Linking.addEventListener('url', handleUrl);
 
     // Check if app was opened from a link
-    Linking.getInitialURL().then((url) => {
-      if (url) handleUrl({ url });
+    Linking.getInitialURL().then(url => {
+      if (url) handleUrl({url});
     });
 
     return () => {
@@ -990,40 +1111,50 @@ const CheckoutScreen = () => {
       // Add items based on checkout type
       if (fromBuyNow && plantData) {
         // Direct purchase from plant detail
-        orderData.productData = [{
-          plantCode: plantCode,
-          genus: plantData.genus,
-          species: plantData.species,
-          variegation: plantData.variegation,
-          potSize: selectedPotSize,
-          quantity: quantity,
-          price: plantData.usdPriceNew || plantData.usdPrice,
-          originalPrice: plantData.usdPrice,
-          country: plantData.country,
-          // Include flight/cargo date and plant source country for backend
-          flightDate: plantData.flightDate || plantData.plantFlightDate || cargoDate,
-          plantSourceCountry: plantData.country || plantData.plantSourceCountry || null,
-        }];
+        orderData.productData = [
+          {
+            plantCode: plantCode,
+            genus: plantData.genus,
+            species: plantData.species,
+            variegation: plantData.variegation,
+            potSize: selectedPotSize,
+            quantity: quantity,
+            price: plantData.usdPriceNew || plantData.usdPrice,
+            originalPrice: plantData.usdPrice,
+            country: plantData.country,
+            // Include flight/cargo date and plant source country for backend
+            flightDate:
+              plantData.flightDate || plantData.plantFlightDate || cargoDate,
+            plantSourceCountry:
+              plantData.country || plantData.plantSourceCountry || null,
+          },
+        ];
         orderData.useCart = false;
       } else if (useCart && cartItems.length > 0) {
         // Use cart items with enhanced data
         orderData.useCart = true;
-        
+
         // Console log cart items to debug plantSourceCountry
         console.log('Cart items for checkout:', cartItems);
-        
+
         // When using cart, we need to add plantSourceCountry to each item
         // Also map the cart item data to a properly formatted productData array
         orderData.productData = cartItems.map(item => {
           // Extract country from cart item
-          const country = item.country || 
+          const country =
+            item.country ||
             // Check for flag emoji to convert to country code
-            (item.flagIcon === '🇵🇭' ? 'PH' : 
-             item.flagIcon === '🇹🇭' ? 'TH' :
-             item.flagIcon === '🇮🇩' ? 'ID' : 
-             // Fall back to extracting from currency if available
-             (item.localCurrency ? getCountryFromCurrency(item.localCurrency) : 'ID'));
-          
+            (item.flagIcon === '🇵🇭'
+              ? 'PH'
+              : item.flagIcon === '🇹🇭'
+              ? 'TH'
+              : item.flagIcon === '🇮🇩'
+              ? 'ID'
+              : // Fall back to extracting from currency if available
+              item.localCurrency
+              ? getCountryFromCurrency(item.localCurrency)
+              : 'ID');
+
           return {
             plantCode: item.plantCode,
             quantity: item.quantity || 1,
@@ -1034,7 +1165,7 @@ const CheckoutScreen = () => {
             plantSourceCountry: country,
           };
         });
-        
+
         // Keep the legacy cartItems structure for backward compatibility
         orderData.cartItems = cartItems.map(item => ({
           cartItemId: item.cartItemId,
@@ -1050,11 +1181,17 @@ const CheckoutScreen = () => {
           isUnavailable: item.isUnavailable,
           flagIcon: item.flagIcon,
           subtitle: item.subtitle,
-          plantSourceCountry: item.country || 
-            (item.flagIcon === '🇵🇭' ? 'PH' : 
-             item.flagIcon === '🇹🇭' ? 'TH' :
-             item.flagIcon === '🇮🇩' ? 'ID' : 
-             (item.localCurrency ? getCountryFromCurrency(item.localCurrency) : 'ID'))
+          plantSourceCountry:
+            item.country ||
+            (item.flagIcon === '🇵🇭'
+              ? 'PH'
+              : item.flagIcon === '🇹🇭'
+              ? 'TH'
+              : item.flagIcon === '🇮🇩'
+              ? 'ID'
+              : item.localCurrency
+              ? getCountryFromCurrency(item.localCurrency)
+              : 'ID'),
         }));
         // The API can use either the cart items from backend or the passed cart items
       } else if (productData && productData.length > 0) {
@@ -1081,7 +1218,9 @@ const CheckoutScreen = () => {
       // Show confirmation dialog
       Alert.alert(
         'Confirm Order',
-        `Total: ${formatCurrencyFull(orderSummary.finalTotal)}\n\nProceed with checkout?`,
+        `Total: ${formatCurrencyFull(
+          orderSummary.finalTotal,
+        )}\n\nProceed with checkout?`,
         [
           {
             text: 'Cancel',
@@ -1092,10 +1231,11 @@ const CheckoutScreen = () => {
             onPress: async () => {
               // Call checkout API
               const result = await checkoutApi(orderData);
-              
+
               if (result.success) {
-                const {transactionNumber, paypalOrderId, approvalUrl, orderId} = result.data;
-                
+                const {transactionNumber, paypalOrderId, approvalUrl, orderId} =
+                  result.data;
+
                 Alert.alert(
                   'Order Created Successfully!',
                   `Order #${transactionNumber} has been created.\n\nYou will now be redirected to complete payment.`,
@@ -1105,8 +1245,12 @@ const CheckoutScreen = () => {
                       onPress: () => {
                         // TODO: Payment module integration pending
                         // Currently redirecting to orders screen while waiting for payment module to be finished
-                        console.log('💳 Payment button clicked - redirecting to orders screen');
-                        Linking.openURL(`${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${orderId}`);
+                        console.log(
+                          '💳 Payment button clicked - redirecting to orders screen',
+                        );
+                        Linking.openURL(
+                          `${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${orderId}`,
+                        );
                       },
                     },
                   ],
@@ -1114,14 +1258,14 @@ const CheckoutScreen = () => {
               } else {
                 Alert.alert(
                   'Checkout Failed',
-                  result.error || 'An error occurred during checkout. Please try again.',
+                  result.error ||
+                    'An error occurred during checkout. Please try again.',
                 );
               }
             },
           },
         ],
       );
-
     } catch (error) {
       console.error('❌ Checkout error:', error);
       Alert.alert(
@@ -1137,7 +1281,7 @@ const CheckoutScreen = () => {
     // Navigate to address book screen for selecting shipping address
     navigation.navigate('AddressBookScreen', {
       fromCheckout: true,
-      onSelectAddress: (selectedAddress) => {
+      onSelectAddress: selectedAddress => {
         // Update delivery details with the selected address
         setDeliveryDetails({
           ...deliveryDetails,
@@ -1146,11 +1290,12 @@ const CheckoutScreen = () => {
             city: selectedAddress.city,
             state: selectedAddress.state,
             zipCode: selectedAddress.postalCode,
-            country: selectedAddress.country
+            country: selectedAddress.country,
           },
-          contactPhone: selectedAddress.phoneNumber || deliveryDetails.contactPhone
+          contactPhone:
+            selectedAddress.phoneNumber || deliveryDetails.contactPhone,
         });
-      }
+      },
     });
   };
 
@@ -1163,7 +1308,7 @@ const CheckoutScreen = () => {
         {text: 'PayPal', onPress: () => setPaymentMethod('PAYPAL')},
         {text: 'Venmo', onPress: () => setPaymentMethod('VENMO')},
         {text: 'Cancel', style: 'cancel'},
-      ]
+      ],
     );
   };
 
@@ -1173,52 +1318,58 @@ const CheckoutScreen = () => {
       <View style={styles.header}>
         <View style={styles.controls}>
           {/* Back Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}>
             <BackIcon width={24} height={24} />
           </TouchableOpacity>
-          
+
           {/* Title */}
           <Text style={styles.headerTitle}>Checkout</Text>
-          
+
           {/* Navbar Right (hidden) */}
           <View style={styles.navbarRight} />
         </View>
       </View>
 
       {/* Scrollable Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollableContent}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContentContainer, { paddingBottom: 100 + Math.max(insets.bottom, 8) }]}
-        >
-        
+        contentContainerStyle={[
+          styles.scrollContentContainer,
+          {paddingBottom: 100 + Math.max(insets.bottom, 8)},
+        ]}>
         {/* Shipping Address Section */}
         <View style={styles.shipping}>
           {/* Title */}
           <View style={styles.shippingTitle}>
             <Text style={styles.shippingTitleText}>Shipping Address</Text>
           </View>
-          
+
           {/* Address List */}
           <View style={styles.addressList}>
-            <TouchableOpacity style={styles.addressContent} onPress={handleUpdateDeliveryDetails}>
+            <TouchableOpacity
+              style={styles.addressContent}
+              onPress={handleUpdateDeliveryDetails}>
               {/* Icon Circle */}
               <View style={styles.iconCircle}>
                 <View style={styles.iconContainer}>
                   <LocationIcon width={24} height={24} />
                 </View>
               </View>
-              
+
               {/* Details */}
               <View style={styles.addressDetails}>
                 <View style={styles.addressAction}>
                   <Text style={styles.addressText}>
-                    {deliveryDetails.address.street}{'\n'}
-                    {deliveryDetails.address.city}, {deliveryDetails.address.state} {deliveryDetails.address.zipCode}
+                    {deliveryDetails.address.street}
+                    {'\n'}
+                    {deliveryDetails.address.city},{' '}
+                    {deliveryDetails.address.state}{' '}
+                    {deliveryDetails.address.zipCode}
                   </Text>
-                  
+
                   {/* Action Arrow */}
                   <View style={styles.actionContainer}>
                     <View style={styles.arrow}>
@@ -1237,23 +1388,30 @@ const CheckoutScreen = () => {
           <View style={styles.flightTitle}>
             <Text style={styles.flightTitleText}>Plant Flight</Text>
           </View>
-          
+
           {/* Options */}
           <View style={styles.flightOptions}>
             <View style={styles.optionCards}>
               <Text style={styles.optionLabel}>Select One:</Text>
-              
+
               {/* Flight Options */}
               <View style={styles.flightOptionsRow}>
                 {flightDateOptions.map((option, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[
-                      styles.optionCard, 
-                      selectedFlightDate === option.value ? styles.selectedOptionCard : styles.unselectedOptionCard
+                      styles.optionCard,
+                      selectedFlightDate === option.value
+                        ? styles.selectedOptionCard
+                        : styles.unselectedOptionCard,
                     ]}
                     onPress={() => setSelectedFlightDate(option.value)}>
-                    <Text style={selectedFlightDate === option.value ? styles.optionText : styles.unselectedOptionText}>
+                    <Text
+                      style={
+                        selectedFlightDate === option.value
+                          ? styles.optionText
+                          : styles.unselectedOptionText
+                      }>
                       {option.label}
                     </Text>
                     <Text style={styles.optionSubtext}>Sat</Text>
@@ -1272,11 +1430,11 @@ const CheckoutScreen = () => {
               <PlantItemComponent
                 image={item.image}
                 name={item.name}
-                variation={item.variation }
+                variation={item.variation}
                 size={item.size}
                 price={item.price}
-                quantity={item.quantity }
-                title={item.title }
+                quantity={item.quantity}
+                title={item.title}
                 country={item.country}
                 shippingMethod={item.shippingMethod}
                 listingType={item.listingType}
@@ -1287,52 +1445,70 @@ const CheckoutScreen = () => {
                   // Navigate to plant detail screen using plantCode
                   if (item.plantCode) {
                     navigation.navigate('ScreenPlantDetail', {
-                      plantCode: item.plantCode
+                      plantCode: item.plantCode,
                     });
                   } else {
                     console.warn('No plantCode available for navigation');
                   }
                 }}
               />
-              
+
               {/* Details for each item */}
               <View style={styles.plantItemDetails}>
                 {/* Title + Country */}
                 <View style={styles.titleCountry}>
-                  <Text style={styles.titleText}>{item.title || 'Rare Tropical Plants from Thailand'}</Text>
-                  
+                  <Text style={styles.titleText}>
+                    {item.title || 'Rare Tropical Plants from Thailand'}
+                  </Text>
+
                   {/* Country */}
                   <View style={styles.countryContainer}>
                     <Text style={styles.countryText}></Text>
                     {renderCountryFlag(item.country)}
                   </View>
                 </View>
-                
+
                 {/* Plant / UPS Shipping */}
                 <View style={styles.plantShipping}>
                   {/* Content */}
                   <View style={styles.shippingContent}>
-                    <TruckIcon width={24} height={24} style={styles.shippingIcon} />
-                    <Text style={styles.shippingText}>{item.shippingMethod || 'Plant / UPS Ground Shipping'}</Text>
+                    <TruckIcon
+                      width={24}
+                      height={24}
+                      style={styles.shippingIcon}
+                    />
+                    <Text style={styles.shippingText}>
+                      {item.shippingMethod || 'Plant / UPS Ground Shipping'}
+                    </Text>
                   </View>
                 </View>
-                
+
                 {/* Flight Info (if available from cart) */}
                 {item.flightInfo && (
                   <View style={styles.plantShipping}>
                     <View style={styles.shippingContent}>
-                      <TruckIcon width={24} height={24} style={styles.airCargoIcon} />
+                      <TruckIcon
+                        width={24}
+                        height={24}
+                        style={styles.airCargoIcon}
+                      />
                       <Text style={styles.shippingText}>{item.flightInfo}</Text>
                     </View>
                   </View>
                 )}
-                
+
                 {/* Air Cargo Option (if available) */}
                 {item.hasAirCargo && !item.flightInfo && (
                   <View style={styles.plantShipping}>
                     <View style={styles.shippingContent}>
-                      <TruckIcon width={24} height={24} style={styles.airCargoIcon} />
-                      <Text style={styles.shippingText}>Plant / Wholesale Air Cargo</Text>
+                      <TruckIcon
+                        width={24}
+                        height={24}
+                        style={styles.airCargoIcon}
+                      />
+                      <Text style={styles.shippingText}>
+                        Plant / Wholesale Air Cargo
+                      </Text>
                     </View>
                   </View>
                 )}
@@ -1362,25 +1538,33 @@ const CheckoutScreen = () => {
             <View style={styles.quantityTitle}>
               <Text style={styles.quantityTitleText}>Your Plant Haul</Text>
             </View>
-            
+
             {/* Content */}
             <View style={styles.quantityContent}>
               {/* Single / Growers */}
               <View style={styles.singleGrowerRow}>
-                <Text style={styles.summaryRowLabel}>Single Plant Quantity</Text>
-                <Text style={styles.summaryRowNumber}>{quantityBreakdown.singlePlant}</Text>
+                <Text style={styles.summaryRowLabel}>
+                  Single Plant Quantity
+                </Text>
+                <Text style={styles.summaryRowNumber}>
+                  {quantityBreakdown.singlePlant}
+                </Text>
               </View>
-              
+
               {/* Wholesale */}
               <View style={styles.wholesaleRow}>
                 <Text style={styles.summaryRowLabel}>Wholesale Quantity</Text>
-                <Text style={styles.summaryRowNumber}>{quantityBreakdown.wholesale}</Text>
+                <Text style={styles.summaryRowNumber}>
+                  {quantityBreakdown.wholesale}
+                </Text>
               </View>
-              
+
               {/* Total */}
               <View style={styles.quantityTotalRow}>
                 <Text style={styles.quantityTotalLabel}>Total quantity</Text>
-                <Text style={styles.quantityTotalNumber}>{orderSummary.totalItems}</Text>
+                <Text style={styles.quantityTotalNumber}>
+                  {orderSummary.totalItems}
+                </Text>
               </View>
             </View>
           </View>
@@ -1395,20 +1579,26 @@ const CheckoutScreen = () => {
             {/* Total */}
             <View style={styles.subtotalRow}>
               <Text style={styles.subtotalLabel}>Total Plant Cost</Text>
-              <Text style={styles.subtotalNumber}>{formatCurrencyFull(orderSummary.subtotal)}</Text>
+              <Text style={styles.subtotalNumber}>
+                {formatCurrencyFull(orderSummary.subtotal)}
+              </Text>
             </View>
-            
+
             {/* Discount */}
             <View style={styles.subtotalRow}>
               <Text style={styles.subtotalLabel}>Total Discount on Plants</Text>
-              <Text style={styles.subtotalNumber}>-{formatCurrencyFull(orderSummary.discount)}</Text>
+              <Text style={styles.subtotalNumber}>
+                -{formatCurrencyFull(orderSummary.discount)}
+              </Text>
             </View>
-            
+
             {/* Credits Applied */}
             {orderSummary.creditsApplied > 0 && (
               <View style={styles.subtotalRow}>
                 <Text style={styles.subtotalLabel}>Credits Applied</Text>
-                <Text style={styles.subtotalNumber}>-{formatCurrencyFull(orderSummary.creditsApplied)}</Text>
+                <Text style={styles.subtotalNumber}>
+                  -{formatCurrencyFull(orderSummary.creditsApplied)}
+                </Text>
               </View>
             )}
           </View>
@@ -1422,69 +1612,112 @@ const CheckoutScreen = () => {
           <View style={styles.shippingSummary}>
             {/* Title */}
             <View style={styles.shippingSummaryTitle}>
-              <Text style={styles.shippingSummaryTitleText}>Where your shipping bucks go</Text>
+              <Text style={styles.shippingSummaryTitleText}>
+                Where your shipping bucks go
+              </Text>
             </View>
-            
+
             {/* Content */}
             <View style={styles.shippingSummaryContent}>
               {/* Shipping Fee */}
               <View style={styles.shippingFeeRow}>
                 <Text style={styles.summaryRowLabel}>
-                  {upsNextDayEnabled ? 'UPS Next Day shipping' : 'UPS 2nd day shipping'}
+                  {upsNextDayEnabled
+                    ? 'UPS Next Day shipping'
+                    : 'UPS 2nd day shipping'}
                 </Text>
-                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.shipping)}</Text>
+                <Text style={styles.summaryRowNumber}>
+                  {formatCurrencyFull(orderSummary.shipping)}
+                </Text>
               </View>
-              
+
               {/* Form / Labeled Toggle */}
               <View style={styles.labeledToggle}>
                 <View style={styles.toggleLabel}>
-                  <Text style={styles.toggleLabelText}>Upgrading to UPS Next Day</Text>
+                  <Text style={styles.toggleLabelText}>
+                    Upgrading to UPS Next Day
+                  </Text>
                 </View>
-                <TouchableOpacity style={styles.formToggle} onPress={toggleUpsNextDay}>
+                <TouchableOpacity
+                  style={styles.formToggle}
+                  onPress={toggleUpsNextDay}>
                   <View style={styles.toggleText}>
-                    <Text style={upsNextDayEnabled ? styles.toggleOnLabel : styles.toggleOffLabel}>
+                    <Text
+                      style={
+                        upsNextDayEnabled
+                          ? styles.toggleOnLabel
+                          : styles.toggleOffLabel
+                      }>
                       {upsNextDayEnabled ? '+' : '-'}
                     </Text>
-                    <Text style={upsNextDayEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {upsNextDayEnabled ? formatCurrencyFull(orderSummary.upsNextDayUpgradeCost || 0) : formatCurrencyFull(0)}
+                    <Text
+                      style={
+                        upsNextDayEnabled
+                          ? styles.toggleOnNumber
+                          : styles.toggleOffNumber
+                      }>
+                      {upsNextDayEnabled
+                        ? formatCurrencyFull(
+                            orderSummary.upsNextDayUpgradeCost || 0,
+                          )
+                        : formatCurrencyFull(0)}
                     </Text>
                   </View>
-                  <View style={[
-                    styles.switchContainer, 
-                    upsNextDayEnabled && styles.switchContainerActive
-                  ]}>
-                    <View style={[
-                      styles.switchKnob,
-                      upsNextDayEnabled && styles.switchKnobActive
-                    ]} />
+                  <View
+                    style={[
+                      styles.switchContainer,
+                      upsNextDayEnabled && styles.switchContainerActive,
+                    ]}>
+                    <View
+                      style={[
+                        styles.switchKnob,
+                        upsNextDayEnabled && styles.switchKnobActive,
+                      ]}
+                    />
                   </View>
                 </TouchableOpacity>
               </View>
-              
+
               {/* Base Air Cargo (effective after any prior-paid credit) */}
               <View style={styles.baseAirCargoRow}>
                 <Text style={styles.summaryRowLabel}>Base Air Cargo</Text>
-                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.airBaseCargoEffective ?? orderSummary.airBaseCargo)}</Text>
+                <Text style={styles.summaryRowNumber}>
+                  {formatCurrencyFull(
+                    orderSummary.airBaseCargoEffective ??
+                      orderSummary.airBaseCargo,
+                  )}
+                </Text>
               </View>
-              
+
               {/* Wholesale Air Cargo */}
               <View style={styles.wholesaleAirCargoRow}>
                 <Text style={styles.summaryRowLabel}>Wholesale Air Cargo</Text>
-                <Text style={styles.summaryRowNumber}>{formatCurrencyFull(orderSummary.wholesaleAirCargo)}</Text>
+                <Text style={styles.summaryRowNumber}>
+                  {formatCurrencyFull(orderSummary.wholesaleAirCargo)}
+                </Text>
               </View>
-              
+
               {/* Air Cargo Credit (shown when applied) */}
               {(orderSummary.airBaseCargoCreditApplied || 0) > 0 && (
                 <View style={styles.airCargoCreditRow}>
-                  <Text style={styles.summaryRowLabel}>Air Cargo Shipping Credit</Text>
-                  <Text style={styles.airCargoCreditAmount}>-{formatCurrencyFull(orderSummary.airBaseCargoCreditApplied)}</Text>
+                  <Text style={styles.summaryRowLabel}>
+                    Air Cargo Shipping Credit
+                  </Text>
+                  <Text style={styles.airCargoCreditAmount}>
+                    -
+                    {formatCurrencyFull(orderSummary.airBaseCargoCreditApplied)}
+                  </Text>
                 </View>
               )}
-              
+
               {/* Total */}
               <View style={styles.shippingTotalRow}>
-                <Text style={styles.shippingTotalLabel}>Total Shipping Cost</Text>
-                <Text style={styles.shippingTotalNumber}>{formatCurrencyFull(orderSummary.totalShippingCost)}</Text>
+                <Text style={styles.shippingTotalLabel}>
+                  Total Shipping Cost
+                </Text>
+                <Text style={styles.shippingTotalNumber}>
+                  {formatCurrencyFull(orderSummary.totalShippingCost)}
+                </Text>
               </View>
             </View>
           </View>
@@ -1498,9 +1731,11 @@ const CheckoutScreen = () => {
           <View style={styles.points}>
             {/* Title */}
             <View style={styles.pointsTitle}>
-              <Text style={styles.pointsTitleText}>Use available iLeaf points, rewards, and discount</Text>
+              <Text style={styles.pointsTitleText}>
+                Use available iLeaf points, rewards, and discount
+              </Text>
             </View>
-            
+
             {/* Point Options */}
             <View style={styles.pointOptions}>
               {/* Discount */}
@@ -1509,7 +1744,9 @@ const CheckoutScreen = () => {
                 <View style={styles.textField}>
                   <View style={styles.textFieldInput}>
                     <TagIcon width={24} height={24} />
-                    <Text style={styles.textFieldPlaceholder}>Discount code</Text>
+                    <Text style={styles.textFieldPlaceholder}>
+                      Discount code
+                    </Text>
                   </View>
                 </View>
                 {/* Apply Button */}
@@ -1519,7 +1756,7 @@ const CheckoutScreen = () => {
                   </View>
                 </TouchableOpacity>
               </View>
-              
+
               {/* Leaf Points */}
               <View style={styles.leafPointsRow}>
                 <View style={styles.iconLabel}>
@@ -1528,27 +1765,44 @@ const CheckoutScreen = () => {
                   </View>
                   <Text style={styles.iconLabelText}>Leaf Points</Text>
                 </View>
-                <TouchableOpacity style={styles.formToggle} onPress={toggleLeafPoints}>
+                <TouchableOpacity
+                  style={styles.formToggle}
+                  onPress={toggleLeafPoints}>
                   <View style={styles.toggleText}>
-                    <Text style={leafPointsEnabled ? styles.toggleOnLabel : styles.toggleOffLabel}>
+                    <Text
+                      style={
+                        leafPointsEnabled
+                          ? styles.toggleOnLabel
+                          : styles.toggleOffLabel
+                      }>
                       {leafPointsEnabled ? 'Use' : '-'}
                     </Text>
-                    <Text style={leafPointsEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {leafPointsEnabled ? formatCurrencyFull(leafPoints) : formatCurrencyFull(0)}
+                    <Text
+                      style={
+                        leafPointsEnabled
+                          ? styles.toggleOnNumber
+                          : styles.toggleOffNumber
+                      }>
+                      {leafPointsEnabled
+                        ? formatCurrencyFull(leafPoints)
+                        : formatCurrencyFull(0)}
                     </Text>
                   </View>
-                  <View style={[
-                    styles.switchContainer,
-                    leafPointsEnabled && styles.switchContainerActive
-                  ]}>
-                    <View style={[
-                      styles.switchKnob,
-                      leafPointsEnabled && styles.switchKnobActive
-                    ]} />
+                  <View
+                    style={[
+                      styles.switchContainer,
+                      leafPointsEnabled && styles.switchContainerActive,
+                    ]}>
+                    <View
+                      style={[
+                        styles.switchKnob,
+                        leafPointsEnabled && styles.switchKnobActive,
+                      ]}
+                    />
                   </View>
                 </TouchableOpacity>
               </View>
-              
+
               {/* Plant Credits */}
               <View style={styles.plantCreditsRow}>
                 <View style={styles.iconLabel}>
@@ -1557,27 +1811,44 @@ const CheckoutScreen = () => {
                   </View>
                   <Text style={styles.iconLabelText}>Plant Credits</Text>
                 </View>
-                <TouchableOpacity style={styles.formToggle} onPress={togglePlantCredits}>
+                <TouchableOpacity
+                  style={styles.formToggle}
+                  onPress={togglePlantCredits}>
                   <View style={styles.toggleText}>
-                    <Text style={plantCreditsEnabled ? styles.toggleOnLabel : styles.toggleOffLabel}>
+                    <Text
+                      style={
+                        plantCreditsEnabled
+                          ? styles.toggleOnLabel
+                          : styles.toggleOffLabel
+                      }>
                       {plantCreditsEnabled ? 'Use' : '-'}
                     </Text>
-                    <Text style={plantCreditsEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {plantCreditsEnabled ? formatCurrencyFull(plantCredits) : formatCurrencyFull(0)}
+                    <Text
+                      style={
+                        plantCreditsEnabled
+                          ? styles.toggleOnNumber
+                          : styles.toggleOffNumber
+                      }>
+                      {plantCreditsEnabled
+                        ? formatCurrencyFull(plantCredits)
+                        : formatCurrencyFull(0)}
                     </Text>
                   </View>
-                  <View style={[
-                    styles.switchContainer,
-                    plantCreditsEnabled && styles.switchContainerActive
-                  ]}>
-                    <View style={[
-                      styles.switchKnob,
-                      plantCreditsEnabled && styles.switchKnobActive
-                    ]} />
+                  <View
+                    style={[
+                      styles.switchContainer,
+                      plantCreditsEnabled && styles.switchContainerActive,
+                    ]}>
+                    <View
+                      style={[
+                        styles.switchKnob,
+                        plantCreditsEnabled && styles.switchKnobActive,
+                      ]}
+                    />
                   </View>
                 </TouchableOpacity>
               </View>
-              
+
               {/* Shipping Credits */}
               <View style={styles.shippingCreditsRow}>
                 <View style={styles.iconLabel}>
@@ -1586,23 +1857,40 @@ const CheckoutScreen = () => {
                   </View>
                   <Text style={styles.iconLabelText}>Shipping Credits</Text>
                 </View>
-                <TouchableOpacity style={styles.formToggle} onPress={toggleShippingCredits}>
+                <TouchableOpacity
+                  style={styles.formToggle}
+                  onPress={toggleShippingCredits}>
                   <View style={styles.toggleText}>
-                    <Text style={shippingCreditsEnabled ? styles.toggleOnLabel : styles.toggleOffLabel}>
+                    <Text
+                      style={
+                        shippingCreditsEnabled
+                          ? styles.toggleOnLabel
+                          : styles.toggleOffLabel
+                      }>
                       {shippingCreditsEnabled ? 'Use' : '-'}
                     </Text>
-                    <Text style={shippingCreditsEnabled ? styles.toggleOnNumber : styles.toggleOffNumber}>
-                      {shippingCreditsEnabled ? formatCurrencyFull(shippingCredits) : formatCurrencyFull(0)}
+                    <Text
+                      style={
+                        shippingCreditsEnabled
+                          ? styles.toggleOnNumber
+                          : styles.toggleOffNumber
+                      }>
+                      {shippingCreditsEnabled
+                        ? formatCurrencyFull(shippingCredits)
+                        : formatCurrencyFull(0)}
                     </Text>
                   </View>
-                  <View style={[
-                    styles.switchContainer,
-                    shippingCreditsEnabled && styles.switchContainerActive
-                  ]}>
-                    <View style={[
-                      styles.switchKnob,
-                      shippingCreditsEnabled && styles.switchKnobActive
-                    ]} />
+                  <View
+                    style={[
+                      styles.switchContainer,
+                      shippingCreditsEnabled && styles.switchContainerActive,
+                    ]}>
+                    <View
+                      style={[
+                        styles.switchKnob,
+                        shippingCreditsEnabled && styles.switchKnobActive,
+                      ]}
+                    />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -1618,24 +1906,32 @@ const CheckoutScreen = () => {
           <View style={styles.totalAmount}>
             <View style={styles.totalAmountRow}>
               <Text style={styles.totalAmountLabel}>Total</Text>
-              <Text style={styles.totalAmountNumber}>{formatCurrencyFull(orderSummary.finalTotal)}</Text>
+              <Text style={styles.totalAmountNumber}>
+                {formatCurrencyFull(orderSummary.finalTotal)}
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Browse More Plants Component */}
-        <BrowseMorePlants 
+        <BrowseMorePlants
           title="More from our Jungle"
           initialLimit={4}
           loadMoreLimit={4}
           showLoadMore={true}
           containerStyle={{marginTop: 24}}
         />
-
       </ScrollView>
 
-  {/* Fixed Checkout Bar */}
-  <View style={[styles.checkoutBar, { paddingBottom: Math.max(insets.bottom, 8), height: 98 + Math.max(insets.bottom, 8) }]}>
+      {/* Fixed Checkout Bar */}
+      <View
+        style={[
+          styles.checkoutBar,
+          {
+            paddingBottom: Math.max(insets.bottom, 8),
+            height: 98 + Math.max(insets.bottom, 8),
+          },
+        ]}>
         {/* Content */}
         <View style={styles.checkoutContent}>
           {/* Summary */}
@@ -1643,22 +1939,29 @@ const CheckoutScreen = () => {
             {/* Amount */}
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Total</Text>
-              <Text style={styles.amountValue}>{formatCurrencyFull(orderSummary.finalTotal)}</Text>
+              <Text style={styles.amountValue}>
+                {formatCurrencyFull(orderSummary.finalTotal)}
+              </Text>
               <CaretDownIcon width={24} height={24} style={styles.infoIcon} />
             </View>
-            
+
             {/* Discount (if available) */}
             {orderSummary.discount > 0 && (
               <View style={styles.discountRow}>
                 <Text style={styles.discountSavings}>You're saving</Text>
-                <Text style={styles.discountAmount}>{formatCurrencyFull(orderSummary.discount)}</Text>
+                <Text style={styles.discountAmount}>
+                  {formatCurrencyFull(orderSummary.discount)}
+                </Text>
               </View>
             )}
           </View>
-          
+
           {/* Button */}
           <TouchableOpacity
-            style={[styles.placeOrderButton, loading && styles.placeOrderButtonDisabled]}
+            style={[
+              styles.placeOrderButton,
+              loading && styles.placeOrderButtonDisabled,
+            ]}
             onPress={handleCheckout}
             disabled={loading}>
             <View style={styles.buttonText}>
@@ -1670,7 +1973,7 @@ const CheckoutScreen = () => {
             </View>
           </TouchableOpacity>
         </View>
-        
+
         {/* Home Indicator */}
         <View style={styles.homeIndicator}>
           <View style={styles.gestureBar} />
@@ -1736,7 +2039,7 @@ const styles = StyleSheet.create({
     color: '#202325',
     flex: 0,
     zIndex: 2,
-    pointerEvents: 'none',
+    // pointerEvents: 'none',
   },
   navbarRight: {
     width: 24,
@@ -2502,7 +2805,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#539461', // Green background when active
   },
   switchKnobActive: {
-    transform: [{ translateX: 18 }], // Move knob to the right when active
+    transform: [{translateX: 18}], // Move knob to the right when active
   },
   baseAirCargoRow: {
     flexDirection: 'row',
@@ -2514,7 +2817,6 @@ const styles = StyleSheet.create({
     minHeight: 32,
     flex: 0,
     alignSelf: 'stretch',
-    
   },
   labelTooltip: {
     flexDirection: 'row',
@@ -2678,7 +2980,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 12,
-    width: "100%",
+    width: '100%',
     height: 48,
     minHeight: 48,
     backgroundColor: '#FFFFFF',

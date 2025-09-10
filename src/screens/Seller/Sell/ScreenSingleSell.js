@@ -205,14 +205,15 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [selectedGenus, setSelectedGenus] = useState('');
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    setLoading(true);
+    // setTimeout(() => setLoading(true), 300);
+    // setLoading(true);
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
   // Dropdown Genus
@@ -223,14 +224,15 @@ const ScreenSingleSell = ({navigation, route}) => {
     // setdropdownVariegationDisable(false);
     setSelectedVariegation('');
     setSelectedSpecies(species);
-    setLoading(true);
+    // setLoading(true);
+    // setTimeout(() => setLoading(true), 300);
     try {
       await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
       // Optionally show error to user
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
   // Dropdown Species
@@ -733,10 +735,17 @@ const ScreenSingleSell = ({navigation, route}) => {
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
           Single Plant
         </Text>
-        {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
             <Text style={globalStyles.textLGAccent}>Save</Text>
           </TouchableOpacity>
+        )} */}
+        {isFromDuplicateSell || !plantCode || isFromDraftSell ? (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text>{''}</Text> // empty string element
         )}
       </View>
       <ScrollView

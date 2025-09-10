@@ -131,7 +131,7 @@ export const globalStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
   textSemiBold: {
-    fontWeight: 'semibold',
+    fontWeight: '600',
   },
   textRegular: {
     fontWeight: 'regular',
@@ -157,7 +157,6 @@ export const globalStyles = StyleSheet.create({
   textXLGreyDark: {
     color: colors.greyDark,
     fontSize: fontSize.xl,
-   
   },
   textXXLGreyDark: {
     color: colors.greyDark,
@@ -408,6 +407,8 @@ export const getComponentStyles = (colorScheme = 'light') => {
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 16,
+      marginTop: 16, // Added margin top for better positioning
+      paddingTop: 16, // Added padding top for better positioning
     },
     errorText: {
       color: '#FF5247',

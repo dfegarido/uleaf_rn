@@ -559,6 +559,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
           position: 'absolute',
           bottom: 10,
           width: '100%',
+          paddingBottom: insets.bottom,
         }}>
         <TouchableOpacity
           onPress={() =>
