@@ -200,6 +200,11 @@ const UserManagement = () => {
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 20; // Extra 20px for spacing
   console.log("User management screen");
   
+  // Handle add user button press
+  const handleAddUser = () => {
+    navigation.navigate('EnrollSeller');
+  };
+
   // Fetch users from API
   const fetchUsers = async (showLoading = true, page = 1, append = false) => {
     try {
@@ -449,6 +454,7 @@ const UserManagement = () => {
         <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
         <LeafTrailHeader 
           insets={insets} 
+          onPressAdd={handleAddUser}
           onPressRole={() => setRoleModalVisible(true)}
           onSearchChange={handleSearchChange}
         />
@@ -472,6 +478,7 @@ const UserManagement = () => {
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
       <LeafTrailHeader 
         insets={insets} 
+        onPressAdd={handleAddUser}
         onPressRole={() => setRoleModalVisible(true)}
         onSearchChange={handleSearchChange}
       />
