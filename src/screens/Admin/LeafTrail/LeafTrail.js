@@ -1,19 +1,19 @@
-import React, {useState, useRef} from 'react';
+import { useNavigation } from '@react-navigation/native';
+import React, { useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
-import {useAuth} from '../../../auth/AuthProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../../auth/AuthProvider';
 
 // Import icons
-import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 
 const HEADER_HEIGHT = 80;
 

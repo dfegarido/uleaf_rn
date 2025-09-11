@@ -1,45 +1,40 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
+import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
-import CartIconSelected from '../../assets/icontabs/buyer-tabs/cart-icon-selected.svg';
-import CartIcon from '../../assets/icontabs/buyer-tabs/cart-solid.svg';
 import ChatIconSelected from '../../assets/icontabs/buyer-tabs/chat-icon-selected.svg';
 import ChatIcon from '../../assets/icontabs/buyer-tabs/chat-solid.svg';
 import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selected.svg';
 import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
-import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
-import OrderIcon from '../../assets/icontabs/order.svg';
-import  AdminHomeScreen  from '../../screens/Admin/Home/Home';
-import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
 import HomeIcon from '../../assets/icontabs/home.svg';
-import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
-import UserManagement from '../../screens/Admin/Home/UserManagement';
-import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
-import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
-import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
-import UserInformation from '../../screens/Admin/Home/UserInformation';
-import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
-import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
+import AdminHomeScreen from '../../screens/Admin/Home/Home';
 import ScanQR from '../../screens/Admin/Home/ScanQR';
+import UserInformation from '../../screens/Admin/Home/UserInformation';
+import UserManagement from '../../screens/Admin/Home/UserManagement';
+import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
+import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
+import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
+import ShippingScreen from '../../screens/Admin/LeafTrail/Shipping/Shipping';
+import SortingScreen from '../../screens/Admin/LeafTrail/Sorting/Sorting';
+import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
 import {
-  AdminProfileScreen,
   AdminAccountInformationScreen,
-  AdminUpdatePasswordScreen,
+  AdminPrivacyPolicyScreen,
+  AdminProfileScreen,
   AdminTermsOfUseScreen,
-  AdminPrivacyPolicyScreen
+  AdminUpdatePasswordScreen
 } from '../../screens/Admin/Profile';
-
+import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
+import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
-
-
-
 
 function AdminTabs() {
     const navigation = useNavigation();
@@ -158,6 +153,10 @@ function AdminTabs() {
      <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
+     <Stack.Screen name="LeafTrailSortingAdminScreen" options={{headerShown: false}} component={SortingScreen} />
+     <Stack.Screen name="LeafTrailShippingAdminScreen" options={{headerShown: false}} component={ShippingScreen} />
+     <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
+     <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />
       <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
       
       {/* Admin Profile Screens */}

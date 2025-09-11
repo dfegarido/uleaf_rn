@@ -1,30 +1,28 @@
+import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import {View, Text, TouchableOpacity, Image, StyleSheet, ScrollView} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import LiveSetupIcon from '../../../assets/admin-icons/live-setup.svg';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
-import {useAuth} from '../../../auth/AuthProvider';
-import SalesReportIcon from '../../../assets/admin-icons/sales-report.svg';
-import OrderSummaryIcon from '../../../assets/admin-icons/order-summary.svg';
-import {globalStyles} from '../../../assets/styles/styles';
-import PayoutsIcon from '../../../assets/admin-icons/payouts.svg';
-import ScheduleIcon from '../../../assets/admin-icons/schedule.svg';
-import JungleAccessIcon from '../../../assets/admin-icons/jungle-access.svg';
-import UserManagementIcon from '../../../assets/admin-icons/user-management.svg';
-import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
-import HappeningsIcon from '../../../assets/admin-icons/happenings.svg';
 import DiscountsIcon from '../../../assets/admin-icons/discounts.svg';
-import LeafPointsIcon from '../../../assets/admin-icons/leaf-points.svg';
-import ScanQrIcon from '../../../assets/admin-icons/scan-qr.svg';
-import ReceivingIcon from '../../../assets/admin-icons/receiving.svg';
-import SortingIcon from '../../../assets/admin-icons/sorting.svg';
-import PackingIcon from '../../../assets/admin-icons/packing.svg';
 import ForShippingIcon from '../../../assets/admin-icons/for-shipping.svg';
-import ShippedIcon from '../../../assets/admin-icons/shipped.svg';
+import HappeningsIcon from '../../../assets/admin-icons/happenings.svg';
+import JungleAccessIcon from '../../../assets/admin-icons/jungle-access.svg';
+import LeafPointsIcon from '../../../assets/admin-icons/leaf-points.svg';
 import LiveIcon from '../../../assets/admin-icons/live-icon.svg';
-import UserInformation from './UserInformation';
-import UserManagement from './UserManagement';
+import LiveSetupIcon from '../../../assets/admin-icons/live-setup.svg';
+import OrderSummaryIcon from '../../../assets/admin-icons/order-summary.svg';
+import PackingIcon from '../../../assets/admin-icons/packing.svg';
+import PayoutsIcon from '../../../assets/admin-icons/payouts.svg';
+import ReceivingIcon from '../../../assets/admin-icons/receiving.svg';
+import SalesReportIcon from '../../../assets/admin-icons/sales-report.svg';
+import ScanQrIcon from '../../../assets/admin-icons/scan-qr.svg';
+import ScheduleIcon from '../../../assets/admin-icons/schedule.svg';
+import ShippedIcon from '../../../assets/admin-icons/shipped.svg';
+import SortingIcon from '../../../assets/admin-icons/sorting.svg';
+import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
+import UserManagementIcon from '../../../assets/admin-icons/user-management.svg';
+import { globalStyles } from '../../../assets/styles/styles';
+import { useAuth } from '../../../auth/AuthProvider';
 
 
 const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}, insets}) => {
@@ -92,16 +90,16 @@ const BusinessPerformance = () => {
           <IconTile title="Scan QR" onPress={() => navigation.navigate('ScanQR')}>
             <ScanQrIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Receiving">
+          <IconTile title="Receiving" onPress={() => navigation.navigate('LeafTrailReceivingScreenAdminScreen')}>
             <ReceivingIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Sorting">
+          <IconTile title="Sorting" onPress={() => navigation.navigate('LeafTrailSortingAdminScreen')}> 
             <SortingIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Packing">
+          <IconTile title="Packing" onPress={() => navigation.navigate('LeafTrailPackingAdminScreen')}> 
             <PackingIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="For Shipping">
+          </IconTile> 
+          <IconTile title="For Shipping" onPress={() => navigation.navigate('LeafTrailShippingAdminScreen')}>
             <ForShippingIcon width={48} height={48} />
           </IconTile>
           <IconTile title="Shipped">
