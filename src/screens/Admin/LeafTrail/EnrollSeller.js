@@ -232,7 +232,7 @@ const EnrollSeller = () => {
       contactNumber: `${countryCode}${contactNumber.trim()}`,
       gardenOrCompanyName: gardenName.trim(),
       password: 'securePassword123', // Temporary password that will be changed later
-      country: selectedFlag, // Use the 2-letter country code instead of the full name
+      country: selectedCountry, // Use the 2-letter country code instead of the full name
       email: email.trim(),
       liveFlag: allowLiveVideo ? 'Yes' : 'No'
     };
