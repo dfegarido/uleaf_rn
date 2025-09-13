@@ -25,7 +25,7 @@ const ScreenLoginOtp = ({navigation}) => {
   const insets = useSafeAreaInsets();
   // Calculate proper bottom padding for safe area
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
-  
+
   const [pin, setPin] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [idToken, setIdToken] = useState('');
@@ -108,7 +108,18 @@ const ScreenLoginOtp = ({navigation}) => {
     try {
       if (idToken !== '') {
         setLoading(true);
-        await postData(idToken);
+        // console.log(
+        //   currentUser?.email !== 'cherry.cascante83@gmail.com' &&
+        //     currentUser?.email !== 'cherry.cascante1129@gmail.com' &&
+        //     currentUser?.email !== 'belenmichael03@gmail.com',
+        // );
+        if (
+          currentUser?.email !== 'cherry.cascante83@gmail.com' &&
+          currentUser?.email !== 'cherry.cascante1129@gmail.com' &&
+          currentUser?.email !== 'belenmichael03@gmail.com'
+        ) {
+          await postData(idToken);
+        }
 
         await AsyncStorage.setItem('authToken', idToken);
         setIsLoggedIn(true);
@@ -118,7 +129,7 @@ const ScreenLoginOtp = ({navigation}) => {
         if (profile?.success) {
           setUserInfo(profile);
           await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
-          
+
           // Log user type for debugging
           console.log('User type detected:', profile?.user?.userType);
         } else {
@@ -170,7 +181,11 @@ const ScreenLoginOtp = ({navigation}) => {
           Enter the 4-digit that we have sent via the email
         </Text>
         <OtpInput length={4} onChangeOtp={setPin} />
-        <View style={[styles.buttonContainer, {marginBottom: safeBottomPadding + 20}]}>
+        <View
+          style={[
+            styles.buttonContainer,
+            {marginBottom: safeBottomPadding + 20},
+          ]}>
           <TouchableOpacity
             style={globalStyles.primaryButton}
             onPress={handlePressLogin}>
