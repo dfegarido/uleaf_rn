@@ -1732,7 +1732,7 @@ const CheckoutScreen = () => {
             {/* Title */}
             <View style={styles.pointsTitle}>
               <Text style={styles.pointsTitleText}>
-                Use available iLeaf points, rewards, and discount
+                Use available leaf points, rewards, and discount
               </Text>
             </View>
 
