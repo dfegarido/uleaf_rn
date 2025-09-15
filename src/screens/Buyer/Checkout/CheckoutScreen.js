@@ -3,7 +3,7 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import React, {useEffect, useMemo, useState} from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -14,9 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
-import {setupURLPolyfill} from 'react-native-url-polyfill';
-import {paymentPaypalVenmoUrl} from '../../../../config';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { setupURLPolyfill } from 'react-native-url-polyfill';
+import { paymentPaypalVenmoUrl } from '../../../../config';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
@@ -29,11 +29,11 @@ import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import TagIcon from '../../../assets/icons/greylight/tag.svg';
-import {getAddressBookEntriesApi} from '../../../components/Api';
-import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
-import {checkoutApi} from '../../../components/Api/checkoutApi';
+import { getAddressBookEntriesApi } from '../../../components/Api';
+import { checkoutApi } from '../../../components/Api/checkoutApi';
+import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import {formatCurrencyFull} from '../../../utils/formatCurrency';
+import { formatCurrencyFull } from '../../../utils/formatCurrency';
 
 // Helper function to determine country from currency
 const getCountryFromCurrency = currency => {
@@ -1233,7 +1233,7 @@ const CheckoutScreen = () => {
               const result = await checkoutApi(orderData);
 
               if (result.success) {
-                const {transactionNumber, paypalOrderId, approvalUrl, orderId} =
+                const {transactionNumber, paypalOrderId, approvalUrl, orderId, orderSummary} =
                   result.data;
 
                 Alert.alert(
@@ -1249,7 +1249,7 @@ const CheckoutScreen = () => {
                           '💳 Payment button clicked - redirecting to orders screen',
                         );
                         Linking.openURL(
-                          `${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${orderId}`,
+                          `${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${transactionNumber}`,
                         );
                       },
                     },
