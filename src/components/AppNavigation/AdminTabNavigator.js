@@ -20,6 +20,7 @@ import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
 import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
 import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
+import ScanQRScreen from '../../screens/Admin/LeafTrail/ScanQR/ScanQR';
 import ShippingScreen from '../../screens/Admin/LeafTrail/Shipping/Shipping';
 import SortingScreen from '../../screens/Admin/LeafTrail/Sorting/Sorting';
 import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
@@ -157,6 +158,7 @@ function AdminTabs() {
      <Stack.Screen name="LeafTrailShippingAdminScreen" options={{headerShown: false}} component={ShippingScreen} />
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
      <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />
+     <Stack.Screen name="LeafTrailScanQRScreenAdminScreen" options={{headerShown: false}} component={ScanQRScreen} />
       <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
       
       {/* Admin Profile Screens */}
