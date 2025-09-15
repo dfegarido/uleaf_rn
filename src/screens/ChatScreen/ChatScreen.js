@@ -11,7 +11,7 @@ import {
   where
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import OptionIcon from '../../assets/iconchat/option.svg';
@@ -199,28 +199,33 @@ const ChatScreen = ({navigation, route}) => {
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
-      {/* Header */}
-      <View style={[styles.header, {paddingTop: Math.min(insets.top, 8)}]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}>
-          <BackSolidIcon size={24} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.userInfo}>
-          <Image
-            source={getAvatarSource()}
-            style={styles.avatar}
-          />
-          <View style={styles.userInfoText}>
-            <Text style={styles.title}>{otherUserInfo?.name || name || 'Chat'}</Text>
-            <Text style={styles.subtitle}>Active now</Text>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {/* Header */}
+        <View style={[styles.header, {paddingTop: Math.min(insets.top, 8)}]}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}>
+            <BackSolidIcon size={24} color="#333" />
+          </TouchableOpacity>
+          <View style={styles.userInfo}>
+            <Image
+              source={getAvatarSource()}
+              style={styles.avatar}
+            />
+            <View style={styles.userInfoText}>
+              <Text style={styles.title}>{otherUserInfo?.name || name || 'Chat'}</Text>
+              <Text style={styles.subtitle}>Active now</Text>
+            </View>
           </View>
+          <TouchableOpacity style={styles.options}
+            onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, participants })}>
+            <OptionIcon />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.options}
-          onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, participants })}>
-          <OptionIcon />
-        </TouchableOpacity>
-  </View>
 
       {/* Chat Messages */}
       {loading ? (
@@ -251,7 +256,8 @@ const ChatScreen = ({navigation, route}) => {
               />
             );
           }}
-          contentContainerStyle={{ paddingVertical: 10, paddingBottom: totalBottomPadding }}
+          contentContainerStyle={{ paddingVertical: 10, paddingBottom: 20 }}
+          style={{ flex: 1 }}
           onContentSizeChange={() => {
             setTimeout(() => {
               if (flatListRef?.current && messages.length > 0) {
@@ -282,6 +288,7 @@ const ChatScreen = ({navigation, route}) => {
 
       {/* Input */}
       <MessageInput onSend={sendMessage} />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

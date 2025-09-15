@@ -8,6 +8,7 @@ import {
   StatusBar,
   Alert,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../../auth/AuthProvider';
@@ -19,6 +20,7 @@ import {
   getBuyerProfileApi,
   getAddressBookEntriesApi,
 } from '../../../components/Api';
+import {deleteUserApi} from '../../../components/Api';
 
 // Import icons (you'll need to add these to your assets)
 import ProfileIcon from '../../../assets/icons/greydark/profile.svg';
@@ -29,6 +31,7 @@ import EnvelopeIcon from '../../../assets/icons/greydark/envelope.svg';
 import RightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
+import TrashIcon from '../../../assets/icons/red/trash.svg';
 import { useNavigation } from '@react-navigation/native';
 
 // Custom Shipping Credits Icon Component (from Figma SVG)
@@ -165,11 +168,11 @@ const CreditCard = ({title, value, color, hasArrow = false, icon, isPlantCredits
   </View>
 );
 
-const MenuItem = ({icon, title, rightText, onPress, disabled = false}) => (
-  <TouchableOpacity style={[styles.menuItem, disabled && styles.menuItemDisabled]} onPress={onPress} disabled={disabled}>
+const MenuItem = ({icon, title, rightText, onPress, disabled = false, isDangerous = false}) => (
+  <TouchableOpacity style={[styles.menuItem, disabled && styles.menuItemDisabled, isDangerous && styles.dangerMenuItem]} onPress={onPress} disabled={disabled}>
     <View style={styles.menuLeft}>
       {icon}
-      <Text style={styles.menuTitle}>{title}</Text>
+      <Text style={[styles.menuTitle, isDangerous && styles.dangerText]}>{title}</Text>
     </View>
     <View style={styles.menuRight}>
       {rightText && <Text style={styles.menuRightText}>{rightText}</Text>}
@@ -292,6 +295,68 @@ const BuyerProfileScreen = (props) => {
   } catch (error) {
       
     }
+  };
+
+  const handleDeactivateAccount = () => {
+    Alert.alert(
+      'Deactivate Account',
+      'Are you sure you want to deactivate your account? This action cannot be undone and you will lose access to all your data.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Show loading state
+              Alert.alert('Processing', 'Deactivating your account...');
+              
+              // Call the delete user API with current user's ID
+              const result = await deleteUserApi(userInfo?.uid || userInfo?.id, 'User requested account deactivation');
+              
+              if (result?.success) {
+                Alert.alert(
+                  'Account Deactivated',
+                  'Your account has been successfully deactivated. You will be logged out now.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => logout(),
+                    },
+                  ]
+                );
+              } else {
+                throw new Error(result?.message || 'Failed to deactivate account');
+              }
+            } catch (error) {
+              console.error('Account deactivation error:', error);
+              Alert.alert(
+                'Deactivation Failed',
+                'We couldn\'t deactivate your account at this time. Please try again later or contact support.',
+                [
+                  { text: 'OK' },
+                  { 
+                    text: 'Contact Support', 
+                    onPress: () => {
+                      const supportChatParams = {
+                        avatarUrl: null,
+                        name: "Support Team",
+                        id: "support-chat",
+                        participants: ["support-admin", "current-user-id"]
+                      };
+                      navigation.navigate('ChatScreen', supportChatParams);
+                    }
+                  }
+                ]
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -477,16 +542,18 @@ const BuyerProfileScreen = (props) => {
 
           <MenuItem
             icon={<ChatIcon width={24} height={24} fill="#556065" />}
-            title="Chat with Us"
+            title="Email Us"
             onPress={() => {
-              // Navigate to support chat
-              const supportChatParams = {
-                avatarUrl: null,
-                name: "Support Team",
-                id: "support-chat",
-                participants: ["support-admin", "current-user-id"]
-              };
-              navigation.navigate('ChatScreen', supportChatParams);
+              // Open email app with the specified email address
+              const emailUrl = 'mailto:ileafuasiausa@gmail.com?subject=Support Request&body=Hello iLeafU Support Team,%0D%0A%0D%0A';
+              Linking.openURL(emailUrl).catch(err => {
+                console.error('Failed to open email app:', err);
+                Alert.alert(
+                  'Email App Not Available',
+                  'Please send an email to: ileafuasiausa@gmail.com',
+                  [{ text: 'OK' }]
+                );
+              });
             }}
           />
         </View>
@@ -507,6 +574,20 @@ const BuyerProfileScreen = (props) => {
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
             title="Privacy Policy"
             onPress={() => navigation.navigate('PrivacyPolicyScreen')}
+          />
+        </View>
+
+        <Divider />
+
+        {/* Account Management Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionTitle}>Account</Text>
+
+          <MenuItem
+            icon={<TrashIcon width={24} height={24} />}
+            title="Deactivate Account"
+            onPress={handleDeactivateAccount}
+            isDangerous={true}
           />
         </View>
 
@@ -799,6 +880,13 @@ const styles = StyleSheet.create({
   },
   menuItemDisabled: {
     opacity: 0.5,
+  },
+  dangerMenuItem: {
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  dangerText: {
+    color: '#FF4444',
   },
   menuRightText: {
     fontSize: 16,

@@ -143,7 +143,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const limit = 4; // Standardized to 4 per requirement
+  const limit = 20; // Standardized to 20 per requirement
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,7 +199,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       const searchParams = {
         query: searchTerm,
-        limit: 4,
+        limit: 20,
         sortBy: 'relevance',
         sortOrder: 'desc'
       };

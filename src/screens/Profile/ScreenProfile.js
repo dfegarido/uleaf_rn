@@ -9,6 +9,8 @@ import {
   Modal,
   ActivityIndicator,
   SafeAreaView,
+  Alert,
+  Linking,
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {AuthContext} from '../../auth/AuthProvider';
@@ -28,6 +30,7 @@ import ChatIcon from '../../assets/icons/greydark/chat-circle-dots-regular.svg';
 import EnvelopeIcon from '../../assets/icons/greydark/envelope.svg';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
+import TrashIcon from '../../assets/icons/red/trash.svg';
 import AvatarIcon from '../../assets/images/avatar.svg';
 
 const ScreenProfile = ({navigation}) => {
@@ -78,6 +81,36 @@ const ScreenProfile = ({navigation}) => {
 
     console.log(res);
     setData(res);
+  };
+
+  const handleDeactivateAccount = () => {
+    Alert.alert(
+      'Deactivate Account',
+      'Are you sure you want to deactivate your account? This action cannot be undone and you will lose access to all your data.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () => {
+            // TODO: Implement account deactivation API call
+            Alert.alert(
+              'Account Deactivated',
+              'Your account has been deactivated. You will be logged out now.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => logout(),
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
   // ✅ Fetch on mount
 
@@ -216,11 +249,22 @@ const ScreenProfile = ({navigation}) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => navigation.navigate('ScreenProfileChatAdmin')}>
+              onPress={() => {
+                // Open email app with the specified email address
+                const emailUrl = 'mailto:ileafuasiausa@gmail.com?subject=Support Request&body=Hello iLeafU Support Team,%0D%0A%0D%0A';
+                Linking.openURL(emailUrl).catch(err => {
+                  console.error('Failed to open email app:', err);
+                  Alert.alert(
+                    'Email App Not Available',
+                    'Please send an email to: ileafuasiausa@gmail.com',
+                    [{ text: 'OK' }]
+                  );
+                });
+              }}>
               <View style={styles.menuLeft}>
                 <ChatIcon width={20} height={20} />
                 <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Chat with Us
+                  Email Us
                 </Text>
               </View>
               <RightIcon width={20} height={20} />
@@ -247,6 +291,22 @@ const ScreenProfile = ({navigation}) => {
                 <EnvelopeIcon width={20} height={20} />
                 <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
                   Privacy Policy
+                </Text>
+              </View>
+              <RightIcon width={20} height={20} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Danger Zone */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <TouchableOpacity
+              style={styles.dangerMenuItem}
+              onPress={handleDeactivateAccount}>
+              <View style={styles.menuLeft}>
+                <TrashIcon width={20} height={20} />
+                <Text style={[globalStyles.textSMGreyDark, styles.dangerText, {paddingLeft: 5}]}>
+                  Deactivate Account
                 </Text>
               </View>
               <RightIcon width={20} height={20} />
@@ -317,6 +377,24 @@ const styles = StyleSheet.create({
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  dangerMenuItem: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: {width: 0, height: 2},
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+  },
+  dangerText: {
+    color: '#FF4444',
   },
   logoutButton: {
     marginTop: 30,

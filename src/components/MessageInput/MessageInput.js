@@ -55,6 +55,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     color: '#000', // Force black text color
     fontSize: 16,
+    minHeight: 40, // Ensure minimum height for better visibility
   },
   sendButton: {
     padding: 8,

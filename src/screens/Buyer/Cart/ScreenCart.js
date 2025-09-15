@@ -11,6 +11,7 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import SearchIcon from '../../../assets/iconnav/search.svg';
@@ -35,6 +36,10 @@ import DownArrowIcon from '../../../assets/buyer-icons/downicon.svg';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
+
+// Get screen dimensions for responsive design
+const screenWidth = Dimensions.get('window').width;
+const checkboxSize = Math.max(20, Math.min(28, screenWidth * 0.065)); // Responsive checkbox size (20-28px based on screen width)
 
 // Helper function to get a valid image source
 const getValidImageSource = (imageUrl, plantCode) => {
@@ -289,9 +294,15 @@ const CartComponent = ({
             {borderColor: checked ? '#539461' : 'transparent'},
           ]}>
           <Image source={image} style={styles.cartImage} />
-          {checked && !isUnavailable && (
+          {!isUnavailable && (
             <View style={styles.cartCheckOverlay}>
-              <Image source={selectedCard} style={{width: 24, height: 24}} />
+              {checked ? (
+                <View style={styles.checkedBox}>
+                  <Text style={styles.checkmark}>✓</Text>
+                </View>
+              ) : (
+                <View style={styles.uncheckedBox} />
+              )}
             </View>
           )}
           {/* Discount Badge */}
@@ -635,6 +646,14 @@ const ScreenCart = () => {
         };
       }) || [];
 
+      console.log('🛒 Cart items after transformation:', 
+        transformedItems.map(item => ({
+          name: item.name,
+          listingType: item.listingType,
+          quantity: item.quantity
+        }))
+      );
+
       setCartItems(transformedItems);
       // Remove any unavailable items from current selection so they don't
       // contribute to totals or checkout even if previously selected.
@@ -883,6 +902,14 @@ const ScreenCart = () => {
     }
 
     // Navigate to checkout screen with selected available items
+    console.log('📦 Navigating to checkout with items:', 
+      selectedCartItems.map(item => ({
+        name: item.name,
+        listingType: item.listingType,
+        quantity: item.quantity
+      }))
+    );
+    
     navigation.navigate('CheckoutScreen', {
       cartItems: selectedCartItems,
       useCart: true, // Use real cart data
@@ -1247,13 +1274,36 @@ const styles = StyleSheet.create({
   },
   cartCheckOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 32,
-    height: 32,
+    top: 8,
+    left: 8,
+    width: checkboxSize,
+    height: checkboxSize,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 4,
+  },
+  uncheckedBox: {
+    width: checkboxSize,
+    height: checkboxSize,
+    borderWidth: 2,
+    borderColor: '#CDD3D4',
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  checkedBox: {
+    width: checkboxSize,
+    height: checkboxSize,
+    borderWidth: 2,
+    borderColor: '#539461',
+    borderRadius: 4,
+    backgroundColor: '#539461',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: checkboxSize * 0.7, // Responsive font size based on checkbox size
+    fontWeight: 'bold',
+    lineHeight: checkboxSize,
   },
   discountBadge: {
     flexDirection: 'row',
