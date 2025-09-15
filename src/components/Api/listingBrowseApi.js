@@ -195,12 +195,18 @@ export const getBuyerListingsApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
     
-    console.log("Input params to getBuyerListingsApi:", params);
+    // Set default limit to 20 if not specified
+    const finalParams = {
+      limit: 20,
+      ...params
+    };
+    
+    console.log("Input params to getBuyerListingsApi:", finalParams);
     
     const queryParams = new URLSearchParams();
-    Object.keys(params).forEach(key => {
-      if (params[key] !== undefined && params[key] !== null) {
-        let value = params[key];
+    Object.keys(finalParams).forEach(key => {
+      if (finalParams[key] !== undefined && finalParams[key] !== null) {
+        let value = finalParams[key];
         
         // Handle arrays by joining with commas
         if (Array.isArray(value)) {

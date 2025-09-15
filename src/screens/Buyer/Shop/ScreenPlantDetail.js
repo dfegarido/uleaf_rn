@@ -149,6 +149,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
     }
   }, [selectedPotSize, plantData?.listingType, plantData?.approximateHeight]);
 
+  // Ensure single plants always have quantity = 1
+  useEffect(() => {
+    if (plantData?.listingType?.toLowerCase() === 'single' && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [plantData?.listingType, quantity]);
 
   const loadPlantDetails = async () => {
     try {
@@ -165,6 +171,21 @@ const ScreenPlantDetail = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load plant details');
       }
       // Extract the nested data object from the response
+      console.log('📱 Plant data loaded:', {
+        plantCode,
+        listingType: res.data?.listingType,
+        hasVariations: !!res.data?.variations,
+        variationsLength: res.data?.variations?.length || 0,
+        availableQty: res.data?.availableQty,
+        stockInfo: {
+          availableQty: res.data?.availableQty,
+          totalQuantity: res.data?.totalQuantity,
+          maxQuantity: res.data?.maxQuantity,
+          stock: res.data?.stock,
+          quantity: res.data?.quantity
+        },
+        fullData: res.data
+      });
       setPlantData(res.data);
 
     } catch (error) {
@@ -175,11 +196,23 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const handleAddToCart = () => {
+    console.log('🛒 Opening Add to Cart modal for plant:', {
+      plantCode,
+      listingType: plantData?.listingType,
+      currentQuantity: quantity,
+      plantDataExists: !!plantData
+    });
     setModalAction('add-to-cart');
     setShowAddToCartModal(true);
   };
 
   const handleBuyNow = () => {
+    console.log('💰 Opening Buy Now modal for plant:', {
+      plantCode,
+      listingType: plantData?.listingType,
+      currentQuantity: quantity,
+      plantDataExists: !!plantData
+    });
     setModalAction('buy-now');
     setShowAddToCartModal(true);
   };
@@ -187,6 +220,13 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const handleConfirmAddToCart = async () => {
     if (quantity < 1) {
       Alert.alert('Invalid Quantity', 'Please select a quantity of at least 1');
+      return;
+    }
+
+    // Check stock limits
+    const availableStock = getAvailableStock();
+    if (quantity > availableStock) {
+      Alert.alert('Stock Limit', `Only ${availableStock} items available in stock. Please reduce your quantity.`);
       return;
     }
 
@@ -219,6 +259,13 @@ const ScreenPlantDetail = ({navigation, route}) => {
         
         plantDataWithCountry.country = mapCurrencyToCountry(plantDataWithCountry.localCurrency);
       }
+      
+      console.log('🛍️ Buy Now navigation with plant data:', {
+        plantCode: plantCode,
+        listingType: plantData.listingType,
+        quantity: quantity,
+        name: `${plantData.genus || ''} ${plantData.species || ''}`.trim()
+      });
       
       navigation.navigate('CheckoutScreen', {
         plantData: {
@@ -314,12 +361,97 @@ const ScreenPlantDetail = ({navigation, route}) => {
     setShowAddToCartModal(false);
   };
 
+  // Helper function to check if plant is single
+  const isSinglePlant = () => {
+    if (!plantData) {
+      console.log('🔍 No plant data available');
+      return false;
+    }
+    
+    const listingType = plantData?.listingType;
+    const listingTypeLower = listingType?.toLowerCase();
+    
+    // Check multiple possible ways to identify single plants
+    const checks = {
+      listingTypeExact: listingTypeLower === 'single',
+      listingTypeIncludes: listingTypeLower?.includes('single'),
+      variationsEmpty: !plantData?.variations || plantData?.variations?.length === 0,
+      availableQuantity: plantData?.availableQuantity === 1,
+      stockQuantity: plantData?.stockQuantity === 1,
+      quantity: plantData?.quantity === 1
+    };
+    
+    const isSingle = checks.listingTypeExact || checks.listingTypeIncludes;
+    
+    console.log('🔍 Plant listing type check:', {
+      originalListingType: listingType,
+      lowercaseListingType: listingTypeLower,
+      checks,
+      finalResult: isSingle,
+      currentQuantity: quantity,
+      modalVisible: showAddToCartModal
+    });
+    
+    return isSingle;
+  };
+
+  // Get available stock quantity
+  const getAvailableStock = () => {
+    const stock = plantData?.availableQty || plantData?.stock || plantData?.quantity || plantData?.maxQuantity || 999;
+    console.log('📊 Available stock calculation:', {
+      availableQty: plantData?.availableQty,
+      stock: plantData?.stock,
+      quantity: plantData?.quantity,
+      maxQuantity: plantData?.maxQuantity,
+      finalStock: stock
+    });
+    return stock;
+  };
+
+  // Check if increase button should be disabled
+  const isIncreaseDisabled = () => {
+    if (isSinglePlant()) return true;
+    const availableStock = getAvailableStock();
+    return quantity >= availableStock;
+  };
+
   const increaseQuantity = () => {
+    // Early return for single plants - absolutely no quantity changes allowed
+    if (isSinglePlant()) {
+      console.log('🚫 Increment blocked: Single plant detected');
+      return;
+    }
+    
+    const availableStock = getAvailableStock();
+    const newQuantity = quantity + 1;
+    
+    // Check stock limits
+    if (newQuantity > availableStock) {
+      console.log('🚫 Increment blocked: Stock limit reached', {
+        currentQuantity: quantity,
+        newQuantity,
+        availableStock
+      });
+      Alert.alert('Stock Limit', `Only ${availableStock} items available in stock`);
+      return;
+    }
+    
+    console.log('✅ Increment allowed:', {
+      currentQuantity: quantity,
+      newQuantity,
+      availableStock
+    });
     setQuantity(prev => prev + 1);
   };
 
   const decreaseQuantity = () => {
+    // Early return for single plants - absolutely no quantity changes allowed
+    if (isSinglePlant()) {
+      console.log('🚫 Decrement blocked: Single plant detected');
+      return;
+    }
     if (quantity > 1) {
+      console.log('✅ Decrement allowed: Not a single plant and quantity > 1');
       setQuantity(prev => prev - 1);
     }
   };
@@ -917,7 +1049,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                     </View>
                   </View>
                 </View>
-                <Text style={styles.plantDetailLabel}>Paid on your first order</Text>
+                <Text style={styles.plantDetailLabel}>Pay upfront, earn back when you and shipping buddies reach $500 on 15 plants.</Text>
               </View>
             </View>
             <View style={styles.plantDetailItem}>
@@ -1088,31 +1220,85 @@ const ScreenPlantDetail = ({navigation, route}) => {
             <View style={styles.quantitySection}>
               <View style={styles.quantityLabelContainer}>
                 <Text style={styles.quantityLabel}>Quantity</Text>
+                {isSinglePlant() ? (
+                  <Text style={styles.singlePlantNote}>Single plant only</Text>
+                ) : (
+                  <Text style={styles.stockAvailabilityNote}>
+                    {getAvailableStock()} available
+                  </Text>
+                )}
               </View>
               <View style={styles.stepper}>
                 <TouchableOpacity
-                  style={styles.stepperButton}
-                  onPress={decreaseQuantity}
+                  style={[
+                    styles.stepperButton,
+                    isSinglePlant() && styles.disabledStepperButton
+                  ]}
+                  onPress={isSinglePlant() ? undefined : decreaseQuantity}
+                  disabled={isSinglePlant()}
+                  activeOpacity={isSinglePlant() ? 1 : 0.7}
+                  pointerEvents={isSinglePlant() ? 'none' : 'auto'}
                 >
-                  <MinusIcon width={24} height={24} />
+                  <MinusIcon 
+                    width={24} 
+                    height={24} 
+                    color={isSinglePlant() ? '#CDD3D4' : '#556065'} 
+                  />
                 </TouchableOpacity>
-                <View style={styles.quantityInput}>
+                <View style={[
+                  styles.quantityInput,
+                  isSinglePlant() && styles.disabledQuantityInputContainer
+                ]}>
                   <TextInput
-                    style={styles.quantityInputText}
+                    style={[
+                      styles.quantityInputText,
+                      isSinglePlant() && styles.disabledQuantityInputText
+                    ]}
                     value={quantity.toString()}
                     onChangeText={(text) => {
+                      if (isSinglePlant()) {
+                        console.log('🚫 Text input blocked: Single plant detected');
+                        return;
+                      }
                       const num = parseInt(text) || 1;
-                      setQuantity(num >= 1 ? num : 1);
+                      const validatedNum = Math.max(1, num);
+                      const availableStock = getAvailableStock();
+                      
+                      if (validatedNum > availableStock) {
+                        console.log('🚫 Quantity exceeds stock limit:', { requested: validatedNum, available: availableStock });
+                        Alert.alert(
+                          'Stock Limit Exceeded',
+                          `Only ${availableStock} items available in stock. Please reduce your quantity.`,
+                          [{ text: 'OK' }]
+                        );
+                        setQuantity(availableStock);
+                      } else {
+                        setQuantity(validatedNum);
+                      }
                     }}
                     keyboardType="numeric"
                     textAlign="center"
+                    editable={!isSinglePlant()}
+                    selectTextOnFocus={!isSinglePlant()}
+                    pointerEvents={isSinglePlant() ? 'none' : 'auto'}
                   />
                 </View>
                 <TouchableOpacity
-                  style={[styles.stepperButton, styles.stepperButtonRight]}
-                  onPress={increaseQuantity}
+                  style={[
+                    styles.stepperButton, 
+                    styles.stepperButtonRight,
+                    isIncreaseDisabled() && styles.disabledStepperButton
+                  ]}
+                  onPress={isIncreaseDisabled() ? undefined : increaseQuantity}
+                  disabled={isIncreaseDisabled()}
+                  activeOpacity={isIncreaseDisabled() ? 1 : 0.7}
+                  pointerEvents={isIncreaseDisabled() ? 'none' : 'auto'}
                 >
-                  <PlusIcon width={24} height={24} />
+                  <PlusIcon 
+                    width={24} 
+                    height={24} 
+                    color={isIncreaseDisabled() ? '#CDD3D4' : '#556065'} 
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -1557,7 +1743,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 2,
-    height: 48,
+    minHeight: 48,
     flex: 1,
   },
   plantDetailTextContainer: {
@@ -1588,6 +1774,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     lineHeight: 22,
     color: '#7F8D91',
     alignSelf: 'stretch',
+    flexWrap: 'wrap',
   },
   shippingDetailItem: {
     flexDirection: 'row',
@@ -1630,7 +1817,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    height: 52,
+    minHeight: 52,
     alignSelf: 'stretch',
     marginBottom: 12,
   },
@@ -2100,6 +2287,24 @@ const ScreenPlantDetail = ({navigation, route}) => {
     lineHeight: 20,
     color: '#393D40',
   },
+  singlePlantNote: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#7F8D91',
+    marginTop: 2,
+  },
+  stockAvailabilityNote: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#539461',
+    marginTop: 2,
+  },
   stepper: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2130,6 +2335,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
     marginRight: 0,
     marginLeft: -1,
   },
+  disabledStepperButton: {
+    backgroundColor: '#F8F9FA',
+    opacity: 0.6,
+  },
   quantityInput: {
     flexDirection: 'column',
     justifyContent: 'center',
@@ -2154,6 +2363,15 @@ const ScreenPlantDetail = ({navigation, route}) => {
     width: '100%',
     padding: 0,
     margin: 0,
+    backgroundColor: 'transparent', // Ensure no background on text input
+  },
+  disabledQuantityInputContainer: {
+    backgroundColor: '#F8F9FA',
+    borderColor: '#E4E7E9',
+  },
+  disabledQuantityInputText: {
+    color: '#7F8D91',
+    backgroundColor: 'transparent', // Ensure no background layering
   },
   modalAction: {
     flexDirection: 'column',

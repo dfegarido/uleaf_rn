@@ -105,7 +105,33 @@ const PlantItemComponent = ({
   originalPrice,
   hasAirCargo,
   onPress,
-}) => (
+}) => {
+  console.log('🚨 PlantItemComponent CALLED:', { name, listingType, quantity });
+  console.log('🏷️ PlantItemComponent props:', {
+    name,
+    originalListingType: listingType,
+    listingTypeLower: listingType?.toLowerCase(),
+    actualQuantity: quantity,
+    isGrowerChoiceCheck: listingType && (listingType.toLowerCase().includes('grower') || listingType.toLowerCase().includes('choice')),
+    includesGrower: listingType?.toLowerCase().includes('grower'),
+    includesChoice: listingType?.toLowerCase().includes('choice'),
+    exactMatch1: listingType?.toLowerCase() === "grower's choice",
+    exactMatch2: listingType?.toLowerCase() === "growers choice",
+    finalDisplayName: listingType && (listingType.toLowerCase().includes('grower') || listingType.toLowerCase().includes('choice')) 
+      ? `${listingType} (${quantity}x) - ${name}`
+      : name
+  });
+  
+  // Enhanced detection for Grower's Choice plants
+  const isGrowerChoice = listingType && (
+    listingType.toLowerCase().includes('grower') || 
+    listingType.toLowerCase().includes('choice') ||
+    listingType.toLowerCase() === "grower's choice" ||
+    listingType.toLowerCase() === "growers choice" ||
+    listingType.toLowerCase() === "grower choice"
+  );
+  
+  return (
   <TouchableOpacity style={styles.plant} onPress={onPress} activeOpacity={0.7}>
     {/* Plant Image */}
     <View style={styles.plantImage}>
@@ -116,7 +142,21 @@ const PlantItemComponent = ({
     <View style={styles.plantDetails}>
       {/* Name */}
       <View style={styles.plantName}>
-        <Text style={styles.plantNameText}>{name}</Text>
+        <Text style={styles.plantNameText}>
+          {(() => {
+            const displayName = isGrowerChoice
+              ? `${listingType} (${quantity}x) - ${name}`
+              : name;
+            console.log('🎯 RENDERING NAME:', { 
+              isGrowerChoice, 
+              listingType, 
+              quantity, 
+              name, 
+              displayName 
+            });
+            return displayName;
+          })()}
+        </Text>
 
         {/* Variegation + Size */}
         <View style={styles.variationSize}>
@@ -167,15 +207,18 @@ const PlantItemComponent = ({
           )}
         </View>
 
-        {/* Quantity */}
-        <View style={styles.quantityContainer}>
-          <Text style={styles.quantityNumber}>{quantity}</Text>
-          <Text style={styles.quantityMultiple}>x</Text>
-        </View>
+        {/* Quantity - Hide for Grower's Choice since it's shown in name */}
+        {!isGrowerChoice && (
+          <View style={styles.quantityContainer}>
+            <Text style={styles.quantityNumber}>{quantity}</Text>
+            <Text style={styles.quantityMultiple}>x</Text>
+          </View>
+        )}
       </View>
     </View>
   </TouchableOpacity>
-);
+  );
+};
 
 const CheckoutScreen = () => {
   const navigation = useNavigation();
@@ -197,6 +240,18 @@ const CheckoutScreen = () => {
     totalAmount = 0,
   } = route.params || {};
 
+  console.log('🛒 CheckoutScreen navigation params:', {
+    useCart,
+    fromBuyNow,
+    cartItemsLength: cartItems.length,
+    plantDataExists: !!plantData,
+    plantDataListingType: plantData?.listingType,
+    cartItemsPreview: cartItems.slice(0, 2).map(item => ({
+      name: item.name,
+      listingType: item.listingType,
+      quantity: item.quantity
+    }))
+  });
   const [loading, setLoading] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
@@ -534,35 +589,41 @@ const CheckoutScreen = () => {
 
   // Prepare plant items for display - handle cart data, direct product data, and buy now
   const plantItems = useMemo(() => {
+    console.log('🏪 Preparing plant items for checkout:', {
+      fromBuyNow,
+      useCart,
+      hasPlantData: !!plantData,
+      cartItemsLength: cartItems.length,
+      productDataLength: productData.length
+    });
     
     if (fromBuyNow && plantData) {
-      return [
-        {
-          id: plantCode || Math.random().toString(),
-          image: plantData.imagePrimary
-            ? {uri: plantData.imagePrimary}
-            : require('../../../assets/buyer-icons/png/ficus-lyrata.png'),
-          name:
-            `${plantData.genus || ''} ${plantData.species || ''}`.trim() ||
-            'Unknown Plant',
-          variation:
-            plantData.variegation && plantData.variegation !== 'None'
-              ? plantData.variegation
-              : 'Standard',
-          size: selectedPotSize || '2"',
-          price: parseFloat(
-            plantData.finalPrice ||
-              plantData.usdPriceNew ||
-              plantData.usdPrice ||
-              '0',
-          ),
-          originalPrice:
-            plantData.hasDiscount && plantData.originalPrice
-              ? parseFloat(plantData.originalPrice)
-              : null,
-          quantity: quantity,
-          title: 'Direct Purchase from Plant Detail',
-          country: (() => {
+      const item = {
+        id: plantCode || Math.random().toString(),
+        image: plantData.imagePrimary
+          ? {uri: plantData.imagePrimary}
+          : require('../../../assets/buyer-icons/png/ficus-lyrata.png'),
+        name:
+          `${plantData.genus || ''} ${plantData.species || ''}`.trim() ||
+          'Unknown Plant',
+        variation:
+          plantData.variegation && plantData.variegation !== 'None'
+            ? plantData.variegation
+            : 'Standard',
+        size: selectedPotSize || '2"',
+        price: parseFloat(
+          plantData.finalPrice ||
+            plantData.usdPriceNew ||
+            plantData.usdPrice ||
+            '0',
+        ),
+        originalPrice:
+          plantData.hasDiscount && plantData.originalPrice
+            ? parseFloat(plantData.originalPrice)
+            : null,
+        quantity: quantity,
+        title: 'Direct Purchase from Plant Detail',
+        country: (() => {
             // Log determination process
             const directCountry = plantData.country;
             const variationCurrency =
@@ -606,10 +667,18 @@ const CheckoutScreen = () => {
                 )}%`
               : null,
           hasAirCargo: true,
-        },
-      ];
+        };
+      
+      console.log('🌱 Buy Now plant item prepared:', {
+        name: item.name,
+        listingType: item.listingType,
+        quantity: item.quantity,
+        originalListingType: plantData.listingType
+      });
+      
+      return [item];
     } else if (useCart && cartItems.length > 0) {
-      return cartItems.map(item => ({
+      const cartPlantItems = cartItems.map(item => ({
         id: item.id || item.cartItemId,
         image: item.image || require('../../../assets/images/plant1.png'),
         name: item.name || 'Unknown Plant',
@@ -628,9 +697,7 @@ const CheckoutScreen = () => {
         country: item.flagIcon,
         shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
         plantCode: item.plantCode,
-        listingType:
-          item.listingType ||
-          (item.originalPrice ? 'Discounted' : 'Single Plant'),
+        listingType: item.listingType || 'Single Plant', // Preserve original listingType, don't override based on discount
         discount: item.originalPrice
           ? `${Math.round(
               ((item.originalPrice - item.price) / item.originalPrice) * 100,
@@ -643,6 +710,16 @@ const CheckoutScreen = () => {
         flightInfo: item.flightInfo,
         cartItemId: item.cartItemId,
       }));
+      
+      console.log('🛒 Cart plant items prepared:', 
+        cartPlantItems.map(item => ({
+          name: item.name,
+          listingType: item.listingType,
+          quantity: item.quantity
+        }))
+      );
+      
+      return cartPlantItems;
     } else if (productData.length > 0) {
       return productData.map(item => ({
         id: item.id || Math.random().toString(),
@@ -932,6 +1009,7 @@ const CheckoutScreen = () => {
     const defaultBreakdown = {
       singlePlant: 0,
       wholesale: 0,
+      growersChoice: 0,
     };
 
     if (!plantItems || plantItems.length === 0) {
@@ -956,9 +1034,36 @@ const CheckoutScreen = () => {
       return sum;
     }, 0);
 
+    const growersChoice = plantItems.reduce((sum, item) => {
+      if (
+        item.listingType && (
+          item.listingType.toLowerCase().includes('grower') ||
+          item.listingType.toLowerCase().includes('choice') ||
+          item.listingType.toLowerCase() === "grower's choice" ||
+          item.listingType.toLowerCase() === "growers choice" ||
+          item.listingType.toLowerCase() === "grower choice"
+        )
+      ) {
+        return sum + (item.quantity || 1);
+      }
+      return sum;
+    }, 0);
+
+    console.log('📊 Quantity breakdown calculated:', {
+      singlePlant,
+      wholesale,
+      growersChoice,
+      plantItems: plantItems.map(item => ({
+        name: item.name,
+        listingType: item.listingType,
+        quantity: item.quantity
+      }))
+    });
+
     return {
       singlePlant,
       wholesale,
+      growersChoice,
     };
   }, [plantItems]);
 
@@ -1556,6 +1661,14 @@ const CheckoutScreen = () => {
                 <Text style={styles.summaryRowLabel}>Wholesale Quantity</Text>
                 <Text style={styles.summaryRowNumber}>
                   {quantityBreakdown.wholesale}
+                </Text>
+              </View>
+
+              {/* Growers Choice */}
+              <View style={styles.growersChoiceRow}>
+                <Text style={styles.summaryRowLabel}>Growers Choice Quantity</Text>
+                <Text style={styles.summaryRowNumber}>
+                  {quantityBreakdown.growersChoice}
                 </Text>
               </View>
 
@@ -2465,14 +2578,26 @@ const styles = StyleSheet.create({
     flex: 0,
     alignSelf: 'stretch',
   },
+  growersChoiceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 0,
+    gap: 187,
+    width: '100%',
+    height: 22,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
   quantityTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 0,
-    gap: 10,
+    marginTop: 4,
+    gap: 187,
     width: '100%',
-    height: 24,
+    height: 28,
     flex: 0,
     alignSelf: 'stretch',
   },
@@ -2517,10 +2642,11 @@ const styles = StyleSheet.create({
   summaryDivider: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    paddingVertical: 8,
+    paddingTop: 24,
+    paddingBottom: 8,
     paddingHorizontal: 0,
     width: '100%',
-    height: 17,
+    height: 33,
     flex: 0,
     alignSelf: 'stretch',
   },
