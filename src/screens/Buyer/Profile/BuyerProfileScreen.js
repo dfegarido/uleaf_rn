@@ -19,6 +19,7 @@ import {retryAsync} from '../../../utils/utils';
 import {
   getBuyerProfileApi,
   getAddressBookEntriesApi,
+  deactivateBuyerApi,
 } from '../../../components/Api';
 import {deleteUserApi} from '../../../components/Api';
 
@@ -314,8 +315,8 @@ const BuyerProfileScreen = (props) => {
               // Show loading state
               Alert.alert('Processing', 'Deactivating your account...');
               
-              // Call the delete user API with current user's ID
-              const result = await deleteUserApi(userInfo?.uid || userInfo?.id, 'User requested account deactivation');
+              // Call the deactivate buyer API
+              const result = await deactivateBuyerApi();
               
               if (result?.success) {
                 Alert.alert(
@@ -333,25 +334,48 @@ const BuyerProfileScreen = (props) => {
               }
             } catch (error) {
               console.error('Account deactivation error:', error);
-              Alert.alert(
-                'Deactivation Failed',
-                'We couldn\'t deactivate your account at this time. Please try again later or contact support.',
-                [
-                  { text: 'OK' },
-                  { 
-                    text: 'Contact Support', 
-                    onPress: () => {
-                      const supportChatParams = {
-                        avatarUrl: null,
-                        name: "Support Team",
-                        id: "support-chat",
-                        participants: ["support-admin", "current-user-id"]
-                      };
-                      navigation.navigate('ChatScreen', supportChatParams);
+              
+              // Check if it's the "pending orders" error
+              const errorMessage = error.message || '';
+              const isPendingOrdersError = errorMessage.includes('pending or undelivered orders') || 
+                                          errorMessage.includes('orders are delivered or cancelled');
+              
+              if (isPendingOrdersError) {
+                Alert.alert(
+                  'Cannot Deactivate Account',
+                  'You have pending or undelivered orders. Please wait until all your orders are delivered or cancelled before deactivating your account.',
+                  [
+                    { text: 'OK' },
+                    { 
+                      text: 'View Orders', 
+                      onPress: () => {
+                        // Navigate to orders screen - adjust this navigation as needed
+                        navigation.navigate('Orders');
+                      }
                     }
-                  }
-                ]
-              );
+                  ]
+                );
+              } else {
+                Alert.alert(
+                  'Deactivation Failed',
+                  'We couldn\'t deactivate your account at this time. Please try again later or contact support.',
+                  [
+                    { text: 'OK' },
+                    { 
+                      text: 'Contact Support', 
+                      onPress: () => {
+                        const supportChatParams = {
+                          avatarUrl: null,
+                          name: "Support Team",
+                          id: "support-chat",
+                          participants: ["support-admin", "current-user-id"]
+                        };
+                        navigation.navigate('ChatScreen', supportChatParams);
+                      }
+                    }
+                  ]
+                );
+              }
             }
           },
         },
