@@ -14,6 +14,7 @@ export * from './deleteUserApi';
 
 // Buyer Profile APIs
 export * from './getBuyerProfileApi';
+export * from './deactivateBuyerApi';
 
 // Cart Management APIs
 export * from './cartApi';
