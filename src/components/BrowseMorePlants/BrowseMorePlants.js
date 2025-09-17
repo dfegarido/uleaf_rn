@@ -94,7 +94,15 @@ const BrowseMorePlants = ({
       console.log('🌱 BrowseMorePlants: Global cache present; fetching a small initial page instead of reusing full cache');
       try {
         setLoading(true);
+        console.log('🌱 Fetching small initial page with limit:', initialLimit);
         const resp = await getPlantRecommendationsApi({ limit: initialLimit });
+        
+        console.log('🌱 Small page response:', {
+          success: resp.success,
+          error: resp.error,
+          recommendationsCount: resp.data?.recommendations?.length || 0
+        });
+        
         if (resp.success && resp.data && Array.isArray(resp.data.recommendations)) {
           let validPlants = resp.data.recommendations.filter(plant => {
             const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
@@ -121,11 +129,23 @@ const BrowseMorePlants = ({
 
           setPlants(normalized.slice(0, initialLimit));
         } else {
+          console.error('🌱 Small page fetch failed:', resp);
           setPlants([]);
         }
       } catch (err) {
         console.error('🌱 BrowseMorePlants: Error fetching small initial page:', err);
+        console.error('🌱 Error details:', {
+          message: err.message,
+          stack: err.stack
+        });
         setPlants([]);
+        
+        // Show user-friendly error for initial load failures
+        Alert.alert(
+          'Loading Error',
+          'Unable to load plant recommendations. Please try again.',
+          [{ text: 'OK' }]
+        );
       } finally {
         setLoading(false);
       }
@@ -158,9 +178,11 @@ const BrowseMorePlants = ({
 
       // Load from API
       console.log('🌱 BrowseMorePlants: Loading recommendations from API...');
-  // Fetch a larger batch once, then chunk for UI to avoid subsequent API calls
-  const batchSize = Math.max(12, initialLimit * 5); // smaller due to lower per-page limit
-  const params = { limit: batchSize };
+      // Fetch a larger batch once, then chunk for UI to avoid subsequent API calls
+      const batchSize = Math.max(12, initialLimit * 5); // smaller due to lower per-page limit
+      const params = { limit: batchSize };
+      
+      console.log('🌱 Calling getPlantRecommendationsApi with params:', params);
       const response = await getPlantRecommendationsApi(params);
 
       if (response.success && response.data && response.data.recommendations) {
@@ -195,12 +217,29 @@ const BrowseMorePlants = ({
 
   // No local cache persistence
       } else {
-        console.error('Failed to load plant recommendations:', response.data?.message || 'Unknown error');
+        console.error('🌱 Failed to load plant recommendations:', response);
+        console.error('🌱 Response details:', {
+          success: response.success,
+          error: response.error,
+          data: response.data
+        });
         setPlants([]);
       }
     } catch (error) {
-      console.error('Error loading plant recommendations:', error);
+      console.error('🌱 Error loading plant recommendations:', error);
+      console.error('🌱 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       setPlants([]);
+      
+      // Show user-friendly error message
+      Alert.alert(
+        'Unable to Load Plants',
+        'We\'re having trouble loading plant recommendations. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       isGlobalLoading = false;
       setLoading(false);

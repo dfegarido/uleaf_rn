@@ -31,42 +31,78 @@ const __memCache = {
 export const getPlantRecommendationsApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
-  // Build query string deterministically
+    
+    // Validate auth token before proceeding
+    if (!authToken) {
+      throw new Error('Authentication token not available');
+    }
+    
+    console.log('🌱 getPlantRecommendations called with params:', params);
+    
+    // Build query string with better error handling
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
-      if (params[key] !== undefined && params[key] !== null) {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
         let value = params[key];
         
-        // Handle arrays by joining with commas
-        if (Array.isArray(value)) {
-          value = value.join(',');
-        }
-        // Handle objects by converting to JSON string or extracting specific properties
-        else if (typeof value === 'object') {
-          // If it's an object, try to extract meaningful value or stringify
-          if (value.value !== undefined) {
-            value = value.value;
-          } else if (value.label !== undefined) {
-            value = value.label;
-          } else {
-            value = JSON.stringify(value);
+        try {
+          // Handle arrays by joining with commas
+          if (Array.isArray(value)) {
+            value = value.filter(v => v !== null && v !== undefined && v !== '').join(',');
           }
+          // Handle objects by converting to JSON string or extracting specific properties
+          else if (typeof value === 'object') {
+            // If it's an object, try to extract meaningful value or stringify
+            if (value.value !== undefined) {
+              value = value.value;
+            } else if (value.label !== undefined) {
+              value = value.label;
+            } else {
+              value = JSON.stringify(value);
+            }
+          }
+          
+          // Only add non-empty values
+          const stringValue = String(value);
+          if (stringValue.trim() !== '') {
+            queryParams.append(key, stringValue);
+          }
+        } catch (paramError) {
+          console.warn('Error processing parameter', key, ':', paramError);
+          // Skip problematic parameters instead of failing the entire request
         }
-        
-        queryParams.append(key, String(value));
       }
     });
     const qs = queryParams.toString();
+    
+    console.log('🌱 Final query string:', qs);
 
   // Memory cache key per-user token + endpoint + query
     const cacheKey = `recs:${authToken?.slice?.(-12) || 'anon'}:${qs}`;
     const cached = __memCache.get(cacheKey);
-  if (cached) return cached;
+    if (cached) {
+      console.log('🌱 Returning cached recommendations');
+      return cached;
+    }
 
-  // Try persistent cache (short TTL) as a fallback
-  const userKey = authToken?.slice?.(-12) || 'anon';
-  const persistent = await getCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey);
-  if (persistent) return persistent;
+    // Try persistent cache (short TTL) as a fallback
+    const userKey = authToken?.slice?.(-12) || 'anon';
+    const persistent = await getCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey);
+    if (persistent) {
+      console.log('🌱 Returning persistent cached recommendations');
+      return persistent;
+    }
+
+    console.log('🌱 Making API request to:', `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${qs}`);
+    console.log('🌱 Request headers:', {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken?.slice?.(0, 20)}...` // Log partial token for debugging
+    });
+
+    // Verify the endpoint is properly constructed
+    if (!API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS) {
+      throw new Error('GET_PLANT_RECOMMENDATIONS endpoint is not defined in API configuration');
+    }
 
     const response = await fetch(
       `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${qs}`,
@@ -79,14 +115,30 @@ export const getPlantRecommendationsApi = async (params = {}) => {
       },
     );
 
+    console.log('🌱 API response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      console.error('🌱 API error response:', errorText);
+      
+      let errorData = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        console.warn('🌱 Could not parse error response as JSON');
+      }
+      
       throw new Error(
-        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+        errorData.message || errorData.error || `HTTP error! status: ${response.status} - ${errorText}`,
       );
     }
 
   const data = await response.json();
+  console.log('🌱 API response data:', { 
+    success: true, 
+    recommendationsCount: data?.recommendations?.length || 0 
+  });
+  
   const result = {
       success: true,
       data,
@@ -96,7 +148,12 @@ export const getPlantRecommendationsApi = async (params = {}) => {
   await setCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey, result, 2 * 60 * 1000);
   return result;
   } catch (error) {
-    console.error('Get plant recommendations API error:', error);
+    console.error('🌱 Get plant recommendations API error:', error);
+    console.error('🌱 Error details:', {
+      message: error.message,
+      stack: error.stack,
+      params: params
+    });
     return {
       success: false,
       error: error.message || 'An error occurred while fetching recommendations',

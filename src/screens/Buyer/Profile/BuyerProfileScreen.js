@@ -509,13 +509,13 @@ const BuyerProfileScreen = (props) => {
             onPress={() => navigation.navigate('AddressBookScreen')}
           />
 
-          <MenuItem
+          {/* <MenuItem
             icon={<ReportIcon width={24} height={24} fill="#556065" />}
             title="Venmo"
             rightText="Still in progress for developing"
             onPress={() => {}}
             disabled={true}
-          />
+          /> */}
 
           <MenuItem
             icon={<PasswordIcon width={24} height={24} fill="#556065" />}

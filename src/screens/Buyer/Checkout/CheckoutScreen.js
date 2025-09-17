@@ -945,6 +945,7 @@ const CheckoutScreen = () => {
     
     // Add UPS Next Day upgrade if enabled (60% of UPS 2nd day shipping cost)
     let upsNextDayUpgradeCost = 0;
+    const baseUpsShipping = shipping; // Store the base UPS 2nd day cost
     if (upsNextDayEnabled) {
       upsNextDayUpgradeCost = shipping * 0.6; // 60% of UPS 2nd day shipping cost
       shipping += upsNextDayUpgradeCost;
@@ -953,6 +954,34 @@ const CheckoutScreen = () => {
 
   // Calculate total shipping including air cargo costs
   const totalShippingCost = shipping + effectiveAirBaseCargo + wholesaleAirCargo;
+  
+    // Calculate shipping credits (NEW FEATURE)
+    // Apply $150 shipping credit if both conditions are met:
+    // 1. Total spend >= $500
+    // 2. Total quantity >= 15 plants
+    let shippingCreditsDiscount = 0;
+    const SHIPPING_CREDITS_AMOUNT = 150;
+    const MIN_SPEND_FOR_CREDITS = 500;
+    const MIN_QUANTITY_FOR_CREDITS = 15;
+    
+    if (subtotal >= MIN_SPEND_FOR_CREDITS && totalItems >= MIN_QUANTITY_FOR_CREDITS) {
+      shippingCreditsDiscount = SHIPPING_CREDITS_AMOUNT;
+      console.log('🎉 Shipping credits applied:', {
+        subtotal,
+        totalItems,
+        shippingCreditsDiscount
+      });
+    } else {
+      console.log('🚫 Shipping credits not applied:', {
+        subtotal,
+        totalItems,
+        needsSpend: MIN_SPEND_FOR_CREDITS,
+        needsQuantity: MIN_QUANTITY_FOR_CREDITS
+      });
+    }
+    
+    // Apply the shipping credits discount to total shipping cost
+    const finalShippingCost = Math.max(0, totalShippingCost - shippingCreditsDiscount);
   
     
     // Apply credits
@@ -969,23 +998,36 @@ const CheckoutScreen = () => {
 
     const finalTotal = Math.max(
       0,
-      subtotal + totalShippingCost - creditsApplied,
+      subtotal + finalShippingCost - creditsApplied,
     );
 
     const summary = {
       totalItems,
       subtotal,
-      shipping, // This is just UPS 2nd day shipping (without air cargo)
+      shipping, // This includes UPS upgrade if enabled
+      baseUpsShipping, // Base UPS 2nd day shipping cost (before upgrade)
       upsNextDayUpgradeCost: upsNextDayUpgradeCost, // Add UPS Next Day upgrade cost to summary
       airBaseCargo: airBaseCargo, // Original air base cargo (before credit)
       airBaseCargoCreditApplied: appliedAirBaseCargoCredit, // Credit applied because buyer already paid base cargo
       airBaseCargoEffective: effectiveAirBaseCargo, // Effective base cargo after credit
       wholesaleAirCargo: wholesaleAirCargo, // Add wholesale air cargo to summary
-      totalShippingCost: totalShippingCost, // Total of all shipping costs combined
+      totalShippingCost: totalShippingCost, // Total of all shipping costs combined (before shipping credits)
+      shippingCreditsDiscount: shippingCreditsDiscount, // NEW: Shipping credits discount applied
+      finalShippingCost: finalShippingCost, // NEW: Final shipping cost after shipping credits
       discount: discountAmount,
       creditsApplied,
       finalTotal,
     };
+
+    // Log the summary for debugging
+    console.log('💰 Order Summary:', {
+      subtotal: summary.subtotal,
+      totalItems: summary.totalItems,
+      totalShippingCost: summary.totalShippingCost,
+      shippingCreditsDiscount: summary.shippingCreditsDiscount,
+      finalShippingCost: summary.finalShippingCost,
+      finalTotal: summary.finalTotal
+    });
 
     
 
@@ -1208,7 +1250,8 @@ const CheckoutScreen = () => {
           subtotal: orderSummary.subtotal,
           discount: orderSummary.discount,
           creditsApplied: orderSummary.creditsApplied || 0,
-          shipping: orderSummary.shipping,
+          shipping: orderSummary.finalShippingCost || orderSummary.totalShippingCost,
+          shippingCreditsDiscount: orderSummary.shippingCreditsDiscount || 0,
           total: orderSummary.finalTotal,
         },
       };
@@ -1443,7 +1486,7 @@ const CheckoutScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContentContainer,
-          {paddingBottom: 100 + Math.max(insets.bottom, 8)},
+          {paddingBottom: 130 + Math.max(insets.bottom, 8)},
         ]}>
         {/* Shipping Address Section */}
         <View style={styles.shipping}>
@@ -1721,6 +1764,15 @@ const CheckoutScreen = () => {
             <View style={styles.dividerLine} />
           </View>
 
+          {/* Shipping Credits Notification */}
+          {(orderSummary.shippingCreditsDiscount || 0) > 0 && (
+            <View style={styles.shippingCreditsNotification}>
+              <Text style={styles.shippingCreditsNotificationText}>
+                🎉 Congratulations! You qualify for $150 shipping credits for spending $500+ and buying 15+ plants.
+              </Text>
+            </View>
+          )}
+
           {/* Shipping Summary */}
           <View style={styles.shippingSummary}>
             {/* Title */}
@@ -1735,12 +1787,10 @@ const CheckoutScreen = () => {
               {/* Shipping Fee */}
               <View style={styles.shippingFeeRow}>
                 <Text style={styles.summaryRowLabel}>
-                  {upsNextDayEnabled
-                    ? 'UPS Next Day shipping'
-                    : 'UPS 2nd day shipping'}
+                  UPS 2nd day shipping
                 </Text>
                 <Text style={styles.summaryRowNumber}>
-                  {formatCurrencyFull(orderSummary.shipping)}
+                  {formatCurrencyFull(orderSummary.baseUpsShipping)}
                 </Text>
               </View>
 
@@ -1823,13 +1873,25 @@ const CheckoutScreen = () => {
                 </View>
               )}
 
+              {/* Shipping Credits (shown when applied) */}
+              {(orderSummary.shippingCreditsDiscount || 0) > 0 && (
+                <View style={styles.shippingCreditsRow}>
+                  <Text style={styles.summaryRowLabel}>
+                    Shipping Credits
+                  </Text>
+                  <Text style={styles.shippingCreditsAmount}>
+                    -{formatCurrencyFull(orderSummary.shippingCreditsDiscount)}
+                  </Text>
+                </View>
+              )}
+
               {/* Total */}
               <View style={styles.shippingTotalRow}>
                 <Text style={styles.shippingTotalLabel}>
                   Total Shipping Cost
                 </Text>
                 <Text style={styles.shippingTotalNumber}>
-                  {formatCurrencyFull(orderSummary.totalShippingCost)}
+                  {formatCurrencyFull(orderSummary.finalShippingCost || orderSummary.totalShippingCost)}
                 </Text>
               </View>
             </View>
@@ -2032,7 +2094,7 @@ const CheckoutScreen = () => {
           initialLimit={4}
           loadMoreLimit={4}
           showLoadMore={true}
-          containerStyle={{marginTop: 24}}
+          containerStyle={{paddingTop: 160}}
         />
       </ScrollView>
 
@@ -2506,6 +2568,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 0,
     paddingBottom: 20,
+    marginBottom: 40,
     gap: 12,
     width: '100%',
     height: 872,
@@ -3003,6 +3066,45 @@ const styles = StyleSheet.create({
     flex: 0,
     textAlign: 'right',
   },
+  shippingCreditsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 0,
+    gap: 187,
+    width: '100%',
+    height: 22,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  shippingCreditsAmount: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '700',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#E7522F',
+    flex: 0,
+    textAlign: 'right',
+  },
+  shippingCreditsNotification: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginHorizontal: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  shippingCreditsNotificationText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#2E7D32',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
   shippingTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -3252,11 +3354,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 15,
     paddingVertical: 0,
+    marginBottom: 40,
     gap: 8,
     width: '100%',
     height: 32,
     borderRadius: 0,
-    flex: 0,
+    flex: 1,
     alignSelf: 'stretch',
   },
   totalAmountRow: {
