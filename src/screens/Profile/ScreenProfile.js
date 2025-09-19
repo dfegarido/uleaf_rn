@@ -250,8 +250,11 @@ const ScreenProfile = ({navigation}) => {
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => {
-                // Open email app with the specified email address
-                const emailUrl = 'mailto:ileafuasiausa@gmail.com?subject=Support Request&body=Hello iLeafU Support Team,%0D%0A%0D%0A';
+                // Open email app with the specified email address (encoded)
+                const subject = encodeURIComponent('Support Request');
+                const body = encodeURIComponent('Hello iLeafU Support Team,\n\n');
+                const emailUrl = `mailto:ileafuasiausa@gmail.com?subject=${subject}&body=${body}`;
+                console.log('mailto url:', emailUrl);
                 Linking.openURL(emailUrl).catch(err => {
                   console.error('Failed to open email app:', err);
                   Alert.alert(
