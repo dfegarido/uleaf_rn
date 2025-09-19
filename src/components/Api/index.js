@@ -112,3 +112,6 @@ export {getPlantDetailApi} from './getPlantDetailApi';
 export {getSpeciesFromPlantCatalogApi} from './getSpeciesFromPlantCatalogApi';
 export {getGenusFromPlantCatalogApi} from './getGenusFromPlantCatalogApi';
 export {browsePlantsBySpeciesApi} from './browsePlantsBySpeciesApi';
+
+// Admin Taxonomy APIs
+export {getAdminTaxonomyApi, updateTaxonomyItemApi} from './getAdminTaxonomyApi';
