@@ -142,7 +142,7 @@ const BusinessPerformance = () => {
           <IconTile title="User Mgmt" onPress={() => navigation.navigate('UserManagement')}>
             <UserManagementIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Taxonomy">
+          <IconTile title="Taxonomy" onPress={() => navigation.navigate('Taxonomy')}>
             <TaxonomyIcon width={48} height={48} />
           </IconTile>
         </View>

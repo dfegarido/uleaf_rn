@@ -30,7 +30,15 @@ import {
   AdminTermsOfUseScreen,
   AdminUpdatePasswordScreen
 } from '../../screens/Admin/Profile';
+// import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
+// import SimpleTaxonomy from '../../screens/Admin/Taxonomy/SimpleTaxonomy';
+// import TaxonomySimple from '../../screens/Admin/Taxonomy/TaxonomySimple';
 import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
+import AddTaxonomy from '../../screens/Admin/Taxonomy/AddTaxonomy';
+import EditTaxonomy from '../../screens/Admin/Taxonomy/EditTaxonomy';
+import EditSpecieScreen from '../../screens/Admin/Taxonomy/EditSpecieScreen';
+import AddToTaxonomyScreen from '../../screens/Admin/Taxonomy/AddToTaxonomyScreen';
+import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 const Tab = createBottomTabNavigator();
@@ -158,6 +166,13 @@ function AdminTabs() {
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
      <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />
       <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
+      
+      {/* Taxonomy Screens */}
+      <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />
+      <Stack.Screen name="EditTaxonomy" options={{headerShown: false}} component={EditTaxonomy} />
+      <Stack.Screen name="EditSpecieScreen" options={{headerShown: false}} component={EditSpecieScreen} />
+      <Stack.Screen name="AddToTaxonomyScreen" options={{headerShown: false}} component={AddToTaxonomyScreen} />
+      <Stack.Screen name="AddNewPlantTaxonomyScreen" options={{headerShown: false}} component={AddNewPlantTaxonomyScreen} />
       
       {/* Admin Profile Screens */}
       <Stack.Screen name="AdminProfile" options={{headerShown: false}} component={AdminProfileScreen} />
