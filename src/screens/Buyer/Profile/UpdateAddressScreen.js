@@ -391,10 +391,10 @@ const UpdateAddressScreen = () => {
       Alert.alert('Error', 'Please enter street address');
       return;
     }
-    if (!city.trim()) {
-      Alert.alert('Error', 'Please select a city');
-      return;
-    }
+    // if (!city.trim()) {
+    //   Alert.alert('Error', 'Please select a city');
+    //   return;
+    // }
     if (!state.trim()) {
       Alert.alert('Error', 'Please select a state');
       return;
@@ -523,28 +523,29 @@ const UpdateAddressScreen = () => {
                   : "Select state first"
             }
             value={city}
-            data={Array.from(new Set(cities)).sort()} // Ensure unique city names
-            onSelect={(selectedCity) => {
-              setCity(selectedCity);
-            }}
-            onPress={handleCityDropdownClick}
+            // data={Array.from(new Set(cities)).sort()} // Ensure unique city names
+            // onSelect={(selectedCity) => {
+            //   setCity(selectedCity);
+            // }}
+            // onPress={handleCityDropdownClick}
             required={true}
-            disabled={(!selectedStateData && !city) || citiesLoading}
-            onEndReached={loadMoreCities}
-            loading={loadingMoreCities}
+            disabled={true}
+            // onEndReached={loadMoreCities}
+            // loading={loadingMoreCities}
           />
 
-          {/* Zip Code */}
+          {/* Zip Code (disabled) */}
           <View style={styles.inputSection}>
             <View style={styles.inputFieldWrap}>
-              <Text style={styles.inputLabel}>Zip Code<Text style={{color: '#E53935'}}></Text></Text>
-              <View style={styles.textField}>
+              <Text style={styles.inputLabel}>Zip Code</Text>
+              <View style={[styles.textField, styles.textFieldDisabled]}>
                 <TextInput
-                  style={styles.input}
-                  placeholder="Enter zip code"
-                  placeholderTextColor="#647276"
+                  style={[styles.input, styles.disabledInput]}
+                  placeholder="Zip code"
+                  placeholderTextColor="#9AA0A0"
                   value={zipCode}
-                  onChangeText={setZipCode}
+                  editable={false}
+                  selectTextOnFocus={false}
                   keyboardType="numeric"
                   maxLength={10}
                 />
@@ -727,6 +728,10 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     flexGrow: 0,
   },
+  textFieldDisabled: {
+    backgroundColor: '#F1F3F3',
+    borderColor: '#CDD3D4',
+  },
   input: {
     fontFamily: 'Inter',
     fontWeight: '500',
@@ -736,6 +741,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexGrow: 1,
     padding: 0,
+  },
+  disabledInput: {
+    color: '#94A0A0',
   },
   selectedText: {
     fontFamily: 'Inter',

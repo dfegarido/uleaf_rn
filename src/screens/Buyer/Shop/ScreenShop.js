@@ -46,31 +46,25 @@ import {
 } from '../../../assets/buyer-icons/png';
 
 // Import genus images from assets/buyer-icons/png
-import alocasiaImage from '../../../assets/buyer-icons/png/alocasia.png';
-import anthuriumImage from '../../../assets/buyer-icons/png/anthurium.png';
-import begoniaImage from '../../../assets/buyer-icons/png/begonia.png';
-import hoyaImage from '../../../assets/buyer-icons/png/hoya.png';
-import monsteraImage from '../../../assets/buyer-icons/png/monstera.png';
-import scindapsusImage from '../../../assets/buyer-icons/png/scindapsus.png';
-import syngoniumImage from '../../../assets/buyer-icons/png/syngonium.png';
-import philodendronImage from '../../../assets/buyer-icons/png/philodendron.png';
-import othersImage from '../../../assets/buyer-icons/png/others.png';
+import alocasiaImage from '../../../assets/buyer-icons/png/alocasia.jpg';
+import anthuriumImage from '../../../assets/buyer-icons/png/anthurium.jpg';
+import begoniaImage from '../../../assets/buyer-icons/png/begonia.jpg';
+import hoyaImage from '../../../assets/buyer-icons/png/hoya.jpg';
+import monsteraImage from '../../../assets/buyer-icons/png/monstera.jpg';
+import scindapsusImage from '../../../assets/buyer-icons/png/scindapsus.jpg';
+import syngoniumImage from '../../../assets/buyer-icons/png/syngonium.jpg';
+import philodendronImage from '../../../assets/buyer-icons/png/philodendron.jpg';
+import othersImage from '../../../assets/buyer-icons/png/others.jpg';
 
 import {InfoCard} from '../../../components/InfoCards';
-import ScreenWishlist from './ScreenWishlist';
-import {PlantItemCard} from '../../../components/PlantItemCard';
 import {ReusableActionSheet} from '../../../components/ReusableActionSheet';
 import {
-  getSortApi,
   getGenusApi,
   getVariegationApi,
-  getBrowsePlantByGenusApi,
   getBuyerEventsApi,
-  searchListingApi,
   searchPlantsApi,
   getBuyerListingsApi,
   addToCartApi,
-  getCartItemsApi,
 } from '../../../components/Api';
 import {
   getCountryApi,

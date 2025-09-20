@@ -15,6 +15,9 @@ import {
   PermissionsAndroid,
   findNodeHandle,
   UIManager,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -490,29 +493,38 @@ const AccountInformationScreen = () => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
-      {loading ? (
-        <SkeletonProfile />
-      ) : (
-        <>
-          <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{flex: 1}}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={{flex: 1}}>
+            {loading ? (
+              <SkeletonProfile />
+            ) : (
+              <>
+                <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-          {/* Header */}
-          <View style={[styles.header, {paddingTop: insets.top }]}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}>
-              <LeftIcon width={24} height={24} fill="#393D40" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Account Information</Text>
-            <View style={styles.headerSpacer} />
-          </View>
+                {/* Header */}
+                <View style={[styles.header, {paddingTop: insets.top }]}>
+                  <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}>
+                    <LeftIcon width={24} height={24} fill="#393D40" />
+                  </TouchableOpacity>
+                  <Text style={styles.headerTitle}>Account Information</Text>
+                  <View style={styles.headerSpacer} />
+                </View>
 
-          {/* Content */}
-          <ScrollView 
-            style={styles.content} 
-            contentContainerStyle={{paddingBottom: Math.max(insets.bottom, 20)}}
-            showsVerticalScrollIndicator={false}
-          >
+                {/* Content */}
+                <ScrollView 
+                  style={styles.content} 
+                  contentContainerStyle={{paddingBottom: Math.max(insets.bottom, 20) + 40}}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps='handled'
+                  keyboardDismissMode='on-drag'
+                >
         {/* Form */}
   <View style={styles.form}>
           {/* Avatar Section */}
@@ -701,6 +713,9 @@ const AccountInformationScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

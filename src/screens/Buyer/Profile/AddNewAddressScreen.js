@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { createAddressBookEntryApi } from '../../../components/Api';
@@ -368,10 +368,10 @@ const AddNewAddressScreen = () => {
       Alert.alert('Error', 'Please enter street address');
       return;
     }
-    if (!city.trim()) {
-      Alert.alert('Error', 'Please select a city');
-      return;
-    }
+    // if (!city.trim()) {
+    //   Alert.alert('Error', 'Please select a city');
+    //   return;
+    // }
     if (!state.trim()) {
       Alert.alert('Error', 'Please select a state');
       return;
@@ -420,15 +420,22 @@ const AddNewAddressScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <LeftIcon width={24} height={24} fill="#393D40" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add New Address</Text>
-        <View style={styles.spacer} />
-      </View>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{flex: 1}}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={{flex: 1}}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <LeftIcon width={24} height={24} fill="#393D40" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Add New Address</Text>
+              <View style={styles.spacer} />
+            </View>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled' keyboardDismissMode='on-drag' contentContainerStyle={styles.scrollContent}>
         {/* Form Container */}
         <View style={styles.formContainer}>
           {/* State */}
@@ -464,8 +471,8 @@ const AddNewAddressScreen = () => {
             onSelect={(selectedCity) => {
               setCity(selectedCity);
             }}
-            required={true}
-            disabled={!selectedStateData || citiesLoading}
+            required={false}
+            disabled={true}
             onEndReached={loadMoreCities}
             loading={loadingMoreCities}
           />
@@ -473,22 +480,24 @@ const AddNewAddressScreen = () => {
           {/* Zip Code */}
           <View style={styles.inputSection}>
             <View style={styles.inputFieldWrap}>
-              <Text style={styles.inputLabel}>Zip Code<Text style={{color: '#E53935'}}></Text></Text>
-              <View style={styles.textField}>
+              <Text style={styles.inputLabel}>Zip Code</Text>
+              <View style={[styles.textField, styles.textFieldDisabled]}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, styles.disabledInput]}
                   placeholder="Enter zip code"
-                  placeholderTextColor="#647276"
+                  placeholderTextColor="#9CA3AF"
                   value={zipCode}
                   onChangeText={setZipCode}
                   keyboardType="numeric"
                   maxLength={10}
+                  editable={false}
+                  selectTextOnFocus={false}
                 />
               </View>
             </View>
           </View>
 
-          {/* Address Line */}
+                {/* Address Line */}
           <View style={styles.addressLineSection}>
             <View style={styles.addressFieldWrap}>
               <Text style={styles.inputLabel}>Address Line<Text style={{color: '#E53935'}}>*</Text></Text>
@@ -529,6 +538,9 @@ const AddNewAddressScreen = () => {
       <View style={styles.homeIndicator}>
         <View style={styles.gestureBar} />
       </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -662,6 +674,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignSelf: 'stretch',
     flexGrow: 0,
+  },
+  textFieldDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+  },
+  disabledInput: {
+    color: '#9CA3AF',
   },
   input: {
     fontFamily: 'Inter',
