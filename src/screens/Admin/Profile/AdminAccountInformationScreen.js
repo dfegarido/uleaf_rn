@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../../auth/AuthProvider';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
 import {getAdminInfoApi, updateAdminInfoApi} from '../../../components/Api';
@@ -24,6 +25,7 @@ const AdminAccountInformationScreen = () => {
   const navigation = useNavigation();
   const {userInfo} = useContext(AuthContext);
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -194,7 +196,7 @@ const AdminAccountInformationScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -206,7 +208,7 @@ const AdminAccountInformationScreen = () => {
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -301,7 +303,7 @@ const AdminAccountInformationScreen = () => {
         </View>
       </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -315,16 +317,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   backButton: {
-    width: 24,
-    height: 24,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 22,
   },
   headerTitle: {
     fontSize: 18,

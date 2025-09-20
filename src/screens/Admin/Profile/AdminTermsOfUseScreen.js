@@ -7,6 +7,7 @@ import {
   ScrollView,
   StatusBar,
 } from 'react-native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 
 // Import icons
@@ -14,6 +15,7 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 const AdminTermsOfUseScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const termsData = [
     {
@@ -63,11 +65,11 @@ const AdminTermsOfUseScreen = () => {
   ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -93,7 +95,7 @@ const AdminTermsOfUseScreen = () => {
           </View>
         ))}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -107,16 +109,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   backButton: {
-    width: 24,
-    height: 24,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 22,
   },
   headerTitle: {
     fontSize: 18,

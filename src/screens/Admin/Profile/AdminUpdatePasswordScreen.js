@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {updateAdminPasswordApi} from '../../../components/Api';
 
@@ -23,6 +24,7 @@ import EyeSlashIcon from '../../../assets/icons/greydark/eye-closed-regular.svg'
 
 const AdminUpdatePasswordScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   
   // Refs for input fields
   const currentPasswordRef = useRef(null);
@@ -204,36 +206,37 @@ const AdminUpdatePasswordScreen = () => {
   );
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
-      
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {loading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
+        
+        <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          activeOpacity={0.7}
-          delayPressIn={0}
-          accessible={true}
-          accessibilityLabel="Go back"
-          accessibilityRole="button">
-          <LeftIcon width={24} height={24} fill="#393D40" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Update Password</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+        {/* Header */}
+        <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+            delayPressIn={0}
+            accessible={true}
+            accessibilityLabel="Go back"
+            accessibilityRole="button">
+            <LeftIcon width={24} height={24} fill="#393D40" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Update Password</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
       {/* Content */}
       <ScrollView 
@@ -335,7 +338,8 @@ const AdminUpdatePasswordScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -344,21 +348,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  keyboardContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   backButton: {
-    width: 24,
-    height: 24,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 22,
   },
   headerTitle: {
     fontSize: 18,

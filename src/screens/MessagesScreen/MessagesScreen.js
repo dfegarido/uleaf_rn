@@ -361,7 +361,7 @@ const MessagesScreen = ({navigation}) => {
   return (
     <SafeAreaView style={{flex: 1}} edges={["left", "right", "bottom"]}>
       <View style={styles.container}>
-        <View style={[styles.header, {paddingTop: Math.min(insets.top, 8)}]}>
+        <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <BackSolidIcon />
           </TouchableOpacity>
@@ -434,7 +434,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
-    marginTop: 25,
   },
   headerTitle: {
     fontSize: 20,
