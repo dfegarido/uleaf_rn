@@ -1187,24 +1187,85 @@ const CheckoutScreen = () => {
 
   useEffect(() => {
     // Handle when app is opened from deep link
-    const handleUrl = event => {
+    const handleUrl = async event => {
       const url = event.url;
 
       if (url.startsWith('ileafu://payment-success')) {
-        Alert.alert(
-          'Payment Success',
-          'Order completed successfully!',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.navigate('Orders');
+        try {
+          // 1. Create a URL object
+          const urlObj = new URL(url);
+
+          // 2. Use the .searchParams property to get parameters
+          const orderID = urlObj.searchParams.get('orderID'); // Example: ileafuOrderId
+          const paypalOrderId = urlObj.searchParams.get('token'); 
+          const ileafuOrderId = urlObj.searchParams.get('ileafuOrderId');
+          const capture = urlObj.searchParams.get('capture');
+
+          console.log('PayPal Order ID:', paypalOrderId);
+          console.log('iLeafU Order ID:', ileafuOrderId);
+          console.log('Payer ID:', payerId);
+
+          // Now you have the IDs, you can call your function to capture the payment
+          if (capture && (orderID || paypalOrderId)) {
+            const response = await fetch(
+                `https://us-central1-i-leaf-u.cloudfunctions.net/capturePaypalOrder`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    "orderId": orderID || paypalOrderId,
+                    "ileafuOrderId": ileafuOrderId
+                  }),
+                }
+              );
+
+              const orderData = await response.json();
+              const errorDetail = orderData?.details?.[0];
+
+              if (errorDetail?.issue === "INSTRUMENT_DECLINED") {
+                Alert.alert(
+                  'Payment unsuccessful',
+                  'Order unsuccessful try again later!',
+                  [
+                    {
+                      text: 'OK',
+                    },
+                  ],
+                  {cancelable: false},
+                );
+              } else if (errorDetail) {
+                Alert.alert(
+                  'Payment unsuccessful',
+                  'Order unsuccessful try again later!',
+                  [
+                    {
+                      text: 'OK',
+                    },
+                  ],
+                  {cancelable: false},
+                );
+              }
+          }
+          
+          Alert.alert(
+            'Payment Success',
+            'Order completed successfully!',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  navigation.navigate('Orders');
+                },
               },
-            },
-          ],
-          {cancelable: false},
-        );
-        navigation.navigate('Orders');
+            ],
+            {cancelable: false},
+          );
+          navigation.navigate('Orders');
+        } catch (error) {
+            console.error("Failed to parse deep link URL", error);
+        }
       }
     };
 
