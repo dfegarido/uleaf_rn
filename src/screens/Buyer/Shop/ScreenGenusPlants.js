@@ -401,6 +401,465 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }
   };
 
+  // Load plants for Top 5 Buyer Wish List badge with specific parameters
+  const loadTop5WishListPlants = async () => {
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Specific parameters for Top 5 Buyer Wish List badge - no additional params
+      const top5WishListParams = {
+        limit: 5,
+        offset: 0,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      console.log('Loading Top 5 Buyer Wish List plants with params:', top5WishListParams);
+
+      const res = await retryAsync(() => getBuyerListingsApi(top5WishListParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load Top 5 Buyer Wish List plants');
+      }
+
+      console.log('Top 5 Buyer Wish List plants loaded successfully:', res.data?.listings?.length || 0);
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      // Filter out plants with invalid data (same logic as other loading functions)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid Top 5 Buyer Wish List plant:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} Top 5 Buyer Wish List plants down to ${newPlants.length} valid plants`);
+      
+      setPlants(newPlants);
+      setOffset(newPlants.length);
+
+      // For Top 5 Buyer Wish List, we limit to 5 items, so set pagination based on response
+      setHasMore(res.data?.hasNextPage || false);
+
+    } catch (error) {
+      console.error('Error loading Top 5 Buyer Wish List plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Load plants for Unicorn badge with specific parameters
+  const loadUnicornPlants = async () => {
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Specific parameters for Unicorn badge - no additional params
+      const unicornParams = {
+        limit: 5,
+        offset: 0,
+        minPrice: 2000,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      console.log('Loading Unicorn plants with params:', unicornParams);
+
+      const res = await retryAsync(() => getBuyerListingsApi(unicornParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load Unicorn plants');
+      }
+
+      console.log('Unicorn plants loaded successfully:', res.data?.listings?.length || 0);
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      // Filter out plants with invalid data (same logic as other loading functions)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid Unicorn plant:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} Unicorn plants down to ${newPlants.length} valid plants`);
+      
+      setPlants(newPlants);
+      setOffset(newPlants.length);
+
+      // For Unicorn, we limit to 5 items, so set pagination based on response
+      setHasMore(res.data?.hasNextPage || false);
+
+    } catch (error) {
+      console.error('Error loading Unicorn plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Load plants for Below $20 badge with specific parameters
+  const loadBelow20Plants = async () => {
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Specific parameters for Below $20 badge - no additional params
+      const below20Params = {
+        limit: 10,
+        offset: 0,
+        maxPrice: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      console.log('Loading Below $20 plants with params:', below20Params);
+
+      const res = await retryAsync(() => getBuyerListingsApi(below20Params), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load Below $20 plants');
+      }
+
+      console.log('Below $20 plants loaded successfully:', res.data?.listings?.length || 0);
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      // Filter out plants with invalid data (same logic as other loading functions)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid Below $20 plant:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} Below $20 plants down to ${newPlants.length} valid plants`);
+      
+      setPlants(newPlants);
+      setOffset(newPlants.length);
+
+      // For Below $20, we limit to 10 items, so set pagination based on response
+      setHasMore(res.data?.hasNextPage || false);
+
+    } catch (error) {
+      console.error('Error loading Below $20 plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Load plants for Latest Nursery Drop badge with specific parameters
+  const loadLatestNurseryDropPlants = async () => {
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Specific parameters for Latest Nursery Drop badge - no additional params
+      const latestNurseryDropParams = {
+        limit: 10,
+        offset: 0,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      console.log('Loading Latest Nursery Drop plants with params:', latestNurseryDropParams);
+
+      const res = await retryAsync(() => getBuyerListingsApi(latestNurseryDropParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load Latest Nursery Drop plants');
+      }
+
+      console.log('Latest Nursery Drop plants loaded successfully:', res.data?.listings?.length || 0);
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      // Filter out plants with invalid data (same logic as other loading functions)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid Latest Nursery Drop plant:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} Latest Nursery Drop plants down to ${newPlants.length} valid plants`);
+      
+      setPlants(newPlants);
+      setOffset(newPlants.length);
+
+      // For Latest Nursery Drop, we limit to 10 items, so set pagination based on response
+      setHasMore(res.data?.hasNextPage || false);
+
+    } catch (error) {
+      console.error('Error loading Latest Nursery Drop plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Load plants for New Arrivals badge with specific parameters
+  const loadNewArrivalsPlants = async () => {
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Specific parameters for New Arrivals badge - no additional params
+      const newArrivalsParams = {
+        limit: 10,
+        offset: 0,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      console.log('Loading New Arrivals plants with params:', newArrivalsParams);
+
+      const res = await retryAsync(() => getBuyerListingsApi(newArrivalsParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load New Arrivals plants');
+      }
+
+      console.log('New Arrivals plants loaded successfully:', res.data?.listings?.length || 0);
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      // Filter out plants with invalid data (same logic as other loading functions)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid New Arrivals plant:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} New Arrivals plants down to ${newPlants.length} valid plants`);
+      
+      setPlants(newPlants);
+      setOffset(newPlants.length);
+
+      // For New Arrivals, we limit to 10 items, so set pagination based on response
+      setHasMore(res.data?.hasNextPage || false);
+
+    } catch (error) {
+      console.error('Error loading New Arrivals plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Load plants for Price Drop badge with specific parameters
+  const loadPriceDropPlants = async () => {
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Specific parameters for Price Drop badge - no additional params
+      const priceDropParams = {
+        limit: 10,
+        offset: 0,
+        maxPrice: 100,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      console.log('Loading Price Drop plants with params:', priceDropParams);
+
+      const res = await retryAsync(() => getBuyerListingsApi(priceDropParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load Price Drop plants');
+      }
+
+      console.log('Price Drop plants loaded successfully:', res.data?.listings?.length || 0);
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      // Filter out plants with invalid data (same logic as other loading functions)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
+        
+        if (!isValid) {
+          console.log('Filtering out invalid Price Drop plant:', {
+            plantCode: plant?.plantCode,
+            genus: plant?.genus,
+            species: plant?.species,
+            variegation: plant?.variegation,
+            plantName: plant?.plantName,
+            finalPrice: plant?.finalPrice,
+            usdPrice: plant?.usdPrice
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`Filtered ${rawPlants.length} Price Drop plants down to ${newPlants.length} valid plants`);
+      
+      setPlants(newPlants);
+      setOffset(newPlants.length);
+
+      // For Price Drop, we limit to 4 items, so no pagination
+      setHasMore(false);
+
+    } catch (error) {
+      console.error('Error loading Price Drop plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
   // Load plants with specific filters (used when applying filters to avoid timing issues)
   const loadPlantsWithFilters = async (filters, refresh = false) => {
     try {
@@ -603,7 +1062,61 @@ const ScreenGenusPlants = ({navigation, route}) => {
       const label = badge?.label;
       if (!label) return;
 
-      // Determine filter mapping
+      // Special handling for Price Drop badge with specific API parameters
+      if (label === 'Price Drop') {
+        setLoading(true);
+        setPlants([]);
+        justFiltered.current = true;
+        loadPriceDropPlants();
+        return;
+      }
+
+      // Special handling for New Arrivals badge with specific API parameters
+      if (label === 'New Arrivals') {
+        setLoading(true);
+        setPlants([]);
+        justFiltered.current = true;
+        loadNewArrivalsPlants();
+        return;
+      }
+
+      // Special handling for Latest Nursery Drop badge with specific API parameters
+      if (label === 'Latest Nursery Drop') {
+        setLoading(true);
+        setPlants([]);
+        justFiltered.current = true;
+        loadLatestNurseryDropPlants();
+        return;
+      }
+
+      // Special handling for Below $20 badge with specific API parameters
+      if (label === 'Below $20') {
+        setLoading(true);
+        setPlants([]);
+        justFiltered.current = true;
+        loadBelow20Plants();
+        return;
+      }
+
+      // Special handling for Unicorn badge with specific API parameters
+      if (label === 'Unicorn') {
+        setLoading(true);
+        setPlants([]);
+        justFiltered.current = true;
+        loadUnicornPlants();
+        return;
+      }
+
+      // Special handling for Top 5 Buyer Wish List badge with specific API parameters
+      if (label === 'Top 5 Buyer Wish List') {
+        setLoading(true);
+        setPlants([]);
+        justFiltered.current = true;
+        loadTop5WishListPlants();
+        return;
+      }
+
+      // Determine filter mapping for other badges
       const mapped = BADGE_LABEL_TO_FILTER[label] || { listingType: [label] };
 
       // Clear existing local filters and apply the mapped filter so badge acts as a single-filter

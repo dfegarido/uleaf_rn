@@ -871,12 +871,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.rightControls}>
+            {/* <View style={styles.rightControls}>
               <TouchableOpacity style={styles.socialButton} onPress={handleShare}>
                 <ShareIcon width={32} height={32} />
                 <Text style={styles.socialText}>Share</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </View>
 
           {/* Price and Pot Size */}
