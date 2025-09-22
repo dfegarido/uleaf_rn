@@ -8,11 +8,13 @@ import {
   Animated,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 // Import API
 import { getAdminTaxonomyApi } from '../../../components/Api';
+import { approveGenusRequestApi, rejectGenusRequestApi } from '../../../auth/genusRequestActionsApi';
 
 // Import icons - you may need to adjust these paths based on your available icons
 import CheckApproveIcon from '../../../assets/admin-icons/check-approve.svg';
@@ -24,6 +26,7 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
   const navigation = useNavigation();
   const [existingTaxonomyData, setExistingTaxonomyData] = useState([]);
   const [isLoadingTaxonomy, setIsLoadingTaxonomy] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Load existing taxonomy data when modal becomes visible
   useEffect(() => {
@@ -98,44 +101,154 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
   };
 
   const handleAddToTaxonomyList = async () => {
-    console.log('=== STARTING TAXONOMY CHECK ===');
+    console.log('✅ Starting request approval process');
     
-    if (isLoadingTaxonomy) {
-      Alert.alert('Please wait', 'Loading taxonomy data...');
+    if (isLoadingTaxonomy || isProcessing) {
+      Alert.alert('Please wait', 'Processing request...');
       return;
     }
 
-    // Get genus name from request data
+    // Get request details
+    const requestId = request?.id;
     const genusName = request?.genusName || request?.genus || '';
+    const speciesName = request?.species || '';
     
-    if (!genusName) {
-      console.log('No genus name found in request:', request);
-      Alert.alert('Error', 'No genus name found in request data');
+    if (!requestId) {
+      console.error('❌ No request ID found:', request);
+      Alert.alert('Error', 'Request ID not found');
       return;
     }
 
-    console.log('Request data:', request);
-    console.log('Genus name from request:', genusName);
-    console.log('Existing taxonomy count:', existingTaxonomyData.length);
-
-    // Check if genus exists
-    const existingGenus = checkIfGenusExists(genusName.trim());
-    
-    console.log('=== DECISION ===');
-    console.log('Existing genus found:', !!existingGenus);
-    console.log('Navigation decision:', existingGenus ? 'AddToTaxonomyScreen' : 'AddNewPlantTaxonomyScreen');
-    
-    onClose();
-    
-    if (existingGenus) {
-      // Genus exists - navigate to Add to Existing Taxonomy
-      console.log('✅ Genus exists, navigating to AddToTaxonomyScreen');
-      navigation.navigate('AddToTaxonomyScreen', { requestData: request });
-    } else {
-      // Genus doesn't exist - navigate to Add New Plant Taxonomy
-      console.log('🆕 Genus does not exist, navigating to AddNewPlantTaxonomyScreen');
-      navigation.navigate('AddNewPlantTaxonomyScreen', { requestData: request });
+    if (!genusName) {
+      console.error('❌ No genus name found:', request);
+      Alert.alert('Error', 'Genus name not found in request data');
+      return;
     }
+
+    console.log('📝 Approving request:', {
+      requestId,
+      genus: genusName,
+      species: speciesName
+    });
+
+    try {
+      setIsProcessing(true);
+
+      // Call the approve API
+      const response = await approveGenusRequestApi({
+        requestId: requestId,
+        adminId: 'admin_temp', // TODO: Replace with actual admin ID from auth context
+        comment: `Approved genus "${genusName}" with species "${speciesName}"`
+      });
+
+      if (response.success) {
+        console.log('✅ Request approved successfully:', response.data);
+        
+        Alert.alert(
+          'Success', 
+          `${genusName} ${speciesName} has been approved and added to the taxonomy list.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                onClose();
+                // Call the parent onApprove callback to refresh the list
+                if (onApprove) {
+                  onApprove(request);
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        console.error('❌ Approval failed:', response.error);
+        Alert.alert('Error', response.error || 'Failed to approve request');
+      }
+
+    } catch (error) {
+      console.error('❌ Error approving request:', error);
+      Alert.alert('Error', 'An unexpected error occurred while approving the request');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRejectRequest = async () => {
+    console.log('❌ Starting request rejection process');
+    
+    if (isProcessing) {
+      Alert.alert('Please wait', 'Processing request...');
+      return;
+    }
+
+    const requestId = request?.id;
+    const genusName = request?.genusName || request?.genus || '';
+    const speciesName = request?.species || '';
+    
+    if (!requestId) {
+      console.error('❌ No request ID found:', request);
+      Alert.alert('Error', 'Request ID not found');
+      return;
+    }
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Reject Request',
+      `Are you sure you want to reject "${genusName} ${speciesName}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsProcessing(true);
+
+              // Call the reject API
+              const response = await rejectGenusRequestApi({
+                requestId: requestId,
+                adminId: 'admin_temp', // TODO: Replace with actual admin ID from auth context
+                reason: 'Request rejected by admin',
+                comment: `Rejected genus "${genusName}" with species "${speciesName}"`
+              });
+
+              if (response.success) {
+                console.log('❌ Request rejected successfully:', response.data);
+                
+                Alert.alert(
+                  'Request Rejected', 
+                  `${genusName} ${speciesName} has been rejected.`,
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        onClose();
+                        // Call the parent onReject callback to refresh the list
+                        if (onReject) {
+                          onReject(request);
+                        }
+                      }
+                    }
+                  ]
+                );
+              } else {
+                console.error('❌ Rejection failed:', response.error);
+                Alert.alert('Error', response.error || 'Failed to reject request');
+              }
+
+            } catch (error) {
+              console.error('❌ Error rejecting request:', error);
+              Alert.alert('Error', 'An unexpected error occurred while rejecting the request');
+            } finally {
+              setIsProcessing(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -169,13 +282,20 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                 <TouchableOpacity 
                   style={styles.listLeft}
                   onPress={handleAddToTaxonomyList}
+                  disabled={isProcessing}
                 >
                   {/* Icon */}
                   <View style={styles.iconContainer}>
-                    <CheckApproveIcon width={19} height={14} />
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#34C759" />
+                    ) : (
+                      <CheckApproveIcon width={19} height={14} />
+                    )}
                   </View>
                   {/* List title */}
-                  <Text style={styles.listTitle}>Add to taxonomy list</Text>
+                  <Text style={[styles.listTitle, isProcessing && styles.disabledText]}>
+                    {isProcessing ? 'Processing...' : 'Add to taxonomy list'}
+                  </Text>
                 </TouchableOpacity>
                 
                 <View style={styles.listRight}>
@@ -192,17 +312,21 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
               <View style={styles.options}>
                 <TouchableOpacity 
                   style={styles.listLeft}
-                  onPress={() => {
-                    onReject(request);
-                    onClose();
-                  }}
+                  onPress={handleRejectRequest}
+                  disabled={isProcessing}
                 >
                   {/* Icon */}
                   <View style={styles.iconContainer}>
-                    <CloseRejectIcon width={24} height={24} />
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#FF3B30" />
+                    ) : (
+                      <CloseRejectIcon width={24} height={24} />
+                    )}
                   </View>
                   {/* List title */}
-                  <Text style={styles.listTitle}>Reject request</Text>
+                  <Text style={[styles.listTitle, isProcessing && styles.disabledText]}>
+                    {isProcessing ? 'Processing...' : 'Reject request'}
+                  </Text>
                 </TouchableOpacity>
                 
                 <View style={styles.listRight}>
@@ -332,6 +456,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22, // 140% of 16px
     color: '#393D40',
+  },
+  
+  /* Disabled text style */
+  disabledText: {
+    color: '#8E8E93',
+    opacity: 0.6,
   },
   
   /* List Right */

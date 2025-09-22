@@ -17,12 +17,22 @@ import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AddSpecieIcon from '../../../assets/admin-icons/add-specie.svg';
 import AddSpecieModal from './AddSpecieModal';
 
+// Import API
+import { addPlantTaxonomyApi, validateSpeciesData, formatSpeciesForApi } from '../../../auth/addPlantTaxonomyApi';
+
 const AddTaxonomy = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [genusName, setGenusName] = useState('');
   const [speciesList, setSpeciesList] = useState([]);
   const [addSpecieModalVisible, setAddSpecieModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Debug function to track text input changes
+  const handleGenusNameChange = (text) => {
+    console.log('Genus name changed to:', text);
+    setGenusName(text);
+  };
 
   const handleBack = () => {
     navigation.goBack();
@@ -46,15 +56,70 @@ const AddTaxonomy = () => {
     setAddSpecieModalVisible(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!genusName.trim()) {
       Alert.alert('Error', 'Please enter a genus name');
       return;
     }
-    
-    Alert.alert('Success', 'Taxonomy saved successfully', [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ]);
+
+    if (speciesList.length === 0) {
+      Alert.alert('Error', 'Please add at least one species');
+      return;
+    }
+
+    // Validate species data
+    const validation = validateSpeciesData(speciesList);
+    if (!validation.isValid) {
+      Alert.alert('Validation Error', validation.errors.join('\n'));
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      console.log('🌱 Creating new plant taxonomy...');
+      console.log('Genus name:', genusName);
+      console.log('Species list:', speciesList);
+
+      // Format species data for API
+      const formattedSpecies = formatSpeciesForApi(speciesList);
+
+      // Call the API
+      const response = await addPlantTaxonomyApi({
+        genusName: genusName.trim(),
+        species: formattedSpecies,
+        adminId: 'admin_temp' // TODO: Replace with actual admin ID from auth context
+      });
+
+      if (response.success) {
+        console.log('✅ Taxonomy created successfully:', response.data);
+        
+        Alert.alert(
+          'Success', 
+          `Taxonomy "${genusName}" with ${speciesList.length} species created successfully!`,
+          [
+            { 
+              text: 'OK', 
+              onPress: () => navigation.goBack() 
+            }
+          ]
+        );
+      } else {
+        console.error('❌ Failed to create taxonomy:', response.error);
+        Alert.alert(
+          'Error', 
+          response.error || 'Failed to create taxonomy. Please try again.'
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error creating taxonomy:', error);
+      Alert.alert(
+        'Error', 
+        'An unexpected error occurred. Please check your connection and try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -87,8 +152,11 @@ const AddTaxonomy = () => {
                   style={styles.textInput}
                   placeholder="Enter genus name"
                   value={genusName}
-                  onChangeText={setGenusName}
+                  onChangeText={handleGenusNameChange}
                   placeholderTextColor="#647276"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  selectionColor="#539461"
                 />
               </View>
             </View>
@@ -122,9 +190,15 @@ const AddTaxonomy = () => {
 
         {/* Action Section */}
         <View style={styles.actionSection}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <TouchableOpacity 
+            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
+            onPress={handleSave}
+            disabled={isLoading}
+          >
             <View style={styles.saveButtonText}>
-              <Text style={styles.saveText}>Submit</Text>
+              <Text style={styles.saveText}>
+                {isLoading ? 'Creating...' : 'Submit'}
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -245,6 +319,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: '#202325',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    textAlignVertical: 'center',
   },
 
   // Divider
@@ -368,6 +445,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
     color: '#FFFFFF',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#8B8B8B',
+    opacity: 0.6,
   },
 
 });

@@ -115,3 +115,4 @@ export {browsePlantsBySpeciesApi} from './browsePlantsBySpeciesApi';
 
 // Admin Taxonomy APIs
 export {getAdminTaxonomyApi, updateTaxonomyItemApi} from './getAdminTaxonomyApi';
+export {getGenusListApi} from './getGenusListApi';

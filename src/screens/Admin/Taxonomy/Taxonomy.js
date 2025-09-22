@@ -26,94 +26,14 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 
 // Import API
 import { getAdminTaxonomyApi } from '../../../components/Api';
+import { getGenusListApi } from '../../../components/Api';
+import { getGenusRequestsApi } from '../../../auth/getGenusRequestsApi';
 import EditTaxonomyModal from './EditTaxonomyModal';
 import TaxonomySkeletonList from './TaxonomySkeletonList';
 import TaxonomyOptionsModal from './TaxonomyOptionsModal';
 import RequestActionModal from './RequestActionModal';
 
-// Mock data fallback if API is not available
-const MOCK_TAXONOMY_DATA = [
-  { id: 1, name: 'Alocasia', receivedPlants: 5 },
-  { id: 2, name: 'Anthurium', receivedPlants: 12 },
-  { id: 3, name: 'Monstera', receivedPlants: 8 },
-  { id: 4, name: 'Philodendron', receivedPlants: 15 },
-  { id: 5, name: 'Pothos', receivedPlants: 3 },
-  { id: 6, name: 'Syngonium', receivedPlants: 7 },
-  { id: 7, name: 'Aglaonema', receivedPlants: 9 },
-  { id: 8, name: 'Calathea', receivedPlants: 6 },
-  { id: 9, name: 'Dracaena', receivedPlants: 4 },
-  { id: 10, name: 'Ficus', receivedPlants: 11 },
-];
-
-// Mock taxonomy requests data
-const MOCK_REQUEST_DATA = [
-  {
-    id: 1,
-    genusName: 'Monstera',
-    user: {
-      name: 'Sarah Johnson',
-      username: '@sarah_plantlover',
-      avatar: require('../../../assets/images/avatar-female.png'),
-      role: 'Plant Enthusiast'
-    },
-    submittedAt: '2024-01-15'
-  },
-  {
-    id: 2,
-    genusName: 'ANTHURIUM',
-    user: {
-      name: 'Mike Rodriguez',
-      username: '@mike_green_thumb',
-      avatar: require('../../../assets/images/AvatarBig.png'),
-      role: 'Collector'
-    },
-    submittedAt: '2024-01-14'
-  },
-  {
-    id: 3,
-    genusName: 'PHILODENDRON',
-    user: {
-      name: 'John Smith',
-      username: '@john_plant_guy',
-      avatar: require('../../../assets/images/avatar-female.png'),
-      role: 'Botanist'
-    },
-    submittedAt: '2024-01-13'
-  },
-  {
-    id: 4,
-    genusName: 'Monstera Deliciosa',
-    user: {
-      name: 'Emily Chen',
-      username: '@emily_plants',
-      avatar: require('../../../assets/images/AvatarBig.png'),
-      role: 'Plant Parent'
-    },
-    submittedAt: '2024-01-12'
-  },
-  {
-    id: 5,
-    genusName: 'POTHOS',
-    user: {
-      name: 'Carlos Martinez',
-      username: '@carlos_foliage',
-      avatar: require('../../../assets/images/avatar-female.png'),
-      role: 'Urban Gardener'
-    },
-    submittedAt: '2024-01-11'
-  },
-  {
-    id: 6,
-    genusName: 'Syngonium Erythrophyllum',
-    user: {
-      name: 'Jessica Wong',
-      username: '@jessica_greenthumb',
-      avatar: require('../../../assets/images/AvatarBig.png'),
-      role: 'Plant Parent'
-    },
-    submittedAt: '2024-01-10'
-  }
-];
+// No more mock data - using only real API data
 
 const FILTER_OPTIONS = [
   { id: 1, label: 'Accuminata' },
@@ -121,7 +41,7 @@ const FILTER_OPTIONS = [
   { id: 3, label: 'Acclimation Index' },
 ];
 
-const TaxonomyHeader = ({ insets, searchQuery, onSearchChange, activeTab, onTabChange, onPlusPress }) => {
+const TaxonomyHeader = ({ insets, searchQuery, onSearchChange, activeTab, onTabChange, onPlusPress, requestsData = [] }) => {
   const navigation = useNavigation();
 
   return (
@@ -190,10 +110,10 @@ const TaxonomyHeader = ({ insets, searchQuery, onSearchChange, activeTab, onTabC
                   Requests
                 </Text>
               </View>
-              {MOCK_REQUEST_DATA.length > 0 && (
-                <View style={styles.badgeContainer}>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{MOCK_REQUEST_DATA.length}</Text>
+                            {requestsData.length > 0 && (
+                <View style={styles.requestsBadge}>
+                  <View style={styles.badgeContainer}>
+                    <Text style={styles.badgeText}>{requestsData.length}</Text>
                   </View>
                 </View>
               )}
@@ -243,9 +163,13 @@ const TaxonomyRequestCard = ({ item, onAction }) => {
 
   const user = item.user || {};
   const genusName = item.genusName || 'Unknown Genus';
+  const speciesName = item.species || 'Unknown Species';
   const userName = user.name || 'Unknown User';
   const username = user.username || '@unknown';
   const userRole = user.role || 'User';
+  
+  // Handle avatar with fallback to default image
+  const avatarSource = user.avatar ? { uri: user.avatar } : require('../../../assets/images/AvatarBig.png');
 
   return (
     <View style={styles.requestListItem}>
@@ -257,7 +181,7 @@ const TaxonomyRequestCard = ({ item, onAction }) => {
           </View>
           <View style={styles.requestVariegationSection}>
             <Text style={styles.requestVariegationText}>
-              Specie name
+              {speciesName}
             </Text>
           </View>
         </View>
@@ -274,7 +198,7 @@ const TaxonomyRequestCard = ({ item, onAction }) => {
           <View style={styles.requestUserInfo}>
             <View style={styles.requestAvatar}>
               <Image 
-                source={user.avatar} 
+                source={avatarSource} 
                 style={styles.avatarImage}
                 resizeMode="cover"
               />
@@ -301,9 +225,10 @@ const Taxonomy = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [taxonomyData, setTaxonomyData] = useState(MOCK_TAXONOMY_DATA);
-  const [filteredData, setFilteredData] = useState(MOCK_TAXONOMY_DATA);
-  const [loading, setLoading] = useState(false);
+  const [taxonomyData, setTaxonomyData] = useState([]);
+  const [requestsData, setRequestsData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('genus');
   const [modalVisible, setModalVisible] = useState(false);
@@ -311,6 +236,7 @@ const Taxonomy = () => {
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [requestActionModalVisible, setRequestActionModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [apiError, setApiError] = useState(null);
 
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60;
@@ -318,49 +244,181 @@ const Taxonomy = () => {
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 20;
 
   useEffect(() => {
-    // Initialize with mock data immediately
-    console.log('🌿 useEffect: Initializing with mock data');
-    setTaxonomyData(MOCK_TAXONOMY_DATA);
-    setFilteredData(MOCK_TAXONOMY_DATA);
-    setLoading(false);
+    // Fetch real data on component mount
+    console.log('🌿 useEffect: Fetching all data on mount');
+    console.log('🌿 Component mounted - forcing fresh API call');
+    
+    // Clear any existing data first
+    setRequestsData([]);
+    setTaxonomyData([]);
+    setFilteredData([]);
+    
+    // Fetch fresh data
+    fetchAllData(true);
   }, []);
 
   useEffect(() => {
     console.log('🌿 useEffect: Filter data triggered');
     filterData();
-  }, [searchQuery, activeTab]);
+  }, [searchQuery, activeTab, taxonomyData, requestsData]);
 
-  const fetchTaxonomyData = async (showLoading = true) => {
-    console.log('🌿 fetchTaxonomyData called, showLoading:', showLoading);
+  const fetchAllData = async (showLoading = true) => {
+    console.log('🌿 fetchAllData called, showLoading:', showLoading);
+    console.log('🌿 Current requestsData length:', requestsData.length);
+    
+    if (showLoading) {
+      setLoading(true);
+    }
+    
     try {
-      if (showLoading) {
-        setLoading(true);
+      // Fetch both genus data and requests data in parallel
+      const [genusResult, requestsResult] = await Promise.allSettled([
+        fetchGenusData(),
+        fetchRequestsData()
+      ]);
+      
+      // Log results
+      if (genusResult.status === 'fulfilled') {
+        console.log('✅ Genus data fetch completed successfully');
+        console.log('✅ Genus data length:', genusResult.value?.length || 0);
+      } else {
+        console.error('❌ Genus data fetch failed:', genusResult.reason);
       }
       
-      // For now, just use mock data to avoid API issues
-      console.log('🌿 Using mock data directly');
-      setTaxonomyData(MOCK_TAXONOMY_DATA);
-      setFilteredData(MOCK_TAXONOMY_DATA);
-      
-      setLoading(false);
-      setRefreshing(false);
+      if (requestsResult.status === 'fulfilled') {
+        console.log('✅ Requests data fetch completed successfully');
+        console.log('✅ Requests data length:', requestsResult.value?.length || 0);
+        console.log('✅ First request sample:', requestsResult.value?.[0]);
+      } else {
+        console.error('❌ Requests data fetch failed:', requestsResult.reason);
+      }
       
     } catch (error) {
-      console.error('🌿 Error in fetchTaxonomyData:', error);
-      setTaxonomyData(MOCK_TAXONOMY_DATA);
-      setFilteredData(MOCK_TAXONOMY_DATA);
+      console.error('❌ Error in fetchAllData:', error);
+    } finally {
       setLoading(false);
       setRefreshing(false);
+      
+      // Log final state
+      console.log('🔍 Final requestsData state will be updated in next render');
     }
+  };
+
+  const fetchGenusData = async () => {
+    console.log('🌿 fetchGenusData called');
+    
+    try {
+      setApiError(null); // Clear any previous errors
+      
+      // Call the real API for genus list
+      console.log('🌿 Calling getGenusListApi...');
+      const response = await getGenusListApi();
+      
+      if (response && response.success && response.data && Array.isArray(response.data)) {
+        console.log('✅ Successfully fetched genus data:', response.data.length, 'items');
+        console.log('✅ Data source:', response.source);
+        console.log('✅ Sample data:', response.data.slice(0, 3));
+        
+        setTaxonomyData(response.data);
+        setApiError(null);
+        return response.data;
+      } else {
+        const errorMsg = 'Invalid genus API response format';
+        console.error('❌ Genus API response invalid:', {
+          hasResponse: !!response,
+          hasSuccess: response?.success,
+          hasData: !!response?.data,
+          isArray: Array.isArray(response?.data),
+          dataLength: response?.data?.length
+        });
+        setApiError(errorMsg);
+        setTaxonomyData([]);
+        throw new Error(errorMsg);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in fetchGenusData:', error.message);
+      
+      const errorMsg = error.message || 'Failed to fetch genus data';
+      setApiError(errorMsg);
+      setTaxonomyData([]);
+      throw error;
+    }
+  };
+
+  const fetchRequestsData = async () => {
+    console.log('🌿 fetchRequestsData called');
+    
+    try {
+      // Call the requests API
+      console.log('🌿 Calling getGenusRequestsApi...');
+      const response = await getGenusRequestsApi({
+        limit: 50,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      });
+      
+      // Enhanced logging to debug the response
+      console.log('🔍 Raw response type:', typeof response);
+      console.log('🔍 Response success:', response?.success);
+      console.log('🔍 Response data length:', response?.data?.length);
+      console.log('🔍 Response structure (first 2 items):', JSON.stringify(response?.data?.slice(0, 2), null, 2));
+      
+      if (response && response.success && response.data && Array.isArray(response.data)) {
+        console.log('✅ Successfully fetched requests data:', response.data.length, 'items');
+        console.log('✅ Setting real API data to requestsData state');
+        
+        setRequestsData(response.data);
+        return response.data;
+      } else {
+        const errorMsg = 'Invalid requests API response format';
+        console.error('❌ Requests API response invalid:', {
+          hasResponse: !!response,
+          responseType: typeof response,
+          hasSuccess: response?.success,
+          successValue: response?.success,
+          hasData: !!response?.data,
+          dataType: typeof response?.data,
+          isArray: Array.isArray(response?.data),
+          dataLength: response?.data?.length,
+          fullResponse: response
+        });
+        
+        // Set empty array instead of any mock data
+        console.log('🚫 Setting empty requests data due to API error');
+        setRequestsData([]);
+        throw new Error(errorMsg);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in fetchRequestsData:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      
+      // Always set empty array on error - no mock data fallback
+      console.log('🚫 Setting empty requests data due to error');
+      setRequestsData([]);
+      throw error;
+    }
+  };
+
+  const fetchTaxonomyData = async (showLoading = true) => {
+    // Redirect to fetchAllData for backward compatibility
+    return fetchAllData(showLoading);
   };
 
   const filterData = () => {
     console.log('🌿 filterData called, searchQuery:', searchQuery, 'activeTab:', activeTab);
     try {
-      const sourceData = activeTab === 'genus' ? taxonomyData : MOCK_REQUEST_DATA;
+      const sourceData = activeTab === 'genus' ? taxonomyData : requestsData;
       console.log('🌿 sourceData length:', sourceData?.length);
+      console.log('🌿 sourceData type:', Array.isArray(sourceData) ? 'array' : typeof sourceData);
+      
+      if (activeTab === 'requests' && sourceData?.length > 0) {
+        console.log('🌿 First request item:', JSON.stringify(sourceData[0], null, 2));
+      }
       
       if (!searchQuery || !searchQuery.trim()) {
+        console.log('🌿 No search query, setting all sourceData');
         setFilteredData(sourceData || []);
       } else {
         const filtered = (sourceData || []).filter(item => {
@@ -368,6 +426,7 @@ const Taxonomy = () => {
           const searchField = activeTab === 'genus' ? (item.name || '') : (item.genusName || '');
           return searchField.toLowerCase().includes(searchQuery.toLowerCase());
         });
+        console.log('🌿 Filtered data length:', filtered.length);
         setFilteredData(filtered);
       }
     } catch (error) {
@@ -378,7 +437,7 @@ const Taxonomy = () => {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchTaxonomyData(false);
+    fetchAllData(false);
   };
 
   const handleEditGenus = (genus) => {
@@ -393,15 +452,15 @@ const Taxonomy = () => {
   };
 
   const handleApproveRequest = (request) => {
-    console.log('🌿 Approve request for:', request.genusName);
-    // Handle request approval logic here
-    // You can add API call to approve the request
+    console.log('✅ Request approved, refreshing data for:', request.genusName);
+    // Refresh both requests and genus data after approval
+    fetchAllData(false);
   };
 
   const handleRejectRequest = (request) => {
-    console.log('🌿 Reject request for:', request.genusName);
-    // Handle request rejection logic here
-    // You can add API call to reject the request
+    console.log('❌ Request rejected, refreshing data for:', request.genusName);
+    // Refresh requests data after rejection
+    fetchRequestsData();
   };
 
   const handleSaveEdit = (updatedItem) => {
@@ -462,6 +521,7 @@ const Taxonomy = () => {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onPlusPress={handlePlusButtonPress}
+          requestsData={requestsData}
         />
         <FlatList 
           style={styles.taxonomyList}
@@ -478,6 +538,31 @@ const Taxonomy = () => {
     );
   }
 
+  // Show error state if there's an API error and no data
+  if (apiError && filteredData.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
+        <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+        <TaxonomyHeader 
+          insets={insets} 
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onPlusPress={handlePlusButtonPress}
+          requestsData={requestsData}
+        />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Unable to load data</Text>
+          <Text style={styles.errorMessage}>{apiError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchAllData(true)}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
@@ -488,6 +573,7 @@ const Taxonomy = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onPlusPress={handlePlusButtonPress}
+        requestsData={requestsData}
       />
       
       {/* Navigation Area with White Background */}
@@ -535,7 +621,7 @@ const Taxonomy = () => {
             <TaxonomySkeletonList />
           ) : (
             <FlatList
-              data={activeTab === 'genus' ? (filteredData || []) : (MOCK_REQUEST_DATA || [])}
+              data={filteredData || []}
               keyExtractor={(item) => item?.id?.toString() || Math.random().toString()}
               renderItem={({ item }) => (
                 activeTab === 'genus' ? (
@@ -1145,6 +1231,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#647276',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 64,
+    gap: 16,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    color: '#DC2626',
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 14,
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    color: '#647276',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    backgroundColor: '#699E73',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,

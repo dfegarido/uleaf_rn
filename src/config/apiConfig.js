@@ -1,10 +1,11 @@
 // API Configuration for local and production environments
 
 // Set this to true for local development, false for production
-const USE_LOCAL_API = false;
+const USE_LOCAL_API = true;
 
 // Local development endpoints (Firebase Functions Emulator)
-const LOCAL_BASE_URL = 'http://10.0.2.2:5001/i-leaf-u/us-central1';
+// Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
+const LOCAL_BASE_URL = 'http://192.168.1.41:5001/i-leaf-u/us-central1';
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -119,6 +120,7 @@ const generateEndpoints = () => ({
   UPDATE_ADMIN_PASSWORD: `${getBaseUrl()}/updateAdminPassword`,
   GET_ALL_USERS: `${getBaseUrl()}/getAllUsers`,
   UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
+  GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`,
   
   // QR Code APIs
   QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
