@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, StatusBar, Modal, FlatList, ActivityIndicator, Animated, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, StatusBar, Modal, FlatList, ActivityIndicator, Animated, Alert, Dimensions, Platform } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -66,7 +66,7 @@ const EnrollSellerHeader = ({insets}) => {
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Enroll Seller</Text>
+        <Text style={styles.headerTitle}>Enrol Seller</Text>
 
         <View style={styles.placeholder} />
       </View>
@@ -277,7 +277,7 @@ const EnrollSeller = () => {
       
       if (!response.ok) {
         console.log('API error:', responseData.error || 'Unknown error');
-        throw new Error(responseData.error || responseData.message || 'Failed to enroll seller');
+        throw new Error(responseData.error || responseData.message || 'Failed to enrol seller');
       }
       
       console.log('Success response:', responseData);
@@ -296,7 +296,7 @@ const EnrollSeller = () => {
       // Show error message
       Alert.alert(
         "Error",
-        `Failed to enroll seller: ${error.message}`,
+        `Failed to enrol seller: ${error.message}`,
         [{ text: "OK" }]
       );
     } finally {

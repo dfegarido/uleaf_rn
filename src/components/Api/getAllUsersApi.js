@@ -3,9 +3,7 @@ import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getAllUsersApi = async (filters = {}) => {
   try {
-    console.log("Fetching all users...");
     const token = await getStoredAuthToken();
-    console.log({ token });
     // Build query string from filters
     const queryParams = new URLSearchParams();
     

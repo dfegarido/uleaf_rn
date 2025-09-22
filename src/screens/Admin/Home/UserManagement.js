@@ -5,7 +5,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getAllUsersApi, updateUserStatusApi } from '../../../components/Api';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import PlusIcon from '../../../assets/admin-icons/plus.svg';
+import PlusIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import EditIcon from '../../../assets/admin-icons/edit.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import CheckedBoxIcon from '../../../assets/admin-icons/checked-box.svg';
@@ -198,7 +198,6 @@ const UserManagement = () => {
   const tabBarHeight = 60; // Standard admin tab bar height
   const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 20; // Extra 20px for spacing
-  console.log("User management screen");
   
   // Handle add user button press
   const handleAddUser = () => {
@@ -225,14 +224,33 @@ const UserManagement = () => {
         search: searchQuery.trim(),
       };
 
-      // If not all roles are selected, add role filter
-      if (selectedRoles.length > 0 && selectedRoles.length < roles.length) {
-        // Since API accepts single role, we'll fetch all and filter locally
-        // For now, fetch all and filter locally
-        filters.role = undefined;
+      // If only one role is selected, pass it to the API for server-side filtering
+      if (selectedRoles.length === 1) {
+        filters.role = selectedRoles[0];
       }
-      console.log({ filters, page, append });
-
+      // If no roles are selected, fetch nothing
+      else if (selectedRoles.length === 0) {
+        // No roles selected - return empty results
+        if (!append) {
+          setUsers([]);
+        }
+        setHasMoreData(false);
+        
+        // Make sure to clear loading states
+        if (showLoading && !append) {
+          setLoading(false);
+        }
+        if (append) {
+          setLoadingMore(false);
+        }
+        if (refreshing) {
+          setRefreshing(false);
+        }
+        return;
+      }
+      // If all roles are selected, don't pass role filter (fetch all)
+      // If multiple but not all roles selected, we'll filter locally after fetching all
+      
       // Add a small delay to simulate network latency for initial loading only
       if (showLoading && !append) {
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -243,9 +261,10 @@ const UserManagement = () => {
       if (response && response.success && response.data && response.data.users) {
         let fetchedUsers = response.data.users;
         
-        // Apply role filtering locally if needed
-        if (selectedRoles.length > 0 && selectedRoles.length < roles.length) {
-          fetchedUsers = fetchedUsers.filter(user => selectedRoles.includes(user.role));
+        // Apply role filtering locally if needed (when multiple roles selected but not all)
+        if (selectedRoles.length > 1 && selectedRoles.length < roles.length) {
+          // Filter using the original backend role values (lowercase)
+          fetchedUsers = fetchedUsers.filter(user => selectedRoles.includes(user.role?.toLowerCase()));
         }
         
         // Transform user data to match expected format
@@ -261,12 +280,18 @@ const UserManagement = () => {
                 user.role === 'supplier' ? 'Supplier' : 
                 user.role || 'User',
           rawStatus: user.status, // Keep original status for API calls
+          rawRole: user.role, // Keep original role for filtering
           stats: user.stats,
           ...user // Include all other user data
         }));
         
         // Check if we have more data to load
-        setHasMoreData(fetchedUsers.length === filters.limit);
+        // If we applied local filtering, we might have fewer results than the limit
+        const hasMoreResults = selectedRoles.length > 1 && selectedRoles.length < roles.length
+          ? fetchedUsers.length === filters.limit // Original fetched count
+          : transformedUsers.length === filters.limit; // Transformed count
+        
+        setHasMoreData(hasMoreResults);
         
         // Update the users state - either append or replace
         if (append) {
@@ -277,7 +302,6 @@ const UserManagement = () => {
           setUsers(transformedUsers);
         }
       } else {
-        console.log('No users data received:', response);
         if (!append) {
           setUsers([]);
         }
@@ -334,16 +358,6 @@ const UserManagement = () => {
     }, [])
   );
 
-  // Fetch users when role filters change
-  useEffect(() => {
-    // Only trigger this if we're not already loading and the component has mounted
-    if (!loading && roles.some(role => role.selected)) {
-      setCurrentPage(1);
-      setHasMoreData(true);
-      fetchUsers(true, 1, false);
-    }
-  }, [JSON.stringify(roles.map(r => r.selected))]); // Only re-run when role selection changes
-
   // Handle refresh
   const onRefresh = async () => {
     setRefreshing(true);
@@ -366,8 +380,6 @@ const UserManagement = () => {
   // Handle user status update
   const handleUpdateUserStatus = async (user, newStatus) => {
     try {
-      console.log(`Updating user ${user.id} status to ${newStatus}`);
-      
       // Convert the display status to the API format
       const statusMap = {
         'Active': 'active',
@@ -416,13 +428,13 @@ const UserManagement = () => {
     setRoleModalVisible(false);
     setCurrentPage(1);
     setHasMoreData(true);
-    // fetchUsers will be called automatically due to roles dependency
+    // Explicitly fetch users with the new role filters
+    fetchUsers(true, 1, false);
   };
 
   // Function to handle loading more data when reaching end of list
   const handleLoadMore = () => {
     if (!loadingMore && hasMoreData && !refreshing && !loading) {
-      console.log('Loading more users, page:', currentPage + 1);
       // Pass false for showLoading to avoid displaying skeleton loaders again
       fetchUsers(false, currentPage + 1, true);
     }

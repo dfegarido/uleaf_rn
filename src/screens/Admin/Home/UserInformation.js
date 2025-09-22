@@ -7,6 +7,7 @@ import CheckedBoxIcon from '../../../assets/admin-icons/checked-box.svg';
 import PhFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import UsFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 import { API_ENDPOINTS, API_CONFIG } from '../../../config/apiConfig';
 import { deleteUserApi } from '../../../components/Api/deleteUserApi';
@@ -23,8 +24,9 @@ const UserInformation = () => {
   const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   
-  // Available countries
+  // Available countries (Buyers are US only)
   const countries = [
+    { code: 'US', name: 'United States' },
     { code: 'PH', name: 'Philippines' },
     { code: 'TH', name: 'Thailand' },
     { code: 'ID', name: 'Indonesia' }
@@ -67,6 +69,7 @@ const UserInformation = () => {
     if (!countryName) return '';
     
     const nameToCodeMap = {
+      'United States': 'US',
       'Philippines': 'PH',
       'Thailand': 'TH',
       'Indonesia': 'ID'
@@ -86,6 +89,7 @@ const UserInformation = () => {
     if (!countryCode) return '';
     
     const countryMap = {
+      'US': 'United States',
       'PH': 'Philippines',
       'TH': 'Thailand',
       'ID': 'Indonesia'
@@ -121,13 +125,13 @@ const UserInformation = () => {
       const countryName = getFullCountryName(user.country) || '';
 
       console.log('Setting initial fields:', { 
-        country: countryName || 'Philippines', 
-        countryCode: countryCode || 'PH' 
+        country: countryName || 'United States', 
+        countryCode: countryCode || 'US' 
       });
 
       setEditableFields({
-        country: countryName || 'Philippines',
-        countryCode: countryCode || 'PH',
+        country: countryName || 'United States',
+        countryCode: countryCode || 'US',
         gardenOrCompanyName: user.gardenOrCompanyName || '',
         firstName: firstName || '',
         lastName: lastName || '',
@@ -442,23 +446,25 @@ const UserInformation = () => {
                 onPress={() => setIsCountryModalVisible(true)}
               >
                 <View style={styles.countryFlagContainer}>
+                  {getCountryCodeFromName(editableFields.country) === 'US' && <UsFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
                   <Text style={{ color: editableFields.country ? '#1F2937' : '#9CA3AF', marginLeft: 8 }}>
-                    {editableFields.country || 'Philippines'}
+                    {editableFields.country || 'Select Country'}
                   </Text>
                 </View>
               </TouchableOpacity>
             ) : (
               <View style={styles.dropdownContainer}>
                 <View style={styles.countryFlagContainer}>
+                  {getCountryCodeFromName(editableFields.country) === 'US' && <UsFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
-                  <Text style={styles.dropdownText}>{editableFields.country || 'Philippines'}</Text>
+                  <Text style={styles.dropdownText}>{editableFields.country || 'Select Country'}</Text>
                 </View>
-                <Text style={styles.dropdownIcon}>▼</Text>
+                
               </View>
             )}
           </View>
@@ -604,6 +610,7 @@ const UserInformation = () => {
                   onPress={() => handleCountrySelect(country)}
                 >
                   <View style={styles.countryFlagContainer}>
+                    {country.code === 'US' && <UsFlag width={24} height={24} />}
                     {country.code === 'PH' && <PhFlag width={24} height={24} />}
                     {country.code === 'TH' && <ThFlag width={24} height={24} />}
                     {country.code === 'ID' && <IdFlag width={24} height={24} />}

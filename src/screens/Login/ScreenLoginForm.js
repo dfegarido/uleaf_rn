@@ -10,6 +10,8 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {
@@ -19,7 +21,7 @@ import {
 import {getApp} from '@react-native-firebase/app';
 import {getAuth, signInWithEmailAndPassword} from '@react-native-firebase/auth';
 import {postSellerAfterSignInApi, postAdminAfterSignInApi} from '../../components/Api';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useHeaderHeight} from '@react-navigation/elements';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
@@ -33,11 +35,10 @@ const screenHeight = Dimensions.get('window').height;
 const ScreenLoginForm = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const adjustedHeight =
-    screenHeight - insets.top - insets.bottom - headerHeight;
-
-  // Calculate proper bottom padding for safe area
-  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  
+  // Simplified safe area calculation for Nokia devices
+  const safeBottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 16) : insets.bottom;
+  const safeTopPadding = Platform.OS === 'android' ? Math.max(insets.top, 8) : insets.top;
 
   const [formData, setFormData] = useState({
     email: '',
@@ -133,138 +134,185 @@ const ScreenLoginForm = ({navigation}) => {
   };
 
   return (
-    <ScrollView>
-      <View
-        style={[
-          styles.mainContent,
-          {height: adjustedHeight, width: screenWidth},
-        ]}>
-        {loading && (
-          <Modal transparent animationType="fade">
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#699E73" />
-            </View>
-          </Modal>
-        )}
+    <SafeAreaView style={styles.safeContainer}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+        >
+          {loading && (
+            <Modal transparent animationType="fade">
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#699E73" />
+              </View>
+            </Modal>
+          )}
 
-        <View style={styles.mainContainer}>
-          <Text style={[globalStyles.title]}>Welcome back!</Text>
-          <Text style={[globalStyles.textXXLGreyDark, styles.subtTitle]}>
-            Log in to your account
-          </Text>
-
-          <View style={{paddingTop: 30}}>
-            <InputGroupLeftIcon
-              IconLeftComponent={EmailIcon}
-              placeholder={'Email'}
-              value={formData.email}
-              onChangeText={text => setFormData({...formData, email: text})}
-            />
-            {validateErrors.email && (
-              <Text style={globalStyles.textXSRed}>{validateErrors.email}</Text>
-            )}
-          </View>
-
-          <View style={{paddingTop: 30}}>
-            <InputPasswordLeftIcon
-              IconLeftComponent={PasswordIcon}
-              value={formData.password}
-              onChangeText={text => setFormData({...formData, password: text})}
-              secureTextEntry={!showPassword}
-              rightIcon={showPassword ? <EyeOpenIcon width={20} height={20} /> : <EyeClosedIcon width={20} height={20} />}
-              onRightIconPress={() => setShowPassword(!showPassword)}
-            />
-            {validateErrors.password && (
-              <Text style={globalStyles.textXSRed}>
-                {validateErrors.password}
+          <View style={styles.mainContainer}>
+            <View style={styles.headerSection}>
+              <Text style={[globalStyles.title]}>Welcome back!</Text>
+              <Text style={[globalStyles.textXXLGreyDark, styles.subtTitle]}>
+                Log in to your account
               </Text>
-            )}
-          </View>
-
-          <View style={{paddingTop: 20}}>
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={styles.forgotPasswordContainer}>
-              <Text style={[globalStyles.textLGAccent, styles.forgotPasswordText]}>
-                Forgot password?
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.buttonContainer, {marginBottom: safeBottomPadding + 20}]}>
-            <View style={styles.loginAccountContainer}>
-              <Text style={{color: '#000', textAlign: 'center'}}>
-                By clicking login, you agree to the ileafU's{' '}
-              </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('ScreenTerms')}>
-                <Text style={{color: '#699E73'}}>Terms & Conditions</Text>
-              </TouchableOpacity>
-              <Text style={{color: '#000'}}> and </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('ScreenPrivacy')}>
-                <Text style={{color: '#699E73'}}>Privacy Policy</Text>
-              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={globalStyles.primaryButton}
-              onPress={handlePressLogin}>
-              <Text style={globalStyles.primaryButtonText}>Login</Text>
-            </TouchableOpacity>
+            <View style={styles.formSection}>
+              <View style={styles.inputContainer}>
+                <InputGroupLeftIcon
+                  IconLeftComponent={EmailIcon}
+                  placeholder={'Email'}
+                  value={formData.email}
+                  onChangeText={text => setFormData({...formData, email: text})}
+                />
+                {validateErrors.email && (
+                  <Text style={globalStyles.textXSRed}>{validateErrors.email}</Text>
+                )}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <InputPasswordLeftIcon
+                  IconLeftComponent={PasswordIcon}
+                  value={formData.password}
+                  onChangeText={text => setFormData({...formData, password: text})}
+                  secureTextEntry={!showPassword}
+                  rightIcon={showPassword ? <EyeOpenIcon width={20} height={20} /> : <EyeClosedIcon width={20} height={20} />}
+                  onRightIconPress={() => setShowPassword(!showPassword)}
+                />
+                {validateErrors.password && (
+                  <Text style={globalStyles.textXSRed}>
+                    {validateErrors.password}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.forgotPasswordContainer}>
+                <TouchableOpacity 
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                  style={styles.forgotPasswordButton}>
+                  <Text style={[globalStyles.textLGAccent, styles.forgotPasswordText]}>
+                    Forgot password?
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.bottomSection}>
+              <View style={styles.termsContainer}>
+                <Text style={styles.termsText}>
+                  By clicking login, you agree to the ileafU's{' '}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('ScreenTerms')}>
+                  <Text style={styles.linkText}>Terms & Conditions</Text>
+                </TouchableOpacity>
+                <Text style={styles.termsText}> and </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('ScreenPrivacy')}>
+                  <Text style={styles.linkText}>Privacy Policy</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={globalStyles.primaryButton}
+                onPress={handlePressLogin}>
+                <Text style={globalStyles.primaryButtonText}>Login</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </View>
-    </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  mainContent: {
+  safeContainer: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40, // Fixed bottom padding
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-    margin: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    justifyContent: 'space-between',
+    minHeight: screenHeight * 0.8, // Minimum height for Nokia devices
+  },
+  headerSection: {
+    paddingBottom: 20,
   },
   subtTitle: {
     paddingTop: 10,
+    marginBottom: 20,
   },
-  buttonContainer: {
+  formSection: {
     flex: 1,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    // marginBottom handled dynamically based on safe area
-    marginHorizontal: 10,
+    justifyContent: 'flex-start',
+    maxHeight: screenHeight * 0.5, // Limit form section height
   },
-  loginAccountContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 10,
-  },
-  loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  inputContainer: {
+    marginBottom: 24,
   },
   forgotPasswordContainer: {
-    alignSelf: 'flex-end',
+    alignItems: 'flex-end',
+    marginTop: 8,
+    marginBottom: 32,
+  },
+  forgotPasswordButton: {
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
   forgotPasswordText: {
     textAlign: 'right',
     textDecorationLine: 'underline',
+  },
+  bottomSection: {
+    marginTop: 'auto',
+    paddingTop: 20,
+    paddingBottom: 20,
+    backgroundColor: '#fff', // Ensure visibility above keyboard
+  },
+  termsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  termsText: {
+    color: '#000',
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  linkText: {
+    color: '#699E73',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
