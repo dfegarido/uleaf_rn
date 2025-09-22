@@ -143,7 +143,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const limit = 20; // Standardized to 20 per requirement
+  const limit = 10; // Standardized to 20 per requirement
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
