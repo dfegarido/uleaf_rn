@@ -93,10 +93,11 @@ const AddTaxonomy = () => {
 
       if (response.success) {
         console.log('✅ Taxonomy created successfully:', response.data);
+        console.log('✅ Full API response:', response);
         
         Alert.alert(
           'Success', 
-          `Taxonomy "${genusName}" with ${speciesList.length} species created successfully!`,
+          response.message || `Taxonomy "${genusName}" with ${speciesList.length} species created successfully!`,
           [
             { 
               text: 'OK', 

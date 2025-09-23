@@ -7,9 +7,11 @@ import {
   TextInput,
   ScrollView,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { updatePlantTaxonomyApi } from '../../../auth/updatePlantTaxonomyApi';
 
 // Import icons
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -21,7 +23,7 @@ const EditSpecieScreen = () => {
   const insets = useSafeAreaInsets();
   
   // Get the specie data passed from the previous screen
-  const { specieData = {} } = route.params || {};
+  const { specieData = {}, genusId, genusName } = route.params || {};
   
   console.log('Received specieData:', specieData); // Debug log
   
@@ -34,17 +36,42 @@ const EditSpecieScreen = () => {
     navigation.goBack();
   };
 
-  const handleSave = () => {
-    const updatedSpecie = {
-      ...specieData,
-      name: specieName,
-      variegation,
-      shipping: shippingIndex,
-      acclimation: acclimationIndex,
+  const handleSave = async () => {
+    if (!specieName.trim()) {
+      Alert.alert('Error', 'Please enter a species name');
+      return;
+    }
+    if (!genusId || !specieData?.id) {
+      Alert.alert('Error', 'Missing genus or species identifier');
+      return;
+    }
+
+    const payload = {
+      genusId,
+      adminId: 'admin_temp', // TODO: wire from auth context
+      species: [{
+        id: specieData.id,
+        name: specieName.trim(),
+        variegation: variegation || '',
+        shippingIndex: shippingIndex || '',
+        acclimationIndex: acclimationIndex || '',
+        action: 'update'
+      }]
     };
-    console.log('Saving updated specie:', updatedSpecie);
-    // TODO: Save the updated specie data
-    navigation.goBack();
+
+    try {
+      const resp = await updatePlantTaxonomyApi(payload);
+      if (resp?.success) {
+        Alert.alert('Success', 'Species updated successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        Alert.alert('Error', resp?.error || 'Failed to update species');
+      }
+    } catch (e) {
+      console.error('❌ update species error', e);
+      Alert.alert('Error', 'Failed to update species');
+    }
   };
 
   return (

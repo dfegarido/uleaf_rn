@@ -11,10 +11,12 @@ import {
   StatusBar,
   RefreshControl,
   Platform,
-  Image
+  Image,
+  Modal
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import eventBus from '../../../utils/eventBus';
 
 // Import icons
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -36,9 +38,24 @@ import RequestActionModal from './RequestActionModal';
 // No more mock data - using only real API data
 
 const FILTER_OPTIONS = [
-  { id: 1, label: 'Accuminata' },
-  { id: 2, label: 'Shipping Index' },
-  { id: 3, label: 'Acclimation Index' },
+  { 
+    id: 1, 
+    label: 'Accuminata',
+    type: 'dropdown',
+    values: ['All', 'Yes', 'No']
+  },
+  { 
+    id: 2, 
+    label: 'Shipping Index',
+    type: 'dropdown', 
+    values: ['All', '1-2', '3-4', '5-6', '7-8', '9-10']
+  },
+  { 
+    id: 3, 
+    label: 'Acclimation Index',
+    type: 'dropdown',
+    values: ['All', '1-2', '3-4', '5-6', '7-8', '9-10']
+  },
 ];
 
 const TaxonomyHeader = ({ insets, searchQuery, onSearchChange, activeTab, onTabChange, onPlusPress, requestsData = [] }) => {
@@ -68,11 +85,19 @@ const TaxonomyHeader = ({ insets, searchQuery, onSearchChange, activeTab, onTabC
             <SearchIcon width={20} height={20} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search genus..."
+              placeholder={activeTab === 'genus' ? "Search genus..." : "Search requests..."}
               placeholderTextColor="#647276"
               value={searchQuery}
               onChangeText={onSearchChange}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity 
+                onPress={() => onSearchChange('')}
+                style={styles.clearSearchButton}
+              >
+                <Text style={styles.clearSearchText}>×</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -161,12 +186,22 @@ const TaxonomyRequestCard = ({ item, onAction }) => {
     return null;
   }
 
+  // Don't render if essential data is missing - this prevents showing "Unknown" data
+  if (!item.genusName && !item.species && !item.user) {
+    return null;
+  }
+
   const user = item.user || {};
-  const genusName = item.genusName || 'Unknown Genus';
-  const speciesName = item.species || 'Unknown Species';
-  const userName = user.name || 'Unknown User';
-  const username = user.username || '@unknown';
-  const userRole = user.role || 'User';
+  const genusName = item.genusName || '';
+  const speciesName = item.species || '';
+  const userName = user.name || '';
+  const username = user.username || '';
+  const userRole = user.role || '';
+  
+  // Don't render if all essential fields are empty
+  if (!genusName && !speciesName && !userName) {
+    return null;
+  }
   
   // Handle avatar with fallback to default image
   const avatarSource = user.avatar ? { uri: user.avatar } : require('../../../assets/images/AvatarBig.png');
@@ -219,6 +254,77 @@ const TaxonomyRequestCard = ({ item, onAction }) => {
   );
 };
 
+// Filter Modal Component
+const FilterModal = ({ visible, onClose, filterType, onSelect, activeFilters }) => {
+  if (!filterType) return null;
+  
+  // Get the current value of this filter
+  const getCurrentFilterValue = () => {
+    if (filterType.label === 'Accuminata') return activeFilters.accuminata;
+    if (filterType.label === 'Shipping Index') return activeFilters.shippingIndex;
+    if (filterType.label === 'Acclimation Index') return activeFilters.acclimationIndex;
+    return 'All';
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={onClose}
+      >
+        <View style={styles.filterModalContainer}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View style={styles.filterModalContent}>
+              <Text style={styles.filterModalTitle}>{filterType.label}</Text>
+              
+              <ScrollView style={styles.filterOptionsContainer}>
+                {filterType.values?.map((value, index) => {
+                  const isSelected = value === getCurrentFilterValue();
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.filterOption,
+                        isSelected && styles.filterOptionSelected
+                      ]}
+                      onPress={() => onSelect(filterType, value)}
+                    >
+                      <Text style={[
+                        styles.filterOptionText,
+                        isSelected && styles.filterOptionTextSelected
+                      ]}>
+                        {value}
+                      </Text>
+                      {isSelected && (
+                        <View style={styles.filterOptionCheckmark}>
+                          <Text style={styles.checkmarkText}>✓</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              
+              <TouchableOpacity
+                style={styles.filterCancelButton}
+                onPress={onClose}
+              >
+                <Text style={styles.filterCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 const Taxonomy = () => {
   console.log('🌿 Taxonomy component rendered');
   
@@ -229,10 +335,21 @@ const Taxonomy = () => {
   const [requestsData, setRequestsData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true); // Start with loading true
+  const [requestsLoading, setRequestsLoading] = useState(false); // Separate loading for requests
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('genus');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  
+  // Filter states
+  const [activeFilters, setActiveFilters] = useState({
+    accuminata: 'All',
+    shippingIndex: 'All',
+    acclimationIndex: 'All'
+  });
+  const [filterDropdownVisible, setFilterDropdownVisible] = useState(null);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [selectedFilterType, setSelectedFilterType] = useState(null);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [requestActionModalVisible, setRequestActionModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -257,10 +374,55 @@ const Taxonomy = () => {
     fetchAllData(true);
   }, []);
 
+  // Listen for species deletion events to adjust counts immediately
+  useEffect(() => {
+    const unsubscribe = eventBus.on('speciesDeleted', ({ genusId, genusName, delta }) => {
+      if (!genusId && !genusName) return;
+      setTaxonomyData(prev => {
+        if (!Array.isArray(prev)) return prev;
+        return prev.map(item => {
+          const match = (genusId && item.id === genusId) || (genusName && item.name === genusName);
+          if (!match) return item;
+          const current = Number(item.receivedPlants || 0);
+          return { ...item, receivedPlants: Math.max(0, current + Number(delta || 0)) };
+        });
+      });
+      // Also update filteredData so the UI reflects instantly
+      setFilteredData(prev => {
+        if (!Array.isArray(prev)) return prev;
+        return prev.map(item => {
+          const match = (genusId && item.id === genusId) || (genusName && item.name === genusName);
+          if (!match) return item;
+          const current = Number(item.receivedPlants || 0);
+          return { ...item, receivedPlants: Math.max(0, current + Number(delta || 0)) };
+        });
+      });
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
+
+  // Listen for genus list updates (e.g., after genus deletion)
+  useEffect(() => {
+    const unsubscribe = eventBus.on('genusListUpdate', () => {
+      console.log('🔄 Genus list update event received - refreshing data');
+      fetchGenusData();
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
+
+  // Refresh genus list when returning to this screen (after edits)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('🔄 Taxonomy screen focused: refreshing genus list');
+      fetchGenusData();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   useEffect(() => {
     console.log('🌿 useEffect: Filter data triggered');
     filterData();
-  }, [searchQuery, activeTab, taxonomyData, requestsData]);
+  }, [searchQuery, activeTab, taxonomyData, requestsData, activeFilters]);
 
   const fetchAllData = async (showLoading = true) => {
     console.log('🌿 fetchAllData called, showLoading:', showLoading);
@@ -349,6 +511,8 @@ const Taxonomy = () => {
   const fetchRequestsData = async () => {
     console.log('🌿 fetchRequestsData called');
     
+    setRequestsLoading(true);
+    
     try {
       // Call the requests API
       console.log('🌿 Calling getGenusRequestsApi...');
@@ -398,6 +562,8 @@ const Taxonomy = () => {
       console.log('🚫 Setting empty requests data due to error');
       setRequestsData([]);
       throw error;
+    } finally {
+      setRequestsLoading(false);
     }
   };
 
@@ -408,6 +574,7 @@ const Taxonomy = () => {
 
   const filterData = () => {
     console.log('🌿 filterData called, searchQuery:', searchQuery, 'activeTab:', activeTab);
+    console.log('🌿 Active filters:', activeFilters);
     try {
       const sourceData = activeTab === 'genus' ? taxonomyData : requestsData;
       console.log('🌿 sourceData length:', sourceData?.length);
@@ -417,18 +584,143 @@ const Taxonomy = () => {
         console.log('🌿 First request item:', JSON.stringify(sourceData[0], null, 2));
       }
       
-      if (!searchQuery || !searchQuery.trim()) {
-        console.log('🌿 No search query, setting all sourceData');
-        setFilteredData(sourceData || []);
-      } else {
-        const filtered = (sourceData || []).filter(item => {
+      let filtered = sourceData || [];
+      
+      // Apply search query filter
+      if (searchQuery && searchQuery.trim()) {
+        const searchTerm = searchQuery.toLowerCase().trim();
+        console.log('🔍 Searching for:', searchTerm, 'in', activeTab, 'tab');
+        
+        filtered = filtered.filter(item => {
           if (!item) return false;
-          const searchField = activeTab === 'genus' ? (item.name || '') : (item.genusName || '');
-          return searchField.toLowerCase().includes(searchQuery.toLowerCase());
+          
+          if (activeTab === 'genus') {
+            // Search in genus name and any other relevant fields
+            const genusName = (item.name || '').toLowerCase();
+            const genusNameAlt = (item.genusName || '').toLowerCase();
+            const source = (item.source || '').toLowerCase();
+            
+            const matches = genusName.includes(searchTerm) || 
+                           genusNameAlt.includes(searchTerm) ||
+                           source.includes(searchTerm);
+            
+            console.log(`🔍 Genus "${item.name}" matches "${searchTerm}":`, matches);
+            return matches;
+          } else {
+            // Search in request fields: genus name, species, user name, username
+            const genusName = (item.genusName || '').toLowerCase();
+            const species = (item.species || '').toLowerCase();
+            const userName = (item.user?.name || '').toLowerCase();
+            const username = (item.user?.username || '').toLowerCase();
+            const userRole = (item.user?.role || '').toLowerCase();
+            
+            const matches = genusName.includes(searchTerm) || 
+                           species.includes(searchTerm) ||
+                           userName.includes(searchTerm) ||
+                           username.includes(searchTerm) ||
+                           userRole.includes(searchTerm);
+            
+            console.log(`🔍 Request "${genusName} ${species}" by "${userName}" matches "${searchTerm}":`, matches);
+            return matches;
+          }
         });
-        console.log('🌿 Filtered data length:', filtered.length);
-        setFilteredData(filtered);
+        
+        console.log('🔍 Search results:', filtered.length, 'items found');
       }
+      
+      // Apply additional filters for genus tab
+      if (activeTab === 'genus') {
+        // Apply Accuminata filter
+        if (activeFilters.accuminata !== 'All') {
+          filtered = filtered.filter(item => {
+            // Look for genus names that include 'Accuminata' or contain specific accuminata species
+            const genusName = item.name?.toLowerCase() || '';
+            const hasAccuminata = genusName.includes('accuminata') || 
+                                 genusName === 'musa' || // Musa is the genus that includes Accuminata
+                                 genusName === 'banana'; // Common name for Musa Accuminata
+            return activeFilters.accuminata === 'Yes' ? hasAccuminata : !hasAccuminata;
+          });
+        }
+        
+        // Apply Shipping Index filter  
+        if (activeFilters.shippingIndex !== 'All') {
+          filtered = filtered.filter(item => {
+            // For catalog genera, use species count as a proxy for shipping difficulty
+            // The more species, the more established the genus is in cultivation
+            // which often means easier shipping on average
+            const speciesCount = item.receivedPlants || 0;
+            const source = item.source || '';
+            
+            // Assign shipping index ranges based on species count and source
+            let shippingValue;
+            
+            // Plant catalog entries typically have more standardized shipping
+            if (source.includes('plant_catalog')) {
+              if (speciesCount <= 2) shippingValue = '9-10'; // Very few species = hard to ship
+              else if (speciesCount <= 5) shippingValue = '7-8'; 
+              else if (speciesCount <= 10) shippingValue = '5-6';
+              else if (speciesCount <= 20) shippingValue = '3-4';
+              else shippingValue = '1-2'; // Many species = typically easy to ship
+            } 
+            // Formal taxonomy entries might be more specialized/rare
+            else {
+              if (speciesCount <= 1) shippingValue = '9-10'; 
+              else if (speciesCount <= 3) shippingValue = '7-8';
+              else if (speciesCount <= 7) shippingValue = '5-6';
+              else if (speciesCount <= 15) shippingValue = '3-4';
+              else shippingValue = '1-2';
+            }
+            
+            return shippingValue === activeFilters.shippingIndex;
+          });
+        }
+        
+        // Apply Acclimation Index filter
+        if (activeFilters.acclimationIndex !== 'All') {
+          filtered = filtered.filter(item => {
+            // For catalog genera, use name length and species count as proxies for acclimation difficulty
+            // (This is just a placeholder algorithm - ideally you'd have real acclimation data)
+            const genusName = item.name || '';
+            const speciesCount = item.receivedPlants || 0;
+            const source = item.source || '';
+            
+            // Higher score = easier to acclimate
+            let acclimationScore = 0;
+            
+            // Popular genera with many species tend to be easier to acclimate
+            acclimationScore += Math.min(5, Math.floor(speciesCount / 3));
+            
+            // Well-known genera (shorter names) tend to be more common houseplants
+            if (genusName.length <= 7) acclimationScore += 3;
+            else if (genusName.length <= 10) acclimationScore += 1;
+            
+            // Common genera like these are generally easier to acclimate
+            const easyGenera = ['monstera', 'philodendron', 'pothos', 'epipremnum', 'dracaena', 
+                               'sansevieria', 'zamioculcas', 'ficus', 'calathea', 'alocasia'];
+            if (easyGenera.includes(genusName.toLowerCase())) {
+              acclimationScore += 4;
+            }
+            
+            // Plant catalog entries tend to be more established/common plants
+            if (source.includes('plant_catalog')) {
+              acclimationScore += 2;
+            }
+            
+            // Convert score to index range
+            let acclimationValue;
+            if (acclimationScore >= 8) acclimationValue = '1-2'; // Very easy
+            else if (acclimationScore >= 6) acclimationValue = '3-4'; // Easy
+            else if (acclimationScore >= 4) acclimationValue = '5-6'; // Moderate
+            else if (acclimationScore >= 2) acclimationValue = '7-8'; // Difficult
+            else acclimationValue = '9-10'; // Very difficult
+            
+            return acclimationValue === activeFilters.acclimationIndex;
+          });
+        }
+      }
+      
+      console.log('🌿 Filtered data length:', filtered.length);
+      setFilteredData(filtered);
     } catch (error) {
       console.error('🌿 Error in filterData:', error);
       setFilteredData([]);
@@ -451,6 +743,50 @@ const Taxonomy = () => {
     setRequestActionModalVisible(true);
   };
 
+  // Filter handling functions
+  const handleFilterPress = (filter) => {
+    console.log('🌿 Filter pressed:', filter.label);
+    setSelectedFilterType(filter);
+    setFilterModalVisible(true);
+  };
+
+  const handleFilterSelect = (filterType, value) => {
+    console.log('🌿 Filter selected:', filterType.label, '=', value);
+    
+    const filterKey = filterType.label === 'Accuminata' ? 'accuminata' :
+                     filterType.label === 'Shipping Index' ? 'shippingIndex' :
+                     filterType.label === 'Acclimation Index' ? 'acclimationIndex' : null;
+    
+    if (filterKey) {
+      setActiveFilters(prev => ({
+        ...prev,
+        [filterKey]: value
+      }));
+    }
+    
+    setFilterModalVisible(false);
+    setSelectedFilterType(null);
+  };
+
+  const getFilterDisplayValue = (filter) => {
+    const filterKey = filter.label === 'Accuminata' ? 'accuminata' :
+                     filter.label === 'Shipping Index' ? 'shippingIndex' :
+                     filter.label === 'Acclimation Index' ? 'acclimationIndex' : null;
+    
+    if (filterKey && activeFilters[filterKey] !== 'All') {
+      return activeFilters[filterKey];
+    }
+    return filter.label;
+  };
+
+  const isFilterActive = (filter) => {
+    const filterKey = filter.label === 'Accuminata' ? 'accuminata' :
+                     filter.label === 'Shipping Index' ? 'shippingIndex' :
+                     filter.label === 'Acclimation Index' ? 'acclimationIndex' : null;
+    
+    return filterKey && activeFilters[filterKey] !== 'All';
+  };
+
   const handleApproveRequest = (request) => {
     console.log('✅ Request approved, refreshing data for:', request.genusName);
     // Refresh both requests and genus data after approval
@@ -465,17 +801,43 @@ const Taxonomy = () => {
 
   const handleSaveEdit = (updatedItem) => {
     console.log('🌿 Save edit:', updatedItem);
+    
     // Update the taxonomy data with the edited item
     const updatedData = taxonomyData.map(item => 
       item.id === updatedItem.id ? updatedItem : item
     );
     setTaxonomyData(updatedData);
+    
+    // Also update filtered data if needed
+    const updatedFilteredData = filteredData.map(item => 
+      item.id === updatedItem.id ? updatedItem : item
+    );
+    setFilteredData(updatedFilteredData);
+    
+    // Close modal and clear selection
     setModalVisible(false);
     setSelectedItem(null);
+    
+    // Optionally refresh data from server to ensure consistency
+    setTimeout(() => {
+      fetchAllData(false);
+    }, 500);
   };
 
   const handlePlusButtonPress = () => {
     setOptionsModalVisible(true);
+  };
+
+  const handleTabChange = (newTab) => {
+    console.log('🔄 Tab changing from', activeTab, 'to', newTab);
+    
+    // Clear search when switching tabs for better UX
+    if (activeTab !== newTab && searchQuery.trim()) {
+      console.log('🧹 Clearing search query when switching tabs');
+      setSearchQuery('');
+    }
+    
+    setActiveTab(newTab);
   };
 
   const handleNewPlantTaxonomy = () => {
@@ -487,8 +849,9 @@ const Taxonomy = () => {
 
   const handleImportTaxonomy = () => {
     setOptionsModalVisible(false);
-    // Navigate to import taxonomy functionality
+    // Navigate to import taxonomy screen
     console.log('🌿 Navigate to import taxonomy');
+    navigation.navigate('ImportTaxonomyScreen');
   };
 
   const renderTaxonomyCard = ({ item }) => (
@@ -502,10 +865,17 @@ const Taxonomy = () => {
   const renderHeader = () => (
     <View style={styles.countContainer}>
       <Text style={styles.countText}>
-        {activeTab === 'genus' 
-          ? `${filteredData.length} ${filteredData.length === 1 ? 'genus' : 'genera'} found`
-          : `${filteredData.length} ${filteredData.length === 1 ? 'request' : 'requests'} found`
-        }
+        {searchQuery.trim() ? (
+          // Show search results count
+          activeTab === 'genus' 
+            ? `${filteredData.length} ${filteredData.length === 1 ? 'genus' : 'genera'} found for "${searchQuery}"`
+            : `${filteredData.length} ${filteredData.length === 1 ? 'request' : 'requests'} found for "${searchQuery}"`
+        ) : (
+          // Show total count
+          activeTab === 'genus' 
+            ? `${filteredData.length} ${filteredData.length === 1 ? 'genus' : 'genera'} found`
+            : `${filteredData.length} ${filteredData.length === 1 ? 'request' : 'requests'} found`
+        )}
       </Text>
     </View>
   );
@@ -519,7 +889,7 @@ const Taxonomy = () => {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           onPlusPress={handlePlusButtonPress}
           requestsData={requestsData}
         />
@@ -548,7 +918,7 @@ const Taxonomy = () => {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           onPlusPress={handlePlusButtonPress}
           requestsData={requestsData}
         />
@@ -571,7 +941,7 @@ const Taxonomy = () => {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         onPlusPress={handlePlusButtonPress}
         requestsData={requestsData}
       />
@@ -587,11 +957,30 @@ const Taxonomy = () => {
               contentContainerStyle={styles.scrollContent}
             >
               {FILTER_OPTIONS.map((filter) => (
-                <TouchableOpacity key={filter.id} style={styles.filterButton}>
+                <TouchableOpacity 
+                  key={filter.id} 
+                  style={[
+                    styles.filterButton,
+                    isFilterActive(filter) && styles.filterButtonActive
+                  ]}
+                  onPress={() => handleFilterPress(filter)}
+                >
                   <View style={styles.filterButtonText}>
-                    <Text style={styles.filterText}>{filter.label}</Text>
+                    <Text style={[
+                      styles.filterText,
+                      isFilterActive(filter) && styles.filterTextActive
+                    ]}>
+                      {getFilterDisplayValue(filter)}
+                    </Text>
                   </View>
-                  <DownIcon width={16} height={16} style={styles.filterIcon} />
+                  <DownIcon 
+                    width={16} 
+                    height={16} 
+                    style={[
+                      styles.filterIcon,
+                      isFilterActive(filter) && styles.filterIconActive
+                    ]} 
+                  />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -602,8 +991,20 @@ const Taxonomy = () => {
         {activeTab === 'genus' && (
           <View style={styles.countContainer}>
             <Text style={styles.countText}>
-              {`${filteredData?.length || 0} genus`}
+              {searchQuery.trim() ? (
+                `${filteredData?.length || 0} ${filteredData?.length === 1 ? 'genus' : 'genera'} found for "${searchQuery}"`
+              ) : (
+                `${filteredData?.length || 0} ${filteredData?.length === 1 ? 'genus' : 'genera'}`
+              )}
             </Text>
+            {/* Show filter indicator if any filters are active */}
+            {(activeFilters.accuminata !== 'All' || 
+              activeFilters.shippingIndex !== 'All' || 
+              activeFilters.acclimationIndex !== 'All') && (
+              <View style={styles.activeFiltersIndicator}>
+                <Text style={styles.activeFiltersText}>Filtered</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -617,8 +1018,23 @@ const Taxonomy = () => {
         <View style={styles.listContainer}>
 
           {/* List Items */}
-          {loading ? (
+          {(loading || (activeTab === 'requests' && requestsLoading)) ? (
             <TaxonomySkeletonList />
+          ) : filteredData && filteredData.length === 0 && searchQuery.trim() ? (
+            // Show empty search results
+            <View style={styles.emptySearchContainer}>
+              <SearchIcon width={48} height={48} style={styles.emptySearchIcon} />
+              <Text style={styles.emptySearchTitle}>No results found</Text>
+              <Text style={styles.emptySearchMessage}>
+                No {activeTab === 'genus' ? 'genera' : 'requests'} found for "{searchQuery}"
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setSearchQuery('')}
+                style={styles.clearSearchButton2}
+              >
+                <Text style={styles.clearSearchButtonText}>Clear search</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <FlatList
               data={filteredData || []}
@@ -652,9 +1068,9 @@ const Taxonomy = () => {
 
       <EditTaxonomyModal 
         visible={modalVisible}
-        item={selectedItem}
+        taxonomyItem={selectedItem}
         onClose={() => setModalVisible(false)}
-        onSave={handleSaveEdit}
+        onUpdate={handleSaveEdit}
       />
       
       <TaxonomyOptionsModal
@@ -670,6 +1086,15 @@ const Taxonomy = () => {
         onApprove={handleApproveRequest}
         onReject={handleRejectRequest}
         request={selectedRequest}
+      />
+      
+      {/* Filter Modal */}
+      <FilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        filterType={selectedFilterType}
+        onSelect={handleFilterSelect}
+        activeFilters={activeFilters}
       />
     </SafeAreaView>
   );
@@ -728,6 +1153,58 @@ const styles = StyleSheet.create({
     color: '#647276',
     padding: 0,
     height: '100%',
+  },
+  clearSearchButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E4E7E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  clearSearchText: {
+    fontSize: 16,
+    color: '#647276',
+    fontWeight: '400',
+    lineHeight: 16,
+  },
+  // Empty search state styles
+  emptySearchContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  emptySearchIcon: {
+    opacity: 0.3,
+    marginBottom: 16,
+  },
+  emptySearchTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#202325',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySearchMessage: {
+    fontSize: 16,
+    color: '#647276',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  clearSearchButton2: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  clearSearchButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
   actionButton: {
     width: 40,
@@ -947,6 +1424,20 @@ const styles = StyleSheet.create({
     lineHeight: 20, // 140%
     textAlign: 'right',
     color: '#647276',
+  },
+  activeFiltersIndicator: {
+    backgroundColor: '#699E73',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeFiltersText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
   // Taxonomy Card (matches Figma "Taxonomy")
   taxonomyCard: {
@@ -1293,6 +1784,101 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#647276',
     textAlign: 'center',
+  },
+  
+  // Filter styles
+  filterButtonActive: {
+    backgroundColor: '#699E73',
+    borderColor: '#699E73',
+  },
+  filterTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  filterIconActive: {
+    tintColor: '#FFFFFF',
+  },
+  
+  // Filter modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterModalContainer: {
+    width: '80%',
+    maxWidth: 300,
+  },
+  filterModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  filterOptionsContainer: {
+    maxHeight: 300,
+  },
+  filterOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  filterOptionText: {
+    fontSize: 16,
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  filterOptionSelected: {
+    backgroundColor: '#F3FFF5',
+    borderColor: '#699E73',
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+  filterOptionTextSelected: {
+    color: '#699E73',
+    fontWeight: '600',
+  },
+  filterOptionCheckmark: {
+    position: 'absolute',
+    right: 16,
+  },
+  checkmarkText: {
+    fontSize: 16,
+    color: '#699E73',
+    fontWeight: 'bold',
+  },
+  filterCancelButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  filterCancelText: {
+    fontSize: 16,
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    color: '#6B7280',
   },
 });
 

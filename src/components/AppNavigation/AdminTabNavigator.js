@@ -39,6 +39,7 @@ import EditTaxonomy from '../../screens/Admin/Taxonomy/EditTaxonomy';
 import EditSpecieScreen from '../../screens/Admin/Taxonomy/EditSpecieScreen';
 import AddToTaxonomyScreen from '../../screens/Admin/Taxonomy/AddToTaxonomyScreen';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
+import ImportTaxonomyScreen from '../../screens/Admin/Taxonomy/ImportTaxonomyScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 const Tab = createBottomTabNavigator();
@@ -173,6 +174,7 @@ function AdminTabs() {
       <Stack.Screen name="EditSpecieScreen" options={{headerShown: false}} component={EditSpecieScreen} />
       <Stack.Screen name="AddToTaxonomyScreen" options={{headerShown: false}} component={AddToTaxonomyScreen} />
       <Stack.Screen name="AddNewPlantTaxonomyScreen" options={{headerShown: false}} component={AddNewPlantTaxonomyScreen} />
+      <Stack.Screen name="ImportTaxonomyScreen" options={{headerShown: false}} component={ImportTaxonomyScreen} />
       
       {/* Admin Profile Screens */}
       <Stack.Screen name="AdminProfile" options={{headerShown: false}} component={AdminProfileScreen} />

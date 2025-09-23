@@ -27,6 +27,25 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
   const [existingTaxonomyData, setExistingTaxonomyData] = useState([]);
   const [isLoadingTaxonomy, setIsLoadingTaxonomy] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lastPressTime, setLastPressTime] = useState(0);
+  const [processingAction, setProcessingAction] = useState(null); // Track which action is processing
+
+  // Debug logging when modal becomes visible
+  useEffect(() => {
+    if (visible && request) {
+      console.log('🔍 RequestActionModal opened with request data:', {
+        id: request.id,
+        genusName: request.genusName,
+        species: request.species,
+        status: request.status,
+        fullRequest: request
+      });
+      // Reset processing state when modal opens
+      setIsProcessing(false);
+      setLastPressTime(0);
+      setProcessingAction(null);
+    }
+  }, [visible, request]);
 
   // Load existing taxonomy data when modal becomes visible
   useEffect(() => {
@@ -102,6 +121,16 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
 
   const handleAddToTaxonomyList = async () => {
     console.log('✅ Starting request approval process');
+    console.log('🔍 APPROVE button clicked - request ID:', request?.id);
+    console.log('🔍 APPROVE button clicked - request status:', request?.status);
+    
+    // Prevent double-tap
+    const currentTime = Date.now();
+    if (currentTime - lastPressTime < 1000) {
+      console.log('⚠️ Double-tap detected, ignoring second press');
+      return;
+    }
+    setLastPressTime(currentTime);
     
     if (isLoadingTaxonomy || isProcessing) {
       Alert.alert('Please wait', 'Processing request...');
@@ -131,8 +160,23 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
       species: speciesName
     });
 
+    // Check if request is already processed
+    if (request?.status === 'approved') {
+      console.log('⚠️ Request is already approved');
+      Alert.alert('Request Already Processed', 'This request has already been approved.');
+      return;
+    }
+
+    if (request?.status === 'rejected') {
+      console.log('⚠️ Request is already rejected');
+      Alert.alert('Request Already Processed', 'This request has already been rejected.');
+      return;
+    }
+
     try {
       setIsProcessing(true);
+      setProcessingAction('approve');
+      console.log('🔒 Setting isProcessing to true for APPROVAL');
 
       // Call the approve API
       const response = await approveGenusRequestApi({
@@ -170,11 +214,23 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
       Alert.alert('Error', 'An unexpected error occurred while approving the request');
     } finally {
       setIsProcessing(false);
+      setProcessingAction(null);
+      console.log('🔓 Setting isProcessing to false for APPROVAL');
     }
   };
 
   const handleRejectRequest = async () => {
     console.log('❌ Starting request rejection process');
+    console.log('🔍 REJECT button clicked - request ID:', request?.id);
+    console.log('🔍 REJECT button clicked - request status:', request?.status);
+    
+    // Prevent double-tap
+    const currentTime = Date.now();
+    if (currentTime - lastPressTime < 1000) {
+      console.log('⚠️ Double-tap detected, ignoring second press');
+      return;
+    }
+    setLastPressTime(currentTime);
     
     if (isProcessing) {
       Alert.alert('Please wait', 'Processing request...');
@@ -188,6 +244,19 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
     if (!requestId) {
       console.error('❌ No request ID found:', request);
       Alert.alert('Error', 'Request ID not found');
+      return;
+    }
+
+    // Check if request is already processed
+    if (request?.status === 'approved') {
+      console.log('⚠️ Request is already approved');
+      Alert.alert('Request Already Processed', 'This request has already been approved.');
+      return;
+    }
+
+    if (request?.status === 'rejected') {
+      console.log('⚠️ Request is already rejected');
+      Alert.alert('Request Already Processed', 'This request has already been rejected.');
       return;
     }
 
@@ -206,6 +275,8 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
           onPress: async () => {
             try {
               setIsProcessing(true);
+              setProcessingAction('reject');
+              console.log('🔒 Setting isProcessing to true for REJECTION');
 
               // Call the reject API
               const response = await rejectGenusRequestApi({
@@ -244,6 +315,8 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
               Alert.alert('Error', 'An unexpected error occurred while rejecting the request');
             } finally {
               setIsProcessing(false);
+              setProcessingAction(null);
+              console.log('🔓 Setting isProcessing to false for REJECTION');
             }
           }
         }
@@ -283,10 +356,13 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                   style={styles.listLeft}
                   onPress={handleAddToTaxonomyList}
                   disabled={isProcessing}
+                  activeOpacity={0.7}
+                  delayPressIn={0}
+                  delayPressOut={100}
                 >
                   {/* Icon */}
                   <View style={styles.iconContainer}>
-                    {isProcessing ? (
+                    {processingAction === 'approve' ? (
                       <ActivityIndicator size="small" color="#34C759" />
                     ) : (
                       <CheckApproveIcon width={19} height={14} />
@@ -294,7 +370,7 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                   </View>
                   {/* List title */}
                   <Text style={[styles.listTitle, isProcessing && styles.disabledText]}>
-                    {isProcessing ? 'Processing...' : 'Add to taxonomy list'}
+                    {processingAction === 'approve' ? 'Processing...' : 'Add to taxonomy list'}
                   </Text>
                 </TouchableOpacity>
                 
@@ -314,10 +390,13 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                   style={styles.listLeft}
                   onPress={handleRejectRequest}
                   disabled={isProcessing}
+                  activeOpacity={0.7}
+                  delayPressIn={0}
+                  delayPressOut={100}
                 >
                   {/* Icon */}
                   <View style={styles.iconContainer}>
-                    {isProcessing ? (
+                    {processingAction === 'reject' ? (
                       <ActivityIndicator size="small" color="#FF3B30" />
                     ) : (
                       <CloseRejectIcon width={24} height={24} />
@@ -325,7 +404,7 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                   </View>
                   {/* List title */}
                   <Text style={[styles.listTitle, isProcessing && styles.disabledText]}>
-                    {isProcessing ? 'Processing...' : 'Reject request'}
+                    {processingAction === 'reject' ? 'Processing...' : 'Reject request'}
                   </Text>
                 </TouchableOpacity>
                 

@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { updateTaxonomyItemApi } from '../../../components/Api';
+import { updatePlantTaxonomyApi } from '../../../auth/updatePlantTaxonomyApi';
 
 // Import icons
 import CloseIcon from '../../../assets/iconchat/close.svg';
@@ -43,39 +43,53 @@ const EditTaxonomyModal = ({ visible, onClose, taxonomyItem, onUpdate }) => {
     try {
       setLoading(true);
       
-      const updateData = {
-        name: name.trim(),
-        receivedPlants: receivedPlantsNum,
-      };
+      console.log('🌱 Updating plant taxonomy...');
+      console.log('Taxonomy item:', taxonomyItem);
+      console.log('New genus name:', name.trim());
+      console.log('New species count:', receivedPlantsNum);
 
-      try {
-        // Try to update via API
-        await updateTaxonomyItemApi(taxonomyItem.id, updateData);
+      // Call the new updatePlantTaxonomy API
+      const response = await updatePlantTaxonomyApi({
+        genusId: taxonomyItem.id,
+        newGenusName: name.trim() !== taxonomyItem.name ? name.trim() : undefined,
+        adminId: 'admin_temp' // TODO: Replace with actual admin ID from auth context
+      });
+
+      if (response.success) {
+        console.log('✅ Taxonomy updated successfully:', response.data);
         
-        // Update successful
-        onUpdate({
+        // Update the local state with the new data
+        const updatedItem = {
           ...taxonomyItem,
-          ...updateData,
-        });
+          name: name.trim(),
+          receivedPlants: receivedPlantsNum
+        };
         
-        Alert.alert('Success', 'Taxonomy item updated successfully');
-        onClose();
-      } catch (apiError) {
-        // If API fails, still update locally for demo purposes
-        console.log('API update failed, updating locally:', apiError.message);
+        onUpdate(updatedItem);
         
-        onUpdate({
-          ...taxonomyItem,
-          ...updateData,
-        });
-        
-        Alert.alert('Updated Locally', 'Changes saved locally (API unavailable)');
-        onClose();
+        Alert.alert(
+          'Success', 
+          response.message || 'Taxonomy updated successfully!',
+          [
+            { 
+              text: 'OK', 
+              onPress: () => onClose()
+            }
+          ]
+        );
+      } else {
+        console.error('❌ Failed to update taxonomy:', response.error);
+        Alert.alert(
+          'Error', 
+          response.error || 'Failed to update taxonomy. Please try again.'
+        );
       }
-      
     } catch (error) {
-      console.error('Error updating taxonomy item:', error);
-      Alert.alert('Error', 'Failed to update taxonomy item');
+      console.error('❌ Error updating taxonomy:', error);
+      Alert.alert(
+        'Error', 
+        'An unexpected error occurred. Please check your connection and try again.'
+      );
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,17 @@ import {
   TextInput,
   ScrollView,
   FlatList,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+
+// Import API
+import { updatePlantTaxonomyApi } from '../../../auth/updatePlantTaxonomyApi';
+import { deletePlantTaxonomyApi } from '../../../auth/deletePlantTaxonomyApi';
+import eventBus from '../../../utils/eventBus';
+import { getSpeciesForGenusApi, formatSpeciesForDisplay } from '../../../auth/getSpeciesForGenusApi';
 
 // Import components
 import AddSpecieModal from './AddSpecieModal';
@@ -32,17 +40,97 @@ const EditTaxonomy = () => {
   // Get the taxonomy data passed from the previous screen
   const { taxonomyData = {} } = route.params || {};
   
-  const [genusName, setGenusName] = useState('');
+  const [genusName, setGenusName] = useState(taxonomyData.name || '');
+  const [originalGenusName] = useState(taxonomyData.name || ''); // Keep track of original name
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSpecies, setIsLoadingSpecies] = useState(true);
   const [isAddSpecieModalVisible, setIsAddSpecieModalVisible] = useState(false);
   const [isSpecieOptionsModalVisible, setIsSpecieOptionsModalVisible] = useState(false);
   const [selectedSpecie, setSelectedSpecie] = useState(null);
   
-  // Debug log to check if state is empty
-  console.log('genusName state:', genusName, 'length:', genusName.length);
-  const [species, setSpecies] = useState([
-    { id: 1, name: 'Accuminata', shipping: 'Better (7-10)', acclimation: 'Better (4-6)' },
-    { id: 2, name: 'Adansonii', variegation: 'Green Marble', shipping: 'Good (5-8)', acclimation: 'Average (3-5)' },
-  ]);
+  // Initialize with empty species - will be loaded from API
+  const [species, setSpecies] = useState([]);
+  const [speciesError, setSpeciesError] = useState(null);
+
+  // Debug logging
+  console.log('🌿 EditTaxonomy initialized with:', {
+    taxonomyData,
+    genusName,
+    genusId: taxonomyData.id
+  });
+
+  // Initialize data when component mounts
+  useEffect(() => {
+    if (taxonomyData && taxonomyData.name) {
+      setGenusName(taxonomyData.name);
+      console.log('📝 Initialized genus name:', taxonomyData.name);
+    }
+    
+    // Load species data
+    if (taxonomyData && taxonomyData.id) {
+      loadSpeciesData();
+    }
+  }, [taxonomyData]);
+
+  // Refresh species when returning from EditSpecieScreen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Reload species list to reflect any edits
+      if (taxonomyData && taxonomyData.id) {
+        loadSpeciesData();
+      }
+    });
+    return unsubscribe;
+  }, [navigation, taxonomyData?.id]);
+
+  // Function to load species data for this genus
+  const loadSpeciesData = async () => {
+    if (!taxonomyData.id) {
+      console.warn('⚠️ No genus ID provided, cannot load species');
+      setIsLoadingSpecies(false);
+      return;
+    }
+
+    try {
+      setIsLoadingSpecies(true);
+      setSpeciesError(null);
+      
+      console.log('🔄 Loading species for genus:', {
+        id: taxonomyData.id,
+        name: taxonomyData.name,
+        source: taxonomyData.source
+      });
+
+      // Send both ID and name to allow backend fallback when needed
+      const response = await getSpeciesForGenusApi({
+        genusId: taxonomyData.id,
+        genusName: taxonomyData.name
+      });
+
+      if (response.success) {
+        console.log('✅ Species loaded successfully:', {
+          count: response.count,
+          genusName: response.genusInfo?.name
+        });
+
+        // Format species data for display
+        const formattedSpecies = formatSpeciesForDisplay(response.data);
+        setSpecies(formattedSpecies);
+      } else {
+        console.log('🔍 No species response received, treating as empty species list');
+        setSpecies([]);
+        setSpeciesError(null); // Clear any previous errors
+      }
+    } catch (error) {
+      console.error('❌ getSpeciesForGenusApi error:', error);
+      // Don't treat API errors as failures - just show empty state
+      setSpecies([]);
+      setSpeciesError(null);
+      console.log('🔄 API error occurred, showing empty species list instead of error state');
+    } finally {
+      setIsLoadingSpecies(false);
+    }
+  };
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -84,28 +172,208 @@ const EditTaxonomy = () => {
 
   const handleEditSpecieAction = () => {
     console.log('Edit specie:', selectedSpecie);
-    // Navigate to EditSpecieScreen with specie data
-    navigation.navigate('EditSpecieScreen', { specieData: selectedSpecie });
+    // Navigate to EditSpecieScreen with specie data and genus context
+    navigation.navigate('EditSpecieScreen', { 
+      specieData: selectedSpecie,
+      genusId: taxonomyData.id,
+      genusName: taxonomyData.name
+    });
   };
 
   const handleDeleteSpecieAction = () => {
-    console.log('Delete specie:', selectedSpecie);
-    if (selectedSpecie) {
-      // Remove the specie from the list
-      setSpecies(species.filter(specie => specie.id !== selectedSpecie.id));
+    if (!selectedSpecie) return;
+    console.log('Request delete specie:', selectedSpecie);
+
+    // Guard: Disallow deletion for catalog-only genera
+    const isCatalogOnly = taxonomyData?.source &&
+      !String(taxonomyData.source).includes('genus') &&
+      String(taxonomyData.source).includes('plant_catalog');
+    if (isCatalogOnly) {
+      Alert.alert(
+        'Not allowed',
+        'This genus is derived from the plant catalog. Delete is only available for taxonomy-managed species.'
+      );
+      return;
+    }
+
+    // Guard: Require a formal species id (catalog_* cannot be deleted)
+    const invalidId = !selectedSpecie.id || String(selectedSpecie.id).startsWith('catalog_');
+    if (invalidId) {
+      Alert.alert(
+        'Not available',
+        'This species comes from the catalog and is not a formal taxonomy entry yet, so it cannot be deleted here.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Delete species?',
+      `Are you sure you want to delete "${selectedSpecie.name}" from ${genusName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoadingSpecies(true);
+              // Persist single deletion immediately
+              const response = await updatePlantTaxonomyApi({
+                genusId: taxonomyData.id,
+                adminId: 'admin_temp', // TODO: wire actual admin id
+                species: [{ id: selectedSpecie.id, name: selectedSpecie.name, action: 'delete' }]
+              });
+
+              if (response?.success) {
+                // Update UI list
+                setSpecies(prev => prev.filter(s => s.id !== selectedSpecie.id));
+                // Emit event so Genus List can update the count immediately
+                eventBus.emit('speciesDeleted', {
+                  genusId: taxonomyData.id,
+                  genusName: taxonomyData.name,
+                  delta: -1
+                });
+                // Optionally notify user
+                Alert.alert('Deleted', `${selectedSpecie.name} was deleted.`);
+              } else {
+                Alert.alert('Error', response?.error || 'Failed to delete species.');
+              }
+            } catch (err) {
+              console.error('❌ delete specie error:', err);
+              Alert.alert('Error', 'Failed to delete species.');
+            } finally {
+              setIsLoadingSpecies(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleSave = async () => {
+    if (!genusName.trim()) {
+      Alert.alert('Error', 'Please enter a genus name');
+      return;
+    }
+
+    if (!taxonomyData.id) {
+      Alert.alert('Error', 'Taxonomy ID is missing');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      console.log('🌱 Updating plant taxonomy...');
+      console.log('Original genus name:', originalGenusName);
+      console.log('New genus name:', genusName.trim());
+      console.log('Taxonomy ID:', taxonomyData.id);
+
+  // Prepare the update data
+      const updateData = {
+        genusId: taxonomyData.id,
+        adminId: 'admin_temp' // TODO: Replace with actual admin ID from auth context
+      };
+
+      // Only include new genus name if it changed
+      if (genusName.trim() !== originalGenusName) {
+        updateData.newGenusName = genusName.trim();
+      }
+
+  // Call the update API (only for genus rename here)
+      const response = await updatePlantTaxonomyApi(updateData);
+
+      if (response.success) {
+        console.log('✅ Taxonomy updated successfully:', response.data);
+        
+        Alert.alert(
+          'Success', 
+          response.message || 'Taxonomy updated successfully!',
+          [
+      { text: 'OK', onPress: () => navigation.goBack() }
+          ]
+        );
+  // no-op
+      } else {
+        console.error('❌ Failed to update taxonomy:', response.error);
+        Alert.alert(
+          'Error', 
+          response.error || 'Failed to update taxonomy. Please try again.'
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error updating taxonomy:', error);
+      Alert.alert(
+        'Error', 
+        'An unexpected error occurred. Please check your connection and try again.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSave = () => {
-    console.log('Save taxonomy:', { genusName, species });
-    // Handle save logic and navigate back
-    navigation.goBack();
-  };
-
   const handleDelete = () => {
-    console.log('Delete taxonomy');
-    // Handle delete logic - could show confirmation modal
-    navigation.goBack();
+    // Check if this is a plant catalog genus that cannot be deleted
+    if (taxonomyData.source === 'plant_catalog') {
+      Alert.alert(
+        'Cannot Delete',
+        'This genus is derived from the plant catalog and cannot be deleted. Only taxonomy entries created through the admin interface can be deleted.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Check if genusId looks like a Firestore document ID (not a catalog ID like "26")
+    if (!taxonomyData.id || typeof taxonomyData.id === 'number' || taxonomyData.id.length < 10) {
+      Alert.alert(
+        'Cannot Delete',
+        'This genus appears to be from the plant catalog and cannot be deleted through the admin interface.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Delete Taxonomy',
+      `Are you sure you want to delete the genus "${genusName}" and all its species? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              console.log('🗑️ Deleting taxonomy:', taxonomyData.id);
+              
+              // Call delete API
+              const response = await deletePlantTaxonomyApi({
+                genusId: taxonomyData.id,
+                adminId: 'admin123' // You should get this from your auth context
+              });
+
+              if (response.success) {
+                // Emit event to refresh genus list
+                eventBus.emit('genusListUpdate');
+                
+                Alert.alert(
+                  'Deleted',
+                  `Genus "${genusName}" and ${response.data.deletedSpeciesCount} species have been deleted.`,
+                  [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
+              } else {
+                throw new Error(response.error || 'Failed to delete taxonomy');
+              }
+            } catch (error) {
+              console.error('❌ Error deleting taxonomy:', error);
+              Alert.alert('Error', 'Failed to delete taxonomy. Please try again.');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderSpecieItem = ({ item }) => (
@@ -164,74 +432,118 @@ const EditTaxonomy = () => {
       </View>
 
       {/* Content */}
-      <View style={styles.content}>
-        {/* Form */}
-        <View style={styles.formSection}>
-          {/* Genus Field */}
-          <View style={styles.fieldSection}>
-            <View style={styles.textField}>
-              <Text style={styles.label}>
-                Genus name <Text style={styles.asterisk}>*</Text>
-              </Text>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={[styles.textInput, { minHeight: 22 }]}
-                  placeholder="Montsera"
-                  value={genusName}
-                  onChangeText={setGenusName}
-                  placeholderTextColor="#666666"
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  multiline={false}
-                />
+      <FlatList
+        style={styles.content}
+        data={isLoadingSpecies || speciesError ? [] : species}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderSpecieItem}
+        ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        ListHeaderComponent={(
+          <View style={styles.formSection}>
+            {/* Genus Field */}
+            <View style={styles.fieldSection}>
+              <View style={styles.textField}>
+                <Text style={styles.label}>
+                  Genus name <Text style={styles.asterisk}>*</Text>
+                </Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={[styles.textInput, { minHeight: 22 }]}
+                    placeholder="Montsera"
+                    value={genusName}
+                    onChangeText={setGenusName}
+                    placeholderTextColor="#666666"
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    multiline={false}
+                  />
+                </View>
               </View>
             </View>
-          </View>
 
-          {/* Divider */}
-          <View style={styles.dividerSection}>
-            <View style={styles.divider} />
-          </View>
-
-          {/* Specie List Title */}
-          <View style={styles.specieTitleSection}>
-            <View style={styles.titleRow}>
-              <Text style={styles.specieListTitle}>Specie List</Text>
-              <Text style={styles.quantityText}>{`${species.length} specie(s)`}</Text>
+            {/* Divider */}
+            <View style={styles.dividerSection}>
+              <View style={styles.divider} />
             </View>
-          </View>
 
-          {/* Specie List */}
+            {/* Specie List Title */}
+            <View style={styles.specieTitleSection}>
+              <View style={styles.titleRow}>
+                <Text style={styles.specieListTitle}>Specie List</Text>
+                <Text style={styles.quantityText}>{`${species.length} specie(s)`}</Text>
+              </View>
+            </View>
+
+            {/* Loading / Error States */}
+            {isLoadingSpecies && (
+              <View style={[styles.specieListSection, { paddingBottom: 0 }]}>
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#4A90E2" />
+                  <Text style={styles.loadingText}>Loading species...</Text>
+                </View>
+              </View>
+            )}
+
+            {speciesError && !isLoadingSpecies && (
+              <View style={styles.specieListSection}>
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{speciesError}</Text>
+                  <TouchableOpacity 
+                    style={styles.retryButton} 
+                    onPress={loadSpeciesData}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+        ListEmptyComponent={(!isLoadingSpecies && !speciesError) ? (
           <View style={styles.specieListSection}>
-            <FlatList
-              data={species}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={renderSpecieItem}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
-            />
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No species added yet for {genusName}</Text>
+              <Text style={styles.emptySubtext}>
+                {taxonomyData.source === 'plant_catalog' 
+                  ? 'This genus exists in the plant catalog. Add species to organize the taxonomy.'
+                  : 'Add species to get started with this genus.'
+                }
+              </Text>
+            </View>
           </View>
+        ) : null}
+        ListFooterComponent={(
+          <View>
+            {/* Add Specie Button */}
+            <View style={styles.addSpecieSection}>
+              <TouchableOpacity style={styles.addSpecieButton} onPress={handleAddSpecie}>
+                <PlusIcon width={24} height={24} />
+                <Text style={styles.addSpecieText}>Add Specie</Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* Add Specie Button */}
-          <View style={styles.addSpecieSection}>
-            <TouchableOpacity style={styles.addSpecieButton} onPress={handleAddSpecie}>
-              <PlusIcon width={24} height={24} />
-              <Text style={styles.addSpecieText}>Add Specie</Text>
-            </TouchableOpacity>
+            {/* Save Button */}
+            <View style={styles.actionSection}>
+              <TouchableOpacity 
+                style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
+                onPress={handleSave}
+                disabled={isLoading}
+              >
+                <View style={styles.saveButtonTextContainer}>
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Update Taxonomy</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          {/* Save Button */}
-          <View style={styles.actionSection}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <View style={styles.saveButtonTextContainer}>
-                <Text style={styles.saveButtonText}>Update Taxonomy</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+        )}
+      />
 
       {/* Add Specie Modal */}
       <AddSpecieModal
@@ -374,7 +686,8 @@ const styles = StyleSheet.create({
 
   // Specie List
   specieListSection: {
-    paddingHorizontal: 12,
+  paddingHorizontal: 12,
+  paddingBottom: 12,
   },
   specieCard: {
     backgroundColor: '#F5F6F6',
@@ -419,8 +732,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 0,
     gap: 8,
-    width: 351,
-    height: 28,
     alignSelf: 'stretch',
   },
   indexInfo: {
@@ -429,8 +740,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 0,
     gap: 4,
-    width: 375,
-    height: 28,
     alignSelf: 'stretch',
   },
   indexItem: {
@@ -438,8 +747,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 0,
     gap: 6,
-    width: 185,
-    height: 28,
     flex: 1,
   },
   indexText: {
@@ -543,6 +850,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#C0DAC2',
     borderRadius: 12,
   },
+  saveButtonDisabled: {
+    backgroundColor: '#B0B0B0',
+    opacity: 0.6,
+  },
   saveButtonTextContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -555,6 +866,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  loadingText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#666',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 12,
+  },
+  errorText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#FF3B30',
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#4A90E2',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyText: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 
