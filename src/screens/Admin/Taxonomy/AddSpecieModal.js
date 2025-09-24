@@ -251,8 +251,8 @@ const AddSpecieModal = ({ visible, onClose, onSave }) => {
                   <TextInput
                     style={styles.textInput}
                     placeholder="Enter specie name"
-                    value={specieName}
-                    onChangeText={setSpecieName}
+                    value={specieName.toUpperCase()}
+                    onChangeText={(text) => setSpecieName(text.toUpperCase())}
                     placeholderTextColor="#647276"
                     autoCapitalize="words"
                     autoCorrect={false}

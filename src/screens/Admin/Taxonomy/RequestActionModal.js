@@ -1,138 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Animated,
-  Dimensions,
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 
 // Import API
-import { getAdminTaxonomyApi } from '../../../components/Api';
 import { approveGenusRequestApi, rejectGenusRequestApi } from '../../../auth/genusRequestActionsApi';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
+import { getStoredAdminId } from '../../../utils/getStoredUserInfo';
 
 // Import icons - you may need to adjust these paths based on your available icons
 import CheckApproveIcon from '../../../assets/admin-icons/check-approve.svg';
 import CloseRejectIcon from '../../../assets/admin-icons/close-reject.svg';
 
-const { height: screenHeight } = Dimensions.get('window');
-
 const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) => {
-  const navigation = useNavigation();
-  const [existingTaxonomyData, setExistingTaxonomyData] = useState([]);
-  const [isLoadingTaxonomy, setIsLoadingTaxonomy] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [lastPressTime, setLastPressTime] = useState(0);
   const [processingAction, setProcessingAction] = useState(null); // Track which action is processing
+  const mountedRef = useRef(false);
 
   // Debug logging when modal becomes visible
   useEffect(() => {
+    mountedRef.current = true;
     if (visible && request) {
-      console.log('🔍 RequestActionModal opened with request data:', {
+      console.log('🔍 RequestActionModal opened:', {
         id: request.id,
         genusName: request.genusName,
         species: request.species,
         status: request.status,
-        fullRequest: request
       });
       // Reset processing state when modal opens
       setIsProcessing(false);
-      setLastPressTime(0);
       setProcessingAction(null);
     }
+    return () => {
+      mountedRef.current = false;
+    };
   }, [visible, request]);
 
-  // Load existing taxonomy data when modal becomes visible
-  useEffect(() => {
-    if (visible) {
-      loadExistingTaxonomy();
-    }
-  }, [visible]);
-
-  const loadExistingTaxonomy = async () => {
+  // Helper: get auth token
+  const getAuthToken = useCallback(async () => {
     try {
-      setIsLoadingTaxonomy(true);
-      
-      // Try to load from API first
-      const response = await getAdminTaxonomyApi({ limit: 1000 });
-      
-      if (response && response.data && response.data.length > 0) {
-        setExistingTaxonomyData(response.data);
-        console.log('Loaded existing taxonomy from API:', response.data);
-      } else {
-        // Fallback to mock data if API returns empty or fails
-        console.log('API returned empty or failed, using mock data fallback');
-        const mockTaxonomyData = [
-          { id: 1, genusName: 'Alocasia', name: 'Alocasia', receivedPlants: 5 },
-          { id: 2, genusName: 'Anthurium', name: 'Anthurium', receivedPlants: 12 },
-          { id: 3, genusName: 'Monstera', name: 'Monstera', receivedPlants: 8 },
-          { id: 4, genusName: 'Philodendron', name: 'Philodendron', receivedPlants: 15 },
-          { id: 5, genusName: 'Pothos', name: 'Pothos', receivedPlants: 3 },
-          { id: 6, genusName: 'Syngonium', name: 'Syngonium', receivedPlants: 7 },
-          { id: 7, genusName: 'Aglaonema', name: 'Aglaonema', receivedPlants: 9 },
-          { id: 8, genusName: 'Calathea', name: 'Calathea', receivedPlants: 6 },
-          { id: 9, genusName: 'Dracaena', name: 'Dracaena', receivedPlants: 4 },
-          { id: 10, genusName: 'Ficus', name: 'Ficus', receivedPlants: 11 },
-        ];
-        setExistingTaxonomyData(mockTaxonomyData);
-        console.log('Using mock taxonomy data:', mockTaxonomyData);
-      }
-    } catch (error) {
-      console.error('Error loading existing taxonomy in modal:', error);
-      // Use mock data as fallback
-      const mockTaxonomyData = [
-        { id: 1, genusName: 'Alocasia', name: 'Alocasia', receivedPlants: 5 },
-        { id: 2, genusName: 'Anthurium', name: 'Anthurium', receivedPlants: 12 },
-        { id: 3, genusName: 'Monstera', name: 'Monstera', receivedPlants: 8 },
-        { id: 4, genusName: 'Philodendron', name: 'Philodendron', receivedPlants: 15 },
-        { id: 5, genusName: 'Pothos', name: 'Pothos', receivedPlants: 3 },
-        { id: 6, genusName: 'Syngonium', name: 'Syngonium', receivedPlants: 7 },
-        { id: 7, genusName: 'Aglaonema', name: 'Aglaonema', receivedPlants: 9 },
-        { id: 8, genusName: 'Calathea', name: 'Calathea', receivedPlants: 6 },
-        { id: 9, genusName: 'Dracaena', name: 'Dracaena', receivedPlants: 4 },
-        { id: 10, genusName: 'Ficus', name: 'Ficus', receivedPlants: 11 },
-      ];
-      setExistingTaxonomyData(mockTaxonomyData);
-      console.log('API failed, using mock taxonomy data:', mockTaxonomyData);
-    } finally {
-      setIsLoadingTaxonomy(false);
+      const token = await getStoredAuthToken();
+      console.log('🔑 token:', token ? 'retrieved' : 'missing');
+      return token;
+    } catch (e) {
+      console.warn('⚠️ Failed to get auth token:', e?.message || e);
+      return null;
     }
-  };
+  }, []);
 
-  const checkIfGenusExists = (genus) => {
-    console.log('Checking if genus exists:', genus);
-    console.log('Available taxonomy data:', existingTaxonomyData);
-    
-    const found = existingTaxonomyData.find(item => {
-      const itemGenusName = item.genusName || item.name || '';
-      const matches = itemGenusName.toLowerCase() === genus.toLowerCase();
-      console.log(`Comparing "${itemGenusName.toLowerCase()}" with "${genus.toLowerCase()}" = ${matches}`);
-      return matches;
-    });
-    
-    console.log('Found existing genus:', found);
-    return found;
-  };
+  const handleAddToTaxonomyList = useCallback(async () => {
+    console.log('✅ Approve pressed - id:', request?.id, 'status:', request?.status);
 
-  const handleAddToTaxonomyList = async () => {
-    console.log('✅ Starting request approval process');
-    console.log('🔍 APPROVE button clicked - request ID:', request?.id);
-    console.log('🔍 APPROVE button clicked - request status:', request?.status);
-    
-    // Prevent double-tap
-    const currentTime = Date.now();
-    if (currentTime - lastPressTime < 1000) {
-      console.log('⚠️ Double-tap detected, ignoring second press');
-      return;
-    }
-    setLastPressTime(currentTime);
-    
-    if (isLoadingTaxonomy || isProcessing) {
+    if (isProcessing) {
       Alert.alert('Please wait', 'Processing request...');
       return;
     }
@@ -154,11 +79,7 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
       return;
     }
 
-    console.log('📝 Approving request:', {
-      requestId,
-      genus: genusName,
-      species: speciesName
-    });
+    console.log('📝 Approving request:', { requestId, genus: genusName, species: speciesName });
 
     // Check if request is already processed
     if (request?.status === 'approved') {
@@ -178,11 +99,26 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
       setProcessingAction('approve');
       console.log('🔒 Setting isProcessing to true for APPROVAL');
 
+      // Retrieve auth token and admin ID
+      const authToken = await getAuthToken();
+      const storedAdminId = await getStoredAdminId();
+
+      if (!authToken) {
+        console.warn('⚠️ No auth token found. Request may fail in production.');
+      }
+
+      console.log('🔑 Auth details:', {
+        hasAuthToken: !!authToken,
+        hasAdminId: !!storedAdminId,
+        adminId: storedAdminId ? storedAdminId.substring(0, 8) + '...' : 'none'
+      });
+
       // Call the approve API
       const response = await approveGenusRequestApi({
         requestId: requestId,
-        adminId: 'admin_temp', // TODO: Replace with actual admin ID from auth context
-        comment: `Approved genus "${genusName}" with species "${speciesName}"`
+        adminId: storedAdminId,
+        comment: `Approved genus "${genusName}" with species "${speciesName}"`,
+        authToken
       });
 
       if (response.success) {
@@ -213,24 +149,16 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
       console.error('❌ Error approving request:', error);
       Alert.alert('Error', 'An unexpected error occurred while approving the request');
     } finally {
-      setIsProcessing(false);
-      setProcessingAction(null);
+      if (mountedRef.current) {
+        setIsProcessing(false);
+        setProcessingAction(null);
+      }
       console.log('🔓 Setting isProcessing to false for APPROVAL');
     }
-  };
+  }, [request, isProcessing, getAuthToken, onClose, onApprove]);
 
-  const handleRejectRequest = async () => {
-    console.log('❌ Starting request rejection process');
-    console.log('🔍 REJECT button clicked - request ID:', request?.id);
-    console.log('🔍 REJECT button clicked - request status:', request?.status);
-    
-    // Prevent double-tap
-    const currentTime = Date.now();
-    if (currentTime - lastPressTime < 1000) {
-      console.log('⚠️ Double-tap detected, ignoring second press');
-      return;
-    }
-    setLastPressTime(currentTime);
+  const handleRejectRequest = useCallback(async () => {
+    console.log('❌ Reject pressed - id:', request?.id, 'status:', request?.status);
     
     if (isProcessing) {
       Alert.alert('Please wait', 'Processing request...');
@@ -278,12 +206,27 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
               setProcessingAction('reject');
               console.log('🔒 Setting isProcessing to true for REJECTION');
 
+              // Retrieve auth token and admin ID
+              const authToken = await getAuthToken();
+              const storedAdminId = await getStoredAdminId();
+
+              if (!authToken) {
+                console.warn('⚠️ No auth token found. Request may fail in production.');
+              }
+
+              console.log('🔑 Auth details for rejection:', {
+                hasAuthToken: !!authToken,
+                hasAdminId: !!storedAdminId,
+                adminId: storedAdminId ? storedAdminId.substring(0, 8) + '...' : 'none'
+              });
+
               // Call the reject API
               const response = await rejectGenusRequestApi({
                 requestId: requestId,
-                adminId: 'admin_temp', // TODO: Replace with actual admin ID from auth context
+                adminId: storedAdminId,
                 reason: 'Request rejected by admin',
-                comment: `Rejected genus "${genusName}" with species "${speciesName}"`
+                comment: `Rejected genus "${genusName}" with species "${speciesName}"`,
+                authToken
               });
 
               if (response.success) {
@@ -314,32 +257,56 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
               console.error('❌ Error rejecting request:', error);
               Alert.alert('Error', 'An unexpected error occurred while rejecting the request');
             } finally {
-              setIsProcessing(false);
-              setProcessingAction(null);
+              if (mountedRef.current) {
+                setIsProcessing(false);
+                setProcessingAction(null);
+              }
               console.log('🔓 Setting isProcessing to false for REJECTION');
             }
           }
         }
       ]
     );
-  };
+  }, [request, isProcessing, getAuthToken, onClose, onReject]);
+
+  // Guarded close handler for Android back button and iOS swipe-to-dismiss
+  const handleRequestClose = useCallback(() => {
+    if (!isProcessing) {
+      onClose();
+    }
+  }, [isProcessing, onClose]);
 
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleRequestClose}
+      allowSwipeDismissal={!isProcessing}
     >
       <View style={styles.overlay}>
         <TouchableOpacity 
-          style={styles.overlayTouchable} 
+          style={styles.overlayTouchable}
           activeOpacity={1} 
-          onPress={onClose}
+          onPress={() => { if (!isProcessing) onClose(); }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss actions"
+          accessibilityHint="Double tap to close the actions menu"
+          testID="overlayDismiss"
+          hitSlop={8}
         />
         
         {/* Taxonomy: Request->Option */}
-        <View style={styles.container}>
+        <View
+          style={styles.container}
+          accessibilityViewIsModal={true}
+          accessibilityRole="menu"
+          accessibilityLabel="Genus request actions"
+          accessibilityHint="Choose to add to taxonomy or reject"
+          accessibilityState={{ busy: isProcessing }}
+          testID="actionSheet"
+        >
           {/* Action Sheet */}
           <View style={styles.actionSheet}>
             {/* System / Action Sheet Indicator */}
@@ -359,6 +326,14 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                   activeOpacity={0.7}
                   delayPressIn={0}
                   delayPressOut={100}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add to taxonomy"
+                  accessibilityHint="Approves this genus request and adds it to taxonomy"
+                  accessibilityState={{ disabled: isProcessing, busy: processingAction === 'approve' }}
+                  testID="approveButton"
+                  hitSlop={8}
+                  pressRetentionOffset={{ top: 20, left: 20, right: 20, bottom: 30 }}
                 >
                   {/* Icon */}
                   <View style={styles.iconContainer}>
@@ -370,7 +345,7 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                   </View>
                   {/* List title */}
                   <Text style={[styles.listTitle, isProcessing && styles.disabledText]}>
-                    {processingAction === 'approve' ? 'Processing...' : 'Add to taxonomy list'}
+                    {processingAction === 'approve' ? 'Processing...' : 'Add to taxonomy'}
                   </Text>
                 </TouchableOpacity>
                 
@@ -393,6 +368,14 @@ const RequestActionModal = ({ visible, onClose, onApprove, onReject, request }) 
                   activeOpacity={0.7}
                   delayPressIn={0}
                   delayPressOut={100}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reject request"
+                  accessibilityHint="Rejects this genus request"
+                  accessibilityState={{ disabled: isProcessing, busy: processingAction === 'reject' }}
+                  testID="rejectButton"
+                  hitSlop={8}
+                  pressRetentionOffset={{ top: 20, left: 20, right: 20, bottom: 30 }}
                 >
                   {/* Icon */}
                   <View style={styles.iconContainer}>

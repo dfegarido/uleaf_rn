@@ -5,7 +5,7 @@ const USE_LOCAL_API = false;
 
 // Local development endpoints (Firebase Functions Emulator)
 // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
-const LOCAL_BASE_URL = 'http://192.168.1.41:5001/i-leaf-u/us-central1';
+const LOCAL_BASE_URL = 'http://10.0.2.2:5001/i-leaf-u/us-central1';
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -110,6 +110,7 @@ const generateEndpoints = () => ({
   SIGN_IN_SUPPLIER: `${getBaseUrl()}/signInSupplier`,
   VALIDATE_SIGN_IN_PIN: `${getBaseUrl()}/validateSignInPin`,
   EXCHANGE_CUSTOM_TOKEN: `${getBaseUrl()}/exchangeCustomToken`,
+  FORCE_LOGOUT: `${getBaseUrl()}/forceLogout`,
   
   // Admin Management APIs
   CREATE_ADMIN: `${getBaseUrl()}/createAdmin`,
@@ -121,6 +122,16 @@ const generateEndpoints = () => ({
   GET_ALL_USERS: `${getBaseUrl()}/getAllUsers`,
   UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
   GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`,
+  // Taxonomy Management APIs
+  ADD_PLANT_TAXONOMY: `${getBaseUrl()}/addPlantTaxonomy`,
+  UPDATE_PLANT_TAXONOMY: `${getBaseUrl()}/updatePlantTaxonomy`,
+  DELETE_PLANT_TAXONOMY: `${getBaseUrl()}/deletePlantTaxonomy`,
+  GET_SPECIES_FOR_GENUS: `${getBaseUrl()}/getSpeciesForGenus`,
+  // Genus Request Workflow
+  INSERT_GENUS_REQUEST: `${getBaseUrl()}/insertGenusRequest`,
+  GET_GENUS_REQUESTS: `${getBaseUrl()}/getGenusRequests`,
+  APPROVE_GENUS_REQUEST: `${getBaseUrl()}/approveGenusRequest`,
+  REJECT_GENUS_REQUEST: `${getBaseUrl()}/rejectGenusRequest`,
   
   // QR Code APIs
   QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,

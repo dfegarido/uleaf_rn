@@ -31,7 +31,7 @@ const AddNewPlantTaxonomyScreen = () => {
   // Get the request data passed from the previous screen
   const { requestData = {} } = route.params || {};
   
-  const [genusName, setGenusName] = useState(requestData.genusName || '');
+  const [genusName, setGenusName] = useState((requestData.genusName || '').toUpperCase());
   const [isAddSpecieModalVisible, setIsAddSpecieModalVisible] = useState(false);
   const [isSpecieOptionsModalVisible, setIsSpecieOptionsModalVisible] = useState(false);
   const [selectedSpecie, setSelectedSpecie] = useState(null);
@@ -188,10 +188,10 @@ const AddNewPlantTaxonomyScreen = () => {
                 <TextInput
                   style={[styles.textInput, { minHeight: 22 }]}
                   placeholder="Enter genus name"
-                  value={genusName}
-                  onChangeText={setGenusName}
+                  value={genusName.toUpperCase()}
+                  onChangeText={(text) => setGenusName((text || '').toUpperCase())}
                   placeholderTextColor="#647276"
-                  autoCapitalize="words"
+                  autoCapitalize="characters"
                   autoCorrect={false}
                   returnKeyType="done"
                   multiline={false}

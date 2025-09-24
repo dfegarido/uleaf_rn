@@ -18,6 +18,8 @@ import { updatePlantTaxonomyApi } from '../../../auth/updatePlantTaxonomyApi';
 import { deletePlantTaxonomyApi } from '../../../auth/deletePlantTaxonomyApi';
 import eventBus from '../../../utils/eventBus';
 import { getSpeciesForGenusApi, formatSpeciesForDisplay } from '../../../auth/getSpeciesForGenusApi';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
+import { getStoredAdminId } from '../../../utils/getStoredUserInfo';
 
 // Import components
 import AddSpecieModal from './AddSpecieModal';
@@ -51,12 +53,18 @@ const EditTaxonomy = () => {
   // Initialize with empty species - will be loaded from API
   const [species, setSpecies] = useState([]);
   const [speciesError, setSpeciesError] = useState(null);
+  
+  // Track newly added species that need to be saved to API
+  const [newlyAddedSpecies, setNewlyAddedSpecies] = useState([]);
 
   // Debug logging
-  console.log('🌿 EditTaxonomy initialized with:', {
-    taxonomyData,
+  console.log('🌿 EditTaxonomy render state:', {
+    taxonomyData: !!taxonomyData,
     genusName,
-    genusId: taxonomyData.id
+    genusId: taxonomyData.id,
+    isLoading,
+    isLoadingSpecies,
+    hasGenusName: !!genusName.trim()
   });
 
   // Initialize data when component mounts
@@ -101,10 +109,17 @@ const EditTaxonomy = () => {
         source: taxonomyData.source
       });
 
+      // Retrieve auth token
+      const authToken = await getStoredAuthToken();
+      if (!authToken) {
+        console.warn('⚠️ No auth token found. Request may fail in production.');
+      }
+
       // Send both ID and name to allow backend fallback when needed
       const response = await getSpeciesForGenusApi({
         genusId: taxonomyData.id,
-        genusName: taxonomyData.name
+        genusName: taxonomyData.name,
+        authToken
       });
 
       if (response.success) {
@@ -147,16 +162,33 @@ const EditTaxonomy = () => {
 
   const handleSaveSpecie = (specieData) => {
     console.log('Saving new specie:', specieData);
-    // Add the new specie to the species list
+    
+    // Create the new specie object for display
     const newSpecie = {
-      id: species.length + 1,
-      name: specieData.specieName || 'New Specie',
+      id: `temp_${Date.now()}`, // Use timestamp for temp ID
+      name: specieData.name || specieData.specieName,
       variegation: specieData.variegation,
-      shipping: specieData.shipping,
-      acclimation: specieData.acclimation,
+      shipping: specieData.shippingIndex,
+      acclimation: specieData.acclimationIndex,
     };
+    
+    // Create the new specie object for API (matching expected format)
+    const newSpecieForAPI = {
+      name: specieData.name || specieData.specieName,
+      variegation: specieData.variegation || '',
+      shippingIndex: specieData.shippingIndex || '',
+      acclimationIndex: specieData.acclimationIndex || '',
+    };
+    
+    // Add to display list
     setSpecies([...species, newSpecie]);
+    
+    // Add to newly added species for API submission
+    setNewlyAddedSpecies([...newlyAddedSpecies, newSpecieForAPI]);
+    
     setIsAddSpecieModalVisible(false);
+    
+    console.log('Added to newly added species:', newSpecieForAPI);
   };
 
   const handleEditSpecie = (specie) => {
@@ -217,10 +249,22 @@ const EditTaxonomy = () => {
           onPress: async () => {
             try {
               setIsLoadingSpecies(true);
+
+              // Retrieve auth token
+              const authToken = await getStoredAuthToken();
+              if (!authToken) {
+                console.warn('⚠️ No auth token found. Delete may fail in production.');
+              }
+
+              // Optional: retrieve adminId from storage for emulator/local testing fallback
+              const storedAdminId = await getStoredAdminId();
+
               // Persist single deletion immediately
               const response = await updatePlantTaxonomyApi({
                 genusId: taxonomyData.id,
-                adminId: 'admin_temp', // TODO: wire actual admin id
+                authToken,
+                // Provide adminId only if available (useful for emulator/local mode)
+                ...(storedAdminId ? { adminId: storedAdminId } : {}),
                 species: [{ id: selectedSpecie.id, name: selectedSpecie.name, action: 'delete' }]
               });
 
@@ -268,20 +312,65 @@ const EditTaxonomy = () => {
       console.log('Original genus name:', originalGenusName);
       console.log('New genus name:', genusName.trim());
       console.log('Taxonomy ID:', taxonomyData.id);
+      console.log('Newly added species:', newlyAddedSpecies);
 
-  // Prepare the update data
-      const updateData = {
-        genusId: taxonomyData.id,
-        adminId: 'admin_temp' // TODO: Replace with actual admin ID from auth context
-      };
-
-      // Only include new genus name if it changed
-      if (genusName.trim() !== originalGenusName) {
-        updateData.newGenusName = genusName.trim();
+      // Retrieve auth token
+      const authToken = await getStoredAuthToken();
+      if (!authToken) {
+        console.warn('⚠️ No auth token found. Update may fail in production.');
       }
 
-  // Call the update API (only for genus rename here)
-      const response = await updatePlantTaxonomyApi(updateData);
+      // Optional: retrieve adminId from storage for emulator/local testing fallback
+      const storedAdminId = await getStoredAdminId();
+
+      // First, handle genus name update if needed
+      if (genusName.trim() !== originalGenusName) {
+        console.log('📝 Updating genus name...');
+        const genusUpdateData = {
+          genusId: taxonomyData.id,
+          newGenusName: genusName.trim(),
+          authToken,
+          ...(storedAdminId ? { adminId: storedAdminId } : {}),
+        };
+
+        const genusResponse = await updatePlantTaxonomyApi(genusUpdateData);
+        
+        if (!genusResponse.success) {
+          throw new Error(genusResponse.error || 'Failed to update genus name');
+        }
+        console.log('✅ Genus name updated successfully');
+      }
+
+      // Then, handle newly added species if any
+      if (newlyAddedSpecies.length > 0) {
+        console.log('🌿 Adding new species...');
+        
+        // Prepare species data with action: 'add'
+        const speciesWithAction = newlyAddedSpecies.map(species => ({
+          ...species,
+          action: 'add'
+        }));
+        
+        const speciesUpdateData = {
+          genusId: taxonomyData.id,
+          species: speciesWithAction,
+          authToken,
+          ...(storedAdminId ? { adminId: storedAdminId } : {}),
+        };
+
+        const speciesResponse = await updatePlantTaxonomyApi(speciesUpdateData);
+
+        if (!speciesResponse.success) {
+          throw new Error(speciesResponse.error || 'Failed to add new species');
+        }
+        console.log('✅ New species added successfully');
+        
+        // Clear newly added species after successful save
+        setNewlyAddedSpecies([]);
+      }
+
+      // Set success response
+      const response = { success: true, message: 'Taxonomy updated successfully!' };
 
       if (response.success) {
         console.log('✅ Taxonomy updated successfully:', response.data);
@@ -345,11 +434,22 @@ const EditTaxonomy = () => {
             try {
               setIsLoading(true);
               console.log('🗑️ Deleting taxonomy:', taxonomyData.id);
+
+              // Retrieve auth token
+              const authToken = await getStoredAuthToken();
+              if (!authToken) {
+                console.warn('⚠️ No auth token found. Delete may fail in production.');
+              }
+
+              // Optional: retrieve adminId from storage for emulator/local testing fallback
+              const storedAdminId = await getStoredAdminId();
               
               // Call delete API
               const response = await deletePlantTaxonomyApi({
                 genusId: taxonomyData.id,
-                adminId: 'admin123' // You should get this from your auth context
+                authToken,
+                // Provide adminId only if available (useful for emulator/local mode)
+                ...(storedAdminId ? { adminId: storedAdminId } : {}),
               });
 
               if (response.success) {
@@ -452,8 +552,8 @@ const EditTaxonomy = () => {
                   <TextInput
                     style={[styles.textInput, { minHeight: 22 }]}
                     placeholder="Montsera"
-                    value={genusName}
-                    onChangeText={setGenusName}
+                    value={genusName.toUpperCase()}
+                    onChangeText={(text) => setGenusName(text.toUpperCase())}
                     placeholderTextColor="#666666"
                     autoCapitalize="words"
                     autoCorrect={false}
@@ -528,15 +628,27 @@ const EditTaxonomy = () => {
             {/* Save Button */}
             <View style={styles.actionSection}>
               <TouchableOpacity 
-                style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
-                onPress={handleSave}
-                disabled={isLoading}
+                style={[
+                  styles.saveButton, 
+                  (isLoading || !genusName.trim()) && styles.saveButtonDisabled
+                ]} 
+                onPress={() => {
+                  console.log('🔘 Save button pressed, isLoading:', isLoading, 'genusName:', genusName.trim());
+                  handleSave();
+                }}
+                disabled={isLoading || !genusName.trim()}
+                accessibilityRole="button"
+                accessibilityLabel="Update taxonomy"
+                accessibilityHint="Saves changes to the genus name"
+                accessibilityState={{ disabled: isLoading || !genusName.trim() }}
               >
                 <View style={styles.saveButtonTextContainer}>
                   {isLoading ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Text style={styles.saveButtonText}>Update Taxonomy</Text>
+                    <Text style={styles.saveButtonText}>
+                      Update Taxonomy{newlyAddedSpecies.length > 0 || genusName.trim() !== originalGenusName ? ` (${newlyAddedSpecies.length + (genusName.trim() !== originalGenusName ? 1 : 0)} changes)` : ''}
+                    </Text>
                   )}
                 </View>
               </TouchableOpacity>
@@ -847,7 +959,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     height: 48,
-    backgroundColor: '#C0DAC2',
+    backgroundColor: '#56a65dff',
     borderRadius: 12,
   },
   saveButtonDisabled: {

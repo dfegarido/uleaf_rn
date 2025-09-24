@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import AddSpecieModal from './AddSpecieModal';
 
 // Import API
 import { addPlantTaxonomyApi, validateSpeciesData, formatSpeciesForApi } from '../../../auth/addPlantTaxonomyApi';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
+import { getStoredAdminId } from '../../../utils/getStoredUserInfo';
 
 const AddTaxonomy = () => {
   const navigation = useNavigation();
@@ -27,22 +29,31 @@ const AddTaxonomy = () => {
   const [speciesList, setSpeciesList] = useState([]);
   const [addSpecieModalVisible, setAddSpecieModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Debug function to track text input changes
-  const handleGenusNameChange = (text) => {
-    console.log('Genus name changed to:', text);
-    setGenusName(text);
-  };
+  const handleGenusNameChange = useCallback((text) => {
+    // Force uppercase as user types
+    const upper = (text || '').toUpperCase();
+    setGenusName(upper);
+  }, []);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     navigation.goBack();
-  };
+  }, [navigation]);
 
-  const handleAddSpecie = () => {
+  const handleAddSpecie = useCallback(() => {
     setAddSpecieModalVisible(true);
-  };
+  }, []);
 
-  const handleSaveSpecie = (specieData) => {
+  const handleSaveSpecie = useCallback((specieData) => {
     // Add the new specie to the list
     const newSpecie = {
       id: Date.now(), // Simple ID generation
@@ -50,13 +61,17 @@ const AddTaxonomy = () => {
     };
     setSpeciesList(prev => [...prev, newSpecie]);
     setAddSpecieModalVisible(false);
-  };
+  }, []);
 
-  const handleCloseSpecieModal = () => {
+  const handleCloseSpecieModal = useCallback(() => {
     setAddSpecieModalVisible(false);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    if (isLoading) {
+      Alert.alert('Please wait', 'Submitting taxonomy...');
+      return;
+    }
     if (!genusName.trim()) {
       Alert.alert('Error', 'Please enter a genus name');
       return;
@@ -84,11 +99,22 @@ const AddTaxonomy = () => {
       // Format species data for API
       const formattedSpecies = formatSpeciesForApi(speciesList);
 
+      // Retrieve auth token
+      const authToken = await getStoredAuthToken();
+      if (!authToken) {
+        console.warn('⚠️ No auth token found. Proceeding may fail.');
+      }
+
+      // Optional: retrieve adminId from storage for emulator/local testing fallback
+      const storedAdminId = await getStoredAdminId();
+      console.log({storedAdminId})
       // Call the API
       const response = await addPlantTaxonomyApi({
         genusName: genusName.trim(),
         species: formattedSpecies,
-        adminId: 'admin_temp' // TODO: Replace with actual admin ID from auth context
+        authToken,
+        // Provide adminId only if available (useful for emulator/local mode)
+        ...(storedAdminId ? { adminId: storedAdminId } : {}),
       });
 
       if (response.success) {
@@ -119,9 +145,11 @@ const AddTaxonomy = () => {
         'An unexpected error occurred. Please check your connection and try again.'
       );
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, [isLoading, genusName, speciesList, navigation]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
@@ -155,9 +183,13 @@ const AddTaxonomy = () => {
                   value={genusName}
                   onChangeText={handleGenusNameChange}
                   placeholderTextColor="#647276"
-                  autoCapitalize="words"
+                  autoCapitalize="characters"
                   autoCorrect={false}
                   selectionColor="#539461"
+                  accessible={true}
+                  accessibilityLabel="Genus name"
+                  accessibilityHint="Enter the genus name in uppercase"
+                  testID="genusInput"
                 />
               </View>
             </View>
@@ -179,7 +211,15 @@ const AddTaxonomy = () => {
 
         {/* Add Specie Button */}
         <View style={styles.addSpecieSection}>
-          <TouchableOpacity style={styles.addSpecieButton} onPress={handleAddSpecie}>
+          <TouchableOpacity
+            style={styles.addSpecieButton}
+            onPress={handleAddSpecie}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Add specie"
+            accessibilityHint="Open a dialog to add a specie"
+            testID="addSpecieButton"
+          >
             <View style={styles.addButtonIcon}>
               <AddSpecieIcon width={24} height={24} />
             </View>
@@ -195,6 +235,12 @@ const AddTaxonomy = () => {
             style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
             onPress={handleSave}
             disabled={isLoading}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Submit taxonomy"
+            accessibilityHint="Creates the taxonomy with the provided genus and species"
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
+            testID="submitTaxonomyButton"
           >
             <View style={styles.saveButtonText}>
               <Text style={styles.saveText}>

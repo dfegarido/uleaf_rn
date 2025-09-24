@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const postProfileRequestGenusApi = async (genus, species) => {
   try {
@@ -6,7 +7,7 @@ export const postProfileRequestGenusApi = async (genus, species) => {
 
     const status = 'Inactive';
     const response = await fetch(
-      'https://insertgenusrequest-nstilwgvua-uc.a.run.app',
+      API_ENDPOINTS.INSERT_GENUS_REQUEST,
       {
         method: 'POST',
         headers: {

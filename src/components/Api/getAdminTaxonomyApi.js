@@ -3,7 +3,7 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 export const getAdminTaxonomyApi = async (filters = {}) => {
   try {
     const token = await getStoredAuthToken();
-
+    console.log('getAdminTaxonomyApi token:', token ? 'Token exists' : 'No token found');
     // Build query parameters
     const params = new URLSearchParams();
     
