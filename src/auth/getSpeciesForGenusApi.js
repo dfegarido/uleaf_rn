@@ -1,4 +1,4 @@
-import { API_CONFIG } from '../config/apiConfig';
+import { API_CONFIG, API_ENDPOINTS } from '../config/apiConfig';
 
 /**
  * Get Species for Genus API Client
@@ -6,15 +6,16 @@ import { API_CONFIG } from '../config/apiConfig';
  * Retrieves all species belonging to a specific genus.
  * 
  * @param {Object} params - Request parameters
- * @param {string} params.genusId - ID of the genus to get species for
- * @param {string} params.genusName - Alternative: name of the genus (optional)
- * @param {string} params.authToken - Authentication token (optional for emulator)
+ * @param {string} [params.genusId] - ID of the genus to get species for
+ * @param {string} [params.genusName] - Alternative: name of the genus
+ * @param {string} params.authToken - Authentication token (required in production)
  * 
  * @returns {Promise<Object>} Response containing species data
  * 
  * @example
  * const response = await getSpeciesForGenusApi({
- *   genusId: 'genus123'
+ *   genusName: 'Monstera',
+ *   authToken: await getStoredAuthToken()
  * });
  * 
  * if (response.success) {
@@ -24,25 +25,29 @@ import { API_CONFIG } from '../config/apiConfig';
  */
 export const getSpeciesForGenusApi = async (params) => {
   try {
-    console.log('✅ Starting getSpeciesForGenusApi call with params:', params);
+    console.log('🔍 Starting getSpeciesForGenusApi call');
 
-    const { genusId, genusName, authToken } = params;
+    const { genusId, genusName, authToken } = params || {};
 
     // Validate required parameters
     if (!genusId && !genusName) {
       throw new Error('Either genusId or genusName is required');
     }
 
+    if (!authToken) {
+      console.warn('⚠️ No auth token provided. Request may fail in production.');
+    }
+
     // Prepare query parameters
     const queryParams = new URLSearchParams();
     if (genusId) {
-      queryParams.append('genusId', genusId);
+      queryParams.append('genusId', genusId.toString().trim());
     }
     if (genusName) {
-      queryParams.append('genusName', genusName);
+      queryParams.append('genusName', genusName.toString().trim());
     }
 
-    console.log('📝 Query parameters prepared:', queryParams.toString());
+    console.log('📝 Query parameters:', queryParams.toString());
 
     // Prepare request configuration
     const requestConfig = {
@@ -52,53 +57,55 @@ export const getSpeciesForGenusApi = async (params) => {
       }
     };
 
-    // Add authentication header if token provided
+    // Add authentication header
     if (authToken) {
       requestConfig.headers['Authorization'] = `Bearer ${authToken}`;
     }
 
-    const url = `${API_CONFIG.BASE_URL}/getSpeciesForGenus?${queryParams.toString()}`;
+    // Build URL with query parameters
+    const base = API_ENDPOINTS.GET_SPECIES_FOR_GENUS;
+    const url = queryParams.toString() ? `${base}?${queryParams.toString()}` : base;
     console.log('🌐 Making API call to:', url);
 
     // Make the API call
     const response = await fetch(url, requestConfig);
-
-    console.log('📡 Raw response status:', response.status);
+    console.log('📡 Response status:', response.status);
 
     // Parse response
     const responseData = await response.json();
-    console.log('📄 Parsed response data:', responseData);
+    console.log('📄 Response data:', responseData);
 
     if (!response.ok) {
-      console.error('❌ API call failed with status:', response.status);
-      console.error('❌ Error response:', responseData);
-      
-      throw new Error(responseData.error || `HTTP ${response.status}: ${response.statusText}`);
+      console.error('❌ API call failed:', response.status, responseData.error);
+      throw new Error(
+        responseData.error || 
+        responseData.message || 
+        `Failed to get species. Status: ${response.status}`
+      );
     }
 
-    if (!responseData.success) {
-      console.error('❌ API returned error:', responseData.error);
-      throw new Error(responseData.error || 'API request failed');
-    }
-
-    console.log('✅ API call successful:', {
-      speciesCount: responseData.count,
-      genusName: responseData.genusInfo?.name,
-      source: responseData.source
+    console.log('✅ Species retrieved:', {
+      count: responseData.data?.length || 0,
+      genus: responseData.genusInfo?.name || genusName || genusId
     });
 
-    return responseData;
+    return {
+      success: true,
+      data: responseData.data || responseData,
+      genusInfo: responseData.genusInfo,
+      count: responseData.data?.length || 0,
+      status: response.status
+    };
 
   } catch (error) {
-    console.error('❌ getSpeciesForGenusApi error:', error.message);
+    console.error('❌ Error in getSpeciesForGenusApi:', error);
     
-    // Return error in consistent format
     return {
       success: false,
       error: error.message || 'Unknown error occurred',
-      timestamp: new Date().toISOString(),
       data: [],
-      count: 0
+      count: 0,
+      status: error.status || 500
     };
   }
 };
@@ -133,14 +140,17 @@ const formatIndexForDisplay = (indexValue) => {
   if (!indexValue) return '';
   
   // Map database values to display values
-  const displayMap = {
+  const shippingMap = {
     'Low': 'Good (5-8)',
     'Medium': 'Better (7-10)', 
-    'High': 'Best (9-10)',
+    'High': 'Best (9-10)'
+  };
+  
+  const acclimationMap = {
     'Easy': 'Better (4-6)',
     'Medium': 'Average (3-5)',
     'Hard': 'Difficult (1-3)'
   };
 
-  return displayMap[indexValue] || indexValue;
+  return shippingMap[indexValue] || acclimationMap[indexValue] || indexValue;
 };

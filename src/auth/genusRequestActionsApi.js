@@ -1,4 +1,4 @@
-import { API_CONFIG } from '../config/apiConfig';
+import { API_CONFIG, API_ENDPOINTS } from '../config/apiConfig';
 
 /**
  * Approve Genus Request API Client
@@ -40,8 +40,7 @@ export const approveGenusRequestApi = async (params) => {
     }
 
     // Build URL
-    const baseUrl = API_CONFIG.BASE_URL;
-    const url = `${baseUrl}/approveGenusRequest`;
+  const url = API_ENDPOINTS.APPROVE_GENUS_REQUEST;
     
     console.log('🌐 Making request to:', url);
 
@@ -153,8 +152,7 @@ export const rejectGenusRequestApi = async (params) => {
     }
 
     // Build URL
-    const baseUrl = API_CONFIG.BASE_URL;
-    const url = `${baseUrl}/rejectGenusRequest`;
+  const url = API_ENDPOINTS.REJECT_GENUS_REQUEST;
     
     console.log('🌐 Making request to:', url);
 

@@ -1,4 +1,5 @@
-import { API_CONFIG } from '../config/apiConfig';
+import { API_CONFIG, API_ENDPOINTS } from '../config/apiConfig';
+import { getStoredAuthToken } from '../utils/getStoredAuthToken';
 
 /**
  * Get Genus Requests API Client
@@ -60,8 +61,8 @@ export const getGenusRequestsApi = async (options = {}) => {
     }
 
     // Build URL
-    const baseUrl = API_CONFIG.BASE_URL;
-    const url = `${baseUrl}/getGenusRequests${params.toString() ? '?' + params.toString() : ''}`;
+  const baseUrl = API_ENDPOINTS.GET_GENUS_REQUESTS;
+  const url = `${baseUrl}${params.toString() ? '?' + params.toString() : ''}`;
     
     console.log('🌐 Making request to:', url);
 
@@ -70,9 +71,21 @@ export const getGenusRequestsApi = async (options = {}) => {
       'Content-Type': 'application/json',
     };
 
-    // Add authorization header if token provided
-    if (options.authToken) {
-      headers['Authorization'] = `Bearer ${options.authToken}`;
+    // Resolve auth token: prefer provided token, otherwise load from storage (and refresh if needed)
+    let authToken = options.authToken;
+    if (!authToken) {
+      try {
+        authToken = await getStoredAuthToken();
+        console.log('🔑 getGenusRequestsApi token:', authToken ? 'retrieved from storage' : 'not available');
+      } catch (tokenErr) {
+        console.warn('⚠️ Failed to retrieve stored auth token:', tokenErr?.message || tokenErr);
+      }
+    }
+
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    } else {
+      console.log('⚠️ Proceeding without Authorization header (may fail on secured endpoints)');
     }
 
     // Make API request

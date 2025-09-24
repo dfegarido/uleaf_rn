@@ -1,4 +1,4 @@
-import { API_CONFIG } from '../config/apiConfig';
+import { API_CONFIG, API_ENDPOINTS } from '../config/apiConfig';
 
 /**
  * Delete Plant Taxonomy API Client
@@ -59,10 +59,10 @@ export const deletePlantTaxonomyApi = async (params) => {
       requestConfig.headers.Authorization = `Bearer ${authToken}`;
     }
 
-    console.log('📡 Making DELETE request to deletePlantTaxonomy endpoint...');
+  console.log('📡 Making DELETE request to deletePlantTaxonomy endpoint...');
 
-    // Construct API URL
-    const apiUrl = `${API_CONFIG.BASE_URL}/deletePlantTaxonomy`;
+  // Construct API URL
+  const apiUrl = API_ENDPOINTS.DELETE_PLANT_TAXONOMY;
 
     console.log('🔗 API URL:', apiUrl);
 

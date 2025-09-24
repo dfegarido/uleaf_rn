@@ -1,4 +1,4 @@
-import { API_CONFIG } from '../config/apiConfig';
+import { API_CONFIG, API_ENDPOINTS } from '../config/apiConfig';
 
 /**
  * Update Plant Taxonomy API Client
@@ -7,10 +7,10 @@ import { API_CONFIG } from '../config/apiConfig';
  * 
  * @param {Object} params - Request parameters
  * @param {string} params.genusId - ID of the genus to update
- * @param {string} params.newGenusName - New name for the genus (optional)
- * @param {Array} params.species - Array of species objects to update/add/delete
- * @param {string} params.adminId - ID of the admin updating the taxonomy
- * @param {string} params.authToken - Authentication token (optional for emulator)
+ * @param {string} [params.newGenusName] - New name for the genus (optional)
+ * @param {Array} [params.species] - Array of species objects to update/add/delete
+ * @param {string} [params.adminId] - ID of the admin updating the taxonomy (optional when using authToken)
+ * @param {string} params.authToken - Authentication token (required in production)
  * 
  * @returns {Promise<Object>} Response containing update result
  * 
@@ -35,7 +35,7 @@ import { API_CONFIG } from '../config/apiConfig';
  *       action: 'add'
  *     }
  *   ],
- *   adminId: 'admin123'
+ *   authToken: await getStoredAuthToken()
  * });
  * 
  * if (response.success) {
@@ -50,11 +50,16 @@ export const updatePlantTaxonomyApi = async (params) => {
 
     // Validate required parameters
     if (!genusId) {
-      throw new Error('Missing required parameter: genusId');
+      throw new Error('genusId is required');
     }
 
-    if (!adminId) {
-      throw new Error('Missing required parameter: adminId');
+    if (!authToken) {
+      console.warn('⚠️ No auth token provided. Request may fail in production.');
+    }
+
+    // adminId is optional when authToken is provided
+    if (!authToken && !adminId) {
+      throw new Error('Either authToken or adminId is required');
     }
 
     // Validate species objects if provided
@@ -68,11 +73,14 @@ export const updatePlantTaxonomyApi = async (params) => {
 
     // Prepare request body
     const requestBody = {
-      genusId: genusId.trim(),
-      adminId: adminId.trim()
+      genusId: genusId.trim()
     };
 
     // Add optional fields
+    if (adminId) {
+      requestBody.adminId = adminId.trim();
+    }
+
     if (newGenusName && newGenusName.trim()) {
       requestBody.newGenusName = newGenusName.trim();
     }
@@ -102,12 +110,15 @@ export const updatePlantTaxonomyApi = async (params) => {
     // Add authentication header if token provided
     if (authToken) {
       requestConfig.headers['Authorization'] = `Bearer ${authToken}`;
+      console.log('🔑 Using auth token for authentication');
+    } else if (adminId) {
+      console.log('🔑 Using adminId for authentication (fallback mode)');
     }
 
-    console.log('🌐 Making API call to:', `${API_CONFIG.BASE_URL}/updatePlantTaxonomy`);
+  console.log('🌐 Making API call to:', API_ENDPOINTS.UPDATE_PLANT_TAXONOMY);
 
     // Make the API call
-    const response = await fetch(`${API_CONFIG.BASE_URL}/updatePlantTaxonomy`, requestConfig);
+  const response = await fetch(API_ENDPOINTS.UPDATE_PLANT_TAXONOMY, requestConfig);
 
     console.log('📡 Raw response status:', response.status);
 

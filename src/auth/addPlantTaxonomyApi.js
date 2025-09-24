@@ -1,4 +1,4 @@
-import { API_CONFIG } from '../config/apiConfig';
+import { API_CONFIG, API_ENDPOINTS } from '../config/apiConfig';
 
 /**
  * Add Plant Taxonomy API Client
@@ -8,8 +8,8 @@ import { API_CONFIG } from '../config/apiConfig';
  * @param {Object} params - Request parameters
  * @param {string} params.genusName - Name of the genus to create
  * @param {Array} params.species - Array of species objects to create
- * @param {string} params.adminId - ID of the admin creating the taxonomy
- * @param {string} params.authToken - Authentication token (optional for emulator)
+ * @param {string} [params.adminId] - ID of the admin creating the taxonomy (optional when using authToken)
+ * @param {string} params.authToken - Authentication token (required in production)
  * 
  * @returns {Promise<Object>} Response containing creation result
  * 
@@ -35,16 +35,15 @@ export const addPlantTaxonomyApi = async (params) => {
   try {
     console.log('✅ Starting addPlantTaxonomyApi call with params:', params);
 
-    const { genusName, species, adminId, authToken } = params;
+  const { genusName, species, adminId, authToken } = params;
 
     // Validate required parameters
     if (!genusName || !species || !Array.isArray(species) || species.length === 0) {
       throw new Error('Missing required parameters: genusName and species array are required');
     }
 
-    if (!adminId) {
-      throw new Error('Missing required parameter: adminId');
-    }
+    // In production, admin is derived from auth token by the server; in local testing, adminId may be required
+    // We keep this client-side check lenient and let the server enforce appropriately.
 
     // Validate species objects
     const validatedSpecies = species.map((spec, index) => {
@@ -64,8 +63,11 @@ export const addPlantTaxonomyApi = async (params) => {
     const requestBody = {
       genusName: genusName.trim(),
       species: validatedSpecies,
-      adminId: adminId.trim()
     };
+    // Include adminId only if provided (useful for local emulator/testing)
+    if (adminId) {
+      requestBody.adminId = adminId.trim();
+    }
 
     console.log('📝 Request body prepared:', requestBody);
 
@@ -83,10 +85,10 @@ export const addPlantTaxonomyApi = async (params) => {
       requestConfig.headers['Authorization'] = `Bearer ${authToken}`;
     }
 
-    console.log('🌐 Making API call to:', `${API_CONFIG.BASE_URL}/addPlantTaxonomy`);
+  console.log('🌐 Making API call to:', API_ENDPOINTS.ADD_PLANT_TAXONOMY);
 
     // Make the API call
-    const response = await fetch(`${API_CONFIG.BASE_URL}/addPlantTaxonomy`, requestConfig);
+  const response = await fetch(API_ENDPOINTS.ADD_PLANT_TAXONOMY, requestConfig);
 
     console.log('📡 Raw response status:', response.status);
     console.log('📡 Raw response headers:', response.headers);

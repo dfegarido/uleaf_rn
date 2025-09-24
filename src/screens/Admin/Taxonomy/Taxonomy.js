@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -7,10 +7,8 @@ import {
   TextInput,
   ScrollView,
   FlatList,
-  ActivityIndicator,
   StatusBar,
   RefreshControl,
-  Platform,
   Image,
   Modal
 } from 'react-native';
@@ -27,9 +25,9 @@ import ThreeDotsIcon from '../../../assets/admin-icons/three-dots.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 
 // Import API
-import { getAdminTaxonomyApi } from '../../../components/Api';
 import { getGenusListApi } from '../../../components/Api';
 import { getGenusRequestsApi } from '../../../auth/getGenusRequestsApi';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 import EditTaxonomyModal from './EditTaxonomyModal';
 import TaxonomySkeletonList from './TaxonomySkeletonList';
 import TaxonomyOptionsModal from './TaxonomyOptionsModal';
@@ -40,7 +38,7 @@ import RequestActionModal from './RequestActionModal';
 const FILTER_OPTIONS = [
   { 
     id: 1, 
-    label: 'Accuminata',
+    label: 'Acuminata',
     type: 'dropdown',
     values: ['All', 'Yes', 'No']
   },
@@ -151,7 +149,7 @@ const TaxonomyHeader = ({ insets, searchQuery, onSearchChange, activeTab, onTabC
   );
 };
 
-const TaxonomyCard = ({ item, onEdit }) => {
+const TaxonomyCard = React.memo(({ item, onEdit }) => {
   // Add null checks to prevent crashes
   if (!item) {
     return null;
@@ -178,9 +176,9 @@ const TaxonomyCard = ({ item, onEdit }) => {
       </View>
     </View>
   );
-};
+});
 
-const TaxonomyRequestCard = ({ item, onAction }) => {
+const TaxonomyRequestCard = React.memo(({ item, onAction }) => {
   // Add null checks to prevent crashes
   if (!item) {
     return null;
@@ -252,7 +250,7 @@ const TaxonomyRequestCard = ({ item, onAction }) => {
       </View>
     </View>
   );
-};
+});
 
 // Filter Modal Component
 const FilterModal = ({ visible, onClose, filterType, onSelect, activeFilters }) => {
@@ -260,7 +258,7 @@ const FilterModal = ({ visible, onClose, filterType, onSelect, activeFilters }) 
   
   // Get the current value of this filter
   const getCurrentFilterValue = () => {
-    if (filterType.label === 'Accuminata') return activeFilters.accuminata;
+    if (filterType.label === 'Acuminata') return activeFilters.accuminata;
     if (filterType.label === 'Shipping Index') return activeFilters.shippingIndex;
     if (filterType.label === 'Acclimation Index') return activeFilters.acclimationIndex;
     return 'All';
@@ -333,7 +331,8 @@ const Taxonomy = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [taxonomyData, setTaxonomyData] = useState([]);
   const [requestsData, setRequestsData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  // derived filtered data below via useMemo
   const [loading, setLoading] = useState(true); // Start with loading true
   const [requestsLoading, setRequestsLoading] = useState(false); // Separate loading for requests
   const [refreshing, setRefreshing] = useState(false);
@@ -347,7 +346,6 @@ const Taxonomy = () => {
     shippingIndex: 'All',
     acclimationIndex: 'All'
   });
-  const [filterDropdownVisible, setFilterDropdownVisible] = useState(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilterType, setSelectedFilterType] = useState(null);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
@@ -368,27 +366,22 @@ const Taxonomy = () => {
     // Clear any existing data first
     setRequestsData([]);
     setTaxonomyData([]);
-    setFilteredData([]);
     
     // Fetch fresh data
     fetchAllData(true);
   }, []);
+
+  // Debounce the search input (200ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   // Listen for species deletion events to adjust counts immediately
   useEffect(() => {
     const unsubscribe = eventBus.on('speciesDeleted', ({ genusId, genusName, delta }) => {
       if (!genusId && !genusName) return;
       setTaxonomyData(prev => {
-        if (!Array.isArray(prev)) return prev;
-        return prev.map(item => {
-          const match = (genusId && item.id === genusId) || (genusName && item.name === genusName);
-          if (!match) return item;
-          const current = Number(item.receivedPlants || 0);
-          return { ...item, receivedPlants: Math.max(0, current + Number(delta || 0)) };
-        });
-      });
-      // Also update filteredData so the UI reflects instantly
-      setFilteredData(prev => {
         if (!Array.isArray(prev)) return prev;
         return prev.map(item => {
           const match = (genusId && item.id === genusId) || (genusName && item.name === genusName);
@@ -419,10 +412,121 @@ const Taxonomy = () => {
     return unsubscribe;
   }, [navigation]);
 
-  useEffect(() => {
-    console.log('🌿 useEffect: Filter data triggered');
-    filterData();
-  }, [searchQuery, activeTab, taxonomyData, requestsData, activeFilters]);
+  // Memoized filtered data (replaces state + effect)
+  const filteredData = useMemo(() => {
+    try {
+      const sourceData = activeTab === 'genus' ? taxonomyData : requestsData;
+      let filtered = Array.isArray(sourceData) ? sourceData : [];
+
+      // Apply search query filter
+      const term = debouncedQuery.trim().toLowerCase();
+      if (term) {
+        filtered = filtered.filter(item => {
+          if (!item) return false;
+          if (activeTab === 'genus') {
+            const genusName = (item.name || '').toLowerCase();
+            const genusNameAlt = (item.genusName || '').toLowerCase();
+            const source = (item.source || '').toLowerCase();
+            return genusName.includes(term) || genusNameAlt.includes(term) || source.includes(term);
+          } else {
+            const genusName = (item.genusName || '').toLowerCase();
+            const species = (item.species || '').toLowerCase();
+            const userName = (item.user?.name || '').toLowerCase();
+            const username = (item.user?.username || '').toLowerCase();
+            const userRole = (item.user?.role || '').toLowerCase();
+            return (
+              genusName.includes(term) ||
+              species.includes(term) ||
+              userName.includes(term) ||
+              username.includes(term) ||
+              userRole.includes(term)
+            );
+          }
+        });
+      }
+
+      // Apply additional filters for genus tab
+      if (activeTab === 'genus') {
+        // Acuminata filter
+        if (activeFilters.accuminata !== 'All') {
+          filtered = filtered.filter(item => {
+            const genusName = item.name?.toLowerCase() || '';
+            const hasAcuminata =
+              genusName.includes('accuminata') || // spellings across sources
+              genusName === 'musa' ||
+              genusName === 'banana';
+            return activeFilters.accuminata === 'Yes' ? hasAcuminata : !hasAcuminata;
+          });
+        }
+
+        // Shipping Index filter
+        if (activeFilters.shippingIndex !== 'All') {
+          filtered = filtered.filter(item => {
+            const speciesCount = item.receivedPlants || 0;
+            const source = item.source || '';
+            let shippingValue;
+            if (source.includes('plant_catalog')) {
+              if (speciesCount <= 2) shippingValue = '9-10';
+              else if (speciesCount <= 5) shippingValue = '7-8';
+              else if (speciesCount <= 10) shippingValue = '5-6';
+              else if (speciesCount <= 20) shippingValue = '3-4';
+              else shippingValue = '1-2';
+            } else {
+              if (speciesCount <= 1) shippingValue = '9-10';
+              else if (speciesCount <= 3) shippingValue = '7-8';
+              else if (speciesCount <= 7) shippingValue = '5-6';
+              else if (speciesCount <= 15) shippingValue = '3-4';
+              else shippingValue = '1-2';
+            }
+            return shippingValue === activeFilters.shippingIndex;
+          });
+        }
+
+        // Acclimation Index filter
+        if (activeFilters.acclimationIndex !== 'All') {
+          filtered = filtered.filter(item => {
+            const genusName = item.name || '';
+            const speciesCount = item.receivedPlants || 0;
+            const source = item.source || '';
+            let acclimationScore = 0;
+            acclimationScore += Math.min(5, Math.floor(speciesCount / 3));
+            if (genusName.length <= 7) acclimationScore += 3;
+            else if (genusName.length <= 10) acclimationScore += 1;
+            const easyGenera = [
+              'monstera',
+              'philodendron',
+              'pothos',
+              'epipremnum',
+              'dracaena',
+              'sansevieria',
+              'zamioculcas',
+              'ficus',
+              'calathea',
+              'alocasia',
+            ];
+            if (easyGenera.includes(genusName.toLowerCase())) {
+              acclimationScore += 4;
+            }
+            if (source.includes('plant_catalog')) {
+              acclimationScore += 2;
+            }
+            let acclimationValue;
+            if (acclimationScore >= 8) acclimationValue = '1-2';
+            else if (acclimationScore >= 6) acclimationValue = '3-4';
+            else if (acclimationScore >= 4) acclimationValue = '5-6';
+            else if (acclimationScore >= 2) acclimationValue = '7-8';
+            else acclimationValue = '9-10';
+            return acclimationValue === activeFilters.acclimationIndex;
+          });
+        }
+      }
+
+      return filtered;
+    } catch (e) {
+      console.error('🌿 Error deriving filteredData:', e);
+      return [];
+    }
+  }, [activeTab, taxonomyData, requestsData, debouncedQuery, activeFilters]);
 
   const fetchAllData = async (showLoading = true) => {
     console.log('🌿 fetchAllData called, showLoading:', showLoading);
@@ -514,19 +618,27 @@ const Taxonomy = () => {
     setRequestsLoading(true);
     
     try {
-      // Call the requests API
-      console.log('🌿 Calling getGenusRequestsApi...');
+      // Resolve auth token explicitly (pattern used in other scripts)
+      let authToken = null;
+      try {
+        authToken = await getStoredAuthToken();
+        console.log('🔑 fetchRequestsData token:', authToken ? 'retrieved' : 'not available');
+      } catch (tokenErr) {
+        console.warn('⚠️ Failed to retrieve auth token in fetchRequestsData:', tokenErr?.message || tokenErr);
+      }
+
+      // Call the requests API with auth - filter for pending (non-approved) requests only
+      console.log('🌿 Calling getGenusRequestsApi for pending requests...');
       const response = await getGenusRequestsApi({
         limit: 50,
+        status: 'pending', // Only show pending (non-approved) requests
         sortBy: 'createdAt',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        authToken
       });
       
-      // Enhanced logging to debug the response
-      console.log('🔍 Raw response type:', typeof response);
-      console.log('🔍 Response success:', response?.success);
-      console.log('🔍 Response data length:', response?.data?.length);
-      console.log('🔍 Response structure (first 2 items):', JSON.stringify(response?.data?.slice(0, 2), null, 2));
+      // Light logging (trimmed)
+      console.log('🔍 Requests response - success:', response?.success, 'len:', response?.data?.length ?? 0);
       
       if (response && response.success && response.data && Array.isArray(response.data)) {
         console.log('✅ Successfully fetched requests data:', response.data.length, 'items');
@@ -545,7 +657,7 @@ const Taxonomy = () => {
           dataType: typeof response?.data,
           isArray: Array.isArray(response?.data),
           dataLength: response?.data?.length,
-          fullResponse: response
+          // fullResponse omitted to reduce log size
         });
         
         // Set empty array instead of any mock data
@@ -556,7 +668,6 @@ const Taxonomy = () => {
       
     } catch (error) {
       console.error('❌ Error in fetchRequestsData:', error.message);
-      console.error('❌ Error stack:', error.stack);
       
       // Always set empty array on error - no mock data fallback
       console.log('🚫 Setting empty requests data due to error');
@@ -571,161 +682,7 @@ const Taxonomy = () => {
     // Redirect to fetchAllData for backward compatibility
     return fetchAllData(showLoading);
   };
-
-  const filterData = () => {
-    console.log('🌿 filterData called, searchQuery:', searchQuery, 'activeTab:', activeTab);
-    console.log('🌿 Active filters:', activeFilters);
-    try {
-      const sourceData = activeTab === 'genus' ? taxonomyData : requestsData;
-      console.log('🌿 sourceData length:', sourceData?.length);
-      console.log('🌿 sourceData type:', Array.isArray(sourceData) ? 'array' : typeof sourceData);
-      
-      if (activeTab === 'requests' && sourceData?.length > 0) {
-        console.log('🌿 First request item:', JSON.stringify(sourceData[0], null, 2));
-      }
-      
-      let filtered = sourceData || [];
-      
-      // Apply search query filter
-      if (searchQuery && searchQuery.trim()) {
-        const searchTerm = searchQuery.toLowerCase().trim();
-        console.log('🔍 Searching for:', searchTerm, 'in', activeTab, 'tab');
-        
-        filtered = filtered.filter(item => {
-          if (!item) return false;
-          
-          if (activeTab === 'genus') {
-            // Search in genus name and any other relevant fields
-            const genusName = (item.name || '').toLowerCase();
-            const genusNameAlt = (item.genusName || '').toLowerCase();
-            const source = (item.source || '').toLowerCase();
-            
-            const matches = genusName.includes(searchTerm) || 
-                           genusNameAlt.includes(searchTerm) ||
-                           source.includes(searchTerm);
-            
-            console.log(`🔍 Genus "${item.name}" matches "${searchTerm}":`, matches);
-            return matches;
-          } else {
-            // Search in request fields: genus name, species, user name, username
-            const genusName = (item.genusName || '').toLowerCase();
-            const species = (item.species || '').toLowerCase();
-            const userName = (item.user?.name || '').toLowerCase();
-            const username = (item.user?.username || '').toLowerCase();
-            const userRole = (item.user?.role || '').toLowerCase();
-            
-            const matches = genusName.includes(searchTerm) || 
-                           species.includes(searchTerm) ||
-                           userName.includes(searchTerm) ||
-                           username.includes(searchTerm) ||
-                           userRole.includes(searchTerm);
-            
-            console.log(`🔍 Request "${genusName} ${species}" by "${userName}" matches "${searchTerm}":`, matches);
-            return matches;
-          }
-        });
-        
-        console.log('🔍 Search results:', filtered.length, 'items found');
-      }
-      
-      // Apply additional filters for genus tab
-      if (activeTab === 'genus') {
-        // Apply Accuminata filter
-        if (activeFilters.accuminata !== 'All') {
-          filtered = filtered.filter(item => {
-            // Look for genus names that include 'Accuminata' or contain specific accuminata species
-            const genusName = item.name?.toLowerCase() || '';
-            const hasAccuminata = genusName.includes('accuminata') || 
-                                 genusName === 'musa' || // Musa is the genus that includes Accuminata
-                                 genusName === 'banana'; // Common name for Musa Accuminata
-            return activeFilters.accuminata === 'Yes' ? hasAccuminata : !hasAccuminata;
-          });
-        }
-        
-        // Apply Shipping Index filter  
-        if (activeFilters.shippingIndex !== 'All') {
-          filtered = filtered.filter(item => {
-            // For catalog genera, use species count as a proxy for shipping difficulty
-            // The more species, the more established the genus is in cultivation
-            // which often means easier shipping on average
-            const speciesCount = item.receivedPlants || 0;
-            const source = item.source || '';
-            
-            // Assign shipping index ranges based on species count and source
-            let shippingValue;
-            
-            // Plant catalog entries typically have more standardized shipping
-            if (source.includes('plant_catalog')) {
-              if (speciesCount <= 2) shippingValue = '9-10'; // Very few species = hard to ship
-              else if (speciesCount <= 5) shippingValue = '7-8'; 
-              else if (speciesCount <= 10) shippingValue = '5-6';
-              else if (speciesCount <= 20) shippingValue = '3-4';
-              else shippingValue = '1-2'; // Many species = typically easy to ship
-            } 
-            // Formal taxonomy entries might be more specialized/rare
-            else {
-              if (speciesCount <= 1) shippingValue = '9-10'; 
-              else if (speciesCount <= 3) shippingValue = '7-8';
-              else if (speciesCount <= 7) shippingValue = '5-6';
-              else if (speciesCount <= 15) shippingValue = '3-4';
-              else shippingValue = '1-2';
-            }
-            
-            return shippingValue === activeFilters.shippingIndex;
-          });
-        }
-        
-        // Apply Acclimation Index filter
-        if (activeFilters.acclimationIndex !== 'All') {
-          filtered = filtered.filter(item => {
-            // For catalog genera, use name length and species count as proxies for acclimation difficulty
-            // (This is just a placeholder algorithm - ideally you'd have real acclimation data)
-            const genusName = item.name || '';
-            const speciesCount = item.receivedPlants || 0;
-            const source = item.source || '';
-            
-            // Higher score = easier to acclimate
-            let acclimationScore = 0;
-            
-            // Popular genera with many species tend to be easier to acclimate
-            acclimationScore += Math.min(5, Math.floor(speciesCount / 3));
-            
-            // Well-known genera (shorter names) tend to be more common houseplants
-            if (genusName.length <= 7) acclimationScore += 3;
-            else if (genusName.length <= 10) acclimationScore += 1;
-            
-            // Common genera like these are generally easier to acclimate
-            const easyGenera = ['monstera', 'philodendron', 'pothos', 'epipremnum', 'dracaena', 
-                               'sansevieria', 'zamioculcas', 'ficus', 'calathea', 'alocasia'];
-            if (easyGenera.includes(genusName.toLowerCase())) {
-              acclimationScore += 4;
-            }
-            
-            // Plant catalog entries tend to be more established/common plants
-            if (source.includes('plant_catalog')) {
-              acclimationScore += 2;
-            }
-            
-            // Convert score to index range
-            let acclimationValue;
-            if (acclimationScore >= 8) acclimationValue = '1-2'; // Very easy
-            else if (acclimationScore >= 6) acclimationValue = '3-4'; // Easy
-            else if (acclimationScore >= 4) acclimationValue = '5-6'; // Moderate
-            else if (acclimationScore >= 2) acclimationValue = '7-8'; // Difficult
-            else acclimationValue = '9-10'; // Very difficult
-            
-            return acclimationValue === activeFilters.acclimationIndex;
-          });
-        }
-      }
-      
-      console.log('🌿 Filtered data length:', filtered.length);
-      setFilteredData(filtered);
-    } catch (error) {
-      console.error('🌿 Error in filterData:', error);
-      setFilteredData([]);
-    }
-  };
+  // filterData removed; replaced with useMemo filteredData
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -753,7 +710,7 @@ const Taxonomy = () => {
   const handleFilterSelect = (filterType, value) => {
     console.log('🌿 Filter selected:', filterType.label, '=', value);
     
-    const filterKey = filterType.label === 'Accuminata' ? 'accuminata' :
+    const filterKey = filterType.label === 'Acuminata' ? 'accuminata' :
                      filterType.label === 'Shipping Index' ? 'shippingIndex' :
                      filterType.label === 'Acclimation Index' ? 'acclimationIndex' : null;
     
@@ -769,7 +726,7 @@ const Taxonomy = () => {
   };
 
   const getFilterDisplayValue = (filter) => {
-    const filterKey = filter.label === 'Accuminata' ? 'accuminata' :
+    const filterKey = filter.label === 'Acuminata' ? 'accuminata' :
                      filter.label === 'Shipping Index' ? 'shippingIndex' :
                      filter.label === 'Acclimation Index' ? 'acclimationIndex' : null;
     
@@ -780,7 +737,7 @@ const Taxonomy = () => {
   };
 
   const isFilterActive = (filter) => {
-    const filterKey = filter.label === 'Accuminata' ? 'accuminata' :
+    const filterKey = filter.label === 'Acuminata' ? 'accuminata' :
                      filter.label === 'Shipping Index' ? 'shippingIndex' :
                      filter.label === 'Acclimation Index' ? 'acclimationIndex' : null;
     
@@ -807,12 +764,6 @@ const Taxonomy = () => {
       item.id === updatedItem.id ? updatedItem : item
     );
     setTaxonomyData(updatedData);
-    
-    // Also update filtered data if needed
-    const updatedFilteredData = filteredData.map(item => 
-      item.id === updatedItem.id ? updatedItem : item
-    );
-    setFilteredData(updatedFilteredData);
     
     // Close modal and clear selection
     setModalVisible(false);
@@ -854,31 +805,43 @@ const Taxonomy = () => {
     navigation.navigate('ImportTaxonomyScreen');
   };
 
-  const renderTaxonomyCard = ({ item }) => (
-    <TaxonomyCard item={item} onEdit={handleEditGenus} />
+  // Stable key extractor for FlatList
+  const keyExtractor = useCallback(
+    (item, index) => {
+      if (activeTab === 'genus') {
+        return item?.id?.toString?.() || (item?.name ? `genus:${item.name}` : `genus:${index}`);
+      }
+      // requests
+      const genus = item?.genusName || 'genus';
+      const species = item?.species || 'species';
+      return item?.id?.toString?.() || `${genus}|${species}|${index}`;
+    },
+    [activeTab]
   );
 
-  const renderRequestCard = ({ item }) => (
-    <TaxonomyRequestCard item={item} onAction={handleRequestAction} />
-  );
+  // Memoized content container style per tab
+  const listContentContainerStyle = useMemo(() => {
+    return {
+      paddingBottom: totalBottomPadding,
+      ...(activeTab === 'genus'
+        ? { paddingHorizontal: 12, paddingTop: 8 }
+        : { paddingHorizontal: 0, paddingTop: 0 }),
+    };
+  }, [activeTab, totalBottomPadding]);
 
-  const renderHeader = () => (
-    <View style={styles.countContainer}>
-      <Text style={styles.countText}>
-        {searchQuery.trim() ? (
-          // Show search results count
-          activeTab === 'genus' 
-            ? `${filteredData.length} ${filteredData.length === 1 ? 'genus' : 'genera'} found for "${searchQuery}"`
-            : `${filteredData.length} ${filteredData.length === 1 ? 'request' : 'requests'} found for "${searchQuery}"`
-        ) : (
-          // Show total count
-          activeTab === 'genus' 
-            ? `${filteredData.length} ${filteredData.length === 1 ? 'genus' : 'genera'} found`
-            : `${filteredData.length} ${filteredData.length === 1 ? 'request' : 'requests'} found`
-        )}
-      </Text>
-    </View>
-  );
+  const renderItem = useCallback(({ item }) => (
+    activeTab === 'genus' ? (
+      <TaxonomyCard item={item} onEdit={handleEditGenus} />
+    ) : (
+      <TaxonomyRequestCard item={item} onAction={handleRequestAction} />
+    )
+  ), [activeTab, handleEditGenus, handleRequestAction]);
+
+  const renderSeparator = useCallback(() => (
+    activeTab === 'genus' ? <View style={{ height: 8 }} /> : <View style={{ height: 6 }} />
+  ), [activeTab]);
+
+  // removed unused renderHeader
 
   if (loading) {
     return (
@@ -1020,13 +983,13 @@ const Taxonomy = () => {
           {/* List Items */}
           {(loading || (activeTab === 'requests' && requestsLoading)) ? (
             <TaxonomySkeletonList />
-          ) : filteredData && filteredData.length === 0 && searchQuery.trim() ? (
+          ) : filteredData && filteredData.length === 0 && debouncedQuery.trim() ? (
             // Show empty search results
             <View style={styles.emptySearchContainer}>
               <SearchIcon width={48} height={48} style={styles.emptySearchIcon} />
               <Text style={styles.emptySearchTitle}>No results found</Text>
               <Text style={styles.emptySearchMessage}>
-                No {activeTab === 'genus' ? 'genera' : 'requests'} found for "{searchQuery}"
+                No {activeTab === 'genus' ? 'genera' : 'requests'} found for "{debouncedQuery}"
               </Text>
               <TouchableOpacity 
                 onPress={() => setSearchQuery('')}
@@ -1038,26 +1001,11 @@ const Taxonomy = () => {
           ) : (
             <FlatList
               data={filteredData || []}
-              keyExtractor={(item) => item?.id?.toString() || Math.random().toString()}
-              renderItem={({ item }) => (
-                activeTab === 'genus' ? (
-                  <TaxonomyCard item={item} onEdit={handleEditGenus} />
-                ) : (
-                  <TaxonomyRequestCard item={item} onAction={handleRequestAction} />
-                )
-              )}
-              ItemSeparatorComponent={() => activeTab === 'genus' ? <View style={{ height: 8 }} /> : <View style={{ height: 6 }} />}
+              keyExtractor={keyExtractor}
+              renderItem={renderItem}
+              ItemSeparatorComponent={renderSeparator}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingBottom: totalBottomPadding,
-                ...(activeTab === 'genus' ? {
-                  paddingHorizontal: 12,
-                  paddingTop: 8,
-                } : {
-                  paddingHorizontal: 0,
-                  paddingTop: 0,
-                })
-              }}
+              contentContainerStyle={listContentContainerStyle}
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
               }

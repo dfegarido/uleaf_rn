@@ -11,10 +11,6 @@ export const getGenusListApi = async () => {
     const url = API_ENDPOINTS.GET_GENUS_LIST;
     console.log('🌐 API URL:', url);
     
-    // TEMPORARY: Force your computer's IP for physical Android device
-    const debugUrl = 'http://192.168.1.41:5001/i-leaf-u/us-central1/getGenusList';
-    console.log('🔧 Debug URL (forced for physical Android device):', debugUrl);
-    
     // For local testing, we'll still send the request even without a token
     const headers = {
       'Content-Type': 'application/json',
@@ -29,7 +25,7 @@ export const getGenusListApi = async () => {
     }
     
     console.log('📡 Making API request...');
-    const response = await fetch(debugUrl, {
+    const response = await fetch(url, {
       method: 'GET',
       headers: headers,
     });
