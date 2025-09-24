@@ -15,7 +15,7 @@ const LeafTrailHeader = ({ insets, onPressAdd = () => {}, onSearchChange = () =>
   const navigation = useNavigation();
 
   return (
-    <View style={[styles.headerContainer, { paddingTop: insets.top + 24 }]}>
+  <View style={[styles.headerContainer, { paddingTop: insets.top + 8 }]}>
       <View style={styles.topRow}>
         <TouchableOpacity
           accessibilityRole="button"
@@ -556,8 +556,10 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     minHeight: 106,
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
   },
   topRow: {
     flexDirection: 'row',

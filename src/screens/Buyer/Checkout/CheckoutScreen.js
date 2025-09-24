@@ -598,6 +598,24 @@ const CheckoutScreen = () => {
     });
     
     if (fromBuyNow && plantData) {
+      // Normalize price/original for Buy Now flow
+      const toNum = v => (v != null && v !== '' ? parseFloat(v) : null);
+      const finalPriceNum = toNum(plantData.finalPrice);
+      const usdPriceNewNum = toNum(plantData.usdPriceNew);
+      const usdPriceNum = toNum(plantData.usdPrice);
+      const explicitOriginalNum = toNum(plantData.originalPrice);
+
+      // Prefer finalPrice, then usdPriceNew, then usdPrice as current price
+      let current = finalPriceNum ?? usdPriceNewNum ?? usdPriceNum ?? 0;
+      // Prefer explicit original price, else usdPrice if it's higher than current
+      let original = explicitOriginalNum ?? (usdPriceNum && usdPriceNum > current ? usdPriceNum : null);
+      // Fix swapped cases if detected
+      if (original != null && original < current) {
+        const tmp = current;
+        current = original;
+        original = tmp;
+      }
+
       const item = {
         id: plantCode || Math.random().toString(),
         image: plantData.imagePrimary
@@ -611,16 +629,8 @@ const CheckoutScreen = () => {
             ? plantData.variegation
             : 'Standard',
         size: selectedPotSize || '2"',
-        price: parseFloat(
-          plantData.finalPrice ||
-            plantData.usdPriceNew ||
-            plantData.usdPrice ||
-            '0',
-        ),
-        originalPrice:
-          plantData.hasDiscount && plantData.originalPrice
-            ? parseFloat(plantData.originalPrice)
-            : null,
+        price: current,
+        originalPrice: original,
         quantity: quantity,
         title: 'Direct Purchase from Plant Detail',
         country: (() => {
@@ -661,10 +671,8 @@ const CheckoutScreen = () => {
           plantCode: plantCode,
           listingType: plantData.listingType,
           discount:
-            plantData.hasDiscount && plantData.discountAmount
-              ? `${Math.round(
-                  (plantData.discountAmount / plantData.originalPrice) * 100,
-                )}%`
+            original != null && original > current
+              ? `${Math.round(((original - current) / original) * 100)}%`
               : null,
           hasAirCargo: true,
         };
@@ -678,38 +686,53 @@ const CheckoutScreen = () => {
       
       return [item];
     } else if (useCart && cartItems.length > 0) {
-      const cartPlantItems = cartItems.map(item => ({
-        id: item.id || item.cartItemId,
-        image: item.image || require('../../../assets/images/plant1.png'),
-        name: item.name || 'Unknown Plant',
-        variation: item.subtitle?.split(' • ')[0] || 'Standard',
-        size:
-          item.subtitle
-            ?.split(' • ')[1]
-            ?.replace(' pot', '')
-            .replace(' inch', '"') ||
-          item.potSize ||
-          '2"',
-        price: item.price || 0,
-        originalPrice: item.originalPrice,
-        quantity: item.quantity || 1,
-        title: 'Delivery Details',
-        country: item.flagIcon,
-        shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
-        plantCode: item.plantCode,
-        listingType: item.listingType || 'Single Plant', // Preserve original listingType, don't override based on discount
-        discount: item.originalPrice
-          ? `${Math.round(
-              ((item.originalPrice - item.price) / item.originalPrice) * 100,
-            )}%`
-          : null,
-        hasAirCargo: true,
-        // Additional cart-specific data
-        availableQuantity: item.availableQuantity,
-        isUnavailable: item.isUnavailable,
-        flightInfo: item.flightInfo,
-        cartItemId: item.cartItemId,
-      }));
+      const cartPlantItems = cartItems.map(item => {
+        // Normalize price types and ensure discounted price is used when both exist
+        const priceNum = typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0);
+        const origNum = item.originalPrice != null
+          ? (typeof item.originalPrice === 'string' ? parseFloat(item.originalPrice) : item.originalPrice)
+          : null;
+
+        let normalizedPrice = priceNum;
+        let normalizedOriginal = origNum;
+
+        // If both are present but appear swapped (original < current), swap them
+        if (origNum != null && !isNaN(origNum) && !isNaN(priceNum) && origNum < priceNum) {
+          normalizedPrice = origNum;
+          normalizedOriginal = priceNum;
+        }
+
+        return {
+          id: item.id || item.cartItemId,
+          image: item.image || require('../../../assets/images/plant1.png'),
+          name: item.name || 'Unknown Plant',
+          variation: item.subtitle?.split(' • ')[0] || 'Standard',
+          size:
+            item.subtitle
+              ?.split(' • ')[1]
+              ?.replace(' pot', '')
+              .replace(' inch', '"') ||
+            item.potSize ||
+            '2"',
+          price: normalizedPrice,
+          originalPrice: normalizedOriginal,
+          quantity: item.quantity || 1,
+          title: 'Delivery Details',
+          country: item.flagIcon,
+          shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
+          plantCode: item.plantCode,
+          listingType: item.listingType || 'Single Plant', // Preserve original listingType, don't override based on discount
+          discount: (normalizedOriginal != null && normalizedOriginal > normalizedPrice)
+            ? `${Math.round(((normalizedOriginal - normalizedPrice) / normalizedOriginal) * 100)}%`
+            : null,
+          hasAirCargo: true,
+          // Additional cart-specific data
+          availableQuantity: item.availableQuantity,
+          isUnavailable: item.isUnavailable,
+          flightInfo: item.flightInfo,
+          cartItemId: item.cartItemId,
+        };
+      });
       
       console.log('🛒 Cart plant items prepared:', 
         cartPlantItems.map(item => ({
@@ -721,23 +744,36 @@ const CheckoutScreen = () => {
       
       return cartPlantItems;
     } else if (productData.length > 0) {
-      return productData.map(item => ({
+      return productData.map(item => {
+        const toNum = v => (v != null && v !== '' ? parseFloat(v) : null);
+        const priceNum = toNum(item.price) ?? 0;
+        const originalNum = toNum(item.originalPrice);
+        let current = priceNum;
+        let original = originalNum;
+        if (original != null && original < current) {
+          const tmp = current; current = original; original = tmp;
+        }
+        const discount = original != null && original > current
+          ? `${Math.round(((original - current)/original)*100)}%`
+          : null;
+        return ({
         id: item.id || Math.random().toString(),
         image: item.image || require('../../../assets/images/plant1.png'),
         name: item.name || 'Unknown Plant',
         variation: item.variation || item.variegation || 'Standard',
         size: item.size || item.potSize || '2"',
-        price: item.price || 0,
-        originalPrice: item.originalPrice,
+        price: current,
+        originalPrice: original,
         quantity: item.quantity || 1,
         title: item.title || 'Rare Tropical Plants from Thailand',
         country: item.country || 'TH',
         shippingMethod: item.shippingMethod || 'Plant / UPS Ground Shipping',
         plantCode: item.plantCode,
         listingType: item.listingType,
-        discount: item.discount,
+        discount: discount,
         hasAirCargo: item.hasAirCargo !== false,
-      }));
+      });
+    });
     } else {
       return [];
     }
@@ -1319,6 +1355,17 @@ const CheckoutScreen = () => {
 
       // Add items based on checkout type
       if (fromBuyNow && plantData) {
+        // Normalize current/original price (same logic as in plantItems mapping)
+        const toNum = v => (v != null && v !== '' ? parseFloat(v) : null);
+        const finalPriceNum = toNum(plantData.finalPrice);
+        const usdPriceNewNum = toNum(plantData.usdPriceNew);
+        const usdPriceNum = toNum(plantData.usdPrice);
+        const explicitOriginalNum = toNum(plantData.originalPrice);
+        let current = finalPriceNum ?? usdPriceNewNum ?? usdPriceNum ?? 0;
+        let original = explicitOriginalNum ?? (usdPriceNum && usdPriceNum > current ? usdPriceNum : null);
+        if (original != null && original < current) {
+          const tmp = current; current = original; original = tmp;
+        }
         // Direct purchase from plant detail
         orderData.productData = [
           {
@@ -1328,8 +1375,8 @@ const CheckoutScreen = () => {
             variegation: plantData.variegation,
             potSize: selectedPotSize,
             quantity: quantity,
-            price: plantData.usdPriceNew || plantData.usdPrice,
-            originalPrice: plantData.usdPrice,
+            price: current,
+            originalPrice: original,
             country: plantData.country,
             // Include flight/cargo date and plant source country for backend
             flightDate:
@@ -1968,7 +2015,7 @@ const CheckoutScreen = () => {
             {/* Title */}
             <View style={styles.pointsTitle}>
               <Text style={styles.pointsTitleText}>
-                Use available leaf points, rewards, and discount
+                Apply your available leaf points,credits, and discounts.
               </Text>
             </View>
 
@@ -2733,7 +2780,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#647276',
     flex: 1,
-    width: '100%',
+    // Allow the label to share space with the amount on the right
+    // and avoid covering the entire row which could hide the text.
+    flexShrink: 1,
   },
   summaryRowNumber: {
     fontFamily: 'Inter',

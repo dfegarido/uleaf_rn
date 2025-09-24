@@ -803,7 +803,7 @@ function MainTabNavigator() {
                   <SellIcon width={80} height={80} />
                 </View>
               );
-            case 'Order':
+            case 'Orders':
               return focused ? (
                 <OrderIconSelected width={size} height={size} />
               ) : (
@@ -823,7 +823,7 @@ function MainTabNavigator() {
       <Tab.Screen name="Home" component={ScreenHome} />
       <Tab.Screen name="Listings" component={ScreenListing} />
       <Tab.Screen name="Sell" component={ScreenSell} />
-      <Tab.Screen name="Order" component={ScreenOrder} />
+  <Tab.Screen name="Orders" component={ScreenOrder} />
       <Tab.Screen name="Delivery" component={DeliveryStack} />
     </Tab.Navigator>
   );

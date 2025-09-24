@@ -55,7 +55,7 @@ const EnrollSellerHeader = ({insets}) => {
   const navigation = useNavigation();
 
   return (
-    <View style={[styles.headerContainer, {paddingTop: insets.top }]}>
+    <View style={[styles.headerContainer, {paddingTop: insets.top + 24}]}>
       <View style={styles.topRow}>
         <TouchableOpacity
           accessibilityRole="button"
@@ -66,7 +66,7 @@ const EnrollSellerHeader = ({insets}) => {
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Enrol Seller</Text>
+        <Text style={styles.headerTitle}>Enroll Seller</Text>
 
         <View style={styles.placeholder} />
       </View>
@@ -305,20 +305,18 @@ const EnrollSeller = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left','right']}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
       <EnrollSellerHeader insets={insets} />
       <ScrollView 
         style={styles.content} 
         contentContainerStyle={[
           styles.contentContainer,
-          {paddingBottom: insets.bottom + tabBarHeight + 20}
+          { paddingBottom: Math.max(34, insets.bottom + tabBarHeight + 20) }
         ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.formContainer}>
-          {/* Form Title */}
-          <Text style={styles.formTitle}>Seller Information</Text>
           
           {/* Country Selection Field */}
           <View style={styles.fieldContainer}>
@@ -356,7 +354,7 @@ const EnrollSeller = () => {
           {/* Garden/Company Name Field */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              Garden/Company Name <Text style={styles.requiredStar}>*</Text>
+              Garden/company name <Text style={styles.requiredStar}>*</Text>
             </Text>
             <TextInput
               style={[
@@ -364,7 +362,7 @@ const EnrollSeller = () => {
                 errors.gardenName && styles.errorField
               ]}
               placeholder="Enter garden or company name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#647276"
               value={gardenName}
               onChangeText={setGardenName}
             />
@@ -376,7 +374,7 @@ const EnrollSeller = () => {
           {/* First Name Field */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              First Name <Text style={styles.requiredStar}>*</Text>
+              First name <Text style={styles.requiredStar}>*</Text>
             </Text>
             <TextInput
               style={[
@@ -384,7 +382,7 @@ const EnrollSeller = () => {
                 errors.firstName && styles.errorField
               ]}
               placeholder="Enter first name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#647276"
               value={firstName}
               onChangeText={setFirstName}
             />
@@ -396,7 +394,7 @@ const EnrollSeller = () => {
           {/* Last Name Field */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              Last Name <Text style={styles.requiredStar}>*</Text>
+              Last name <Text style={styles.requiredStar}>*</Text>
             </Text>
             <TextInput
               style={[
@@ -404,7 +402,7 @@ const EnrollSeller = () => {
                 errors.lastName && styles.errorField
               ]}
               placeholder="Enter last name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#647276"
               value={lastName}
               onChangeText={setLastName}
             />
@@ -416,7 +414,7 @@ const EnrollSeller = () => {
           {/* Contact Number Field */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              Contact Number <Text style={styles.requiredStar}>*</Text>
+              Contact number <Text style={styles.requiredStar}>*</Text>
             </Text>
             <View style={[
               styles.phoneInputContainer,
@@ -428,7 +426,7 @@ const EnrollSeller = () => {
               <TextInput
                 style={styles.phoneInput}
                 placeholder="Enter phone number"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#647276"
                 keyboardType="phone-pad"
                 value={contactNumber}
                 onChangeText={handlePhoneNumberChange}
@@ -442,7 +440,7 @@ const EnrollSeller = () => {
           {/* Email Field */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              Email Address <Text style={styles.requiredStar}>*</Text>
+              Email address <Text style={styles.requiredStar}>*</Text>
             </Text>
             <TextInput
               style={[
@@ -450,7 +448,7 @@ const EnrollSeller = () => {
                 errors.email && styles.errorField
               ]}
               placeholder="Enter email address"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#647276"
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -474,7 +472,7 @@ const EnrollSeller = () => {
               )}
             </TouchableOpacity>
             <Text style={styles.checkboxLabel}>
-              Allow seller to do live video selling
+              Allow video live features
             </Text>
           </View>
           
@@ -548,9 +546,9 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F2F6',
+    paddingBottom: 8,
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
   },
   topRow: {
     flexDirection: 'row',
@@ -573,8 +571,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    // Figma: padding: top 98, horizontal 24, bottom handled dynamically
+    paddingTop: 8,
+    paddingHorizontal: 24,
   },
   formContainer: {
     width: '100%',
@@ -583,44 +582,55 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#000000',
-    marginBottom: 24,
-  },
-  fieldContainer: {
     marginBottom: 16,
   },
+  fieldContainer: {
+    // Figma: padding vertical 12, matches 102 height blocks grid-wise
+    paddingVertical: 12,
+    gap: 12,
+    marginBottom: 0,
+  },
   label: {
-    fontSize: 15,
+    // Figma Labels/L1/regular
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '500',
-    color: '#374151',
+    color: '#393D40',
     marginBottom: 8,
   },
   textField: {
+    minHeight: 48,
     height: 48,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
   },
   textInput: {
     height: 48,
+    minHeight: 48,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
     color: '#1F2937',
   },
   placeholderText: {
-    fontSize: 15,
-    color: '#9CA3AF',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#647276',
   },
   textValue: {
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
     color: '#1F2937',
     marginLeft: 8,
   },
@@ -629,7 +639,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#EF4444',
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
     marginTop: 4,
   },
   selectedCountryContainer: {
@@ -638,9 +649,10 @@ const styles = StyleSheet.create({
   },
   phoneInputContainer: {
     height: 48,
+    minHeight: 48,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
   },
@@ -651,46 +663,58 @@ const styles = StyleSheet.create({
     borderRightColor: '#E5E7EB',
   },
   countryCodeText: {
-    fontSize: 15,
-    color: '#1F2937',
+    fontSize: 16,
+    lineHeight: 16,
+    color: '#202325',
   },
   phoneInput: {
     flex: 1,
     paddingHorizontal: 16,
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
     color: '#1F2937',
   },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
+    paddingVertical: 12,
+    marginBottom: 12,
   },
   checkbox: {
     height: 24,
+    minHeight: 24,
     width: 24,
+    minWidth: 24,
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#647276',
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
   },
   uncheckedBox: {
     height: 24,
     width: 24,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 4,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    borderRadius: 6,
   },
   checkboxLabel: {
-    fontSize: 15,
-    color: '#374151',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: '#393D40',
   },
   submitButton: {
-    backgroundColor: '#0ea5e9',
-    borderRadius: 8,
+    backgroundColor: '#539461',
+    borderRadius: 12,
     height: 48,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 40,
+    paddingHorizontal: 24,
   },
   submitButtonDisabled: {
     backgroundColor: '#93C5FD',
@@ -698,6 +722,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    lineHeight: 16,
     fontWeight: '600',
   },
   modalOverlay: {

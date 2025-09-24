@@ -2088,7 +2088,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    width: 75,
+    // Allow the badge to size to its content to avoid clipping text like "80% OFF"
+    // width: 75,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
     height: 24,
     backgroundColor: '#FFE7E2',
     borderRadius: 8,

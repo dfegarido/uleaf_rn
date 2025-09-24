@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import TrashIcon from '../../../assets/admin-icons/trash-can.svg';
 
 export const UserInformationHeader = ({ user, onDeleteUser, isDeleting }) => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerContainer}>
+    <SafeAreaView style={styles.safeArea} edges={['left','right']}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top + 24 }]}>
         <View style={styles.topRow}>
           <TouchableOpacity
             accessibilityRole="button"
@@ -53,11 +55,9 @@ const styles = {
   headerContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingTop: 16,
     paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F2F6',
-    marginTop: 35
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
   },
   topRow: {
     flexDirection: 'row',

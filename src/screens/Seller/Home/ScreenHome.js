@@ -505,7 +505,19 @@ const ScreenHome = ({navigation}) => {
               gap: 10,
               alignItems: 'flex-start',
             }}>
-            {eventData?.map(item => (
+            {(eventData || [])
+              // Hide buyer-only referral items
+              .filter(item => {
+                const name = String(item?.name || '').trim().toLowerCase();
+                if (!name) return true;
+                // Common variations
+                if (name.includes('refer your friends')) return false;
+                if (name.includes('refer to your friends')) return false;
+                // Generic guard: titles starting with "refer" and containing "friend"
+                if (name.startsWith('refer') && name.includes('friend')) return false;
+                return true;
+              })
+              .map(item => (
               <TouchableOpacity
                 key={item.id}
                 onPress={() => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, TextInput, Modal, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import TrashIcon from '../../../assets/admin-icons/trash-can.svg';
@@ -17,6 +18,7 @@ const UserInformation = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = route.params || {};
+  const insets = useSafeAreaInsets();
   const [isVideoLiveEnabled, setIsVideoLiveEnabled] = useState(false);
   const [isAccountActive, setIsAccountActive] = useState(user?.status?.toLowerCase() === 'active');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -380,17 +382,24 @@ const UserInformation = () => {
   }, [confirmDeleteUser]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left','right']}>
       <UserInformationHeader user={user} onDeleteUser={handleDeleteUser} isDeleting={isDeletingUser} />
       
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: Math.max(34, (insets?.bottom || 0) + 60 + 20) }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <View style={[styles.avatar, { backgroundColor: getProfileColor(user.id) }]}>
               <Text style={styles.avatarText}>{firstName ? firstName.charAt(0) : (user.username ? user.username.charAt(0) : '?')}</Text>
             </View>
-            <Text style={styles.username}>@{user.username}</Text>
+            <Text style={styles.emailText}>{user.email || (user.username ? `${user.username}@gmail.com` : '')}</Text>
           </View>
           
           {/* Account Status Alert - Only show if account is deactivated */}
@@ -435,14 +444,13 @@ const UserInformation = () => {
 
         {/* Form Section */}
         <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>User Details</Text>
           
           {/* Country */}
           <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Country*</Text>
+            <Text style={styles.formLabel}>Country <Text style={styles.requiredStar}>*</Text></Text>
             {isEditing ? (
               <TouchableOpacity 
-                style={styles.textInput}
+                style={styles.textField}
                 onPress={() => setIsCountryModalVisible(true)}
               >
                 <View style={styles.countryFlagContainer}>
@@ -450,7 +458,7 @@ const UserInformation = () => {
                   {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
                   {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
-                  <Text style={{ color: editableFields.country ? '#1F2937' : '#9CA3AF', marginLeft: 8 }}>
+                  <Text style={{ color: editableFields.country ? '#1F2937' : '#647276', marginLeft: 8 }}>
                     {editableFields.country || 'Select Country'}
                   </Text>
                 </View>
@@ -472,13 +480,14 @@ const UserInformation = () => {
           {/* Garden/Company Name - Only show for non-Buyer roles */}
           {user.role !== 'Buyer' && user.role !== 'buyer' && (
             <View style={styles.formRow}>
-              <Text style={styles.formLabel}>Garden / company name*</Text>
+              <Text style={styles.formLabel}>Garden / company name <Text style={styles.requiredStar}>*</Text></Text>
               {isEditing ? (
                 <TextInput
                   style={styles.textInput}
                   value={editableFields.gardenOrCompanyName}
                   onChangeText={(text) => setEditableFields(prev => ({...prev, gardenOrCompanyName: text}))}
                   placeholder="Enter garden or company name"
+                  placeholderTextColor="#647276"
                 />
               ) : (
                 <Text style={styles.formValue}>{editableFields.gardenOrCompanyName || (user.role === 'Seller' ? 'Not provided' : 'N/A')}</Text>
@@ -488,13 +497,14 @@ const UserInformation = () => {
           
           {/* First Name */}
           <View style={styles.formRow}>
-            <Text style={styles.formLabel}>First name*</Text>
+            <Text style={styles.formLabel}>First name <Text style={styles.requiredStar}>*</Text></Text>
             {isEditing ? (
               <TextInput
                 style={styles.textInput}
                 value={editableFields.firstName}
                 onChangeText={(text) => setEditableFields(prev => ({...prev, firstName: text}))}
                 placeholder="Enter first name"
+                placeholderTextColor="#647276"
               />
             ) : (
               <Text style={styles.formValue}>{editableFields.firstName || 'Not provided'}</Text>
@@ -503,13 +513,14 @@ const UserInformation = () => {
           
           {/* Last Name */}
           <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Last name*</Text>
+            <Text style={styles.formLabel}>Last name <Text style={styles.requiredStar}>*</Text></Text>
             {isEditing ? (
               <TextInput
                 style={styles.textInput}
                 value={editableFields.lastName}
                 onChangeText={(text) => setEditableFields(prev => ({...prev, lastName: text}))}
                 placeholder="Enter last name"
+                placeholderTextColor="#647276"
               />
             ) : (
               <Text style={styles.formValue}>{editableFields.lastName || 'Not provided'}</Text>
@@ -518,7 +529,7 @@ const UserInformation = () => {
           
           {/* Contact Number */}
           <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Contact number*</Text>
+            <Text style={styles.formLabel}>Contact number <Text style={styles.requiredStar}>*</Text></Text>
             {isEditing ? (
               <TextInput
                 style={styles.textInput}
@@ -526,6 +537,7 @@ const UserInformation = () => {
                 onChangeText={(text) => setEditableFields(prev => ({...prev, contactNumber: text}))}
                 placeholder="Enter contact number"
                 keyboardType="phone-pad"
+                placeholderTextColor="#647276"
               />
             ) : (
               <Text style={styles.formValue}>{editableFields.contactNumber || 'Not provided'}</Text>
@@ -534,7 +546,7 @@ const UserInformation = () => {
           
           {/* Email Address */}
           <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Email address*</Text>
+            <Text style={styles.formLabel}>Email address <Text style={styles.requiredStar}>*</Text></Text>
             <Text style={styles.formValue}>{user.email || (user.username ? `${user.username}@gmail.com` : 'Not provided')}</Text>
           </View>
           
@@ -577,7 +589,7 @@ const UserInformation = () => {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.updateButtonText}>
-              {isEditing ? 'Save Changes' : 'Edit Information'}
+              {isEditing ? 'Save Changes' : 'Edit Account'}
             </Text>
           )}
         </TouchableOpacity>
@@ -634,6 +646,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  content: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  contentContainer: {
+    paddingTop: 8,
+    paddingHorizontal: 24,
+  },
   headerContainer: {
     backgroundColor: '#FFFFFF',
     paddingTop: 30,
@@ -674,43 +694,41 @@ const styles = StyleSheet.create({
   deleteIcon: {
     fontSize: 18,
   },
-  content: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-  },
   profileSection: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 5,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    marginBottom: 8,
   },
   formSection: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 20,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 36,
     color: '#1F2937',
     fontWeight: '600',
   },
-  username: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+  emailText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '500',
+    color: '#393D40',
   },
   alertBox: {
     backgroundColor: '#FEE2E2',
@@ -814,12 +832,13 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   formRow: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   formLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '500',
+    color: '#393D40',
     marginBottom: 8,
   },
   formValue: {
@@ -828,9 +847,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: '#F9FAFB',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#CDD3D4',
   },
   dropdownContainer: {
     flexDirection: 'row',
@@ -838,10 +857,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#CDD3D4',
   },
   dropdownText: {
     fontSize: 16,
@@ -892,18 +911,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    borderRadius: 4,
+    height: 24,
+    minHeight: 24,
+    width: 24,
+    minWidth: 24,
     marginRight: 12,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#647276',
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
   },
   checkboxLabel: {
-    fontSize: 16,
-    color: '#1F2937',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: '#393D40',
   },
   vipContainer: {
     paddingVertical: 12,
@@ -920,16 +944,18 @@ const styles = StyleSheet.create({
   },
   updateButton: {
     backgroundColor: '#539461',
-    borderRadius: 25,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    borderRadius: 12,
+    height: 48,
+    minHeight: 48,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 0,
-    marginBottom: 100,
+    marginTop: 8,
+    marginBottom: 24,
   },
   updateButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    lineHeight: 16,
     fontWeight: '600',
   },
   disabledButton: {
@@ -937,14 +963,33 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   textInput: {
-    fontSize: 16,
-    color: '#1F2937',
-    paddingVertical: 12,
+    height: 48,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#1F2937',
+  },
+  textField: {
+    minHeight: 48,
+    height: 48,
     borderWidth: 1,
-    borderColor: '#0ea5e9',
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  requiredStar: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '400',
   },
   errorText: {
     fontSize: 16,
