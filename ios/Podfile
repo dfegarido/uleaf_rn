@@ -4,9 +4,16 @@ require Pod::Executable.execute_command('node', ['-p',
     "react-native/scripts/react_native_pods.rb",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
+require 'fileutils'
 
 platform :ios, min_ios_version_supported
+# Pin Firebase iOS SDK to a Swift 5.9-compatible version (Xcode 15.2)
+$FirebaseSDKVersion = '10.24.0'
+use_modular_headers!
 prepare_react_native_project!
+
+# Silence CocoaPods master specs repo warning (CDN is default)
+install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
@@ -23,6 +30,13 @@ target 'iLeafU' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+  # Constrain Firebase pods used by @react-native-firebase/* to avoid Swift 6-only APIs in v11.x
+  pod 'FirebaseCore', $FirebaseSDKVersion
+  pod 'FirebaseCoreInternal', $FirebaseSDKVersion
+  pod 'FirebaseAuth', $FirebaseSDKVersion
+  pod 'FirebaseStorage', $FirebaseSDKVersion
+  pod 'FirebaseFirestore', $FirebaseSDKVersion
+
   target 'iLeafUTests' do
     inherit! :complete
     # Pods for testing
@@ -36,5 +50,112 @@ target 'iLeafU' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Workaround: Some toolchains look for gRPC modulemap at Headers/Private/grpc/gRPC-Core.modulemap.
+    # CocoaPods 1.15+ places modulemaps under Target Support Files. Copy it to the expected location.
+    begin
+      pods_root = installer.sandbox.root
+      modulemap_src = File.join(pods_root, 'Target Support Files', 'gRPC-Core', 'gRPC-Core.modulemap')
+      if File.exist?(modulemap_src)
+        [
+          File.join(pods_root, 'Headers', 'Private', 'grpc'),
+          File.join(pods_root, 'Headers', 'Public', 'grpc')
+        ].each do |dest_dir|
+          FileUtils.mkdir_p(dest_dir) unless File.directory?(dest_dir)
+          dest_path = File.join(dest_dir, 'gRPC-Core.modulemap')
+          FileUtils.cp(modulemap_src, dest_path) unless File.exist?(dest_path)
+        end
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] gRPC modulemap copy failed: #{e.message}")
+    end
+
+    # Note: Do NOT set FIREBASE_BUILD_WITHOUT_SWIFT. FirebaseStorage v10 exposes Obj-C APIs
+    # via a generated Swift compatibility header. Defining FIREBASE_BUILD_WITHOUT_SWIFT prevents
+    # inclusion of that header and breaks FIRStorage* types for Obj-C consumers like RNFBStorage.
+
+
+
+    # Ensure gRPC modulemap is present at build time by adding a copy phase to gRPC targets
+    begin
+      installer.pods_project.targets.each do |t|
+        next unless ['gRPC-C++', 'gRPC-Core'].include?(t.name)
+        phase_name = '[Workaround] Copy gRPC modulemap'
+        exists = t.shell_script_build_phases.any? { |p| p.name == phase_name }
+        unless exists
+          phase = t.new_shell_script_build_phase(phase_name)
+          phase.shell_script = <<-SCRIPT
+PODS_ROOT="${PODS_ROOT}"
+SRC="${PODS_ROOT}/Target Support Files/gRPC-Core/gRPC-Core.modulemap"
+PRIV_DIR="${PODS_ROOT}/Headers/Private/grpc"
+PUB_DIR="${PODS_ROOT}/Headers/Public/grpc"
+mkdir -p "${PRIV_DIR}" "${PUB_DIR}"
+if [ -f "${SRC}" ]; then
+  cp -f "${SRC}" "${PRIV_DIR}/gRPC-Core.modulemap" || true
+  cp -f "${SRC}" "${PUB_DIR}/gRPC-Core.modulemap" || true
+fi
+          SCRIPT
+          # Ensure it runs early
+          t.build_phases.move(phase, 0)
+        end
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to add gRPC modulemap copy phase: #{e.message}")
+    end
+
+    # Workaround: React Native 0.75 with modular headers can generate multiple modulemaps
+    # that declare `module ReactCommon`, causing "redefinition of module 'ReactCommon'".
+    # Rename the module declared in React-RuntimeApple.modulemap to avoid the collision.
+    begin
+      react_common_headers = File.join(installer.sandbox.root, 'Headers', 'Public', 'ReactCommon')
+      rt_apple_mm = File.join(react_common_headers, 'React-RuntimeApple.modulemap')
+      if File.exist?(rt_apple_mm)
+        content = File.read(rt_apple_mm)
+        if content =~ /^\s*module\s+ReactCommon\b/
+          new_content = content.sub(/^(\s*)module\s+ReactCommon\b/, "\\1module ReactCommon_RuntimeApple")
+          File.write(rt_apple_mm, new_content)
+          Pod::UI.puts "[post_install] Renamed module ReactCommon in React-RuntimeApple.modulemap to ReactCommon_RuntimeApple to avoid redefinition".yellow
+        end
+        # Also ensure this module is not declared as an umbrella module to avoid overlapping umbrellas
+        content = File.read(rt_apple_mm)
+        modified = false
+        if content.include?("umbrella header \"React-RuntimeApple-umbrella.h\"")
+          content = content.sub(/umbrella header\s+\"React-RuntimeApple-umbrella.h\"/, 'header "React-RuntimeApple-umbrella.h"')
+          modified = true
+        end
+        # Remove inferred submodules clause which requires an umbrella
+        if content =~ /\n\s*module \* \{ export \* \ }/ || content =~ /\n\s*module \* \{ export \* \}/
+          content = content.gsub(/\n\s*module \* \{ export \* \ }/, '')
+          content = content.gsub(/\n\s*module \* \{ export \* \}/, '')
+          modified = true
+        end
+        if modified
+          File.write(rt_apple_mm, content)
+          Pod::UI.puts "[post_install] Tweaked React-RuntimeApple.modulemap to use a non-umbrella header and removed inferred submodules".yellow
+        end
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to patch React-RuntimeApple.modulemap: #{e.message}")
+    end
+
+    # Remove incorrect weak_framework reference to FirebaseFirestoreInternal (it's a static lib, not a framework)
+    begin
+      support_root = File.join(installer.sandbox.root, 'Target Support Files')
+      %w[Pods-iLeafU Pods-iLeafU-iLeafUTests].each do |agg|
+        %w[debug release].each do |cfg|
+          xc = File.join(support_root, agg, "#{agg}.#{cfg}.xcconfig")
+          next unless File.exist?(xc)
+          content = File.read(xc)
+          patched = content.gsub(/\s-weak_framework\s+"FirebaseFirestoreInternal"/, '')
+          if patched != content
+            File.write(xc, patched)
+            Pod::UI.puts "[post_install] Removed weak_framework FirebaseFirestoreInternal from #{agg} #{cfg} xcconfig".yellow
+          end
+        end
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to remove weak_framework FirebaseFirestoreInternal: #{e.message}")
+    end
+
   end
 end

@@ -1,0 +1,18 @@
+diff --git a/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m b/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m
+index 1111111..2222222 100644
+--- a/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m
++++ b/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m
+@@
+-#import <Firebase/Firebase.h>
+-@import FirebaseStorage;
++#import <FirebaseCore/FirebaseCore.h>
++@import FirebaseStorage;
+ diff --git a/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageCommon.m b/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageCommon.m
+index 3333333..4444444 100644
+--- a/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageCommon.m
++++ b/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageCommon.m
+@@
+-#import <Firebase/Firebase.h>
+-@import FirebaseStorage;
++#import <FirebaseCore/FirebaseCore.h>
++@import FirebaseStorage;

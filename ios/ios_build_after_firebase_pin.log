@@ -1,0 +1,9 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -workspace ios/iLeafU.xcworkspace -scheme iLeafU -configuration Debug -sdk iphonesimulator -destination "platform=iOS Simulator,name=iPhone 15" build
+
+User defaults from command line:
+    IDEPackageSupportUseBuiltinSCM = YES
+
+Build settings from command line:
+    SDKROOT = iphonesimulator17.2
+

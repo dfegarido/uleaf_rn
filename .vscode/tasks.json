@@ -1,0 +1,41 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "npm install and pod install after dep cleanup",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"npm install && cd ios && bundle exec pod install --repo-update || pod install --repo-update"
+			]
+		},
+		{
+			"label": "pod install fallback without bundler",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"cd ios && pod install --repo-update"
+			]
+		},
+		{
+			"label": "pod install with pinned Firebase",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"cd ios && pod install --repo-update"
+			]
+		},
+		{
+			"label": "pod install with Firebase pins v2",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"cd ios && pod install --repo-update"
+			]
+		}
+	]
+}
