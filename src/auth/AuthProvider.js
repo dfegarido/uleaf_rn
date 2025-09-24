@@ -1,7 +1,9 @@
 // AuthContext.js
 import React, {createContext, useState, useEffect, useContext} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {getAuth, signOut, onIdTokenChanged} from '@react-native-firebase/auth';
+// Use Web Firebase SDK to avoid relying on native default app initialization
+import { onIdTokenChanged, signOut } from 'firebase/auth';
+import { auth } from '../../firebase';
 import {getBuyerProfileApi} from '../components/Api/buyerProfileApi';
 
 export const AuthContext = createContext();
@@ -43,8 +45,6 @@ export const AuthProvider = ({children}) => {
   const logout = async () => {
     setIsLoading(true);
 
-    const auth = getAuth();
-
     try {
       await signOut(auth);
       await AsyncStorage.removeItem('authToken');
@@ -59,8 +59,6 @@ export const AuthProvider = ({children}) => {
   };
 
   useEffect(() => {
-    const auth = getAuth();
-
     const unsubscribe = onIdTokenChanged(auth, async user => {
       if (user) {
         try {

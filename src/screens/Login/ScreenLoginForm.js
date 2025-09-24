@@ -18,8 +18,8 @@ import {
   InputGroupLeftIcon,
   InputPasswordLeftIcon,
 } from '../../components/InputGroup/Left';
-import {getApp} from '@react-native-firebase/app';
-import {getAuth, signInWithEmailAndPassword} from '@react-native-firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../../firebase';
 import {postSellerAfterSignInApi, postAdminAfterSignInApi} from '../../components/Api';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useHeaderHeight} from '@react-navigation/elements';
@@ -50,8 +50,7 @@ const ScreenLoginForm = ({navigation}) => {
 
   const requiredFields = ['email', 'password'];
 
-  const app = getApp();
-  const auth = getAuth(app);
+  // Using shared Web SDK auth instance
 
   const loadData = async token => {
     try {

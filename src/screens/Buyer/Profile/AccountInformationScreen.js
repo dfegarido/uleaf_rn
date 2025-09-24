@@ -298,8 +298,8 @@ const AccountInformationScreen = () => {
       // Get and display current user ID for debugging purposes
       let currentUserId = null;
       try {
-        const firebase = require('../../../../firebase');
-        currentUserId = firebase.auth().currentUser?.uid;
+        const { auth } = require('../../../../firebase');
+        currentUserId = auth.currentUser?.uid;
         console.log('Current user ID for upload:', currentUserId);
         
         // Check if user ID matches hardcoded server ID
@@ -399,8 +399,8 @@ const AccountInformationScreen = () => {
         
         // Check for typical test/development errors
         if (error.message && error.message.toLowerCase().includes('testing')) {
-          const firebase = require('../../../../firebase');
-          const currentUserId = firebase.auth().currentUser?.uid;
+          const { auth } = require('../../../../firebase');
+          const currentUserId = auth.currentUser?.uid;
           const hardcodedTestId = "IxsO07FVxxYE5pw944YTEkBt0QJ3";
           
           if (currentUserId && currentUserId !== hardcodedTestId) {

@@ -14,8 +14,8 @@ import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 
-import {getApp} from '@react-native-firebase/app';
-import {getAuth, signInWithEmailAndPassword} from '@react-native-firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../../firebase';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AuthContext} from '../../auth/AuthProvider';
@@ -25,8 +25,7 @@ const screenHeight = Dimensions.get('window').height;
 const ScreenLogin = ({navigation}) => {
   const {setIsLoggedIn} = useContext(AuthContext);
   const insets = useSafeAreaInsets();
-  const app = getApp();
-  const auth = getAuth(app);
+  // auth comes from Web Firebase SDK via shared initializer
 
   // Simplified safe area calculation for Nokia devices
   const safeBottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 16) : insets.bottom;
@@ -38,7 +37,7 @@ const ScreenLogin = ({navigation}) => {
       if (currentUser) {
         console.log('here mike');
         try {
-          const token = await user.getIdToken();
+          const token = await currentUser.getIdToken();
           // On login success:
           await AsyncStorage.setItem('authToken', token); // your token logic
           setIsLoggedIn(true);

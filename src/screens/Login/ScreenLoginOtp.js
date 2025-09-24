@@ -11,7 +11,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
-import {getAuth} from '@react-native-firebase/auth';
+import { auth } from '../../../firebase';
 import {
   postSellerPinCodeApi,
   postSellerAfterSignInApi,
@@ -63,8 +63,7 @@ const ScreenLoginOtp = ({navigation}) => {
   };
 
   useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
+  const user = auth.currentUser;
     console.log('User Here:' + JSON.stringify(user));
     if (user) {
       setCurrentUser(user);

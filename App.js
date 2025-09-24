@@ -7,6 +7,8 @@
  */
 
 import React, { useEffect } from 'react';
+// Ensure Firebase is initialized before providers mount
+import './firebase';
 import {SafeAreaView, StyleSheet, Text} from 'react-native';
 import AppNavigation from './src/components/AppNavigation';
 import {AuthProvider} from './src/auth/AuthProvider';

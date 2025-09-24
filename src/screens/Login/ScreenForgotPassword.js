@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {InputGroupLeftIcon} from '../../components/InputGroup/Left';
-import {getApp} from '@react-native-firebase/app';
-import {getAuth, sendPasswordResetEmail} from '@react-native-firebase/auth';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../../../firebase';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useHeaderHeight} from '@react-navigation/elements';
 
@@ -32,8 +32,7 @@ const ScreenForgotPassword = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const [validateErrors, setValidateErrors] = useState({});
 
-  const app = getApp();
-  const auth = getAuth(app);
+  // Use shared Web SDK auth instance
 
   const validateForm = () => {
     const errors = {};

@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {jwtDecode} from 'jwt-decode';
-import {getAuth} from '@react-native-firebase/auth';
-import {ensureFirebaseApp} from './ensureFirebaseApp';
+import { auth } from '../../firebase';
 
 export const getStoredAuthToken = async () => {
   const token = await AsyncStorage.getItem('authToken');
@@ -11,8 +10,6 @@ export const getStoredAuthToken = async () => {
   const now = Math.floor(Date.now() / 1000);
 
   if (decoded.exp < now) {
-    const app = ensureFirebaseApp(); // ✅ Make sure initialized
-    const auth = getAuth(app);
     const user = auth.currentUser;
 
     if (!user) return null;
