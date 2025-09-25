@@ -1,20 +1,25 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
-export const getBuyerEventsApi = async () => {
+/**
+ * Fetch buyer news & events (announcements etc.)
+ * @param {Object} options
+ * @param {number} [options.limit=10]
+ * @param {string} [options.category='announcement']
+ */
+export const getBuyerEventsApi = async (options = {}) => {
   try {
+    const {limit = 10, category = 'announcement'} = options;
     const token = await getStoredAuthToken();
-
-    const response = await fetch(
-      'https://getnewsandevent-nstilwgvua-uc.a.run.app',
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          'User-Type': 'buyer', // Add user type to differentiate content
-        },
+    const url = API_ENDPOINTS.GET_NEWS_AND_EVENT(limit, category);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'User-Type': 'buyer', // Add user type to differentiate content
       },
-    );
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

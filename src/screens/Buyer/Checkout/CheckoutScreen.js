@@ -1236,45 +1236,38 @@ const CheckoutScreen = () => {
           const paypalOrderId = urlObj.searchParams.get('token'); 
           const ileafuOrderId = urlObj.searchParams.get('ileafuOrderId');
           const capture = urlObj.searchParams.get('capture');
+          const payerId = urlObj.searchParams.get('PayerID') || urlObj.searchParams.get('payerId');
 
           console.log('PayPal Order ID:', paypalOrderId);
           console.log('iLeafU Order ID:', ileafuOrderId);
           console.log('Payer ID:', payerId);
 
           // Now you have the IDs, you can call your function to capture the payment
+          let captureHadError = false;
           if (capture && (orderID || paypalOrderId)) {
-            const response = await fetch(
+            try {
+              const response = await fetch(
                 `https://us-central1-i-leaf-u.cloudfunctions.net/capturePaypalOrder`,
                 {
-                  method: "POST",
+                  method: 'POST',
                   headers: {
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                    "orderId": orderID || paypalOrderId,
-                    "ileafuOrderId": ileafuOrderId
+                    orderId: orderID || paypalOrderId,
+                    ileafuOrderId: ileafuOrderId,
                   }),
-                }
+                },
               );
 
               const orderData = await response.json();
               const errorDetail = orderData?.details?.[0];
 
-              if (errorDetail?.issue === "INSTRUMENT_DECLINED") {
+              if (errorDetail?.issue) {
+                captureHadError = true;
                 Alert.alert(
                   'Payment unsuccessful',
-                  'Order unsuccessful try again later!',
-                  [
-                    {
-                      text: 'OK',
-                    },
-                  ],
-                  {cancelable: false},
-                );
-              } else if (errorDetail) {
-                Alert.alert(
-                  'Payment unsuccessful',
-                  'Order unsuccessful try again later!',
+                  'Order unsuccessful, please try again later.',
                   [
                     {
                       text: 'OK',
@@ -1283,25 +1276,39 @@ const CheckoutScreen = () => {
                   {cancelable: false},
                 );
               }
+            } catch (e) {
+              captureHadError = true;
+              console.error('Capture request failed:', e);
+              Alert.alert(
+                'Payment Error',
+                'We could not verify your payment. Please check your orders or try again.',
+              );
+            }
           }
-          
-          Alert.alert(
-            'Payment Success',
-            'Order completed successfully!',
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  navigation.navigate('Orders');
+
+          if (!captureHadError) {
+            Alert.alert(
+              'Payment Success',
+              'Order completed successfully!',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    navigation.navigate('Orders');
+                  },
                 },
-              },
-            ],
-            {cancelable: false},
-          );
-          navigation.navigate('Orders');
+              ],
+              {cancelable: false},
+            );
+          }
         } catch (error) {
             console.error("Failed to parse deep link URL", error);
         }
+      } else if (url.startsWith('ileafu://payment-cancel')) {
+        Alert.alert(
+          'Payment Cancelled',
+          'Your payment was cancelled. You can try again from the Orders screen or restart checkout.',
+        );
       }
     };
 
@@ -1850,7 +1857,7 @@ const CheckoutScreen = () => {
 
             {/* Discount */}
             <View style={styles.subtotalRow}>
-              <Text style={styles.subtotalLabel}>Total Discount on Plants</Text>
+              <Text style={styles.subtotalLabel}>Total Discount</Text>
               <Text style={styles.subtotalNumber}>
                 -{formatCurrencyFull(orderSummary.discount)}
               </Text>
@@ -2754,7 +2761,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 0,
-    gap: 187,
     width: '100%',
     height: 22,
     flex: 0,
@@ -2766,7 +2772,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 0,
     marginTop: 4,
-    gap: 187,
     width: '100%',
     height: 28,
     flex: 0,
@@ -3111,7 +3116,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 0,
-    gap: 187,
     width: '100%',
     minHeight: 32,
     flex: 0,
@@ -3149,7 +3153,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 0,
-    gap: 187,
     width: '100%',
     height: 22,
     flex: 0,
@@ -3220,7 +3223,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 0,
-    gap: 187,
     width: '100%',
     height: 24,
     flex: 0,

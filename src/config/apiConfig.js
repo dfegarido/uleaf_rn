@@ -160,6 +160,8 @@ const generateEndpoints = () => ({
   GET_BUYER_LISTING: `${getBaseUrl()}/getBuyerListing`, // Single plant detail
   GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
+  // News & Events (buyer announcements)
+  GET_NEWS_AND_EVENT: (limit = 10, category = 'announcement') => `${getBaseUrl()}/getNewsAndEvent?limit=${limit}&category=${encodeURIComponent(category)}`,
   
   // Checkout & Payment APIs
   CHECKOUT: `${getBaseUrl()}/checkout`,
