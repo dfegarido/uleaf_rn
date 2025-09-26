@@ -1,9 +1,20 @@
-# Resolve react_native_pods.rb with node to allow for hoisting
-require Pod::Executable.execute_command('node', ['-p',
-  'require.resolve(
-    "react-native/scripts/react_native_pods.rb",
-    {paths: [process.argv[1]]},
-  )', __dir__]).strip
+# Resolve react_native_pods.rb with node to allow for hoisting, with CI fallback
+begin
+  require Pod::Executable.execute_command('node', ['-p',
+    'require.resolve(
+      "react-native/scripts/react_native_pods.rb",
+      {paths: [process.argv[1]]},
+    )', __dir__]).strip
+rescue => e
+  fallback = File.expand_path('../node_modules/react-native/scripts/react_native_pods.rb', __dir__)
+  if File.exist?(fallback)
+    Pod::UI.puts "[Podfile] Node resolve failed (#{e.class}: #{e.message}). Using fallback path: #{fallback}".yellow
+    require fallback
+  else
+    Pod::UI.warn "[Podfile] Could not resolve react_native_pods.rb via Node or fallback. Ensure Node is available before 'pod install' (e.g., run ci_scripts/ci_post_clone.sh)."
+    raise
+  end
+end
 require 'fileutils'
 
 platform :ios, '16.0'
