@@ -9,7 +9,7 @@ echo "[CI] Post-clone bootstrap starting..."
 echo "[CI] Environment debug:"
 echo "  CI_WORKSPACE: ${CI_WORKSPACE:-not set}"
 echo "  PWD: $(pwd)"
-echo "  SCRIPT_SOURCE: ${BASH_SOURCE[0]:-not set}"
+echo "  SCRIPT_SOURCE: ${BASH_SOURCE[0]:-$0}"
 echo "  HOME: ${HOME:-not set}"
 echo "  PATH: ${PATH}"
 
@@ -18,11 +18,33 @@ if [[ -n "${CI_WORKSPACE:-}" && -d "${CI_WORKSPACE}" ]]; then
   cd "${CI_WORKSPACE}"
   echo "[CI] Using CI_WORKSPACE: $(pwd)"
 else
-  # Scripts are now at repo root, so go up from ci_scripts/
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-  cd "${ROOT_DIR}"
-  echo "[CI] Using calculated root: $(pwd)"
+  # Detect if we're in ios/ci_scripts (old location) or ci_scripts (new location)
+  CURRENT_DIR="$(pwd)"
+  echo "[CI] Current working directory: $CURRENT_DIR"
+  
+  if [[ "$(basename "$CURRENT_DIR")" == "ci_scripts" ]]; then
+    PARENT_DIR="$(dirname "$CURRENT_DIR")"
+    echo "[CI] Parent directory: $PARENT_DIR"
+    
+    if [[ "$(basename "$PARENT_DIR")" == "ios" ]]; then
+      # We're in ios/ci_scripts, go up two levels to repo root
+      REPO_ROOT="$(dirname "$PARENT_DIR")"
+      cd "$REPO_ROOT"
+      echo "[CI] Detected ios/ci_scripts location, moved to repo root: $(pwd)"
+    else
+      # We're in ci_scripts at repo root, go up one level
+      cd "$PARENT_DIR"
+      echo "[CI] Detected ci_scripts at root, moved to repo root: $(pwd)"
+    fi
+  elif [[ "$(basename "$CURRENT_DIR")" == "ios" ]]; then
+    # We're in the ios directory, go up one level to repo root
+    REPO_ROOT="$(dirname "$CURRENT_DIR")"
+    cd "$REPO_ROOT"
+    echo "[CI] Detected ios directory, moved to repo root: $(pwd)"
+  else
+    # Fallback - assume we're already at repo root
+    echo "[CI] Using current directory as repo root: $(pwd)"
+  fi
 fi
 
 echo "[CI] Repository contents:"
@@ -65,29 +87,100 @@ else
 fi
 
 # 3) Ruby and CocoaPods
+# Add user gem bin directory to PATH for --user-install gems
+USER_GEM_DIR=$(ruby -e "puts Gem.user_dir" 2>/dev/null || echo "$HOME/.gem/ruby/2.6.0")
+export PATH="$USER_GEM_DIR/bin:$PATH"
+echo "[CI] Added user gem bin to PATH: $USER_GEM_DIR/bin"
+
 POD_CMD="pod"
 if [[ -f Gemfile ]]; then
   echo "[CI] Using Bundler to manage CocoaPods"
-  if ! command -v bundle >/dev/null 2>&1; then
-    echo "[CI] Installing bundler gem"
-    gem install bundler -N
+  
+  # Check if specific bundler version is required
+  if [[ -f Gemfile.lock ]]; then
+    REQUIRED_BUNDLER=$(grep -A1 "BUNDLED WITH" Gemfile.lock | tail -1 | tr -d '[:space:]' || echo "")
+    if [[ -n "$REQUIRED_BUNDLER" ]]; then
+      echo "[CI] Gemfile.lock requires bundler version: $REQUIRED_BUNDLER"
+      
+      # Check Ruby version compatibility for bundler
+      RUBY_VERSION=$(ruby -e "puts RUBY_VERSION" 2>/dev/null)
+      echo "[CI] Current Ruby version: $RUBY_VERSION"
+      
+      if [[ "$RUBY_VERSION" =~ ^2\.6\. ]]; then
+        echo "[CI] Ruby 2.6 detected - using compatible bundler 2.4.22 instead of $REQUIRED_BUNDLER"
+        gem install bundler:2.4.22 --user-install -N || gem install bundler --user-install -N
+      else
+        echo "[CI] Installing specific bundler version to user directory"
+        gem install bundler:$REQUIRED_BUNDLER --user-install -N || gem install bundler --user-install -N
+      fi
+    else
+      echo "[CI] Installing latest compatible bundler to user directory"
+      gem install bundler --user-install -N
+    fi
+  else
+    echo "[CI] Installing bundler to user directory (no Gemfile.lock found)"
+    gem install bundler --user-install -N
   fi
-  bundle config set path 'vendor/bundle'
-  bundle install --jobs=4 --retry=3
-  POD_CMD="bundle exec pod"
+  
+  # Configure bundle and install gems
+  if command -v bundle >/dev/null 2>&1; then
+    bundle config set path 'vendor/bundle'
+    if ! bundle install --jobs=4 --retry=3; then
+      echo "[CI][WARN] Bundle install failed, trying with bundler update"
+      bundle update --bundler || true
+      bundle install --jobs=4 --retry=3
+    fi
+    
+    # Test if bundle exec pod works (Ruby 2.6 has compatibility issues with newer gems)
+    if bundle exec pod --version >/dev/null 2>&1; then
+      POD_CMD="bundle exec pod"
+      echo "[CI] Using bundle exec pod successfully"
+    else
+      echo "[CI][WARN] Bundle exec pod failed (Ruby/gem compatibility), falling back to system CocoaPods"
+      if ! command -v pod >/dev/null 2>&1; then
+        echo "[CI] Installing system CocoaPods gem"
+        gem install cocoapods --user-install -N
+      fi
+      POD_CMD="pod"
+    fi
+  else
+    echo "[CI][ERROR] Bundler installation failed, falling back to system CocoaPods"
+    if ! command -v pod >/dev/null 2>&1; then
+      echo "[CI] Installing CocoaPods gem to user directory"
+      gem install cocoapods --user-install -N
+    fi
+    POD_CMD="pod"
+  fi
 else
   if ! command -v pod >/dev/null 2>&1; then
-    echo "[CI] Installing CocoaPods gem"
-    gem install cocoapods -N
+    echo "[CI] Installing CocoaPods gem to user directory"
+    gem install cocoapods --user-install -N
   fi
 fi
 
 # 4) Install Pods (this creates Target Support Files and xcfilelists)
 cd ios
+echo "[CI] Attempting pod install with: $POD_CMD"
 if ! ${POD_CMD} install; then
-  echo "[CI] Retrying pod install with --repo-update"
-  ${POD_CMD} repo update || true
-  ${POD_CMD} install --repo-update
+  if [[ "$POD_CMD" == "bundle exec pod" ]]; then
+    echo "[CI][WARN] Bundle exec pod install failed, falling back to system CocoaPods"
+    # Install system CocoaPods if not available
+    if ! command -v pod >/dev/null 2>&1; then
+      echo "[CI] Installing system CocoaPods gem"
+      gem install cocoapods --user-install -N
+    fi
+    POD_CMD="pod"
+    echo "[CI] Retrying with system CocoaPods: $POD_CMD"
+    if ! ${POD_CMD} install; then
+      echo "[CI] Retrying pod install with --repo-update"
+      ${POD_CMD} repo update || true
+      ${POD_CMD} install --repo-update
+    fi
+  else
+    echo "[CI] Retrying pod install with --repo-update"
+    ${POD_CMD} repo update || true
+    ${POD_CMD} install --repo-update
+  fi
 fi
 
 # 5) Sanity check: required support files must exist (Release config for Archive)
