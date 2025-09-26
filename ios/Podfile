@@ -6,7 +6,7 @@ require Pod::Executable.execute_command('node', ['-p',
   )', __dir__]).strip
 require 'fileutils'
 
-platform :ios, min_ios_version_supported
+platform :ios, '16.0'
 # Pin Firebase iOS SDK to a Swift 5.9-compatible version (Xcode 15.2)
 $FirebaseSDKVersion = '10.24.0'
 use_modular_headers!
@@ -15,11 +15,9 @@ prepare_react_native_project!
 # Silence CocoaPods master specs repo warning (CDN is default)
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+
+use_frameworks! :linkage => :static
+
 
 target 'iLeafU' do
   config = use_native_modules!
