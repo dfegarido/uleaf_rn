@@ -6,16 +6,28 @@ set -euo pipefail
 # (xcconfig and xcfilelist) exist during the archive step.
 
 echo "[CI] Post-clone bootstrap starting..."
+echo "[CI] Environment debug:"
+echo "  CI_WORKSPACE: ${CI_WORKSPACE:-not set}"
+echo "  PWD: $(pwd)"
+echo "  SCRIPT_SOURCE: ${BASH_SOURCE[0]:-not set}"
+echo "  HOME: ${HOME:-not set}"
+echo "  PATH: ${PATH}"
 
 # 0) Move to repo root robustly
 if [[ -n "${CI_WORKSPACE:-}" && -d "${CI_WORKSPACE}" ]]; then
   cd "${CI_WORKSPACE}"
+  echo "[CI] Changed to CI_WORKSPACE: $(pwd)"
 else
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
   cd "${ROOT_DIR}"
+  echo "[CI] Changed to calculated root: $(pwd)"
 fi
-echo "[CI] Working directory: $(pwd)"
+
+echo "[CI] Repository contents:"
+ls -la || true
+echo "[CI] iOS directory check:"
+ls -la ios/ || echo "No ios/ directory found"
 
 # 1) Ensure Node is available; install via Homebrew if missing
 if ! command -v node >/dev/null 2>&1; then
@@ -77,6 +89,12 @@ fi
 
 # 5) Sanity check: required support files must exist (Release config for Archive)
 SUPPORT_DIR="Pods/Target Support Files/Pods-iLeafU"
+echo "[CI] Checking for CocoaPods support files in: $SUPPORT_DIR"
+echo "[CI] Directory structure after pod install:"
+ls -la Pods/ || echo "No Pods/ directory"
+ls -la "Pods/Target Support Files/" || echo "No Target Support Files directory"
+ls -la "$SUPPORT_DIR/" || echo "No Pods-iLeafU support directory"
+
 REQUIRED=(
   "${SUPPORT_DIR}/Pods-iLeafU.release.xcconfig"
   "${SUPPORT_DIR}/Pods-iLeafU-frameworks-Release-input-files.xcfilelist"
@@ -90,11 +108,17 @@ for f in "${REQUIRED[@]}"; do
   if [[ ! -f "$f" ]]; then
     echo "[CI][ERROR] Missing: $f"
     MISSING=1
+  else
+    echo "[CI][OK] Found: $f"
   fi
 done
 
 if [[ "$MISSING" -ne 0 ]]; then
-  echo "[CI][FATAL] CocoaPods support files not generated. Failing early."
+  echo "[CI][FATAL] CocoaPods support files not generated. Contents of ios/:"
+  ls -la || true
+  echo "[CI][FATAL] Contents of ios/Pods/:"
+  ls -la Pods/ || true
+  echo "[CI][FATAL] Failing early."
   exit 1
 fi
 
