@@ -15,6 +15,7 @@
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		A193C2FDE379AB22B3D58C05 /* Pods_iLeafU_iLeafUTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 32183E484D04559DBA68068E /* Pods_iLeafU_iLeafUTests.framework */; };
 		C906F0933278C2ECBF1AD625 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 201C5FABD8CD61AC8F9C7E18 /* PrivacyInfo.xcprivacy */; };
+		DD168A932E86F21C00F45486 /* ci_scripts in Resources */ = {isa = PBXBuildFile; fileRef = DD168A922E86F21C00F45486 /* ci_scripts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +46,7 @@
 		64DFE89349EEEEDCD8E632CA /* Pods_iLeafU.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_iLeafU.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = iLeafU/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		A0949E07028133189A141600 /* Pods-iLeafU.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iLeafU.release.xcconfig"; path = "Target Support Files/Pods-iLeafU/Pods-iLeafU.release.xcconfig"; sourceTree = "<group>"; };
+		DD168A922E86F21C00F45486 /* ci_scripts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ci_scripts; path = ../ci_scripts; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F0B53DB86A3776307231C076 /* Pods-iLeafU-iLeafUTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iLeafU-iLeafUTests.release.xcconfig"; path = "Target Support Files/Pods-iLeafU-iLeafUTests/Pods-iLeafU-iLeafUTests.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -121,6 +123,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				DD168A922E86F21C00F45486 /* ci_scripts */,
 				13B07FAE1A68108700A75B9A /* iLeafU */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				00E356EF1AD99517003FC87E /* iLeafUTests */,
@@ -249,6 +252,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
+				DD168A932E86F21C00F45486 /* ci_scripts in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				C906F0933278C2ECBF1AD625 /* PrivacyInfo.xcprivacy in Resources */,
 			);

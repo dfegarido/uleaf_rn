@@ -13,15 +13,16 @@ echo "  SCRIPT_SOURCE: ${BASH_SOURCE[0]:-not set}"
 echo "  HOME: ${HOME:-not set}"
 echo "  PATH: ${PATH}"
 
-# 0) Move to repo root robustly
+# 0) Ensure we're in the repository root
 if [[ -n "${CI_WORKSPACE:-}" && -d "${CI_WORKSPACE}" ]]; then
   cd "${CI_WORKSPACE}"
-  echo "[CI] Changed to CI_WORKSPACE: $(pwd)"
+  echo "[CI] Using CI_WORKSPACE: $(pwd)"
 else
+  # Scripts are now at repo root, so go up from ci_scripts/
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
   cd "${ROOT_DIR}"
-  echo "[CI] Changed to calculated root: $(pwd)"
+  echo "[CI] Using calculated root: $(pwd)"
 fi
 
 echo "[CI] Repository contents:"
@@ -55,10 +56,12 @@ if [[ -f package-lock.json ]]; then
   if ! npm ci; then
     echo "[CI][WARN] npm ci failed, falling back to npm install"
     npm install --no-audit --no-fund
+    echo "[CI] PWD after npm install fallback: $(pwd)"
   fi
 else
   echo "[CI] Installing JS deps with npm install"
   npm install --no-audit --no-fund
+  echo "[CI] PWD after npm install: $(pwd)"
 fi
 
 # 3) Ruby and CocoaPods
