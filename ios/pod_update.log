@@ -1,0 +1,107 @@
+RNFBApp: Using user specified Firebase SDK version '10.29.0'
+RNFBAuth: Using user specified Firebase SDK version '10.29.0'
+RNFBStorage: Using user specified Firebase SDK version '10.29.0'
+Found 16 modules for target `iLeafU`
+link_native_modules! {ios_packages: [{configurations: [], name: "react-native-agora", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-agora", path: "../node_modules/react-native-agora", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-agora/react-native-agora.podspec", script_phases: []}, {configurations: [], name: "@react-native-async-storage/async-storage", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-async-storage/async-storage", path: "../node_modules/@react-native-async-storage/async-storage", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-async-storage/async-storage/RNCAsyncStorage.podspec", script_phases: []}, {configurations: [], name: "@react-native-community/checkbox", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-community/checkbox", path: "../node_modules/@react-native-community/checkbox", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-community/checkbox/RNCCheckbox.podspec", script_phases: []}, {configurations: [], name: "@react-native-community/netinfo", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-community/netinfo", path: "../node_modules/@react-native-community/netinfo", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-community/netinfo/react-native-netinfo.podspec", script_phases: []}, {configurations: [], name: "@react-native-firebase/app", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-firebase/app", path: "../node_modules/@react-native-firebase/app", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-firebase/app/RNFBApp.podspec", script_phases: [{"name" => "[RNFB] Core Configuration", "path" => "./ios_config.sh", "execution_position" => "after_compile", "input_files" => ["$(BUILT_PRODUCTS_DIR)/$(INFOPLIST_PATH)"]}]}, {configurations: [], name: "@react-native-firebase/auth", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-firebase/auth", path: "../node_modules/@react-native-firebase/auth", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-firebase/auth/RNFBAuth.podspec", script_phases: []}, {configurations: [], name: "@react-native-firebase/storage", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-firebase/storage", path: "../node_modules/@react-native-firebase/storage", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/@react-native-firebase/storage/RNFBStorage.podspec", script_phases: []}, {configurations: [], name: "react-native-document-picker", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-document-picker", path: "../node_modules/react-native-document-picker", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-document-picker/react-native-document-picker.podspec", script_phases: []}, {configurations: [], name: "react-native-file-viewer", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-file-viewer", path: "../node_modules/react-native-file-viewer", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-file-viewer/RNFileViewer.podspec", script_phases: []}, {configurations: [], name: "react-native-gesture-handler", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-gesture-handler", path: "../node_modules/react-native-gesture-handler", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-gesture-handler/RNGestureHandler.podspec", script_phases: []}, {configurations: [], name: "react-native-image-picker", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-image-picker", path: "../node_modules/react-native-image-picker", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-image-picker/react-native-image-picker.podspec", script_phases: []}, {configurations: [], name: "react-native-pager-view", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-pager-view", path: "../node_modules/react-native-pager-view", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-pager-view/react-native-pager-view.podspec", script_phases: []}, {configurations: [], name: "react-native-reanimated", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-reanimated", path: "../node_modules/react-native-reanimated", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-reanimated/RNReanimated.podspec", script_phases: []}, {configurations: [], name: "react-native-safe-area-context", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-safe-area-context", path: "../node_modules/react-native-safe-area-context", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-safe-area-context/react-native-safe-area-context.podspec", script_phases: []}, {configurations: [], name: "react-native-screens", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-screens", path: "../node_modules/react-native-screens", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-screens/RNScreens.podspec", script_phases: []}, {configurations: [], name: "react-native-svg", root: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-svg", path: "../node_modules/react-native-svg", podspec_path: "/Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native-svg/RNSVG.podspec", script_phases: []}], ios_project_root_path: "/Users/darwinfegarido/projects/olla/iLeafU/ios", react_native_path: "../node_modules/react-native"}
+RNFBApp: Using user specified Firebase SDK version '10.29.0'
+Adding a custom script phase for Pod RNFBApp: [RNFB] Core Configuration
+RNFBAuth: Using user specified Firebase SDK version '10.29.0'
+RNFBStorage: Using user specified Firebase SDK version '10.29.0'
+Auto-linking React Native modules for target `iLeafU`: RNCAsyncStorage, RNCCheckbox, RNFBApp, RNFBAuth, RNFBStorage, RNFileViewer, RNGestureHandler, RNReanimated, RNSVG, RNScreens, react-native-agora, react-native-document-picker, react-native-image-picker, react-native-netinfo, react-native-pager-view, and react-native-safe-area-context
+Framework build type is static framework
+[Codegen] Adding script_phases to ReactCodegen.
+[Codegen] Generating ./build/generated/ios/ReactCodegen.podspec.json
+[Codegen] Analyzing /Users/darwinfegarido/projects/olla/iLeafU/package.json
+[Codegen] Searching for codegen-enabled libraries in the app.
+[Codegen] Found ileafu
+[Codegen] Searching for codegen-enabled libraries in the project dependencies.
+[Codegen] Found @react-native-async-storage/async-storage
+[Codegen] Found react-native
+[Codegen] Found react-native-agora
+[Codegen] Found react-native-document-picker
+[Codegen] Found react-native-gesture-handler
+[Codegen] Found react-native-image-picker
+[Codegen] Found react-native-pager-view
+[Codegen] Found react-native-reanimated
+[Codegen] Found react-native-safe-area-context
+[Codegen] Found react-native-screens
+
+
+[Codegen] >>>>> Searching for codegen-enabled libraries in react-native.config.js
+[Codegen] Processing iLeafUSpec
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Processing rnasyncstorage
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios, macos, tvos, visionos for rnasyncstorage
+[Codegen] Processing FBReactNativeSpec
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Processing rncore
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Processing AgoraRtcNgSpec
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios for AgoraRtcNgSpec
+[Codegen] Processing rndocumentpicker
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios for rndocumentpicker
+[Codegen] Processing rngesturehandler_codegen
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios, macos, tvos, visionos for rngesturehandler_codegen
+[Codegen] Processing RNImagePickerSpec
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios for RNImagePickerSpec
+[Codegen] Processing pagerview
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios, visionos for pagerview
+[Codegen] Processing rnreanimated
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios, macos, tvos, visionos for rnreanimated
+[Codegen] Processing safeareacontext
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios, macos, tvos, visionos for safeareacontext
+[Codegen] Processing rnscreens
+[Codegen] Searching for podspec in the project dependencies.
+[Codegen] Supported Apple platforms: ios, tvos, visionos for rnscreens
+[Codegen] Generating Native Code for iLeafUSpec - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for rnasyncstorage - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for FBReactNativeSpec - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen - rncore] Skipping iOS code generation for rncore as it has been generated already.
+[Codegen] Generating Native Code for AgoraRtcNgSpec - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for rndocumentpicker - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for rngesturehandler_codegen - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for RNImagePickerSpec - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for pagerview - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for rnreanimated - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for safeareacontext - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Generating Native Code for rnscreens - ios
+[Codegen] Generated artifacts: /Users/darwinfegarido/projects/olla/iLeafU/ios/build/generated/ios
+[Codegen] Creating component provider.
+[Codegen] Generated provider in: /Users/darwinfegarido/projects/olla/iLeafU/node_modules/react-native/React/Fabric
+[Codegen] Done.
+No modules to process in combine-js-to-schema-cli. If this is unexpected, please check if you set up your NativeComponent correctly. See combine-js-to-schema.js for how codegen finds modules.
+Updating local specs repositories
+Analyzing dependencies
+RNFBApp: Using user specified Firebase SDK version '10.29.0'
+RNFBAuth: Using user specified Firebase SDK version '10.29.0'
+RNFBStorage: Using user specified Firebase SDK version '10.29.0'
+[!] CocoaPods could not find compatible versions for pod "Firebase/Storage":
+  In snapshot (Podfile.lock):
+    Firebase/Storage (= 10.24.0)
+
+  In Podfile:
+    RNFBStorage (from `../node_modules/@react-native-firebase/storage`) was resolved to 22.4.0, which depends on
+      Firebase/Storage (= 10.29.0)
+
+
+You have either:
+ * changed the constraints of dependency `Firebase/Storage` inside your development pod `RNFBStorage`.
+   You should run `pod update Firebase/Storage` to apply changes you've made.

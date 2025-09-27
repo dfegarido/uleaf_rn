@@ -18,8 +18,8 @@ end
 require 'fileutils'
 
 platform :ios, '16.0'
-# Pin Firebase iOS SDK to a Swift 5.9-compatible version (Xcode 15.2)
-$FirebaseSDKVersion = '10.24.0'
+# Pin Firebase iOS SDK to 11.8.0+ where FIRActionCodeSettings.setLinkDomain is available
+$FirebaseSDKVersion = '11.8.0'
 use_modular_headers!
 prepare_react_native_project!
 
@@ -39,12 +39,8 @@ target 'iLeafU' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
-  # Constrain Firebase pods used by @react-native-firebase/* to avoid Swift 6-only APIs in v11.x
-  pod 'FirebaseCore', $FirebaseSDKVersion
-  pod 'FirebaseCoreInternal', $FirebaseSDKVersion
-  pod 'FirebaseAuth', $FirebaseSDKVersion
-  pod 'FirebaseStorage', $FirebaseSDKVersion
-  pod 'FirebaseFirestore', $FirebaseSDKVersion
+  # Firebase pods - let @react-native-firebase modules determine compatible versions
+  # Removed explicit version constraints to avoid conflicts with RNFB requirements
 
   target 'iLeafUTests' do
     inherit! :complete
@@ -166,12 +162,14 @@ fi
       Pod::UI.warn("[post_install] Failed to remove weak_framework FirebaseFirestoreInternal: #{e.message}")
     end
 
-    # Fix for "unsupported option '-G' for target 'arm64-apple-ios13.4'" error on Apple Silicon Macs
+  # Fix for "unsupported option '-G' for target 'arm64-apple-ios13.4'" error on Apple Silicon Macs
     # Exclude arm64 architecture for iOS simulator builds to avoid compiler flag incompatibilities
     installer.pods_project.build_configurations.each do |config|
       config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
       # Set "Build Active Architecture Only" to YES to avoid unnecessary architecture builds
       config.build_settings["ONLY_ACTIVE_ARCH"] = "YES"
+      # Default C++ standard for all Pods to C++17; specific targets can override to C++20 below.
+      config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
     end
 
     # Apply architecture and build settings to all pod targets
@@ -264,25 +262,46 @@ fi
       Pod::UI.warn("[post_install] Failed to clean BoringSSL-GRPC target: #{e.message}")
     end
 
-    # Fix C++20 compatibility for React Native jsinspector-modern (Xcode 16.2 support)
+    # Fix C++20 compatibility for React Native and related Pods (hash_combine/concepts),
+    # while keeping gRPC targets on C++17 (gRPC uses std::result_of which is removed in C++20).
     begin
       installer.pods_project.targets.each do |target|
         target.build_configurations.each do |config|
-          # Enable C++20 for React Native targets that use modern C++ features (concepts, std::invocable)
-          cpp20_targets = ['jsinspector', 'React-jsi', 'React-hermes', 'React-RuntimeCore', 'React-RuntimeApple', 'React-cxxreact']
-          needs_cpp20 = cpp20_targets.any? { |cpp20_target| target.name.include?(cpp20_target) }
-          
-          if needs_cpp20
-            config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++20'
-            config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
-            # Enable C++20 concepts support
-            config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-            Pod::UI.puts "[post_install] Enabled C++20 with concepts support for #{target.name}".yellow
-          else
-            # Use C++17 for other targets for broad compatibility
-            config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
-            config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+          name = target.name
+
+          # Explicitly prefer C++17 by default
+          cxx_standard = 'c++17'
+
+          # Bump to C++20 for React Native targets that use C++20 features (concepts, etc.)
+          cpp20_targets = [
+            'React-graphics',
+            'React-jsi',
+            'React-hermes',
+            'React-RuntimeCore',
+            'React-RuntimeApple',
+            'React-cxxreact',
+            'React-Fabric',
+            'React-FabricComponents',
+            'React-FabricImage',
+            'React-ImageManager',
+            'React-rendererdebug',
+            'React-utils',
+            'React-debug',
+            'jsinspector',
+            'Yoga',
+          ]
+          if cpp20_targets.any? { |t| name.include?(t) }
+            cxx_standard = 'c++20'
           end
+
+          # Force C++17 for gRPC and its core deps to keep std::result_of available
+          if ['gRPC-Core', 'gRPC-C++', 'abseil'].include?(name)
+            cxx_standard = 'c++17'
+          end
+
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = cxx_standard
+          config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+          config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
           
           # Remove any problematic compiler optimization flags
           config.build_settings.delete('GCC_OPTIMIZATION_LEVEL') if config.build_settings['GCC_OPTIMIZATION_LEVEL'] == '0'
@@ -294,7 +313,7 @@ fi
           end
         end
       end
-      Pod::UI.puts "[post_install] Applied C++20/C++17 compatibility and Xcode Cloud settings".yellow
+      Pod::UI.puts "[post_install] Applied mixed C++ standards: C++20 for RN targets, C++17 for gRPC".yellow
     rescue => e
       Pod::UI.warn("[post_install] Failed to apply C++ compatibility settings: #{e.message}")
     end

@@ -12,23 +12,22 @@ import {
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import {globalStyles} from '../../assets/styles/styles';
 
-async function requestPermissions() {
+// ✅ Request only CAMERA permission - Android photo picker handles media access without persistent permissions
+async function requestCameraPermission() {
   if (Platform.OS !== 'android') return true;
 
-  const sdkInt = parseInt(Platform.Version, 10);
-  const permissions = [PermissionsAndroid.PERMISSIONS.CAMERA];
-
-  if (sdkInt >= 33) {
-    permissions.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES);
-  } else {
-    permissions.push(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
-  }
-
-  const granted = await PermissionsAndroid.requestMultiple(permissions);
-
-  return Object.values(granted).every(
-    result => result === PermissionsAndroid.RESULTS.GRANTED,
+  const granted = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.CAMERA,
+    {
+      title: 'Camera Permission',
+      message: 'This app needs access to camera to take photos.',
+      buttonNeutral: 'Ask Me Later',
+      buttonNegative: 'Cancel',
+      buttonPositive: 'OK',
+    },
   );
+
+  return granted === PermissionsAndroid.RESULTS.GRANTED;
 }
 
 const ImagePickerNoButton = ({
@@ -38,11 +37,11 @@ const ImagePickerNoButton = ({
   limit = 0,
 }) => {
   const handleCamera = async () => {
-    const hasPermission = await requestPermissions();
+    const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
       Alert.alert(
         'Permission Denied',
-        'Camera or media access was not granted.',
+        'Camera access was not granted.',
       );
       onRequestClose?.();
       return;
