@@ -182,7 +182,7 @@ fi
         
         # Ensure proper iOS deployment target consistency
         config.build_settings.delete('IPHONEOS_DEPLOYMENT_TARGET')
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.4'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       end
     end
 
