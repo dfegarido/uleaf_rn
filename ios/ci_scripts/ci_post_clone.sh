@@ -208,6 +208,27 @@ if ! ${POD_CMD} install; then
   fi
 fi
 
+# 5.5) Patch BoringSSL-GRPC to remove unsupported -G flag for Apple Silicon compatibility
+echo "[CI] Patching BoringSSL-GRPC podspec to remove -G compiler flag..."
+BORING_SSL_PODSPEC="Pods/BoringSSL-GRPC/BoringSSL-GRPC.podspec"
+if [[ -f "$BORING_SSL_PODSPEC" ]]; then
+  echo "[CI] Found BoringSSL-GRPC podspec, removing -G flag..."
+  # Remove -G flag from compiler flags in the podspec
+  sed -i '' 's/-G[[:space:]]*//g' "$BORING_SSL_PODSPEC" || echo "[CI][WARN] sed command failed (may not be critical)"
+  # Also remove any standalone -G entries
+  sed -i '' '/^[[:space:]]*-G[[:space:]]*$/d' "$BORING_SSL_PODSPEC" || echo "[CI][WARN] sed command failed (may not be critical)"
+  echo "[CI] BoringSSL-GRPC podspec patched to remove -G flag"
+else
+  echo "[CI][WARN] BoringSSL-GRPC podspec not found at $BORING_SSL_PODSPEC"
+fi
+
+# Also patch any xcconfig files that might contain -G flags
+echo "[CI] Patching xcconfig files to remove -G flags..."
+find Pods -name "*.xcconfig" -type f -exec grep -l "\-G" {} \; | while read -r config_file; do
+  echo "[CI] Patching $config_file to remove -G flags"
+  sed -i '' 's/-G[[:space:]]*//g' "$config_file" || echo "[CI][WARN] Failed to patch $config_file"
+done
+
 # 6) Sanity check: required support files must exist (Release config for Archive)
 SUPPORT_DIR="Pods/Target Support Files/Pods-iLeafU"
 echo "[CI] Checking for CocoaPods support files in: $SUPPORT_DIR"
