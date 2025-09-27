@@ -166,5 +166,11 @@ fi
       Pod::UI.warn("[post_install] Failed to remove weak_framework FirebaseFirestoreInternal: #{e.message}")
     end
 
+    # Fix for "unsupported option '-G' for target 'arm64-apple-ios13.4'" error on Apple Silicon Macs
+    # Exclude arm64 architecture for iOS simulator builds to avoid compiler flag incompatibilities
+    installer.pods_project.build_configurations.each do |config|
+      config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
+    end
+
   end
 end

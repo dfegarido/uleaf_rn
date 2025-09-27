@@ -158,9 +158,34 @@ else
   fi
 fi
 
-# 4) Install Pods (this creates Target Support Files and xcfilelists)
+# 4) Clean CocoaPods cache and deintegrate for fresh install (fixes -G flag issues on Apple Silicon)
+echo "[CI] Cleaning CocoaPods cache and performing deintegration..."
 cd ios
-echo "[CI] Attempting pod install with: $POD_CMD"
+
+# Clean CocoaPods caches
+rm -rf ~/Library/Caches/CocoaPods || true
+rm -rf ~/Library/Developer/Xcode/DerivedData/* || true
+
+# Remove existing Pods and workspace
+if [[ -d "Pods" ]]; then
+  echo "[CI] Removing existing Pods directory"
+  rm -rf Pods || true
+fi
+if [[ -f "*.xcworkspace" ]]; then
+  echo "[CI] Removing existing workspace"
+  rm -rf *.xcworkspace || true
+fi
+
+# Deintegrate CocoaPods (this cleans up project file references)
+echo "[CI] Deintegrating CocoaPods from project"
+${POD_CMD} deintegrate || echo "[CI][WARN] Pod deintegrate failed (may not be needed)"
+
+# Setup CocoaPods specs repo
+echo "[CI] Setting up CocoaPods specs repo"
+${POD_CMD} setup || echo "[CI][WARN] Pod setup failed (may not be critical)"
+
+# 5) Install Pods (this creates Target Support Files and xcfilelists)
+echo "[CI] Attempting fresh pod install with: $POD_CMD"
 if ! ${POD_CMD} install; then
   if [[ "$POD_CMD" == "bundle exec pod" ]]; then
     echo "[CI][WARN] Bundle exec pod install failed, falling back to system CocoaPods"
@@ -183,7 +208,7 @@ if ! ${POD_CMD} install; then
   fi
 fi
 
-# 5) Sanity check: required support files must exist (Release config for Archive)
+# 6) Sanity check: required support files must exist (Release config for Archive)
 SUPPORT_DIR="Pods/Target Support Files/Pods-iLeafU"
 echo "[CI] Checking for CocoaPods support files in: $SUPPORT_DIR"
 echo "[CI] Directory structure after pod install:"
@@ -218,7 +243,7 @@ if [[ "$MISSING" -ne 0 ]]; then
   exit 1
 fi
 
-# 6) Print versions for diagnostics
+# 7) Print versions for diagnostics
 cd ..
 echo "[CI] Versions:"
 node -v || true
@@ -226,7 +251,7 @@ npm -v || true
 ruby -v || true
 pod --version || true
 
-# 7) Optional: Generate RN codegen artifacts (pod install should handle this)
+# 8) Optional: Generate RN codegen artifacts (pod install should handle this)
 set +e
 NODE_BINARY=$(command -v node)
 $NODE_BINARY node_modules/react-native/scripts/generate-codegen-artifacts.js ios >/dev/null 2>&1 || true
