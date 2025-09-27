@@ -20,6 +20,12 @@
       android:allowBackup="false"
       android:theme="@style/AppTheme"
       android:supportsRtl="true">
+      
+      <!-- Declare support for 16KB memory page sizes -->
+      <meta-data
+          android:name="android.app.supports_16kb_page_size"
+          android:value="true" />
+      
       <uses-library android:name="org.webrtc" android:required="false" />
       <activity
         android:name=".MainActivity"
