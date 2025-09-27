@@ -170,6 +170,22 @@ fi
     # Exclude arm64 architecture for iOS simulator builds to avoid compiler flag incompatibilities
     installer.pods_project.build_configurations.each do |config|
       config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
+      # Set "Build Active Architecture Only" to YES to avoid unnecessary architecture builds
+      config.build_settings["ONLY_ACTIVE_ARCH"] = "YES"
+    end
+
+    # Apply architecture and build settings to all pod targets
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        # Exclude arm64 for iOS simulator at target level
+        config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
+        # Set "Build Active Architecture Only" to YES for all configurations
+        config.build_settings["ONLY_ACTIVE_ARCH"] = "YES"
+        
+        # Ensure proper iOS deployment target consistency
+        config.build_settings.delete('IPHONEOS_DEPLOYMENT_TARGET')
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.4'
+      end
     end
 
     # Remove -G compiler flags from all targets and build configurations (Apple Silicon compatibility)
@@ -231,6 +247,41 @@ fi
       end
     rescue => e
       Pod::UI.warn("[post_install] Failed to clean BoringSSL-GRPC target: #{e.message}")
+    end
+
+    # Fix C++20 compatibility for React Native jsinspector-modern (Xcode 16.2 support)
+    begin
+      installer.pods_project.targets.each do |target|
+        target.build_configurations.each do |config|
+          # Enable C++20 for React Native targets that use modern C++ features (concepts, std::invocable)
+          cpp20_targets = ['jsinspector', 'React-jsi', 'React-hermes', 'React-RuntimeCore', 'React-RuntimeApple', 'React-cxxreact']
+          needs_cpp20 = cpp20_targets.any? { |cpp20_target| target.name.include?(cpp20_target) }
+          
+          if needs_cpp20
+            config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++20'
+            config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+            # Enable C++20 concepts support
+            config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+            Pod::UI.puts "[post_install] Enabled C++20 with concepts support for #{target.name}".yellow
+          else
+            # Use C++17 for other targets for broad compatibility
+            config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+            config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+          end
+          
+          # Remove any problematic compiler optimization flags
+          config.build_settings.delete('GCC_OPTIMIZATION_LEVEL') if config.build_settings['GCC_OPTIMIZATION_LEVEL'] == '0'
+          
+          # Remove any debug-specific flags that might conflict with archive builds
+          if config.name.downcase.include?('release') || config.name.downcase.include?('archive')
+            config.build_settings.delete('ONLY_ACTIVE_ARCH')
+            config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
+          end
+        end
+      end
+      Pod::UI.puts "[post_install] Applied C++20/C++17 compatibility and Xcode Cloud settings".yellow
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to apply C++ compatibility settings: #{e.message}")
     end
 
   end
