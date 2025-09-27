@@ -243,6 +243,21 @@ fi
             end
           end
         end
+        # Also remove problematic per-file compiler flags that can be injected by the podspec
+        begin
+          boring_ssl_target.source_build_phase.files.each do |file|
+            next unless file.settings && file.settings['COMPILER_FLAGS']
+            flags = file.settings['COMPILER_FLAGS']
+            # Normalize to an array of tokens for safe removal
+            tokens = flags.split
+            tokens.reject! { |f| f == '-G' || f == '-GCC_WARN_INHIBIT_ALL_WARNINGS' }
+            cleaned = tokens.join(' ')
+            file.settings['COMPILER_FLAGS'] = cleaned
+          end
+          Pod::UI.puts "[post_install] Cleaned per-file COMPILER_FLAGS for BoringSSL-GRPC".yellow
+        rescue => e
+          Pod::UI.warn("[post_install] Failed per-file flag cleanup for BoringSSL-GRPC: #{e.message}")
+        end
         Pod::UI.puts "[post_install] Specifically cleaned BoringSSL-GRPC target compiler flags".yellow
       end
     rescue => e
