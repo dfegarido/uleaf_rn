@@ -63,11 +63,10 @@ async function requestPermissions() {
   const sdkInt = parseInt(Platform.Version, 10);
   const permissions = [PermissionsAndroid.PERMISSIONS.CAMERA];
 
-  if (sdkInt >= 33) {
-    permissions.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES);
-  } else {
+  if (sdkInt < 33) {
     permissions.push(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
   }
+  // For Android 13+ (API 33+), we'll rely on the built-in photo picker which doesn't need READ_MEDIA_IMAGES
 
   const granted = await PermissionsAndroid.requestMultiple(permissions);
 
