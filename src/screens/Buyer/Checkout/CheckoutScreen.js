@@ -3,6 +3,12 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
+import {
+  collection,
+  onSnapshot,
+  query,
+  where
+} from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -17,6 +23,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from 'react-native-url-polyfill';
 import { paymentPaypalVenmoUrl } from '../../../../config';
+import { db } from '../../../../firebase';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
@@ -253,6 +260,7 @@ const CheckoutScreen = () => {
     }))
   });
   const [loading, setLoading] = useState(false);
+  const [transactionNum, setTransactionNum] = useState(null);
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
       street: '123 Main St',
@@ -1222,85 +1230,41 @@ const CheckoutScreen = () => {
   }, [fromBuyNow, plantData]);
 
   useEffect(() => {
+    console.log('🔔 Setting up Firestore listener for confirmed orders with transaction number:', transactionNum);
+    
+    const q = query(collection(db, 'order'), 
+    where('status', '==', 'Ready to Fly'), 
+    where('payoutStatus', '==', 'Complete'), 
+    where('transactionNumber', '==', transactionNum));
+
+    // onSnapshot returns an "unsubscribe" function
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const orders = [];
+      querySnapshot.forEach((doc) => {
+        orders.push({ id: doc.id, ...doc.data() });
+      });
+      console.log('Current confirmed orders in Firestore:', orders);
+      
+      if (orders.length > 0) {
+        navigation.navigate('Orders');
+      }
+    }, (error) => {
+      console.error('Error listening to pending orders:', error);
+    });
+
+    // --- CRITICAL STEP ---
+    // Cleanup the listener when the component unmounts
+    return () => unsubscribe();
+  }, [transactionNum, navigation]); // Empty array means this effect runs once on mount
+
+  useEffect(() => {
     // Handle when app is opened from deep link
     const handleUrl = async event => {
       const url = event.url;
 
       if (url.startsWith('ileafu://payment-success')) {
         try {
-          // 1. Create a URL object
-          const urlObj = new URL(url);
-
-          // 2. Use the .searchParams property to get parameters
-          const orderID = urlObj.searchParams.get('orderID'); // Example: ileafuOrderId
-          const paypalOrderId = urlObj.searchParams.get('token'); 
-          const ileafuOrderId = urlObj.searchParams.get('ileafuOrderId');
-          const capture = urlObj.searchParams.get('capture');
-          const payerId = urlObj.searchParams.get('PayerID') || urlObj.searchParams.get('payerId');
-
-          console.log('PayPal Order ID:', paypalOrderId);
-          console.log('iLeafU Order ID:', ileafuOrderId);
-          console.log('Payer ID:', payerId);
-
-          // Now you have the IDs, you can call your function to capture the payment
-          let captureHadError = false;
-          if (capture && (orderID || paypalOrderId)) {
-            try {
-              const response = await fetch(
-                `https://us-central1-i-leaf-u.cloudfunctions.net/capturePaypalOrder`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    orderId: orderID || paypalOrderId,
-                    ileafuOrderId: ileafuOrderId,
-                  }),
-                },
-              );
-
-              const orderData = await response.json();
-              const errorDetail = orderData?.details?.[0];
-
-              if (errorDetail?.issue) {
-                captureHadError = true;
-                Alert.alert(
-                  'Payment unsuccessful',
-                  'Order unsuccessful, please try again later.',
-                  [
-                    {
-                      text: 'OK',
-                    },
-                  ],
-                  {cancelable: false},
-                );
-              }
-            } catch (e) {
-              captureHadError = true;
-              console.error('Capture request failed:', e);
-              Alert.alert(
-                'Payment Error',
-                'We could not verify your payment. Please check your orders or try again.',
-              );
-            }
-          }
-
-          if (!captureHadError) {
-            Alert.alert(
-              'Payment Success',
-              'Order completed successfully!',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    navigation.navigate('Orders');
-                  },
-                },
-              ],
-              {cancelable: false},
-            );
-          }
+          navigation.navigate('Orders');
         } catch (error) {
             console.error("Failed to parse deep link URL", error);
         }
@@ -1498,6 +1462,7 @@ const CheckoutScreen = () => {
               if (result.success) {
                 const {transactionNumber, paypalOrderId, approvalUrl, orderId, orderSummary} =
                   result.data;
+                setTransactionNum(transactionNumber);
 
                 Alert.alert(
                   'Order Created Successfully!',
