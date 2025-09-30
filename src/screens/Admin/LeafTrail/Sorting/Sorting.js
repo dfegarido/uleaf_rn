@@ -4,31 +4,16 @@ import {
   FlatList,
   Image,
   Modal,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
-import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import DownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
-import SearchIcon from '../../../../assets/icons/greylight/magnifying-glass-regular';
-import SortIcon from '../../../../assets/icons/greylight/sort-arrow-regular.svg';
+import FilterBar from '../../../../components/Admin/filter';
+import ScreenHeader from '../../../../components/Admin/header';
 import { getAdminLeafTrailSorting } from '../../../../components/Api/getAdminLeafTrail';
-
-const TABS_DATA = [
-    { title: 'Sort', iconLeft: <SortIcon width={20} height={20}></SortIcon> },
-    { title: 'Plant Flight', iconRight: <DownIcon width={20} height={20}></DownIcon> },
-    { title: 'Country', iconRight: <DownIcon width={20} height={20}></DownIcon> },
-    { title: 'Garden', iconRight: <DownIcon width={20} height={20}></DownIcon> },
-    { title: 'Seller', iconRight: <DownIcon width={20} height={20}></DownIcon> },
-    { title: 'Buyer', iconRight: <DownIcon width={20} height={20}></DownIcon> },
-    { title: 'Receiver', iconRight: <DownIcon width={20} height={20}></DownIcon> },
-];
-
 
 // --- REUSABLE COMPONENTS (unchanged) ---
 
@@ -61,40 +46,6 @@ const ListItem = ({ item }) => (
       </View>
     </View>
   </View>
-);
-
-const TabButton = ({ title, iconLeft, iconRight }) => (
-    <TouchableOpacity style={styles.tabButton}>
-        {iconLeft && iconLeft}
-        <Text style={styles.tabButtonText}>{title}</Text>
-        {iconRight && iconRight}
-    </TouchableOpacity>
-);
-
-const ScreenHeader = ({navigation}) => (
-    <View style={styles.headerContainer}>
-            {/* Top Navigation Bar */}
-            <View style={styles.controls}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                  <BackSolidIcon size={28} color="#393D40" />
-                </TouchableOpacity>
-                <Text style={styles.title}>Plant Sorting</Text>
-                <View style={styles.navbarRight}>
-                    <TouchableOpacity style={styles.searchButton}>
-                        {/* <Icon name="magnify" size={24} color="#556065" /> */}
-                        <SearchIcon width={24} height={24} color="#556065"/>
-                    </TouchableOpacity>
-                </View>
-            </View>
-            {/* Horizontal Tabs */}
-            <View style={styles.tabsContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {TABS_DATA.map((tab) => (
-                        <TabButton key={tab.title} {...tab} />
-                    ))}
-                </ScrollView>
-            </View>
-    </View>
 );
 
 // --- MAIN SCREEN COMPONENT (Updated) ---
@@ -136,16 +87,18 @@ const SortingScreen = ({navigation}) => {
           </View>
         </Modal>
       )}
-      <ScreenHeader navigation={navigation} />
+      <ScreenHeader navigation={navigation} title={'Plant Sorting'} search={true}/>
       
       <FlatList
         data={sortingData?.data || {}}
         renderItem={({ item }) => <ListItem item={item} />}
         keyExtractor={item => item.id}
         ListHeaderComponent={
-          <View style={styles.countContainer}>
-            <Text style={styles.countText}>{sortingData?.total || 0} receiver(s)</Text>
-          </View>
+          <>
+            {/* 👇 Corrected: Added the FilterBar here */}
+            <FilterBar />
+            <Text style={styles.countText}>{sortingData?.total || 0} box(es)</Text>
+          </>
         }
         ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
         contentContainerStyle={styles.listContentContainer}
@@ -235,12 +188,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   countText: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 14,
-    lineHeight: 19.6,
-    color: '#647276',
     textAlign: 'right',
+    color: '#647276',
+    fontSize: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
   },
   greenhouseList: {
     backgroundColor: '#F5F6F6',

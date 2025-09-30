@@ -4,62 +4,20 @@ import {
     FlatList,
     Image,
     Modal,
-    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
-    TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { TabBar, TabView } from 'react-native-tab-view';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
-import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkIcon from '../../../../assets/admin-icons/question-mark.svg';
 import ReceivedIcon from '../../../../assets/admin-icons/received.svg';
-import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import DownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
-import SortIcon from '../../../../assets/icons/greylight/sort-arrow-regular.svg';
+import FilterBar from '../../../../components/Admin/filter';
+import ScreenHeader from '../../../../components/Admin/header';
 import { getAdminLeafTrailReceiving } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
-
-// --- REUSABLE COMPONENTS ---
-
-// Horizontal filter bar shown on each tab
-const FilterBar = () => (
-  <View style={styles.filterContainer}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <TouchableOpacity style={styles.filterButton}>
-        <SortIcon />
-        <Text style={styles.filterButtonText}>Sort</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Plant Flight</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Country </Text>
-        <DownIcon />
-      </TouchableOpacity>
-       <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Garden</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Seller</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Buyer</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Receiver</Text>
-        <DownIcon />
-      </TouchableOpacity>
-    </ScrollView>
-  </View>
-);
 
 // A single card in the list
 const PlantListItem = ({ item, type }) => (
@@ -106,7 +64,7 @@ const PlantListItem = ({ item, type }) => (
                 <View style={styles.typeRow}>
                     {(item.listingType && type === 'received') && <View style={styles.listingTypeChip}><Text style={styles.listingTypeText}>{item.listingType}</Text></View>}
                     {!(type === 'received') && <View style={{flex: 1}} />}
-                    <Text style={styles.quantityText}>{item.quantity}</Text>
+                    <Text style={styles.quantityText}>{item.quantity}x</Text>
                 </View>
             </View>
         </View>
@@ -116,55 +74,42 @@ const PlantListItem = ({ item, type }) => (
 
 // --- TAB SCREENS ---
 
-const ForReceivingTab = ({data}) => (
-    <FlatList
-        data={data.data}
-        keyExtractor={item => item.key}
-        renderItem={({ item }) => <PlantListItem item={item} type="forReceiving" />}
-        ListHeaderComponent={<><FilterBar /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
-        ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-        contentContainerStyle={styles.listContentContainer}
-    />
+const ForReceivingTab = ({data, onFilterChange}) => (
+            <FlatList
+                data={data.data}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => <PlantListItem item={item} type="forReceiving" />}
+                ListHeaderComponent={
+                <>
+                    <FilterBar onFilterChange={onFilterChange}/>
+                    <Text style={styles.countText}>{data.total} plant(s)</Text>
+                </>}
+                ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+                contentContainerStyle={styles.listContentContainer}
+            />
 );
 
-const ReceivedTab = ({data}) => (
+const ReceivedTab = ({data, onFilterChange}) => (
     <FlatList
         data={data.data}
-        keyExtractor={item => item.key}
+        keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem item={item} type="received" />}
-        ListHeaderComponent={<><FilterBar /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 );
 
-const MissingTab = ({data}) => (
+const MissingTab = ({data, onFilterChange}) => (
     <FlatList
         data={data.data}
-        keyExtractor={item => item.key}
+        keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem item={item} type="missing" />}
-        ListHeaderComponent={<><FilterBar /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 );
-
-
-// --- MAIN SCREEN & HEADER ---
-
-const ScreenHeader = ({navigation}) => {
-    return (
-        <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-                <BackSolidIcon />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Receiving of Plants</Text>
-            <TouchableOpacity style={styles.headerAction}>
-                <ScanQrIcon />
-            </TouchableOpacity>
-        </View>
-    );
-};
 
 const ReceivingScreen = ({navigation}) => {
     const [index, setIndex] = useState(0);
@@ -177,32 +122,38 @@ const ReceivingScreen = ({navigation}) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // useEffect hook to fetch data when the component mounts
-    useEffect(() => {
-        const fetchData = async () => {
-        try {
-            const response = await getAdminLeafTrailReceiving();
-            
-            setReceivingData(response);
-        } catch (e) {
-            setError(e);
-            console.error("Failed to fetch plant data:", e);
-        } finally {
-            setIsLoading(false);
-        }
-        };
+    const fetchData = async (filters) => {
+            try {
+                setIsLoading(true);
+                const response = await getAdminLeafTrailReceiving(filters);
+                console.log("Fetched plant data:", response);
+                
+                setReceivingData(response);
+            } catch (e) {
+                setIsLoading(false);
+                setError(e);
+                console.error("Failed to fetch plant data:", e);
+            } finally {
+                setIsLoading(false);
+            }
+};
 
+    useEffect(() => {
         fetchData();
-    }, []); // The empty array ensures this effect runs only once
+    }, []);
+
+    const onFilterChange = (filters) => {
+         fetchData(filters);
+    }
 
     const renderScene = ({ route }) => {
         switch (route.key) {
             case 'forReceiving':
-                return <ForReceivingTab data={receivingData?.forReceiving || {}} />;
+                return <ForReceivingTab onFilterChange={onFilterChange} data={receivingData?.forReceiving || {}} />;
             case 'received':
-                return <ReceivedTab data={receivingData?.received || {}} />;
+                return <ReceivedTab onFilterChange={onFilterChange} data={receivingData?.received || {}} />;
             case 'missing':
-                return <MissingTab data={receivingData?.missing || {}} />;
+                return <MissingTab onFilterChange={onFilterChange} data={receivingData?.missing || {}} />;
             default:
                 return null;
         }
@@ -229,7 +180,7 @@ const ReceivingScreen = ({navigation}) => {
                           </View>
                         </Modal>
                       )}
-                <ScreenHeader navigation={navigation}/>
+                <ScreenHeader navigation={navigation} scarQr={true} title={'Receiving of Plants'}/>
                 <TabView
                     navigationState={{ index, routes }}
                     renderScene={renderScene}
@@ -255,30 +206,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FFFFFF',
     },
-    // Header
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        backgroundColor: '#FFFFFF',
-        height: 58,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#202325',
-    },
-    headerAction: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#CDD3D4',
-        borderRadius: 12,
-    },
     // Tab Bar
     tabBar: {
         backgroundColor: '#FFFFFF',
@@ -294,27 +221,6 @@ const styles = StyleSheet.create({
         zIndex: 1,
         fontSize: 16,
         textTransform: 'none',
-    },
-    // Filter Bar
-    filterContainer: {
-        paddingVertical: 16,
-    },
-    filterButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#CDD3D4',
-        borderRadius: 12,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        marginRight: 8,
-        gap: 4,
-    },
-    filterButtonText: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#393D40',
     },
     // List
     listContentContainer: {

@@ -4,72 +4,17 @@ import {
   FlatList,
   Image,
   Modal,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray.svg';
-import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import DownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
-import SearchIcon from '../../../../assets/icons/greylight/magnifying-glass-regular';
-import SortIcon from '../../../../assets/icons/greylight/sort-arrow-regular.svg';
+import FilterBar from '../../../../components/Admin/filter';
+import ScreenHeader from '../../../../components/Admin/header';
 import { getAdminLeafTrailPacking } from '../../../../components/Api/getAdminLeafTrail';
-
-// --- REUSABLE COMPONENTS ---
-
-const ScreenHeader = ({navigation}) => {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-          <BackSolidIcon />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Packing</Text>
-      <TouchableOpacity style={styles.headerAction}>
-        <SearchIcon />
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-const FilterBar = () => (
-  <View style={styles.filterContainer}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <TouchableOpacity style={styles.filterButton}>
-        <SortIcon />
-        <Text style={styles.filterButtonText}>Sort</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Plant Flight</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Country</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Garden</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Seller</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Buyer</Text>
-        <DownIcon />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.filterButton}>
-        <Text style={styles.filterButtonText}>Receiver</Text>
-        <DownIcon />
-      </TouchableOpacity>
-    </ScrollView>
-  </View>
-);
 
 const PackingListItem = ({ item }) => (
   <View style={styles.listItemContainer}>
@@ -140,7 +85,7 @@ const PackingScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader navigation={navigation}/>
+        <ScreenHeader navigation={navigation} title={'Packing'} search={true}/>
         <FlatList
           data={packingData?.data || {}}
           keyExtractor={item => item.key}
@@ -172,52 +117,6 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    height: 58,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#202325',
-  },
-  headerAction: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-  },
-  // Filter Bar
-  filterContainer: {
-    paddingVertical: 16,
-    paddingLeft: 15,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginRight: 8,
-    gap: 4,
-  },
-  filterButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#393D40',
   },
   // List
   listContentContainer: {
