@@ -36,6 +36,15 @@
 				"-lc",
 				"cd ios && pod install --repo-update"
 			]
+		},
+		{
+			"label": "pod install with pinned Firebase",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"cd ios && pod install --repo-update"
+			]
 		}
 	]
 }

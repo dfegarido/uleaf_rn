@@ -7,8 +7,9 @@ require Pod::Executable.execute_command('node', ['-p',
 require 'fileutils'
 
 platform :ios, '16.0'
-# Pin Firebase iOS SDK to a Swift 5.9-compatible version (Xcode 15.2)
-$FirebaseSDKVersion = '10.24.0'
+# Update Firebase iOS SDK to a version that includes newer gRPC with stricter template fixes
+# Note: v11.10.0+ carries the gRPC-Core headers with dependent-template disambiguators
+$FirebaseSDKVersion = '11.10.0'
 use_modular_headers!
 prepare_react_native_project!
 
@@ -48,6 +49,26 @@ target 'iLeafU' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Ensure all pods use a supported minimum iOS deployment target to avoid Xcode warnings
+    begin
+      min_target = Gem::Version.new('12.0')
+      installer.pods_project.targets.each do |t|
+        t.build_configurations.each do |config|
+          cur = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+          if cur.nil? || Gem::Version.new(cur) < min_target
+            config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_target.to_s
+          end
+        end
+      end
+      installer.pods_project.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_target.to_s
+        # Also enable sandboxing to reduce warnings about unsandboxed script phases
+        config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'YES'
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to normalize IPHONEOS_DEPLOYMENT_TARGET/ENABLE_USER_SCRIPT_SANDBOXING: #{e.message}")
+    end
 
     # Workaround: Some toolchains look for gRPC modulemap at Headers/Private/grpc/gRPC-Core.modulemap.
     # CocoaPods 1.15+ places modulemaps under Target Support Files. Copy it to the expected location.
@@ -153,6 +174,41 @@ fi
       end
     rescue => e
       Pod::UI.warn("[post_install] Failed to remove weak_framework FirebaseFirestoreInternal: #{e.message}")
+    end
+
+    # Sanitize generated Pods project build file COMPILER_FLAGS to remove malformed -GCC_WARN_INHIBIT_ALL_WARNINGS
+    # Some generated PBXBuildFile entries incorrectly include a token starting with '-G' which the clang driver
+    # treats as an unsupported option for certain targets (e.g. arm64-apple-ios*-simulator). Strip that token.
+    begin
+      pods_project = installer.pods_project
+      modified = false
+
+      # Iterate over all PBXBuildFile objects in the generated Xcodeproj. Some build files
+      # include a malformed token beginning with "-G" (for example "-GCC_WARN_INHIBIT_ALL_WARNINGS")
+      # which the clang driver misinterprets as an unsupported option. Scan the project's
+      # objects for PBXBuildFile entries and sanitize their COMPILER_FLAGS entries.
+      pods_project.objects.each do |obj|
+        next unless obj.respond_to?(:isa) && obj.isa == 'PBXBuildFile'
+        if obj.respond_to?(:settings) && obj.settings && obj.settings['COMPILER_FLAGS']
+          orig = obj.settings['COMPILER_FLAGS']
+          cleaned = orig.dup
+          # Remove the known problematic token and defensively strip any token that starts with '-G'
+          cleaned = cleaned.gsub(/-GCC_WARN_INHIBIT_ALL_WARNINGS/, '')
+          cleaned = cleaned.gsub(/\s*-G\S+/, '')
+          cleaned = cleaned.strip
+          if cleaned != orig
+            obj.settings['COMPILER_FLAGS'] = cleaned
+            modified = true
+          end
+        end
+      end
+
+      if modified
+        pods_project.save
+        Pod::UI.puts "[post_install] Sanitized COMPILER_FLAGS in Pods project to remove malformed -G tokens".yellow
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to sanitize COMPILER_FLAGS in Pods project: #{e.message}")
     end
 
   end
