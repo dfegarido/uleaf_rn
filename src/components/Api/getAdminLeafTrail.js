@@ -1,11 +1,19 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 
-export const getAdminLeafTrailReceiving = async () => {
+export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();
-
+    let cleanedParams = null;
+    if (filters) {
+      cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+    }
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailReceiving${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    console.log('Fetching URL:', url);
+    
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailReceiving',
+      url,
       {
         method: 'GET', 
         headers: {
