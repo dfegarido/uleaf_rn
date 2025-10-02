@@ -119,6 +119,7 @@ const generateEndpoints = () => ({
   LIST_ADMINS: `${getBaseUrl()}/listAdmins`,
   UPDATE_ADMIN: `${getBaseUrl()}/updateAdmin`,
   UPDATE_ADMIN_PASSWORD: `${getBaseUrl()}/updateAdminPassword`,
+  DELETE_ADMIN: `${getBaseUrl()}/deleteAdmin`,
   GET_ALL_USERS: `${getBaseUrl()}/getAllUsers`,
   UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
   GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`,
