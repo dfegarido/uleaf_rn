@@ -16,6 +16,10 @@ import AdminHomeScreen from '../../screens/Admin/Home/Home';
 import ScanQR from '../../screens/Admin/Home/ScanQR';
 import UserInformation from '../../screens/Admin/Home/UserInformation';
 import UserManagement from '../../screens/Admin/Home/UserManagement';
+import JungleAccess from '../../screens/Admin/Home/JungleAccess';
+import AddAdmin from '../../screens/Admin/Home/AddAdmin';
+import EditAdmin from '../../screens/Admin/Home/EditAdmin';
+import EditSubAdmin from '../../screens/Admin/Home/EditSubAdmin';
 import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
 import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
@@ -167,6 +171,10 @@ function AdminTabs() {
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
      <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />
       <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
+      <Stack.Screen name="JungleAccess" options={{headerShown: false}} component={JungleAccess}/>
+      <Stack.Screen name="AddAdmin" options={{headerShown: false}} component={AddAdmin}/>
+      <Stack.Screen name="EditAdmin" options={{headerShown: false}} component={EditAdmin}/>
+      <Stack.Screen name="EditSubAdmin" options={{headerShown: false}} component={EditSubAdmin}/>
       
       {/* Taxonomy Screens */}
       <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />

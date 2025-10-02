@@ -136,7 +136,7 @@ const BusinessPerformance = () => {
           <IconTile title="Schedule">
             <ScheduleIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Jungle Acces...">
+          <IconTile title="Jungle Acces..." onPress={() => navigation.navigate('JungleAccess')}>
             <JungleAccessIcon width={48} height={48} />
           </IconTile>
           <IconTile title="User Mgmt" onPress={() => navigation.navigate('UserManagement')}>
