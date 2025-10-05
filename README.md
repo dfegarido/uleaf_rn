@@ -1,6 +1,6 @@
 # ULeaf React Native App
 
-This is a React Native e-commerce application built with [**React Native**](https://reactnative.dev) 0.75.4, featuring buyer and seller interfaces for a plant marketplace.
+This is a React Native e-commerce application built with [**React Native**](https://reactnative.dev) 0.77.3, featuring buyer and seller interfaces for a plant marketplace.
 
 ## 🚀 Quick Start
 
@@ -10,8 +10,10 @@ Before you begin, ensure you have the following installed:
 
 - **Node.js** (v18 or higher) - [Download here](https://nodejs.org/)
 - **Java JDK** (v17 or higher) - [Download here](https://adoptium.net/)
-- **Android Studio** with Android SDK API Level 34
+- **Android Studio** with Android SDK API Level 35
 - **Git** for version control
+
+> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
 ### Environment Setup
 
@@ -41,34 +43,65 @@ Before you begin, ensure you have the following installed:
 
 ## 📱 Development Setup
 
-### 1. Install Dependencies
-```bash
-# Clone the repository (if needed)
-git clone <repository-url>
-cd uleaf_rn
+### Step 1: Start Metro
 
-# Install npm packages
-npm install
-```
+First, you will need to run **Metro**, the JavaScript build tool for React Native.
 
-### 2. Start Development Server
-```bash
-# Start Metro bundler
+To start the Metro dev server, run the following command from the root of your React Native project:
+
+```sh
+# Using npm
 npm start
 ```
 
-### 3. Run the App
-Open a new terminal and run:
+### Step 2: Build and run your app
 
-```bash
-# For Android
+With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+
+#### Android
+
+```sh
+# Using npm
 npm run android
-
-# Or run on specific device
-npx react-native run-android --deviceId=YOUR_DEVICE_ID
 ```
 
-**🎉 That's it!** Your app should now be running on your Android emulator or device.
+#### iOS
+
+For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+
+The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+
+```sh
+bundle install
+```
+
+Then, and every time you update your native dependencies, run:
+
+```sh
+bundle exec pod install
+```
+
+For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+
+```sh
+# Using npm
+npm run ios
+```
+
+If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+
+This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+
+### Step 3: Modify your app
+
+Now that you have successfully run the app, let's make changes!
+
+Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+
+When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+
+- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
+- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
 
 ## 🏗️ Building for Production
 
@@ -164,6 +197,17 @@ org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
 ```
 
 ### Getting Help
+## Congratulations! :tada:
+
+If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+
+### Now what?
+
+- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
+- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+
+# Learn More
+
 - Check [BUILD_DOCUMENTATION.md](./BUILD_DOCUMENTATION.md) for detailed build instructions
 - Review [React Native Troubleshooting](https://reactnative.dev/docs/troubleshooting)
 - Check the [Issues](../../issues) section of this repository
@@ -173,7 +217,7 @@ org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
 Before starting development:
 - [ ] Node.js v18+ installed
 - [ ] Java JDK v17+ installed
-- [ ] Android Studio with SDK 34 setup
+- [ ] Android Studio with SDK 35 setup
 - [ ] Environment variables configured
 - [ ] Dependencies installed (`npm install`)
 - [ ] App runs successfully (`npm run android`)
@@ -194,7 +238,7 @@ Before starting development:
 - [Android Developer Guide](https://developer.android.com/guide) - Android-specific guidance
 
 ### Key Technologies
-- **React Native** 0.75.4 - Cross-platform mobile framework
+- **React Native** 0.77.3 - Cross-platform mobile framework
 - **Firebase** - Authentication and backend services
 - **React Navigation** - Navigation library
 - **SVG Icons** - Custom vector graphics
