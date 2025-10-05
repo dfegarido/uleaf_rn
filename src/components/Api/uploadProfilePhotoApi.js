@@ -1,75 +1,95 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import { API_CONFIG } from '../../config/apiConfig';
 
+/**
+ * Read local file as base64 using XMLHttpRequest
+ * This works in React Native without requiring additional native modules
+ */
+const readFileAsBase64 = (uri) => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+      const reader = new FileReader();
+      reader.onloadend = function() {
+        // Remove the data:image/...;base64, prefix
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(xhr.response);
+    };
+    xhr.onerror = reject;
+    xhr.responseType = 'blob';
+    xhr.open('GET', uri, true);
+    xhr.send();
+  });
+};
+
+/**
+ * Upload profile photo using JSON/base64 approach (React Native friendly)
+ * 
+ * @param {string} imageUri - Local file URI
+ * @param {string|null} overrideToken - Optional auth token override
+ * @returns {Promise<Object>} Response with profilePhotoUrl
+ */
 export const uploadProfilePhotoApi = async (imageUri, overrideToken = null) => {
   console.log('Starting uploadProfilePhotoApi...');
-  const token = overrideToken || await getStoredAuthToken();
-
-  // Build headers like your snippet
-  const myHeaders = new Headers();
-  myHeaders.append('Authorization', `Bearer ${token || ''}`);
-
-  // Build formdata
-  const formdata = new FormData();
-  // For React Native, append an object with uri, name and type
-  const filename = typeof imageUri === 'string' ? imageUri.split('/').pop() : 'photo.jpg';
-  const ext = filename && filename.includes('.') ? filename.split('.').pop().toLowerCase() : '';
-  const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
-  const mimeType = mimeMap[ext] || 'image/jpeg';
-  formdata.append('profilePhoto', { uri: imageUri, name: filename, type: mimeType });
-
-  // Use API_CONFIG to get base URL for local/prod
-  const base = API_CONFIG.BASE_URL;
-  const url = `${base}/uploadProfilePhoto`;
-  console.log('Uploading to URL:', url);
-
-  const requestOptions = {
-    method: 'POST',
-    headers: myHeaders,
-    body: formdata,
-    redirect: 'follow'
-  };
-
+  
   try {
-    const response = await fetch(url, requestOptions);
-    const text = await response.text();
-    console.log('Upload response status:', response.status);
-    console.log('Raw response text:', text);
+    const token = overrideToken || await getStoredAuthToken();
 
-    let result = null;
-    try { result = JSON.parse(text); } catch (e) { /* not JSON */ }
+    // Extract filename from URI
+    const filename = typeof imageUri === 'string' ? imageUri.split('/').pop() : 'photo.jpg';
+    const ext = filename && filename.includes('.') ? filename.split('.').pop().toLowerCase() : '';
+    const mimeMap = { 
+      jpg: 'image/jpeg', 
+      jpeg: 'image/jpeg', 
+      png: 'image/png', 
+      gif: 'image/gif', 
+      webp: 'image/webp' 
+    };
+    const mimeType = mimeMap[ext] || 'image/jpeg';
 
-    if (response.ok) {
-      return result || { success: true, raw: text };
+    console.log('📤 Uploading profile photo:', filename);
+    console.log('🌐 API Endpoint:', API_CONFIG.UPLOAD_PROFILE_PHOTO);
+
+    // Read file as base64 using XMLHttpRequest
+    const base64 = await readFileAsBase64(imageUri);
+
+    console.log('📦 Converted to base64, size:', Math.round(base64.length / 1024), 'KB');
+
+    // Send as JSON with base64 data
+    const response = await fetch(API_CONFIG.UPLOAD_PROFILE_PHOTO, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: base64,
+        filename: filename,
+        mimeType: mimeType,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error:', errorText);
+      throw new Error(`Upload failed: ${response.status} - ${errorText}`);
     }
 
-    const err = new Error((result && (result.message || result.error)) || `Server error (${response.status})`);
-    err.status = response.status;
-    err.serverResponse = result || { raw: text };
-    throw err;
+    const result = await response.json();
+    console.log('✅ Upload response:', result);
+
+    if (!result.success) {
+      throw new Error(result.error || result.message || 'Upload failed');
+    }
+
+    return result;
+
   } catch (error) {
-    console.error('Network error during upload (primary URL):', error);
-    // Retry fallback: if using Android emulator address 10.0.2.2, try localhost/127.0.0.1
-    try {
-      if (base.includes('10.0.2.2')) {
-        const altBase = base.replace('10.0.2.2', '127.0.0.1');
-        const altUrl = `${altBase}/uploadProfilePhoto`;
-        console.log('Retrying upload to alternate URL:', altUrl);
-        const response2 = await fetch(altUrl, requestOptions);
-        const text2 = await response2.text();
-        let result2 = null;
-        try { result2 = JSON.parse(text2); } catch (e) {}
-        if (response2.ok) return result2 || { success: true, raw: text2 };
-        const err2 = new Error((result2 && (result2.message || result2.error)) || `Server error (${response2.status})`);
-        err2.status = response2.status;
-        err2.serverResponse = result2 || { raw: text2 };
-        throw err2;
-      }
-    } catch (retryErr) {
-      console.error('Retry attempt failed:', retryErr);
-      throw retryErr;
-    }
-
+    console.error('❌ uploadProfilePhotoApi error:', error.message || error);
     throw error;
   }
 };
+

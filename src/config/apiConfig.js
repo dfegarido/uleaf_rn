@@ -5,7 +5,7 @@ const USE_LOCAL_API = false;
 
 // Local development endpoints (Firebase Functions Emulator)
 // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
-const LOCAL_BASE_URL = 'http://10.0.2.2:5001/i-leaf-u/us-central1';
+const LOCAL_BASE_URL = 'http://localhost:5001/i-leaf-u/us-central1';
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -161,6 +161,10 @@ const generateEndpoints = () => ({
   GET_BUYER_LISTING: `${getBaseUrl()}/getBuyerListing`, // Single plant detail
   GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
+  
+  // Listing Management APIs
+  UPLOAD_LISTING_IMAGE: `${getBaseUrl()}/uploadListingImage`,
+  
   // News & Events (buyer announcements)
   GET_NEWS_AND_EVENT: (limit = 10, category = 'announcement') => `${getBaseUrl()}/getNewsAndEvent?limit=${limit}&category=${encodeURIComponent(category)}`,
   

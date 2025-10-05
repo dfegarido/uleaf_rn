@@ -14,6 +14,7 @@
 		7C358D170EC9CC00B2670A62 /* Pods_iLeafU.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F13B62B580DB45622F2E2CF5 /* Pods_iLeafU.framework */; };
 		7F8E9A4C8FD2247253B85472 /* Pods_iLeafU_iLeafUTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C3BAA5E68ED31F5D00557A5 /* Pods_iLeafU_iLeafUTests.framework */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		C3433CA62E9247F400DFE31D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C3433CA52E9247F400DFE31D /* GoogleService-Info.plist */; };
 		C906F0933278C2ECBF1AD625 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 201C5FABD8CD61AC8F9C7E18 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -44,6 +45,7 @@
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = iLeafU/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		9C3BAA5E68ED31F5D00557A5 /* Pods_iLeafU_iLeafUTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_iLeafU_iLeafUTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A0211AE4BFDA1B0D76E70DF6 /* Pods-iLeafU.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iLeafU.release.xcconfig"; path = "Target Support Files/Pods-iLeafU/Pods-iLeafU.release.xcconfig"; sourceTree = "<group>"; };
+		C3433CA52E9247F400DFE31D /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		C4C222FD0AB340BC7C784F65 /* Pods-iLeafU-iLeafUTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iLeafU-iLeafUTests.debug.xcconfig"; path = "Target Support Files/Pods-iLeafU-iLeafUTests/Pods-iLeafU-iLeafUTests.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F13B62B580DB45622F2E2CF5 /* Pods_iLeafU.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_iLeafU.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -89,6 +91,7 @@
 		13B07FAE1A68108700A75B9A /* iLeafU */ = {
 			isa = PBXGroup;
 			children = (
+				C3433CA52E9247F400DFE31D /* GoogleService-Info.plist */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -249,6 +252,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
+				C3433CA62E9247F400DFE31D /* GoogleService-Info.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				C906F0933278C2ECBF1AD625 /* PrivacyInfo.xcprivacy in Resources */,
 			);

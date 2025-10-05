@@ -39,12 +39,10 @@ import {
   getMutationApi,
   getListingDetails,
   postSellUpdateApi,
+  uploadMultipleImagesToBackend,
 } from '../../../components/Api';
-import {getApp} from '@react-native-firebase/app';
-import {getAuth} from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import SellConfirmDraft from './components/SellConfirmDraft';
 import {AuthContext} from '../../../auth/AuthProvider';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -67,8 +65,6 @@ import {useNavigationState} from '@react-navigation/native';
 
 const ScreenGrowersSell = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
-  const app = getApp();
-  const auth = getAuth(app);
   const [loading, setLoading] = useState(false);
 
   const routes = useNavigationState(state => state.routes);
@@ -372,23 +368,23 @@ const ScreenGrowersSell = ({navigation, route}) => {
     }
     setLoading(true);
     try {
-      // Upload main listing images
-      const uploadedMainImageUrls = [];
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedMainImageUrls.push(firebaseUrl);
-      }
+      // Upload main listing images to Backend API
+      console.log('📤 Uploading', images.length, 'main images to backend...');
+      const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ Main images uploaded:', uploadedMainImageUrls);
 
-      // Upload variation images
+      // Upload variation images to Backend API
+      console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
       const uploadedPotSizeList = await Promise.all(
         potSizeList.map(async item => {
-          const imageUrl = await uploadImageToFirebase(item.image);
+          const imageUrl = await uploadMultipleImagesToBackend([item.image]);
           return {
             ...item,
-            image: imageUrl,
+            image: imageUrl[0], // Get first (and only) URL from array
           };
         }),
       );
+      console.log('✅ Variation images uploaded');
 
       // Build JSON payload
       const data = {
@@ -447,23 +443,23 @@ const ScreenGrowersSell = ({navigation, route}) => {
     }
     setLoading(true);
     try {
-      // Upload main listing images
-      const uploadedMainImageUrls = [];
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedMainImageUrls.push(firebaseUrl);
-      }
+      // Upload main listing images to Backend API
+      console.log('📤 Uploading', images.length, 'main images to backend...');
+      const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ Main images uploaded:', uploadedMainImageUrls);
 
-      // Upload variation images
+      // Upload variation images to Backend API
+      console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
       const uploadedPotSizeList = await Promise.all(
         potSizeList.map(async item => {
-          const imageUrl = await uploadImageToFirebase(item.image);
+          const imageUrl = await uploadMultipleImagesToBackend([item.image]);
           return {
             ...item,
-            image: imageUrl,
+            image: imageUrl[0], // Get first (and only) URL from array
           };
         }),
       );
+      console.log('✅ Variation images uploaded');
 
       // Build JSON payload
       const data = {
@@ -522,24 +518,23 @@ const ScreenGrowersSell = ({navigation, route}) => {
     // }
     setLoading(true);
     try {
-      // Upload main listing images
-      const uploadedMainImageUrls = [];
+      // Upload main listing images to Backend API
+      console.log('📤 Uploading', images.length, 'main images to backend...');
+      const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ Main images uploaded:', uploadedMainImageUrls);
 
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedMainImageUrls.push(firebaseUrl);
-      }
-
-      // Upload variation images
+      // Upload variation images to Backend API
+      console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
       const uploadedPotSizeList = await Promise.all(
         potSizeList.map(async item => {
-          const imageUrl = await uploadImageToFirebase(item.image);
+          const imageUrl = await uploadMultipleImagesToBackend([item.image]);
           return {
             ...item,
-            image: imageUrl,
+            image: imageUrl[0], // Get first (and only) URL from array
           };
         }),
       );
+      console.log('✅ Variation images uploaded');
 
       // Build JSON payload
       const data = {
@@ -657,23 +652,23 @@ const ScreenGrowersSell = ({navigation, route}) => {
     }
     setLoading(true);
     try {
-      // Upload main listing images
-      const uploadedMainImageUrls = [];
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedMainImageUrls.push(firebaseUrl);
-      }
+      // Upload main listing images to Backend API
+      console.log('📤 Uploading', images.length, 'main images to backend...');
+      const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ Main images uploaded:', uploadedMainImageUrls);
 
-      // Upload variation images
+      // Upload variation images to Backend API
+      console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
       const uploadedPotSizeList = await Promise.all(
         potSizeList.map(async item => {
-          const imageUrl = await uploadImageToFirebase(item.image);
+          const imageUrl = await uploadMultipleImagesToBackend([item.image]);
           return {
             ...item,
-            image: imageUrl,
+            image: imageUrl[0], // Get first (and only) URL from array
           };
         }),
       );
+      console.log('✅ Variation images uploaded');
 
       // Build JSON payload
       const data = {

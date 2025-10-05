@@ -80,6 +80,7 @@ export {getSellGenusApi} from './getSellGenusApi';
 export {getSellSpeciesApi} from './getSellSpeciesApi';
 export {getSellVariegationApi} from './getSellVariegationApi';
 export {postSellSinglePlantApi} from './postSellSinglePlantApi';
+export {uploadImageToBackend, uploadMultipleImagesToBackend} from './uploadImageToBackend';
 export {postSellWholesaleOrGrowersPlantApi} from './postSellWholesaleOrGrowersPlantApi';
 export {getMutationApi} from './getMutationApi';
 export {getDateFilterApi} from './getDateFilterApi';

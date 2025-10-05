@@ -211,5 +211,24 @@ fi
       Pod::UI.warn("[post_install] Failed to sanitize COMPILER_FLAGS in Pods project: #{e.message}")
     end
 
+    # Allow non-modular includes for pods that still use quoted/relative imports inside framework headers
+    # This unblocks compilation under use_modular_headers! + use_frameworks! :linkage => :static
+    begin
+      non_modular_targets = [
+        'RNScreens',
+        'RNReanimated'
+      ]
+      installer.pods_project.targets.each do |t|
+        next unless non_modular_targets.include?(t.name)
+        t.build_configurations.each do |config|
+          config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+          # Suppress quoted include warnings that often accompany these headers
+          config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+        end
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to relax non-modular include settings: #{e.message}")
+    end
+
   end
 end

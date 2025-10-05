@@ -32,12 +32,12 @@ import {
   getMutationApi,
   getListingDetails,
   postSellUpdateApi,
+  uploadMultipleImagesToBackend,
 } from '../../../components/Api';
-import {getApp} from '@react-native-firebase/app';
-import {getAuth} from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
+// Remove Firebase upload import - we'll use backend API instead
+// import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import SellConfirmDraft from './components/SellConfirmDraft';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
@@ -65,8 +65,6 @@ import {useNavigationState} from '@react-navigation/native';
 
 const ScreenSingleSell = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
-  const app = getApp();
-  const auth = getAuth(app);
   const [loading, setLoading] = useState(false);
 
   const routes = useNavigationState(state => state.routes);
@@ -183,17 +181,10 @@ const ScreenSingleSell = ({navigation, route}) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const currentUser = auth.currentUser;
-
-      if (currentUser) {
-        try {
-          // await loadGenusData();
-          await Promise.all([loadGenusData(), loadMutationData()]);
-        } catch (error) {
-          console.log('Error get listing:', error);
-        }
-      } else {
-        console.log('No user is logged in');
+      try {
+        await Promise.all([loadGenusData(), loadMutationData()]);
+      } catch (error) {
+        console.log('Error get listing:', error);
       }
     };
 
@@ -322,12 +313,10 @@ const ScreenSingleSell = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Upload images to Firebase
-      const uploadedUrls = [];
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedUrls.push(firebaseUrl);
-      }
+      // Upload images to Backend API (which handles Firebase Storage)
+      console.log('📤 Uploading', images.length, 'images to backend...');
+      const uploadedUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ All images uploaded:', uploadedUrls);
 
       // Build final JSON using uploaded URLs
       const data = {
@@ -384,12 +373,10 @@ const ScreenSingleSell = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Upload images to Firebase
-      const uploadedUrls = [];
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedUrls.push(firebaseUrl);
-      }
+      // Upload images to Backend API (which handles Firebase Storage)
+      console.log('📤 Uploading', images.length, 'images to backend...');
+      const uploadedUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ All images uploaded:', uploadedUrls);
 
       // Build final JSON using uploaded URLs
       const data = {
@@ -448,14 +435,14 @@ const ScreenSingleSell = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Upload images to Firebase
+      // Upload images to Backend API (which handles Firebase Storage)
       const uploadedUrls = [];
 
       console.log(uploadedUrls);
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedUrls.push(firebaseUrl);
-      }
+      console.log('📤 Uploading', images.length, 'images to backend...');
+      const urls = await uploadMultipleImagesToBackend(images);
+      uploadedUrls.push(...urls);
+      console.log('✅ All images uploaded:', uploadedUrls);
 
       // Build final JSON using uploaded URLs
       const data = {
@@ -571,12 +558,10 @@ const ScreenSingleSell = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Upload images to Firebase
-      const uploadedUrls = [];
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedUrls.push(firebaseUrl);
-      }
+      // Upload images to Backend API (which handles Firebase Storage)
+      console.log('📤 Uploading', images.length, 'images to backend...');
+      const uploadedUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ All images uploaded:', uploadedUrls);
 
       // Build final JSON using uploaded URLs
       const data = {
