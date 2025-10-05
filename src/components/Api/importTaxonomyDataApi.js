@@ -1,5 +1,7 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { API_CONFIG } from '../../config/apiConfig';
+import RNFS from 'react-native-fs';
+import { Platform } from 'react-native';
 
 /**
  * Import Taxonomy Data API Client
@@ -62,21 +64,55 @@ export const importTaxonomyDataApi = async (params) => {
 
     // Get authentication token
     const token = await getStoredAuthToken();
+    
+    if (!token) {
+      console.warn('⚠️ No authentication token available');
+      throw new Error('Authentication required. Please log in again.');
+    }
 
     // Build URL
     const baseUrl = API_CONFIG.BASE_URL;
     const url = `${baseUrl}/importTaxonomyData`;
     
     console.log('🌐 Making import request to:', url);
+    console.log('🔐 Token available:', token ? 'Yes' : 'No');
+
+    // Read file content for React Native (content:// URIs need to be read first)
+    let fileUri = file.uri;
+    let fileToUpload = file;
+
+    // For Android content:// URIs, we need to read the file as base64
+    if (Platform.OS === 'android' && file.uri.startsWith('content://')) {
+      console.log('📱 Android content URI detected, reading file with RNFS...');
+      try {
+        const base64Content = await RNFS.readFile(file.uri, 'base64');
+        console.log('✅ File read successfully, size:', base64Content.length);
+        
+        // Create a temporary file path
+        const tempPath = `${RNFS.CachesDirectoryPath}/${file.name}`;
+        await RNFS.writeFile(tempPath, base64Content, 'base64');
+        
+        fileUri = Platform.OS === 'ios' ? tempPath : `file://${tempPath}`;
+        fileToUpload = {
+          ...file,
+          uri: fileUri
+        };
+        
+        console.log('✅ Temporary file created:', fileUri);
+      } catch (readError) {
+        console.error('❌ Error reading file:', readError);
+        throw new Error('Failed to read file: ' + readError.message);
+      }
+    }
 
     // Create FormData for file upload
     const formData = new FormData();
     
-    // Add file
+    // Add file - React Native needs this specific format
     formData.append('taxonomyFile', {
-      uri: file.uri,
-      type: file.type || 'application/octet-stream',
-      name: file.name,
+      uri: fileToUpload.uri,
+      type: fileToUpload.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      name: fileToUpload.name,
     });
 
     // Add metadata
@@ -97,16 +133,13 @@ export const importTaxonomyDataApi = async (params) => {
     }
 
     // Prepare request headers
+    // DON'T set Content-Type manually - let fetch set it with boundary
     const headers = {
-      'Content-Type': 'multipart/form-data',
+      'Authorization': `Bearer ${token}`,
     };
 
-    // Add authorization header if token available
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    console.log('📤 Uploading file...');
+    console.log('📤 Uploading file with FormData...');
+    console.log('📦 File details:', { name: file.name, size: file.size, type: file.type });
 
     // Make API request
     const response = await fetch(url, {

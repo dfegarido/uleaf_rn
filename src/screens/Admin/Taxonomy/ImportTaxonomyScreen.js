@@ -9,10 +9,13 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Share,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DocumentPicker from 'react-native-document-picker';
+import RNFS from 'react-native-fs';
 
 // Import fallback file selection
 import { selectFileAlternative } from '../../../utils/fileSelectionFallback';
@@ -22,9 +25,12 @@ import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import UploadIcon from '../../../assets/buyer-icons/plus.svg';
 import FileIcon from '../../../assets/icons/greydark/profile.svg';
 import CheckIcon from '../../../assets/admin-icons/check-approve.svg';
+import DownloadIcon from '../../../assets/admin-icons/import-data.svg';
 
 // Import API
-import { importTaxonomyDataApi, validateTaxonomyFileApi } from '../../../components/Api/importTaxonomyDataMock';
+import { importTaxonomyDataApi } from '../../../components/Api/importTaxonomyDataApi';
+import { downloadTaxonomyTemplateApi } from '../../../components/Api/downloadTaxonomyTemplateApi';
+import { getStoredAdminId } from '../../../utils/getStoredUserInfo';
 
 const ImportTaxonomyScreen = () => {
   const navigation = useNavigation();
@@ -140,11 +146,18 @@ const ImportTaxonomyScreen = () => {
 
       console.log('📤 Starting taxonomy import with file:', selectedFile.name);
 
+      // Get admin ID from storage
+      const adminId = await getStoredAdminId();
+      
+      if (!adminId) {
+        throw new Error('Admin ID not found. Please log in again.');
+      }
+
       // Call the import API
       const response = await importTaxonomyDataApi({
         file: selectedFile,
         importType: 'taxonomy',
-        adminId: 'admin_temp', // TODO: Replace with actual admin ID from auth context
+        adminId: adminId,
         options: {
           overwriteExisting: false,
           skipDuplicates: true,
@@ -159,10 +172,10 @@ const ImportTaxonomyScreen = () => {
       
       setImportResults({
         success: true,
-        imported: response.data?.imported?.total_entries || 0,
+        imported: response.data?.imported?.total_entries || response.imported || 0,
         genera: response.data?.imported?.genera || 0,
-        species: response.data?.imported?.species || 0,
-        skipped: response.data?.skipped?.duplicates || 0,
+        species: response.data?.imported?.species || response.data?.imported?.total_entries || 0,
+        skipped: response.data?.skipped || 0,
         errors: response.data?.errors?.length || 0,
         message: response.message || 'Import completed successfully',
         processing_time: response.data?.processing_time || 'N/A',
@@ -210,6 +223,113 @@ const ImportTaxonomyScreen = () => {
     setUploadProgress(0);
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      console.log('📥 Downloading template...');
+      
+      Alert.alert(
+        'Download Template',
+        'The taxonomy import template will be downloaded. You can open it with Excel or Google Sheets.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Download', 
+            style: 'default', 
+            onPress: async () => {
+              try {
+                const response = await downloadTaxonomyTemplateApi();
+                
+                if (!response.success) {
+                  throw new Error(response.error || 'Failed to download template');
+                }
+
+                if (Platform.OS === 'web') {
+                  // Web browser - create download link
+                  const url = window.URL.createObjectURL(response.blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = response.filename;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                  
+                  Alert.alert('Success', 'Template downloaded successfully!');
+                } else {
+                  // Mobile - Save to Downloads folder
+                  const downloadPath = Platform.select({
+                    android: `${RNFS.DownloadDirectoryPath}/${response.filename}`,
+                    ios: `${RNFS.DocumentDirectoryPath}/${response.filename}`,
+                  });
+
+                  console.log('📱 Saving file to:', downloadPath);
+
+                  // Convert blob to base64
+                  const reader = new FileReader();
+                  reader.onloadend = async () => {
+                    try {
+                      const base64Data = reader.result.split(',')[1];
+                      
+                      // Write file to device
+                      await RNFS.writeFile(downloadPath, base64Data, 'base64');
+                      
+                      console.log('✅ File saved successfully:', downloadPath);
+                      
+                      // Show success with option to share/open
+                      Alert.alert(
+                        'Download Complete!',
+                        `Template saved to ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder\n\nFile: ${response.filename}`,
+                        [
+                          { text: 'OK', style: 'cancel' },
+                          {
+                            text: 'Share/Open',
+                            onPress: async () => {
+                              try {
+                                // Use built-in Share API
+                                await Share.share({
+                                  title: 'Taxonomy Import Template',
+                                  message: 'Open this template with Excel or Google Sheets',
+                                  url: Platform.OS === 'ios' ? downloadPath : `file://${downloadPath}`,
+                                });
+                              } catch (shareError) {
+                                console.error('❌ Share error:', shareError);
+                                // Try to open file with Linking
+                                if (Platform.OS === 'android') {
+                                  Linking.openURL(`file://${downloadPath}`).catch(err => {
+                                    console.error('❌ Cannot open file:', err);
+                                  });
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      );
+                    } catch (writeError) {
+                      console.error('❌ Error writing file:', writeError);
+                      Alert.alert('Error', `Failed to save file: ${writeError.message}`);
+                    }
+                  };
+                  
+                  reader.onerror = () => {
+                    Alert.alert('Error', 'Failed to process the template file.');
+                  };
+                  
+                  reader.readAsDataURL(response.blob);
+                }
+              } catch (downloadError) {
+                console.error('❌ Download error:', downloadError);
+                Alert.alert('Error', downloadError.message || 'Failed to download template.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Template download error:', error);
+      Alert.alert('Error', 'Failed to download template.');
+    }
+  };
+
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -233,13 +353,21 @@ const ImportTaxonomyScreen = () => {
         <View style={styles.instructionsContainer}>
           <Text style={styles.instructionsTitle}>File Requirements</Text>
           <View style={styles.instructionsList}>
-            <Text style={styles.instructionItem}>• Supported formats: CSV, Excel (.xlsx, .xls), JSON</Text>
+            <Text style={styles.instructionItem}>• Supported formats: CSV, Excel (.xlsx, .xls)</Text>
             <Text style={styles.instructionItem}>• Maximum file size: 10MB</Text>
             <Text style={styles.instructionItem}>• Required columns: genus_name, species_name</Text>
             <Text style={styles.instructionItem}>• Optional columns: variegation, shipping_index (1-10), acclimation_index (1-10)</Text>
-            <Text style={styles.instructionItem}>• CSV headers must match exactly (case-sensitive)</Text>
-            <Text style={styles.instructionItem}>• Each row creates one species entry under the specified genus</Text>
+            <Text style={styles.instructionItem}>• Download the template below to get started</Text>
           </View>
+          
+          {/* Download Template Button */}
+          <TouchableOpacity 
+            style={styles.downloadTemplateButton} 
+            onPress={handleDownloadTemplate}
+          >
+            <DownloadIcon width={20} height={20} style={styles.downloadIcon} />
+            <Text style={styles.downloadTemplateText}>Download Template</Text>
+          </TouchableOpacity>
         </View>
 
         {/* File Selection */}
@@ -250,7 +378,7 @@ const ImportTaxonomyScreen = () => {
             <TouchableOpacity style={styles.uploadArea} onPress={handleFileSelect}>
               <UploadIcon width={48} height={48} style={styles.uploadIcon} />
               <Text style={styles.uploadTitle}>Choose File</Text>
-              <Text style={styles.uploadSubtitle}>Select a CSV, Excel, or JSON file</Text>
+              <Text style={styles.uploadSubtitle}>Select a CSV or Excel file</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.selectedFileContainer}>
@@ -407,6 +535,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#647276',
     lineHeight: 20,
+  },
+  downloadTemplateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  downloadIcon: {
+    tintColor: '#FFFFFF',
+  },
+  downloadTemplateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   section: {
     marginBottom: 24,

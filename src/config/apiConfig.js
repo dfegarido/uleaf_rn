@@ -128,6 +128,8 @@ const generateEndpoints = () => ({
   UPDATE_PLANT_TAXONOMY: `${getBaseUrl()}/updatePlantTaxonomy`,
   DELETE_PLANT_TAXONOMY: `${getBaseUrl()}/deletePlantTaxonomy`,
   GET_SPECIES_FOR_GENUS: `${getBaseUrl()}/getSpeciesForGenus`,
+  IMPORT_TAXONOMY_DATA: `${getBaseUrl()}/importTaxonomyData`,
+  DOWNLOAD_TAXONOMY_TEMPLATE: `${getBaseUrl()}/downloadTaxonomyTemplate`,
   // Genus Request Workflow
   INSERT_GENUS_REQUEST: `${getBaseUrl()}/insertGenusRequest`,
   GET_GENUS_REQUESTS: `${getBaseUrl()}/getGenusRequests`,

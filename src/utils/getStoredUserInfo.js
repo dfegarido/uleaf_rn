@@ -22,7 +22,33 @@ export const getStoredUserInfo = async () => {
  * Tries common keys: uid, id, adminId, userId.
  */
 export const getStoredAdminId = async () => {
-  const info = await getStoredUserInfo();
-  if (!info) return null;
-  return info.data.uid || null;
+  try {
+    const info = await getStoredUserInfo();
+    if (!info) {
+      console.warn('⚠️ No user info found in storage');
+      return null;
+    }
+    
+    // Try different possible structures
+    // Structure can be: info.user.uid, info.data.uid, info.uid, etc.
+    const adminId = 
+      info?.user?.uid || 
+      info?.data?.uid || 
+      info?.uid || 
+      info?.id || 
+      info?.adminId || 
+      info?.userId || 
+      null;
+    
+    if (!adminId) {
+      console.warn('⚠️ Could not extract admin ID from user info:', JSON.stringify(info));
+    } else {
+      console.log('✅ Admin ID extracted successfully:', adminId);
+    }
+    
+    return adminId;
+  } catch (error) {
+    console.error('❌ Error getting stored admin ID:', error.message || error);
+    return null;
+  }
 };

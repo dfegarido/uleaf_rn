@@ -119,3 +119,4 @@ export {browsePlantsBySpeciesApi} from './browsePlantsBySpeciesApi';
 export {getAdminTaxonomyApi, updateTaxonomyItemApi} from './getAdminTaxonomyApi';
 export {getGenusListApi} from './getGenusListApi';
 export {importTaxonomyDataApi, validateTaxonomyFileApi, getImportHistoryApi} from './importTaxonomyDataApi';
+export {downloadTaxonomyTemplateApi} from './downloadTaxonomyTemplateApi';
