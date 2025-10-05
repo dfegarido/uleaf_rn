@@ -39,131 +39,23 @@ const EditSpecieScreen = () => {
   const [shippingIndex, setShippingIndex] = useState(specieData.shipping || '');
   const [acclimationIndex, setAcclimationIndex] = useState(specieData.acclimation || '');
   
-  // Dropdown options state
-  const [variegationOptions, setVariegationOptions] = useState([]);
-  const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
-  const [acclimationIndexOptions, setAcclimationIndexOptions] = useState([]);
-  const [loadingOptions, setLoadingOptions] = useState(true);
+  // Dropdown options state with static Good/Better/Best format
+  const [shippingIndexOptions] = useState([
+    { id: 'good', name: 'Good (3-5)' },
+    { id: 'better', name: 'Better (4-6)' },
+    { id: 'best', name: 'Best (7-10)' }
+  ]);
+  const [acclimationIndexOptions] = useState([
+    { id: 'good', name: 'Good (3-5)' },
+    { id: 'better', name: 'Better (4-6)' },
+    { id: 'best', name: 'Best (7-10)' }
+  ]);
   
   // Dropdown visibility state
-  const [showVariegationDropdown, setShowVariegationDropdown] = useState(false);
   const [showShippingDropdown, setShowShippingDropdown] = useState(false);
   const [showAcclimationDropdown, setShowAcclimationDropdown] = useState(false);
 
-  // Fetch dropdown data
-  const fetchDropdownData = async () => {
-    try {
-      setLoadingOptions(true);
-      console.log('🔄 Fetching dropdown data...');
-      
-      // Set fallback dropdown options for testing
-      const fallbackVariegationOptions = [
-        { id: 'none', name: 'None' },
-        { id: 'slight', name: 'Slight' },
-        { id: 'moderate', name: 'Moderate' },
-        { id: 'heavy', name: 'Heavy' },
-        { id: 'full', name: 'Full Variegation' }
-      ];
-      
-      const fallbackShippingOptions = [
-        { id: 'low', name: 'Low' },
-        { id: 'medium', name: 'Medium' },
-        { id: 'high', name: 'High' },
-        { id: 'very_high', name: 'Very High' }
-      ];
-      
-      const fallbackAcclimationOptions = [
-        { id: 'easy', name: 'Easy' },
-        { id: 'moderate', name: 'Moderate' },
-        { id: 'difficult', name: 'Difficult' },
-        { id: 'expert', name: 'Expert' }
-      ];
-
-      try {
-        // Try to fetch real data with basic headers
-        const [variegationRes, shippingRes, acclimationRes] = await Promise.all([
-          fetch(`${API_CONFIG.BASE_URL}/getVariegationDropdown`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          }),
-          fetch(`${API_CONFIG.BASE_URL}/getShippingIndexDropdown`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          }),
-          fetch(`${API_CONFIG.BASE_URL}/getAcclimationIndexDropdown`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          })
-        ]);
-
-        // Check if responses are ok
-        if (variegationRes.ok && shippingRes.ok && acclimationRes.ok) {
-          const [variegationData, shippingData, acclimationData] = await Promise.all([
-            variegationRes.json(),
-            shippingRes.json(),
-            acclimationRes.json()
-          ]);
-
-          // Set real API data if successful
-          setVariegationOptions(variegationData.data || fallbackVariegationOptions);
-          setShippingIndexOptions(shippingData.data || fallbackShippingOptions);
-          setAcclimationIndexOptions(acclimationData.data || fallbackAcclimationOptions);
-          
-          console.log('✅ Real dropdown data loaded successfully');
-        } else {
-          throw new Error('API responses not ok');
-        }
-      } catch (apiError) {
-        console.warn('⚠️ API fetch failed, using fallback data:', apiError.message);
-        
-        // Use fallback data when API fails
-        setVariegationOptions(fallbackVariegationOptions);
-        setShippingIndexOptions(fallbackShippingOptions);
-        setAcclimationIndexOptions(fallbackAcclimationOptions);
-        
-        console.log('✅ Fallback dropdown data loaded successfully');
-      }
-      
-    } catch (error) {
-      console.error('❌ Error in fetchDropdownData:', error);
-      
-      // Final fallback - ensure we always have some data
-      setVariegationOptions([
-        { id: 'none', name: 'None' },
-        { id: 'variegated', name: 'Variegated' }
-      ]);
-      setShippingIndexOptions([
-        { id: 'low', name: 'Low' },
-        { id: 'medium', name: 'Medium' },
-        { id: 'high', name: 'High' }
-      ]);
-      setAcclimationIndexOptions([
-        { id: 'easy', name: 'Easy' },
-        { id: 'moderate', name: 'Moderate' },
-        { id: 'difficult', name: 'Difficult' }
-      ]);
-    } finally {
-      setLoadingOptions(false);
-    }
-  };
-
-  // Load dropdown data when component mounts
-  useEffect(() => {
-    console.log('🔄 Component mounted, loading dropdown data...');
-    fetchDropdownData();
-  }, []);
-
   // Dropdown selection handlers
-  const handleVariegationSelect = (option) => {
-    setVariegation(option.name);
-    setShowVariegationDropdown(false);
-  };
 
   const handleShippingSelect = (option) => {
     setShippingIndex(option.name);
@@ -177,7 +69,6 @@ const EditSpecieScreen = () => {
 
   // Close all dropdowns
   const closeAllDropdowns = () => {
-    setShowVariegationDropdown(false);
     setShowShippingDropdown(false);
     setShowAcclimationDropdown(false);
   };
@@ -302,45 +193,15 @@ const EditSpecieScreen = () => {
           <View style={styles.inputSection}>
             <View style={styles.textField}>
               <Text style={styles.label}>Variegation</Text>
-              <TouchableOpacity 
-                style={styles.inputContainer}
-                onPress={() => {
-                  closeAllDropdowns();
-                  setShowVariegationDropdown(!showVariegationDropdown);
-                }}
-              >
-                <Text style={[styles.placeholder, styles.dropdownText]}>
-                  {variegation || 'Select...'}
-                </Text>
-                <View style={styles.iconRight}>
-                  <DownIcon width={24} height={24} />
-                </View>
-              </TouchableOpacity>
-              {showVariegationDropdown && (
-                <View style={styles.dropdownContainer}>
-                  <ScrollView style={styles.dropdownScroll} nestedScrollEnabled={true}>
-                    {loadingOptions ? (
-                      <View style={styles.dropdownOption}>
-                        <Text style={styles.dropdownOptionText}>Loading...</Text>
-                      </View>
-                    ) : variegationOptions.length > 0 ? (
-                      variegationOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option.id}
-                          style={styles.dropdownOption}
-                          onPress={() => handleVariegationSelect(option)}
-                        >
-                          <Text style={styles.dropdownOptionText}>{option.name}</Text>
-                        </TouchableOpacity>
-                      ))
-                    ) : (
-                      <View style={styles.dropdownOption}>
-                        <Text style={styles.dropdownOptionText}>No options available</Text>
-                      </View>
-                    )}
-                  </ScrollView>
-                </View>
-              )}
+              <View style={styles.textInput}>
+                <TextInput
+                  style={styles.placeholder}
+                  value={variegation}
+                  onChangeText={setVariegation}
+                  placeholder="Enter variegation (optional)"
+                  placeholderTextColor="#647276"
+                />
+              </View>
             </View>
           </View>
 
@@ -367,21 +228,15 @@ const EditSpecieScreen = () => {
               {showShippingDropdown && (
                 <View style={styles.dropdownContainer}>
                   <ScrollView style={styles.dropdownScroll} nestedScrollEnabled={true}>
-                    {shippingIndexOptions.length === 0 ? (
-                      <TouchableOpacity style={styles.dropdownOption} disabled>
-                        <Text style={[styles.dropdownOptionText, {color: '#999'}]}>Loading...</Text>
+                    {shippingIndexOptions.map((option) => (
+                      <TouchableOpacity
+                        key={option.id}
+                        style={styles.dropdownOption}
+                        onPress={() => handleShippingSelect(option)}
+                      >
+                        <Text style={styles.dropdownOptionText}>{option.name}</Text>
                       </TouchableOpacity>
-                    ) : (
-                      shippingIndexOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option.id}
-                          style={styles.dropdownOption}
-                          onPress={() => handleShippingSelect(option)}
-                        >
-                          <Text style={styles.dropdownOptionText}>{option.name}</Text>
-                        </TouchableOpacity>
-                      ))
-                    )}
+                    ))}
                   </ScrollView>
                 </View>
               )}
@@ -411,21 +266,15 @@ const EditSpecieScreen = () => {
               {showAcclimationDropdown && (
                 <View style={styles.dropdownContainer}>
                   <ScrollView style={styles.dropdownScroll} nestedScrollEnabled={true}>
-                    {acclimationIndexOptions.length === 0 ? (
-                      <TouchableOpacity style={styles.dropdownOption} disabled>
-                        <Text style={[styles.dropdownOptionText, {color: '#999'}]}>Loading...</Text>
+                    {acclimationIndexOptions.map((option) => (
+                      <TouchableOpacity
+                        key={option.id}
+                        style={styles.dropdownOption}
+                        onPress={() => handleAcclimationSelect(option)}
+                      >
+                        <Text style={styles.dropdownOptionText}>{option.name}</Text>
                       </TouchableOpacity>
-                    ) : (
-                      acclimationIndexOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option.id}
-                          style={styles.dropdownOption}
-                          onPress={() => handleAcclimationSelect(option)}
-                        >
-                          <Text style={styles.dropdownOptionText}>{option.name}</Text>
-                        </TouchableOpacity>
-                      ))
-                    )}
+                    ))}
                   </ScrollView>
                 </View>
               )}

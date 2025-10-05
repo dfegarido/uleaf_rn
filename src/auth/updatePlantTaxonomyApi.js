@@ -46,7 +46,7 @@ export const updatePlantTaxonomyApi = async (params) => {
   try {
     console.log('✅ Starting updatePlantTaxonomyApi call with params:', params);
 
-    const { genusId, newGenusName, species, adminId, authToken } = params;
+    const { genusId, genusName, newGenusName, species, adminId, authToken } = params;
 
     // Validate required parameters
     if (!genusId) {
@@ -79,6 +79,10 @@ export const updatePlantTaxonomyApi = async (params) => {
     // Add optional fields
     if (adminId) {
       requestBody.adminId = adminId.trim();
+    }
+
+    if (genusName && genusName.trim()) {
+      requestBody.genusName = genusName.trim();
     }
 
     if (newGenusName && newGenusName.trim()) {

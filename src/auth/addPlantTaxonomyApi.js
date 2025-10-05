@@ -53,7 +53,7 @@ export const addPlantTaxonomyApi = async (params) => {
       
       return {
         name: spec.name.trim(),
-        variegation: spec.variegation || 'None',
+        variegation: spec.variegation?.trim() || '', // Optional field, empty if not provided
         shippingIndex: spec.shippingIndex || 'Medium',
         acclimationIndex: spec.acclimationIndex || 'Easy'
       };
@@ -152,9 +152,7 @@ export const validateSpeciesData = (species) => {
       errors.push(`Species ${index + 1}: Name is required`);
     }
     
-    if (!spec.variegation || typeof spec.variegation !== 'string') {
-      errors.push(`Species ${index + 1}: Variegation is required`);
-    }
+    // Variegation is now optional - no validation needed
     
     if (!spec.shippingIndex || typeof spec.shippingIndex !== 'string') {
       errors.push(`Species ${index + 1}: Shipping index is required`);
@@ -180,7 +178,7 @@ export const validateSpeciesData = (species) => {
 export const formatSpeciesForApi = (species) => {
   return species.map(spec => ({
     name: spec.name?.trim() || '',
-    variegation: spec.variegation?.trim() || 'None',
+    variegation: spec.variegation?.trim() || '', // Optional field, empty if not provided
     shippingIndex: spec.shippingIndex?.trim() || 'Medium',
     acclimationIndex: spec.acclimationIndex?.trim() || 'Easy'
   }));
