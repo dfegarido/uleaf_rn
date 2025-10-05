@@ -58,6 +58,8 @@ const LeafTrailHeader = ({ insets, onPressAdd = () => {}, onSearchChange = () =>
 };
 
 const RoleModal = ({ visible, roles, onToggle, onReset, onClose, onView }) => {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Modal
       visible={visible}
@@ -89,7 +91,7 @@ const RoleModal = ({ visible, roles, onToggle, onReset, onClose, onView }) => {
             ))}
           </View>
           
-          <View style={styles.modalActions}>
+          <View style={[styles.modalActions, { paddingBottom: Math.max(20, insets.bottom + 10) }]}>
             <TouchableOpacity style={styles.resetButton} onPress={onReset} activeOpacity={0.9}>
               <Text style={styles.resetButtonText}>Reset</Text>
             </TouchableOpacity>
@@ -284,6 +286,13 @@ const UserManagement = () => {
           stats: user.stats,
           ...user // Include all other user data
         }));
+        
+        // Sort users alphabetically by name
+        transformedUsers.sort((a, b) => {
+          const nameA = (a.name || '').toLowerCase();
+          const nameB = (b.name || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
         
         // Check if we have more data to load
         // If we applied local filtering, we might have fewer results than the limit
@@ -647,7 +656,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -704,7 +714,7 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

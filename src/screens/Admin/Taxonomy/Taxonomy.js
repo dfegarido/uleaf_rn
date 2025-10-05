@@ -193,7 +193,7 @@ const TaxonomyRequestCard = React.memo(({ item, onAction }) => {
   const genusName = item.genusName || '';
   const speciesName = item.species || '';
   const userName = user.name || '';
-  const username = user.username || '';
+  const gardenName = user.gardenName || '';
   const userRole = user.role || '';
   
   // Don't render if all essential fields are empty
@@ -238,8 +238,7 @@ const TaxonomyRequestCard = React.memo(({ item, onAction }) => {
             </View>
             <View style={styles.requestUserContent}>
               <View style={styles.requestUserNameRow}>
-                <Text style={styles.requestUserName}>{userName}</Text>
-                <Text style={styles.requestUsername}>{username}</Text>
+                <Text style={styles.requestUserName}>{gardenName}</Text>
               </View>
               <View style={styles.requestUserRoleRow}>
                 <Text style={styles.requestRoleLabel}>{userRole}</Text>

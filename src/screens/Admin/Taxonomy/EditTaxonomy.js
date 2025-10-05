@@ -33,6 +33,7 @@ import DeleteIcon from '../../../assets/admin-icons/delete-new.svg';
 import ShippingIcon from '../../../assets/admin-icons/shipping.svg';
 import AcclimationIcon from '../../../assets/admin-icons/acclimation.svg';
 import InfoIcon from '../../../assets/admin-icons/info.svg';
+import SearchIcon from '../../../assets/iconnav/search.svg';
 
 const EditTaxonomy = () => {
   const navigation = useNavigation();
@@ -56,6 +57,9 @@ const EditTaxonomy = () => {
   
   // Track newly added species that need to be saved to API
   const [newlyAddedSpecies, setNewlyAddedSpecies] = useState([]);
+  
+  // Search query for filtering species
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Debug logging
   console.log('🌿 EditTaxonomy render state:', {
@@ -216,19 +220,8 @@ const EditTaxonomy = () => {
     if (!selectedSpecie) return;
     console.log('Request delete specie:', selectedSpecie);
 
-    // Guard: Disallow deletion for catalog-only genera
-    const isCatalogOnly = taxonomyData?.source &&
-      !String(taxonomyData.source).includes('genus') &&
-      String(taxonomyData.source).includes('plant_catalog');
-    if (isCatalogOnly) {
-      Alert.alert(
-        'Not allowed',
-        'This genus is derived from the plant catalog. Delete is only available for taxonomy-managed species.'
-      );
-      return;
-    }
-
     // Guard: Require a formal species id (catalog_* cannot be deleted)
+    // This allows deletion of manually-added species even in catalog-derived genera
     const invalidId = !selectedSpecie.id || String(selectedSpecie.id).startsWith('catalog_');
     if (invalidId) {
       Alert.alert(
@@ -262,6 +255,7 @@ const EditTaxonomy = () => {
               // Persist single deletion immediately
               const response = await updatePlantTaxonomyApi({
                 genusId: taxonomyData.id,
+                genusName: taxonomyData.name, // Include genus name for synthetic ID resolution
                 authToken,
                 // Provide adminId only if available (useful for emulator/local mode)
                 ...(storedAdminId ? { adminId: storedAdminId } : {}),
@@ -518,6 +512,14 @@ const EditTaxonomy = () => {
     </View>
   );
 
+  // Filter species based on search query
+  const filteredSpecies = searchQuery.trim() 
+    ? species.filter(specie => 
+        specie.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        specie.variegation?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : species;
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Header */}
@@ -534,11 +536,13 @@ const EditTaxonomy = () => {
       {/* Content */}
       <FlatList
         style={styles.content}
-        data={isLoadingSpecies || speciesError ? [] : species}
+        data={isLoadingSpecies || speciesError ? [] : filteredSpecies}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderSpecieItem}
         ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
         showsVerticalScrollIndicator={true}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         ListHeaderComponent={(
           <View style={styles.formSection}>
@@ -569,11 +573,23 @@ const EditTaxonomy = () => {
               <View style={styles.divider} />
             </View>
 
-            {/* Specie List Title */}
+            {/* Specie List Title with Search */}
             <View style={styles.specieTitleSection}>
               <View style={styles.titleRow}>
                 <Text style={styles.specieListTitle}>Specie List</Text>
                 <Text style={styles.quantityText}>{`${species.length} specie(s)`}</Text>
+              </View>
+              <View style={styles.searchBarContainer}>
+                <SearchIcon width={20} height={20} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search species..."
+                  placeholderTextColor="#647276"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
               </View>
             </View>
 
@@ -774,12 +790,13 @@ const styles = StyleSheet.create({
   // Specie Title
   specieTitleSection: {
     paddingVertical: 16,
+    paddingHorizontal: 24,
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    marginBottom: 12,
   },
   specieListTitle: {
     fontFamily: 'Inter',
@@ -794,6 +811,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: '#202325',
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    height: 40,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#202325',
+    padding: 0,
   },
 
   // Specie List

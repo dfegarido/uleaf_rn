@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, StatusBar, Modal, FlatList, ActivityIndicator, Animated, Alert, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, StatusBar, Modal, FlatList, ActivityIndicator, Animated, Alert, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -276,8 +276,19 @@ const EnrollSeller = () => {
       }
       
       if (!response.ok) {
-        console.log('API error:', responseData.error || 'Unknown error');
-        throw new Error(responseData.error || responseData.message || 'Failed to enrol seller');
+        // Extract error message from various possible formats
+        let errorMessage = 'Failed to enroll seller';
+        
+        if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+          errorMessage = responseData.errors[0];
+        } else if (responseData.error) {
+          errorMessage = responseData.error;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
+        }
+        
+        console.log('API error:', errorMessage);
+        throw new Error(errorMessage);
       }
       
       console.log('Success response:', responseData);
@@ -308,14 +319,20 @@ const EnrollSeller = () => {
     <SafeAreaView style={styles.container} edges={['left','right']}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
       <EnrollSellerHeader insets={insets} />
-      <ScrollView 
-        style={styles.content} 
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: Math.max(34, insets.bottom + tabBarHeight + 20) }
-        ]}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        <ScrollView 
+          style={styles.content} 
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: Math.max(34, insets.bottom + tabBarHeight + 20) }
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.formContainer}>
           
           {/* Country Selection Field */}
@@ -493,6 +510,7 @@ const EnrollSeller = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
       
       {/* Country Selection Modal */}
       <Modal
@@ -717,7 +735,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   submitButtonDisabled: {
-    backgroundColor: '#93C5FD',
+    backgroundColor: '#9CA3AF',
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#FFFFFF',
