@@ -59,7 +59,7 @@ const GenusHeader = ({
             <SearchIcon width={24} height={24} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search iLeafU"
+              placeholder="Search ileafU "
               placeholderTextColor="#647276"
               value={searchTerm}
               onChangeText={setSearchTerm}
@@ -123,7 +123,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
-  const {genus, filterType, filterValue} = route.params || {};
+  const {genus, filterType, filterValue, fromFilter} = route.params || {};
   const {
     globalFilters,
     appliedFilters,
@@ -249,13 +249,13 @@ const ScreenGenusPlants = ({navigation, route}) => {
       if (justFiltered.current) {
         // Don't reload if we just applied filters
         justFiltered.current = false;
-      } else if (hasAppliedFilters) {
+      } else if (hasAppliedFilters()) {
         // Only reload if there are applied filters from another screen
         console.log('Loading plants with applied filters from another screen:', appliedFilters);
         loadPlants(true);
       }
       // If no applied filters, don't auto-reload to prevent unnecessary API calls
-    }, [appliedFilters, hasAppliedFilters]),
+    }, [appliedFilters]),
   );
 
   // Handle route parameters (like wholesale filter from shop screen)
@@ -317,18 +317,32 @@ const ScreenGenusPlants = ({navigation, route}) => {
         baseParams.plant = searchTerm.trim();
       }
 
-      // Add genus from route params if available and no genus filter is applied
-      if (genus && genus !== 'All' && (!appliedFilters?.genus || appliedFilters.genus.length === 0)) {
-        baseParams.genus = genus.toUpperCase(); // Ensure genus is uppercase as expected by API
-        console.log('Setting genus parameter:', genus.toUpperCase());
+      // Handle genus parameter with proper priority:
+      // 1. If coming from filter sheet (fromFilter=true), ALWAYS use FilterContext genus
+      // 2. If FilterContext has genus filters, those take priority
+      // 3. Otherwise, use route genus parameter (from clicking genus cards)
+      const hasFilterContextGenus = appliedFilters?.genus && appliedFilters.genus.length > 0;
+      
+      if (fromFilter) {
+        // Came from filter sheet - FilterContext is the source of truth
+        console.log('📍 From filter sheet - using FilterContext genus:', appliedFilters?.genus);
+        // buildFilterParams will handle adding genus from FilterContext
+      } else if (!hasFilterContextGenus && genus && genus !== 'All') {
+        // Direct genus navigation (clicked genus card), no filter context
+        baseParams.genus = genus.toLowerCase();
+        console.log('📍 Using route genus parameter:', genus.toLowerCase());
+      } else if (hasFilterContextGenus) {
+        console.log('📍 FilterContext genus will be applied by buildFilterParams:', appliedFilters.genus);
       }
 
       // Use buildFilterParams to construct all filter parameters
+      // This will add genus from FilterContext if available
       const params = buildFilterParams(baseParams);
 
-      console.log('Loading plants with params:', params);
-      console.log('Applied filters:', appliedFilters);
-      console.log('Has applied filters:', hasAppliedFilters);
+      console.log('🔍 Loading plants with params:', JSON.stringify(params, null, 2));
+      console.log('📋 Applied filters:', appliedFilters);
+      console.log('📋 Global filters:', globalFilters);
+      console.log('✅ Has applied filters:', hasAppliedFilters());
 
       const res = await retryAsync(() => getBuyerListingsApi(params), 3, 1000);
 
@@ -337,6 +351,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }
 
       console.log('Plants loaded successfully:', res.data?.listings?.length || 0);
+      
+      // Debug: Log prices to verify sort order from API
+      if (res.data?.listings && res.data.listings.length > 0) {
+        const prices = res.data.listings.slice(0, 10).map(p => ({
+          plantCode: p.plantCode,
+          usdPrice: p.usdPrice,
+          finalPrice: p.finalPrice,
+          loveCount: p.loveCount
+        }));
+        console.log('📊 First 10 plants prices from API:', JSON.stringify(prices, null, 2));
+      }
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -888,7 +913,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Add genus from route params if available and no genus filter is applied
       if (genus && genus !== 'All' && (!filters.genus || filters.genus.length === 0)) {
-        baseParams.genus = genus;
+        baseParams.genus = genus.toLowerCase();
       }
 
       // Build filter parameters manually with the provided filters

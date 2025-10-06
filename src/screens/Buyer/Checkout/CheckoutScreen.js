@@ -694,12 +694,26 @@ const CheckoutScreen = () => {
       
       return [item];
     } else if (useCart && cartItems.length > 0) {
+      console.log('🛒💰 Cart items received in checkout:', cartItems.map(item => ({
+        name: item.name,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        hasOriginalPrice: item.originalPrice != null
+      })));
+      
       const cartPlantItems = cartItems.map(item => {
         // Normalize price types and ensure discounted price is used when both exist
         const priceNum = typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0);
         const origNum = item.originalPrice != null
           ? (typeof item.originalPrice === 'string' ? parseFloat(item.originalPrice) : item.originalPrice)
           : null;
+
+        console.log('💰 Processing cart item:', {
+          name: item.name,
+          priceNum,
+          origNum,
+          hasDiscount: origNum != null && origNum > priceNum
+        });
 
         let normalizedPrice = priceNum;
         let normalizedOriginal = origNum;

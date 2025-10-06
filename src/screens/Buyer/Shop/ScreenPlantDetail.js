@@ -1707,20 +1707,23 @@ const ScreenPlantDetail = ({navigation, route}) => {
   },
   plantDetailsHeader: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
     gap: 12,
     alignSelf: 'stretch',
-    height: 72,
+    // allow content to determine height so text can wrap
+    // height removed to prevent clipping of multi-line titles
   },
   plantDetailsTitle: {
-    height: 72,
+    // allow wrapping and multiple lines
     fontFamily: 'Inter',
     fontWeight: '700',
     fontSize: 18,
     lineHeight: 24,
     color: '#393D40',
     flex: 1,
+    flexWrap: 'wrap',
+    alignSelf: 'stretch'
   },
   plantDetailItem: {
     flexDirection: 'row',

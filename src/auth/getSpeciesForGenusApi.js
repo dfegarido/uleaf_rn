@@ -139,7 +139,26 @@ export const formatSpeciesForDisplay = (species) => {
 const formatIndexForDisplay = (indexValue) => {
   if (!indexValue) return '';
   
-  // Map database values to display values
+  // If value is already in the new format (e.g., "Best (7-10)"), return as-is
+  if (indexValue.includes('(') && indexValue.includes(')')) {
+    return indexValue;
+  }
+  
+  // Convert string to number if it's a numeric string
+  const numValue = parseFloat(indexValue);
+  
+  // If it's a valid number, convert to Good/Better/Best format
+  if (!isNaN(numValue)) {
+    if (numValue >= 7) {
+      return 'Best (7-10)';
+    } else if (numValue >= 4) {
+      return 'Better (4-6)';
+    } else {
+      return 'Good (3-5)';
+    }
+  }
+  
+  // Map legacy database values to display values for backward compatibility
   const shippingMap = {
     'Low': 'Good (5-8)',
     'Medium': 'Better (7-10)', 

@@ -95,7 +95,10 @@ export const FilterProvider = ({ children }) => {
 
     // Apply genus filter
     if (filters.genus && filters.genus.length > 0) {
-      params.genus = filters.genus.join(',');
+      // Ensure all genus values are lowercase for backend consistency
+      const lowercaseGenus = filters.genus.map(g => g.toLowerCase());
+      params.genus = lowercaseGenus.join(',');
+      console.log('🔍 Applied genus filter:', params.genus);
     }
 
     // Apply variegation filter
@@ -152,7 +155,20 @@ export const FilterProvider = ({ children }) => {
 
   // Check if filters are currently applied
   const hasAppliedFilters = () => {
-    return appliedFilters !== null;
+    if (!appliedFilters) return false;
+    
+    // Check if any filter has a non-default value
+    const hasGenus = appliedFilters.genus && appliedFilters.genus.length > 0;
+    const hasVariegation = appliedFilters.variegation && appliedFilters.variegation.length > 0;
+    const hasCountry = appliedFilters.country && appliedFilters.country !== '';
+    const hasListingType = appliedFilters.listingType && appliedFilters.listingType.length > 0;
+    const hasShippingIndex = appliedFilters.shippingIndex && appliedFilters.shippingIndex !== '';
+    const hasAcclimationIndex = appliedFilters.acclimationIndex && appliedFilters.acclimationIndex !== '';
+    const hasPrice = appliedFilters.price && appliedFilters.price !== '';
+    const hasNonDefaultSort = appliedFilters.sort && appliedFilters.sort !== 'Newest to Oldest';
+    
+    return hasGenus || hasVariegation || hasCountry || hasListingType || 
+           hasShippingIndex || hasAcclimationIndex || hasPrice || hasNonDefaultSort;
   };
 
   const value = {

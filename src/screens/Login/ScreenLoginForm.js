@@ -117,7 +117,29 @@ const ScreenLoginForm = ({navigation}) => {
           navigation.navigate('LoginOtp');
         }
       } catch (error) {
-        Alert.alert('Login failed', error.message);
+        console.error('Login error:', error);
+        let errorMessage = 'Unable to login. Please try again.';
+        
+        // Provide specific error messages based on error code
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+          errorMessage = 'Incorrect email or password. Please check your credentials and try again.';
+        } else if (error.code === 'auth/user-not-found') {
+          errorMessage = 'No account found with this email address.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'Please enter a valid email address.';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorMessage = 'Too many failed login attempts. Please try again later.';
+        } else if (error.code === 'auth/network-request-failed') {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        Alert.alert(
+          'Login Failed',
+          errorMessage,
+          [{text: 'OK'}]
+        );
       } finally {
         setLoading(false);
       }

@@ -136,7 +136,12 @@ const ScreenLoginOtp = ({navigation}) => {
         }
       }
     } catch (error) {
-      Alert.alert('Token', error.message);
+      console.error('OTP verification error:', error);
+      Alert.alert(
+        'Incorrect Code',
+        'The authentication code you entered is incorrect. Please check and try again.',
+        [{text: 'OK'}]
+      );
     } finally {
       setLoading(false);
     }
@@ -150,7 +155,14 @@ const ScreenLoginOtp = ({navigation}) => {
         setLoading(false);
       }
     } catch (error) {
-      Alert.alert('Token ', error.message);
+      console.error('Resend PIN error:', error);
+      Alert.alert(
+        'Resend Failed',
+        'Unable to resend the authentication code. Please try again.',
+        [{text: 'OK'}]
+      );
+    } finally {
+      setLoading(false);
     }
   };
 

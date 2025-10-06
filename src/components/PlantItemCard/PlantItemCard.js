@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import { useLovedListings } from '../../context/LovedListingsContext';
 // Removed image caching (AsyncStorage) usage
 import FlightIcon from '../../assets/buyer-icons/flight.svg';
 import WishListSelected from '../../assets/buyer-icons/wishlist-selected.svg';
@@ -76,8 +77,11 @@ const PlantItemCard = ({
   cardStyle = {}, // override internal card dimensions/styling
 }) => {
   const navigation = useNavigation();
+  const { isLoved, toggleLove } = useLovedListings();
   const [imageError, setImageError] = React.useState(false);
   const [imageLoading, setImageLoading] = React.useState(true);
+  const [localLoveCount, setLocalLoveCount] = React.useState(null);
+  const [isTogglingLove, setIsTogglingLove] = React.useState(false);
   // Placeholder state/effect retained after removing caching hooks to keep hook order stable during fast refresh
   const [_removedCacheHook] = React.useState(null);
   React.useEffect(() => { /* no-op */ }, []);
@@ -98,6 +102,33 @@ const PlantItemCard = ({
       onPress();
     }
   };
+
+  const handleLovePress = async (e) => {
+    // Prevent card press from triggering
+    e?.stopPropagation?.();
+    
+    if (!plantData.plantCode || isTogglingLove) {
+      return;
+    }
+
+    setIsTogglingLove(true);
+    
+    try {
+      const result = await toggleLove(plantData.plantCode);
+      
+      if (result.success && result.loveCount !== undefined) {
+        // Update local love count immediately from API response
+        setLocalLoveCount(result.loveCount);
+      }
+    } catch (error) {
+      console.log('Error toggling love in PlantItemCard:', error);
+    } finally {
+      setIsTogglingLove(false);
+    }
+  };
+
+  // Check if this plant is loved
+  const plantIsLoved = plantData.plantCode ? isLoved(plantData.plantCode) : false;
   
   const resolvedPrimary = plantData.imagePrimaryWebp || plantData.imagePrimary || (Array.isArray(plantData.imageCollectionWebp) && plantData.imageCollectionWebp[0]) || (Array.isArray(plantData.imageCollection) && plantData.imageCollection[0]) || (Array.isArray(plantData.images) && plantData.images[0]) || plantData.imagePrimaryOriginal;
   const displayImage = data ? (resolvedPrimary ? { uri: resolvedPrimary } : placeholderImage) : image;
@@ -132,8 +163,10 @@ const PlantItemCard = ({
   ) : null;
   const showStrikethrough = data && rawOriginal != null && plantData.usdPriceNew != null && rawOriginal > plantData.usdPriceNew;
     
+  // Use local love count if available (from recent toggle), otherwise use data from API
   const displayLikes = data ? 
-    (plantData.loveCount ? `${plantData.loveCount}` : '0') :
+    (localLoveCount !== null ? `${localLoveCount}` : 
+     plantData.loveCount ? `${plantData.loveCount}` : '0') :
     likes;
     
   const displayFlag = data ? 
@@ -237,11 +270,22 @@ const PlantItemCard = ({
             </View>
           )}
           
-          {/* Love Count Badge */}
-          <View style={styles.loveBadge}>
-            <HeartIcon width={16} height={16} />
-            <Text style={styles.loveCount}>{displayLikes}</Text>
-          </View>
+          {/* Love Count Badge - Now Interactive */}
+          <TouchableOpacity 
+            style={[styles.loveBadge, plantIsLoved && styles.loveBadgeActive]}
+            onPress={handleLovePress}
+            activeOpacity={0.7}
+            disabled={isTogglingLove}>
+            <HeartIcon 
+              width={16} 
+              height={16} 
+              fill={plantIsLoved ? '#E7522F' : 'none'}
+              stroke={plantIsLoved ? '#E7522F' : '#393D40'}
+            />
+            <Text style={[styles.loveCount, plantIsLoved && styles.loveCountActive]}>
+              {displayLikes}
+            </Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
 
@@ -391,6 +435,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#393D40',
+  },
+  loveBadgeActive: {
+    backgroundColor: '#FFE7E2',
+  },
+  loveCountActive: {
+    color: '#E7522F',
   },
   infoContainer: {
     paddingHorizontal: 12,

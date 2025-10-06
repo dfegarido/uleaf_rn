@@ -243,3 +243,99 @@ export const deleteAddressBookEntryApi = async (entryId) => {
     throw error;
   }
 };
+
+// Toggle love/favorite status for a listing
+export const toggleLoveListingApi = async (listingId) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(`${BASE_URL}/toggleLoveListing`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ listingId }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json; // Returns { isLoved, loveCount, success, timestamp }
+  } catch (error) {
+    console.log('toggleLoveListingApi error:', error.message);
+    throw error;
+  }
+};
+
+// Get all loved listings for the current user
+export const getLovedListingsApi = async () => {
+  try {
+    const token = await getStoredAuthToken();
+    
+    // Extract userId from token (JWT decode)
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      throw new Error('Invalid token format');
+    }
+    const payload = JSON.parse(atob(tokenParts[1]));
+    const userId = payload.user_id || payload.uid;
+
+    const response = await fetch(`${BASE_URL}/getLovedListings?userId=${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json; // Returns { lovedListings: [...], count, success, timestamp }
+  } catch (error) {
+    console.log('getLovedListingsApi error:', error.message);
+    throw error;
+  }
+};
+
+// Check if specific listings are loved by the current user
+export const checkLovedListingsApi = async (listingIds) => {
+  try {
+    const token = await getStoredAuthToken();
+    
+    // Extract userId from token (JWT decode)
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      throw new Error('Invalid token format');
+    }
+    const payload = JSON.parse(atob(tokenParts[1]));
+    const userId = payload.user_id || payload.uid;
+
+    const response = await fetch(`${BASE_URL}/checkLovedListings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ userId, listingIds }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json; // Returns { lovedStatus: { listingId: true/false, ... }, success, timestamp }
+  } catch (error) {
+    console.log('checkLovedListingsApi error:', error.message);
+    throw error;
+  }
+};

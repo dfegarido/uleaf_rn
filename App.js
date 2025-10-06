@@ -13,6 +13,7 @@ import {SafeAreaView, StyleSheet, Text} from 'react-native';
 import AppNavigation from './src/components/AppNavigation';
 import {AuthProvider} from './src/auth/AuthProvider';
 import {FilterProvider} from './src/context/FilterContext';
+import {LovedListingsProvider} from './src/context/LovedListingsContext';
 import { preloadAllDropdownData } from './src/utils/dropdownCache';
 import { getGenusApi, getVariegationApi, getCountryApi, getListingTypeApi, getShippingIndexApi, getAcclimationIndexApi } from './src/components/Api/dropdownApi';
 import { clearExpiredImageCache } from './src/utils/imageCache';
@@ -35,7 +36,9 @@ const App = () => {
   return (
     <AuthProvider>
       <FilterProvider>
-        <AppNavigation />
+        <LovedListingsProvider>
+          <AppNavigation />
+        </LovedListingsProvider>
       </FilterProvider>
     </AuthProvider>
   );

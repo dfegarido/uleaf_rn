@@ -322,6 +322,7 @@ const EditTaxonomy = () => {
         console.log('📝 Updating genus name...');
         const genusUpdateData = {
           genusId: taxonomyData.id,
+          genusName: originalGenusName, // Include original genus name for synthetic ID resolution
           newGenusName: genusName.trim(),
           authToken,
           ...(storedAdminId ? { adminId: storedAdminId } : {}),
@@ -347,6 +348,7 @@ const EditTaxonomy = () => {
         
         const speciesUpdateData = {
           genusId: taxonomyData.id,
+          genusName: genusName.trim(), // Include genus name for synthetic ID resolution
           species: speciesWithAction,
           authToken,
           ...(storedAdminId ? { adminId: storedAdminId } : {}),
@@ -489,7 +491,7 @@ const EditTaxonomy = () => {
             <ShippingIcon width={24} height={24} />
             <View style={styles.shippingTextTooltip}>
               <Text style={styles.shippingText}>
-                Best (7-10)
+                {item.shipping || 'N/A'}
               </Text>
               <View style={styles.tooltipContainer}>
                 <InfoIcon width={28} height={28} />
@@ -500,7 +502,7 @@ const EditTaxonomy = () => {
             <AcclimationIcon width={19} height={18} />
             <View style={styles.acclimationTextTooltip}>
               <Text style={styles.acclimationText}>
-                Better (4-6)
+                {item.acclimation || 'N/A'}
               </Text>
               <View style={styles.tooltipContainer}>
                 <InfoIcon width={28} height={28} />
