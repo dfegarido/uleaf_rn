@@ -34,6 +34,7 @@ import {
   postSellUpdateApi,
   uploadMultipleImagesToBackend,
 } from '../../../components/Api';
+import {getCachedResponse, setCachedResponse} from '../../../utils/apiResponseCache';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 // Remove Firebase upload import - we'll use backend API instead
@@ -90,6 +91,8 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [dropdownOptionVariegation, setDropdownOptionVariegation] = useState(
     [],
   );
+  const [loadingSpecies, setLoadingSpecies] = useState(false);
+  const [loadingVariegation, setLoadingVariegation] = useState(false);
   const [dropdownOptionMutation, setDropdownOptionMutation] = useState([]);
   const [dropdownVariegationDisable, setdropdownVariegationDisable] =
     useState(false);
@@ -117,6 +120,16 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
+    // Check cache first (10 minute TTL)
+    const cacheKey = `species_${genus}`;
+    const cached = await getCachedResponse('species', genus, 'seller');
+    if (cached && cached.success) {
+      console.log('✅ Using cached species data for:', genus);
+      setSelectedSpecies('');
+      setDropdownOptionSpecies(cached.data);
+      return;
+    }
+
     const getSpeciesApiData = await getSellSpeciesApi(genus);
     // console.log(getSpeciesApiData.data);
     // const getSpeciesApiData = await getSpeciesApi(genus);
@@ -130,12 +143,26 @@ const ScreenSingleSell = ({navigation, route}) => {
     let localSpeciesData = getSpeciesApiData.data;
     // Set options
     setDropdownOptionSpecies(localSpeciesData);
+    // Cache the response for 10 minutes
+    await setCachedResponse('species', genus, 'seller', getSpeciesApiData, 600000);
   };
 
   const loadVariegationData = async (genus, species) => {
     let netState = await NetInfo.fetch();
     if (!netState.isConnected || !netState.isInternetReachable) {
       throw new Error('No internet connection.');
+    }
+
+    // Check cache first (10 minute TTL)
+    const cacheKey = `variegation_${genus}_${species}`;
+    const cached = await getCachedResponse('variegation', `${genus}_${species}`, 'seller');
+    if (cached && cached.success) {
+      console.log('✅ Using cached variegation data for:', genus, species);
+      setSelectedVariegation('');
+      let localVariegationData = cached.data;
+      setSelectedVariegation(cached.data[0]);
+      setDropdownOptionVariegation(localVariegationData);
+      return;
     }
 
     // const getVariegationApiData = await getVariegationApi(genus, species);
@@ -158,6 +185,8 @@ const ScreenSingleSell = ({navigation, route}) => {
     setSelectedVariegation(getVariegationApiData.data[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
+    // Cache the response for 10 minutes
+    await setCachedResponse('variegation', `${genus}_${species}`, 'seller', getVariegationApiData, 600000);
   };
 
   const loadMutationData = async () => {
@@ -196,15 +225,20 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [selectedGenus, setSelectedGenus] = useState('');
   const handleGenusChange = async genus => {
     setSelectedGenus(genus);
-    // setTimeout(() => setLoading(true), 300);
-    // setLoading(true);
+    setLoadingSpecies(true);
+    // Clear dependent dropdowns while loading
+    setSelectedSpecies('');
+    setSelectedVariegation('');
+    setDropdownOptionSpecies([]);
+    setDropdownOptionVariegation([]);
+    
     try {
       await loadSpeciesData(genus); // fetch and update species dropdown
     } catch (error) {
       console.error('Error loading species data:', error.message);
-      // Optionally show error to user
+      Alert.alert('Error', 'Failed to load species options. Please try again.');
     } finally {
-      // setLoading(false);
+      setLoadingSpecies(false);
     }
   };
   // Dropdown Genus
@@ -215,15 +249,17 @@ const ScreenSingleSell = ({navigation, route}) => {
     // setdropdownVariegationDisable(false);
     setSelectedVariegation('');
     setSelectedSpecies(species);
-    // setLoading(true);
-    // setTimeout(() => setLoading(true), 300);
+    setLoadingVariegation(true);
+    // Clear variegation dropdown while loading
+    setDropdownOptionVariegation([]);
+    
     try {
-      await loadVariegationData(selectedGenus, species); // fetch and update species dropdown
+      await loadVariegationData(selectedGenus, species); // fetch and update variegation dropdown
     } catch (error) {
-      console.error('Error loading species data:', error.message);
-      // Optionally show error to user
+      console.error('Error loading variegation data:', error.message);
+      Alert.alert('Error', 'Failed to load variegation options. Please try again.');
     } finally {
-      // setLoading(false);
+      setLoadingVariegation(false);
     }
   };
   // Dropdown Species
@@ -765,8 +801,14 @@ const ScreenSingleSell = ({navigation, route}) => {
               options={dropdownOptionSpecies}
               selectedOption={selectedSpecies}
               onSelect={handleSpeciesChange}
-              placeholder="Choose an option"
+              placeholder={loadingSpecies ? "Loading species..." : "Choose an option"}
+              disabled={loadingSpecies || !selectedGenus}
             />
+            {loadingSpecies && (
+              <Text style={[globalStyles.textXSGreyDark, {paddingTop: 5, fontStyle: 'italic'}]}>
+                ⏳ Loading species options...
+              </Text>
+            )}
           </View>
           <View style={[{paddingBottom: 20}]}>
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
@@ -776,9 +818,14 @@ const ScreenSingleSell = ({navigation, route}) => {
               options={dropdownOptionVariegation}
               selectedOption={selectedVariegation}
               onSelect={setSelectedVariegation}
-              placeholder="Choose an option"
-              disabled={dropdownVariegationDisable}
+              placeholder={loadingVariegation ? "Loading variegation..." : "Choose an option"}
+              disabled={dropdownVariegationDisable || loadingVariegation || !selectedSpecies}
             />
+            {loadingVariegation && (
+              <Text style={[globalStyles.textXSGreyDark, {paddingTop: 5, fontStyle: 'italic'}]}>
+                ⏳ Loading variegation options...
+              </Text>
+            )}
           </View>
           <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
             Can't find genus or species name?

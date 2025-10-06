@@ -99,6 +99,7 @@ const EditSpecieScreen = () => {
 
       const payload = {
         genusId,
+        genusName, // Include genus name to help backend identify genus
         authToken,
         // Provide adminId only if available (useful for emulator/local mode)
         ...(storedAdminId ? { adminId: storedAdminId } : {}),

@@ -164,7 +164,7 @@ const CartHeader = ({insets}) => {
               <SearchIcon width={24} height={24} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search iLeafU"
+                placeholder="Search ileafU "
                 placeholderTextColor="#647276"
                 value={searchTerm}
                 onChangeText={setSearchTerm}
@@ -336,41 +336,49 @@ const CartComponent = ({
           {/* Price and Quantity Row */}
           <View style={styles.priceQuantityRow}>
             <View style={styles.priceContainer}>
+              {/* Show original price with strikethrough if there's a discount */}
+              {originalPrice && originalPrice > price && (
+                <Text style={styles.originalPriceText}>
+                  $ {(parseFloat(originalPrice) * quantity).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}
+                </Text>
+              )}
+              {/* Current price (discounted or regular) */}
               <Text style={styles.totalItemPrice}>$ {(parseFloat(price) * quantity).toLocaleString('en-US', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
               })}</Text>
             </View>
             
-            {/* Quantity Stepper - Only show when quantity > 1 */}
-            {quantity > 1 && (
-              <View style={[styles.quantityStepper, isUnavailable && styles.disabledStepper]}>
-                <TouchableOpacity
-                  style={styles.stepperButton}
-                  onPress={() => onQuantityChange(quantity - 1)}
-                  disabled={quantity <= 1 || isUnavailable}>
-                  <MinusIcon width={16} height={16} color={(quantity <= 1 || isUnavailable) ? '#CDD3D4' : '#556065'} />
-                </TouchableOpacity>
-                
-                <View style={styles.quantityContainer}>
-                  <Text style={styles.quantityText}>{quantity}</Text>
-                </View>
-                
-                <TouchableOpacity
-                  style={styles.stepperButton}
-                  onPress={() => {
-                    console.log('🔼 INCREMENT BUTTON PRESSED');
-                    console.log('🔼 Current quantity:', quantity);
-                    console.log('🔼 Available quantity:', availableQuantity);
-                    console.log('🔼 Is disabled?', quantity >= availableQuantity || isUnavailable);
-                    console.log('🔼 Plant name:', name);
-                    onQuantityChange(quantity + 1);
-                  }}
-                  disabled={quantity >= availableQuantity || isUnavailable}>
-                  <PlusIcon width={16} height={16} color={(quantity >= availableQuantity || isUnavailable) ? '#CDD3D4' : '#556065'} />
-                </TouchableOpacity>
+            {/* Quantity Stepper - Always show, disable decrement when quantity is 1 */}
+            <View style={[styles.quantityStepper, isUnavailable && styles.disabledStepper]}>
+              <TouchableOpacity
+                style={styles.stepperButton}
+                onPress={() => onQuantityChange(quantity - 1)}
+                disabled={quantity <= 1 || isUnavailable}>
+                <MinusIcon width={16} height={16} color={(quantity <= 1 || isUnavailable) ? '#CDD3D4' : '#556065'} />
+              </TouchableOpacity>
+              
+              <View style={styles.quantityContainer}>
+                <Text style={styles.quantityText}>{quantity}</Text>
               </View>
-            )}
+              
+              <TouchableOpacity
+                style={styles.stepperButton}
+                onPress={() => {
+                  console.log('🔼 INCREMENT BUTTON PRESSED');
+                  console.log('🔼 Current quantity:', quantity);
+                  console.log('🔼 Available quantity:', availableQuantity);
+                  console.log('🔼 Is disabled?', quantity >= availableQuantity || isUnavailable);
+                  console.log('🔼 Plant name:', name);
+                  onQuantityChange(quantity + 1);
+                }}
+                disabled={quantity >= availableQuantity || isUnavailable}>
+                <PlusIcon width={16} height={16} color={(quantity >= availableQuantity || isUnavailable) ? '#CDD3D4' : '#556065'} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -462,8 +470,14 @@ const ScreenCart = () => {
         let originalPrice = null;
         
         if (item.listingDetails) {
-          // If discount price exists, use it as current price and regular price as original
-          if (item.listingDetails.discountPrice) {
+          // Check if there's discount information
+          if (item.listingDetails.originalPrice && item.listingDetails.price) {
+            // New format: originalPrice exists means item has discount
+            originalPrice = parseFloat(item.listingDetails.originalPrice);
+            currentPrice = parseFloat(item.listingDetails.price);
+          }
+          // Legacy format: discountPrice exists
+          else if (item.listingDetails.discountPrice) {
             currentPrice = parseFloat(item.listingDetails.discountPrice);
             originalPrice = parseFloat(item.listingDetails.price);
           } 

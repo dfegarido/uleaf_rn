@@ -691,64 +691,67 @@ const ScreenShop = ({navigation}) => {
 
   // Filter update functions that sync with global state
   const handleSortChange = (value) => {
-    clearFilters();
+    console.log('🔀 Sort changed to:', value);
+    // Sort is a single selection - update only sort, keep other filters
     updateFilters({ sort: value });
   };
 
   const handlePriceChange = (value) => {
-  // Clear other filters so selecting Price becomes a single active filter
-  clearFilters();
-  updateFilters({ price: value });
+    // Price is a single selection - update only price, keep other filters
+    updateFilters({ price: value });
   };
 
   const handleGenusChange = (value) => {
-  // Clear other filters so selecting Genus becomes a single active filter
-  clearFilters();
-  updateFilters({ genus: value });
+    // Genus is multi-select - update only genus, keep other filters
+    updateFilters({ genus: value });
   };
 
   const handleVariegationChange = (value) => {
-  // Clear other filters so selecting Variegation becomes a single active filter
-  clearFilters();
-  updateFilters({ variegation: value });
+    // Variegation is multi-select - update only variegation, keep other filters
+    updateFilters({ variegation: value });
   };
 
   const handleCountryChange = (value) => {
-  // Clear other filters so selecting Country becomes a single active filter
-  clearFilters();
-  updateFilters({ country: value });
+    // Country is a single selection - update only country, keep other filters
+    updateFilters({ country: value });
   };
 
   const handleListingTypeChange = (value) => {
-    // Clear all filters first, then apply only the selected listing type filter
-    clearFilters();
+    // Listing Type is multi-select - update only listingType, keep other filters
     updateFilters({ listingType: value });
   };
 
   const handleShippingIndexChange = (value) => {
-  // Clear other filters so selecting Shipping Index becomes a single active filter
-  clearFilters();
-  updateFilters({ shippingIndex: value });
+    // Shipping Index is a single selection - update only shippingIndex, keep other filters
+    updateFilters({ shippingIndex: value });
   };
 
   const handleAcclimationIndexChange = (value) => {
-  // Clear other filters so selecting Acclimation Index becomes a single active filter
-  clearFilters();
-  updateFilters({ acclimationIndex: value });
+    // Acclimation Index is a single selection - update only acclimationIndex, keep other filters
+    updateFilters({ acclimationIndex: value });
   };
 
   const handleFilterView = () => {
+    console.log('🔍 handleFilterView called with globalFilters:', globalFilters);
+    
     // Apply filters to global state
     applyFilters(globalFilters);
     
     // Close the filter sheet immediately
     setShowSheet(false);
     
-    // Navigate immediately - don't wait for API
-    const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 ? globalFilters.genus[0] : 'All';
+    // Navigate to ScreenGenusPlants
+    // If genus filter is applied, use first genus for route param (for display purposes)
+    // Otherwise use 'All' to indicate no specific genus
+    const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 
+      ? globalFilters.genus[0] 
+      : 'All';
+    
+    console.log('🎯 Navigating to ScreenGenusPlants with genus:', targetGenus, 'and filters:', globalFilters);
     
     navigation.navigate('ScreenGenusPlants', {
       genus: targetGenus,
+      fromFilter: true, // Flag to indicate this came from filter sheet
     });
     
     // Call API in background (no await, no blocking)
@@ -757,11 +760,12 @@ const ScreenShop = ({navigation}) => {
         const baseParams = {
           offset: 0,
           limit: 4, // standardized
-          sortBy: 'createdAt',
-          sortOrder: 'desc',
+          // Note: sortBy and sortOrder are intentionally not set here
+          // They will be determined by buildFilterParams based on the applied filters
         };
         
         const filterParams = buildFilterParams(baseParams);
+        console.log('🔍 Background API call with params:', filterParams);
         
         // Call buyer listings API with applied filters (in background)
         await getBuyerListingsApi(filterParams);
@@ -777,15 +781,6 @@ const ScreenShop = ({navigation}) => {
 
   const onPressFilter = pressCode => {
     setCode(pressCode);
-    // If opening the price filter, clear any existing price selection so the
-    // user sees an unselected list before choosing an option.
-    if (pressCode === 'PRICE') {
-      try {
-        updateFilters({ price: '' });
-      } catch (e) {
-        console.warn('Failed to clear price filter before opening sheet:', e);
-      }
-    }
     setShowSheet(true);
   };
 
@@ -854,6 +849,44 @@ const ScreenShop = ({navigation}) => {
     });
   };
 
+  // Helper function to check if a filter is currently active
+  const isFilterActive = (filterLabel) => {
+    switch (filterLabel) {
+      case 'Sort':
+        return globalFilters.sort && globalFilters.sort !== 'Newest to Oldest';
+      case 'Price':
+        return globalFilters.price && globalFilters.price !== '';
+      case 'Genus':
+        return globalFilters.genus && globalFilters.genus.length > 0;
+      case 'Variegation':
+        return globalFilters.variegation && globalFilters.variegation.length > 0;
+      case 'Country':
+        return globalFilters.country && globalFilters.country !== '';
+      case 'Listing Type':
+        return globalFilters.listingType && globalFilters.listingType.length > 0;
+      case 'Shipping Index':
+        return globalFilters.shippingIndex && globalFilters.shippingIndex !== '';
+      case 'Acclimation Index':
+        return globalFilters.acclimationIndex && globalFilters.acclimationIndex !== '';
+      default:
+        return false;
+    }
+  };
+
+  // Helper function to get active filter count for multi-select filters
+  const getFilterCount = (filterLabel) => {
+    switch (filterLabel) {
+      case 'Genus':
+        return globalFilters.genus?.length || 0;
+      case 'Variegation':
+        return globalFilters.variegation?.length || 0;
+      case 'Listing Type':
+        return globalFilters.listingType?.length || 0;
+      default:
+        return 0;
+    }
+  };
+
   const handleAddToCartFromBrowseMore = async (plant) => {
     try {
       
@@ -892,7 +925,7 @@ const ScreenShop = ({navigation}) => {
                 <SearchIcon width={24} height={24} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Search iLeafU"
+                  placeholder="Search ileafU "
                   placeholderTextColor="#647276"
                   value={searchTerm}
                   onChangeText={setSearchTerm}
@@ -973,7 +1006,8 @@ const ScreenShop = ({navigation}) => {
               style={{
                 borderRadius: 12,
                 borderWidth: 1,
-                borderColor: '#CDD3D4',
+                borderColor: isFilterActive(option.label) ? '#23C16B' : '#CDD3D4',
+                backgroundColor: isFilterActive(option.label) ? '#E8F5E9' : '#FFFFFF',
                 padding: 8,
                 marginTop: 5,
                 flexDirection: 'row',
@@ -986,10 +1020,34 @@ const ScreenShop = ({navigation}) => {
                   style={{marginRight: 4}}
                 />
               )}
-              <Text style={{fontSize: 14, fontWeight: '500', color: '#393D40'}}>
+              <Text style={{
+                fontSize: 14, 
+                fontWeight: isFilterActive(option.label) ? '600' : '500', 
+                color: isFilterActive(option.label) ? '#23C16B' : '#393D40'
+              }}>
                 {option.label}
               </Text>
-              {option.rightIcon && (
+              {getFilterCount(option.label) > 0 && (
+                <View style={{
+                  backgroundColor: '#23C16B',
+                  borderRadius: 10,
+                  minWidth: 20,
+                  height: 20,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginLeft: 6,
+                  paddingHorizontal: 6,
+                }}>
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontSize: 12,
+                    fontWeight: '600',
+                  }}>
+                    {getFilterCount(option.label)}
+                  </Text>
+                </View>
+              )}
+              {option.rightIcon && !getFilterCount(option.label) && (
                 <option.rightIcon
                   width={20}
                   height={20}

@@ -51,6 +51,7 @@ const EditTaxonomyModal = ({ visible, onClose, taxonomyItem, onUpdate }) => {
       // Call the new updatePlantTaxonomy API
       const response = await updatePlantTaxonomyApi({
         genusId: taxonomyItem.id,
+        genusName: taxonomyItem.name, // Include current genus name for synthetic ID resolution
         newGenusName: name.trim() !== taxonomyItem.name ? name.trim() : undefined,
         adminId: 'admin_temp' // TODO: Replace with actual admin ID from auth context
       });
