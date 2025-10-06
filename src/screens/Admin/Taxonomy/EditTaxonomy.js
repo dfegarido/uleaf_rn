@@ -35,6 +35,8 @@ import AcclimationIcon from '../../../assets/admin-icons/acclimation.svg';
 import InfoIcon from '../../../assets/admin-icons/info.svg';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 
+import { convertIndexToLabel } from '../../../utils/indexConverters';
+
 const EditTaxonomy = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -180,8 +182,8 @@ const EditTaxonomy = () => {
     const newSpecieForAPI = {
       name: specieData.name || specieData.specieName,
       variegation: specieData.variegation || '',
-      shippingIndex: specieData.shippingIndex || '',
-      acclimationIndex: specieData.acclimationIndex || '',
+      shippingIndex: specieData.shippingIndex ?? 0,
+      acclimationIndex: specieData.acclimationIndex ?? 0,
     };
     
     // Add to display list
@@ -472,7 +474,17 @@ const EditTaxonomy = () => {
     );
   };
 
-  const renderSpecieItem = ({ item }) => (
+  const renderSpecieItem = ({ item }) => {
+    // Debug logging
+    console.log('🔍 Rendering species item:', {
+      name: item.name,
+      shippingIndex: item.shippingIndex,
+      acclimationIndex: item.acclimationIndex,
+      shippingConverted: convertIndexToLabel(item.shippingIndex),
+      acclimationConverted: convertIndexToLabel(item.acclimationIndex)
+    });
+    
+    return (
     <View style={styles.specieCard}>
       <View style={styles.specieContent}>
         <View style={styles.specieInfo}>
@@ -491,7 +503,7 @@ const EditTaxonomy = () => {
             <ShippingIcon width={24} height={24} />
             <View style={styles.shippingTextTooltip}>
               <Text style={styles.shippingText}>
-                {item.shipping || 'N/A'}
+                {convertIndexToLabel(item.shippingIndex) || 'Not set'}
               </Text>
               <View style={styles.tooltipContainer}>
                 <InfoIcon width={28} height={28} />
@@ -502,7 +514,7 @@ const EditTaxonomy = () => {
             <AcclimationIcon width={19} height={18} />
             <View style={styles.acclimationTextTooltip}>
               <Text style={styles.acclimationText}>
-                {item.acclimation || 'N/A'}
+                {convertIndexToLabel(item.acclimationIndex) || 'Not set'}
               </Text>
               <View style={styles.tooltipContainer}>
                 <InfoIcon width={28} height={28} />
@@ -512,7 +524,7 @@ const EditTaxonomy = () => {
         </View>
       </View>
     </View>
-  );
+  );};
 
   // Filter species based on search query
   const filteredSpecies = searchQuery.trim() 

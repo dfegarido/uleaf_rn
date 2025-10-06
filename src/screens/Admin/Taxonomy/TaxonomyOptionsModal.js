@@ -44,16 +44,16 @@ const TaxonomyOptionsModal = ({ visible, onClose, onNewPlantTaxonomy, onImportTa
               </View>
             </TouchableOpacity>
             
-            {/* Import Taxonomy Data Button */}
-            {/* <TouchableOpacity style={styles.button} onPress={onImportTaxonomy}>
+            {/* Batch Update Taxonomy Button */}
+            <TouchableOpacity style={styles.button} onPress={onImportTaxonomy}>
               <View style={styles.iconContainer}>
                 <ImportDataIcon width={48} height={48} />
               </View>
               <View style={styles.textContainer}>
-                <Text style={styles.buttonTitle}>Import Taxonomy Data</Text>
-                <Text style={styles.buttonSubtitle}>Upload spreadsheet file</Text>
+                <Text style={styles.buttonTitle}>Batch Update Taxonomy</Text>
+                <Text style={styles.buttonSubtitle}>Upload Excel file to update</Text>
               </View>
-            </TouchableOpacity> */}
+            </TouchableOpacity>
           </View>
         </View>
       </View>

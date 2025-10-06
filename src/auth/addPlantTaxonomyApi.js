@@ -154,13 +154,8 @@ export const validateSpeciesData = (species) => {
     
     // Variegation is now optional - no validation needed
     
-    if (!spec.shippingIndex || typeof spec.shippingIndex !== 'string') {
-      errors.push(`Species ${index + 1}: Shipping index is required`);
-    }
-    
-    if (!spec.acclimationIndex || typeof spec.acclimationIndex !== 'string') {
-      errors.push(`Species ${index + 1}: Acclimation index is required`);
-    }
+    // Shipping and acclimation indices are optional (will default to 0 if not provided)
+    // Only validate if they exist - they can be numbers or strings
   });
   
   return {
@@ -179,7 +174,7 @@ export const formatSpeciesForApi = (species) => {
   return species.map(spec => ({
     name: spec.name?.trim() || '',
     variegation: spec.variegation?.trim() || '', // Optional field, empty if not provided
-    shippingIndex: spec.shippingIndex?.trim() || 'Medium',
-    acclimationIndex: spec.acclimationIndex?.trim() || 'Easy'
+    shippingIndex: spec.shippingIndex ?? 0, // Default to 0 if not provided
+    acclimationIndex: spec.acclimationIndex ?? 0 // Default to 0 if not provided
   }));
 };

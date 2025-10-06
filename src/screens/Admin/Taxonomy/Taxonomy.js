@@ -32,6 +32,7 @@ import EditTaxonomyModal from './EditTaxonomyModal';
 import TaxonomySkeletonList from './TaxonomySkeletonList';
 import TaxonomyOptionsModal from './TaxonomyOptionsModal';
 import RequestActionModal from './RequestActionModal';
+import BatchUpdateModal from './BatchUpdateModal';
 
 // No more mock data - using only real API data
 
@@ -348,6 +349,7 @@ const Taxonomy = () => {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilterType, setSelectedFilterType] = useState(null);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [batchUpdateModalVisible, setBatchUpdateModalVisible] = useState(false);
   const [requestActionModalVisible, setRequestActionModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [apiError, setApiError] = useState(null);
@@ -799,9 +801,15 @@ const Taxonomy = () => {
 
   const handleImportTaxonomy = () => {
     setOptionsModalVisible(false);
-    // Navigate to import taxonomy screen
-    console.log('🌿 Navigate to import taxonomy');
-    navigation.navigate('ImportTaxonomyScreen');
+    // Open batch update modal instead of navigating
+    console.log('🌿 Opening batch update modal');
+    setBatchUpdateModalVisible(true);
+  };
+
+  const handleBatchUpdateSuccess = (data) => {
+    console.log('✅ Batch update completed successfully:', data);
+    // Refresh all taxonomy data
+    fetchAllData(false);
   };
 
   // Stable key extractor for FlatList
@@ -1025,6 +1033,12 @@ const Taxonomy = () => {
         onClose={() => setOptionsModalVisible(false)}
         onNewPlantTaxonomy={handleNewPlantTaxonomy}
         onImportTaxonomy={handleImportTaxonomy}
+      />
+      
+      <BatchUpdateModal
+        visible={batchUpdateModalVisible}
+        onClose={() => setBatchUpdateModalVisible(false)}
+        onSuccess={handleBatchUpdateSuccess}
       />
       
       <RequestActionModal

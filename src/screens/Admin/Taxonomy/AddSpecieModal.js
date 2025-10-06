@@ -17,6 +17,9 @@ import DownIcon from '../../../assets/admin-icons/arrow-down.svg';
 // Import API config
 import { API_CONFIG } from '../../../config/apiConfig';
 
+// Import utility functions for index conversion
+import { getIndexOptions } from '../../../utils/indexConverters';
+
 const { height: screenHeight } = Dimensions.get('window');
 
 const AddSpecieModal = ({ visible, onClose, onSave }) => {
@@ -26,16 +29,8 @@ const AddSpecieModal = ({ visible, onClose, onSave }) => {
   const [acclimationIndex, setAcclimationIndex] = useState('');
   
   // Dropdown options state
-  const [shippingIndexOptions] = useState([
-    { id: 'good', name: 'Good (3-5)' },
-    { id: 'better', name: 'Better (4-6)' },
-    { id: 'best', name: 'Best (7-10)' }
-  ]);
-  const [acclimationIndexOptions] = useState([
-    { id: 'good', name: 'Good (3-5)' },
-    { id: 'better', name: 'Better (4-6)' },
-    { id: 'best', name: 'Best (7-10)' }
-  ]);
+  const [shippingIndexOptions] = useState(getIndexOptions());
+  const [acclimationIndexOptions] = useState(getIndexOptions());
   
   // Dropdown visibility state
   const [showShippingDropdown, setShowShippingDropdown] = useState(false);
@@ -44,13 +39,26 @@ const AddSpecieModal = ({ visible, onClose, onSave }) => {
   // Dropdown selection handlers
 
   const handleShippingSelect = (option) => {
-    setShippingIndex(option.name);
+    setShippingIndex(option.value); // Use numeric value instead of name
     setShowShippingDropdown(false);
   };
 
   const handleAcclimationSelect = (option) => {
-    setAcclimationIndex(option.name);
+    setAcclimationIndex(option.value); // Use numeric value instead of name
     setShowAcclimationDropdown(false);
+  };
+  
+  // Helper functions to get display name from value
+  const getShippingDisplayName = () => {
+    if (!shippingIndex) return 'Select...';
+    const option = shippingIndexOptions.find(opt => opt.value === shippingIndex);
+    return option ? option.name : shippingIndex;
+  };
+  
+  const getAcclimationDisplayName = () => {
+    if (!acclimationIndex) return 'Select...';
+    const option = acclimationIndexOptions.find(opt => opt.value === acclimationIndex);
+    return option ? option.name : acclimationIndex;
   };
 
   // Close all dropdowns
@@ -75,8 +83,8 @@ const AddSpecieModal = ({ visible, onClose, onSave }) => {
     const specieData = {
       name: specieName,
       variegation,
-      shippingIndex,
-      acclimationIndex,
+      shippingIndex: shippingIndex || 0,
+      acclimationIndex: acclimationIndex || 0,
     };
     
     onSave(specieData);
@@ -168,7 +176,7 @@ const AddSpecieModal = ({ visible, onClose, onSave }) => {
                   onPress={() => setShowShippingDropdown(!showShippingDropdown)}
                 >
                   <Text style={[styles.textInput, styles.dropdownText]}>
-                    {shippingIndex || 'Select...'}
+                    {getShippingDisplayName()}
                   </Text>
                   <DownIcon width={24} height={24} />
                 </TouchableOpacity>
@@ -201,7 +209,7 @@ const AddSpecieModal = ({ visible, onClose, onSave }) => {
                   onPress={() => setShowAcclimationDropdown(!showAcclimationDropdown)}
                 >
                   <Text style={[styles.textInput, styles.dropdownText]}>
-                    {acclimationIndex || 'Select...'}
+                    {getAcclimationDisplayName()}
                   </Text>
                   <DownIcon width={24} height={24} />
                 </TouchableOpacity>

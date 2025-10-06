@@ -20,6 +20,9 @@ import { API_CONFIG } from '../../../config/apiConfig';
 import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 import { getStoredAdminId } from '../../../utils/getStoredUserInfo';
 
+// Import utility functions for index conversion
+import { convertLabelToValue, getIndexOptions } from '../../../utils/indexConverters';
+
 // Import icons
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import DownIcon from '../../../assets/admin-icons/arrow-down.svg';
@@ -36,20 +39,18 @@ const EditSpecieScreen = () => {
   
   const [specieName, setSpecieName] = useState(specieData.name || '');
   const [variegation, setVariegation] = useState(specieData.variegation || '');
-  const [shippingIndex, setShippingIndex] = useState(specieData.shipping || '');
-  const [acclimationIndex, setAcclimationIndex] = useState(specieData.acclimation || '');
+  
+  // Convert incoming data to numeric value (support both numeric and label formats)
+  const [shippingIndex, setShippingIndex] = useState(
+    convertLabelToValue(specieData.shippingIndex || specieData.shipping_index || specieData.shipping || '')
+  );
+  const [acclimationIndex, setAcclimationIndex] = useState(
+    convertLabelToValue(specieData.acclimationIndex || specieData.acclimation_index || specieData.acclimation || '')
+  );
   
   // Dropdown options state with static Good/Better/Best format
-  const [shippingIndexOptions] = useState([
-    { id: 'good', name: 'Good (3-5)' },
-    { id: 'better', name: 'Better (4-6)' },
-    { id: 'best', name: 'Best (7-10)' }
-  ]);
-  const [acclimationIndexOptions] = useState([
-    { id: 'good', name: 'Good (3-5)' },
-    { id: 'better', name: 'Better (4-6)' },
-    { id: 'best', name: 'Best (7-10)' }
-  ]);
+  const [shippingIndexOptions] = useState(getIndexOptions());
+  const [acclimationIndexOptions] = useState(getIndexOptions());
   
   // Dropdown visibility state
   const [showShippingDropdown, setShowShippingDropdown] = useState(false);
@@ -58,13 +59,26 @@ const EditSpecieScreen = () => {
   // Dropdown selection handlers
 
   const handleShippingSelect = (option) => {
-    setShippingIndex(option.name);
+    setShippingIndex(option.value); // Use numeric value instead of name
     setShowShippingDropdown(false);
   };
 
   const handleAcclimationSelect = (option) => {
-    setAcclimationIndex(option.name);
+    setAcclimationIndex(option.value); // Use numeric value instead of name
     setShowAcclimationDropdown(false);
+  };
+  
+  // Helper functions to get display name from value
+  const getShippingDisplayName = () => {
+    if (!shippingIndex) return 'Select...';
+    const option = shippingIndexOptions.find(opt => opt.value === shippingIndex || opt.name === shippingIndex);
+    return option ? option.name : shippingIndex;
+  };
+  
+  const getAcclimationDisplayName = () => {
+    if (!acclimationIndex) return 'Select...';
+    const option = acclimationIndexOptions.find(opt => opt.value === acclimationIndex || opt.name === acclimationIndex);
+    return option ? option.name : acclimationIndex;
   };
 
   // Close all dropdowns
@@ -220,7 +234,7 @@ const EditSpecieScreen = () => {
                 }}
               >
                 <Text style={[styles.placeholder, styles.dropdownText]}>
-                  {shippingIndex || 'Select...'}
+                  {getShippingDisplayName()}
                 </Text>
                 <View style={styles.iconRight}>
                   <DownIcon width={24} height={24} />
@@ -258,7 +272,7 @@ const EditSpecieScreen = () => {
                 }}
               >
                 <Text style={[styles.placeholder, styles.dropdownText]}>
-                  {acclimationIndex || 'Select...'}
+                  {getAcclimationDisplayName()}
                 </Text>
                 <View style={styles.iconRight}>
                   <DownIcon width={24} height={24} />

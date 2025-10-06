@@ -123,8 +123,18 @@ export const formatSpeciesForDisplay = (species) => {
     id: specie.id,
     name: specie.name || 'Unknown Species',
     variegation: specie.variegation || '',
-    shipping: formatIndexForDisplay(specie.shippingIndex),
-    acclimation: formatIndexForDisplay(specie.acclimationIndex),
+    // Keep index field names consistent with backend response
+    shippingIndex: specie.shippingIndex,
+    acclimationIndex: specie.acclimationIndex,
+    // Also provide old field names for backward compatibility
+    shipping: specie.shippingIndex,
+    acclimation: specie.acclimationIndex,
+    genus: specie.genus,
+    genusId: specie.genusId,
+    status: specie.status,
+    createdAt: specie.createdAt,
+    updatedAt: specie.updatedAt,
+    source: specie.source,
     // Keep original data for editing
     originalData: specie
   }));
