@@ -232,7 +232,24 @@ const ScreenGenusPlants = ({navigation, route}) => {
   // Load plants on component mount
   useEffect(() => {
     const fetchData = async () => {
-      try {        
+      try {
+        // Check if we're coming from filter sheet with filters
+        const fromFilter = route.params?.fromFilter;
+        const passedFilters = route.params?.appliedFilters;
+        
+        if (fromFilter && passedFilters) {
+          console.log('🎯 Coming from filter sheet with passed filters:', passedFilters);
+          // Apply the passed filters to context immediately
+          applyFilters(passedFilters);
+          // Load plants with the passed filters (don't wait for context state)
+          // Small delay to ensure state is set
+          setTimeout(() => {
+            loadPlants(true);
+          }, 50);
+          return;
+        }
+        
+        console.log('📍 Component mounted - loading plants with current filters');
         // Load plants using global filters if available, otherwise load all plants
         loadPlants(true);
       } catch (error) {
@@ -361,6 +378,14 @@ const ScreenGenusPlants = ({navigation, route}) => {
           loveCount: p.loveCount
         }));
         console.log('📊 First 10 plants prices from API:', JSON.stringify(prices, null, 2));
+        
+        // Debug: Log variegation values to verify filter
+        const variegations = res.data.listings.slice(0, 10).map(p => ({
+          plantCode: p.plantCode,
+          species: p.species,
+          variegation: p.variegation
+        }));
+        console.log('🌿 First 10 plants variegations from API:', JSON.stringify(variegations, null, 2));
       }
 
       const rawPlants = (res.data?.listings || []).map(p => ({
@@ -399,14 +424,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
       console.log(`Filtered ${rawPlants.length} genus plants down to ${newPlants.length} valid plants`);
       
       if (refresh) {
+        console.log('🔄 [loadPlants] Setting plants (REFRESH mode) - Count:', newPlants.length);
         setPlants(newPlants);
         // For refresh, set offset exactly to the number returned (avoids double-refresh accumulating)
         setOffset(newPlants.length);
       } else {
         // Filter out duplicates before appending new plants
+        console.log('➕ [loadPlants] Appending plants (APPEND mode) - New count:', newPlants.length);
         setPlants(prev => {
           const existingPlantCodes = new Set(prev.map(p => p.plantCode));
           const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
+          console.log(`➕ [loadPlants] Appending ${uniqueNewPlants.length} unique plants (filtered ${newPlants.length - uniqueNewPlants.length} duplicates)`);
           return [...prev, ...uniqueNewPlants];
         });
         // Increment offset by the page size (use limit for consistency)

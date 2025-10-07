@@ -79,6 +79,7 @@ import {
   getCacheData,
   CACHE_KEYS,
 } from '../../../utils/dropdownCache';
+import { getIndexOptions } from '../../../utils/indexConverters';
 import {
   getCachedImageUri,
   setCachedImageUri,
@@ -389,7 +390,7 @@ const ScreenShop = ({navigation}) => {
     try {
       // Try to get from cache first
       const cachedData = await getCacheData(CACHE_KEYS.COUNTRY);
-      if (cachedData) {
+      if (cachedData && cachedData.length > 0) {
         setCountryOptions(cachedData);
         return;
       }
@@ -401,20 +402,34 @@ const ScreenShop = ({navigation}) => {
 
       const res = await retryAsync(() => getCountryApi(), 3, 1000);
 
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load country api');
+      if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+        let localCountryData = res.data.map(item => ({
+          label: item.name || item.country,
+          value: item.name || item.country,
+        }));
+
+        setCountryOptions(localCountryData);
+        // Cache the data
+        await setCacheData(CACHE_KEYS.COUNTRY, localCountryData);
+      } else {
+        // Fallback to popular countries used in app if API is unavailable
+        const fallback = [
+          { label: 'Thailand', value: 'Thailand' },
+          { label: 'Indonesia', value: 'Indonesia' },
+          { label: 'Philippines', value: 'Philippines' },
+        ];
+        setCountryOptions(fallback);
+        await setCacheData(CACHE_KEYS.COUNTRY, fallback);
       }
-
-      let localCountryData = res.data.map(item => ({
-        label: item.name || item.country,
-        value: item.name || item.country,
-      }));
-
-      setCountryOptions(localCountryData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.COUNTRY, localCountryData);
     } catch (error) {
+      // On error, set fallback minimal options so the modal isn't empty
+      const fallback = [
+        { label: 'Thailand', value: 'Thailand' },
+        { label: 'Indonesia', value: 'Indonesia' },
+        { label: 'Philippines', value: 'Philippines' },
+      ];
+      setCountryOptions(fallback);
+      try { await setCacheData(CACHE_KEYS.COUNTRY, fallback); } catch (e) {}
     }
   };
 
@@ -422,7 +437,7 @@ const ScreenShop = ({navigation}) => {
     try {
       // Try to get from cache first
       const cachedData = await getCacheData(CACHE_KEYS.LISTING_TYPE);
-      if (cachedData) {
+      if (cachedData && cachedData.length > 0) {
         setListingTypeOptions(cachedData);
         return;
       }
@@ -434,20 +449,26 @@ const ScreenShop = ({navigation}) => {
 
       const res = await retryAsync(() => getListingTypeApi(), 3, 1000);
 
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load listing type api');
+      if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+        let localListingTypeData = res.data.map(item => ({
+          label: item.name || item.listingType,
+          value: item.name || item.listingType,
+        }));
+
+        setListingTypeOptions(localListingTypeData);
+        // Cache the data
+        await setCacheData(CACHE_KEYS.LISTING_TYPE, localListingTypeData);
+      } else {
+        const fallback = ['Single Plant', "Grower's Choice", 'Wholesale']
+          .map(n => ({ label: n, value: n }));
+        setListingTypeOptions(fallback);
+        await setCacheData(CACHE_KEYS.LISTING_TYPE, fallback);
       }
-
-      let localListingTypeData = res.data.map(item => ({
-        label: item.name || item.listingType,
-        value: item.name || item.listingType,
-      }));
-
-      setListingTypeOptions(localListingTypeData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.LISTING_TYPE, localListingTypeData);
     } catch (error) {
+      const fallback = ['Single Plant', "Grower's Choice", 'Wholesale']
+        .map(n => ({ label: n, value: n }));
+      setListingTypeOptions(fallback);
+      try { await setCacheData(CACHE_KEYS.LISTING_TYPE, fallback); } catch (e) {}
     }
   };
 
@@ -455,7 +476,7 @@ const ScreenShop = ({navigation}) => {
     try {
       // Try to get from cache first
       const cachedData = await getCacheData(CACHE_KEYS.SHIPPING_INDEX);
-      if (cachedData) {
+      if (cachedData && cachedData.length > 0) {
         setShippingIndexOptions(cachedData);
         return;
       }
@@ -467,20 +488,24 @@ const ScreenShop = ({navigation}) => {
 
       const res = await retryAsync(() => getShippingIndexApi(), 3, 1000);
 
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load shipping index api');
+      if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+        let localShippingIndexData = res.data.map(item => ({
+          label: item.name || item.shippingIndex,
+          value: item.name || item.shippingIndex,
+        }));
+
+        setShippingIndexOptions(localShippingIndexData);
+        // Cache the data
+        await setCacheData(CACHE_KEYS.SHIPPING_INDEX, localShippingIndexData);
+      } else {
+        const idx = getIndexOptions().map(i => ({ label: i.name, value: i.name }));
+        setShippingIndexOptions(idx);
+        await setCacheData(CACHE_KEYS.SHIPPING_INDEX, idx);
       }
-
-      let localShippingIndexData = res.data.map(item => ({
-        label: item.name || item.shippingIndex,
-        value: item.name || item.shippingIndex,
-      }));
-
-      setShippingIndexOptions(localShippingIndexData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.SHIPPING_INDEX, localShippingIndexData);
     } catch (error) {
+      const idx = getIndexOptions().map(i => ({ label: i.name, value: i.name }));
+      setShippingIndexOptions(idx);
+      try { await setCacheData(CACHE_KEYS.SHIPPING_INDEX, idx); } catch (e) {}
     }
   };
 
@@ -488,7 +513,7 @@ const ScreenShop = ({navigation}) => {
     try {
       // Try to get from cache first
       const cachedData = await getCacheData(CACHE_KEYS.ACCLIMATION_INDEX);
-      if (cachedData) {
+      if (cachedData && cachedData.length > 0) {
         setAcclimationIndexOptions(cachedData);
         return;
       }
@@ -500,20 +525,24 @@ const ScreenShop = ({navigation}) => {
 
       const res = await retryAsync(() => getAcclimationIndexApi(), 3, 1000);
 
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load acclimation index api');
+      if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+        let localAcclimationIndexData = res.data.map(item => ({
+          label: item.name || item.acclimationIndex,
+          value: item.name || item.acclimationIndex,
+        }));
+
+        setAcclimationIndexOptions(localAcclimationIndexData);
+        // Cache the data
+        await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, localAcclimationIndexData);
+      } else {
+        const idx = getIndexOptions().map(i => ({ label: i.name, value: i.name }));
+        setAcclimationIndexOptions(idx);
+        await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, idx);
       }
-
-      let localAcclimationIndexData = res.data.map(item => ({
-        label: item.name || item.acclimationIndex,
-        value: item.name || item.acclimationIndex,
-      }));
-
-      setAcclimationIndexOptions(localAcclimationIndexData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, localAcclimationIndexData);
     } catch (error) {
+      const idx = getIndexOptions().map(i => ({ label: i.name, value: i.name }));
+      setAcclimationIndexOptions(idx);
+      try { await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, idx); } catch (e) {}
     }
   };
 
@@ -708,6 +737,8 @@ const ScreenShop = ({navigation}) => {
 
   const handleVariegationChange = (value) => {
     // Variegation is multi-select - update only variegation, keep other filters
+    console.log('🌿 Variegation changed to:', value);
+    console.log('🌿 Variegation value type:', Array.isArray(value) ? 'array' : typeof value);
     updateFilters({ variegation: value });
   };
 
@@ -734,8 +765,11 @@ const ScreenShop = ({navigation}) => {
   const handleFilterView = () => {
     console.log('🔍 handleFilterView called with globalFilters:', globalFilters);
     
+    // Capture current filters to avoid stale closure
+    const filtersToApply = {...globalFilters};
+    
     // Apply filters to global state
-    applyFilters(globalFilters);
+    applyFilters(filtersToApply);
     
     // Close the filter sheet immediately
     setShowSheet(false);
@@ -743,18 +777,20 @@ const ScreenShop = ({navigation}) => {
     // Navigate to ScreenGenusPlants
     // If genus filter is applied, use first genus for route param (for display purposes)
     // Otherwise use 'All' to indicate no specific genus
-    const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 
-      ? globalFilters.genus[0] 
+    const targetGenus = filtersToApply.genus && filtersToApply.genus.length > 0 
+      ? filtersToApply.genus[0] 
       : 'All';
     
-    console.log('🎯 Navigating to ScreenGenusPlants with genus:', targetGenus, 'and filters:', globalFilters);
+    console.log('🎯 Navigating to ScreenGenusPlants with genus:', targetGenus, 'and filters:', filtersToApply);
     
     navigation.navigate('ScreenGenusPlants', {
       genus: targetGenus,
       fromFilter: true, // Flag to indicate this came from filter sheet
+      appliedFilters: filtersToApply, // Pass filters directly to avoid race condition
     });
     
     // Call API in background (no await, no blocking)
+    // Use captured filtersToApply to avoid stale state
     const callFilterApi = async () => {
       try {
         const baseParams = {
@@ -764,11 +800,96 @@ const ScreenShop = ({navigation}) => {
           // They will be determined by buildFilterParams based on the applied filters
         };
         
-        const filterParams = buildFilterParams(baseParams);
-        console.log('🔍 Background API call with params:', filterParams);
+        console.log('🔍 Background call - about to build params');
+        console.log('🔍 Background call - using filters:', JSON.stringify(filtersToApply));
+        
+        // Manually build params using captured filters to avoid race condition
+        const params = { ...baseParams };
+        
+        // Apply sort
+        if (filtersToApply.sort) {
+          switch (filtersToApply.sort) {
+            case 'Newest to Oldest':
+              params.sortBy = 'createdAt';
+              params.sortOrder = 'desc';
+              break;
+            case 'Price Low to High':
+              params.sortBy = 'usdPrice';
+              params.sortOrder = 'asc';
+              break;
+            case 'Price High to Low':
+              params.sortBy = 'usdPrice';
+              params.sortOrder = 'desc';
+              break;
+            case 'Most Loved':
+              params.sortBy = 'loveCount';
+              params.sortOrder = 'desc';
+              break;
+            default:
+              params.sortBy = 'createdAt';
+              params.sortOrder = 'desc';
+          }
+        }
+        
+        // Apply genus filter
+        if (filtersToApply.genus && filtersToApply.genus.length > 0) {
+          const lowercaseGenus = filtersToApply.genus.map(g => g.toLowerCase());
+          params.genus = lowercaseGenus.join(',');
+        }
+        
+        // Apply variegation filter - FIX: use captured filters
+        if (filtersToApply.variegation && filtersToApply.variegation.length > 0) {
+          params.variegation = filtersToApply.variegation.join(',');
+          console.log('🔍 Applied variegation filter in background call:', params.variegation);
+        }
+        
+        // Apply price filter
+        if (filtersToApply.price) {
+          const priceRange = filtersToApply.price;
+          if (priceRange === '$0 - $20') {
+            params.minPrice = 0;
+            params.maxPrice = 20;
+          } else if (priceRange === '$21 - $50') {
+            params.minPrice = 21;
+            params.maxPrice = 50;
+          } else if (priceRange === '$51 - $100') {
+            params.minPrice = 51;
+            params.maxPrice = 100;
+          } else if (priceRange === '$101 - $200') {
+            params.minPrice = 101;
+            params.maxPrice = 200;
+          } else if (priceRange === '$201 - $500') {
+            params.minPrice = 201;
+            params.maxPrice = 500;
+          } else if (priceRange === '$501 +') {
+            params.minPrice = 501;
+          }
+        }
+        
+        // Apply country filter
+        if (filtersToApply.country) {
+          params.country = filtersToApply.country;
+        }
+        
+        // Apply listing type filter
+        if (filtersToApply.listingType && filtersToApply.listingType.length > 0) {
+          params.listingType = filtersToApply.listingType.join(',');
+        }
+        
+        // Apply shipping index filter
+        if (filtersToApply.shippingIndex) {
+          params.shippingIndex = filtersToApply.shippingIndex;
+        }
+        
+        // Apply acclimation index filter
+        if (filtersToApply.acclimationIndex) {
+          params.acclimationIndex = filtersToApply.acclimationIndex;
+        }
+        
+        console.log('🔍 Background API call with params:', params);
         
         // Call buyer listings API with applied filters (in background)
-        await getBuyerListingsApi(filterParams);
+        await getBuyerListingsApi(params);
         console.log('🔍 Filter API call completed in background');
       } catch (error) {
         console.error('Error in background filter API call:', error);

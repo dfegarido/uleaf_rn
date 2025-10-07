@@ -2760,7 +2760,7 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 20,
     color: '#647276',
     flex: 1,
     // Allow the label to share space with the amount on the right
@@ -2977,7 +2977,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 0,
-    gap: 187,
+    gap: 8,
     width: '100%',
     height: 22,
     flex: 0,
@@ -3984,16 +3984,14 @@ const styles = StyleSheet.create({
   },
   discountRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     padding: 0,
     gap: 4,
-    width: 146,
     height: 20,
     flex: 0,
   },
   discountSavings: {
-    width: 94,
     height: 20,
     fontFamily: 'Inter',
     fontStyle: 'normal',
@@ -4002,9 +4000,9 @@ const styles = StyleSheet.create({
     lineHeight: 20, // 140% of 14px
     color: '#E7522F',
     flex: 0,
+    flexShrink: 0,
   },
   discountAmount: {
-    width: 48,
     height: 20,
     fontFamily: 'Inter',
     fontStyle: 'normal',
@@ -4013,6 +4011,7 @@ const styles = StyleSheet.create({
     lineHeight: 20, // 140% of 14px
     color: '#E7522F',
     flex: 0,
+    flexShrink: 0,
   },
   placeOrderButton: {
     flexDirection: 'row',

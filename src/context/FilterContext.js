@@ -104,6 +104,8 @@ export const FilterProvider = ({ children }) => {
     // Apply variegation filter
     if (filters.variegation && filters.variegation.length > 0) {
       params.variegation = filters.variegation.join(',');
+      console.log('🔍 Applied variegation filter:', params.variegation);
+      console.log('🔍 Variegation array values:', filters.variegation);
     }
 
     // Apply price filter
