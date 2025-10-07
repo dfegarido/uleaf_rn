@@ -12,7 +12,6 @@ const CheckBoxGroup = ({
   boxStyle,
   checkStyle,
   labelStyle,
-  checkboxPosition = 'left', // 'left' | 'right'
 }) => {
   const toggleSelection = value => {
     if (selectedValues.includes(value)) {
@@ -29,37 +28,14 @@ const CheckBoxGroup = ({
           key={index}
           style={[styles.optionContainer, optionStyle]}
           onPress={() => toggleSelection(opt.value)}>
-          {checkboxPosition === 'left' ? (
-            <>
-              <View style={[styles.checkBox, boxStyle]}>
-                {selectedValues.includes(opt.value) && (
-                  <View style={[styles.checked, checkStyle]}>
-                    <View style={styles.checkmark}>
-                      <View style={styles.checkmarkVector} />
-                    </View>
-                  </View>
-                )}
-              </View>
-              <Text style={[globalStyles.textMDGreyDark, labelStyle]}>
-                {opt.label}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={[globalStyles.textMDGreyDark, {flex: 1}, labelStyle]}>
-                {opt.label}
-              </Text>
-              <View style={[styles.checkBox, boxStyle]}>
-                {selectedValues.includes(opt.value) && (
-                  <View style={[styles.checked, checkStyle]}>
-                    <View style={styles.checkmark}>
-                      <View style={styles.checkmarkVector} />
-                    </View>
-                  </View>
-                )}
-              </View>
-            </>
-          )}
+          <View style={[styles.checkBox, boxStyle]}>
+            {selectedValues.includes(opt.value) && (
+              <View style={[styles.checked, checkStyle]} />
+            )}
+          </View>
+          <Text style={[globalStyles.textMDGreyDark, labelStyle]}>
+            {opt.label}
+          </Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -78,45 +54,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   checkBox: {
-    width: 24,
-    minWidth: 24,
-    height: 24,
-    minHeight: 24,
+    height: 20,
+    width: 20,
     borderWidth: 2,
     borderColor: '#444',
-    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
   checked: {
-    width: 24,
-    minWidth: 24,
-    height: 24,
-    minHeight: 24,
+    width: 12,
+    height: 12,
     backgroundColor: '#539461',
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 0,
-  },
-  checkmark: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    left: '50%',
-    top: '50%',
-    marginLeft: -8,
-    marginTop: -8,
-  },
-  checkmarkVector: {
-    width: 6,
-    height: 10,
-    borderRightWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: '#FFFFFF',
-    transform: [{rotate: '45deg'}],
-    marginLeft: 3,
-    marginTop: 1,
   },
 });

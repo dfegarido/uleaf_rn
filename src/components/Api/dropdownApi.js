@@ -267,17 +267,26 @@ export const getDeliveryOptionsApi = async () => {
 export const getCountryApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
+    
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getCountryApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
     }
-
-    const response = await fetch(API_ENDPOINTS.GET_COUNTRY, {
-      method: 'GET',
-      headers,
-    });
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_COUNTRY,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -304,17 +313,26 @@ export const getCountryApi = async () => {
 export const getListingTypeApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
+    
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getListingTypeApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
     }
-
-    const response = await fetch(API_ENDPOINTS.GET_LISTING_TYPE, {
-      method: 'GET',
-      headers,
-    });
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_LISTING_TYPE,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -341,17 +359,26 @@ export const getListingTypeApi = async () => {
 export const getShippingIndexApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
+    
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getShippingIndexApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
     }
-
-    const response = await fetch(API_ENDPOINTS.GET_SHIPPING_INDEX, {
-      method: 'GET',
-      headers,
-    });
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_SHIPPING_INDEX,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -378,17 +405,26 @@ export const getShippingIndexApi = async () => {
 export const getAcclimationIndexApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
+    
+    // If no auth token, return empty result instead of error
+    if (!authToken) {
+      console.log('No auth token available for getAcclimationIndexApi, skipping...');
+      return {
+        success: true,
+        data: []
+      };
     }
-
-    const response = await fetch(API_ENDPOINTS.GET_ACCLIMATION_INDEX, {
-      method: 'GET',
-      headers,
-    });
+    
+    const response = await fetch(
+      API_ENDPOINTS.GET_ACCLIMATION_INDEX,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

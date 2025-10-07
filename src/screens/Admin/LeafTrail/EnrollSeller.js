@@ -66,7 +66,7 @@ const EnrollSellerHeader = ({insets}) => {
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Enroll Seller</Text>
+        <Text style={styles.headerTitle}>Enrol Seller</Text>
 
         <View style={styles.placeholder} />
       </View>

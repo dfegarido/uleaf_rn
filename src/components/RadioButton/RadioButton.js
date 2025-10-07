@@ -11,7 +11,6 @@ const RadioButton = ({
   radioOuterStyle,
   radioInnerStyle,
   labelStyle,
-  shape = 'circle', // 'circle' | 'square'
 }) => {
   return (
     <View style={[styles.container, containerStyle]}>
@@ -23,30 +22,12 @@ const RadioButton = ({
           <Text style={[styles.optionText, labelStyle]}>{opt.label}</Text>
           <View
             style={[
-              styles.radioBase,
+              styles.radioCircle,
               radioOuterStyle,
-              {
-                borderColor: selected === opt.value ? '#539461' : '#647276',
-                borderRadius: shape === 'square' ? 6 : 12,
-                borderWidth: shape === 'square' && selected === opt.value ? 0 : 2,
-              },
+              {borderColor: selected === opt.value ? '#539461' : '#647276'},
             ]}>
             {selected === opt.value && (
-              shape === 'square' ? (
-                <View style={[styles.selectedSquare, radioInnerStyle]}>
-                  <View style={styles.checkmark}>
-                    <View style={styles.checkmarkVector} />
-                  </View>
-                </View>
-              ) : (
-                <View
-                  style={[
-                    styles.selectedBase,
-                    radioInnerStyle,
-                    { borderRadius: 5 },
-                  ]}
-                />
-              )
+              <View style={[styles.selectedRb, radioInnerStyle]} />
             )}
           </View>
         </TouchableOpacity>
@@ -66,50 +47,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  radioBase: {
-    width: 24,
-    minWidth: 24,
-    height: 24,
-    minHeight: 24,
+  radioCircle: {
+    height: 20,
+    width: 20,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: '#444',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
-  selectedBase: {
+  selectedRb: {
     width: 10,
     height: 10,
+    borderRadius: 5,
     backgroundColor: '#539461',
-  },
-  selectedSquare: {
-    width: 24,
-    minWidth: 24,
-    height: 24,
-    minHeight: 24,
-    backgroundColor: '#539461',
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmark: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    left: '50%',
-    top: '50%',
-    marginLeft: -8,
-    marginTop: -8,
-  },
-  checkmarkVector: {
-    width: 6,
-    height: 10,
-    borderRightWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: '#FFFFFF',
-    transform: [{rotate: '45deg'}],
-    marginLeft: 3,
-    marginTop: 1,
   },
   optionText: {
     color: '#393D40',
