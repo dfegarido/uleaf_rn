@@ -2,15 +2,15 @@
  * Utility functions to convert between numeric index values and display labels
  * 
  * Mapping:
- * - 3 = Good (3-5)
- * - 7 = Better (4-6)
- * - 10 = Best (7-10)
+ * - 1-3 = Good
+ * - 4-6 = Better
+ * - 7-10 = Best
  */
 
 /**
  * Convert numeric shipping/acclimation index to display label
- * @param {number|string} value - Numeric value (3, 7, 10) or old numeric strings (1-10) or already a label
- * @returns {string} Display label (e.g., "Good (3-5)")
+ * @param {number|string} value - Numeric value (1-10) or already a label
+ * @returns {string} Display label (e.g., "Good (1-3)")
  */
 export const convertIndexToLabel = (value) => {
   // If value is already a string label, return it
@@ -25,16 +25,10 @@ export const convertIndexToLabel = (value) => {
     return '';
   }
 
-  // Map numeric values to labels (support both new standardized values and old migration values)
-  // New standard values: 3, 7, 10
-  if (numValue === 3) return 'Good (3-5)';
-  if (numValue === 7) return 'Better (4-6)';
-  if (numValue === 10) return 'Best (7-10)';
-
-  // Old migration values: 1-10 scale, map to closest category
-  if (numValue >= 1 && numValue <= 5) return 'Good (3-5)';
-  if (numValue >= 6 && numValue <= 8) return 'Better (4-6)';
-  if (numValue >= 9 && numValue <= 10) return 'Best (7-10)';
+  // Map numeric values to labels based on ranges: 1-3 Good, 4-6 Better, 7-10 Best
+  if (numValue >= 1 && numValue <= 3) return 'Good (1-3)';
+  if (numValue >= 4 && numValue <= 6) return 'Better (4-6)';
+  if (numValue >= 7 && numValue <= 10) return 'Best (7-10)';
 
   // Default fallback - if outside expected range, show as-is
   return value?.toString() || '';
@@ -43,32 +37,32 @@ export const convertIndexToLabel = (value) => {
 /**
  * Convert label to numeric value
  * @param {string|number} label - Display label or numeric value
- * @returns {number} Numeric value (3, 7, or 10)
+ * @returns {number} Numeric value (1-10)
  */
 export const convertLabelToValue = (label) => {
-  // If already a number, return it
+  // If already a number, return it as-is (should be 1-10)
   if (typeof label === 'number') {
-    // Map to standard values (3, 7, 10)
-    if (label <= 5) return 3;
-    if (label <= 8) return 7;
-    return 10;
+    // Clamp to valid range 1-10
+    if (label < 1) return 1;
+    if (label > 10) return 10;
+    return label;
   }
 
   // If string number, parse it
   if (typeof label === 'string') {
     const numValue = parseFloat(label);
     if (!isNaN(numValue)) {
-      // Map to standard values (3, 7, 10)
-      if (numValue <= 5) return 3;
-      if (numValue <= 8) return 7;
-      return 10;
+      // Clamp to valid range 1-10
+      if (numValue < 1) return 1;
+      if (numValue > 10) return 10;
+      return numValue;
     }
 
-    // Match label patterns
+    // Match label patterns - return middle of range
     const lowerLabel = label.toLowerCase();
-    if (lowerLabel.includes('good')) return 3;
-    if (lowerLabel.includes('better')) return 7;
-    if (lowerLabel.includes('best')) return 10;
+    if (lowerLabel.includes('good')) return 2;  // Middle of 1-3
+    if (lowerLabel.includes('better')) return 5;  // Middle of 4-6
+    if (lowerLabel.includes('best')) return 8;  // Middle of 7-10
   }
 
   return 0;
@@ -79,9 +73,9 @@ export const convertLabelToValue = (label) => {
  * @returns {Array} Array of index options with id, name, and value
  */
 export const getIndexOptions = () => [
-  { id: 'good', name: 'Good (3-5)', value: 3 },
-  { id: 'better', name: 'Better (4-6)', value: 7 },
-  { id: 'best', name: 'Best (7-10)', value: 10 }
+  { id: 'good', name: 'Good (1-3)', value: 2 },
+  { id: 'better', name: 'Better (4-6)', value: 5 },
+  { id: 'best', name: 'Best (7-10)', value: 8 }
 ];
 
 /**
