@@ -10,8 +10,10 @@ import {
   ScrollView,
   Linking,
   Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
+import RNFS from 'react-native-fs';
 
 // Import icons
 import CloseIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -23,6 +25,7 @@ import CheckIcon from '../../../assets/admin-icons/check-approve.svg';
 // Import API
 import { importTaxonomyDataApi } from '../../../components/Api/importTaxonomyDataApi';
 import { getStoredAdminId } from '../../../utils/getStoredUserInfo';
+import { API_ENDPOINTS } from '../../../config/apiConfig';
 
 const BatchUpdateModal = ({ visible, onClose, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -34,35 +37,116 @@ const BatchUpdateModal = ({ visible, onClose, onSuccess }) => {
   const handleDownloadTemplate = async () => {
     try {
       setIsDownloading(true);
-      console.log('📥 Opening taxonomy template download...');
+      console.log('📥 Starting taxonomy template download...');
 
-      // Get the API base URL
-      const API_CONFIG = require('../../../config/apiConfig').API_CONFIG;
-      const templateUrl = `${API_CONFIG.BASE_URL}/downloadTaxonomyTemplate`;
-      
+      // Request storage permission on Android
+      if (Platform.OS === 'android') {
+        try {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+            {
+              title: 'Storage Permission',
+              message: 'App needs access to your storage to download the template file.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            }
+          );
+          
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            Alert.alert('Permission Denied', 'Storage permission is required to download files.');
+            return;
+          }
+        } catch (err) {
+          console.warn('Permission request error:', err);
+        }
+      }
+
+      const templateUrl = API_ENDPOINTS.DOWNLOAD_TAXONOMY_TEMPLATE;
       console.log('🌐 Template URL:', templateUrl);
 
-      // Open the URL in browser/Safari - this will trigger download
-      const supported = await Linking.canOpenURL(templateUrl);
-      
-      if (supported) {
-        await Linking.openURL(templateUrl);
+      // Generate filename with timestamp
+      const timestamp = new Date().getTime();
+      const fileName = `taxonomy_template_${timestamp}.xlsx`;
+
+      // Determine download path based on platform
+      const downloadPath = Platform.OS === 'ios'
+        ? `${RNFS.DocumentDirectoryPath}/${fileName}`
+        : `${RNFS.DownloadDirectoryPath}/${fileName}`;
+
+      console.log('📁 Download path:', downloadPath);
+
+      // Show progress alert
+      Alert.alert(
+        'Downloading Template',
+        'Please wait while the template is being downloaded...',
+        [],
+        { cancelable: false }
+      );
+
+      // Download the file
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: templateUrl,
+        toFile: downloadPath,
+        background: true,
+        discretionary: true,
+        cacheable: true,
+        progressDivider: 10,
+        begin: (res) => {
+          console.log('📊 Download started:', res);
+        },
+        progress: (res) => {
+          const progress = (res.bytesWritten / res.contentLength) * 100;
+          console.log(`📈 Download progress: ${progress.toFixed(0)}%`);
+        },
+      }).promise;
+
+      if (downloadResult.statusCode === 200) {
+        console.log('✅ Template downloaded successfully to:', downloadPath);
         
-        Alert.alert(
-          'Template Download',
-          Platform.OS === 'ios' 
-            ? '📱 iOS Instructions:\n\n1. Safari will open and auto-download\n2. Tap Downloads (↓) in Safari\n3. Tap the .xlsx file to open\n4. Edit in Numbers/Excel\n5. Save/export to Files\n6. When uploading: Browse → iCloud Drive → Downloads folder'
-            : 'The template is downloading to your Downloads folder.',
-          [{ text: 'Got it!' }]
-        );
+        // Different success messages for iOS and Android
+        if (Platform.OS === 'ios') {
+          Alert.alert(
+            'Download Complete! ✅',
+            `Template saved to:\n${fileName}\n\n📱 iOS Instructions:\n\n1. Tap "Browse" when uploading\n2. Go to "On My iPhone" → iLeafU folder\n3. Find ${fileName}\n4. Edit in Numbers/Excel if needed\n5. Save and upload`,
+            [
+              {
+                text: 'Open Files App',
+                onPress: () => Linking.openURL('shareddocuments://'),
+              },
+              { text: 'OK' }
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Download Complete! ✅',
+            `Template saved to:\nDownloads/${fileName}\n\n📱 Android Instructions:\n\n1. Open "My Files" or "Downloads" app\n2. Find ${fileName}\n3. Edit in Excel/Sheets if needed\n4. When uploading, browse to Downloads folder`,
+            [
+              {
+                text: 'Open Downloads',
+                onPress: () => {
+                  // Try to open the file directly
+                  RNFS.exists(downloadPath).then(exists => {
+                    if (exists) {
+                      Linking.openURL(`file://${downloadPath}`).catch(err => {
+                        console.log('Could not open file:', err);
+                      });
+                    }
+                  });
+                },
+              },
+              { text: 'OK' }
+            ]
+          );
+        }
       } else {
-        throw new Error('Cannot open URL');
+        throw new Error(`Download failed with status code: ${downloadResult.statusCode}`);
       }
     } catch (error) {
       console.error('❌ Template download failed:', error);
       Alert.alert(
         'Download Failed',
-        error.message || 'Failed to open template download. Please try again.'
+        error.message || 'Failed to download template. Please check your internet connection and try again.'
       );
     } finally {
       setIsDownloading(false);

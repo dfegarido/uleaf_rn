@@ -1,7 +1,7 @@
 // API Configuration for local and production environments
 
 // Set this to true for local development, false for production
-const USE_LOCAL_API = true;
+const USE_LOCAL_API = false;
 
 // Local development endpoints (Firebase Functions Emulator)
 // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
@@ -129,6 +129,7 @@ const generateEndpoints = () => ({
   DELETE_PLANT_TAXONOMY: `${getBaseUrl()}/deletePlantTaxonomy`,
   GET_SPECIES_FOR_GENUS: `${getBaseUrl()}/getSpeciesForGenus`,
   IMPORT_TAXONOMY_DATA: `${getBaseUrl()}/importTaxonomyData`,
+  DOWNLOAD_TAXONOMY_TEMPLATE: `${getBaseUrl()}/downloadTaxonomyTemplate`,
   MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getBaseUrl()}/migratePlantCatalogToTaxonomy`,
   // Genus Request Workflow
   INSERT_GENUS_REQUEST: `${getBaseUrl()}/insertGenusRequest`,
