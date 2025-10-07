@@ -11,9 +11,11 @@ import {
 } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -1305,13 +1307,14 @@ const CheckoutScreen = () => {
 
   const handleCheckout = async () => {
     try {
-      setLoading(true);
-
-      // Validate required data
+      // Validate required data first before setting loading
       if (!plantItems || plantItems.length === 0) {
         Alert.alert('Error', 'No items to checkout');
         return;
       }
+      
+      // Set loading state to disable button and show loading UI
+      setLoading(true);
 
       // Prepare order data for API
       const orderData = {
@@ -1456,58 +1459,39 @@ const CheckoutScreen = () => {
 
       console.log('🛒 Starting checkout with order data:', orderData);
 
-      // Show confirmation dialog
-      Alert.alert(
-        'Confirm Order',
-        `Total: ${formatCurrencyFull(
-          orderSummary.finalTotal,
-        )}\n\nProceed with checkout?`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Proceed',
-            onPress: async () => {
-              // Call checkout API
-              const result = await checkoutApi(orderData);
+      // Call checkout API without showing confirmation dialog first
+      // The loading state is already active, so the button is disabled
+      const result = await checkoutApi(orderData);
 
-              if (result.success) {
-                const {transactionNumber, paypalOrderId, approvalUrl, orderId, orderSummary} =
-                  result.data;
-                setTransactionNum(transactionNumber);
+      if (result.success) {
+        const {transactionNumber, paypalOrderId, approvalUrl, orderId, orderSummary} =
+          result.data;
+        setTransactionNum(transactionNumber);
 
-                Alert.alert(
-                  'Order Created Successfully!',
-                  `Order #${transactionNumber} has been created.\n\nYou will now be redirected to complete payment.`,
-                  [
-                    {
-                      text: 'Complete Payment',
-                      onPress: () => {
-                        // TODO: Payment module integration pending
-                        // Currently redirecting to orders screen while waiting for payment module to be finished
-                        console.log(
-                          '💳 Payment button clicked - redirecting to orders screen',
-                        );
-                        Linking.openURL(
-                          `${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${transactionNumber}`,
-                        );
-                      },
-                    },
-                  ],
-                );
-              } else {
-                Alert.alert(
-                  'Checkout Failed',
-                  result.error ||
-                    'An error occurred during checkout. Please try again.',
-                );
-              }
-            },
-          },
-        ],
-      );
+        // Stop loading before navigation
+        setLoading(false);
+
+        // Navigate to Orders screen immediately after order creation
+        // This prevents the issue where user returns to empty cart after payment cancellation
+        navigation.navigate('Orders');
+
+        // Open payment URL after a brief delay to ensure navigation completes
+        setTimeout(() => {
+          console.log('💳 Opening payment page for order:', transactionNumber);
+          Linking.openURL(
+            `${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${transactionNumber}`,
+          );
+        }, 500);
+      } else {
+        // Stop loading before showing error
+        setLoading(false);
+        
+        Alert.alert(
+          'Checkout Failed',
+          result.error ||
+            'An error occurred during checkout. Please try again.',
+        );
+      }
     } catch (error) {
       console.error('❌ Checkout error:', error);
       Alert.alert(
@@ -2248,6 +2232,21 @@ const CheckoutScreen = () => {
           <View style={styles.gestureBar} />
         </View>
       </View>
+
+      {/* Loading Modal */}
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={loading}
+        onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ActivityIndicator size="large" color="#2E7D32" />
+            <Text style={styles.modalText}>Processing your order...</Text>
+            <Text style={styles.modalSubtext}>Please wait</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -4075,6 +4074,43 @@ const styles = StyleSheet.create({
     marginLeft: -74, // Center the gesture bar
     backgroundColor: '#202325',
     borderRadius: 100,
+  },
+  // Loading Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#202325',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  modalSubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontFamily: 'Inter',
   },
 });
 
