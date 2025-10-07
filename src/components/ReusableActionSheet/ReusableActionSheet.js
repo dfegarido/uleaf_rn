@@ -179,11 +179,13 @@ const ReusableActionSheet = ({
                 options={genusOptions}
                 selectedValues={genusValue}
                 onChange={genusChange}
+                checkboxPosition="right"
                 optionStyle={{
                   justifyContent: 'space-between',
                   paddingHorizontal: 20,
                   paddingBottom: 10,
                 }}
+                labelStyle={{textAlign: 'left'}}
               />
             </ScrollView>
             <View
@@ -233,13 +235,19 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
             <ScrollView style={{marginBottom: 60}}>
-              <SelectableItemList
-                options={variegationOptions.filter(
-                  opt => opt.value !== 'Choose the most suitable variegation.',
-                )}
-                selectedValues={variegationValue}
-                onSelectionChange={variegationChange}
-              />
+              {(!variegationOptions || variegationOptions.length === 0) ? (
+                <Text style={{padding: 20, color: '#7F8D91'}}>
+                  No options available
+                </Text>
+              ) : (
+                <SelectableItemList
+                  options={variegationOptions.filter(
+                    opt => opt.value !== 'Choose the most suitable variegation.',
+                  )}
+                  selectedValues={variegationValue}
+                  onSelectionChange={variegationChange}
+                />
+              )}
             </ScrollView>
             <View
               style={{
@@ -289,16 +297,24 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            <CheckBoxGroup
-              options={listingTypeOptions}
-              selectedValues={listingTypeValue}
-              onChange={listingTypeChange}
-              optionStyle={{
-                justifyContent: 'space-between',
-                paddingHorizontal: 20,
-                paddingBottom: 10,
-              }}
-            />
+            {(!listingTypeOptions || listingTypeOptions.length === 0) ? (
+              <Text style={{padding: 20, color: '#7F8D91'}}>
+                No options available
+              </Text>
+            ) : (
+              <CheckBoxGroup
+                options={listingTypeOptions}
+                selectedValues={listingTypeValue}
+                onChange={listingTypeChange}
+                checkboxPosition="right"
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 10,
+                }}
+                labelStyle={{textAlign: 'left'}}
+              />
+            )}
 
             <View
               style={{
@@ -346,16 +362,24 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            <CheckBoxGroup
-              options={listingTypeOptions}
-              selectedValues={listingTypeValue}
-              onChange={listingTypeChange}
-              optionStyle={{
-                justifyContent: 'space-between',
-                paddingHorizontal: 20,
-                paddingBottom: 10,
-              }}
-            />
+            {(!listingTypeOptions || listingTypeOptions.length === 0) ? (
+              <Text style={{padding: 20, color: '#7F8D91'}}>
+                No options available
+              </Text>
+            ) : (
+              <CheckBoxGroup
+                options={listingTypeOptions}
+                selectedValues={listingTypeValue}
+                onChange={listingTypeChange}
+                checkboxPosition="right"
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 10,
+                }}
+                labelStyle={{textAlign: 'left'}}
+              />
+            )}
 
             <View
               style={{
@@ -393,25 +417,32 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'50%'}>
+            heightPercent={'40%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Country</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
-              <RadioButton
-                options={countryOptions}
-                selected={countryValue}
-                onSelect={countryChange}
-                containerStyle={{marginTop: 20}}
-                optionStyle={{
-                  justifyContent: 'space-between',
-                  paddingHorizontal: 20,
-                  paddingBottom: 15,
-                }}
-              />
+            <ScrollView style={{marginBottom: 10}}>
+              {(!countryOptions || countryOptions.length === 0) ? (
+                <Text style={{padding: 20, color: '#7F8D91'}}>
+                  No options available
+                </Text>
+              ) : (
+                <RadioButton
+                  options={countryOptions}
+                  selected={countryValue}
+                  onSelect={countryChange}
+                  containerStyle={{marginTop: 8}}
+                  optionStyle={{
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                  }}
+                  shape="square"
+                />
+              )}
             </ScrollView>
             <View
               style={{
@@ -456,17 +487,24 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
             <ScrollView style={{marginBottom: 60}}>
-              <RadioButton
-                options={shippingIndexOptions}
-                selected={shippingIndexValue}
-                onSelect={shippingIndexChange}
-                containerStyle={{marginTop: 20}}
-                optionStyle={{
-                  justifyContent: 'space-between',
-                  paddingHorizontal: 20,
-                  paddingBottom: 15,
-                }}
-              />
+              {(!shippingIndexOptions || shippingIndexOptions.length === 0) ? (
+                <Text style={{padding: 20, color: '#7F8D91'}}>
+                  No options available
+                </Text>
+              ) : (
+                <RadioButton
+                  options={shippingIndexOptions}
+                  selected={shippingIndexValue}
+                  onSelect={shippingIndexChange}
+                  containerStyle={{marginTop: 8}}
+                  optionStyle={{
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                  }}
+                  shape="square"
+                />
+              )}
             </ScrollView>
             <View
               style={{
@@ -511,17 +549,24 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
             <ScrollView style={{marginBottom: 60}}>
-              <RadioButton
-                options={acclimationIndexOptions}
-                selected={acclimationIndexValue}
-                onSelect={acclimationIndexChange}
-                containerStyle={{marginTop: 20}}
-                optionStyle={{
-                  justifyContent: 'space-between',
-                  paddingHorizontal: 20,
-                  paddingBottom: 15,
-                }}
-              />
+              {(!acclimationIndexOptions || acclimationIndexOptions.length === 0) ? (
+                <Text style={{padding: 20, color: '#7F8D91'}}>
+                  No options available
+                </Text>
+              ) : (
+                <RadioButton
+                  options={acclimationIndexOptions}
+                  selected={acclimationIndexValue}
+                  onSelect={acclimationIndexChange}
+                  containerStyle={{marginTop: 8}}
+                  optionStyle={{
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                  }}
+                  shape="square"
+                />
+              )}
             </ScrollView>
             <View
               style={{

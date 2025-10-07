@@ -1049,7 +1049,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                     </View>
                   </View>
                 </View>
-                <Text style={styles.plantDetailLabel}>Pay upfront, earn back when you and shipping buddies reach $500 on 15 plants.</Text>
+                <Text style={styles.plantDetailLabel}>Pay upfront, earn it back when you and your shipping buddies reach $500 on 15 plants.</Text>
               </View>
             </View>
             <View style={styles.plantDetailItem}>

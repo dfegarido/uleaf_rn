@@ -220,16 +220,14 @@ const styles = StyleSheet.create({
   },
   discountRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     padding: 0,
     gap: 4,
-    width: 105,
     height: 20,
     flex: 0,
   },
   discountLabel: {
-    width: 53,
     height: 20,
     fontFamily: 'Inter',
     fontStyle: 'normal',
@@ -238,10 +236,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#E7522F',
     flex: 0,
-    flexGrow: 0,
+    flexShrink: 0,
   },
   discountValue: {
-    width: 48,
     height: 20,
     fontFamily: 'Inter',
     fontStyle: 'normal',
@@ -250,7 +247,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#E7522F',
     flex: 0,
-    flexGrow: 0,
+    flexShrink: 0,
   },
   actionContainer: {
     flexDirection: 'row',
