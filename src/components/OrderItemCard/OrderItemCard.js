@@ -129,36 +129,11 @@ const OrderItemCard = ({
       }
     };
 
-    // Prefer fetching the exact order-detail payload and pass it to the screen
-    try {
-      const transactionNumber = fullOrderData?.transactionNumber;
-      const codeForPlant = plantCode;
-      if (transactionNumber && codeForPlant) {
-        console.log('OrderItemCard - Fetching order detail before navigation', { transactionNumber, plantCode: codeForPlant });
-        const resp = await getOrderDetailApi({ transactionNumber, plantCode: codeForPlant });
-        if (resp.success && resp.data?.data) {
-          console.log('OrderItemCard - Passing API payload to OrderDetailsScreen');
-          navigation.navigate('OrderDetailsScreen', {
-            // Minimal orderData context (ids, tab), actual data in orderDetailPayload
-            orderData: {
-              id: fullOrderData?.id,
-              transactionNumber,
-              plantCode: codeForPlant,
-            },
-            orderDetailPayload: resp.data.data,
-            activeTab: activeTab,
-          });
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('OrderItemCard - Pre-fetch order detail failed, falling back to local data', e?.message);
-    }
-
-    // Fallback: navigate with locally composed data (robust date handling)
+    // Navigate immediately with available data (shows skeleton/loading state)
     const orderDataToPass = {
       id: fullOrderData?.id,
       transactionNumber: fullOrderData?.transactionNumber,
+      plantCode: plantCode,
       fullOrderData: fullOrderData,
       invoiceNumber: fullOrderData?.transactionNumber || plantCode,
       plantFlight: airCargoDate,
@@ -177,8 +152,13 @@ const OrderItemCard = ({
       deliveryAddress: '123 Main Street\nNew York, NY 10001\nUnited States',
     };
 
-    console.log('OrderItemCard - Navigating with fallback orderData:', orderDataToPass);
-    navigation.navigate('OrderDetailsScreen', { orderData: orderDataToPass, activeTab: activeTab });
+    console.log('OrderItemCard - Navigating immediately to OrderDetailsScreen');
+    
+    // Navigate immediately - the OrderDetailsScreen will show skeleton and fetch details
+    navigation.navigate('OrderDetailsScreen', { 
+      orderData: orderDataToPass, 
+      activeTab: activeTab 
+    });
   };
 
   return (
@@ -190,6 +170,12 @@ const OrderItemCard = ({
             <Text style={[styles.status, styles.plantStatus]}>{plantStatus}</Text>
           ) : (
             <Text style={styles.status}>{status}</Text>
+          )}
+          {/* Show Pending Payment badge for Pay to Board items */}
+          {activeTab === 'Pay to Board' && (
+            <View style={styles.pendingPaymentBadge}>
+              <Text style={styles.pendingPaymentText}>Pending Payment</Text>
+            </View>
           )}
           {creditApproved && (
             <View style={styles.creditApprovedButton}>
@@ -331,6 +317,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   creditApprovedText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pendingPaymentBadge: {
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  pendingPaymentText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',

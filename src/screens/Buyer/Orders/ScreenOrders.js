@@ -15,6 +15,7 @@ import NetInfo from '@react-native-community/netinfo';
 import ScreenReadyToFly from './ScreenReadyToFly';
 import ScreenPlantsAreHome from './ScreenPlantsAreHome';
 import ScreenJourneyMishap from './ScreenJourneyMishap';
+import ScreenPayToBoard from './ScreenPayToBoard';
 
 // Header height constant for safe area calculations
 const HEADER_HEIGHT = 140;
@@ -88,6 +89,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
   };
 
   const tabFilters = [
+    {filterKey: 'Pay to Board'},
     {filterKey: 'Ready to Fly'},
     {filterKey: 'Plants are Home'},
     {filterKey: 'Journey Mishap'},
@@ -226,12 +228,14 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{flexGrow: 0, paddingVertical: 8}}
+        style={{flexGrow: 0}}
         contentContainerStyle={{
           flexDirection: 'row',
           gap: 10,
           alignItems: 'center',
           paddingHorizontal: 10,
+          paddingTop: 8,
+          paddingBottom: 12,
         }}>
         {filterOptions.map((option, idx) => (
           <View
@@ -287,17 +291,19 @@ const ScreenOrders = () => {
     switch (activeTab) {
       case 'Ready to Fly':
         return <ScreenReadyToFly {...childProps} />;
+      case 'Pay to Board':
+        return <ScreenPayToBoard {...childProps} />;
       case 'Plants are Home':
         return <ScreenPlantsAreHome {...childProps} />;
       case 'Journey Mishap':
         return <ScreenJourneyMishap {...childProps} />;
       default:
-        return <ScreenReadyToFly {...childProps} />;
+        return <ScreenPayToBoard {...childProps} />;
     }
   };
 
   return (
-    <SafeAreaView style={[styles.container, {paddingTop: HEADER_HEIGHT }]}>
+    <SafeAreaView style={[styles.container]}>
       <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       
       {/* Content area with dynamic screen based on active tab */}
@@ -316,6 +322,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+    marginTop: 100,
   },
   stickyHeader: {
     position: 'absolute',

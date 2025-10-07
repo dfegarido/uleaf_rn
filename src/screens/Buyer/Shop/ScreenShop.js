@@ -590,8 +590,19 @@ const ScreenShop = ({navigation}) => {
     try {
       setLoadingEventsData(true);
 
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
+      // Robust network check: NetInfo.isInternetReachable can be null on some
+      // platforms (meaning "unknown"). Only treat it as offline when it's
+      // explicitly false. If NetInfo.fetch() itself fails, log and proceed
+      // with the network request (the fetch will surface any real errors).
+      let netState;
+      try {
+        netState = await NetInfo.fetch();
+      } catch (netErr) {
+        console.warn('NetInfo.fetch failed, proceeding to call events API', netErr);
+        netState = { isConnected: true, isInternetReachable: null };
+      }
+
+      if (netState.isConnected === false || netState.isInternetReachable === false) {
         throw new Error('No internet connection.');
       }
 

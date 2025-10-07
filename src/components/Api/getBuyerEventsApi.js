@@ -11,6 +11,12 @@ export const getBuyerEventsApi = async (options = {}) => {
   try {
     const {limit = 10, category = 'announcement'} = options;
     const token = await getStoredAuthToken();
+    // If token is missing, fail fast with a clear message so callers can
+    // differentiate auth issues from network issues.
+    if (!token) {
+      console.warn('getBuyerEventsApi: missing auth token');
+      throw new Error('Not authenticated');
+    }
     const url = API_ENDPOINTS.GET_NEWS_AND_EVENT(limit, category);
     const response = await fetch(url, {
       method: 'GET',

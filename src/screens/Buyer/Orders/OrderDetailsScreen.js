@@ -72,9 +72,10 @@ const OrderDetailsScreen = () => {
         if (!dateValue) return null;
         
         try {
-          // Handle Firestore timestamp format
-          if (dateValue.seconds) {
-            return new Date(dateValue.seconds * 1000);
+          // Handle Firestore timestamp format (both formats)
+          if (dateValue.seconds || dateValue._seconds) {
+            const seconds = dateValue.seconds || dateValue._seconds;
+            return new Date(seconds * 1000);
           }
           // Handle ISO string format
           if (typeof dateValue === 'string') {
@@ -185,7 +186,10 @@ const OrderDetailsScreen = () => {
               orderId: detailedOrder.id,
               transactionNumber: detailedOrder.transactionNumber,
               hasPlantDetails: !!plantRecord?.plantDetails,
-              hasOrder: !!detailedOrder.id
+              hasOrder: !!detailedOrder.id,
+              orderDate: detailedOrder.orderDate,
+              createdAt: detailedOrder.createdAt,
+              orderKeys: Object.keys(detailedOrder)
             });
             
             // Transform the comprehensive API data for the UI based on active tab
@@ -251,6 +255,7 @@ const OrderDetailsScreen = () => {
               // Payment info
               paymentMethod: detailedOrder.paymentMethod || 'Not specified',
               paymentStatus: detailedOrder.paymentStatus || detailedOrder.status || 'Ready to Fly',
+              paymentUrl: detailedOrder.paymentUrl || detailedOrder.checkoutUrl || detailedOrder.payment?.url || null,
 
               // Additional comprehensive data
               supplierName: plantRecord.supplierName || plantRecord.plantDetails?.supplierName || detailedOrder.supplierInfo?.supplierName || detailedOrder.supplierName || 'Unknown Supplier',
@@ -341,6 +346,7 @@ const OrderDetailsScreen = () => {
         // Payment info
         paymentMethod: realOrder.paymentMethod || 'Not specified',
         paymentStatus: realOrder.payment?.status || realOrder.paymentStatus || 'Ready to Fly',
+        paymentUrl: realOrder.paymentUrl || realOrder.checkoutUrl || realOrder.payment?.url || null,
         
         // Supplier info
         supplierName: plantDetails?.supplierName || realOrder.supplierName || 'Unknown Supplier',
@@ -496,12 +502,17 @@ const OrderDetailsScreen = () => {
     );
 
     return (
-      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         {/* Header */}
-        <View style={[styles.header, { paddingTop: Math.min(insets.top, 12) }] }>
+        <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => {
+              // Navigate to Orders screen instead of going back
+              if (navigation.canGoBack()) {
+                navigation.navigate('Orders');
+              }
+            }}>
             <BackIcon width={24} height={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Order Details</Text>
@@ -510,62 +521,87 @@ const OrderDetailsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* Invoice Header Skeleton */}
-          <View style={styles.invoiceHeader}>
-            <ShimmerBox style={styles.skeletonInvoiceNumber} />
-            <View style={styles.flightInfo}>
-              <ShimmerBox style={styles.skeletonIcon} />
-              <ShimmerBox style={styles.skeletonFlightDate} />
+        <ScrollView 
+          style={styles.scrollView} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 40) }}>
+          
+          {/* Status Details Skeleton */}
+          <View style={styles.statusDetails}>
+            <View style={styles.titleContainer}>
+              <ShimmerBox style={styles.skeletonTitle} />
             </View>
-          </View>
-
-          {/* Status Section Skeleton */}
-          <View style={styles.section}>
-            <ShimmerBox style={styles.skeletonSectionTitle} />
-            <View style={styles.statusCard}>
-              <ShimmerBox style={styles.skeletonStatusBadge} />
-              <ShimmerBox style={styles.skeletonTrackingNumber} />
-            </View>
-          </View>
-
-          {/* Plant Details Skeleton */}
-          <View style={styles.section}>
-            <ShimmerBox style={styles.skeletonSectionTitle} />
-            <View style={styles.plantCard}>
-              <ShimmerBox style={styles.skeletonPlantImage} />
-              <View style={styles.plantInfo}>
-                <ShimmerBox style={styles.skeletonPlantName} />
-                <ShimmerBox style={styles.skeletonPlantDetails} />
-                <ShimmerBox style={styles.skeletonPlantPrice} />
+            <View style={styles.detailsContainer}>
+              <View style={styles.detailRow}>
+                <ShimmerBox style={styles.skeletonLabel} />
+                <ShimmerBox style={styles.skeletonValue} />
+              </View>
+              <View style={styles.detailRow}>
+                <ShimmerBox style={styles.skeletonLabel} />
+                <ShimmerBox style={styles.skeletonValue} />
               </View>
             </View>
           </View>
 
-          {/* Delivery Info Skeleton */}
-          <View style={styles.section}>
-            <ShimmerBox style={styles.skeletonSectionTitle} />
-            <View style={styles.deliveryCard}>
-              <ShimmerBox style={styles.skeletonDeliveryAddress} />
-              <ShimmerBox style={styles.skeletonDeliveryPhone} />
-            </View>
-          </View>
-
-          {/* Pricing Skeleton */}
-          <View style={styles.section}>
-            <ShimmerBox style={styles.skeletonSectionTitle} />
-            <View style={styles.pricingCard}>
-              {[1, 2, 3, 4].map((item) => (
-                <View key={item} style={styles.pricingRow}>
-                  <ShimmerBox style={styles.skeletonPricingLabel} />
-                  <ShimmerBox style={styles.skeletonPricingValue} />
+          {/* Plant List Skeleton */}
+          <View style={styles.plantList}>
+            <View style={styles.plantContainer}>
+              <View style={styles.plantCard}>
+                <View style={styles.imageContainer}>
+                  <ShimmerBox style={styles.skeletonPlantImage} />
                 </View>
-              ))}
+                <View style={styles.plantDetails}>
+                  <ShimmerBox style={styles.skeletonPlantName} />
+                  <ShimmerBox style={styles.skeletonPlantVariety} />
+                  <ShimmerBox style={styles.skeletonPlantSize} />
+                  <View style={styles.priceQuantityRow}>
+                    <ShimmerBox style={styles.skeletonPrice} />
+                    <ShimmerBox style={styles.skeletonQuantity} />
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
 
-          {/* Action Buttons Skeleton */}
-          <View style={styles.actionButtonsContainer}>
+          {/* Shipping Details Skeleton */}
+          <View style={styles.shippingDetails}>
+            <View style={styles.sectionTitle}>
+              <ShimmerBox style={styles.skeletonSectionTitle} />
+            </View>
+            <View style={styles.shippingDetailsContent}>
+              <View style={styles.detailRow}>
+                <ShimmerBox style={styles.skeletonLabel} />
+                <ShimmerBox style={styles.skeletonValue} />
+              </View>
+            </View>
+          </View>
+
+          {/* Delivery Details Skeleton */}
+          <View style={styles.deliveryDetails}>
+            <View style={styles.sectionTitleContainer}>
+              <ShimmerBox style={styles.skeletonSectionTitle} />
+            </View>
+            <View style={styles.addressList}>
+              <View style={styles.addressContent}>
+                <View style={styles.iconCircle}>
+                  <ShimmerBox style={styles.skeletonIcon} />
+                </View>
+                <View style={styles.addressDetails}>
+                  <ShimmerBox style={styles.skeletonAddress} />
+                  <ShimmerBox style={styles.skeletonAddressLine} />
+                </View>
+              </View>
+            </View>
+            <View style={styles.datesContainer}>
+              <View style={styles.detailRow}>
+                <ShimmerBox style={styles.skeletonLabel} />
+                <ShimmerBox style={styles.skeletonValue} />
+              </View>
+            </View>
+          </View>
+
+          {/* Invoice Button Skeleton */}
+          <View style={styles.invoiceSection}>
             <ShimmerBox style={styles.skeletonActionButton} />
           </View>
         </ScrollView>
@@ -661,11 +697,16 @@ const OrderDetailsScreen = () => {
   // Show loading state if order is not yet loaded
   if (!order) {
     return (
-      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
-        <View style={[styles.header, { paddingTop: Math.min(insets.top, 12) }] }>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => navigation.goBack()}>
+            onPress={() => {
+              // Navigate to Orders screen instead of going back
+              if (navigation.canGoBack()) {
+                navigation.navigate('Orders');
+              }
+            }}>
             <BackIcon width={24} height={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Order Details</Text>
@@ -683,12 +724,17 @@ const OrderDetailsScreen = () => {
   }
 
     return (
-      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         {/* Header */}
-        <View style={[styles.header, { paddingTop: Math.min(insets.top, 25) }] }>
+        <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => {
+            // Navigate to Orders screen instead of going back
+            if (navigation.canGoBack()) {
+              navigation.navigate('Orders');
+            }
+          }}>
           <BackIcon width={24} height={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Order Details</Text>
@@ -700,7 +746,7 @@ const OrderDetailsScreen = () => {
       <ScrollView 
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) }}>
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 40) }}>
         {/* Status Details */}
         <View style={styles.statusDetails}>
           {/* Title */}
@@ -1012,12 +1058,48 @@ const OrderDetailsScreen = () => {
 
         {/* Invoice */}
         <View style={styles.invoiceSection}>
-          <TouchableOpacity style={styles.invoiceButton} onPress={handleDownloadInvoice}>
-            <DownloadIcon width={24} height={24} />
-            <View style={styles.buttonTextContainer}>
-              <Text style={styles.buttonText}>Download Invoice</Text>
-            </View>
-          </TouchableOpacity>
+          {/* Show Complete Payment button for Pay to Board orders */}
+          {activeTab === 'Pay to Board' && (
+            <TouchableOpacity 
+              style={styles.paymentButton} 
+              onPress={() => {
+                // Get the order transaction number and total
+                const transactionNumber = order?.invoiceNumber || order?.transactionNumber;
+                const orderTotal = order?.pricing?.finalTotal || 0;
+                
+                console.log('💳 Opening payment for order:', transactionNumber, 'Amount:', orderTotal);
+                
+                // Import paymentPaypalVenmoUrl from config
+                const { paymentPaypalVenmoUrl } = require('../../../../config');
+                const { Linking } = require('react-native');
+                
+                // Open payment URL directly - same flow as checkout screen
+                const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
+                
+                Linking.openURL(paymentUrl).catch(err => {
+                  console.error('Failed to open payment URL:', err);
+                  Alert.alert(
+                    'Payment Error',
+                    'Unable to open payment page. Please try again or contact support.',
+                    [{ text: 'OK' }]
+                  );
+                });
+              }}>
+              <View style={styles.buttonTextContainer}>
+                <Text style={styles.paymentButtonText}>Complete Payment</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          
+          {/* Hide Download Invoice button for Pay to Board */}
+          {activeTab !== 'Pay to Board' && (
+            <TouchableOpacity style={styles.invoiceButton} onPress={handleDownloadInvoice}>
+              <DownloadIcon width={24} height={24} />
+              <View style={styles.buttonTextContainer}>
+                <Text style={styles.buttonText}>Download Invoice</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1534,6 +1616,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingTop: 20,
     paddingBottom: 20,
+    gap: 12,
+  },
+  paymentButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    height: 48,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    gap: 8,
+    minHeight: 48,
+    flex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  paymentButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 16,
+    color: '#FFFFFF',
   },
   invoiceButton: {
     flexDirection: 'row',
@@ -1656,6 +1764,45 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 48,
     borderRadius: 12,
+  },
+  skeletonTitle: {
+    width: 120,
+    height: 18,
+  },
+  skeletonLabel: {
+    width: 100,
+    height: 14,
+  },
+  skeletonValue: {
+    width: 120,
+    height: 14,
+  },
+  skeletonPlantVariety: {
+    width: '60%',
+    height: 14,
+    marginBottom: 8,
+  },
+  skeletonPlantSize: {
+    width: '50%',
+    height: 14,
+    marginBottom: 12,
+  },
+  skeletonPrice: {
+    width: 80,
+    height: 18,
+  },
+  skeletonQuantity: {
+    width: 60,
+    height: 18,
+  },
+  skeletonAddress: {
+    width: '90%',
+    height: 16,
+    marginBottom: 8,
+  },
+  skeletonAddressLine: {
+    width: '70%',
+    height: 14,
   },
 
   // Error States
