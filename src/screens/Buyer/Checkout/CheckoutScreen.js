@@ -34,6 +34,7 @@ import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import TruckBlueIcon from '../../../assets/buyer-icons/truck-blue.svg';
 import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
+import FlightIcon from '../../../assets/buyer-icons/flight.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -907,6 +908,7 @@ const CheckoutScreen = () => {
     const defaultSummary = {
       totalItems: 0,
       subtotal: 0,
+      totalOriginalCost: 0,
       shipping: defaultShipping,
       discount: 0,
       finalTotal: defaultShipping,
@@ -921,6 +923,12 @@ const CheckoutScreen = () => {
       (sum, item) => sum + (item.quantity || 1),
       0,
     );
+
+    // Calculate total original cost (sum of all original prices)
+    const totalOriginalCost = plantItems.reduce((sum, item) => {
+      const originalPrice = item.originalPrice || item.price; // Use original price if available, otherwise use current price
+      return sum + (originalPrice * (item.quantity || 1));
+    }, 0);
 
     // Use the totalAmount passed from cart if available, otherwise calculate from plantItems
     let subtotal;
@@ -1064,6 +1072,7 @@ const CheckoutScreen = () => {
     const summary = {
       totalItems,
       subtotal,
+      totalOriginalCost, // NEW: Total of all original prices before discounts
       shipping, // This includes UPS upgrade if enabled
       baseUpsShipping, // Base UPS 2nd day shipping cost (before upgrade)
       upsNextDayUpgradeCost: upsNextDayUpgradeCost, // Add UPS Next Day upgrade cost to summary
@@ -1082,6 +1091,8 @@ const CheckoutScreen = () => {
     // Log the summary for debugging
     console.log('💰 Order Summary:', {
       subtotal: summary.subtotal,
+      totalOriginalCost: summary.totalOriginalCost,
+      discount: summary.discount,
       totalItems: summary.totalItems,
       totalShippingCost: summary.totalShippingCost,
       shippingCreditsDiscount: summary.shippingCreditsDiscount,
@@ -1713,7 +1724,7 @@ const CheckoutScreen = () => {
                 {item.flightInfo && (
                   <View style={styles.plantShipping}>
                     <View style={styles.shippingContent}>
-                      <TruckIcon
+                      <FlightIcon
                         width={24}
                         height={24}
                         style={styles.airCargoIcon}
@@ -1727,7 +1738,7 @@ const CheckoutScreen = () => {
                 {item.hasAirCargo && !item.flightInfo && (
                   <View style={styles.plantShipping}>
                     <View style={styles.shippingContent}>
-                      <TruckIcon
+                      <FlightIcon
                         width={24}
                         height={24}
                         style={styles.airCargoIcon}
@@ -1810,12 +1821,17 @@ const CheckoutScreen = () => {
 
           {/* Subtotal */}
           <View style={styles.subtotal}>
-            {/* Total */}
-            <View style={styles.subtotalRow}>
+            {/* Total Plant Cost Row - Original and Discounted side by side */}
+            <View style={styles.plantCostRow}>
               <Text style={styles.subtotalLabel}>Total Plant Cost</Text>
-              <Text style={styles.subtotalNumber}>
-                {formatCurrencyFull(orderSummary.subtotal)}
-              </Text>
+              <View style={styles.priceComparisonContainer}>
+                <Text style={styles.originalPriceStrikethrough}>
+                  {formatCurrencyFull(orderSummary.totalOriginalCost)}
+                </Text>
+                <Text style={styles.discountedPriceFinal}>
+                  {formatCurrencyFull(orderSummary.subtotal)}
+                </Text>
+              </View>
             </View>
 
             {/* Discount */}
@@ -2817,10 +2833,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     paddingHorizontal: 15,
-    paddingVertical: 0,
-    gap: 8,
+    paddingVertical: 8,
     width: '100%',
-    height: 56,
+    minHeight: 56, // Use minHeight for flexibility
     borderRadius: 0,
     flex: 0,
     alignSelf: 'stretch',
@@ -2830,9 +2845,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     padding: 0,
-    gap: 99,
     width: '100%',
-    height: 24,
+    minHeight: 24,
+    marginTop: 8,
     flex: 0,
     alignSelf: 'stretch',
   },
@@ -2853,6 +2868,38 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#202325',
     flex: 0,
+  },
+  plantCostRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 0,
+    width: '100%',
+    minHeight: 24,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  priceComparisonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  originalPriceStrikethrough: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    textDecorationLine: 'line-through',
+    color: '#7F8D91',
+    marginRight: 8,
+  },
+  discountedPriceFinal: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '700',
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#539461',
   },
   discountRow: {
     flexDirection: 'row',

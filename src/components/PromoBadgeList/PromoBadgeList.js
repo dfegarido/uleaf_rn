@@ -30,6 +30,16 @@ const BADGE_TO_GENUS_MAP = {
   'Top 5 Buyer Wish List': 'Top 5 Buyer Wish List',
 };
 
+// Special badges that should not be treated as genus filters
+const SPECIAL_BADGES = [
+  'Price Drop',
+  'New Arrivals',
+  'Latest Nursery Drop',
+  'Below $20',
+  'Unicorn',
+  'Top 5 Buyer Wish List',
+];
+
 const PromoBadgeList = ({
   badges = DEFAULT_PROMO_BADGES,
   onBadgePress = null,
@@ -43,11 +53,23 @@ const PromoBadgeList = ({
   // Default badge press handler that navigates to ScreenGenusPlants
   const handleDefaultBadgePress = (badgeLabel) => {
     if (navigation) {
-      const genus = BADGE_TO_GENUS_MAP[badgeLabel] || badgeLabel;
-      navigation.navigate('ScreenGenusPlants', {
-        genus: genus,
-        filter: badgeLabel, // Pass the badge label as a filter parameter
-      });
+      // Check if this is a special badge that shouldn't use genus parameter
+      const isSpecialBadge = SPECIAL_BADGES.includes(badgeLabel);
+      
+      if (isSpecialBadge) {
+        // For special badges, only pass the filter parameter
+        navigation.navigate('ScreenGenusPlants', {
+          filter: badgeLabel, // Pass the badge label as a filter parameter
+          fromBadge: true, // Indicate this came from a badge click
+        });
+      } else {
+        // For regular genus badges, pass both genus and filter
+        const genus = BADGE_TO_GENUS_MAP[badgeLabel] || badgeLabel;
+        navigation.navigate('ScreenGenusPlants', {
+          genus: genus,
+          filter: badgeLabel,
+        });
+      }
     }
   };
 

@@ -123,7 +123,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
-  const {genus, filterType, filterValue, fromFilter} = route.params || {};
+  const {genus, filterType, filterValue, fromFilter, filter, fromBadge} = route.params || {};
   const {
     globalFilters,
     appliedFilters,
@@ -144,6 +144,9 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const limit = 10; // Standardized to 20 per requirement
+  
+  // Track active badge for pagination
+  const [activeBadge, setActiveBadge] = useState(null);
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -232,9 +235,41 @@ const ScreenGenusPlants = ({navigation, route}) => {
   // Load plants on component mount
   useEffect(() => {
     const fetchData = async () => {
-      try {        
-        // Load plants using global filters if available, otherwise load all plants
-        loadPlants(true);
+      try {
+        // Check if this is a special badge navigation (from ScreenShop)
+        if (fromBadge && filter) {
+          console.log(`🎯 Navigated from badge: ${filter}`);
+          setActiveBadge(filter);
+          justFiltered.current = true;
+          
+          // Call the appropriate load function based on the filter
+          switch (filter) {
+            case 'Unicorn':
+              loadUnicornPlants();
+              break;
+            case 'Top 5 Buyer Wish List':
+              loadTop5WishListPlants();
+              break;
+            case 'Below $20':
+              loadBelow20Plants();
+              break;
+            case 'Latest Nursery Drop':
+              loadLatestNurseryDropPlants();
+              break;
+            case 'New Arrivals':
+              loadNewArrivalsPlants();
+              break;
+            case 'Price Drop':
+              loadPriceDropPlants();
+              break;
+            default:
+              // Unknown badge, load plants normally
+              loadPlants(true);
+          }
+        } else {
+          // Load plants using global filters if available, otherwise load all plants
+          loadPlants(true);
+        }
       } catch (error) {
         console.log('Error loading initial data:', error);
       }
@@ -428,6 +463,10 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Top 5 Buyer Wish List badge with specific parameters
   const loadTop5WishListPlants = async () => {
+    console.log('⭐ loadTop5WishListPlants called');
+    setLoading(true);
+    setPlants([]);
+    
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
@@ -442,7 +481,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         sortOrder: 'desc',
       };
 
-      console.log('Loading Top 5 Buyer Wish List plants with params:', top5WishListParams);
+      console.log('⭐ Loading Top 5 Buyer Wish List plants with params:', top5WishListParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(top5WishListParams), 3, 1000);
 
@@ -489,8 +528,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For Top 5 Buyer Wish List, we limit to 5 items, so set pagination based on response
-      setHasMore(res.data?.hasNextPage || false);
+      // For Top 5 Buyer Wish List, only show top 5 items - no pagination
+      setHasMore(false);
 
     } catch (error) {
       console.error('Error loading Top 5 Buyer Wish List plants:', error);
@@ -504,22 +543,24 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Unicorn badge with specific parameters
   const loadUnicornPlants = async () => {
+    console.log('🦄 loadUnicornPlants called');
+    setLoading(true);
+    setPlants([]);
+    
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for Unicorn badge - no additional params
+      // Specific parameters for Unicorn badge - show ALL items over $2000 without limit
       const unicornParams = {
-        limit: 5,
-        offset: 0,
         minPrice: 2000,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
 
-      console.log('Loading Unicorn plants with params:', unicornParams);
+      console.log('🦄 Loading Unicorn plants with params:', unicornParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(unicornParams), 3, 1000);
 
@@ -527,7 +568,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load Unicorn plants');
       }
 
-      console.log('Unicorn plants loaded successfully:', res.data?.listings?.length || 0);
+      console.log('🦄 Unicorn plants loaded successfully:', res.data?.listings?.length || 0);
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -561,18 +602,21 @@ const ScreenGenusPlants = ({navigation, route}) => {
         return isValid;
       });
       
-      console.log(`Filtered ${rawPlants.length} Unicorn plants down to ${newPlants.length} valid plants`);
+      console.log(`🦄 Filtered ${rawPlants.length} Unicorn plants down to ${newPlants.length} valid plants`);
       
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For Unicorn, we limit to 5 items, so set pagination based on response
-      setHasMore(res.data?.hasNextPage || false);
+      // For Unicorn category, load all items at once - no pagination needed
+      setHasMore(false);
+      
+      console.log('🦄 State updated - plants:', newPlants.length, 'hasMore: false (all items loaded)');
 
     } catch (error) {
-      console.error('Error loading Unicorn plants:', error);
+      console.error('🦄 Error loading Unicorn plants:', error);
       Alert.alert('Error', error.message);
     } finally {
+      console.log('🦄 loadUnicornPlants finally block - setting loading to false');
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
@@ -581,22 +625,24 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Below $20 badge with specific parameters
   const loadBelow20Plants = async () => {
+    console.log('💵 loadBelow20Plants called');
+    setLoading(true);
+    setPlants([]);
+    
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for Below $20 badge - no additional params
+      // Specific parameters for Below $20 badge - show ALL items under $20
       const below20Params = {
-        limit: 10,
-        offset: 0,
         maxPrice: 20,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
 
-      console.log('Loading Below $20 plants with params:', below20Params);
+      console.log('💵 Loading Below $20 plants with params:', below20Params);
 
       const res = await retryAsync(() => getBuyerListingsApi(below20Params), 3, 1000);
 
@@ -643,8 +689,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For Below $20, we limit to 10 items, so set pagination based on response
-      setHasMore(res.data?.hasNextPage || false);
+      // For Below $20, load all items at once - no pagination needed
+      setHasMore(false);
 
     } catch (error) {
       console.error('Error loading Below $20 plants:', error);
@@ -658,21 +704,23 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Latest Nursery Drop badge with specific parameters
   const loadLatestNurseryDropPlants = async () => {
+    console.log('🌱 loadLatestNurseryDropPlants called');
+    setLoading(true);
+    setPlants([]);
+    
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for Latest Nursery Drop badge - no additional params
+      // Specific parameters for Latest Nursery Drop badge - show ALL nursery listings
       const latestNurseryDropParams = {
-        limit: 10,
-        offset: 0,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
 
-      console.log('Loading Latest Nursery Drop plants with params:', latestNurseryDropParams);
+      console.log('🌱 Loading Latest Nursery Drop plants with params:', latestNurseryDropParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(latestNurseryDropParams), 3, 1000);
 
@@ -719,8 +767,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For Latest Nursery Drop, we limit to 10 items, so set pagination based on response
-      setHasMore(res.data?.hasNextPage || false);
+      // For Latest Nursery Drop, load all items at once - no pagination needed
+      setHasMore(false);
 
     } catch (error) {
       console.error('Error loading Latest Nursery Drop plants:', error);
@@ -734,21 +782,25 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for New Arrivals badge with specific parameters
   const loadNewArrivalsPlants = async () => {
+    console.log('🆕 loadNewArrivalsPlants called');
+    setLoading(true);
+    setPlants([]);
+    
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for New Arrivals badge - no additional params
+      // Specific parameters for New Arrivals badge - limit to 50 most recent items
       const newArrivalsParams = {
-        limit: 10,
+        limit: 50,
         offset: 0,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
 
-      console.log('Loading New Arrivals plants with params:', newArrivalsParams);
+      console.log('🆕 Loading New Arrivals plants with params:', newArrivalsParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(newArrivalsParams), 3, 1000);
 
@@ -795,7 +847,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For New Arrivals, we limit to 10 items, so set pagination based on response
+      // For New Arrivals, show up to 50 items with pagination if more are available
       setHasMore(res.data?.hasNextPage || false);
 
     } catch (error) {
@@ -810,22 +862,24 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Price Drop badge with specific parameters
   const loadPriceDropPlants = async () => {
+    console.log('💰 loadPriceDropPlants called');
+    setLoading(true);
+    setPlants([]);
+    
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for Price Drop badge - no additional params
+      // Specific parameters for Price Drop badge - show ALL price drop items
       const priceDropParams = {
-        limit: 10,
-        offset: 0,
         maxPrice: 100,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
 
-      console.log('Loading Price Drop plants with params:', priceDropParams);
+      console.log('💰 Loading Price Drop plants with params:', priceDropParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(priceDropParams), 3, 1000);
 
@@ -872,7 +926,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For Price Drop, we limit to 4 items, so no pagination
+      // For Price Drop, load all items at once - no pagination needed
       setHasMore(false);
 
     } catch (error) {
@@ -1089,8 +1143,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Price Drop badge with specific API parameters
       if (label === 'Price Drop') {
-        setLoading(true);
-        setPlants([]);
+        console.log('💰 Price Drop badge clicked');
+        setActiveBadge('Price Drop');
         justFiltered.current = true;
         loadPriceDropPlants();
         return;
@@ -1098,8 +1152,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for New Arrivals badge with specific API parameters
       if (label === 'New Arrivals') {
-        setLoading(true);
-        setPlants([]);
+        console.log('🆕 New Arrivals badge clicked');
+        setActiveBadge('New Arrivals');
         justFiltered.current = true;
         loadNewArrivalsPlants();
         return;
@@ -1107,8 +1161,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Latest Nursery Drop badge with specific API parameters
       if (label === 'Latest Nursery Drop') {
-        setLoading(true);
-        setPlants([]);
+        console.log('🌱 Latest Nursery Drop badge clicked');
+        setActiveBadge('Latest Nursery Drop');
         justFiltered.current = true;
         loadLatestNurseryDropPlants();
         return;
@@ -1116,8 +1170,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Below $20 badge with specific API parameters
       if (label === 'Below $20') {
-        setLoading(true);
-        setPlants([]);
+        console.log('💵 Below $20 badge clicked');
+        setActiveBadge('Below $20');
         justFiltered.current = true;
         loadBelow20Plants();
         return;
@@ -1125,8 +1179,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Unicorn badge with specific API parameters
       if (label === 'Unicorn') {
-        setLoading(true);
-        setPlants([]);
+        console.log('🦄 Unicorn badge clicked');
+        setActiveBadge('Unicorn');
         justFiltered.current = true;
         loadUnicornPlants();
         return;
@@ -1134,8 +1188,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Top 5 Buyer Wish List badge with specific API parameters
       if (label === 'Top 5 Buyer Wish List') {
-        setLoading(true);
-        setPlants([]);
+        console.log('⭐ Top 5 Buyer Wish List badge clicked');
+        setActiveBadge('Top 5 Buyer Wish List');
         justFiltered.current = true;
         loadTop5WishListPlants();
         return;
@@ -1159,6 +1213,9 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       setLocalFilters(newLocalFilters);
 
+      // Clear active badge for regular filter-based badges
+      setActiveBadge(null);
+      
       // Apply immediately (in-place) and reload plants with the new local filters
       setLoading(true);
       setPlants([]);
@@ -1279,9 +1336,23 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }
   };
 
+  // Load more plants for Unicorn category with pagination support
+  // Load more plants for Unicorn category - NOTE: This function is not used anymore
+  // because Unicorn now loads all items at once without pagination
+  const loadMoreUnicornPlants = async () => {
+    // Unicorn category loads all items at once, so this function should not be called
+    console.log('🦄 loadMoreUnicornPlants called - but Unicorn loads all items at once');
+    return;
+  };
+
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
-      loadPlants(false);
+      // Use specific load more function based on active badge
+      if (activeBadge === 'Unicorn') {
+        loadMoreUnicornPlants();
+      } else {
+        loadPlants(false);
+      }
     }
   };
 
@@ -1447,7 +1518,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
           <View style={styles.emptyContainer}>
             {(() => {
               const isFromBrowseGenus = !!route?.params?.genus && !route?.params?.filter && !route?.params?.filterType && !route?.params?.filterValue;
-              const label = (route?.params?.filter || route?.params?.filterValue || route?.params?.genus || '').toString();
+              // Use activeBadge if set, otherwise fall back to route params
+              const label = activeBadge || (route?.params?.filter || route?.params?.filterValue || route?.params?.genus || '').toString();
               return (
                 <>
                   {/* Browse Genus: show logo only */}
