@@ -47,9 +47,9 @@ const ReusableActionSheet = ({
   const resetSelection = () => variegationChange([]);
   const resetGenusSelection = () => genusChange([]);
   const resetListingTypeSelection = () => listingTypeChange([]);
-  const resetCountrySelection = () => countryChange('');
-  const resetShippingIndexSelection = () => shippingIndexChange('');
-  const resetAcclimationIndexSelection = () => acclimationIndexChange('');
+  const resetCountrySelection = () => countryChange([]);
+  const resetShippingIndexSelection = () => shippingIndexChange([]);
+  const resetAcclimationIndexSelection = () => acclimationIndexChange([]);
   const resetPriceSelection = () => priceChange('');
 
   const renderSheetContent = () => {
@@ -417,30 +417,30 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'40%'}>
+            heightPercent={'50%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Country</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 10}}>
+            <ScrollView style={{marginBottom: 60}}>
               {(!countryOptions || countryOptions.length === 0) ? (
                 <Text style={{padding: 20, color: '#7F8D91'}}>
                   No options available
                 </Text>
               ) : (
-                <RadioButton
+                <CheckBoxGroup
                   options={countryOptions}
-                  selected={countryValue}
-                  onSelect={countryChange}
-                  containerStyle={{marginTop: 8}}
+                  selectedValues={countryValue}
+                  onChange={countryChange}
+                  checkboxPosition="right"
                   optionStyle={{
                     justifyContent: 'space-between',
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
+                    paddingHorizontal: 20,
+                    paddingBottom: 10,
                   }}
-                  shape="square"
+                  labelStyle={{textAlign: 'left'}}
                 />
               )}
             </ScrollView>
@@ -453,7 +453,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity onPress={resetCountrySelection} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -479,7 +479,7 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'40%'}>
+            heightPercent={'50%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Shipping Index</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
@@ -492,17 +492,17 @@ const ReusableActionSheet = ({
                   No options available
                 </Text>
               ) : (
-                <RadioButton
+                <CheckBoxGroup
                   options={shippingIndexOptions}
-                  selected={shippingIndexValue}
-                  onSelect={shippingIndexChange}
-                  containerStyle={{marginTop: 8}}
+                  selectedValues={shippingIndexValue}
+                  onChange={shippingIndexChange}
+                  checkboxPosition="right"
                   optionStyle={{
                     justifyContent: 'space-between',
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
+                    paddingHorizontal: 20,
+                    paddingBottom: 10,
                   }}
-                  shape="square"
+                  labelStyle={{textAlign: 'left'}}
                 />
               )}
             </ScrollView>
@@ -515,7 +515,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity onPress={resetShippingIndexSelection} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -541,7 +541,7 @@ const ReusableActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'40%'}>
+            heightPercent={'50%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Acclimation Index</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
@@ -554,17 +554,17 @@ const ReusableActionSheet = ({
                   No options available
                 </Text>
               ) : (
-                <RadioButton
+                <CheckBoxGroup
                   options={acclimationIndexOptions}
-                  selected={acclimationIndexValue}
-                  onSelect={acclimationIndexChange}
-                  containerStyle={{marginTop: 8}}
+                  selectedValues={acclimationIndexValue}
+                  onChange={acclimationIndexChange}
+                  checkboxPosition="right"
                   optionStyle={{
                     justifyContent: 'space-between',
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
+                    paddingHorizontal: 20,
+                    paddingBottom: 10,
                   }}
-                  shape="square"
+                  labelStyle={{textAlign: 'left'}}
                 />
               )}
             </ScrollView>
@@ -577,7 +577,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity onPress={resetAcclimationIndexSelection} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>

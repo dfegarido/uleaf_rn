@@ -20,10 +20,10 @@ export const FilterProvider = ({ children }) => {
     price: '',
     genus: [],
     variegation: [],
-    country: '',
+    country: [],
     listingType: [],
-    shippingIndex: '',
-    acclimationIndex: '',
+    shippingIndex: [],
+    acclimationIndex: [],
   });
 
   // Keep track of applied filters for API calls
@@ -52,10 +52,10 @@ export const FilterProvider = ({ children }) => {
       price: '',
       genus: [],
       variegation: [],
-      country: '',
+      country: [],
       listingType: [],
-      shippingIndex: '',
-      acclimationIndex: '',
+      shippingIndex: [],
+      acclimationIndex: [],
     };
     setGlobalFilters(defaultFilters);
     setAppliedFilters(null);
@@ -132,8 +132,8 @@ export const FilterProvider = ({ children }) => {
     }
 
     // Apply country filter
-    if (filters.country) {
-      params.country = filters.country;
+    if (filters.country && filters.country.length > 0) {
+      params.country = filters.country.join(',');
     }
 
     // Apply listing type filter
@@ -142,13 +142,13 @@ export const FilterProvider = ({ children }) => {
     }
 
     // Apply shipping index filter
-    if (filters.shippingIndex) {
-      params.shippingIndex = filters.shippingIndex;
+    if (filters.shippingIndex && filters.shippingIndex.length > 0) {
+      params.shippingIndex = filters.shippingIndex.join(',');
     }
 
     // Apply acclimation index filter
-    if (filters.acclimationIndex) {
-      params.acclimationIndex = filters.acclimationIndex;
+    if (filters.acclimationIndex && filters.acclimationIndex.length > 0) {
+      params.acclimationIndex = filters.acclimationIndex.join(',');
     }
 
     console.log('Final filter params from global state:', params);
@@ -162,10 +162,10 @@ export const FilterProvider = ({ children }) => {
     // Check if any filter has a non-default value
     const hasGenus = appliedFilters.genus && appliedFilters.genus.length > 0;
     const hasVariegation = appliedFilters.variegation && appliedFilters.variegation.length > 0;
-    const hasCountry = appliedFilters.country && appliedFilters.country !== '';
+    const hasCountry = appliedFilters.country && appliedFilters.country.length > 0;
     const hasListingType = appliedFilters.listingType && appliedFilters.listingType.length > 0;
-    const hasShippingIndex = appliedFilters.shippingIndex && appliedFilters.shippingIndex !== '';
-    const hasAcclimationIndex = appliedFilters.acclimationIndex && appliedFilters.acclimationIndex !== '';
+    const hasShippingIndex = appliedFilters.shippingIndex && appliedFilters.shippingIndex.length > 0;
+    const hasAcclimationIndex = appliedFilters.acclimationIndex && appliedFilters.acclimationIndex.length > 0;
     const hasPrice = appliedFilters.price && appliedFilters.price !== '';
     const hasNonDefaultSort = appliedFilters.sort && appliedFilters.sort !== 'Newest to Oldest';
     

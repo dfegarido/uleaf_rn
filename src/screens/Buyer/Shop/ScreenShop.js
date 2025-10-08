@@ -872,13 +872,13 @@ const ScreenShop = ({navigation}) => {
       case 'Variegation':
         return globalFilters.variegation && globalFilters.variegation.length > 0;
       case 'Country':
-        return globalFilters.country && globalFilters.country !== '';
+        return globalFilters.country && globalFilters.country.length > 0;
       case 'Listing Type':
         return globalFilters.listingType && globalFilters.listingType.length > 0;
       case 'Shipping Index':
-        return globalFilters.shippingIndex && globalFilters.shippingIndex !== '';
+        return globalFilters.shippingIndex && globalFilters.shippingIndex.length > 0;
       case 'Acclimation Index':
-        return globalFilters.acclimationIndex && globalFilters.acclimationIndex !== '';
+        return globalFilters.acclimationIndex && globalFilters.acclimationIndex.length > 0;
       default:
         return false;
     }
@@ -893,6 +893,12 @@ const ScreenShop = ({navigation}) => {
         return globalFilters.variegation?.length || 0;
       case 'Listing Type':
         return globalFilters.listingType?.length || 0;
+      case 'Country':
+        return globalFilters.country?.length || 0;
+      case 'Shipping Index':
+        return globalFilters.shippingIndex?.length || 0;
+      case 'Acclimation Index':
+        return globalFilters.acclimationIndex?.length || 0;
       default:
         return 0;
     }
