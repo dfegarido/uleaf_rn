@@ -3,6 +3,18 @@ import {View, Text, StyleSheet} from 'react-native';
 import {globalStyles} from '../../../../assets/styles/styles';
 
 const PayoutCard = ({item}) => {
+  // 💰 Payout Card Data Validation
+  console.log('💰 PayoutCard Received Item:', {
+    hasItem: !!item,
+    status: item?.status,
+    payOutDate: item?.payOutDate,
+    salesPeriod: item?.salesPeriod,
+    currencySymbol: item?.totalReceivableAmountCurrencySymbol,
+    amount: item?.totalReceivableAmountLocal,
+    referenceNumber: item?.referenceNumber,
+    allKeys: Object.keys(item || {})
+  });
+
   const statusStyles = {
     Receivable: styles.receivable,
     Paid: styles.paid,
@@ -10,8 +22,8 @@ const PayoutCard = ({item}) => {
 
   return (
     <View style={styles.card}>
-      <View style={[styles.statusTag, statusStyles[item.status]]}>
-        <Text style={styles.statusText}>{item.status}</Text>
+      <View style={[styles.statusTag, statusStyles[item?.status || 'Receivable']]}>
+        <Text style={styles.statusText}>{item?.status || 'Unknown'}</Text>
       </View>
       <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
         <View>
@@ -20,7 +32,7 @@ const PayoutCard = ({item}) => {
           </Text>
           <Text style={styles.label}>Payout date</Text>
 
-          <Text style={[globalStyles.textSMGreyDark]}>{item.salesPeriod}</Text>
+          <Text style={[globalStyles.textSMGreyDark]}>{item?.salesPeriod || 'N/A'}</Text>
           <Text style={styles.label}>Sales period</Text>
         </View>
         <View style={styles.headerRight}>
@@ -30,8 +42,8 @@ const PayoutCard = ({item}) => {
             </Text>
           )}
           <Text style={[globalStyles.textLGGreyDark, globalStyles.textBold]}>
-            {item?.totalReceivableAmountCurrencySymbol}
-            {item?.totalReceivableAmountLocal?.toLocaleString()}
+            {item?.totalReceivableAmountCurrencySymbol || '$'}
+            {item?.totalReceivableAmountLocal?.toLocaleString() || '0.00'}
           </Text>
           <Text style={styles.label}>Total amount</Text>
         </View>

@@ -19,6 +19,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {CustomSalesChart} from '../../../components/Charts';
 import {formatCurrency} from '../../../utils/formatCurrency';
+import {getCurrencySymbol} from '../../../utils/getCurrencySymbol';
 import {roundNumber} from '../../../utils/roundNumber';
 import {retryAsync} from '../../../utils/utils';
 import BusinessPerformance from './components/BusinessPerformance';
@@ -384,8 +385,7 @@ const ScreenHome = ({navigation}) => {
                   globalStyles.textBold,
                   {paddingBottom: 10},
                 ]}>
-                {/* {totalSales?.symbol ?? userInfo?.currencySymbol ?? ''} */}
-                {userInfo?.currencySymbol ?? ''}
+                {getCurrencySymbol(userInfo)}
                 {totalSales?.thisWeek ?? '0'}
               </Text>
               <View style={{flexDirection: 'row', gap: 10}}>
@@ -564,7 +564,25 @@ const ScreenHome = ({navigation}) => {
 
           <BusinessPerformance data={businessPerformanceTable} />
           <View style={{marginBottom: 30}}>
-            <CustomSalesChart data={chartData} isMonthly={false} />
+            {(() => {
+              const chartCurrency = getCurrencySymbol(userInfo);
+              
+              console.log('💰 Home Screen Currency Info:', {
+                userInfoCurrency: userInfo?.currencySymbol,
+                userCountry: userInfo?.country,
+                finalCurrency: chartCurrency,
+                hasCurrencySymbol: !!userInfo?.currencySymbol,
+                derivedFromCountry: !userInfo?.currencySymbol && !!userInfo?.country
+              });
+              
+              return (
+                <CustomSalesChart 
+                  data={chartData} 
+                  isMonthly={false} 
+                  currencySymbol={chartCurrency} 
+                />
+              );
+            })()}
           </View>
           {/* Business Performance */}
         </View>

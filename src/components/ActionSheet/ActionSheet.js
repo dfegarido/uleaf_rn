@@ -6,6 +6,8 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 
 const {height: screenHeight} = Dimensions.get('window');
@@ -35,34 +37,41 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
       animationType="none"
       transparent
       onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <Animated.View
-              style={[
-                styles.sheet,
-                {height: heightPercent},
-                {
-                  transform: [
-                    {
-                      translateY: slideAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [300, 0], // Start 300px below, slide to 0
-                      }),
-                    },
-                  ],
-                },
-              ]}>
-              {children}
-            </Animated.View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.overlay}>
+            <TouchableWithoutFeedback>
+              <Animated.View
+                style={[
+                  styles.sheet,
+                  {height: heightPercent},
+                  {
+                    transform: [
+                      {
+                        translateY: slideAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [300, 0], // Start 300px below, slide to 0
+                        }),
+                      },
+                    ],
+                  },
+                ]}>
+                {children}
+              </Animated.View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

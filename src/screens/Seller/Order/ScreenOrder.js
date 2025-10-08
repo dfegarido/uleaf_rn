@@ -111,6 +111,23 @@ const ScreenOrder = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
+    // 🧪 ORDERS API CALL LOGGING
+    console.log('📦 Orders API Call:', {
+      deliveryStatus: active,
+      sortBy: reusableSort,
+      dateFilter: reusableDate,
+      listingTypes: reusableListingType,
+      searchTerm: search,
+      dateRange: {
+        start: reusableStartDate,
+        end: reusableEndDate
+      },
+      pagination: {
+        limit: 10,
+        nextToken: nextTokenParam
+      }
+    });
+
     const res = await retryAsync(
       () =>
         getOrderListingApi(
@@ -132,7 +149,11 @@ const ScreenOrder = ({navigation}) => {
       throw new Error(res?.message || 'Failed to load sort api');
     }
 
-    console.log(res.orders);
+    console.log('📦 Orders API Response:', {
+      ordersCount: res?.orders?.length || 0,
+      totalCount: res.count,
+      nextPageToken: res.nextPageToken
+    });
     setNextToken(res.nextPageToken);
     setDataCount(res.count);
     setDataTable(
@@ -173,7 +194,13 @@ const ScreenOrder = ({navigation}) => {
       ? new Date(endDate).toISOString().slice(0, 10)
       : '';
 
-    console.log(formattedStart, formattedEnd);
+    console.log('📦 Orders Date Range Filter Applied:', {
+      originalDates: { start: startDate, end: endDate },
+      formattedDates: { start: formattedStart, end: formattedEnd },
+      dateRange: formattedStart && formattedEnd ? 
+        `${formattedStart} to ${formattedEnd}` : 
+        'No range selected'
+    });
     setReusableStartDate(formattedStart);
     setReusableEndDate(formattedEnd);
     setNextToken('');
@@ -184,8 +211,16 @@ const ScreenOrder = ({navigation}) => {
   const handleSearchSubmit = e => {
     const searchText = e.nativeEvent.text;
     setSearch(searchText);
-    console.log('Searching for:', searchText);
-    // trigger your search logic here
+    console.log('📦 Orders Search Applied:', {
+      searchTerm: searchText,
+      searchLength: searchText.length,
+      currentFilters: {
+        status: active,
+        sort: reusableSort,
+        date: reusableDate,
+        listingType: reusableListingType
+      }
+    });
 
     setNextToken('');
     setNextTokenParam('');
@@ -198,6 +233,11 @@ const ScreenOrder = ({navigation}) => {
   };
 
   const onPressFilterTabs = pressCode => {
+    console.log('📦 Orders Status Tab Changed:', {
+      from: active,
+      to: pressCode,
+      availableOptions: ['For Delivery', 'Delivered']
+    });
     setActive(pressCode);
     setNextToken('');
     setNextTokenParam('');
@@ -218,6 +258,11 @@ const ScreenOrder = ({navigation}) => {
 
   const onPressLoadMore = () => {
     if (nextToken != nextTokenParam) {
+      console.log('📦 Orders Load More Triggered:', {
+        currentItemsCount: dataTable.length,
+        nextToken: nextToken,
+        totalAvailableCount: dataCount
+      });
       setNextTokenParam(nextToken);
     }
   };
@@ -255,6 +300,11 @@ const ScreenOrder = ({navigation}) => {
       value: item.name,
     }));
 
+    console.log('📦 Orders Sort Options Loaded:', {
+      count: localSortData.length,
+      options: localSortData.map(opt => opt.label)
+    });
+
     setSortOptions(localSortData);
   };
 
@@ -274,7 +324,11 @@ const ScreenOrder = ({navigation}) => {
       label: item.name,
       value: item.name,
     }));
-    // console.log(localListingTypeData);
+    
+    console.log('📦 Orders Listing Type Options Loaded:', {
+      count: localListingTypeData.length,
+      options: localListingTypeData.map(opt => opt.label)
+    });
     setListingTypeOptions(localListingTypeData);
   };
   // For dropdown

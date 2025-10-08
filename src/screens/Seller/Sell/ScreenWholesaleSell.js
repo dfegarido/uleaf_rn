@@ -1161,7 +1161,12 @@ const ScreenSingleWholesale = ({navigation, route}) => {
           visible={showSheet}
           onClose={() => setShowSheet(false)}
           heightPercent={'80%'}>
-          <ScrollView style={{padding: 20}} showsVerticalScrollIndicator>
+          <ScrollView 
+            style={{padding: 20}} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{paddingBottom: 40}}>
             <Text style={[globalStyles.textXLGreyDark, {paddingBottom: 30}]}>
               Add pot size
             </Text>

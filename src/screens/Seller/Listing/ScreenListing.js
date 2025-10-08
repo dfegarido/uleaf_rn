@@ -142,6 +142,20 @@ const ScreenListing = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
+    console.log('🔍 API Call Parameters:', {
+      filterMine,
+      sortBy,
+      genus,
+      variegation,
+      listingType,
+      status: status == 'Discounted' ? 'All' : status,
+      discount,
+      limit,
+      plant,
+      pinTag,
+      nextPageToken,
+    });
+
     const getManageListingApiData = await getManageListingApi(
       filterMine,
       sortBy,
@@ -228,6 +242,7 @@ const ScreenListing = ({navigation}) => {
   const [pinSearch, setPinSearch] = useState(false);
 
   const onPressPinSearch = paramPinSearch => {
+    console.log('🔵 Pin Search Toggle:', paramPinSearch);
     setPinSearch(paramPinSearch);
     setNextToken('');
     setNextTokenParam('');
@@ -239,7 +254,7 @@ const ScreenListing = ({navigation}) => {
   const handleSearchSubmit = e => {
     const searchText = e.nativeEvent.text;
     setSearch(searchText);
-    console.log('Searching for:', searchText);
+    console.log('🔍 Plant Search:', searchText);
     // trigger your search logic here
 
     setNextToken('');
@@ -248,6 +263,12 @@ const ScreenListing = ({navigation}) => {
   };
 
   const handleFilterView = () => {
+    console.log('🔽 Filter Applied:', {
+      sort: reusableSort,
+      genus: reusableGenus,
+      variegation: reusableVariegation,
+      listingType: reusableListingType,
+    });
     setNextToken('');
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -401,12 +422,15 @@ const ScreenListing = ({navigation}) => {
   const [activeFilterShow, setActiveFilterShow] = useState('');
 
   const onTabPressItem = ({pressTab}) => {
-    // console.log(pressTab);
+    console.log('📋 Status Tab Changed:', pressTab);
     setActiveTab(pressTab);
     setIsDiscounted(false);
     setNextToken('');
     setNextTokenParam('');
-    if (pressTab == 'Discounted') setIsDiscounted(true);
+    if (pressTab == 'Discounted') {
+      setIsDiscounted(true);
+      console.log('💰 Discount Filter Activated');
+    }
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -962,7 +986,12 @@ const ScreenListing = ({navigation}) => {
               <ExIcon width={20} height={20} />
             </TouchableOpacity>
           </View>
-          <ScrollView style={{marginHorizontal: 20}}>
+          <ScrollView 
+            style={{marginHorizontal: 20}}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{paddingBottom: 20}}>
             <View>
               <Text style={[globalStyles.textMDGreyLight, {paddingBottom: 10}]}>
                 Discount price
