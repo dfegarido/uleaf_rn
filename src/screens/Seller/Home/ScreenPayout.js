@@ -22,6 +22,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
 import {getHomePayoutListingApi} from '../../../components/Api';
+import {getStoredAuthToken} from '../../../utils/getStoredAuthToken';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
@@ -48,12 +49,21 @@ const ScreenPayout = ({navigation, route}) => {
   const [nextTokenParam, setNextTokenParam] = useState('');
 
   useEffect(() => {
+    console.log('💰 Payouts useEffect Triggered:', {
+      isFocused,
+      isInitialFetchRefresh,
+      currentDataLength: data.length
+    });
+    
     setLoading(true);
     const fetchData = async () => {
       try {
         await loadListingData();
       } catch (error) {
-        console.log('Fetching details:', error);
+        console.log('💰 Payouts Fetch Error:', {
+          error: error.message,
+          stack: error.stack
+        });
       } finally {
         setRefreshing(false);
         setLoading(false);
@@ -69,24 +79,58 @@ const ScreenPayout = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
+    // 💰 PAYOUTS API CALL LOGGING
+    const authToken = await getStoredAuthToken();
+    console.log('💰 Payouts API Call:', {
+      endpoint: 'https://listpayout-nstilwgvua-uc.a.run.app',
+      nextPageToken: nextTokenParam,
+      networkConnected: netState.isConnected,
+      networkReachable: netState.isInternetReachable,
+      hasAuthToken: !!authToken,
+      authTokenLength: authToken?.length || 0
+    });
+
     const res = await retryAsync(
       () => getHomePayoutListingApi(nextTokenParam),
       3,
       1000,
     );
 
+    // 💰 PAYOUTS API RESPONSE LOGGING
+    console.log('💰 Payouts API Full Response:', JSON.stringify(res, null, 2));
+    console.log('💰 Payouts API Response Analysis:', {
+      success: res?.success,
+      hasData: !!res?.data,
+      dataArray: res?.data,
+      dataLength: res?.data?.length || 0,
+      totalReceivable: res?.totalReceivable,
+      nextPageToken: res?.nextPageToken,
+      message: res?.message,
+      responseKeys: Object.keys(res || {})
+    });
+
     if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load sort api');
+      console.log('💰 Payouts API Error:', res?.message || 'Failed to load payout data');
+      throw new Error(res?.message || 'Failed to load payout data');
     }
 
-    console.log(res);
     setNextToken(res?.nextPageToken);
     setTotalReceivables(res?.totalReceivable);
+    setDataCount(res?.data?.length || 0);
+    
+    const newData = res?.data || [];
+    console.log('💰 Payouts Data Setting:', {
+      newDataLength: newData.length,
+      isAppending: !!nextTokenParam,
+      currentDataLength: data.length,
+      dataCount: res?.data?.length || 0
+    });
+    
     setData(
       prev =>
         nextTokenParam
-          ? [...prev, ...(res?.data || [])] // append
-          : res?.data || [], // replace
+          ? [...prev, ...newData] // append
+          : newData, // replace
     );
   };
 
@@ -97,6 +141,8 @@ const ScreenPayout = ({navigation, route}) => {
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
+
+
   // ✅ Pull-to-refresh
 
   // Load more
@@ -174,24 +220,45 @@ const ScreenPayout = ({navigation, route}) => {
             <Text style={globalStyles.textMDWhite}>Total Receivables</Text>
 
             <Text style={[globalStyles.textXLWhite, {paddingTop: 10}]}>
-              {data[0]?.totalReceivableAmountCurrencySymbol} {totalReceivables}
+              {data.length > 0 ? data[0]?.totalReceivableAmountCurrencySymbol : '$'} {totalReceivables || '0.00'}
             </Text>
           </View>
 
-          <FlatList
-            scrollEnabled={false}
-            data={data}
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({item}) => (
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('ScreenPayoutDetails', item)
-                }>
-                <PayoutCard item={item} />
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={{paddingBottom: 20}}
-          />
+          {data.length === 0 && !loading ? (
+            <View style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 60,
+              backgroundColor: '#f9f9f9',
+              borderRadius: 10,
+              marginVertical: 20
+            }}>
+              <Text style={[globalStyles.textLGGreyLight, {marginBottom: 10}]}>
+                No Payouts Available
+              </Text>
+              <Text style={[globalStyles.textMDGreyLight, {textAlign: 'center', paddingHorizontal: 20}]}>
+                Your payout history will appear here once you make sales
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              scrollEnabled={false}
+              data={data}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({item, index}) => {
+                console.log(`💰 Rendering Payout Item ${index}:`, item);
+                return (
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate('ScreenPayoutDetails', item)
+                    }>
+                    <PayoutCard item={item} />
+                  </TouchableOpacity>
+                );
+              }}
+              contentContainerStyle={{paddingBottom: 20}}
+            />
+          )}
           {data.length == 10 && (
             <TouchableOpacity
               onPress={() => onPressLoadMore()}

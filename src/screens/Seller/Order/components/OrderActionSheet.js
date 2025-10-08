@@ -30,7 +30,13 @@ const OrderActionSheet = ({
   handleSearchSubmit,
   handleSearchSubmitRange,
 }) => {
-  const resetListingTypeSelection = () => listingTypeChange([]);
+  const resetListingTypeSelection = () => {
+    console.log('📦 Orders Listing Type Filter Reset:', {
+      previousSelection: listingTypeValue,
+      newSelection: []
+    });
+    listingTypeChange([]);
+  };
 
   const renderSheetContent = () => {
     switch (code) {
@@ -50,7 +56,14 @@ const OrderActionSheet = ({
             <RadioButton
               options={sortOptions}
               selected={sortValue}
-              onSelect={sortChange}
+              onSelect={(value) => {
+                console.log('📦 Orders Sort Selected:', {
+                  previousSort: sortValue,
+                  newSort: value,
+                  availableOptions: sortOptions.map(opt => opt.label)
+                });
+                sortChange(value);
+              }}
               containerStyle={{marginTop: 20}}
               optionStyle={{
                 justifyContent: 'space-between',
@@ -69,7 +82,10 @@ const OrderActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                onPress={handleSearchSubmit}
+                onPress={() => {
+                  console.log('📦 Orders Sort Filter Applied - View Button Pressed');
+                  handleSearchSubmit();
+                }}
                 style={{
                   paddingHorizontal: 20,
                   alignSelf: 'stretch',
@@ -101,7 +117,14 @@ const OrderActionSheet = ({
               <RadioButton
                 options={dateOptions}
                 selected={dateValue}
-                onSelect={dateChange}
+                onSelect={(value) => {
+                  console.log('📦 Orders Date Filter Selected:', {
+                    previousDate: dateValue,
+                    newDate: value,
+                    availableOptions: dateOptions.map(opt => opt.label)
+                  });
+                  dateChange(value);
+                }}
                 containerStyle={{marginTop: 20}}
                 optionStyle={{
                   justifyContent: 'space-between',
@@ -120,7 +143,10 @@ const OrderActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                onPress={handleSearchSubmit}
+                onPress={() => {
+                  console.log('📦 Orders Date Filter Applied - View Button Pressed');
+                  handleSearchSubmit();
+                }}
                 style={{
                   paddingHorizontal: 20,
                   alignSelf: 'stretch',
@@ -132,7 +158,7 @@ const OrderActionSheet = ({
                     View
                   </Text>
                 </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
             </View>
           </ActionSheet>
         );
@@ -158,13 +184,29 @@ const OrderActionSheet = ({
 
         const handleSelectDate = date => {
           if (!startDate || (startDate && endDate)) {
+            console.log('📦 Orders Date Range Start Selected:', {
+              selectedDate: date.toDateString(),
+              action: 'Setting start date'
+            });
             setStartDate(date);
             setEndDate(null);
           } else if (startDate && !endDate) {
             if (date < startDate) {
+              console.log('📦 Orders Date Range Swapped:', {
+                originalStart: startDate.toDateString(),
+                originalEnd: 'none',
+                newStart: date.toDateString(),
+                newEnd: startDate.toDateString(),
+                action: 'End date earlier than start, swapping'
+              });
               setEndDate(startDate);
               setStartDate(date);
             } else {
+              console.log('📦 Orders Date Range End Selected:', {
+                startDate: startDate.toDateString(),
+                endDate: date.toDateString(),
+                action: 'Setting end date'
+              });
               setEndDate(date);
             }
           }
@@ -322,6 +364,7 @@ const OrderActionSheet = ({
               <TouchableOpacity
                 style={{width: '45%'}}
                 onPress={() => {
+                  console.log('📦 Orders Date Range Filter Applied - View Button Pressed');
                   handleSearchSubmitRange(startDate, endDate);
                   onClose();
                 }}>
@@ -352,7 +395,14 @@ const OrderActionSheet = ({
             <CheckBoxGroup
               options={listingTypeOptions}
               selectedValues={listingTypeValue}
-              onChange={listingTypeChange}
+              onChange={(values) => {
+                console.log('📦 Orders Listing Type Filter Changed:', {
+                  previousSelection: listingTypeValue,
+                  newSelection: values,
+                  availableOptions: listingTypeOptions.map(opt => opt.label)
+                });
+                listingTypeChange(values);
+              }}
               optionStyle={{
                 justifyContent: 'space-between',
                 paddingHorizontal: 20,
@@ -382,7 +432,10 @@ const OrderActionSheet = ({
 
               <TouchableOpacity
                 style={{width: '45%'}}
-                onPress={handleSearchSubmit}>
+                onPress={() => {
+                  console.log('📦 Orders Listing Type Filter Applied - View Button Pressed');
+                  handleSearchSubmit();
+                }}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>

@@ -12,6 +12,8 @@ import {
   Modal,
   ActivityIndicator,
   BackHandler,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {globalStyles} from '../../../assets/styles/styles';
 import {
@@ -727,7 +729,9 @@ const ScreenSingleSell = ({navigation, route}) => {
   // Show success alert
 
   return (
-    <View style={[styles.mainContent, {paddingTop: insets.top + 10}]}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.mainContent, {paddingTop: insets.top + 10}]}>
       {/* Sticky Header */}
       <View
         style={[
@@ -771,8 +775,11 @@ const ScreenSingleSell = ({navigation, route}) => {
       </View>
       <ScrollView
         style={styles.mainContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={{
-          paddingBottom: insets.bottom,
+          paddingBottom: insets.bottom + 40,
         }}>
         {loading && (
           <Modal transparent animationType="fade">
@@ -1037,7 +1044,7 @@ const ScreenSingleSell = ({navigation, route}) => {
           onCancel={handleCancelExit}
         />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

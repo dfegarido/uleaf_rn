@@ -26,7 +26,8 @@ import ConfirmPublishNursery from './components/ConfirmPublishNursery';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
-import {formatDateMonthDayYear} from '../../../utils/formatDateMonthDayYear';
+import {formatDateMonthDayYear, testDateFormatting} from '../../../utils/formatDateMonthDayYear';
+import {Platform} from 'react-native';
 import ConfirmDelete from './components/ConfirmDelete';
 import {numberToCurrency} from '../../../utils/numberToCurrency';
 
@@ -88,6 +89,9 @@ const ScreenListingDetail = ({navigation, route}) => {
   // ✅ Fetch on mount
   const isFocused = useIsFocused();
   useEffect(() => {
+    // 🧪 Run cross-platform date formatting test
+    testDateFormatting();
+    
     setLoading(true);
     const fetchData = async () => {
       try {
@@ -561,25 +565,52 @@ const ScreenListingDetail = ({navigation, route}) => {
             <View>
               <Text style={globalStyles.textSMGreyLight}>Created</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {listingData?.createdAtFormatted
-                  ? formatDateMonthDayYear(listingData.createdAtFormatted)
-                  : 'No Data'}
+                {(() => {
+                  const formatted = listingData?.createdAtFormatted
+                    ? formatDateMonthDayYear(listingData.createdAtFormatted)
+                    : 'No Data';
+                  console.log('📅 iOS/Android Date Check - Created:', {
+                    platform: Platform.OS,
+                    raw: listingData?.createdAtFormatted,
+                    formatted: formatted,
+                    isExpectedFormat: /^[A-Z][a-z]{2} \d{2}, \d{4}$/.test(formatted)
+                  });
+                  return formatted;
+                })()}
               </Text>
             </View>
             <View>
               <Text style={globalStyles.textSMGreyLight}>Published</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {listingData?.publishDateFormatted
-                  ? formatDateMonthDayYear(listingData.publishDateFormatted)
-                  : 'No Data'}
+                {(() => {
+                  const formatted = listingData?.publishDateFormatted
+                    ? formatDateMonthDayYear(listingData.publishDateFormatted)
+                    : 'No Data';
+                  console.log('📅 iOS/Android Date Check - Published:', {
+                    platform: Platform.OS,
+                    raw: listingData?.publishDateFormatted,
+                    formatted: formatted,
+                    isExpectedFormat: /^[A-Z][a-z]{2} \d{2}, \d{4}$/.test(formatted)
+                  });
+                  return formatted;
+                })()}
               </Text>
             </View>
             <View>
               <Text style={globalStyles.textSMGreyLight}>Modified</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {listingData?.updatedAtFormatted
-                  ? formatDateMonthDayYear(listingData.updatedAtFormatted)
-                  : 'No Data'}
+                {(() => {
+                  const formatted = listingData?.updatedAtFormatted
+                    ? formatDateMonthDayYear(listingData.updatedAtFormatted)
+                    : 'No Data';
+                  console.log('📅 iOS/Android Date Check - Modified:', {
+                    platform: Platform.OS,
+                    raw: listingData?.updatedAtFormatted,
+                    formatted: formatted,
+                    isExpectedFormat: /^[A-Z][a-z]{2} \d{2}, \d{4}$/.test(formatted)
+                  });
+                  return formatted;
+                })()}
               </Text>
             </View>
           </View>

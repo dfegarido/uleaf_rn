@@ -4,7 +4,14 @@ import {StackedBarChart, LineChart} from 'react-native-chart-kit';
 
 const screenWidth = Dimensions.get('window').width - 32;
 
-const CustomSalesChart = ({data = [], isMonthly = false}) => {
+const CustomSalesChart = ({data = [], isMonthly = false, currencySymbol = '₱'}) => {
+  // 💰 CHART CURRENCY LOGGING
+  console.log('💰 Chart Currency Symbol:', {
+    received: currencySymbol,
+    fallback: '₱',
+    isDefault: currencySymbol === '₱'
+  });
+  
   // If data is not yet loaded or is empty
   if (!Array.isArray(data) || data.length === 0) {
     return (
@@ -129,7 +136,7 @@ const CustomSalesChart = ({data = [], isMonthly = false}) => {
         }}
         width={screenWidth}
         height={220}
-        yAxisLabel="₱"
+        yAxisLabel={currencySymbol}
         formatYLabel={y => (parseInt(y, 10) >= 1000 ? `${y / 1000}K` : y)}
         chartConfig={{
           backgroundColor: '#ffffff',
