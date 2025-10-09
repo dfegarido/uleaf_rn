@@ -16,7 +16,7 @@ import QuestionMarkIcon from '../../../../assets/admin-icons/question-mark.svg';
 import ReceivedIcon from '../../../../assets/admin-icons/received.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailReceiving } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
 // A single card in the list
@@ -74,14 +74,14 @@ const PlantListItem = ({ item, type }) => (
 
 // --- TAB SCREENS ---
 
-const ForReceivingTab = ({data, onFilterChange}) => (
+const ForReceivingTab = ({data, onFilterChange, adminFilters}) => (
             <FlatList
                 data={data.data}
                 keyExtractor={item => item.id}
                 renderItem={({ item }) => <PlantListItem item={item} type="forReceiving" />}
                 ListHeaderComponent={
                 <>
-                    <FilterBar onFilterChange={onFilterChange}/>
+                    <FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters}/>
                     <Text style={styles.countText}>{data.total} plant(s)</Text>
                 </>}
                 ItemSeparatorComponent={() => <View style={{height: 6}}/>}
@@ -89,23 +89,23 @@ const ForReceivingTab = ({data, onFilterChange}) => (
             />
 );
 
-const ReceivedTab = ({data, onFilterChange}) => (
+const ReceivedTab = ({data, onFilterChange, adminFilters}) => (
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem item={item} type="received" />}
-        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 );
 
-const MissingTab = ({data, onFilterChange}) => (
+const MissingTab = ({data, onFilterChange, adminFilters}) => (
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem item={item} type="missing" />}
-        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
@@ -119,6 +119,7 @@ const ReceivingScreen = ({navigation}) => {
         { key: 'missing', title: 'Missing' },
     ]);
     const [receivingData, setReceivingData] = useState(null);
+    const [adminFilters, setAdminFilters] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -126,9 +127,10 @@ const ReceivingScreen = ({navigation}) => {
             try {
                 setIsLoading(true);
                 const response = await getAdminLeafTrailReceiving(filters);
-                console.log("Fetched plant data:", response);
-                
                 setReceivingData(response);
+
+                const adminFilter = await getAdminLeafTrailFilters();
+                setAdminFilters(adminFilter);
             } catch (e) {
                 setIsLoading(false);
                 setError(e);
@@ -149,11 +151,11 @@ const ReceivingScreen = ({navigation}) => {
     const renderScene = ({ route }) => {
         switch (route.key) {
             case 'forReceiving':
-                return <ForReceivingTab onFilterChange={onFilterChange} data={receivingData?.forReceiving || {}} />;
+                return <ForReceivingTab onFilterChange={onFilterChange} data={receivingData?.forReceiving || {}} adminFilters={adminFilters}  />;
             case 'received':
-                return <ReceivedTab onFilterChange={onFilterChange} data={receivingData?.received || {}} />;
+                return <ReceivedTab onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFilters} />;
             case 'missing':
-                return <MissingTab onFilterChange={onFilterChange} data={receivingData?.missing || {}} />;
+                return <MissingTab onFilterChange={onFilterChange} data={receivingData?.missing || {}} adminFilters={adminFilters} />;
             default:
                 return null;
         }

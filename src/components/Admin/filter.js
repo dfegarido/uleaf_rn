@@ -16,7 +16,7 @@ import ReceiverFilter from './receiverFilter';
 import SellerFilter from './sellerFilter';
 import SortOptions from './sort';
 
-const FilterBar = ({ onFilterChange }) => {
+const FilterBar = ({ onFilterChange, adminFilters }) => {
   const [filters, setFilters] = useState({
     sort: null,
     flightDate: null,
@@ -139,30 +139,35 @@ const FilterBar = ({ onFilterChange }) => {
         isVisible={isFlightVisible}
         onClose={() => setFlightVisible(false)}
         onSelectFlight={onSelectFlight}
+        flightDates={adminFilters?.flightDates || []}
       />  
 
       <GardenFilter
         isVisible={isGardenVisible}
         onClose={() => setGardenVisible(false)}  
         onSelectGarden={onSelectGarden}
+        gardens={adminFilters?.garden || []}
       />
 
       <SellerFilter
         isVisible={isSellerVisible}
         onClose={() => setSellerVisible(false)}
         onSelectSeller={onSelectSeller}
+        sellers={adminFilters?.seller || []}
       />
 
       <BuyerFilter
         isVisible={isBuyerVisible}
         onClose={() => setBuyerVisible(false)}
         onSelectBuyer={onSelectBuyer}
+        buyers={adminFilters?.buyer || []}
       />
 
       <ReceiverFilter
         isVisible={isReceiverVisible}
         onClose={() => setReceiverVisible(false)}
         onSelectReceiver={onSelectReceiver}
+        receivers={adminFilters?.receiver || []}
       />
     </View>
   )

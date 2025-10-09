@@ -9,8 +9,10 @@ export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
         Object.entries(filters).filter(([_, value]) => value != null)
       );
     }
+
+    console.log('cleanedParams', cleanedParams);
+    
     const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailReceiving${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
-    console.log('Fetching URL:', url);
     
     const response = await fetch(
       url,
@@ -32,6 +34,41 @@ export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
     return json;
   } catch (error) {
     console.log('getAdminLeafTrailReceiving error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const getAdminLeafTrailFilters = async (filters = {sort: 'desc'}) => {
+  try {
+    const token = await getStoredAuthToken();
+    let cleanedParams = null;
+    if (filters) {
+      cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+    }
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminFilters`
+    
+    const response = await fetch(
+      url,
+      {
+        method: 'GET', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.log('getAdminLeafTrailFilters error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };

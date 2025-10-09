@@ -7,6 +7,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,35 +18,37 @@ import { getAdminLeafTrailSorting } from '../../../../components/Api/getAdminLea
 
 // --- REUSABLE COMPONENTS (unchanged) ---
 
-const ListItem = ({ item }) => (
-  <View style={styles.greenhouseList}>
-    <View style={styles.card}>
-      <Image source={{uri:item.avatar}} style={styles.avatar} />
-      <View style={styles.content}>
-        <View style={styles.nameRow}>
-          <Text style={styles.nameText}>{item.name}</Text>
-          <Text style={styles.usernameText}>{item.username}</Text>
-        </View>
-        <View style={styles.quantityRow}>
-          <View style={styles.quantitySection}>
-            <Text style={styles.quantityLabel}>Received</Text>
-            <Text style={styles.receivedNumber}>{item.receivedPlants}</Text>
+const ListItem = ({ item, navigation}) => (
+  <TouchableOpacity onPress={() => navigation.navigate('LeafTrailSortingDetailsScreen', { date: item.plantFlight, id: item.id })}>
+    <View style={styles.greenhouseList}>
+      <View style={styles.card}>
+        <Image source={{uri:item.avatar}} style={styles.avatar} />
+        <View style={styles.content}>
+          <View style={styles.nameRow}>
+            <Text style={styles.nameText}>{item.name}</Text>
+            <Text style={styles.usernameText}>{item.username}</Text>
           </View>
-          <View style={styles.quantitySection}>
-            <Text style={styles.quantityLabel}>Mishap</Text>
-            <Text style={styles.mishapNumber}>{item.journeyMishap}</Text>
+          <View style={styles.quantityRow}>
+            <View style={styles.quantitySection}>
+              <Text style={styles.quantityLabel}>Received</Text>
+              <Text style={styles.receivedNumber}>{item.receivedPlants}</Text>
+            </View>
+            <View style={styles.quantitySection}>
+              <Text style={styles.quantityLabel}>Mishap</Text>
+              <Text style={styles.mishapNumber}>{item.journeyMishap}</Text>
+            </View>
           </View>
         </View>
       </View>
-    </View>
-    <View style={styles.detailsRow}>
-      <View style={styles.detailsContent}>
-        {/* <Icon name="sprout-outline" size={24} color="#556065" /> */}
-        <AirplaneIcon width={20} height={20} color="#556065"/>
-        <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.plantFlight}</Text></Text>
+      <View style={styles.detailsRow}>
+        <View style={styles.detailsContent}>
+          {/* <Icon name="sprout-outline" size={24} color="#556065" /> */}
+          <AirplaneIcon width={20} height={20} color="#556065"/>
+          <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.plantFlight}</Text></Text>
+        </View>
       </View>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 // --- MAIN SCREEN COMPONENT (Updated) ---
@@ -91,7 +94,7 @@ const SortingScreen = ({navigation}) => {
       
       <FlatList
         data={sortingData?.data || {}}
-        renderItem={({ item }) => <ListItem item={item} />}
+        renderItem={({ item }) => <ListItem item={item} navigation={navigation} />}
         keyExtractor={item => item.id}
         ListHeaderComponent={
           <>

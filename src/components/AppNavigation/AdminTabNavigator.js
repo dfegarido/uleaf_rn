@@ -22,6 +22,7 @@ import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
 import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
 import ShippingScreen from '../../screens/Admin/LeafTrail/Shipping/Shipping';
 import SortingScreen from '../../screens/Admin/LeafTrail/Sorting/Sorting';
+import SortingDetailsScreen from '../../screens/Admin/LeafTrail/Sorting/ViewSorting';
 import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
 import {
   AdminAccountInformationScreen,
@@ -33,13 +34,13 @@ import {
 // import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 // import SimpleTaxonomy from '../../screens/Admin/Taxonomy/SimpleTaxonomy';
 // import TaxonomySimple from '../../screens/Admin/Taxonomy/TaxonomySimple';
-import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
-import AddTaxonomy from '../../screens/Admin/Taxonomy/AddTaxonomy';
-import EditTaxonomy from '../../screens/Admin/Taxonomy/EditTaxonomy';
-import EditSpecieScreen from '../../screens/Admin/Taxonomy/EditSpecieScreen';
-import AddToTaxonomyScreen from '../../screens/Admin/Taxonomy/AddToTaxonomyScreen';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
+import AddTaxonomy from '../../screens/Admin/Taxonomy/AddTaxonomy';
+import AddToTaxonomyScreen from '../../screens/Admin/Taxonomy/AddToTaxonomyScreen';
+import EditSpecieScreen from '../../screens/Admin/Taxonomy/EditSpecieScreen';
+import EditTaxonomy from '../../screens/Admin/Taxonomy/EditTaxonomy';
 import ImportTaxonomyScreen from '../../screens/Admin/Taxonomy/ImportTaxonomyScreen';
+import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 const Tab = createBottomTabNavigator();
@@ -163,6 +164,7 @@ function AdminTabs() {
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
      <Stack.Screen name="LeafTrailSortingAdminScreen" options={{headerShown: false}} component={SortingScreen} />
+    <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
      <Stack.Screen name="LeafTrailShippingAdminScreen" options={{headerShown: false}} component={ShippingScreen} />
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
      <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />

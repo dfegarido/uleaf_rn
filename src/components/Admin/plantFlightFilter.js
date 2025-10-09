@@ -22,14 +22,9 @@ const FlightOption = ({ label, isSelected, onSelect }) => (
   </TouchableOpacity>
 );
 
-const PlantFlightFilter = ({ isVisible, onClose, onSelectFlight }) => {
+const PlantFlightFilter = ({ isVisible, onClose, onSelectFlight, flightDates }) => {
   // Mock data for the list of flights
-  const availableFlights = [
-    'May-30-2024',
-    'June-15-2024',
-    'June-30-2024',
-    'July-12-2024',
-  ];
+  const availableFlights = flightDates;
   
   // State to manage the currently selected flight
   const [selectedFlight, setSelectedFlight] = useState(null);
