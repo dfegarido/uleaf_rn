@@ -289,6 +289,40 @@ const ScreenGrowersSell = ({navigation, route}) => {
       return;
     }
 
+    // Check for duplicate pot size
+    if (!isEditing) {
+      // When adding new pot size, check if it already exists
+      const isDuplicate = potSizeList.some(
+        item => item.size === newPotSize.size
+      );
+      
+      if (isDuplicate) {
+        Alert.alert(
+          'Duplicate Pot Size',
+          `Pot size "${newPotSize.size}" already exists. Please select a different pot size or edit the existing one.`
+        );
+        return;
+      }
+    } else if (isEditing && editingIndex !== null) {
+      // When editing, check if the new size conflicts with other pot sizes (excluding the one being edited)
+      const originalPotSize = potSizeList[editingIndex];
+      
+      // Only check for duplicates if the pot size has actually changed
+      if (originalPotSize.size !== newPotSize.size) {
+        const isDuplicate = potSizeList.some(
+          (item, index) => index !== editingIndex && item.size === newPotSize.size
+        );
+        
+        if (isDuplicate) {
+          Alert.alert(
+            'Duplicate Pot Size',
+            `Pot size "${newPotSize.size}" already exists. Please select a different pot size.`
+          );
+          return;
+        }
+      }
+    }
+
     if (isEditing && editingIndex !== null) {
       const updatedList = [...potSizeList];
       updatedList[editingIndex] = newPotSize;
@@ -588,6 +622,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
     availableQty,
     status,
     publishType,
+    onGoBack,
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -659,6 +694,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
 
       // Upload variation images to Backend API
       console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
+      console.log('🔧 Pot Size List before upload:', JSON.stringify(potSizeList, null, 2));
       const uploadedPotSizeList = await Promise.all(
         potSizeList.map(async item => {
           const imageUrl = await uploadMultipleImagesToBackend([item.image]);
@@ -706,7 +742,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
         })),
       };
 
-      // console.log(data);
+      console.log('🔧 Update API Payload:', JSON.stringify(data, null, 2));
 
       const response = await postSellUpdateApi(data);
 
@@ -795,7 +831,13 @@ const ScreenGrowersSell = ({navigation, route}) => {
       [
         {
           text: 'OK',
-          onPress: () => navigation.goBack(), // 👈 Go back to the previous screen
+          onPress: () => {
+            // Call the callback to refresh the listing detail screen
+            if (onGoBack && typeof onGoBack === 'function') {
+              onGoBack();
+            }
+            navigation.goBack(); // 👈 Go back to the previous screen
+          },
         },
       ],
       {

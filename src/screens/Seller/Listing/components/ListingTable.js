@@ -17,8 +17,51 @@ import IconAccentPin from '../../../../assets/icons/accent/pin.svg';
 import IconMenu from '../../../../assets/icons/greylight/dots-three-vertical-regular.svg';
 import IconDiscountList from '../../../../assets/icons/accent/discount-list.svg';
 import {numberToCurrency} from '../../../../utils/numberToCurrency';
+import {formatDateMonthDayYear} from '../../../../utils/formatDateMonthDayYear';
 
 const COLUMN_WIDTH = 150;
+
+// Helper function to calculate expiration date (+14 days from publish or modification date)
+const calculateExpirationDate = (listingData) => {
+  try {
+    // Determine which date to use (updatedAt if exists, otherwise publishDate)
+    const baseDateFormatted = listingData?.updatedAtFormatted || listingData?.publishDateFormatted;
+    const baseDateRaw = listingData?.updatedAt || listingData?.publishDate;
+    
+    let dateObj;
+    
+    // Priority 1: Use formatted date string if available
+    if (baseDateFormatted) {
+      dateObj = new Date(baseDateFormatted);
+    }
+    // Priority 2: Use raw Firestore timestamp
+    else if (baseDateRaw) {
+      if (baseDateRaw.toDate && typeof baseDateRaw.toDate === 'function') {
+        // Firestore Timestamp object
+        dateObj = baseDateRaw.toDate();
+      } else if (baseDateRaw.seconds) {
+        // Firestore Timestamp-like object
+        dateObj = new Date(baseDateRaw.seconds * 1000);
+      } else if (baseDateRaw instanceof Date) {
+        dateObj = baseDateRaw;
+      } else {
+        dateObj = new Date(baseDateRaw);
+      }
+    } else {
+      return 'No Data';
+    }
+    
+    // Add 14 days
+    const expirationDate = new Date(dateObj);
+    expirationDate.setDate(expirationDate.getDate() + 14);
+    
+    // Format using the existing formatDateMonthDayYear utility
+    return formatDateMonthDayYear(expirationDate.toISOString());
+  } catch (error) {
+    console.error('Error calculating expiration date:', error);
+    return 'No Data';
+  }
+};
 
 const ListingTable = ({
   headers = [],
@@ -52,7 +95,8 @@ const ListingTable = ({
                 styles.cell,
                 index === 0 && {width: 100},
                 index === 2 && {width: 80},
-                index === 7 && {width: 180},
+                index === 7 && {width: 150}, // Expiration Date column
+                index === 8 && {width: 180}, // Discount column
                 {padding: 10, borderColor: '#ccc', borderBottomWidth: 1},
               ]}>
               <Text
@@ -161,31 +205,42 @@ const ListingTable = ({
               <View style={styles.cell}></View>
             )}
 
-            {/* Pot Size Variation (single value or null) */}
+            {/* Pot Size Variation - show all variations in one cell */}
             <View style={styles.cell}>
               {(() => {
-                // Initialize an empty array
-                let finalPotSizes = [];
-
-                // Priority 1: Try from variations
+                // If listing has variations, show all pot sizes
                 if (
                   Array.isArray(listing.variations) &&
                   listing.variations.length > 0
                 ) {
-                  const variation = listing.variations[0];
-
-                  if (Array.isArray(variation.potSize)) {
-                    finalPotSizes = variation.potSize;
-                  } else if (typeof variation.potSize === 'string') {
-                    finalPotSizes = [variation.potSize];
-                  }
+                  return listing.variations.map((variation, varIndex) => (
+                    <View
+                      key={`potsize-${varIndex}`}
+                      style={[
+                        styles.badgeContainer,
+                        {
+                          marginRight: 4,
+                          marginBottom: 4,
+                          alignSelf: 'flex-start',
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.badge,
+                          globalStyles.textMDGreyDark,
+                          {backgroundColor: '#E4E7E9', paddingHorizontal: 10},
+                        ]}>
+                        {variation.potSize || 'No Pot Size'}
+                      </Text>
+                    </View>
+                  ));
                 }
-
-                // Priority 2: Fallback to listing.potSize
+                
+                // For single plant listings (no variations)
+                let finalPotSizes = [];
                 if (
-                  finalPotSizes.length === 0 &&
-                  (Array.isArray(listing.potSize) ||
-                    typeof listing.potSize === 'string')
+                  Array.isArray(listing.potSize) ||
+                  typeof listing.potSize === 'string'
                 ) {
                   finalPotSizes = Array.isArray(listing.potSize)
                     ? listing.potSize
@@ -216,212 +271,130 @@ const ListingTable = ({
               })()}
             </View>
 
-            {/* Price */}
-            {/* {(() => {
-              let totalLocalPrice = 0;
-              let totalDiscountPrice = 0;
-              let hasDiscount = false;
-              let finalCurrencySymbol = listing.localCurrencySymbol || '';
-
-              const parseSafeFloat = val => {
-                const num = parseFloat(val);
-                return isNaN(num) ? 0 : num;
-              };
-
-              const isNonEmpty = val =>
-                val !== null &&
-                val !== undefined &&
-                typeof val === 'string' &&
-                val.trim() !== '';
-
-              if (
-                Array.isArray(listing.variations) &&
-                listing.variations.length > 0
-              ) {
-                listing.variations.forEach(variation => {
-                  const localPrice = parseSafeFloat(variation.localPrice);
-                  const discountPrice = isNonEmpty(variation.localPriceNew)
-                    ? parseSafeFloat(variation.localPriceNew)
-                    : 0;
-
-                  totalLocalPrice += localPrice;
-
-                  if (discountPrice > 0) {
-                    totalDiscountPrice += discountPrice;
-                    hasDiscount = true;
-                  } else {
-                    totalDiscountPrice += localPrice;
-                  }
-
-                  if (variation.localCurrencySymbol) {
-                    finalCurrencySymbol = variation.localCurrencySymbol;
-                  }
-                });
-              } else {
-                const localPrice = parseSafeFloat(listing.localPrice);
-                const discountPrice = isNonEmpty(listing.localPriceNew)
-                  ? parseSafeFloat(listing.localPriceNew)
-                  : 0;
-
-                totalLocalPrice = localPrice;
-                totalDiscountPrice =
-                  discountPrice > 0 ? discountPrice : localPrice;
-                hasDiscount = discountPrice > 0;
-              }
-
-              if (hasDiscount) {
-                return (
-                  <View style={[styles.cell, {flexDirection: 'row'}]}>
-                    <Text
-                      style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
-                      {finalCurrencySymbol}
-                      {totalDiscountPrice.toFixed(2)}
-                    </Text>
-                    <Text
-                      style={[styles.strikeText, globalStyles.textMDGreyLight]}>
-                      {finalCurrencySymbol}
-                      {totalLocalPrice.toFixed(2)}
-                    </Text>
-                  </View>
-                );
-              } else {
-                return (
-                  <View style={[styles.cell, {flexDirection: 'row'}]}>
-                    <Text style={globalStyles.textMDGreyLight}>
-                      {finalCurrencySymbol}
-                      {totalLocalPrice.toFixed(2)}
-                    </Text>
-                  </View>
-                );
-              }
-            })()} */}
-
-            {(() => {
-              let totalLocalPrice = 0;
-              let totalLocalPriceNew = 0;
-              let hasNewPrice = false;
-              let finalCurrencySymbol = listing?.localCurrencySymbol || '';
-
-              const parseSafeFloat = val => {
-                const num = parseFloat(val);
-                return isNaN(num) ? 0 : num;
-              };
-
-              const isNonEmpty = val =>
-                val !== null &&
-                val !== undefined &&
-                (typeof val === 'number' ||
-                  (typeof val === 'string' && val.trim() !== ''));
-
-              if (
-                Array.isArray(listing?.variations) &&
-                listing?.variations.length > 0
-              ) {
-                listing?.variations.forEach(variation => {
-                  const localPrice = parseSafeFloat(variation.localPrice);
-                  const localPriceNew = isNonEmpty(variation.localPriceNew)
-                    ? parseSafeFloat(variation.localPriceNew) !=
-                      parseSafeFloat(variation.localPrice)
-                      ? parseSafeFloat(variation.localPriceNew)
-                      : 0
-                    : 0;
-                  // console.log(variation);
-                  totalLocalPrice += localPrice;
-
-                  if (localPriceNew > 0) {
-                    totalLocalPriceNew += localPriceNew;
-                    hasNewPrice = true;
-                  } else {
-                    totalLocalPriceNew += localPrice;
-                  }
-
-                  if (variation.localCurrencySymbol) {
-                    finalCurrencySymbol = variation.localCurrencySymbol;
-                  }
-                });
-              } else {
-                const localPrice = parseSafeFloat(listing?.localPrice);
-                const localPriceNew = isNonEmpty(listing?.localPriceNew)
-                  ? parseSafeFloat(listing.localPriceNew) !=
-                    parseSafeFloat(listing.localPrice)
-                    ? parseSafeFloat(listing.localPriceNew)
-                    : 0
-                  : 0;
-                // console.log('Single: ' + JSON.stringify(listing?));
-                totalLocalPrice = localPrice;
-                totalLocalPriceNew = localPriceNew;
-                localPriceNew > 0 ? localPriceNew : localPrice;
-                hasNewPrice = localPriceNew > 0;
-
-                if (listing?.localCurrencySymbol) {
-                  finalCurrencySymbol = listing?.localCurrencySymbol;
+            {/* Price - show all variation prices */}
+            <View style={[styles.cell, {flexDirection: 'column'}]}>
+              {(() => {
+                // If listing has variations, show each variation's price
+                if (
+                  Array.isArray(listing.variations) &&
+                  listing.variations.length > 0
+                ) {
+                  return listing.variations.map((variation, varIndex) => {
+                    const localPrice = parseFloat(variation.localPrice) || 0;
+                    const localPriceNew = variation.localPriceNew ? parseFloat(variation.localPriceNew) : null;
+                    const hasNewPrice = localPriceNew && localPriceNew !== localPrice;
+                    const currencySymbol = variation.localCurrencySymbol || listing.localCurrencySymbol || '';
+                    
+                    return (
+                      <View key={`price-${varIndex}`} style={{flexDirection: 'row', marginBottom: 4}}>
+                        {hasNewPrice ? (
+                          <>
+                            <Text style={[globalStyles.textSMAccent, {paddingRight: 5}]}>
+                              {currencySymbol}{numberToCurrency(localPriceNew.toFixed(2))}
+                            </Text>
+                            <Text style={[styles.strikeText, globalStyles.textSMGreyLight]}>
+                              {currencySymbol}{numberToCurrency(localPrice.toFixed(2))}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text style={globalStyles.textSMGreyDark}>
+                            {currencySymbol}{numberToCurrency(localPrice.toFixed(2))}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  });
                 }
-              }
+                
+                // For single plant listings (no variations)
+                const localPrice = parseFloat(listing.localPrice) || 0;
+                const localPriceNew = listing.localPriceNew ? parseFloat(listing.localPriceNew) : null;
+                const hasNewPrice = localPriceNew && localPriceNew !== localPrice;
+                const currencySymbol = listing.localCurrencySymbol || '';
 
-              return (
-                <View style={[styles.cell, {flexDirection: 'row'}]}>
-                  {hasNewPrice ? (
-                    <>
-                      <Text
-                        style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
-                        {finalCurrencySymbol}
-                        {numberToCurrency(totalLocalPriceNew.toFixed(2))}
+                return (
+                  <View style={{flexDirection: 'row'}}>
+                    {hasNewPrice ? (
+                      <>
+                        <Text style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
+                          {currencySymbol}{numberToCurrency(localPriceNew.toFixed(2))}
+                        </Text>
+                        <Text style={[styles.strikeText, globalStyles.textMDGreyLight]}>
+                          {currencySymbol}{numberToCurrency(localPrice.toFixed(2))}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={globalStyles.textMDGreyLight}>
+                        {currencySymbol}{numberToCurrency(localPrice.toFixed(2))}
                       </Text>
-                      <Text
-                        style={[
-                          styles.strikeText,
-                          globalStyles.textMDGreyLight,
-                        ]}>
-                        {finalCurrencySymbol}
-                        {numberToCurrency(totalLocalPrice.toFixed(2))}
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={globalStyles.textMDGreyLight}>
-                      {finalCurrencySymbol}
-                      {numberToCurrency(totalLocalPrice.toFixed(2))}
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
+                    )}
+                  </View>
+                );
+              })()}
+            </View>
 
-            {/* {listing.discountPrice && listing.discountPrice !== '' ? (
-              <View style={[styles.cell, {flexDirection: 'row'}]}>
-                <Text style={[globalStyles.textMDAccent, {paddingRight: 10}]}>
-                  {listing.localCurrencySymbol}
-                  {listing.discountPrice}
-                </Text>
-                <Text style={[styles.strikeText, globalStyles.textMDGreyLight]}>
-                  {listing.localCurrencySymbol}
-                  {listing.localPrice}
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.cell, {flexDirection: 'row'}]}>
-                <Text style={globalStyles.textMDGreyLight}>
-                  {listing.localCurrencySymbol}
-                  {listing.localPrice}
-                </Text>
-              </View>
-            )} */}
-
-            {/* Available Quantity */}
+            {/* Available Quantity - show all variation quantities */}
             <View style={styles.cell}>
+              {(() => {
+                // If listing has variations, show each variation's quantity
+                if (
+                  Array.isArray(listing.variations) &&
+                  listing.variations.length > 0
+                ) {
+                  return (
+                    <>
+                      {listing.variations.map((variation, varIndex) => {
+                        const qty = parseInt(variation.availableQty) || 0;
+                        return (
+                          <Text key={`qty-${varIndex}`} style={[globalStyles.textSMGreyDark, {marginBottom: 4}]}>
+                            {qty}
+                          </Text>
+                        );
+                      })}
+                      {listing.listingType !== 'Single Plant' && (
+                        <TouchableOpacity
+                          onPress={() =>
+                            onPressUpdateStock({
+                              pressCode: listing.listingType,
+                              id: listing.id,
+                            })
+                          }>
+                          <Text style={{color: 'red', marginTop: 10}}>Add Stock</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  );
+                }
+                
+                // For single plant listings (no variations)
+                const qty = parseInt(listing.availableQty) || 0;
+                
+                return (
+                  <>
+                    <Text style={globalStyles.textSMGreyDark}>
+                      {qty}
+                    </Text>
+                    {listing.listingType !== 'Single Plant' && (
+                      <TouchableOpacity
+                        onPress={() =>
+                          onPressUpdateStock({
+                            pressCode: listing.listingType,
+                            id: listing.id,
+                          })
+                        }>
+                        <Text style={{color: 'red', marginTop: 10}}>Add Stock</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                );
+              })()}
+            </View>
+
+            {/* Expiration Date */}
+            <View style={[styles.cell, {width: 150}]}>
               <Text style={globalStyles.textSMGreyDark}>
-                {listing.availableQty}
+                {calculateExpirationDate(listing)}
               </Text>
-              {listing.listingType !== 'Single Plant' && (
-                <TouchableOpacity
-                  onPress={() =>
-                    onPressUpdateStock({
-                      pressCode: listing.listingType,
-                      id: listing.id,
-                    })
-                  }>
-                  <Text style={{color: 'red', marginTop: 10}}>Add Stock</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
             {/* Sold Quantity */}

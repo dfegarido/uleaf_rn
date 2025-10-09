@@ -13,6 +13,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -71,6 +74,14 @@ const ScreenProfileAccount = ({navigation, route}) => {
     useState(gardenOrCompanyName);
   const [countryState, setCountryState] = useState(country);
 
+  // Map country names to country codes for phone numbers
+  const countryToCodeMap = {
+    'Philippines': '+63',
+    'Thailand': '+66',
+    'Indonesia': '+62',
+    'United States': '+1',
+  };
+
   // Track original values to detect changes
   const [originalData, setOriginalData] = useState({});
   const [hasChanges, setHasChanges] = useState(false);
@@ -107,6 +118,31 @@ const ScreenProfileAccount = ({navigation, route}) => {
       setImages([userInfo.profileImage]);
     }
   }, [userInfo?.profileImage]);
+
+  // Synchronize phone number with country selection
+  useEffect(() => {
+    if (countryState && finalPhone) {
+      // Get the expected country code for the selected country
+      const expectedCode = countryToCodeMap[countryState];
+      
+      if (expectedCode && !finalPhone.startsWith(expectedCode)) {
+        // Extract phone number without any country code
+        let numberOnly = finalPhone;
+        // Remove any existing country codes
+        Object.values(countryToCodeMap).forEach(code => {
+          if (numberOnly.startsWith(code)) {
+            numberOnly = numberOnly.substring(code.length);
+          }
+        });
+        
+        // Rebuild with the correct country code
+        const correctedNumber = expectedCode + numberOnly;
+        console.log(`Country changed to ${countryState}, updating phone from ${finalPhone} to ${correctedNumber}`);
+        setContactNumberState(correctedNumber);
+        setFinalPhone(correctedNumber);
+      }
+    }
+  }, [countryState]);
 
   // Check for changes in form fields
   useEffect(() => {
@@ -176,11 +212,36 @@ const ScreenProfileAccount = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Upload images to Firebase
+      // Upload images to Firebase only if image changed and user is authenticated
       const uploadedUrls = [];
-      for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebaseProfile(uri);
-        uploadedUrls.push(firebaseUrl);
+      if (isImageChange && images.length > 0) {
+        try {
+          // Import auth to check current user
+          const auth = require('@react-native-firebase/auth').default;
+          const currentUser = auth().currentUser;
+          
+          if (!currentUser) {
+            console.warn('User not authenticated, skipping image upload');
+            Alert.alert(
+              'Authentication Required',
+              'You need to be logged in to update your profile image. Your other changes will still be saved.',
+              [{ text: 'OK' }]
+            );
+          } else {
+            // User is authenticated, proceed with image upload
+            for (const uri of images) {
+              const firebaseUrl = await uploadImageToFirebaseProfile(uri);
+              uploadedUrls.push(firebaseUrl);
+            }
+          }
+        } catch (authError) {
+          console.error('Image upload error:', authError);
+          Alert.alert(
+            'Image Upload Failed',
+            'Could not upload profile image, but your other changes will still be saved.',
+            [{ text: 'OK' }]
+          );
+        }
       }
 
       const response = await postProfileUpdateInfoApi(
@@ -189,7 +250,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
         finalPhone,
         countryState,
         gardenOrCompanyNameState,
-        uploadedUrls.length > 0 ? uploadedUrls[0] : '',
+        uploadedUrls.length > 0 ? uploadedUrls[0] : (profileImage || ''),
       );
 
       if (!response?.success) {
@@ -198,7 +259,9 @@ const ScreenProfileAccount = ({navigation, route}) => {
 
       Alert.alert('Update Account', 'Account updated successfully!');
 
-      updateProfileImage(uploadedUrls.length > 0 ? uploadedUrls[0] : '');
+      if (uploadedUrls.length > 0) {
+        updateProfileImage(uploadedUrls[0]);
+      }
 
       // Reset changes flag and update original data
       setHasChanges(false);
@@ -241,23 +304,29 @@ const ScreenProfileAccount = ({navigation, route}) => {
           </View>
         </Modal>
       )}
-      <ScrollView
-        style={[styles.container]}
-        contentContainerStyle={{
-          marginBottom: insets.bottom + 30,
-        }}>
-        {/* Search and Icons */}
-        <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={{
-                // padding: 5,
-                // backgroundColor: '#fff',
-                flexDirection: 'row',
-                justifyContent: 'flex-start',
-                alignItems: 'flex-start',
-              }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{flex: 1}}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <ScrollView
+            style={[styles.container]}
+            contentContainerStyle={{
+              marginBottom: insets.bottom + 30,
+            }}
+            keyboardShouldPersistTaps="handled">
+            {/* Search and Icons */}
+            <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
+              <View style={styles.header}>
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={{
+                    // padding: 5,
+                    // backgroundColor: '#fff',
+                    flexDirection: 'row',
+                    justifyContent: 'flex-start',
+                    alignItems: 'flex-start',
+                  }}>
               <LeftIcon width={30} hegiht={30} />
             </TouchableOpacity>
             <View style={{flex: 1}}>
@@ -388,7 +457,9 @@ const ScreenProfileAccount = ({navigation, route}) => {
           </View>
         </View>
         {/* Main Content */}
-      </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

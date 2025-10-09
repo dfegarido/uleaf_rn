@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState, useContext} from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import DiscountBadge from '../../../components/DiscountBadge/DiscountBadge';
 import {getListingDetails} from '../../../components/Api';
 import NetInfo from '@react-native-community/netinfo';
+import {AuthContext} from '../../../auth/AuthProvider';
 import {retryAsync} from '../../../utils/utils';
 import {CustomSwitch} from '../../../components/Switch';
 import ConfirmRenew from './components/ConfirmRenew';
@@ -74,13 +75,68 @@ const screenHeight = Dimensions.get('window').height;
 
 import {useNavigationState} from '@react-navigation/native';
 
+// Helper function to calculate expiration date (+14 days from publish or modification date)
+const calculateExpirationDate = (listingData) => {
+  try {
+    // Determine which date to use (updatedAt if exists, otherwise publishDate)
+    // Try formatted fields first, then raw timestamps
+    const baseDateFormatted = listingData?.updatedAtFormatted || listingData?.publishDateFormatted;
+    const baseDateRaw = listingData?.updatedAt || listingData?.publishDate;
+    
+    let dateObj;
+    
+    // Priority 1: Use formatted date string if available
+    if (baseDateFormatted) {
+      dateObj = new Date(baseDateFormatted);
+    }
+    // Priority 2: Use raw Firestore timestamp
+    else if (baseDateRaw) {
+      if (baseDateRaw.toDate && typeof baseDateRaw.toDate === 'function') {
+        // Firestore Timestamp object
+        dateObj = baseDateRaw.toDate();
+      } else if (baseDateRaw.seconds) {
+        // Firestore Timestamp-like object
+        dateObj = new Date(baseDateRaw.seconds * 1000);
+      } else if (baseDateRaw instanceof Date) {
+        dateObj = baseDateRaw;
+      } else {
+        dateObj = new Date(baseDateRaw);
+      }
+    } else {
+      return 'No Data';
+    }
+    
+    // Add 14 days
+    const expirationDate = new Date(dateObj);
+    expirationDate.setDate(expirationDate.getDate() + 14);
+    
+    // Format using the existing formatDateMonthDayYear utility
+    // Convert to ISO string format which the utility function expects
+    const result = formatDateMonthDayYear(expirationDate.toISOString());
+    
+    console.log('📅 Expiration Calculation:', {
+      baseDateFormatted,
+      baseDateRaw,
+      dateObj: dateObj.toISOString(),
+      expirationDate: expirationDate.toISOString(),
+      result
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error calculating expiration date:', error);
+    return 'No Data';
+  }
+};
+
 const ScreenListingDetail = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [listingData, setListingData] = useState(null);
+  const {userInfo} = useContext(AuthContext);
 
-  const {plantCode} = route.params;
+  const {plantCode, onGoBack} = route.params;
 
   const routes = useNavigationState(state => state.routes);
   const previousRoute = routes[routes.length - 2]; // Previous screen
@@ -121,6 +177,16 @@ const ScreenListingDetail = ({navigation, route}) => {
     }
 
     // console.log(res.data);
+    console.log('📅 Listing Data - publishDate:', res.data?.publishDate);
+    console.log('📅 Listing Data - publishDateFormatted:', res.data?.publishDateFormatted);
+    console.log('📅 Listing Data - updatedAt:', res.data?.updatedAt);
+    console.log('📅 Listing Data - updatedAtFormatted:', res.data?.updatedAtFormatted);
+    console.log('📅 Calculated Expiration:', calculateExpirationDate(res.data));
+    console.log('🔧 Variations:', res.data?.variations);
+    console.log('🔧 Variations Count:', res.data?.variations?.length);
+    console.log('💰 Currency Info - userInfo:', userInfo);
+    console.log('💰 Currency Symbol:', userInfo?.currencySymbol);
+    console.log('💰 Listing Currency Symbol:', res.data?.localCurrencySymbol);
     setSwitchActive(res.data.status == 'Active' ? true : false);
     setListingData(res.data);
   };
@@ -168,6 +234,11 @@ const ScreenListingDetail = ({navigation, route}) => {
         throw new Error(response?.message || 'Post publish now failed.');
       }
 
+      // Trigger refresh of the listing table when going back
+      if (onGoBack && typeof onGoBack === 'function') {
+        onGoBack();
+      }
+      
       Alert.alert('Publish Now', 'Listing published now successfully!');
     } catch (error) {
       console.log('Error publish now action:', error.message);
@@ -201,6 +272,11 @@ const ScreenListingDetail = ({navigation, route}) => {
         );
       }
 
+      // Trigger refresh of the listing table when going back
+      if (onGoBack && typeof onGoBack === 'function') {
+        onGoBack();
+      }
+      
       Alert.alert(
         'Publish in Nursery Drop',
         'Listing published in nursery drop successfully!',
@@ -228,6 +304,11 @@ const ScreenListingDetail = ({navigation, route}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post activate failed.');
       }
+      
+      // Trigger refresh of the listing table when going back
+      if (onGoBack && typeof onGoBack === 'function') {
+        onGoBack();
+      }
     } catch (error) {
       console.log('Error activate action:', error.message);
       Alert.alert('Activate', error.message);
@@ -247,6 +328,11 @@ const ScreenListingDetail = ({navigation, route}) => {
 
       if (!response?.success) {
         throw new Error(response?.message || 'Post activate failed.');
+      }
+      
+      // Trigger refresh of the listing table when going back
+      if (onGoBack && typeof onGoBack === 'function') {
+        onGoBack();
       }
     } catch (error) {
       console.log('Error activate action:', error.message);
@@ -305,6 +391,11 @@ const ScreenListingDetail = ({navigation, route}) => {
       }
 
       await loadListingData(plantCode);
+      
+      // Trigger refresh of the listing table when going back
+      if (onGoBack && typeof onGoBack === 'function') {
+        onGoBack();
+      }
     } catch (error) {
       console.log('Error updating stock:', error.message);
       Alert.alert('Update stocks', error.message);
@@ -326,6 +417,11 @@ const ScreenListingDetail = ({navigation, route}) => {
         throw new Error(response?.message || 'Post pin failed.');
       }
 
+      // Trigger refresh of the listing table when going back
+      if (onGoBack && typeof onGoBack === 'function') {
+        onGoBack();
+      }
+      
       Alert.alert('Delete Listing', 'Listing deleted successfully!');
       setActionShowSheet(false);
       setDeleteModalVisible(false);
@@ -345,6 +441,48 @@ const ScreenListingDetail = ({navigation, route}) => {
     setActionShowSheet(false);
     setDeleteModalVisible(true);
   };
+
+  // Pin Item
+  const onPressTableListPin = async (plantCode, pinTag) => {
+    setLoading(true);
+    try {
+      const updatedPinTag = !pinTag;
+
+      const response = await postListingPinActionApi(plantCode, updatedPinTag);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Post pin failed.');
+      }
+
+      // Reload listing data to reflect the pin status change
+      await loadListingData(plantCode);
+      
+      // Trigger refresh of the listing table when going back
+      if (onGoBack && typeof onGoBack === 'function') {
+        onGoBack();
+      }
+      
+      Alert.alert('Pin Status', `Listing ${updatedPinTag ? 'pinned' : 'unpinned'} successfully!`);
+    } catch (error) {
+      console.log('Error pin table action:', error.message);
+      Alert.alert('Pin item', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Pin Item
+
+  // Handle edit callback - refresh detail screen and trigger parent refresh
+  const handleEditCallback = async () => {
+    // Reload the listing detail data
+    await loadListingData(plantCode);
+    
+    // Trigger refresh of the listing table for when user goes back
+    if (onGoBack && typeof onGoBack === 'function') {
+      onGoBack();
+    }
+  };
+  // Handle edit callback
 
   return (
     <SafeAreaView
@@ -438,16 +576,19 @@ const ScreenListingDetail = ({navigation, route}) => {
                     if (listingData?.listingType == 'Single Plant') {
                       navigation.navigate('ScreenSingleSell', {
                         plantCode: listingData?.plantCode,
+                        onGoBack: handleEditCallback,
                       });
                     }
                     if (listingData?.listingType == 'Wholesale') {
                       navigation.navigate('ScreenWholesaleSell', {
                         plantCode: listingData?.plantCode,
+                        onGoBack: handleEditCallback,
                       });
                     }
                     if (listingData?.listingType == "Grower's Choice") {
                       navigation.navigate('ScreenGrowersSell', {
                         plantCode: listingData?.plantCode,
+                        onGoBack: handleEditCallback,
                       });
                     }
                   }}>
@@ -685,7 +826,7 @@ const ScreenListingDetail = ({navigation, route}) => {
                     <View>
                       <Text
                         style={[globalStyles.textMDGreyDark, {paddingLeft: 5}]}>
-                        {listingData?.expirationDate ?? 'No Data'}
+                        {calculateExpirationDate(listingData)}
                       </Text>
                       <Text
                         style={[
@@ -843,8 +984,17 @@ const ScreenListingDetail = ({navigation, route}) => {
 
                 {listingData?.variations.map((item, index) => {
                   const potSize = item.potSize || 'No Pot Size';
+                  
+                  // Get currency symbol with better fallback logic
+                  // Try to find a currency symbol from any variation if current one doesn't have it
+                  const fallbackCurrencySymbol = listingData.variations.find(v => v.localCurrencySymbol)?.localCurrencySymbol;
+                  const currencySymbol = item?.localCurrencySymbol || fallbackCurrencySymbol || listingData?.localCurrencySymbol || userInfo?.currencySymbol || '$';
+                  
+                  // Debug log to see what currency values we have for ALL variations
+                  console.log(`💰 Variation ${index} Currency:`, item?.localCurrencySymbol, '- Pot Size:', potSize, '- Using:', currencySymbol);
+                  
                   const price =
-                    item?.localCurrencySymbol +
+                    currencySymbol +
                     ' ' +
                     numberToCurrency(item?.localPrice);
 
@@ -985,16 +1135,19 @@ const ScreenListingDetail = ({navigation, route}) => {
           if (listingData?.listingType == 'Single Plant') {
             navigation.navigate('ScreenSingleSell', {
               plantCode: listingData?.plantCode,
+              onGoBack: handleEditCallback,
             });
           }
           if (listingData?.listingType == 'Wholesale') {
             navigation.navigate('ScreenWholesaleSell', {
               plantCode: listingData?.plantCode,
+              onGoBack: handleEditCallback,
             });
           }
           if (listingData?.listingType == "Grower's Choice") {
             navigation.navigate('ScreenGrowersSell', {
               plantCode: listingData?.plantCode,
+              onGoBack: handleEditCallback,
             });
           }
         }}
