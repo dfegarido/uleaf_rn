@@ -22,25 +22,20 @@ const SellerItem = ({ name, avatarUrl, onSelect }) => (
   </TouchableOpacity>
 );
 
-const SellerFilter = ({ isVisible, onClose, onSelectSeller }) => {
+const SellerFilter = ({ isVisible, onClose, onSelectSeller, sellers }) => {
   // Mock data for the list of sellers
-  const allSellers = [
-    { id: '1', name: 'Kristin Watson', avatar: 'https://i.imgur.com/L6SHd3S.jpeg' },
-    { id: '2', name: 'Jane Cooper', avatar: 'https://i.imgur.com/81DNp2c.jpeg' },
-    { id: '3', name: 'Esther Howard', avatar: 'https://i.imgur.com/s21bC37.jpeg' },
-    { id: '4', name: 'Cameron Williamson', avatar: 'https://i.imgur.com/LMD0A6T.jpeg' },
-    { id: '5', name: 'Brooklyn Simmons', avatar: 'https://i.imgur.com/cE1aDBo.jpeg' },
-  ];
+  const allSellers = sellers;
 
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter sellers based on the search query
-  const filteredSellers = allSellers.filter(seller =>
-    seller.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSellers = allSellers.filter(seller => {
+    const name = seller.name || '';
+    return name.toLowerCase().includes(searchQuery.toLowerCase())
+  });
 
   const handleSelect = (seller) => {
-    onSelectSeller(seller);
+    onSelectSeller(seller?.id || '');
     onClose();
   };
 

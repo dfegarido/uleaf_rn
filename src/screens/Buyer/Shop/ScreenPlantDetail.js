@@ -1,47 +1,45 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState, useEffect, useCallback} from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
   Alert,
-  SafeAreaView,
-  Modal,
-  TextInput,
   Dimensions,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {useAuth} from '../../../auth/AuthProvider';
-import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import ShareIcon from '../../../assets/buyer-icons/share-gray.svg';
-import HeartIcon from '../../../assets/icons/greylight/heart-regular.svg';
+import CloseIcon from '../../../assets/buyer-icons/close.svg';
+import FlightIcon from '../../../assets/buyer-icons/flight.svg';
 import HeartSolidIcon from '../../../assets/buyer-icons/heart.svg';
+import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import MinusIcon from '../../../assets/buyer-icons/minus.svg';
+import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import PlaneIcon from '../../../assets/buyer-icons/plane-gray.svg';
+import PlusIcon from '../../../assets/buyer-icons/plus.svg';
+import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
+import VenmoLogo from '../../../assets/buyer-icons/venmo-logo.svg';
 import WishListSelected from '../../../assets/buyer-icons/wishlist-selected.svg';
 import WishListUnselected from '../../../assets/buyer-icons/wishlist-unselected.svg';
-import FlightIcon from '../../../assets/buyer-icons/flight.svg';
-import PlaneIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import FlakesIcon from '../../../assets/icons/greylight/flakes.svg';
-import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import BoxIcon from '../../../assets/icons/greylight/box-regular.svg';
+import FlakesIcon from '../../../assets/icons/greylight/flakes.svg';
+import HeartIcon from '../../../assets/icons/greylight/heart-regular.svg';
 import ReturnIcon from '../../../assets/icons/greylight/return.svg';
-import VenmoLogo from '../../../assets/buyer-icons/venmo-logo.svg';
 import CartIcon from '../../../assets/icontabs/buyer-tabs/cart-solid.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import CloseIcon from '../../../assets/buyer-icons/close.svg';
-import MinusIcon from '../../../assets/buyer-icons/minus.svg';
-import PlusIcon from '../../../assets/buyer-icons/plus.svg';
-import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
-import {addToCartApi} from '../../../components/Api/cartApi';
+import { useAuth } from '../../../auth/AuthProvider';
+import { addToCartApi } from '../../../components/Api/cartApi';
+import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
+import { retryAsync } from '../../../utils/utils';
 
 const ScreenPlantDetail = ({navigation, route}) => {
   const {user} = useAuth();
@@ -397,6 +395,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   // Get available stock quantity
   const getAvailableStock = () => {
+    console.log('plantData for stock calculation:', plantData);
+    
     const stock = plantData?.availableQty || plantData?.stock || plantData?.quantity || plantData?.maxQuantity || 999;
     console.log('📊 Available stock calculation:', {
       availableQty: plantData?.availableQty,

@@ -24,16 +24,9 @@ const GardenItem = ({ name, onSelect }) => (
   </TouchableOpacity>
 );
 
-const GardenFilter = ({ isVisible, onClose, onSelectGarden }) => {
+const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens }) => {
   // Mock data for the list of gardens
-  const allGardens = [
-    'Tropical Oasis',
-    'Green Haven',
-    'Exotic Plants PH',
-    'Manila Urban Garden',
-    'Cebu Tropics',
-    'Davao Flora',
-  ];
+  const allGardens = gardens;
 
   const [searchQuery, setSearchQuery] = useState('');
 

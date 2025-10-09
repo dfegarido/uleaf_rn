@@ -1,9 +1,9 @@
 import React from 'react';
 import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';

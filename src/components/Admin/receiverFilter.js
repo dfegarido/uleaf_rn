@@ -22,25 +22,20 @@ const ReceiverItem = ({ name, avatarUrl, onSelect }) => (
   </TouchableOpacity>
 );
 
-const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver }) => {
+const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, receivers }) => {
   // Mock data for the list of receivers
-  const allReceivers = [
-    { id: '1', name: 'Kristin Watson', avatar: 'https://i.imgur.com/L6SHd3S.jpeg' },
-    { id: '2', name: 'Jane Cooper', avatar: 'https://i.imgur.com/81DNp2c.jpeg' },
-    { id: '3', name: 'Esther Howard', avatar: 'https://i.imgur.com/s21bC37.jpeg' },
-    { id: '4', name: 'Cameron Williamson', avatar: 'https://i.imgur.com/LMD0A6T.jpeg' },
-    { id: '5', name: 'Brooklyn Simmons', avatar: 'https://i.imgur.com/cE1aDBo.jpeg' },
-  ];
+  const allReceivers = receivers;
 
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter receivers based on the search query
-  const filteredReceivers = allReceivers.filter(receiver =>
-    receiver.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredReceivers = allReceivers.filter(receiver => {
+    const name = receiver.name || '';
+    return name.toLowerCase().includes(searchQuery.toLowerCase())
+  });
 
   const handleSelect = (receiver) => {
-    onSelectReceiver(receiver);
+    onSelectReceiver(receiver?.id || null);
     onClose();
   };
 
