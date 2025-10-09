@@ -402,7 +402,7 @@ const BuyerProfileScreen = (props) => {
         }
       >
   {/* Header */}
-  <View style={[styles.header, {paddingTop: Math.min(insets.top, 10) }]}> 
+  <View style={[styles.header, {paddingTop: Math.min(insets.top, 40) }]}> 
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}>

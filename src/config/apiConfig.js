@@ -57,7 +57,13 @@ export const GEODATABASE_CONFIG = {
     COUNTRIES: () => `${GEODATABASE_CONFIG.BASE_URL}/countries`,
     US_REGIONS: (limit = 55, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/US/regions?limit=${limit}&offset=${offset}`,
     COUNTRY_REGIONS: (countryCode, limit = 50, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/${countryCode}/regions?limit=${limit}&offset=${offset}`,
-    REGION_CITIES: (countryCode, regionCode, limit = 100, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/${countryCode}/regions/${regionCode}/cities?limit=${limit}&offset=${offset}`,
+    REGION_CITIES: (countryCode, regionCode, limit = 100, offset = 0, namePrefix = '') => {
+      let url = `${GEODATABASE_CONFIG.BASE_URL}/countries/${countryCode}/regions/${regionCode}/cities?limit=${limit}&offset=${offset}`;
+      if (namePrefix) {
+        url += `&namePrefix=${encodeURIComponent(namePrefix)}`;
+      }
+      return url;
+    },
     COUNTRY_CITIES: (countryCode, limit = 100, offset = 0) => `${GEODATABASE_CONFIG.BASE_URL}/countries/${countryCode}/cities?limit=${limit}&offset=${offset}`,
     
     // New general cities endpoint
@@ -122,7 +128,8 @@ const generateEndpoints = () => ({
   DELETE_ADMIN: `${getBaseUrl()}/deleteAdmin`,
   GET_ALL_USERS: `${getBaseUrl()}/getAllUsers`,
   UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
-  GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`,
+  GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`, // Admin taxonomy management (genus collection with metadata)
+  GET_GENUS_DROPDOWN: `${getBaseUrl()}/getGenusFromPlantCatalogDropdown`, // Seller dropdown (genus collection, simple list)
   // Taxonomy Management APIs
   ADD_PLANT_TAXONOMY: `${getBaseUrl()}/addPlantTaxonomy`,
   UPDATE_PLANT_TAXONOMY: `${getBaseUrl()}/updatePlantTaxonomy`,

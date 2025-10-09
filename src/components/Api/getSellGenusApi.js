@@ -1,16 +1,17 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getSellGenusApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://getgenusfromplantcatalogdropdown-nstilwgvua-uc.a.run.app/',
+      API_ENDPOINTS.GET_GENUS_DROPDOWN,
       {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // use token from AsyncStorage
+          Authorization: `Bearer ${token}`,
         },
       },
     );

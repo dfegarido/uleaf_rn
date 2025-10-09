@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -116,6 +116,7 @@ const BuyerSignupLocation = () => {
   // Pagination state
   const [statesOffset, setStatesOffset] = useState(0);
   const [citiesOffset, setCitiesOffset] = useState(0);
+  const citiesOffsetRef = useRef(0); // Use ref to track offset without causing re-renders
   const [statesHasMore, setStatesHasMore] = useState(true);
   const [citiesHasMore, setCitiesHasMore] = useState(true);
   const [loadingMoreStates, setLoadingMoreStates] = useState(false);
@@ -181,7 +182,7 @@ const BuyerSignupLocation = () => {
   }, [states, state, selectedStateData]); // Include selectedStateData to prevent infinite loops
 
   // Load states from GeoDB API with pagination
-  const loadStates = async (isLoadMore = false) => {
+  const loadStates = useCallback(async (isLoadMore = false) => {
     try {
       const currentOffset = isLoadMore ? statesOffset : 0;
       console.log(`🇺🇸 Loading US states from GeoDB API... (offset: ${currentOffset})`);
@@ -260,21 +261,36 @@ const BuyerSignupLocation = () => {
         setStatesLoading(false);
       }
     }
-  };
+  }, [statesOffset]); // Only re-create if offset changes
 
   useEffect(() => {
     loadStates();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount, loadStates is stable due to useCallback
+
+  // Load more states when reaching end of list
+  const loadMoreStates = useCallback(async () => {
+    if (!statesHasMore || loadingMoreStates) {
+      console.log('⏭️ Skipping loadMoreStates - hasMore:', statesHasMore, 'loading:', loadingMoreStates);
+      return;
+    }
+    console.log('📜 Loading more states...');
+    await loadStates(true);
+  }, [statesHasMore, loadingMoreStates, loadStates]);
 
   // Load cities when state changes using GeoDB API with pagination
-  const loadCities = async (isLoadMore = false) => {
+  const loadCities = useCallback(async (isLoadMore = false) => {
     if (!selectedStateData) {
       setCities([]);
+      setCitiesOffset(0);
+      citiesOffsetRef.current = 0;
+      setCitiesHasMore(true);
       return;
     }
 
     try {
-      const currentOffset = isLoadMore ? citiesOffset : 0;
+      // Use ref to get current offset without it being a dependency
+      const currentOffset = isLoadMore ? citiesOffsetRef.current : 0;
       console.log(`🏙️ Loading cities for state from GeoDB API: ${selectedStateData.name} (offset: ${currentOffset})`);
       
       if (isLoadMore) {
@@ -283,6 +299,7 @@ const BuyerSignupLocation = () => {
         setCitiesLoading(true);
         setCities([]); // Clear existing cities for fresh load
         setCitiesOffset(0);
+        citiesOffsetRef.current = 0;
       }
       
       // Load cities from GeoDB API
@@ -311,7 +328,9 @@ const BuyerSignupLocation = () => {
         }
         
         // Update pagination state
-        setCitiesOffset(currentOffset + 5);
+        const newOffset = currentOffset + 5;
+        setCitiesOffset(newOffset);
+        citiesOffsetRef.current = newOffset;
         setCitiesHasMore(response.hasMore);
         
         console.log(`✅ Successfully loaded ${cityNames.length} unique cities for ${selectedStateData.name} (total: ${isLoadMore ? 'appended' : cityNames.length}, hasMore: ${response.hasMore})`);
@@ -340,10 +359,67 @@ const BuyerSignupLocation = () => {
         setCitiesLoading(false);
       }
     }
-  };
+  }, [selectedStateData]); // Only depend on selectedStateData, not citiesOffset
 
+  // Call loadCities when selectedStateData changes
   useEffect(() => {
     loadCities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStateData]); // Only trigger when selectedStateData changes, not when loadCities function changes
+
+  // Load more cities when reaching end of list
+  const loadMoreCities = useCallback(async () => {
+    if (!citiesHasMore || loadingMoreCities || !selectedStateData) {
+      console.log('⏭️ Skipping loadMoreCities - hasMore:', citiesHasMore, 'loading:', loadingMoreCities, 'hasState:', !!selectedStateData);
+      return;
+    }
+    console.log('📜 Loading more cities...');
+    await loadCities(true);
+  }, [citiesHasMore, loadingMoreCities, selectedStateData, loadCities]);
+
+  // Handle city search (manual server-side search)
+  const handleCitySearch = useCallback(async (searchText) => {
+    if (!selectedStateData) {
+      console.log('⚠️ No state selected, cannot search cities');
+      return;
+    }
+
+    try {
+      setCitiesLoading(true);
+      setCitiesOffset(0);
+      citiesOffsetRef.current = 0;
+      
+      console.log(`🔍 Searching cities in ${selectedStateData.name} with query: "${searchText}"`);
+      
+      // Fetch cities with search query (namePrefix parameter)
+      const response = await getStateCitiesSimple(
+        selectedStateData.isoCode, 
+        10,  // GeoDB API plan limit
+        0,   // Reset offset
+        searchText  // Search query
+      );
+      
+      if (response.success && response.cities && response.cities.length > 0) {
+        const cityNames = [...new Set(response.cities.map(city => city.name))];
+        const filteredCities = filterRestrictedCities(cityNames, selectedStateData);
+        filteredCities.sort();
+        
+        setCities(filteredCities);
+        setCitiesHasMore(response.hasMore);
+        
+        console.log(`✅ Search complete: ${filteredCities.length} cities found`);
+      } else {
+        console.log(`⚠️ No cities found for search: "${searchText}"`);
+        setCities([]);
+        setCitiesHasMore(false);
+      }
+    } catch (error) {
+      console.error('❌ Error searching cities:', error.message);
+      setCities([]);
+      setCitiesHasMore(false);
+    } finally {
+      setCitiesLoading(false);
+    }
   }, [selectedStateData]);
 
   const handleContinue = async () => {
@@ -439,7 +515,7 @@ const BuyerSignupLocation = () => {
             }}
             placeholder={statesLoading ? "Loading US states..." : "Select..."}
             disabled={statesLoading}
-            onLoadMore={() => loadStates(true)}
+            onLoadMore={loadMoreStates}
             hasMore={statesHasMore}
             loadingMore={loadingMoreStates}
           />
@@ -460,9 +536,11 @@ const BuyerSignupLocation = () => {
                   : "Select state first"
             }
             disabled={!selectedStateData || citiesLoading}
-            onLoadMore={() => loadCities(true)}
+            onLoadMore={loadMoreCities}
             hasMore={citiesHasMore}
             loadingMore={loadingMoreCities}
+            enableServerSearch={true}
+            onSearch={handleCitySearch}
           />
 
           {/* Zip code */}
