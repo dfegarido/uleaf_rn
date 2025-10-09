@@ -18,8 +18,8 @@ import InputBox from '../../components/Input/InputBox';
 import InfoIcon from '../../assets/buyer-icons/information.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// GeoDB API for location data using centralized config
-import { getUSStatesSimple, getStateCitiesSimple, getAllUSCitiesSimple } from '../../components/Api/geoDbApi';
+// Backend API for location data from dropdown_state collection
+import { getStatesFromBackend, getStateCitiesSimple, getAllUSCitiesSimple } from '../../components/Api/geoDbApi';
 
 // Restricted states and territories configuration
 const RESTRICTED_LOCATIONS = {
@@ -181,11 +181,11 @@ const BuyerSignupLocation = () => {
     }
   }, [states, state, selectedStateData]); // Include selectedStateData to prevent infinite loops
 
-  // Load states from GeoDB API with pagination
+  // Load states from backend (dropdown_state collection) with pagination
   const loadStates = useCallback(async (isLoadMore = false) => {
     try {
-      const currentOffset = isLoadMore ? statesOffset : 0;
-      console.log(`🇺🇸 Loading US states from GeoDB API... (offset: ${currentOffset})`);
+      const currentPage = isLoadMore ? Math.floor(statesOffset / 50) + 1 : 1;
+      console.log(`🔥 Loading US states from backend... (page: ${currentPage})`);
       
       if (isLoadMore) {
         setLoadingMoreStates(true);
@@ -195,7 +195,7 @@ const BuyerSignupLocation = () => {
         setStatesOffset(0);
       }
       
-      const response = await getUSStatesSimple(5, currentOffset);
+      const response = await getStatesFromBackend(50, currentPage);
       
       if (response.success && response.states) {
         // Transform to match existing component structure
@@ -215,27 +215,28 @@ const BuyerSignupLocation = () => {
         if (isLoadMore) {
           // Append to existing states
           setStates(prevStates => [...prevStates, ...filteredStates]);
+          setStatesOffset(prevOffset => prevOffset + filteredStates.length);
         } else {
           // Replace states
           setStates(filteredStates);
+          setStatesOffset(filteredStates.length);
         }
         
         // Update pagination state
-        setStatesOffset(currentOffset + 5);
         setStatesHasMore(response.hasMore);
         
-        console.log(`✅ Successfully loaded ${stateList.length} US states from GeoDB API (total: ${isLoadMore ? states.length + stateList.length : stateList.length}, hasMore: ${response.hasMore})`);
+        console.log(`✅ Successfully loaded ${stateList.length} US states from backend (total: ${isLoadMore ? states.length + stateList.length : stateList.length}, hasMore: ${response.hasMore})`);
       } else {
-        console.error('❌ GeoDB API returned error:', response.error);
-        throw new Error(response.error || 'Failed to load states from GeoDB');
+        console.error('❌ Backend API returned error:', response.error);
+        throw new Error(response.error || 'Failed to load states from backend');
       }
     } catch (error) {
-      console.error('❌ Error loading states from GeoDB API:', error.message);
+      console.error('❌ Error loading states from backend:', error.message);
       
       if (!isLoadMore) {
         Alert.alert(
           'Location Service Issue', 
-          'Could not load states from location service. Using fallback list.',
+          'Could not load states from backend. Using fallback list.',
           [{ text: 'OK' }]
         );
         

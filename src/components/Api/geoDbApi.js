@@ -2,7 +2,8 @@
  * Using RapidAPI's World GeoData API with centralized configuration
  */
 
-import { GEODATABASE_CONFIG } from '../../config/apiConfig';
+import { GEODATABASE_CONFIG, API_ENDPOINTS } from '../../config/apiConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ============================================================================
 // REQUEST CACHE & DEDUPLICATION
@@ -120,6 +121,110 @@ export const getUSStatesSimple = async (limit = 5, offset = 0) => {
       return result;
     } catch (error) {
       console.error('❌ Error loading US states:', error);
+      return {
+        success: false,
+        error: error.message,
+        states: [],
+        hasMore: false,
+        totalCount: 0
+      };
+    }
+  });
+};
+
+/**
+ * Fetch US states from Firebase backend (dropdown_state collection)
+ * This function calls our backend API which reads from the dropdown_state collection
+ * @param {number} limit - Maximum number of states to return per page (default: 50)
+ * @param {number} page - Page number (1-based) (default: 1)
+ * @param {string} search - Search query to filter states by name (optional)
+ * @returns {Promise<Object>} US states data from Firebase
+ */
+export const getStatesFromBackend = async (limit = 50, page = 1, search = '') => {
+  const cacheKey = `backend_states_${limit}_${page}_${search}`;
+  
+  // Check cache first
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    console.log('ℹ️ States from backend served from cache');
+    return cached;
+  }
+  
+  // Deduplicate concurrent requests
+  return await deduplicateRequest(cacheKey, async () => {
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      
+      if (!authToken) {
+        console.error('❌ No auth token found');
+        return {
+          success: false,
+          error: 'Authentication required',
+          states: [],
+          hasMore: false,
+          totalCount: 0
+        };
+      }
+
+      // Build URL with query parameters
+      let url = `${API_ENDPOINTS.GET_DROPDOWN_STATES}?page=${page}&limit=${limit}`;
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+      }
+
+      console.log(`🔥 Fetching states from backend (page: ${page}, limit: ${limit}, search: "${search}")`);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📡 Backend response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Backend API Error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.error('❌ Backend returned error:', data);
+        return {
+          success: false,
+          error: data.message || 'Unknown error',
+          states: [],
+          hasMore: false,
+          totalCount: 0
+        };
+      }
+
+      console.log(`✅ States from backend loaded: ${data.data?.length || 0} states (page ${data.pagination?.page}/${data.pagination?.totalPages})`);
+
+      const result = {
+        success: true,
+        states: data.data?.map(state => ({
+          name: state.name,
+          code: state.isoCode,
+          id: state.id,
+          countryCode: state.countryCode,
+          sortOrder: state.sortOrder
+        })) || [],
+        hasMore: data.pagination?.hasMore || false,
+        totalCount: data.pagination?.totalCount || 0,
+        page: data.pagination?.page || page,
+        totalPages: data.pagination?.totalPages || 1
+      };
+
+      // Cache successful response
+      setCachedResponse(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('❌ Error loading states from backend:', error);
       return {
         success: false,
         error: error.message,
