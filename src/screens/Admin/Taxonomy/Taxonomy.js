@@ -28,32 +28,39 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import { getGenusListApi } from '../../../components/Api';
 import { getGenusRequestsApi } from '../../../auth/getGenusRequestsApi';
 import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
+import { getVariegationApi } from '../../../components/Api/getVariegationApi';
+import { getShippingIndexApi, getAcclimationIndexApi } from '../../../components/Api/dropdownApi';
+import { getSpeciesFromPlantCatalogApi } from '../../../components/Api/getSpeciesFromPlantCatalogApi';
 import EditTaxonomyModal from './EditTaxonomyModal';
 import TaxonomySkeletonList from './TaxonomySkeletonList';
 import TaxonomyOptionsModal from './TaxonomyOptionsModal';
 import RequestActionModal from './RequestActionModal';
 import BatchUpdateModal from './BatchUpdateModal';
+import ActionSheet from '../../../components/ActionSheet/ActionSheet';
+import {CheckBoxGroup} from '../../../components/CheckBox';
+import SelectableItemList from '../../../components/SelectableItems/SelectableItems';
+import {globalStyles} from '../../../assets/styles/styles';
 
 // No more mock data - using only real API data
 
 const FILTER_OPTIONS = [
   { 
     id: 1, 
-    label: 'Acuminata',
+    label: 'Variegation',
     type: 'dropdown',
-    values: ['All', 'Yes', 'No']
+    values: []  // Will be populated from API
   },
   { 
     id: 2, 
     label: 'Shipping Index',
     type: 'dropdown', 
-    values: ['All', '1-2', '3-4', '5-6', '7-8', '9-10']
+    values: []  // Will be populated from API
   },
   { 
     id: 3, 
     label: 'Acclimation Index',
     type: 'dropdown',
-    values: ['All', '1-2', '3-4', '5-6', '7-8', '9-10']
+    values: []  // Will be populated from API
   },
 ];
 
@@ -252,75 +259,177 @@ const TaxonomyRequestCard = React.memo(({ item, onAction }) => {
   );
 });
 
-// Filter Modal Component
-const FilterModal = ({ visible, onClose, filterType, onSelect, activeFilters }) => {
+// Filter Modal Component using buyer-side design
+const FilterModal = ({ visible, onClose, filterType, onSelect, activeFilters, filterOptions }) => {
   if (!filterType) return null;
-  
-  // Get the current value of this filter
-  const getCurrentFilterValue = () => {
-    if (filterType.label === 'Acuminata') return activeFilters.accuminata;
-    if (filterType.label === 'Shipping Index') return activeFilters.shippingIndex;
-    if (filterType.label === 'Acclimation Index') return activeFilters.acclimationIndex;
-    return 'All';
+
+  // Get current selected values for this filter (convert to array for multi-select)
+  const getCurrentSelectedValues = () => {
+    if (filterType.label === 'Variegation') {
+      return Array.isArray(activeFilters.variegation) ? activeFilters.variegation : 
+             (activeFilters.variegation && activeFilters.variegation !== 'All') ? [activeFilters.variegation] : [];
+    }
+    if (filterType.label === 'Shipping Index') {
+      return Array.isArray(activeFilters.shippingIndex) ? activeFilters.shippingIndex : 
+             (activeFilters.shippingIndex && activeFilters.shippingIndex !== 'All') ? [activeFilters.shippingIndex] : [];
+    }
+    if (filterType.label === 'Acclimation Index') {
+      return Array.isArray(activeFilters.acclimationIndex) ? activeFilters.acclimationIndex : 
+             (activeFilters.acclimationIndex && activeFilters.acclimationIndex !== 'All') ? [activeFilters.acclimationIndex] : [];
+    }
+    return [];
   };
 
-  return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity 
-        style={styles.modalOverlay} 
-        activeOpacity={1} 
-        onPress={onClose}
-      >
-        <View style={styles.filterModalContainer}>
-          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <View style={styles.filterModalContent}>
-              <Text style={styles.filterModalTitle}>{filterType.label}</Text>
-              
-              <ScrollView style={styles.filterOptionsContainer}>
-                {filterType.values?.map((value, index) => {
-                  const isSelected = value === getCurrentFilterValue();
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.filterOption,
-                        isSelected && styles.filterOptionSelected
-                      ]}
-                      onPress={() => onSelect(filterType, value)}
-                    >
-                      <Text style={[
-                        styles.filterOptionText,
-                        isSelected && styles.filterOptionTextSelected
-                      ]}>
-                        {value}
-                      </Text>
-                      {isSelected && (
-                        <View style={styles.filterOptionCheckmark}>
-                          <Text style={styles.checkmarkText}>✓</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              
-              <TouchableOpacity
-                style={styles.filterCancelButton}
-                onPress={onClose}
-              >
-                <Text style={styles.filterCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
+  // Get options for this filter type
+  const getFilterOptions = () => {
+    console.log('🔍 getFilterOptions called for:', filterType.label);
+    console.log('🔍 filterOptions received:', filterOptions);
+    
+    if (filterType.label === 'Variegation' && filterOptions.variegation) {
+      console.log('🔍 Variegation options raw:', filterOptions.variegation);
+      const options = filterOptions.variegation
+        .filter(opt => opt !== 'Choose the most suitable variegation.')
+        .map(opt => ({ label: opt, value: opt }));
+      console.log('🔍 Variegation options processed:', options);
+      return options;
+    }
+    if (filterType.label === 'Shipping Index' && filterOptions.shippingIndex) {
+      console.log('🔍 Shipping Index options raw:', filterOptions.shippingIndex);
+      // Options are already sorted in loadFilterOptions
+      const options = filterOptions.shippingIndex.map(opt => ({ label: opt, value: opt }));
+      console.log('🔍 Shipping Index options processed:', options);
+      return options;
+    }
+    if (filterType.label === 'Acclimation Index' && filterOptions.acclimationIndex) {
+      console.log('🔍 Acclimation Index options raw:', filterOptions.acclimationIndex);
+      // Options are already sorted in loadFilterOptions
+      const options = filterOptions.acclimationIndex.map(opt => ({ label: opt, value: opt }));
+      console.log('🔍 Acclimation Index options processed:', options);
+      return options;
+    }
+    console.log('🔍 No options found, returning empty array');
+    return [];
+  };
+
+  // Handle selection change for multi-select filters
+  const handleSelectionChange = (selectedValues) => {
+    // Convert array back to single value or 'All' for our filter system
+    const value = selectedValues.length > 0 ? selectedValues : 'All';
+    onSelect(filterType, value);
+  };
+
+  // Reset selection
+  const resetSelection = () => {
+    onSelect(filterType, 'All');
+  };
+
+  // Handle View button press
+  const handleViewPress = () => {
+    onClose();
+  };
+
+  const renderFilterContent = () => {
+    const options = getFilterOptions();
+    const selectedValues = getCurrentSelectedValues();
+
+    if (filterType.label === 'Variegation') {
+      return (
+        <ActionSheet
+          visible={visible}
+          onClose={onClose}
+          heightPercent={'35%'}>
+          <View style={styles.sheetTitleContainer}>
+            <Text style={styles.sheetTitle}>Variegation</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.closeIcon}>×</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={{marginBottom: 60}}>
+            {options.length === 0 ? (
+              <Text style={{padding: 20, color: '#7F8D91'}}>
+                No options available
+              </Text>
+            ) : (
+              <SelectableItemList
+                options={options}
+                selectedValues={selectedValues}
+                onSelectionChange={handleSelectionChange}
+              />
+            )}
+          </ScrollView>
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity onPress={resetSelection} style={{width: '45%'}}>
+              <View style={[globalStyles.lightGreenButton]}>
+                <Text style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                  Reset
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={{width: '45%'}} onPress={handleViewPress}>
+              <View style={globalStyles.primaryButton}>
+                <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                  View
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </ActionSheet>
+      );
+    } else {
+      // Shipping Index and Acclimation Index use CheckBoxGroup
+      return (
+        <ActionSheet
+          visible={visible}
+          onClose={onClose}
+          heightPercent={'35%'}>
+          <View style={styles.sheetTitleContainer}>
+            <Text style={styles.sheetTitle}>{filterType.label}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.closeIcon}>×</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{paddingBottom: 95}}>
+            {options.length === 0 ? (
+              <Text style={{padding: 20, color: '#7F8D91'}}>
+                No options available
+              </Text>
+            ) : (
+              <CheckBoxGroup
+                options={options}
+                selectedValues={selectedValues}
+                onChange={handleSelectionChange}
+                checkboxPosition="right"
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                }}
+                labelStyle={{textAlign: 'left'}}
+              />
+            )}
+          </ScrollView>
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity onPress={resetSelection} style={{width: '45%'}}>
+              <View style={[globalStyles.lightGreenButton]}>
+                <Text style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                  Reset
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={{width: '45%'}} onPress={handleViewPress}>
+              <View style={globalStyles.primaryButton}>
+                <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
+                  View
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </ActionSheet>
+      );
+    }
+  };
+
+  return renderFilterContent();
 };
 
 const Taxonomy = () => {
@@ -340,19 +449,27 @@ const Taxonomy = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   
-  // Filter states
+  // Filter states - support both single values and arrays for multi-select
   const [activeFilters, setActiveFilters] = useState({
-    accuminata: 'All',
-    shippingIndex: 'All',
-    acclimationIndex: 'All'
+    variegation: [],  // Array for multi-select
+    shippingIndex: [], // Array for multi-select  
+    acclimationIndex: [] // Array for multi-select
   });
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  
+  // Filter options from APIs
+  const [variegationOptions, setVariegationOptions] = useState([]);
+  const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
+  const [acclimationIndexOptions, setAcclimationIndexOptions] = useState([]);
   const [selectedFilterType, setSelectedFilterType] = useState(null);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [batchUpdateModalVisible, setBatchUpdateModalVisible] = useState(false);
   const [requestActionModalVisible, setRequestActionModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [apiError, setApiError] = useState(null);
+  
+  // Species data for variegation filtering
+  const [speciesData, setSpeciesData] = useState([]);
 
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60;
@@ -413,11 +530,154 @@ const Taxonomy = () => {
     return unsubscribe;
   }, [navigation]);
 
+  // Load filter options from APIs
+  useEffect(() => {
+    loadFilterOptions();
+    loadSpeciesData(); // Load species data for variegation filtering
+  }, []);
+
+  // Load species data for variegation filtering
+  const loadSpeciesData = async () => {
+    try {
+      console.log('🌿 Loading species data for variegation filtering...');
+      const response = await getSpeciesFromPlantCatalogApi();
+      
+      if (response?.success && response.data && Array.isArray(response.data)) {
+        console.log('✅ Species data loaded:', response.data.length, 'items');
+        setSpeciesData(response.data);
+        
+        // Log sample species with variegation
+        const samplesWithVariegation = response.data
+          .filter(s => s.variegation && s.genus)
+          .slice(0, 5);
+        console.log('🔍 Sample species with variegation:', samplesWithVariegation.map(s => ({
+          genus: s.genus,
+          name: s.name,
+          variegation: s.variegation
+        })));
+      } else {
+        console.log('⚠️ Species API returned unexpected format');
+        setSpeciesData([]);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load species data:', error);
+      setSpeciesData([]);
+    }
+  };
+
+  // Helper function to sort index options in descending order
+  const sortIndexOptions = (options) => {
+    // Define the correct order
+    const orderMap = {
+      'Best (7-10)': 1,
+      'Better (4-6)': 2,
+      'Good (1-3)': 3
+    };
+    
+    return options.sort((a, b) => {
+      const orderA = orderMap[a] || 999;
+      const orderB = orderMap[b] || 999;
+      return orderA - orderB;
+    });
+  };
+
+  const loadFilterOptions = async () => {
+    console.log('🌿 Loading filter options...');
+    
+    // Set default fallback options immediately with proper order
+    const defaultVariegation = ['Standard', 'Variegated', 'Albo', 'Aurea', 'Thai Sunrise'];
+    const defaultShipping = ['Best (7-10)', 'Better (4-6)', 'Good (1-3)'];
+    const defaultAcclimation = ['Best (7-10)', 'Better (4-6)', 'Good (1-3)'];
+    
+    setVariegationOptions(defaultVariegation);
+    setShippingIndexOptions(defaultShipping);
+    setAcclimationIndexOptions(defaultAcclimation);
+    
+    try {
+      // Try to load variegation options from API
+      console.log('📥 Loading variegation options from API...');
+      try {
+        const variegationResponse = await getVariegationApi();
+        console.log('📥 Variegation response:', variegationResponse);
+        
+        if (variegationResponse?.success && variegationResponse.data && Array.isArray(variegationResponse.data)) {
+          const variegationList = variegationResponse.data.map(item => 
+            item.name || item.variegation || item.label || String(item)
+          ).filter(Boolean); // Remove empty values
+          
+          if (variegationList.length > 0) {
+            console.log('✅ Variegation options loaded from API:', variegationList);
+            setVariegationOptions(variegationList);
+          }
+        }
+      } catch (varError) {
+        console.log('❌ Failed to load variegation from API, using defaults:', varError.message);
+      }
+
+      // Try to load shipping index options from API
+      console.log('🚢 Loading shipping index options from API...');
+      try {
+        const shippingResponse = await getShippingIndexApi();
+        console.log('🚢 Shipping response:', shippingResponse);
+        
+        if (shippingResponse?.success && shippingResponse.data && Array.isArray(shippingResponse.data)) {
+          const shippingList = shippingResponse.data.map(item => 
+            item.name || item.shippingIndex || item.label || String(item)
+          ).filter(Boolean); // Remove empty values
+          
+          if (shippingList.length > 0) {
+            console.log('✅ Shipping index options loaded from API:', shippingList);
+            // Sort to ensure correct order: Best (7-10), Better (4-6), Good (1-3)
+            const sortedShipping = sortIndexOptions(shippingList);
+            console.log('✅ Shipping index options sorted:', sortedShipping);
+            setShippingIndexOptions(sortedShipping);
+          }
+        }
+      } catch (shipError) {
+        console.log('❌ Failed to load shipping index from API, using defaults:', shipError.message);
+      }
+
+      // Try to load acclimation index options from API
+      console.log('🌡️ Loading acclimation index options from API...');
+      try {
+        const acclimationResponse = await getAcclimationIndexApi();
+        console.log('🌡️ Acclimation response:', acclimationResponse);
+        
+        if (acclimationResponse?.success && acclimationResponse.data && Array.isArray(acclimationResponse.data)) {
+          const acclimationList = acclimationResponse.data.map(item => 
+            item.name || item.acclimationIndex || item.label || String(item)
+          ).filter(Boolean); // Remove empty values
+          
+          if (acclimationList.length > 0) {
+            console.log('✅ Acclimation index options loaded from API:', acclimationList);
+            // Sort to ensure correct order: Best (7-10), Better (4-6), Good (1-3)
+            const sortedAcclimation = sortIndexOptions(acclimationList);
+            console.log('✅ Acclimation index options sorted:', sortedAcclimation);
+            setAcclimationIndexOptions(sortedAcclimation);
+          }
+        }
+      } catch (acclError) {
+        console.log('❌ Failed to load acclimation index from API, using defaults:', acclError.message);
+      }
+      
+      console.log('🏁 Filter options loading completed');
+    } catch (error) {
+      console.error('🚫 General error loading filter options:', error);
+      // Fallback options are already set above
+    }
+  };
+
   // Memoized filtered data (replaces state + effect)
   const filteredData = useMemo(() => {
     try {
       const sourceData = activeTab === 'genus' ? taxonomyData : requestsData;
       let filtered = Array.isArray(sourceData) ? sourceData : [];
+
+      console.log('🔍 Filtering data with:', {
+        activeFilters,
+        sourceDataLength: filtered.length,
+        sampleData: filtered.length > 0 ? filtered[0] : null
+      });
 
       // Apply search query filter
       const term = debouncedQuery.trim().toLowerCase();
@@ -448,86 +708,141 @@ const Taxonomy = () => {
 
       // Apply additional filters for genus tab
       if (activeTab === 'genus') {
-        // Acuminata filter
-        if (activeFilters.accuminata !== 'All') {
-          filtered = filtered.filter(item => {
-            const genusName = item.name?.toLowerCase() || '';
-            const hasAcuminata =
-              genusName.includes('accuminata') || // spellings across sources
-              genusName === 'musa' ||
-              genusName === 'banana';
-            return activeFilters.accuminata === 'Yes' ? hasAcuminata : !hasAcuminata;
-          });
+        console.log('🔍 Applying genus filters...');
+        
+        // Variegation filter - Use species collection to find genus with selected variegation
+        if (activeFilters.variegation && activeFilters.variegation.length > 0) {
+          console.log('🔍 Applying variegation filter via species collection:', activeFilters.variegation);
+          const beforeCount = filtered.length;
+          
+          if (speciesData && speciesData.length > 0) {
+            // Find species that match the selected variegation
+            const matchingSpecies = speciesData.filter(species => {
+              if (!species.variegation || !species.genus) return false;
+              
+              return activeFilters.variegation.some(filterVariegation => {
+                const speciesVar = (species.variegation || '').toUpperCase().trim();
+                const filterVar = filterVariegation.toUpperCase().trim();
+                
+                // Exact match or contains match
+                return speciesVar === filterVar || 
+                       speciesVar.includes(filterVar) || 
+                       filterVar.includes(speciesVar);
+              });
+            });
+            
+            // Extract unique genus names from matching species
+            const genusWithVariegation = [...new Set(
+              matchingSpecies
+                .map(s => s.genus?.toUpperCase().trim())
+                .filter(Boolean)
+            )];
+            
+            console.log(`🔍 Found ${matchingSpecies.length} species with variegation:`, activeFilters.variegation);
+            console.log(`🔍 Genus with matching species:`, genusWithVariegation);
+            
+            if (genusWithVariegation.length > 0) {
+              // Filter genus list to only show genus that have species with selected variegation
+              filtered = filtered.filter(genus => {
+                const genusName = (genus.name || '').toUpperCase().trim();
+                const matches = genusWithVariegation.includes(genusName);
+                
+                if (matches) {
+                  console.log(`✅ Genus ${genus.name} has species with variegation:`, activeFilters.variegation);
+                }
+                
+                return matches;
+              });
+            } else {
+              console.log('⚠️ No species found with selected variegation');
+              filtered = []; // No genus to show if no species match
+            }
+          } else {
+            console.log('⚠️ Species data not loaded yet, cannot filter by variegation');
+            // Don't filter if species data not loaded
+          }
+          
+          console.log(`🔍 Variegation filter: ${beforeCount} → ${filtered.length} items`);
         }
 
         // Shipping Index filter
-        if (activeFilters.shippingIndex !== 'All') {
+        if (activeFilters.shippingIndex && activeFilters.shippingIndex.length > 0) {
+          console.log('🔍 Applying shipping index filter:', activeFilters.shippingIndex);
+          const beforeCount = filtered.length;
           filtered = filtered.filter(item => {
-            const speciesCount = item.receivedPlants || 0;
-            const source = item.source || '';
-            let shippingValue;
-            if (source.includes('plant_catalog')) {
-              if (speciesCount <= 2) shippingValue = '9-10';
-              else if (speciesCount <= 5) shippingValue = '7-8';
-              else if (speciesCount <= 10) shippingValue = '5-6';
-              else if (speciesCount <= 20) shippingValue = '3-4';
-              else shippingValue = '1-2';
-            } else {
-              if (speciesCount <= 1) shippingValue = '9-10';
-              else if (speciesCount <= 3) shippingValue = '7-8';
-              else if (speciesCount <= 7) shippingValue = '5-6';
-              else if (speciesCount <= 15) shippingValue = '3-4';
-              else shippingValue = '1-2';
+            // Use the actual shipping_index from the genus data if available
+            const genusShippingIndex = parseInt(item.shipping_index || item.shippingIndex);
+            console.log(`🔍 Checking genus ${item.name}: shipping_index=${genusShippingIndex}, filter=${activeFilters.shippingIndex}`);
+            
+            if (!isNaN(genusShippingIndex)) {
+              // Check if the genus index falls within any selected range
+              const matches = activeFilters.shippingIndex.some(filterLabel => {
+                // Parse range from label like "Better (4-6)" -> [4, 6]
+                const rangeMatch = filterLabel.match(/\((\d+)-(\d+)\)/);
+                if (rangeMatch) {
+                  const min = parseInt(rangeMatch[1]);
+                  const max = parseInt(rangeMatch[2]);
+                  const isInRange = genusShippingIndex >= min && genusShippingIndex <= max;
+                  console.log(`  Range ${filterLabel}: ${min}-${max}, value ${genusShippingIndex} in range: ${isInRange}`);
+                  return isInRange;
+                }
+                return false;
+              });
+              
+              if (matches) {
+                console.log('✅ Shipping index match:', item.name, 'index:', genusShippingIndex);
+              }
+              return matches;
             }
-            return shippingValue === activeFilters.shippingIndex;
+            console.log('❌ No shipping index for genus:', item.name);
+            return false;
           });
+          console.log(`🔍 Shipping index filter: ${beforeCount} → ${filtered.length} items`);
         }
 
         // Acclimation Index filter
-        if (activeFilters.acclimationIndex !== 'All') {
+        if (activeFilters.acclimationIndex && activeFilters.acclimationIndex.length > 0) {
+          console.log('🔍 Applying acclimation index filter:', activeFilters.acclimationIndex);
+          const beforeCount = filtered.length;
           filtered = filtered.filter(item => {
-            const genusName = item.name || '';
-            const speciesCount = item.receivedPlants || 0;
-            const source = item.source || '';
-            let acclimationScore = 0;
-            acclimationScore += Math.min(5, Math.floor(speciesCount / 3));
-            if (genusName.length <= 7) acclimationScore += 3;
-            else if (genusName.length <= 10) acclimationScore += 1;
-            const easyGenera = [
-              'monstera',
-              'philodendron',
-              'pothos',
-              'epipremnum',
-              'dracaena',
-              'sansevieria',
-              'zamioculcas',
-              'ficus',
-              'calathea',
-              'alocasia',
-            ];
-            if (easyGenera.includes(genusName.toLowerCase())) {
-              acclimationScore += 4;
+            // Use the actual acclimation_index from the genus data if available
+            const genusAcclimationIndex = parseInt(item.acclimation_index || item.acclimationIndex);
+            console.log(`🔍 Checking genus ${item.name}: acclimation_index=${genusAcclimationIndex}, filter=${activeFilters.acclimationIndex}`);
+            
+            if (!isNaN(genusAcclimationIndex)) {
+              // Check if the genus index falls within any selected range
+              const matches = activeFilters.acclimationIndex.some(filterLabel => {
+                // Parse range from label like "Better (4-6)" -> [4, 6]
+                const rangeMatch = filterLabel.match(/\((\d+)-(\d+)\)/);
+                if (rangeMatch) {
+                  const min = parseInt(rangeMatch[1]);
+                  const max = parseInt(rangeMatch[2]);
+                  const isInRange = genusAcclimationIndex >= min && genusAcclimationIndex <= max;
+                  console.log(`  Range ${filterLabel}: ${min}-${max}, value ${genusAcclimationIndex} in range: ${isInRange}`);
+                  return isInRange;
+                }
+                return false;
+              });
+              
+              if (matches) {
+                console.log('✅ Acclimation index match:', item.name, 'index:', genusAcclimationIndex);
+              }
+              return matches;
             }
-            if (source.includes('plant_catalog')) {
-              acclimationScore += 2;
-            }
-            let acclimationValue;
-            if (acclimationScore >= 8) acclimationValue = '1-2';
-            else if (acclimationScore >= 6) acclimationValue = '3-4';
-            else if (acclimationScore >= 4) acclimationValue = '5-6';
-            else if (acclimationScore >= 2) acclimationValue = '7-8';
-            else acclimationValue = '9-10';
-            return acclimationValue === activeFilters.acclimationIndex;
+            console.log('❌ No acclimation index for genus:', item.name);
+            return false;
           });
+          console.log(`🔍 Acclimation index filter: ${beforeCount} → ${filtered.length} items`);
         }
       }
 
+      console.log('🏁 Final filtered results:', filtered.length, 'items');
       return filtered;
     } catch (e) {
       console.error('🌿 Error deriving filteredData:', e);
       return [];
     }
-  }, [activeTab, taxonomyData, requestsData, debouncedQuery, activeFilters]);
+  }, [activeTab, taxonomyData, requestsData, debouncedQuery, activeFilters, speciesData]);
 
   const fetchAllData = async (showLoading = true) => {
     console.log('🌿 fetchAllData called, showLoading:', showLoading);
@@ -585,6 +900,14 @@ const Taxonomy = () => {
         console.log('✅ Successfully fetched genus data:', response.data.length, 'items');
         console.log('✅ Data source:', response.source);
         console.log('✅ Sample data:', response.data.slice(0, 3));
+        
+        // Debug: Check what fields are available in the genus data
+        if (response.data.length > 0) {
+          const sampleItem = response.data[0];
+          console.log('🔍 Available fields in genus data:', Object.keys(sampleItem));
+          console.log('🔍 Shipping index field:', sampleItem.shipping_index || sampleItem.shippingIndex || 'NOT FOUND');
+          console.log('🔍 Acclimation index field:', sampleItem.acclimation_index || sampleItem.acclimationIndex || 'NOT FOUND');
+        }
         
         setTaxonomyData(response.data);
         setApiError(null);
@@ -683,6 +1006,9 @@ const Taxonomy = () => {
     // Redirect to fetchAllData for backward compatibility
     return fetchAllData(showLoading);
   };
+
+
+
   // filterData removed; replaced with useMemo filteredData
 
   const handleRefresh = () => {
@@ -704,6 +1030,10 @@ const Taxonomy = () => {
   // Filter handling functions
   const handleFilterPress = (filter) => {
     console.log('🌿 Filter pressed:', filter.label);
+    console.log('🌿 Current filter options state:');
+    console.log('  - variegationOptions:', variegationOptions);
+    console.log('  - shippingIndexOptions:', shippingIndexOptions);
+    console.log('  - acclimationIndexOptions:', acclimationIndexOptions);
     setSelectedFilterType(filter);
     setFilterModalVisible(true);
   };
@@ -711,38 +1041,61 @@ const Taxonomy = () => {
   const handleFilterSelect = (filterType, value) => {
     console.log('🌿 Filter selected:', filterType.label, '=', value);
     
-    const filterKey = filterType.label === 'Acuminata' ? 'accuminata' :
+    const filterKey = filterType.label === 'Variegation' ? 'variegation' :
                      filterType.label === 'Shipping Index' ? 'shippingIndex' :
                      filterType.label === 'Acclimation Index' ? 'acclimationIndex' : null;
     
     if (filterKey) {
-      setActiveFilters(prev => ({
-        ...prev,
-        [filterKey]: value
-      }));
+      const newFilterValue = value === 'All' ? [] : (Array.isArray(value) ? value : [value]);
+      
+      console.log('🌿 Setting filter:', {
+        filterKey,
+        oldValue: activeFilters[filterKey],
+        newValue: newFilterValue
+      });
+      
+      setActiveFilters(prev => {
+        const updated = {
+          ...prev,
+          [filterKey]: newFilterValue
+        };
+        console.log('🌿 Updated activeFilters:', updated);
+        return updated;
+      });
     }
     
     setFilterModalVisible(false);
     setSelectedFilterType(null);
   };
 
+  const handleClearFilters = () => {
+    console.log('🌿 Clearing all filters');
+    setActiveFilters({
+      variegation: [],
+      shippingIndex: [],
+      acclimationIndex: []
+    });
+  };
+
   const getFilterDisplayValue = (filter) => {
-    const filterKey = filter.label === 'Acuminata' ? 'accuminata' :
+    const filterKey = filter.label === 'Variegation' ? 'variegation' :
                      filter.label === 'Shipping Index' ? 'shippingIndex' :
                      filter.label === 'Acclimation Index' ? 'acclimationIndex' : null;
     
-    if (filterKey && activeFilters[filterKey] !== 'All') {
-      return activeFilters[filterKey];
+    if (filterKey && activeFilters[filterKey] && activeFilters[filterKey].length > 0) {
+      // Show first selected item or count if multiple
+      const selected = activeFilters[filterKey];
+      return selected.length === 1 ? selected[0] : `${selected.length} selected`;
     }
     return filter.label;
   };
 
   const isFilterActive = (filter) => {
-    const filterKey = filter.label === 'Acuminata' ? 'accuminata' :
+    const filterKey = filter.label === 'Variegation' ? 'variegation' :
                      filter.label === 'Shipping Index' ? 'shippingIndex' :
                      filter.label === 'Acclimation Index' ? 'acclimationIndex' : null;
     
-    return filterKey && activeFilters[filterKey] !== 'All';
+    return filterKey && activeFilters[filterKey] && activeFilters[filterKey].length > 0;
   };
 
   const handleApproveRequest = (request) => {
@@ -847,6 +1200,62 @@ const Taxonomy = () => {
   const renderSeparator = useCallback(() => (
     activeTab === 'genus' ? <View style={{ height: 8 }} /> : <View style={{ height: 6 }} />
   ), [activeTab]);
+
+  const renderEmptyComponent = useCallback(() => {
+    // Check if there are active filters
+    const hasActiveFilters = activeFilters && (
+      (activeFilters.variegation && activeFilters.variegation.length > 0) ||
+      (activeFilters.shippingIndex && activeFilters.shippingIndex.length > 0) ||
+      (activeFilters.acclimationIndex && activeFilters.acclimationIndex.length > 0)
+    );
+
+    // Check if there's a search query
+    const hasSearchQuery = searchQuery && searchQuery.trim().length > 0;
+
+    let message = 'No data available';
+    let subtitle = '';
+
+    if (activeTab === 'genus') {
+      if (hasActiveFilters && hasSearchQuery) {
+        message = 'No genus found';
+        subtitle = 'Try adjusting your filters or search query';
+      } else if (hasActiveFilters) {
+        message = 'No genus match your filters';
+        subtitle = 'Try selecting different filter options';
+      } else if (hasSearchQuery) {
+        message = 'No genus found';
+        subtitle = `No results for "${searchQuery}"`;
+      } else {
+        message = 'No genus available';
+        subtitle = 'Add a new plant taxonomy to get started';
+      }
+    } else {
+      if (hasSearchQuery) {
+        message = 'No requests found';
+        subtitle = `No results for "${searchQuery}"`;
+      } else {
+        message = 'No pending requests';
+        subtitle = 'New genus requests will appear here';
+      }
+    }
+
+    return (
+      <View style={styles.emptyStateContainer}>
+        <View style={styles.emptyStateContent}>
+          <Text style={styles.emptyStateTitle}>{message}</Text>
+          <Text style={styles.emptyStateSubtitle}>{subtitle}</Text>
+          {hasActiveFilters && (
+            <TouchableOpacity 
+              onPress={handleClearFilters}
+              style={styles.clearFiltersButton}
+            >
+              <Text style={styles.clearFiltersButtonText}>Clear Filters</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }, [activeTab, activeFilters, searchQuery, handleClearFilters]);
 
   // removed unused renderHeader
 
@@ -968,9 +1377,9 @@ const Taxonomy = () => {
               )}
             </Text>
             {/* Show filter indicator if any filters are active */}
-            {(activeFilters.accuminata !== 'All' || 
-              activeFilters.shippingIndex !== 'All' || 
-              activeFilters.acclimationIndex !== 'All') && (
+            {((activeFilters.variegation && activeFilters.variegation.length > 0) || 
+              (activeFilters.shippingIndex && activeFilters.shippingIndex.length > 0) || 
+              (activeFilters.acclimationIndex && activeFilters.acclimationIndex.length > 0)) && (
               <View style={styles.activeFiltersIndicator}>
                 <Text style={styles.activeFiltersText}>Filtered</Text>
               </View>
@@ -1011,6 +1420,7 @@ const Taxonomy = () => {
               keyExtractor={keyExtractor}
               renderItem={renderItem}
               ItemSeparatorComponent={renderSeparator}
+              ListEmptyComponent={renderEmptyComponent}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={listContentContainerStyle}
               refreshControl={
@@ -1056,6 +1466,11 @@ const Taxonomy = () => {
         filterType={selectedFilterType}
         onSelect={handleFilterSelect}
         activeFilters={activeFilters}
+        filterOptions={{
+          variegation: variegationOptions,
+          shippingIndex: shippingIndexOptions,
+          acclimationIndex: acclimationIndexOptions
+        }}
       />
     </SafeAreaView>
   );
@@ -1838,8 +2253,81 @@ const styles = StyleSheet.create({
   filterCancelText: {
     fontSize: 16,
     fontFamily: 'Inter',
+  },
+  // Buyer-side modal styles
+  sheetTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  closeIcon: {
+    fontSize: 24,
+    color: '#9CA3AF',
+    fontWeight: 'bold',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    position: 'absolute',
+    bottom: 10,
+    width: '100%',
+    paddingHorizontal: 20,
     fontWeight: '600',
     color: '#6B7280',
+  },
+  // Empty state styles
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyStateContent: {
+    alignItems: 'center',
+    maxWidth: 320,
+  },
+  emptyStateTitle: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#202325',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtitle: {
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#7F8D91',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  clearFiltersButton: {
+    backgroundColor: '#699E73',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  clearFiltersButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#FFFFFF',
   },
 });
 
