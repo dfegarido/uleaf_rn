@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Add new listing
@@ -10,7 +11,7 @@ export const addListingApi = async (listingData) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/addListing',
+      API_ENDPOINTS.ADD_LISTING,
       {
         method: 'POST',
         headers: {
@@ -52,9 +53,9 @@ export const updateListingApi = async (listingData) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/updateListing',
+      API_ENDPOINTS.UPDATE_LISTING,
       {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
@@ -95,7 +96,7 @@ export const duplicateListingApi = async (duplicateData) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/duplicateListing',
+      API_ENDPOINTS.DUPLICATE_LISTING,
       {
         method: 'POST',
         headers: {
@@ -532,7 +533,7 @@ export const deleteListingApi = async (deleteData) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/deleteListingByPlantCode',
+      API_ENDPOINTS.DELETE_LISTING,
       {
         method: 'DELETE',
         headers: {

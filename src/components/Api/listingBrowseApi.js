@@ -30,12 +30,8 @@ const __memCache = {
  */
 export const getPlantRecommendationsApi = async (params = {}) => {
   try {
+    // Get auth token if available (optional for this public endpoint)
     const authToken = await getStoredAuthToken();
-    
-    // Validate auth token before proceeding
-    if (!authToken) {
-      throw new Error('Authentication token not available');
-    }
     
     console.log('🌱 getPlantRecommendations called with params:', params);
     
@@ -96,7 +92,7 @@ export const getPlantRecommendationsApi = async (params = {}) => {
     console.log('🌱 Making API request to:', `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${qs}`);
     console.log('🌱 Request headers:', {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken?.slice?.(0, 20)}...` // Log partial token for debugging
+      'Authorization': authToken ? `Bearer ${authToken?.slice?.(0, 20)}...` : 'None (public endpoint)'
     });
 
     // Verify the endpoint is properly constructed
@@ -104,14 +100,21 @@ export const getPlantRecommendationsApi = async (params = {}) => {
       throw new Error('GET_PLANT_RECOMMENDATIONS endpoint is not defined in API configuration');
     }
 
+    // Build headers conditionally
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Only add Authorization header if token is available
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
     const response = await fetch(
       `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${qs}`,
       {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
+        headers,
       },
     );
 

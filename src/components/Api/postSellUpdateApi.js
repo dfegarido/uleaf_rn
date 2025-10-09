@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postSellUpdateApi = async postData => {
   try {
@@ -6,7 +7,7 @@ export const postSellUpdateApi = async postData => {
 
     console.log(JSON.stringify(postData));
     const response = await fetch(
-      'https://updatelisting-nstilwgvua-uc.a.run.app/',
+      API_ENDPOINTS.UPDATE_LISTING,
       {
         method: 'POST',
         headers: {

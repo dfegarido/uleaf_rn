@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postListingDeleteApi = async plantCodes => {
   try {
@@ -6,12 +7,10 @@ export const postListingDeleteApi = async plantCodes => {
     const params = new URLSearchParams();
     params.append('plantCode', plantCodes);
 
-    console.log(
-      `https://deletelistingbyplantcode-nstilwgvua-uc.a.run.app?${params.toString()}`,
-    );
+    const deleteUrl = `${API_ENDPOINTS.DELETE_LISTING}?${params.toString()}`;
 
     const response = await fetch(
-      `https://deletelistingbyplantcode-nstilwgvua-uc.a.run.app?${params.toString()}`,
+      deleteUrl,
       {
         method: 'GET',
         headers: {

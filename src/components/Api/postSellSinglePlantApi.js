@@ -1,11 +1,12 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postSellSinglePlantApi = async postData => {
   try {
     const token = await getStoredAuthToken();
 
     console.log(JSON.stringify(postData));
-    const response = await fetch('https://addlisting-nstilwgvua-uc.a.run.app', {
+    const response = await fetch(API_ENDPOINTS.ADD_LISTING, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

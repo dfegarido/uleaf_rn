@@ -13,7 +13,7 @@ const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
 // GeoDB API Configuration (RapidAPI)
 export const GEODATABASE_CONFIG = {
   BASE_URL: 'https://wft-geo-db.p.rapidapi.com/v1/geo',
-  RAPIDAPI_KEY: 'd7ac6389f5mshb6e1f69e3c5375fp151d2bjsnbf5584eb11fd',
+  RAPIDAPI_KEY: '338134f81cmsh08060506ff78566p1938abjsna0f4b19f0323',
   RAPIDAPI_HOST: 'wft-geo-db.p.rapidapi.com',
   
   // Create headers for GeoDB API requests (Multiple formats for compatibility)
@@ -167,6 +167,10 @@ const generateEndpoints = () => ({
   
   // Listing Management APIs
   UPLOAD_LISTING_IMAGE: `${getBaseUrl()}/uploadListingImage`,
+  ADD_LISTING: `${getBaseUrl()}/addListing`,
+  UPDATE_LISTING: `${getBaseUrl()}/updateListing`,
+  DUPLICATE_LISTING: `${getBaseUrl()}/duplicateListing`,
+  DELETE_LISTING: `${getBaseUrl()}/deleteListingByPlantCode`,
   
   // News & Events (buyer announcements)
   GET_NEWS_AND_EVENT: (limit = 10, category = 'announcement') => `${getBaseUrl()}/getNewsAndEvent?limit=${limit}&category=${encodeURIComponent(category)}`,
