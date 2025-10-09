@@ -34,7 +34,7 @@ import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import TruckBlueIcon from '../../../assets/buyer-icons/truck-blue.svg';
 import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
-import FlightIcon from '../../../assets/buyer-icons/flight.svg';
+import FlightIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';

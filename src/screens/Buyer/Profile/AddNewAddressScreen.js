@@ -472,7 +472,7 @@ const AddNewAddressScreen = () => {
               setCity(selectedCity);
             }}
             required={false}
-            disabled={true}
+            disabled={!selectedStateData || citiesLoading}
             onEndReached={loadMoreCities}
             loading={loadingMoreCities}
           />
@@ -481,17 +481,16 @@ const AddNewAddressScreen = () => {
           <View style={styles.inputSection}>
             <View style={styles.inputFieldWrap}>
               <Text style={styles.inputLabel}>Zip Code</Text>
-              <View style={[styles.textField, styles.textFieldDisabled]}>
+              <View style={styles.textField}>
                 <TextInput
-                  style={[styles.input, styles.disabledInput]}
+                  style={styles.input}
                   placeholder="Enter zip code"
                   placeholderTextColor="#9CA3AF"
                   value={zipCode}
                   onChangeText={setZipCode}
                   keyboardType="numeric"
                   maxLength={10}
-                  editable={false}
-                  selectTextOnFocus={false}
+                  editable={true}
                 />
               </View>
             </View>
