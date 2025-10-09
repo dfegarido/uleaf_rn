@@ -96,6 +96,7 @@ const headers = [
   'Pot Size',
   'Price',
   'Quantity',
+  'Expiration Date',
   'Discount',
 ];
 
@@ -276,19 +277,34 @@ const ScreenListing = ({navigation}) => {
   // Search
 
   // Load more
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
   useEffect(() => {
     if (nextTokenParam) {
-      setLoading(true);
+      setIsLoadingMore(true);
       fetchData();
       setTimeout(() => {
-        setLoading(false); // or setLoading(false)
+        setIsLoadingMore(false);
       }, 500);
     }
   }, [nextTokenParam]);
 
   const onPressLoadMore = () => {
-    if (nextToken != nextTokenParam) {
+    if (nextToken && nextToken != nextTokenParam && !isLoadingMore) {
       setNextTokenParam(nextToken);
+    }
+  };
+
+  // Infinite scroll handler
+  const handleScroll = (event) => {
+    const {layoutMeasurement, contentOffset, contentSize} = event.nativeEvent;
+    const paddingToBottom = 100; // Trigger when 100px from bottom
+    
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+      // User has scrolled near the bottom
+      if (nextToken && nextToken != nextTokenParam && !isLoadingMore && !loading) {
+        onPressLoadMore();
+      }
     }
   };
   // Load more
@@ -815,6 +831,8 @@ const ScreenListing = ({navigation}) => {
         contentContainerStyle={{
           paddingBottom: insets.bottom,
         }}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
         // stickyHeaderIndices={[0]}
       >
         {loading && (
@@ -846,19 +864,21 @@ const ScreenListing = ({navigation}) => {
                   onPressRemoveDiscountPost={onPressRemoveDiscountPost}
                   onNavigateToDetail={onNavigateToDetail}
                 />
-                <TouchableOpacity
-                  onPress={() => onPressLoadMore()}
-                  style={{
+                {/* Show loading indicator when fetching more data */}
+                {isLoadingMore && nextToken && (
+                  <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: '100%',
-                    marginTop: 10,
-                    marginBottom: 50,
+                    paddingVertical: 20,
+                    marginBottom: 30,
                   }}>
-                  <Text style={globalStyles.textLGAccent}>Load More</Text>
-                  <ArrowDownIcon width={25} height={20} />
-                </TouchableOpacity>
+                    <ActivityIndicator size="small" color="#699E73" />
+                    <Text style={[globalStyles.textMDGreyLight, {marginLeft: 10}]}>
+                      Loading more...
+                    </Text>
+                  </View>
+                )}
               </View>
             </>
           ) : (

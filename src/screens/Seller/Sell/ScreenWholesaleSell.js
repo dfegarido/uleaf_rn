@@ -282,6 +282,40 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       return;
     }
 
+    // Check for duplicate pot size
+    if (!isEditing) {
+      // When adding new pot size, check if it already exists
+      const isDuplicate = potSizeList.some(
+        item => item.size === newPotSize.size
+      );
+      
+      if (isDuplicate) {
+        Alert.alert(
+          'Duplicate Pot Size',
+          `Pot size "${newPotSize.size}" already exists. Please select a different pot size or edit the existing one.`
+        );
+        return;
+      }
+    } else if (isEditing && editingIndex !== null) {
+      // When editing, check if the new size conflicts with other pot sizes (excluding the one being edited)
+      const originalPotSize = potSizeList[editingIndex];
+      
+      // Only check for duplicates if the pot size has actually changed
+      if (originalPotSize.size !== newPotSize.size) {
+        const isDuplicate = potSizeList.some(
+          (item, index) => index !== editingIndex && item.size === newPotSize.size
+        );
+        
+        if (isDuplicate) {
+          Alert.alert(
+            'Duplicate Pot Size',
+            `Pot size "${newPotSize.size}" already exists. Please select a different pot size.`
+          );
+          return;
+        }
+      }
+    }
+
     if (isEditing && editingIndex !== null) {
       const updatedList = [...potSizeList];
       updatedList[editingIndex] = newPotSize;
@@ -579,6 +613,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     availableQty,
     status,
     publishType,
+    onGoBack,
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -784,7 +819,13 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       [
         {
           text: 'OK',
-          onPress: () => navigation.goBack(), // 👈 Go back to the previous screen
+          onPress: () => {
+            // Call the callback to refresh the listing detail screen
+            if (onGoBack && typeof onGoBack === 'function') {
+              onGoBack();
+            }
+            navigation.goBack(); // 👈 Go back to the previous screen
+          },
         },
       ],
       {
