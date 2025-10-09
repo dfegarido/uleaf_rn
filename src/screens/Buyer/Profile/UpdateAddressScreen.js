@@ -523,29 +523,29 @@ const UpdateAddressScreen = () => {
                   : "Select state first"
             }
             value={city}
-            // data={Array.from(new Set(cities)).sort()} // Ensure unique city names
-            // onSelect={(selectedCity) => {
-            //   setCity(selectedCity);
-            // }}
-            // onPress={handleCityDropdownClick}
+            data={Array.from(new Set(cities)).sort()} // Ensure unique city names
+            onSelect={(selectedCity) => {
+              setCity(selectedCity);
+            }}
+            onPress={handleCityDropdownClick}
             required={true}
-            disabled={true}
-            // onEndReached={loadMoreCities}
-            // loading={loadingMoreCities}
+            disabled={!selectedStateData || citiesLoading}
+            onEndReached={loadMoreCities}
+            loading={loadingMoreCities}
           />
 
-          {/* Zip Code (disabled) */}
+          {/* Zip Code */}
           <View style={styles.inputSection}>
             <View style={styles.inputFieldWrap}>
               <Text style={styles.inputLabel}>Zip Code</Text>
-              <View style={[styles.textField, styles.textFieldDisabled]}>
+              <View style={styles.textField}>
                 <TextInput
-                  style={[styles.input, styles.disabledInput]}
+                  style={styles.input}
                   placeholder="Zip code"
                   placeholderTextColor="#9AA0A0"
                   value={zipCode}
-                  editable={false}
-                  selectTextOnFocus={false}
+                  onChangeText={setZipCode}
+                  editable={true}
                   keyboardType="numeric"
                   maxLength={10}
                 />
