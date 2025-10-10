@@ -153,7 +153,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
 
       {/* Search Results */}
       {isSearchFocused && searchTerm.trim().length >= 2 && (
-        <View style={styles.searchResultsContainer}>
+        <View style={[styles.searchResultsContainer, {top: insets.top + 52}]}>
           {loadingSearch ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#10b981" />
@@ -432,12 +432,11 @@ const styles = StyleSheet.create({
   // Search Results Styles
   searchResultsContainer: {
     position: 'absolute',
-    top: 52,
     left: 13,
     right: 53,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderWidth: 2, // Thicker border for better definition
+    borderColor: '#d1d5db', // Slightly darker border
     borderRadius: 12,
     maxHeight: 200,
     zIndex: 9999,

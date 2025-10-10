@@ -115,7 +115,7 @@ const ListingTable = ({
           <TouchableOpacity
             style={styles.row}
             key={listing.id + index}
-            onPress={() => onNavigateToDetail(listing.plantCode)}>
+            onPress={() => onNavigateToDetail(listing.plantCode, listing.id)}>
             {/* Image and Checkbox */}
             <View
               style={{

@@ -74,6 +74,19 @@ export const clearAllDropdownCache = async () => {
 };
 
 /**
+ * Clear specific dropdown caches
+ * @param {Array<string>} cacheKeys - Array of cache keys to clear
+ */
+export const clearSpecificDropdownCache = async (cacheKeys) => {
+  try {
+    await AsyncStorage.multiRemove(cacheKeys);
+    console.log(`Cleared cache for: ${cacheKeys.join(', ')}`);
+  } catch (error) {
+    console.error('Error clearing specific dropdown cache:', error);
+  }
+};
+
+/**
  * Check if cache exists for a key
  * @param {string} key - Cache key
  * @returns {boolean} True if cache exists and not expired
@@ -142,6 +155,11 @@ export const preloadAllDropdownData = async (apis) => {
       ));
     }
 
+    // DISABLED CACHING FOR THESE DROPDOWNS - Always fetch fresh data
+    // Country, Listing Type, Shipping Index, and Acclimation Index dropdowns
+    // will now always fetch from API to ensure latest data
+    
+    /* 
     if (apis.getCountryApi) {
       tasks.push(loadIfNotCached(
         CACHE_KEYS.COUNTRY,
@@ -185,6 +203,7 @@ export const preloadAllDropdownData = async (apis) => {
         }))
       ));
     }
+    */
 
     // Execute all preload tasks
     await Promise.allSettled(tasks);

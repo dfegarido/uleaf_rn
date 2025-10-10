@@ -1486,7 +1486,7 @@ const CheckoutScreen = () => {
         // This prevents the issue where user returns to empty cart after payment cancellation
         navigation.navigate('Orders');
 
-        // Open payment URL after a brief delay to ensure navigation completes
+        // Automatically redirect to PayPal/Venmo payment page after a brief delay
         setTimeout(() => {
           console.log('💳 Opening payment page for order:', transactionNumber);
           Linking.openURL(

@@ -1,7 +1,7 @@
 // API Configuration for local and production environments
 
 // Set this to true for local development, false for production
-const USE_LOCAL_API = false;
+const USE_LOCAL_API = true;
 
 // Local development endpoints (Firebase Functions Emulator)
 // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices

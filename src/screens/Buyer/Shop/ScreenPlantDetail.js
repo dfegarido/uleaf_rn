@@ -154,6 +154,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
     }
   }, [plantData?.listingType, quantity]);
 
+  // Reset quantity to 1 when pot size changes for variations (Grower's Choice, Wholesale)
+  useEffect(() => {
+    if (plantData?.variations && plantData.variations.length > 0 && selectedPotSize) {
+      console.log('🔄 Pot size changed, resetting quantity to 1 for variation:', selectedPotSize);
+      setQuantity(1);
+    }
+  }, [selectedPotSize]);
+
   const loadPlantDetails = async () => {
     try {
       setLoading(true);
@@ -397,8 +405,21 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const getAvailableStock = () => {
     console.log('plantData for stock calculation:', plantData);
     
+    // For Grower's Choice and Wholesale with variations, get stock from selected variation
+    if (selectedPotSize && potSizeGroups[selectedPotSize] && potSizeGroups[selectedPotSize].length > 0) {
+      const selectedVariation = potSizeGroups[selectedPotSize][0];
+      const variationStock = selectedVariation.availableQty || selectedVariation.stock || 999;
+      console.log('📊 Available stock from selected variation:', {
+        selectedPotSize,
+        variationStock,
+        selectedVariation
+      });
+      return variationStock;
+    }
+    
+    // Fallback to parent plant data for single listing types
     const stock = plantData?.availableQty || plantData?.stock || plantData?.quantity || plantData?.maxQuantity || 999;
-    console.log('📊 Available stock calculation:', {
+    console.log('📊 Available stock calculation (fallback):', {
       availableQty: plantData?.availableQty,
       stock: plantData?.stock,
       quantity: plantData?.quantity,

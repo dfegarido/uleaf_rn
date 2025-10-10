@@ -387,19 +387,11 @@ const ScreenShop = ({navigation}) => {
 
   const loadCountryData = async () => {
     try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.COUNTRY);
-      if (cachedData) {
-        setCountryOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
+      console.log('🌍 Loading country dropdown data...');
+      // Always fetch fresh data - no caching for country dropdown
+      // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getCountryApi(), 3, 1000);
+      console.log('🌍 Country API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load country api');
@@ -410,29 +402,20 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.country,
       }));
 
+      console.log('🌍 Country dropdown options:', localCountryData.length, 'items');
       setCountryOptions(localCountryData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.COUNTRY, localCountryData);
     } catch (error) {
+      console.error('❌ Error loading country data:', error);
     }
   };
 
   const loadListingTypeData = async () => {
     try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.LISTING_TYPE);
-      if (cachedData) {
-        setListingTypeOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
+      console.log('📋 Loading listing type dropdown data...');
+      // Always fetch fresh data - no caching for listing type dropdown
+      // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getListingTypeApi(), 3, 1000);
+      console.log('📋 Listing Type API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load listing type api');
@@ -443,29 +426,20 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.listingType,
       }));
 
+      console.log('📋 Listing type dropdown options:', localListingTypeData.length, 'items');
       setListingTypeOptions(localListingTypeData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.LISTING_TYPE, localListingTypeData);
     } catch (error) {
+      console.error('❌ Error loading listing type data:', error);
     }
   };
 
   const loadShippingIndexData = async () => {
     try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.SHIPPING_INDEX);
-      if (cachedData) {
-        setShippingIndexOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
+      console.log('📦 Loading shipping index dropdown data...');
+      // Always fetch fresh data - no caching for shipping index dropdown
+      // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getShippingIndexApi(), 3, 1000);
+      console.log('📦 Shipping Index API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load shipping index api');
@@ -476,29 +450,20 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.shippingIndex,
       }));
 
+      console.log('📦 Shipping index dropdown options:', localShippingIndexData.length, 'items');
       setShippingIndexOptions(localShippingIndexData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.SHIPPING_INDEX, localShippingIndexData);
     } catch (error) {
+      console.error('❌ Error loading shipping index data:', error);
     }
   };
 
   const loadAcclimationIndexData = async () => {
     try {
-      // Try to get from cache first
-      const cachedData = await getCacheData(CACHE_KEYS.ACCLIMATION_INDEX);
-      if (cachedData) {
-        setAcclimationIndexOptions(cachedData);
-        return;
-      }
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
+      console.log('🌱 Loading acclimation index dropdown data...');
+      // Always fetch fresh data - no caching for acclimation index dropdown
+      // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getAcclimationIndexApi(), 3, 1000);
+      console.log('🌱 Acclimation Index API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load acclimation index api');
@@ -509,11 +474,10 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.acclimationIndex,
       }));
 
+      console.log('🌱 Acclimation index dropdown options:', localAcclimationIndexData.length, 'items');
       setAcclimationIndexOptions(localAcclimationIndexData);
-      
-      // Cache the data
-      await setCacheData(CACHE_KEYS.ACCLIMATION_INDEX, localAcclimationIndexData);
     } catch (error) {
+      console.error('❌ Error loading acclimation index data:', error);
     }
   };
 
