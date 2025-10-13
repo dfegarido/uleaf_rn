@@ -26,11 +26,17 @@ export const AuthProvider = ({children}) => {
     const checkLoginStatus = async () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
-        setIsLoggedIn(!!token);
+        const hasToken = !!token;
+        setIsLoggedIn(hasToken);
 
         const storedUserInfo = await AsyncStorage.getItem('userInfo');
-        if (storedUserInfo) {
+        // Only set userInfo from storage if we actually have a token
+        if (hasToken && storedUserInfo) {
           setUserInfo(JSON.parse(storedUserInfo));
+        } else if (!hasToken && storedUserInfo) {
+          // Clear stale userInfo when there's no token to avoid accidental role-based redirects
+          await AsyncStorage.removeItem('userInfo');
+          setUserInfo(null);
         }
       } catch (e) {
         console.log('Error checking login status', e);
@@ -71,6 +77,8 @@ export const AuthProvider = ({children}) => {
         await AsyncStorage.removeItem('authToken');
         await AsyncStorage.removeItem('userInfo');
         setUserInfo(null);
+        // Ensure isLoggedIn is cleared when there's no authenticated user
+        setIsLoggedIn(false);
       }
     });
 
