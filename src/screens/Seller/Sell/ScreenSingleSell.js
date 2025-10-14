@@ -122,15 +122,7 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
-    // Check cache first (10 minute TTL)
-    const cacheKey = `species_${genus}`;
-    const cached = await getCachedResponse('species', genus, 'seller');
-    if (cached && cached.success) {
-      console.log('✅ Using cached species data for:', genus);
-      setSelectedSpecies('');
-      setDropdownOptionSpecies(cached.data);
-      return;
-    }
+    // Note: caching removed — always fetch fresh species data
 
     const getSpeciesApiData = await getSellSpeciesApi(genus);
     // console.log(getSpeciesApiData.data);
@@ -142,11 +134,10 @@ const ScreenSingleSell = ({navigation, route}) => {
     // Extract sort option names as label/value pairs
     // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
     setSelectedSpecies('');
-    let localSpeciesData = getSpeciesApiData.data;
+    let localSpeciesDatas = getSpeciesApiData.data;
     // Set options
-    setDropdownOptionSpecies(localSpeciesData);
-    // Cache the response for 10 minutes
-    await setCachedResponse('species', genus, 'seller', getSpeciesApiData, 600000);
+    setDropdownOptionSpecies(getSpeciesApiData.data);
+  // Caching intentionally disabled for species dropdown
   };
 
   const loadVariegationData = async (genus, species) => {
