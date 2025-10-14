@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {StackActions} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
 import { auth } from '../../../firebase';
@@ -134,6 +135,11 @@ const ScreenLoginOtp = ({navigation}) => {
         } else {
           console.log('Profile fetch failed, user type unknown');
         }
+
+        // Force navigation reset to ensure we leave the OTP screen
+        setTimeout(() => {
+          navigation.dispatch(StackActions.popToTop());
+        }, 100);
       }
     } catch (error) {
       console.error('OTP verification error:', error);
