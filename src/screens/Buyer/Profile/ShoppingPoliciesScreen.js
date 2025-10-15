@@ -18,7 +18,7 @@ const ShoppingPoliciesScreen = () => {
 
   const policies = [
     {
-      title: 'ileafU Leafy Shopping Policies',
+      title: 'ileafU Leafy Shop Policies',
       content:
         'Read Before Your Plant Takes Flight ✈\nFriendly guidelines to keep every Plant Flight fair, smooth, and scam-free.',
     },

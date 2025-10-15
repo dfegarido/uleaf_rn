@@ -604,7 +604,7 @@ const BuyerProfileScreen = (props) => {
 
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
-            title="Shopping Policies"
+            title="Shop Policies"
             onPress={() => navigation.navigate('ShoppingPoliciesScreen')}
           />
         </View>
