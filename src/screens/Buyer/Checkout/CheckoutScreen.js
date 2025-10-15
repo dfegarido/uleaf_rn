@@ -44,6 +44,8 @@ import { checkoutApi } from '../../../components/Api/checkoutApi';
 import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
+import { roundToCents } from '../../../utils/money';
+import { computeGroupedShipping } from '../../../utils/shippingCalculator';
 
 // Helper function to determine country from currency
 const getCountryFromCurrency = currency => {
@@ -483,86 +485,36 @@ const CheckoutScreen = () => {
 
   // Calculate UPS 2nd Day shipping cost based on plant details (matching ScreenPlantDetail logic)
   const calculateUpsShippingCost = () => {
-    // Get plant data from either cart items or buy now data
-    const plants = useCart ? cartItems : plantItems;
+    // New grouped shipping logic uses the plantItems (prepared earlier)
+    const plants = plantItems && plantItems.length > 0 ? plantItems : (useCart ? cartItems : []);
+    try {
+      const grouped = computeGroupedShipping(plants || []);
+      // Return an object compatible with previous usage: baseCost, addOnCost, baseCargo
+      // We'll use baseCost/addOnCost for legacy per-item UPS calculation by deriving a per-item average
+      const baseCost = grouped.shippingTotal > 0 ? roundToCents(grouped.shippingTotal) : 50;
+      // approximate addOn as 0 (legacy code expects addOnCost) - orderSummary will use grouped totals
+      return { baseCost, addOnCost: 0, baseCargo: grouped.airCargoTotal, _grouped: grouped };
+    } catch (e) {
+      console.warn('computeGroupedShipping failed, falling back to legacy:', e);
+      // Fallback to previous single-item heuristic
+      const plantsLocal = useCart ? cartItems : plantItems;
 
-    if (!plants || plants.length === 0) {
-      return {baseCost: 50, addOnCost: 5, baseCargo: 150}; // Default
-    }
+      if (!plantsLocal || plantsLocal.length === 0) {
+        return {baseCost: 50, addOnCost: 5, baseCargo: 150}; // Default
+      }
 
-    // Calculate total items and total plant cost for air base cargo rule
-    const totalItems = plants.reduce(
-      (sum, item) => sum + (item.quantity || 1),
-      0,
-    );
-    const totalPlantCost = plants.reduce((sum, item) => {
-      const price = parseFloat(item.usdPriceNew || item.usdPrice || 0);
-      const quantity = item.quantity || 1;
-      return sum + price * quantity;
-    }, 0);
-
-    // Check if air base cargo should be free (>= 15 items AND >= $500 total cost)
-    const isFreeBaseCargo = totalItems >= 15 && totalPlantCost >= 500;
-
-    // Use the first plant's data to determine shipping rules
-  const firstPlant = plants[0];
-  const listingType = firstPlant.listingType?.toLowerCase() || 'single';
-    
-    switch (listingType) {
-      case 'single':
-      case 'single plant':
-      case 'discounted':
-        // Based on plant height (if available in plant data)
-        const height = parseFloat(
-          firstPlant.height || firstPlant.approximateHeight || 0,
-        );
-        return {
-          baseCost: height > 12 ? 70 : 50,
-          addOnCost: height > 12 ? 7 : 5,
-          baseCargo: isFreeBaseCargo ? 0 : 150,
-          rule: `Single plant - Height ${height > 12 ? '>12"' : '≤12"'}${
-            isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''
-          }`,
-        };
-
-      case 'growers':
-      case "grower's choice":
-        // Based on pot size
-        const potSize = firstPlant.potSize || firstPlant.size || '2"';
-        const potSizeNum = parseFloat(potSize.replace('"', '')) || 2;
-        return {
-          baseCost: potSizeNum > 4 ? 70 : 50,
-          addOnCost: potSizeNum > 4 ? 7 : 5,
-          baseCargo: isFreeBaseCargo ? 0 : 150,
-          rule: `Grower's Choice - Pot size ${potSizeNum > 4 ? '>4"' : '≤4"'}${
-            isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''
-          }`,
-        };
-
-      case 'wholesale':
-        // Wholesale has different pricing - only trigger for actual wholesale items
-        const wholePotSize = firstPlant.potSize || firstPlant.size || '2"';
-        const wholePotSizeNum = parseFloat(wholePotSize.replace('"', '')) || 2;
-        return {
-          baseCost: wholePotSizeNum > 4 ? 200 : 150,
-          addOnCost: wholePotSizeNum > 4 ? 25 : 20,
-          baseCargo: 250, // Wholesale always has higher base cargo, not affected by free cargo rule
-          rule: `Wholesale - Pot size ${wholePotSizeNum > 4 ? '>4"' : '≤4"'}`,
-        };
-
-      default:
-        // Default to single plant pricing for any unrecognized listing types
-        const defaultHeight = parseFloat(
-          firstPlant.height || firstPlant.approximateHeight || 0,
-        );
-        return {
-          baseCost: defaultHeight > 12 ? 70 : 50,
-          addOnCost: defaultHeight > 12 ? 7 : 5,
-          baseCargo: isFreeBaseCargo ? 0 : 150,
-          rule: `Default (Single plant) - Height ${
-            defaultHeight > 12 ? '>12"' : '≤12"'
-          }${isFreeBaseCargo ? ' (Free base cargo: ≥15 items & ≥$500)' : ''}`,
-        };
+      const firstPlant = plantsLocal[0];
+      const listingType = firstPlant.listingType?.toLowerCase() || 'single';
+      // Keep a simple fallback
+      const height = parseFloat(firstPlant.height || firstPlant.approximateHeight || 0);
+      const potSizeNum = parseFloat((firstPlant.potSize || firstPlant.size || '2"').replace('"','')) || 2;
+      if (listingType.includes('whole')) {
+        return { baseCost: potSizeNum > 4 ? 200 : 150, addOnCost: potSizeNum > 4 ? 25 : 20, baseCargo: 250 };
+      }
+      if (listingType.includes('grower') || listingType.includes('choice')) {
+        return { baseCost: potSizeNum > 4 ? 70 : 50, addOnCost: potSizeNum > 4 ? 7 : 5, baseCargo: 150 };
+      }
+      return { baseCost: height > 12 ? 70 : 50, addOnCost: height > 12 ? 7 : 5, baseCargo: 150 };
     }
   };
 
