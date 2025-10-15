@@ -16,10 +16,17 @@ const ScreenHeader = ({navigation, scarQr, search, title}) => {
                 <BackSolidIcon />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{title}</Text>
-            <TouchableOpacity style={styles.headerAction}>
-                {scarQr && <ScanQrIcon />}
-                {search && <SearchIcon />}
-            </TouchableOpacity>
+            {scarQr && 
+                <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
+                    <ScanQrIcon />
+                </TouchableOpacity>
+            }
+
+            {search && 
+                <TouchableOpacity style={styles.headerAction}>
+                    <SearchIcon />
+                </TouchableOpacity>
+            }
         </View>
     );
 };

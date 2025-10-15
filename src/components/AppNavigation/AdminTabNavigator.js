@@ -12,18 +12,19 @@ import LiveIconSelected from '../../assets/icontabs/buyer-tabs/live-icon-selecte
 import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
 import HomeIconSelected from '../../assets/icontabs/home-solid.svg';
 import HomeIcon from '../../assets/icontabs/home.svg';
-import AdminHomeScreen from '../../screens/Admin/Home/Home';
-import ScanQR from '../../screens/Admin/Home/ScanQR';
-import UserInformation from '../../screens/Admin/Home/UserInformation';
-import UserManagement from '../../screens/Admin/Home/UserManagement';
-import JungleAccess from '../../screens/Admin/Home/JungleAccess';
 import AddAdmin from '../../screens/Admin/Home/AddAdmin';
 import EditAdmin from '../../screens/Admin/Home/EditAdmin';
 import EditSubAdmin from '../../screens/Admin/Home/EditSubAdmin';
+import AdminHomeScreen from '../../screens/Admin/Home/Home';
+import JungleAccess from '../../screens/Admin/Home/JungleAccess';
+import ScanQR from '../../screens/Admin/Home/ScanQR';
+import UserInformation from '../../screens/Admin/Home/UserInformation';
+import UserManagement from '../../screens/Admin/Home/UserManagement';
 import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
 import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
 import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
+import ScanQRScreen from '../../screens/Admin/LeafTrail/ScanQR/ScanQR';
 import ShippingScreen from '../../screens/Admin/LeafTrail/Shipping/Shipping';
 import SortingScreen from '../../screens/Admin/LeafTrail/Sorting/Sorting';
 import SortingDetailsScreen from '../../screens/Admin/LeafTrail/Sorting/ViewSorting';
@@ -168,11 +169,12 @@ function AdminTabs() {
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
      <Stack.Screen name="LeafTrailSortingAdminScreen" options={{headerShown: false}} component={SortingScreen} />
-    <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
+     <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
      <Stack.Screen name="LeafTrailShippingAdminScreen" options={{headerShown: false}} component={ShippingScreen} />
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
+     <Stack.Screen name="LeafTrailScanQRAdminScreen" options={{headerShown: false}} component={ScanQRScreen} />
      <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />
-      <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
+     <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
       <Stack.Screen name="JungleAccess" options={{headerShown: false}} component={JungleAccess}/>
       <Stack.Screen name="AddAdmin" options={{headerShown: false}} component={AddAdmin}/>
       <Stack.Screen name="EditAdmin" options={{headerShown: false}} component={EditAdmin}/>

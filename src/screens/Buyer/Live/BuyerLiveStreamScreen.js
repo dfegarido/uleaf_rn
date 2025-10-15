@@ -17,6 +17,7 @@ import {
   createAgoraRtcEngine,
   RtcSurfaceView
 } from 'react-native-agora';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
@@ -24,7 +25,6 @@ import ShareIcon from '../../../assets/live-icon/share.svg';
 import ShopIcon from '../../../assets/live-icon/shop.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 const APP_ID = '77bffba08cc144228a447e99bae16ec1';
 // Note: You should generate a new token from Agora console if this one is expired

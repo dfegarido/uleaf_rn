@@ -1,64 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Image,
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { SceneMap, TabView } from 'react-native-tab-view';
+import { TabView } from 'react-native-tab-view';
 import Options from '../../../../assets/admin-icons/options.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
+import { updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
-
-// --- Mock Data for Demonstration ---
-const mockUser = {
-  name: 'Esther Howard',
-  username: '@esther.h',
-  avatar: 'https://i.imgur.com/s21bC37.jpeg',
-};
-
-const mockDelivery = {
-  flightDate: 'May-30-2024',
-  receivedDate: 'June-01-2024',
-};
-
-const receivedPlantsData = [
-  { id: 'p1', code: 'TH0023-45', country: 'TH', genus: 'Monstera', species: 'Albo', variegation: 'Inner Variegated', size: '2"', quantity: '1', listingType: '', image: 'https://i.imgur.com/Av8F42U.jpeg' },
-  { id: 'p2', code: 'EC0987-12', country: 'EC', genus: 'Philodendron', species: 'Gloriosum', variegation: 'Aurea Variegated', size: '4"', quantity: '10', listingType: '', image: 'https://i.imgur.com/7s1mGzt.jpeg' },
-  { id: 'p3', code: 'TH0023-45', country: 'TH', genus: 'Monstera', species: 'Albo', variegation: 'Inner Variegated', size: '2"', quantity: '1', listingType: '', image: 'https://i.imgur.com/Av8F42U.jpeg' },
-  { id: 'p4', code: 'EC0987-12', country: 'EC', genus: 'Philodendron', species: 'Gloriosum', variegation: 'Aurea Variegated', size: '4"', quantity: '10', listingType: 'Wholesale', image: 'https://i.imgur.com/7s1mGzt.jpeg' },
-  { id: 'p5', code: 'TH0023-45', country: 'TH', genus: 'Monstera', species: 'Albo', variegation: 'Inner Variegated', size: '2"', quantity: '1', listingType: '', image: 'https://i.imgur.com/Av8F42U.jpeg' },
-  { id: 'p6', code: 'EC0987-12', country: 'EC', genus: 'Philodendron', species: 'Gloriosum', variegation: 'Aurea Variegated', size: '4"', quantity: '10', listingType: '', image: 'https://i.imgur.com/7s1mGzt.jpeg' },
-  { id: 'p7', code: 'TH0023-45', country: 'TH', genus: 'Monstera', species: 'Albo', variegation: 'Inner Variegated', size: '2"', quantity: '1', listingType: '', image: 'https://i.imgur.com/Av8F42U.jpeg' },
-  { id: 'p8', code: 'EC0987-12', country: 'EC', genus: 'Philodendron', species: 'Gloriosum', variegation: 'Aurea Variegated', size: '4"', quantity: '10', listingType: '', image: 'https://i.imgur.com/7s1mGzt.jpeg' },
-  { id: 'p9', code: 'TH0023-45', country: 'TH', genus: 'Monstera', species: 'Albo', variegation: 'Inner Variegated', size: '2"', quantity: '1', listingType: '', image: 'https://i.imgur.com/Av8F42U.jpeg' },
-  { id: 'p10', code: 'EC0987-12', country: 'EC', genus: 'Philodendron', species: 'Gloriosum', variegation: 'Aurea Variegated', size: '4"', quantity: '10', listingType: '', image: 'https://i.imgur.com/7s1mGzt.jpeg' },
-];
-
-const missingPlantsData = [
-  { id: 'p1', status: 'Missing', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p2', status: 'Missing', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p3', status: 'Damaged', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p4', status: 'Damaged', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p5', status: 'Missing', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p6', status: 'Missing', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p7', status: 'Damaged', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p8', status: 'Damaged', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-  { id: 'p9', status: 'Damaged', code: 'TH0023-55', country: 'TH', genus: 'Anthurium', species: 'Papillilaminum', variegation: 'Ecuagenera', size: '2"', quantity: 'x2', listingType: '', image: 'https://i.imgur.com/r6HqY1B.jpeg' },
-];
-
-// --- Reusable Child Components (defined in the same file) ---
+import TagAsOptions from './TagAs';
 
 const Header = ({ title, navigation }) => (
   <View style={styles.headerContainer}>
-    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+    <TouchableOpacity onPress={() => navigation.goBack()}>
       <BackSolidIcon />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>{title}</Text>
@@ -97,30 +63,44 @@ const DeliveryDetails = ({ details }) => (
         <View style={styles.detailsBox}>
             <View style={styles.infoRow}>
                 <Text style={styles.label}>UPS Shipping</Text>
-                <Text style={styles.value}>{details.flightDate}</Text>
+                <Text style={styles.value}>{details.upsFlight}</Text>
             </View>
             <View style={styles.infoRow}>
                 <Text style={styles.label}>Plant Flight</Text>
-                <Text style={styles.value}>{details.receivedDate}</Text>
+                <Text style={styles.value}>{details.flightDate}</Text>
             </View>
         </View>
     </View>
 );
 
-const PlantCard = ({ plant }) => (
+const PlantCard = ({ plant, openTagAs }) => {
+
+  const setTags = () => {
+    let status = {isMissing: true, isDamaged: true};
+    if (plant.leafTrailStatus === "missing") {
+      status = {isDamaged: true, forShipping: true}
+    } else if (plant.leafTrailStatus === "damaged") {
+      status = {isMissing: true, forShipping: true}
+    }
+    openTagAs(status, plant.id)
+  }
+  
+  return (
     <View style={styles.card}>
-        <Image source={{ uri: plant.image }} style={styles.plantImage} />
+        <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
         <View style={styles.details}>
             <View>
                 <View style={styles.cardRow}>
                     <View style={styles.plantNameRow}>
-                      <Text style={styles.code}>{plant.code}</Text>
+                      <Text style={styles.code}>{plant.plantCode}</Text>
                       <QuestionMarkTooltip />
                     </View>
                     <View style={styles.countryContainer}>
                         <Text style={styles.countryText}>{plant.country}</Text>
-                        <CountryFlagIcon code={'PH'} width={24} height={16} />
-                        <Options />
+                        <CountryFlagIcon code={plant.countryCode} width={24} height={16} />
+                        <TouchableOpacity onPress={setTags}>
+                          <Options />
+                        </TouchableOpacity>
                     </View>
                 </View>
                 <Text style={styles.plantName}>{plant.genus} {plant.species}</Text>
@@ -134,24 +114,38 @@ const PlantCard = ({ plant }) => (
             </View>
         </View>
     </View>
-);
+)};
 
-const MishapPlantCard = ({ plant }) => (
+const MishapPlantCard = ({ plant, openTagAs }) => {
+  
+  const setTags = () => {
+    let status = {isMissing: true, isDamaged: true};
+    if ((plant.leafTrailStatus).toLowerCase() === "missing") {
+      status = {isDamaged: true, forShipping: true}
+    } else if ((plant.leafTrailStatus).toLowerCase() === "damaged") {
+      status = {isMissing: true, forShipping: true}
+    }
+    openTagAs(status, plant.id)
+  }
+  
+  return (
     <View style={styles.listSection}>
-        <Text style={styles.mishapStatus}>{plant.status}</Text>
+        <Text style={styles.mishapStatus}>{plant.leafTrailStatus}</Text>
       <View style={styles.card}>
-          <Image source={{ uri: plant.image }} style={styles.plantImage} />
+          <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
           <View style={styles.details}>
               <View>
                   <View style={styles.cardRow}>
                       <View style={styles.plantNameRow}>
-                        <Text style={styles.code}>{plant.code}</Text>
+                        <Text style={styles.code}>{plant.plantCode}</Text>
                         <QuestionMarkTooltip />
                       </View>
                       <View style={styles.countryContainer}>
                           <Text style={styles.countryText}>{plant.country}</Text>
                           <CountryFlagIcon code={'PH'} width={24} height={16} />
-                          <Options />
+                          <TouchableOpacity onPress={setTags}>
+                            <Options />
+                          </TouchableOpacity>
                       </View>
                   </View>
                   <Text style={styles.plantName}>{plant.genus} {plant.species}</Text>
@@ -161,12 +155,12 @@ const MishapPlantCard = ({ plant }) => (
                   <View style={plant?.listingType ? styles.typeChip : styles.typeChipNoBackground}>
                       <Text style={styles.typeText}>{plant.listingType}</Text>
                   </View>
-                  <Text style={styles.quantity}>{plant.quantity}</Text>
+                  <Text style={styles.quantity}>{plant.quantity}X</Text>
               </View>
           </View>
       </View>
     </View>
-);
+)};
 
 const CustomTabBar = ({ navigationState, jumpTo }) => (
     <View style={styles.tabBar}>
@@ -194,64 +188,137 @@ const CustomTabBar = ({ navigationState, jumpTo }) => (
 );
 
 // --- Tab Scenes ---
-const ReceivedPlantsTab = () => (
+const ReceivedPlantsTab = ({itemDetails, openTagAs}) => (
   <FlatList
-    data={receivedPlantsData}
-    renderItem={({ item }) => <PlantCard plant={item} />}
-    keyExtractor={item => item.id}
+    data={itemDetails}
+    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} />}
+    keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
   />
 );
 
-const MissingPlantsTab = () => (
+const MissingPlantsTab = ({itemDetails, openTagAs}) => (
   <FlatList
-    data={missingPlantsData}
-    renderItem={({ item }) => <MishapPlantCard plant={item} />}
-    keyExtractor={item => item.id}
+    data={itemDetails}
+    renderItem={({ item }) => <MishapPlantCard plant={item} openTagAs={openTagAs} />}
+    keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
   />
 );
 
 // --- Main Screen Component ---
-const SortingDetailsScreen = ({ navigation }) => {
-  const [index, setIndex] = React.useState(0);
-  const [routes] = React.useState([
-    { key: 'received', title: 'Received Plants', count: receivedPlantsData.length },
-    { key: 'missing', title: 'Journey Mishap', count: missingPlantsData.length },
-  ]);
+const SortingDetailsScreen = ({ navigation, route }) => {
+  // const itemDetails = route?.params?.item || {};
+  
+  const [index, setIndex] = useState(0);
+  const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
+  const [journeyMishapCount, setJourneyMishapCount] = useState(itemDetails?.journeyMishapCount || 0);
+  const [receivedPlantsCount, setReceivedPlantsCount] = useState(itemDetails?.receivedPlantsCount || 0);
 
-  const renderScene = SceneMap({
-    received: ReceivedPlantsTab,
-    missing: MissingPlantsTab,
-  });
+  const [routes, setRoutes] = useState([
+    { key: 'received', title: 'Received Plants', count: receivedPlantsCount },
+    { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
+  ]);
+  const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
+  const [missingPlantsData, setMissingPlantsData] = useState(itemDetails?.missingPlantsData || [])
+  const [isTagAsVisible, setTagAsVisible] = useState(false);
+  const [isMissing, setIsMissing] = useState(false);
+  const [isDamaged, setIsDamaged] = useState(false);
+  const [forShipping, setForShipping] = useState(false);
+  const [orderId, setOrderId] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const openTagAs = (status, id) => {
+    setIsMissing(status.isMissing);
+    setIsDamaged(status.isDamaged);
+    setForShipping(status.forShipping);
+    setTagAsVisible(!isTagAsVisible);
+    setOrderId(id)
+  }
+
+  const setTagAs = async (status) => {
+    setIsLoading(true);
+    setTagAsVisible(!isTagAsVisible);
+    const response = await updateLeafTrailStatus(orderId, status);
+    if (response.success) {
+      setItemDetails(response)
+      setRoutes([
+         { key: 'received', title: 'Received Plants', count: response.receivedPlantsCount },
+         { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
+       ])
+      setReceivedPlantsData(response?.receivedPlantsData || []);
+      setMissingPlantsData(response?.missingPlantsData || []);
+      setIsLoading(false)
+      Alert.alert('Success', 'Order status updated successfully!');
+    } else {
+      setIsLoading(false)
+      Alert.alert('Error', error.message);
+    }
+  }
+  
+  const renderScene = ({ route }) => {
+    switch (route.key) {
+      case 'received':
+        return <ReceivedPlantsTab itemDetails={receivedPlantsData || []} openTagAs={openTagAs} />;
+      case 'missing':
+        return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.screen}>
       <Header title="Receiver's Details" navigation={navigation} />
       {/* The main content that scrolls behind the tabs */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <UserProfile user={mockUser} />
+        <UserProfile user={{
+          name: itemDetails?.name || '',
+          username: itemDetails?.username || '',
+          avatar: itemDetails?.avatar || '',
+        }} />
         <GreenhouseInputs />
-        <DeliveryDetails details={mockDelivery} />
+        <DeliveryDetails details={{upsFlight: itemDetails?.upsShippingDate || '', flightDate: itemDetails?.flightDate || '' }} />
       </ScrollView>
 
       {/* The TabView is positioned absolutely to float over the ScrollView */}
       <View style={styles.tabViewContainer}>
         <TabView
           navigationState={{ index, routes }}
-          renderScene={renderScene}
+          renderScene={renderScene} // Use the new function here
           onIndexChange={setIndex}
           renderTabBar={props => <CustomTabBar {...props} />}
         />
       </View>
+
+      <TagAsOptions visible={isTagAsVisible}
+        setTagAs={setTagAs}
+        isMissing={isMissing}
+        isDamaged={isDamaged}
+        forShipping={forShipping}
+        onClose={() => setTagAsVisible(false)}/>
+
+        {isLoading && (
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
     </SafeAreaView>
   );
 };
 
 // --- Styles for All Components ---
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
   scrollContent: { paddingBottom: 400 }, // Add padding to bottom to ensure it can scroll past the tabs
   // Header
@@ -260,7 +327,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', height: 106, paddingTop: 48,
     paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', zIndex: 10,
   },
-  backButton: { position: 'absolute', left: 16, top: 64 },
   backIcon: { fontSize: 32, color: '#393D40' },
   headerTitle: {
     flex: 1, textAlign: 'center', fontFamily: 'Inter', fontWeight: '700',
