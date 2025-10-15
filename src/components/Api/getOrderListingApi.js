@@ -59,11 +59,32 @@ const normalizeOrder = (order) => {
     receivedDate,
     localPrice,
     localPriceCurrencySymbol,
-    imagePrimary,
+    // keep rest of fields
     ...rest
   } = order;
 
   const {price, symbol} = parsePriceAndSymbol(localPrice, localPriceCurrencySymbol);
+
+  // Prefer an HTTP(S) image URL from a set of possible fields (original and WebP variants).
+  const imageCandidates = [
+    order.imagePrimary,
+    order.image_primary,
+    order.primaryImage,
+    order.imagePrimaryWebp,
+    order.primaryImageWebp,
+    order.image_primary_webp,
+    order.image_webp,
+    order.imageWebp,
+  ];
+
+  let chosenImage = null;
+  for (const candidate of imageCandidates) {
+    const url = ensureHttpUrl(candidate);
+    if (url) {
+      chosenImage = url;
+      break;
+    }
+  }
 
   return {
     ...rest,
@@ -72,7 +93,7 @@ const normalizeOrder = (order) => {
     receivedDate: toIsoDate(receivedDate),
     localPrice: price,
     localPriceCurrencySymbol: symbol,
-    imagePrimary: ensureHttpUrl(imagePrimary) || null,
+    imagePrimary: chosenImage,
   };
 };
 

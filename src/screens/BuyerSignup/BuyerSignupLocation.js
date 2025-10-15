@@ -19,7 +19,7 @@ import InfoIcon from '../../assets/buyer-icons/information.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Backend API for location data from dropdown_state collection
-import { getStatesFromBackend, getStateCitiesSimple, getAllUSCitiesSimple } from '../../components/Api/geoDbApi';
+import { getUSStatesSimple, getStatesFromBackend, getStateCitiesSimple, getAllUSCitiesSimple } from '../../components/Api/geoDbApi';
 
 // Restricted states and territories configuration
 const RESTRICTED_LOCATIONS = {
@@ -184,9 +184,11 @@ const BuyerSignupLocation = () => {
   // Load states from backend (dropdown_state collection) with pagination
   const loadStates = useCallback(async (isLoadMore = false) => {
     try {
-      const currentPage = isLoadMore ? Math.floor(statesOffset / 50) + 1 : 1;
-      console.log(`🔥 Loading US states from backend... (page: ${currentPage})`);
-      
+      // For signup flow we must NOT call protected backend endpoints (they require auth)
+      // Use the public GeoDB wrapper which doesn't require an auth token.
+      const offset = isLoadMore ? statesOffset : 0;
+      console.log(`🔥 Loading US states (public API) (offset: ${offset})`);
+
       if (isLoadMore) {
         setLoadingMoreStates(true);
       } else {
@@ -194,24 +196,24 @@ const BuyerSignupLocation = () => {
         setStates([]); // Clear existing states for fresh load
         setStatesOffset(0);
       }
-      
-      const response = await getStatesFromBackend(50, currentPage);
-      
+
+      const response = await getUSStatesSimple(50, offset);
+
       if (response.success && response.states) {
-        // Transform to match existing component structure
-        const stateList = response.states.map(state => ({
-          name: state.name,
-          isoCode: state.code,
-          id: state.id
+        // Transform to match existing component structure (use isoCode for compatibility)
+        const stateList = response.states.map(s => ({
+          name: s.name,
+          isoCode: s.code || s.isoCode || s.stateCode || null,
+          id: s.id
         }));
-        
+
         // Filter out restricted states and territories
         const filteredStates = filterRestrictedStates(stateList);
         console.log(`📊 Filtered ${stateList.length - filteredStates.length} restricted states/territories`);
-        
+
         // Sort alphabetically
         filteredStates.sort((a, b) => a.name.localeCompare(b.name));
-        
+
         if (isLoadMore) {
           // Append to existing states
           setStates(prevStates => [...prevStates, ...filteredStates]);
@@ -221,26 +223,26 @@ const BuyerSignupLocation = () => {
           setStates(filteredStates);
           setStatesOffset(filteredStates.length);
         }
-        
+
         // Update pagination state
         setStatesHasMore(response.hasMore);
-        
-        console.log(`✅ Successfully loaded ${stateList.length} US states from backend (total: ${isLoadMore ? states.length + stateList.length : stateList.length}, hasMore: ${response.hasMore})`);
+
+        console.log(`✅ Successfully loaded ${stateList.length} US states (offset: ${offset}, hasMore: ${response.hasMore})`);
       } else {
-        console.error('❌ Backend API returned error:', response.error);
-        throw new Error(response.error || 'Failed to load states from backend');
+        console.error('❌ Public API returned error when loading states:', response.error);
+        throw new Error(response.error || 'Failed to load states');
       }
     } catch (error) {
-      console.error('❌ Error loading states from backend:', error.message);
-      
+      console.error('❌ Error loading states (public API):', error.message);
+
       if (!isLoadMore) {
         Alert.alert(
           'Location Service Issue', 
-          'Could not load states from backend. Using fallback list.',
+          'Could not load states. Using fallback list.',
           [{ text: 'OK' }]
         );
-        
-        // Fallback to common states if GeoDB fails
+
+        // Fallback to common states
         setStates([
           { name: 'California', isoCode: 'CA' },
           { name: 'Texas', isoCode: 'TX' },
