@@ -19,10 +19,10 @@ import { getAdminLeafTrailSorting } from '../../../../components/Api/getAdminLea
 // --- REUSABLE COMPONENTS (unchanged) ---
 
 const ListItem = ({ item, navigation}) => (
-  <TouchableOpacity onPress={() => navigation.navigate('LeafTrailSortingDetailsScreen', { date: item.plantFlight, id: item.id })}>
+  <TouchableOpacity onPress={() => navigation.navigate('LeafTrailSortingDetailsScreen', { item })}>
     <View style={styles.greenhouseList}>
       <View style={styles.card}>
-        <Image source={{uri:item.avatar}} style={styles.avatar} />
+        <Image source={{uri:item?.avatar || ''}} style={styles.avatar} />
         <View style={styles.content}>
           <View style={styles.nameRow}>
             <Text style={styles.nameText}>{item.name}</Text>
@@ -31,11 +31,11 @@ const ListItem = ({ item, navigation}) => (
           <View style={styles.quantityRow}>
             <View style={styles.quantitySection}>
               <Text style={styles.quantityLabel}>Received</Text>
-              <Text style={styles.receivedNumber}>{item.receivedPlants}</Text>
+              <Text style={styles.receivedNumber}>{item.receivedPlantsCount}</Text>
             </View>
             <View style={styles.quantitySection}>
               <Text style={styles.quantityLabel}>Mishap</Text>
-              <Text style={styles.mishapNumber}>{item.journeyMishap}</Text>
+              <Text style={styles.mishapNumber}>{item.journeyMishapCount}</Text>
             </View>
           </View>
         </View>
@@ -44,7 +44,7 @@ const ListItem = ({ item, navigation}) => (
         <View style={styles.detailsContent}>
           {/* <Icon name="sprout-outline" size={24} color="#556065" /> */}
           <AirplaneIcon width={20} height={20} color="#556065"/>
-          <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.plantFlight}</Text></Text>
+          <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
         </View>
       </View>
     </View>
@@ -95,7 +95,7 @@ const SortingScreen = ({navigation}) => {
       <FlatList
         data={sortingData?.data || {}}
         renderItem={({ item }) => <ListItem item={item} navigation={navigation} />}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.hubReceiverId}
         ListHeaderComponent={
           <>
             {/* 👇 Corrected: Added the FilterBar here */}

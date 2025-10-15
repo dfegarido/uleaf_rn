@@ -119,7 +119,7 @@ const BusinessPerformance = ({ navigation }) => {
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Leaf Trail / Greenhouse</Text>
 
         <View style={styles.grid}>
-          <IconTile title="Scan QR" onPress={() => navigation.navigate('ScanQR')}>
+          <IconTile title="Scan QR" onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
             <ScanQrIcon width={48} height={48} />
           </IconTile>
           <IconTile title="Receiving" onPress={() => navigation.navigate('LeafTrailReceivingScreenAdminScreen')}>

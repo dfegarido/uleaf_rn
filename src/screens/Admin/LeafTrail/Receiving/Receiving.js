@@ -138,7 +138,7 @@ const ReceivingScreen = ({navigation}) => {
             } finally {
                 setIsLoading(false);
             }
-};
+    };
 
     useEffect(() => {
         fetchData();
