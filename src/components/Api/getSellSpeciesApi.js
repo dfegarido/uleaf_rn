@@ -1,21 +1,23 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_CONFIG, API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getSellSpeciesApi = async genus => {
   try {
     const token = await getStoredAuthToken();
     const params = new URLSearchParams();
-    params.append('genus', genus);
 
-    const response = await fetch(
-      `https://getspeciesfromplantcatalogdropdown-nstilwgvua-uc.a.run.app?${params.toString()}`,
-      {
-        method: 'GET', // or 'POST' if your function expects a body
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // Pass token in Authorization header
-        },
+    let endpoint;
+    if (genus) params.append('genus', genus);
+    endpoint = `${API_CONFIG.BASE_URL}/getSpeciesFromPlantCatalogDropdown?${params.toString()}`;
+    console.log('getSellSpeciesApi calling endpoint:', endpoint);
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-    );
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -26,6 +28,6 @@ export const getSellSpeciesApi = async genus => {
     return json;
   } catch (error) {
     console.log('getSellSpeciesApi error:', error.message);
-    throw error; // optionally rethrow for use in UI
+    throw error;
   }
 };

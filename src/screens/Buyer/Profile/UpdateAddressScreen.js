@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { createAddressBookEntryApi, updateAddressBookEntryApi } from '../../../components/Api';
-import DropdownSelect from '../../../components/Dropdown/DropdownSelect';
-// GeoDB API for location data using centralized config
-import { getUSStatesSimple, getStateCitiesSimple } from '../../../components/Api/geoDbApi';
+import InputDropdownPaginated from '../../../components/Input/InputDropdownPaginated';
+// Backend API for location data from dropdown_state collection
+import { getStatesFromBackend, getStateCitiesSimple } from '../../../components/Api/geoDbApi';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 // Restricted states and territories configuration
@@ -106,16 +106,11 @@ const UpdateAddressScreen = () => {
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [loadingMoreStates, setLoadingMoreStates] = useState(false);
   const [loadingMoreCities, setLoadingMoreCities] = useState(false);
-  const [statesPagination, setStatesPagination] = useState({
-    offset: 0,
-    hasMore: true,
-    totalCount: 0
-  });
-  const [citiesPagination, setCitiesPagination] = useState({
-    offset: 0,
-    hasMore: true,
-    totalCount: 0
-  });
+  const [statesOffset, setStatesOffset] = useState(0);
+  const [citiesOffset, setCitiesOffset] = useState(0);
+  const citiesOffsetRef = useRef(0); // Use ref to track offset without causing re-renders
+  const [statesHasMore, setStatesHasMore] = useState(true);
+  const [citiesHasMore, setCitiesHasMore] = useState(true);
   
   // User info from AsyncStorage
   const [userInfo, setUserInfo] = useState({
@@ -124,25 +119,21 @@ const UpdateAddressScreen = () => {
     contactNumber: ''
   });
   
-  // Load states from GeoDB API with pagination
-  const loadStates = async (isLoadMore = false) => {
+  // Load states from backend (dropdown_state collection) with pagination
+  const loadStates = useCallback(async (isLoadMore = false) => {
     try {
-      const currentOffset = isLoadMore ? statesPagination.offset : 0;
-      console.log(`🇺🇸 Loading US states from GeoDB API... (offset: ${currentOffset})`);
+      const currentPage = isLoadMore ? Math.floor(statesOffset / 50) + 1 : 1;
+      console.log(`🔥 Loading US states from backend... (page: ${currentPage})`);
       
       if (isLoadMore) {
         setLoadingMoreStates(true);
       } else {
         setStatesLoading(true);
         setStates([]); // Clear existing states for fresh load
-        setStatesPagination({
-          offset: 0,
-          hasMore: true,
-          totalCount: 0
-        });
+        setStatesOffset(0);
       }
       
-      const response = await getUSStatesSimple(5, currentOffset);
+      const response = await getStatesFromBackend(50, currentPage);
       
       if (response.success && response.states) {
         // Transform to match existing component structure
@@ -162,34 +153,32 @@ const UpdateAddressScreen = () => {
         if (isLoadMore) {
           // Append to existing states
           setStates(prevStates => [...prevStates, ...filteredStates]);
+          setStatesOffset(prevOffset => prevOffset + filteredStates.length);
         } else {
           // Replace states
           setStates(filteredStates);
+          setStatesOffset(filteredStates.length);
         }
         
         // Update pagination state
-        setStatesPagination({
-          offset: currentOffset + 5,
-          hasMore: response.hasMore,
-          totalCount: response.totalCount
-        });
+        setStatesHasMore(response.hasMore);
         
-        console.log(`✅ Successfully loaded ${filteredStates.length} US states from GeoDB API (total: ${isLoadMore ? states.length + filteredStates.length : filteredStates.length}, hasMore: ${response.hasMore})`);
+        console.log(`✅ Successfully loaded ${filteredStates.length} US states from backend (total: ${isLoadMore ? states.length + filteredStates.length : filteredStates.length}, hasMore: ${response.hasMore})`);
       } else {
-        console.error('❌ GeoDB API returned error:', response.error);
-        throw new Error(response.error || 'Failed to load states from GeoDB');
+        console.error('❌ Backend API returned error:', response.error);
+        throw new Error(response.error || 'Failed to load states from backend');
       }
     } catch (error) {
-      console.error('❌ Error loading states from GeoDB API:', error.message);
+      console.error('❌ Error loading states from backend:', error.message);
       
       if (!isLoadMore) {
         Alert.alert(
           'Location Service Issue', 
-          'Could not load states from location service. Using fallback list.',
+          'Could not load states from backend. Using fallback list.',
           [{ text: 'OK' }]
         );
         
-        // Fallback to common states if GeoDB fails (excluding restricted states)
+        // Fallback to common states if backend fails (excluding restricted states)
         const fallbackStates = [
           { name: 'California', isoCode: 'CA' },
           { name: 'Texas', isoCode: 'TX' },
@@ -211,11 +200,7 @@ const UpdateAddressScreen = () => {
         // Apply filtering to fallback states as well
         const filteredFallbackStates = filterRestrictedStates(fallbackStates);
         setStates(filteredFallbackStates);
-        setStatesPagination({
-          offset: filteredFallbackStates.length,
-          hasMore: false,
-          totalCount: filteredFallbackStates.length
-        });
+        setStatesHasMore(false);
       }
     } finally {
       if (isLoadMore) {
@@ -224,33 +209,36 @@ const UpdateAddressScreen = () => {
         setStatesLoading(false);
       }
     }
-  };
+  }, [statesOffset]); // Only re-create if offset changes
 
-  // Load states from GeoDB API
   useEffect(() => {
     loadStates();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount, loadStates is stable due to useCallback
 
   // Load more states when reaching end of list
-  const loadMoreStates = async () => {
-    if (!statesPagination.hasMore || loadingMoreStates) return;
+  const loadMoreStates = useCallback(async () => {
+    if (!statesHasMore || loadingMoreStates) {
+      console.log('⏭️ Skipping loadMoreStates - hasMore:', statesHasMore, 'loading:', loadingMoreStates);
+      return;
+    }
+    console.log('📜 Loading more states...');
     await loadStates(true);
-  };
+  }, [statesHasMore, loadingMoreStates, loadStates]);
 
   // Load cities when state changes using GeoDB API with pagination
-  const loadCities = async (isLoadMore = false) => {
+  const loadCities = useCallback(async (isLoadMore = false) => {
     if (!selectedStateData) {
       setCities([]);
-      setCitiesPagination({
-        offset: 0,
-        hasMore: true,
-        totalCount: 0
-      });
+      setCitiesOffset(0);
+      citiesOffsetRef.current = 0;
+      setCitiesHasMore(true);
       return;
     }
 
     try {
-      const currentOffset = isLoadMore ? citiesPagination.offset : 0;
+      // Use ref to get current offset without it being a dependency
+      const currentOffset = isLoadMore ? citiesOffsetRef.current : 0;
       console.log(`🏙️ Loading cities for state from GeoDB API: ${selectedStateData.name} (offset: ${currentOffset})`);
       
       if (isLoadMore) {
@@ -258,11 +246,8 @@ const UpdateAddressScreen = () => {
       } else {
         setCitiesLoading(true);
         setCities([]); // Clear existing cities for fresh load
-        setCitiesPagination({
-          offset: 0,
-          hasMore: true,
-          totalCount: 0
-        });
+        setCitiesOffset(0);
+        citiesOffsetRef.current = 0;
       }
       
       // Load cities from GeoDB API
@@ -291,24 +276,18 @@ const UpdateAddressScreen = () => {
         }
         
         // Update pagination state
-        setCitiesPagination({
-          offset: currentOffset + 5,
-          hasMore: response.hasMore,
-          totalCount: response.totalCount
-        });
+        const newOffset = currentOffset + 5;
+        setCitiesOffset(newOffset);
+        citiesOffsetRef.current = newOffset;
+        setCitiesHasMore(response.hasMore);
         
         console.log(`✅ Successfully loaded ${filteredCities.length} filtered cities for ${selectedStateData.name} (original: ${cityNames.length}, hasMore: ${response.hasMore})`);
       } else {
         console.log(`⚠️ No cities found for ${selectedStateData.name} from GeoDB API`);
         
         if (!isLoadMore) {
-          // Provide option to enter manually
           setCities(['Enter city manually']);
-          setCitiesPagination({
-            offset: 1,
-            hasMore: false,
-            totalCount: 1
-          });
+          setCitiesHasMore(false);
         }
       }
     } catch (error) {
@@ -316,13 +295,8 @@ const UpdateAddressScreen = () => {
       console.log('📝 Providing manual entry option for cities');
       
       if (!isLoadMore) {
-        // Fallback option
         setCities(['Enter city manually']);
-        setCitiesPagination({
-          offset: 1,
-          hasMore: false,
-          totalCount: 1
-        });
+        setCitiesHasMore(false);
       }
     } finally {
       if (isLoadMore) {
@@ -331,18 +305,68 @@ const UpdateAddressScreen = () => {
         setCitiesLoading(false);
       }
     }
-  };
+  }, [selectedStateData]); // Only depend on selectedStateData
 
-  // Load cities for selected state via GeoDB API
+  // Call loadCities when selectedStateData changes
   useEffect(() => {
     loadCities();
-  }, [selectedStateData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStateData]); // Only trigger when selectedStateData changes, not when loadCities function changes
 
   // Load more cities when reaching end of list
-  const loadMoreCities = async () => {
-    if (!citiesPagination.hasMore || loadingMoreCities || !selectedStateData) return;
+  const loadMoreCities = useCallback(async () => {
+    if (!citiesHasMore || loadingMoreCities || !selectedStateData) {
+      console.log('⏭️ Skipping loadMoreCities - hasMore:', citiesHasMore, 'loading:', loadingMoreCities, 'hasState:', !!selectedStateData);
+      return;
+    }
+    console.log('📜 Loading more cities...');
     await loadCities(true);
-  };
+  }, [citiesHasMore, loadingMoreCities, selectedStateData, loadCities]);
+
+  // Handle city search (manual server-side search)
+  const handleCitySearch = useCallback(async (searchText) => {
+    if (!selectedStateData) {
+      console.log('⚠️ No state selected, cannot search cities');
+      return;
+    }
+
+    try {
+      setCitiesLoading(true);
+      setCitiesOffset(0);
+      citiesOffsetRef.current = 0;
+      
+      console.log(`🔍 Searching cities in ${selectedStateData.name} with query: "${searchText}"`);
+      
+      // Fetch cities with search query (namePrefix parameter)
+      const response = await getStateCitiesSimple(
+        selectedStateData.isoCode, 
+        10,  // GeoDB API plan limit
+        0,   // Reset offset
+        searchText  // Search query
+      );
+      
+      if (response.success && response.cities && response.cities.length > 0) {
+        const cityNames = [...new Set(response.cities.map(city => city.name))];
+        const filteredCities = filterRestrictedCities(cityNames, selectedStateData);
+        filteredCities.sort();
+        
+        setCities(filteredCities);
+        setCitiesHasMore(response.hasMore);
+        
+        console.log(`✅ Search complete: ${filteredCities.length} cities found`);
+      } else {
+        console.log(`⚠️ No cities found for search: "${searchText}"`);
+        setCities([]);
+        setCitiesHasMore(false);
+      }
+    } catch (error) {
+      console.error('❌ Error searching cities:', error.message);
+      setCities([]);
+      setCitiesHasMore(false);
+    } finally {
+      setCitiesLoading(false);
+    }
+  }, [selectedStateData]);
 
   // Load user info from AsyncStorage and initialize address data
   useEffect(() => {
@@ -372,18 +396,19 @@ const UpdateAddressScreen = () => {
       setState(addressToUpdate.state || '');
       setZipCode(addressToUpdate.zipCode || '');
       setAddressId(addressToUpdate.entryId || addressToUpdate.id);
-      
-      // Set the selected state data when we have it
-      if (addressToUpdate.state) {
-        // We'll find and set the state object when states are loaded
-        const stateObj = {
-          name: addressToUpdate.state,
-          isoCode: addressToUpdate.stateCode || '',
-        };
+    }
+  }, [addressToUpdate]);
+
+  // Update selectedStateData when states are loaded and we have an address to update
+  useEffect(() => {
+    if (states.length > 0 && addressToUpdate && addressToUpdate.state && !selectedStateData) {
+      const stateObj = states.find(s => s.name === addressToUpdate.state);
+      if (stateObj) {
+        console.log('🔄 Setting selectedStateData from loaded states:', stateObj);
         setSelectedStateData(stateObj);
       }
     }
-  }, [addressToUpdate]);
+  }, [states.length, addressToUpdate?.state]); // Only react to states length change and address state, not the full states array
 
   const handleSaveAddress = async () => {
     // Validation
@@ -483,56 +508,60 @@ const UpdateAddressScreen = () => {
         {/* Form Container */}
         <View style={styles.formContainer}>
           {/* State */}
-          <DropdownSelect
-            label="State"
-            placeholder={statesLoading ? "Loading states..." : "Select"}
-            value={state}
-            data={Array.from(new Set(states.map(stateObj => stateObj.name))).sort()} // Ensure unique state names
-            onSelect={(selectedStateName) => {
-              const selectedStateObj = states.find(stateObj => stateObj.name === selectedStateName);
-              
-              // Add a flag to indicate this change was triggered by user interaction
-              if (selectedStateObj) {
-                selectedStateObj._userTriggered = true;
-              }
-              
-              setState(selectedStateName);
-              setSelectedStateData(selectedStateObj);
-              
-              // Only reset city when state changes and we're not editing an existing address
-              // Or if we're editing but changing to a different state
-              if (!addressToUpdate || (addressToUpdate && selectedStateName !== addressToUpdate.state)) {
-                setCity('');
-              }
-            }}
-            onPress={handleStateDropdownClick}
-            required={true}
-            disabled={statesLoading}
-            onEndReached={loadMoreStates}
-            loading={loadingMoreStates}
-          />
+          <View style={styles.inputSection}>
+            <View style={styles.inputFieldWrap}>
+              <Text style={styles.inputLabel}>
+                State<Text style={{color: '#FF5247'}}>*</Text>
+              </Text>
+              <InputDropdownPaginated
+                options={states.map(s => s.name)}
+                selectedOption={state}
+                onSelect={(selectedStateName) => {
+                  const sel = states.find(s => s.name === selectedStateName);
+                  setState(selectedStateName);
+                  setSelectedStateData(sel);
+                  
+                  // Only reset city when state changes and we're not editing an existing address
+                  // Or if we're editing but changing to a different state
+                  if (!addressToUpdate || (addressToUpdate && selectedStateName !== addressToUpdate.state)) {
+                    setCity('');
+                  }
+                }}
+                placeholder={statesLoading ? "Loading US states..." : "Select..."}
+                disabled={statesLoading}
+                onLoadMore={loadMoreStates}
+                hasMore={statesHasMore}
+                loadingMore={loadingMoreStates}
+              />
+            </View>
+          </View>
           
           {/* City */}
-          <DropdownSelect
-            label="City"
-            placeholder={
-              citiesLoading 
-                ? "Loading cities..." 
-                : selectedStateData 
-                  ? "Select city" 
-                  : "Select state first"
-            }
-            value={city}
-            data={Array.from(new Set(cities)).sort()} // Ensure unique city names
-            onSelect={(selectedCity) => {
-              setCity(selectedCity);
-            }}
-            onPress={handleCityDropdownClick}
-            required={true}
-            disabled={!selectedStateData || citiesLoading}
-            onEndReached={loadMoreCities}
-            loading={loadingMoreCities}
-          />
+          <View style={styles.inputSection}>
+            <View style={styles.inputFieldWrap}>
+              <Text style={styles.inputLabel}>
+                City<Text style={{color: '#FF5247'}}>*</Text>
+              </Text>
+              <InputDropdownPaginated
+                options={cities}
+                selectedOption={city}
+                onSelect={setCity}
+                placeholder={
+                  citiesLoading 
+                    ? "Loading cities..." 
+                    : selectedStateData 
+                      ? "Select..." 
+                      : "Select state first"
+                }
+                disabled={!selectedStateData || citiesLoading}
+                onLoadMore={loadMoreCities}
+                hasMore={citiesHasMore}
+                loadingMore={loadingMoreCities}
+                enableServerSearch={true}
+                onSearch={handleCitySearch}
+              />
+            </View>
+          </View>
 
           {/* Zip Code */}
           <View style={styles.inputSection}>

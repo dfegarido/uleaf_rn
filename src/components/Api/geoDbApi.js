@@ -2,7 +2,64 @@
  * Using RapidAPI's World GeoData API with centralized configuration
  */
 
-import { GEODATABASE_CONFIG } from '../../config/apiConfig';
+import { GEODATABASE_CONFIG, API_ENDPOINTS } from '../../config/apiConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// ============================================================================
+// REQUEST CACHE & DEDUPLICATION
+// ============================================================================
+
+// Simple in-memory cache with TTL (5 minutes)
+const requestCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Track in-flight requests to prevent duplicates
+const inFlightRequests = new Map();
+
+/**
+ * Get cached response or return null if expired/not found
+ */
+const getCachedResponse = (cacheKey) => {
+  const cached = requestCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`✅ Using cached response for: ${cacheKey}`);
+    return cached.data;
+  }
+  return null;
+};
+
+/**
+ * Store response in cache
+ */
+const setCachedResponse = (cacheKey, data) => {
+  requestCache.set(cacheKey, {
+    data,
+    timestamp: Date.now()
+  });
+};
+
+/**
+ * Deduplicate concurrent requests - if same request is in flight, wait for it
+ */
+const deduplicateRequest = async (cacheKey, requestFn) => {
+  // Check if request is already in flight
+  if (inFlightRequests.has(cacheKey)) {
+    console.log(`⏳ Waiting for in-flight request: ${cacheKey}`);
+    return await inFlightRequests.get(cacheKey);
+  }
+
+  // Execute request and track it
+  const requestPromise = requestFn();
+  inFlightRequests.set(cacheKey, requestPromise);
+
+  try {
+    const result = await requestPromise;
+    return result;
+  } finally {
+    // Clean up after request completes
+    inFlightRequests.delete(cacheKey);
+  }
+};
 
 // ============================================================================
 // SIMPLE API FUNCTIONS (Most commonly used)
@@ -15,51 +72,168 @@ import { GEODATABASE_CONFIG } from '../../config/apiConfig';
  * @returns {Promise<Object>} US states data
  */
 export const getUSStatesSimple = async (limit = 5, offset = 0) => {
-  try {
-    const url = GEODATABASE_CONFIG.ENDPOINTS.US_REGIONS(limit, offset);
-    console.log(`🇺🇸 Fetching US states (limit: ${limit}, offset: ${offset}):`, url);
-    
-    const requestOptions = GEODATABASE_CONFIG.createRequestOptions();
-    
-    const response = await fetch(url, requestOptions);
-    
-    console.log('📡 Response status:', response.status, response.statusText);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ GeoDB API Error:', response.status, errorText);
+  const cacheKey = `us_states_${limit}_${offset}`;
+  
+  // Check cache first
+  const cached = getCachedResponse(cacheKey);
+  if (cached) return cached;
+  
+  // Deduplicate concurrent requests
+  return await deduplicateRequest(cacheKey, async () => {
+    try {
+      const url = GEODATABASE_CONFIG.ENDPOINTS.US_REGIONS(limit, offset);
+      console.log(`🇺🇸 Fetching US states (limit: ${limit}, offset: ${offset}):`, url);
       
-      if (response.status === 429) {
-        console.log('⏱️ Rate limited, please try again...');
-        throw new Error('Rate limited - please try again in a moment');
+      const requestOptions = GEODATABASE_CONFIG.createRequestOptions();
+      
+      const response = await fetch(url, requestOptions);
+      
+      console.log('📡 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ GeoDB API Error:', response.status, errorText);
+        
+        if (response.status === 429) {
+          console.log('⏱️ Rate limited, please try again...');
+          throw new Error('Rate limited - please try again in a moment');
+        }
+        
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
       
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      const data = await response.json();
+      console.log(`✅ US states loaded: ${data.data?.length || 0} (total available: ${data.metadata?.totalCount || 'unknown'})`);
+      
+      const result = {
+        success: true,
+        states: data.data?.map(state => ({
+          name: state.name,
+          code: state.isoCode,
+          id: state.id
+        })) || [],
+        hasMore: data.data && data.data.length === limit && (offset + data.data.length) < (data.metadata?.totalCount || 999),
+        totalCount: data.metadata?.totalCount || 0
+      };
+      
+      // Cache successful response
+      setCachedResponse(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('❌ Error loading US states:', error);
+      return {
+        success: false,
+        error: error.message,
+        states: [],
+        hasMore: false,
+        totalCount: 0
+      };
     }
-    
-    const data = await response.json();
-    console.log(`✅ US states loaded: ${data.data?.length || 0} (total available: ${data.metadata?.totalCount || 'unknown'})`);
-    
-    return {
-      success: true,
-      states: data.data?.map(state => ({
-        name: state.name,
-        code: state.isoCode,
-        id: state.id
-      })) || [],
-      hasMore: data.data && data.data.length === limit && (offset + data.data.length) < (data.metadata?.totalCount || 999),
-      totalCount: data.metadata?.totalCount || 0
-    };
-  } catch (error) {
-    console.error('❌ Error loading US states:', error);
-    return {
-      success: false,
-      error: error.message,
-      states: [],
-      hasMore: false,
-      totalCount: 0
-    };
+  });
+};
+
+/**
+ * Fetch US states from Firebase backend (dropdown_state collection)
+ * This function calls our backend API which reads from the dropdown_state collection
+ * @param {number} limit - Maximum number of states to return per page (default: 50)
+ * @param {number} page - Page number (1-based) (default: 1)
+ * @param {string} search - Search query to filter states by name (optional)
+ * @returns {Promise<Object>} US states data from Firebase
+ */
+export const getStatesFromBackend = async (limit = 50, page = 1, search = '') => {
+  const cacheKey = `backend_states_${limit}_${page}_${search}`;
+  
+  // Check cache first
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    console.log('ℹ️ States from backend served from cache');
+    return cached;
   }
+  
+  // Deduplicate concurrent requests
+  return await deduplicateRequest(cacheKey, async () => {
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      
+      if (!authToken) {
+        console.error('❌ No auth token found');
+        return {
+          success: false,
+          error: 'Authentication required',
+          states: [],
+          hasMore: false,
+          totalCount: 0
+        };
+      }
+
+      // Build URL with query parameters
+      let url = `${API_ENDPOINTS.GET_DROPDOWN_STATES}?page=${page}&limit=${limit}`;
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+      }
+
+      console.log(`🔥 Fetching states from backend (page: ${page}, limit: ${limit}, search: "${search}")`);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📡 Backend response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Backend API Error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.error('❌ Backend returned error:', data);
+        return {
+          success: false,
+          error: data.message || 'Unknown error',
+          states: [],
+          hasMore: false,
+          totalCount: 0
+        };
+      }
+
+      console.log(`✅ States from backend loaded: ${data.data?.length || 0} states (page ${data.pagination?.page}/${data.pagination?.totalPages})`);
+
+      const result = {
+        success: true,
+        states: data.data?.map(state => ({
+          name: state.name,
+          code: state.isoCode,
+          id: state.id,
+          countryCode: state.countryCode,
+          sortOrder: state.sortOrder
+        })) || [],
+        hasMore: data.pagination?.hasMore || false,
+        totalCount: data.pagination?.totalCount || 0,
+        page: data.pagination?.page || page,
+        totalPages: data.pagination?.totalPages || 1
+      };
+
+      // Cache successful response
+      setCachedResponse(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('❌ Error loading states from backend:', error);
+      return {
+        success: false,
+        error: error.message,
+        states: [],
+        hasMore: false,
+        totalCount: 0
+      };
+    }
+  });
 };
 
 /**
@@ -67,56 +241,74 @@ export const getUSStatesSimple = async (limit = 5, offset = 0) => {
  * @param {string} stateCode - State ISO code (e.g., 'CA', 'NY')
  * @param {number} limit - Maximum number of cities to return (default: 5)
  * @param {number} offset - Number of records to skip (default: 0)
+ * @param {string} namePrefix - Optional name prefix to filter cities (default: '')
  * @returns {Promise<Object>} Cities data
  */
-export const getStateCitiesSimple = async (stateCode, limit = 5, offset = 0) => {
-  try {
-    // Use the specific region cities endpoint instead of the general search
-    const url = GEODATABASE_CONFIG.ENDPOINTS.REGION_CITIES('US', stateCode, limit, offset);
-    console.log(`🏙️ Fetching cities for ${stateCode} (limit: ${limit}, offset: ${offset}):`, url);
-    
-    const requestOptions = GEODATABASE_CONFIG.createRequestOptions();
-    
-    const response = await fetch(url, requestOptions);
-    
-    console.log('📡 Response status:', response.status, response.statusText);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ GeoDB API Error:', response.status, errorText);
+export const getStateCitiesSimple = async (stateCode, limit = 5, offset = 0, namePrefix = '') => {
+  const cacheKey = `state_cities_${stateCode}_${limit}_${offset}_${namePrefix}`;
+  
+  // Check cache first
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    console.log(`ℹ️ Server search for "${namePrefix}" served from cache (key: ${cacheKey})`);
+    return cached;
+  }
+  console.log(`ℹ️ Server search triggered for state=${stateCode} prefix="${namePrefix}" (cache miss)`);
+  
+  // Deduplicate concurrent requests
+  return await deduplicateRequest(cacheKey, async () => {
+    try {
+      // Use the specific region cities endpoint with optional namePrefix
+      const url = GEODATABASE_CONFIG.ENDPOINTS.REGION_CITIES('US', stateCode, limit, offset, namePrefix);
+      console.log(`🏙️ Fetching cities for ${stateCode} (limit: ${limit}, offset: ${offset}${namePrefix ? `, prefix: "${namePrefix}"` : ''}):`, url);
       
-      if (response.status === 429) {
-        console.log('⏱️ Rate limited for cities');
-        throw new Error('Rate limited - please try again in a moment');
+      const requestOptions = GEODATABASE_CONFIG.createRequestOptions();
+      
+      const response = await fetch(url, requestOptions);
+      
+      console.log('📡 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ GeoDB API Error:', response.status, errorText);
+        
+        if (response.status === 429) {
+          console.log('⏱️ Rate limited for cities');
+          throw new Error('Rate limited - please try again in a moment');
+        }
+        
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
       
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      const data = await response.json();
+      console.log(`✅ Cities loaded for ${stateCode}: ${data.data?.length || 0} (total available: ${data.metadata?.totalCount || 'unknown'})`);
+      
+      const result = {
+        success: true,
+        cities: data.data?.map(city => ({
+          name: city.name,
+          id: city.id,
+          state: city.region,
+          stateCode: city.regionCode
+        })) || [],
+        hasMore: data.data && data.data.length === limit && (offset + data.data.length) < (data.metadata?.totalCount || 999),
+        totalCount: data.metadata?.totalCount || 0
+      };
+      
+      // Cache successful response
+      setCachedResponse(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error(`❌ Error loading cities for ${stateCode}:`, error);
+      return {
+        success: false,
+        error: error.message,
+        cities: [],
+        hasMore: false,
+        totalCount: 0
+      };
     }
-    
-    const data = await response.json();
-    console.log(`✅ Cities loaded for ${stateCode}: ${data.data?.length || 0} (total available: ${data.metadata?.totalCount || 'unknown'})`);
-    
-    return {
-      success: true,
-      cities: data.data?.map(city => ({
-        name: city.name,
-        id: city.id,
-        state: city.region,
-        stateCode: city.regionCode
-      })) || [],
-      hasMore: data.data && data.data.length === limit && (offset + data.data.length) < (data.metadata?.totalCount || 999),
-      totalCount: data.metadata?.totalCount || 0
-    };
-  } catch (error) {
-    console.error(`❌ Error loading cities for ${stateCode}:`, error);
-    return {
-      success: false,
-      error: error.message,
-      cities: [],
-      hasMore: false,
-      totalCount: 0
-    };
-  }
+  });
 };
 
 /**
@@ -125,71 +317,84 @@ export const getStateCitiesSimple = async (stateCode, limit = 5, offset = 0) => 
  * @returns {Promise<Object>} Cities data
  */
 export const getAllUSCitiesSimple = async (maxLimit = 100) => {
-  try {
-    console.log('🏙️ Fetching all US cities...');
-    
-    let allCities = [];
-    let offset = 0;
-    const batchSize = 5; // Free plan limit
-    let hasMore = true;
-    
-    while (hasMore && allCities.length < maxLimit) {
-      const url = GEODATABASE_CONFIG.ENDPOINTS.ALL_CITIES(batchSize, offset, '', 'US');
-      console.log(`📡 Fetching cities batch ${Math.floor(offset/batchSize) + 1}:`, url);
+  const cacheKey = `all_us_cities_${maxLimit}`;
+  
+  // Check cache first
+  const cached = getCachedResponse(cacheKey);
+  if (cached) return cached;
+  
+  // Deduplicate concurrent requests
+  return await deduplicateRequest(cacheKey, async () => {
+    try {
+      console.log('🏙️ Fetching all US cities...');
       
-      const requestOptions = GEODATABASE_CONFIG.createRequestOptions();
+      let allCities = [];
+      let offset = 0;
+      const batchSize = 5; // Free plan limit
+      let hasMore = true;
       
-      const response = await fetch(url, requestOptions);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ GeoDB API Error:', response.status, errorText);
+      while (hasMore && allCities.length < maxLimit) {
+        const url = GEODATABASE_CONFIG.ENDPOINTS.ALL_CITIES(batchSize, offset, '', 'US');
+        console.log(`📡 Fetching cities batch ${Math.floor(offset/batchSize) + 1}:`, url);
         
-        if (response.status === 429) {
-          console.log('⏱️ Rate limited, waiting 2 seconds...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          continue;
+        const requestOptions = GEODATABASE_CONFIG.createRequestOptions();
+        
+        const response = await fetch(url, requestOptions);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ GeoDB API Error:', response.status, errorText);
+          
+          if (response.status === 429) {
+            console.log('⏱️ Rate limited, waiting 2 seconds...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.data && data.data.length > 0) {
-        allCities.push(...data.data);
-        console.log(`✅ Loaded ${data.data.length} cities, total: ${allCities.length}`);
+        const data = await response.json();
         
-        hasMore = data.data.length === batchSize && allCities.length < (data.metadata?.totalCount || maxLimit);
-        offset += batchSize;
-        
-        if (hasMore) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        if (data.data && data.data.length > 0) {
+          allCities.push(...data.data);
+          console.log(`✅ Loaded ${data.data.length} cities, total: ${allCities.length}`);
+          
+          hasMore = data.data.length === batchSize && allCities.length < (data.metadata?.totalCount || maxLimit);
+          offset += batchSize;
+          
+          if (hasMore) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } else {
+          hasMore = false;
         }
-      } else {
-        hasMore = false;
       }
+      
+      const result = {
+        success: true,
+        cities: allCities.map(city => ({
+          name: city.name,
+          id: city.id,
+          state: city.region,
+          stateCode: city.regionCode,
+          country: city.country,
+          countryCode: city.countryCode
+        }))
+      };
+      
+      // Cache successful response
+      setCachedResponse(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('❌ Error loading all US cities:', error);
+      return {
+        success: false,
+        error: error.message,
+        cities: []
+      };
     }
-    
-    return {
-      success: true,
-      cities: allCities.map(city => ({
-        name: city.name,
-        id: city.id,
-        state: city.region,
-        stateCode: city.regionCode,
-        country: city.country,
-        countryCode: city.countryCode
-      }))
-    };
-  } catch (error) {
-    console.error('❌ Error loading all US cities:', error);
-    return {
-      success: false,
-      error: error.message,
-      cities: []
-    };
-  }
+  });
 };
 
 // ============================================================================

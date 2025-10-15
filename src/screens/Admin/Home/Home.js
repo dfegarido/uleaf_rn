@@ -8,6 +8,7 @@ import ForShippingIcon from '../../../assets/admin-icons/for-shipping.svg';
 import HappeningsIcon from '../../../assets/admin-icons/happenings.svg';
 import JungleAccessIcon from '../../../assets/admin-icons/jungle-access.svg';
 import LeafPointsIcon from '../../../assets/admin-icons/leaf-points.svg';
+import ListingViewIcon from '../../../assets/admin-icons/listing-view.svg';
 import LiveIcon from '../../../assets/admin-icons/live-icon.svg';
 import LiveSetupIcon from '../../../assets/admin-icons/live-setup.svg';
 import OrderSummaryIcon from '../../../assets/admin-icons/order-summary.svg';
@@ -58,11 +59,44 @@ const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}, insets}
   );
 };
 
-const BusinessPerformance = () => {
+const QuickLinkCard = ({title, icon, badgeCount, onPress}) => {
+  return (
+    <TouchableOpacity 
+      style={styles.quickLinkCard}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.quickLinkContent}>
+        {badgeCount > 0 && (
+          <View style={styles.quickLinkBadge}>
+            <Text style={styles.quickLinkBadgeText}>{badgeCount}</Text>
+          </View>
+        )}
+        <View style={styles.quickLinkIconContainer}>
+          {icon}
+        </View>
+        <Text style={styles.quickLinkTitle}>{title}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const BusinessPerformance = ({ navigation }) => {
     return (
       <View style={styles.sectionContainer}>
+        
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Business Performance</Text>
   
+        {/* Quick Link Cards */}
+        <View style={styles.quickLinksRow}>
+          <QuickLinkCard 
+            title="Listings Viewer"
+            icon={<ListingViewIcon width={200} height={40} />}
+            badgeCount={0}
+            onPress={() => navigation.navigate('ListingsViewer')}
+          />
+        </View>
+
         <View style={styles.cardRow}>
           <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
             <View style={styles.badge}>
@@ -79,9 +113,7 @@ const BusinessPerformance = () => {
         </View>
       </View>
     );
-  };
-  
-  const LeafTrailGreenhouse = ({navigation}) => {
+  };  const LeafTrailGreenhouse = ({navigation}) => {
     return (
       <View style={[styles.sectionContainer, {paddingTop: 24}]}> 
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Leaf Trail / Greenhouse</Text>
@@ -194,7 +226,7 @@ const Home = () => {
         style={{flex: 1}}
         contentContainerStyle={{paddingBottom: totalBottomPadding}}
         showsVerticalScrollIndicator={false}>
-        <BusinessPerformance />
+        <BusinessPerformance navigation={navigation} />
         <LeafTrailGreenhouse navigation={navigation} />
         <BehindTheJungle />
         <NewsEventsRewards />
@@ -275,6 +307,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
+  },
+  
+  // Quick Link Card Styles
+  quickLinksRow: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  quickLinkCard: {
+    backgroundColor: '#F2F7F3',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 12,
+    height: 88,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+  quickLinkContent: {
+    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    position: 'relative',
+  },
+  quickLinkIconContainer: {
+    width: 200,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickLinkTitle: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: '#556065',
+  },
+  quickLinkBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: '#FF5247',
+    width: 24,
+    height: 24,
+    borderRadius: 1000,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+    display: 'none', // Hidden by default as per design
+  },
+  quickLinkBadgeText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 12,
+    color: '#FFFFFF',
   },
 });
 

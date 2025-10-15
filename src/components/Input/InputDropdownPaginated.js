@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useCallback, useRef, useMemo} from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 
 import ArrowDownIcon from '../../assets/icons/greylight/caret-down-regular.svg';
+import SearchIcon from '../../assets/icons/greylight/magnifying-glass-regular.svg';
 
 const InputDropdownPaginated = ({
   options,
@@ -20,20 +22,68 @@ const InputDropdownPaginated = ({
   onLoadMore = null, // Function to call when user scrolls to bottom
   hasMore = false, // Whether there are more items to load
   loadingMore = false, // Whether currently loading more items
+  onSearch = null, // Optional: Function to call for server-side search
+  enableServerSearch = false, // Whether to use server-side search instead of client-side filtering
 }) => {
   const [visible, setVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const loadingRef = useRef(false); // Prevent duplicate calls
 
   const handleSelect = option => {
     onSelect(option);
     setVisible(false);
+    setSearchQuery(''); // Clear search when closing
   };
 
-  const handleEndReached = () => {
-    if (hasMore && !loadingMore && onLoadMore) {
-      console.log('📜 Loading more items...');
-      onLoadMore();
+  // Handle search input changes (typing only). For server-side search, the
+  // actual API call is performed manually by pressing the Search button.
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+  }, []);
+
+  // Execute server-side search manually when user presses the Search button
+  const handleSearchExecute = useCallback(() => {
+    if (enableServerSearch && onSearch) {
+      console.log(`🔍 Manual server search executed for "${searchQuery}"`);
+      onSearch(searchQuery);
     }
-  };
+  }, [enableServerSearch, onSearch, searchQuery]);
+
+  // Filter options based on search query (client-side only)
+  const filteredOptions = useMemo(() => {
+    // If server-side search is enabled, return options as-is (already filtered by server)
+    if (enableServerSearch) {
+      return options;
+    }
+    
+    // Client-side filtering
+    if (!searchQuery.trim()) {
+      return options;
+    }
+    return options.filter(option =>
+      option.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [options, searchQuery, enableServerSearch]);
+
+  const handleEndReached = useCallback(() => {
+    // Prevent multiple concurrent calls
+    if (loadingRef.current) {
+      console.log('⏭️ Already loading, skipping...');
+      return;
+    }
+    
+    if (hasMore && !loadingMore && onLoadMore) {
+      console.log('📜 End reached - loading more items...');
+      loadingRef.current = true;
+      
+      // Call onLoadMore and reset flag after a delay
+      Promise.resolve(onLoadMore()).finally(() => {
+        setTimeout(() => {
+          loadingRef.current = false;
+        }, 500); // Prevent rapid consecutive calls
+      });
+    }
+  }, [hasMore, loadingMore, onLoadMore]);
 
   const renderFooter = () => {
     if (!loadingMore) return null;
@@ -83,35 +133,93 @@ const InputDropdownPaginated = ({
         transparent
         animationType="fade"
         visible={visible}
-        onRequestClose={() => setVisible(false)}>
+        onRequestClose={() => {
+          setVisible(false);
+          setSearchQuery('');
+        }}>
         <TouchableOpacity
           style={styles.modalOverlay}
-          onPress={() => setVisible(false)}
+          onPress={() => {
+            setVisible(false);
+            setSearchQuery('');
+          }}
           activeOpacity={1}>
-          <View style={styles.modalContent}>
-            {options.length === 0 ? (
-              <Text style={styles.noResults}>No options available</Text>
+          <TouchableOpacity 
+            activeOpacity={1} 
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}>
+            
+            {/* Search Input */}
+            <View style={styles.searchContainer}>
+              <View style={styles.searchInputWrapper}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search..."
+                  placeholderTextColor="#999"
+                  value={searchQuery}
+                  onChangeText={handleSearchChange}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {/* Manual Search Button for server-side search - inside input */}
+                {enableServerSearch && (
+                  <TouchableOpacity
+                    style={styles.searchIconButton}
+                    onPress={handleSearchExecute}
+                    disabled={!onSearch}
+                  >
+                    <SearchIcon width={18} height={18} style={styles.searchIcon} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {searchQuery.length > 0 && (
+                <TouchableOpacity 
+                  style={styles.clearButton}
+                  onPress={() => {
+                    setSearchQuery('');
+                  }}>
+                  <Text style={styles.clearButtonText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Results Count */}
+            {searchQuery.trim() && (
+              <View style={styles.resultsCount}>
+                <Text style={styles.resultsCountText}>
+                  {filteredOptions.length} result{filteredOptions.length !== 1 ? 's' : ''} found
+                </Text>
+              </View>
+            )}
+
+            {/* Options List */}
+            {filteredOptions.length === 0 ? (
+              <Text style={styles.noResults}>
+                {searchQuery.trim() ? 'No results found' : 'No options available'}
+              </Text>
             ) : (
               <FlatList
-                data={options}
+                data={filteredOptions}
                 keyExtractor={(item, index) => `${item}-${index}`}
                 renderItem={renderOption}
-                onEndReached={handleEndReached}
-                onEndReachedThreshold={0.1} // Trigger when 10% from bottom
-                ListFooterComponent={renderFooter}
+                onEndReached={searchQuery.trim() ? null : handleEndReached}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={searchQuery.trim() ? null : renderFooter}
                 showsVerticalScrollIndicator={true}
                 nestedScrollEnabled={true}
+                keyboardShouldPersistTaps="handled"
               />
             )}
             
-            {hasMore && !loadingMore && (
+            {/* Load More Button - only show when not searching */}
+            {!searchQuery.trim() && hasMore && !loadingMore && (
               <TouchableOpacity 
                 style={styles.loadMoreButton}
                 onPress={handleEndReached}>
                 <Text style={styles.loadMoreText}>Load More</Text>
               </TouchableOpacity>
             )}
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -119,7 +227,7 @@ const InputDropdownPaginated = ({
 };
 
 const styles = StyleSheet.create({
-  container: {},
+  container: {width: '100%'},
   dropdown: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -195,6 +303,60 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    marginBottom: 10,
+    paddingBottom: 5,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    color: '#333',
+  },
+  searchIconButton: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchIcon: {
+    tintColor: '#007AFF',
+  },
+  clearButton: {
+    marginLeft: 8,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    fontSize: 18,
+    color: '#999',
+    fontWeight: '600',
+  },
+  resultsCount: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#f0f8ff',
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  resultsCountText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });
 

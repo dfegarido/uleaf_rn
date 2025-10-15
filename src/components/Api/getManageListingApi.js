@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getManageListingApi = async (
   filterMine,
@@ -38,7 +39,7 @@ export const getManageListingApi = async (
     console.log(params.toString());
 
     const response = await fetch(
-      `https://searchlisting-nstilwgvua-uc.a.run.app?${params.toString()}`,
+      `${API_ENDPOINTS.SEARCH_LISTING}?${params.toString()}`,
       {
         method: 'GET',
         headers: {

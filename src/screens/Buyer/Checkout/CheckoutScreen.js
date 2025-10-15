@@ -1486,7 +1486,7 @@ const CheckoutScreen = () => {
         // This prevents the issue where user returns to empty cart after payment cancellation
         navigation.navigate('Orders');
 
-        // Open payment URL after a brief delay to ensure navigation completes
+        // Automatically redirect to PayPal/Venmo payment page after a brief delay
         setTimeout(() => {
           console.log('💳 Opening payment page for order:', transactionNumber);
           Linking.openURL(
@@ -1821,26 +1821,34 @@ const CheckoutScreen = () => {
 
           {/* Subtotal */}
           <View style={styles.subtotal}>
-            {/* Total Plant Cost Row - Original and Discounted side by side */}
+            {/* Total Plant Cost Row - Conditional display based on discount */}
             <View style={styles.plantCostRow}>
               <Text style={styles.subtotalLabel}>Total Plant Cost</Text>
-              <View style={styles.priceComparisonContainer}>
-                <Text style={styles.originalPriceStrikethrough}>
-                  {formatCurrencyFull(orderSummary.totalOriginalCost)}
-                </Text>
-                <Text style={styles.discountedPriceFinal}>
+              {orderSummary.discount > 0 ? (
+                <View style={styles.priceComparisonContainer}>
+                  <Text style={styles.originalPriceStrikethrough}>
+                    {formatCurrencyFull(orderSummary.totalOriginalCost)}
+                  </Text>
+                  <Text style={styles.discountedPriceFinal}>
+                    {formatCurrencyFull(orderSummary.subtotal)}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.subtotalNumber}>
                   {formatCurrencyFull(orderSummary.subtotal)}
                 </Text>
-              </View>
+              )}
             </View>
 
-            {/* Discount */}
-            <View style={styles.subtotalRow}>
-              <Text style={styles.subtotalLabel}>Total Discount</Text>
-              <Text style={styles.subtotalNumber}>
-                -{formatCurrencyFull(orderSummary.discount)}
-              </Text>
-            </View>
+            {/* Discount - Only show if there is a discount */}
+            {orderSummary.discount > 0 && (
+              <View style={styles.subtotalRow}>
+                <Text style={styles.subtotalLabel}>Total Discount</Text>
+                <Text style={styles.subtotalNumber}>
+                  -{formatCurrencyFull(orderSummary.discount)}
+                </Text>
+              </View>
+            )}
 
             {/* Credits Applied */}
             {orderSummary.creditsApplied > 0 && (
@@ -2781,7 +2789,7 @@ const styles = StyleSheet.create({
     flex: 1,
     // Allow the label to share space with the amount on the right
     // and avoid covering the entire row which could hide the text.
-    flexShrink: 1,
+    flexShrink: 0,
   },
   summaryRowNumber: {
     fontFamily: 'Inter',
@@ -3026,7 +3034,7 @@ const styles = StyleSheet.create({
     padding: 0,
     gap: 8,
     width: '100%',
-    height: 22,
+    minHeight: 22,
     flex: 0,
     alignSelf: 'stretch',
   },
@@ -3179,7 +3187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 0,
     width: '100%',
-    height: 22,
+    minHeight: 22,
     flex: 0,
     alignSelf: 'stretch',
   },
@@ -3188,9 +3196,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 0,
-    gap: 187,
+    gap: 8,
     width: '100%',
-    height: 22,
+    minHeight: 22,
     flex: 0,
     alignSelf: 'stretch',
   },

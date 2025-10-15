@@ -171,9 +171,9 @@ const ScreenProfile = ({navigation}) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarWrapper}>
-            {cachedProfilePhoto || userInfo.profileImage ? (
+            {cachedProfilePhoto || (userInfo && userInfo.profileImage) ? (
               <Image
-                source={{uri: cachedProfilePhoto || userInfo.profileImage}}
+                source={{uri: cachedProfilePhoto || (userInfo && userInfo.profileImage)}}
                 style={styles.image}
                 resizeMode="cover"
               />

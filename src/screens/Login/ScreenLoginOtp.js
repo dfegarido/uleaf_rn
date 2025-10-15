@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {StackActions} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
 import { auth } from '../../../firebase';
@@ -31,6 +32,7 @@ const ScreenLoginOtp = ({navigation}) => {
   const [idToken, setIdToken] = useState('');
   const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
+  const autoSubmitRef = React.useRef(false);
 
   const postData = async token => {
     // Try seller PIN validation first (might work for both)
@@ -74,6 +76,23 @@ const ScreenLoginOtp = ({navigation}) => {
       console.log('No user is signed in.');
     }
   }, []);
+
+  // Auto-submit when pin reaches expected length
+  useEffect(() => {
+    const EXPECTED_LENGTH = 4;
+    if (pin && pin.length === EXPECTED_LENGTH && !loading && !autoSubmitRef.current) {
+      autoSubmitRef.current = true; // prevent duplicate auto submissions
+      // small timeout so UI updates (keyboard dismiss, etc.) before action
+      setTimeout(async () => {
+        try {
+          await handlePressLogin();
+        } finally {
+          // allow future auto-submits if user edits the code again
+          autoSubmitRef.current = false;
+        }
+      }, 100);
+    }
+  }, [pin, loading]);
 
   // const handlePressLogin = async () => {
   //   if (pin.length !== 4) {
@@ -134,6 +153,11 @@ const ScreenLoginOtp = ({navigation}) => {
         } else {
           console.log('Profile fetch failed, user type unknown');
         }
+
+        // Force navigation reset to ensure we leave the OTP screen
+        setTimeout(() => {
+          navigation.dispatch(StackActions.popToTop());
+        }, 100);
       }
     } catch (error) {
       console.error('OTP verification error:', error);

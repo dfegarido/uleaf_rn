@@ -847,8 +847,9 @@ function MainTabNavigator() {
 // };
 
 const AppNavigation = () => {
-  const {isLoggedIn, isLoading, userInfo} = useContext(AuthContext);
+  const {isLoggedIn, isLoading, userInfo, setIsLoggedIn, setUserInfo} = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
+  const [fallbackTriggered, setFallbackTriggered] = useState(false);
 
   // Get userInfo and userType from AsyncStorage
   useEffect(() => {
@@ -878,6 +879,56 @@ const AppNavigation = () => {
     }
   }, [isLoggedIn]);
 
+  // NOTE: Do not return early here; keep hooks (useEffect) declared above this line
+  // to ensure hook call order remains stable across renders.
+
+  // Determine navigation based on user type
+  // Use context userInfo first, fallback to AsyncStorage userInfo
+  const currentUserInfo = userInfo || asyncUserInfo;
+
+  // Extract userType safely; do NOT default to 'seller' as that causes unauthenticated users
+  const userType = currentUserInfo?.user?.userType ?? null;
+  const isBuyer = userType === 'buyer';
+  const isAdmin = userType === 'admin' || userType === 'sub_admin';
+
+  // If we are logged in but userInfo hasn't loaded yet, show a loader instead of guessing navigation
+  // Start a timeout fallback: if logged in but profile doesn't arrive in time, fall back to login
+  useEffect(() => {
+    let timer;
+    if (isLoggedIn && !currentUserInfo && !fallbackTriggered) {
+      // Wait 5 seconds for profile to load, then fallback to login
+      timer = setTimeout(() => {
+        console.warn('Profile did not load within timeout; falling back to login.');
+        setFallbackTriggered(true);
+        (async () => {
+          try {
+            await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('userInfo');
+          } catch (e) {
+            console.warn('Error clearing AsyncStorage during fallback:', e);
+          }
+
+          try {
+            setUserInfo(null);
+          } catch (e) {
+            console.error('Error clearing userInfo during fallback:', e);
+          }
+
+          try {
+            setIsLoggedIn(false);
+          } catch (e) {
+            console.error('Error clearing isLoggedIn fallback:', e);
+          }
+        })();
+      }, 5000);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isLoggedIn, currentUserInfo, setIsLoggedIn, fallbackTriggered]);
+
+  // Render loading indicator while we're checking auth status initially
   if (isLoading) {
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
@@ -886,14 +937,15 @@ const AppNavigation = () => {
     );
   }
 
-  // Determine navigation based on user type
-  // Use context userInfo first, fallback to AsyncStorage userInfo
-  const currentUserInfo = userInfo || asyncUserInfo;
-
-  // Extract userType from currentUserInfo with multiple fallbacks
-  const userType = currentUserInfo?.user?.userType || 'seller'; // Default to seller if no userType found
-  const isBuyer = userType === 'buyer';
-  const isAdmin = userType === 'admin' || userType === 'sub_admin';
+  // If we are logged in but userInfo hasn't loaded yet, show a loader instead of guessing navigation
+  // But if fallback has triggered, go straight to login
+  if (isLoggedIn && !currentUserInfo && !fallbackTriggered) {
+    return (
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   // Debug logging
   console.log('=== NAVIGATION DECISION ===');
@@ -905,8 +957,8 @@ const AppNavigation = () => {
   console.log('========================');
 
   return (
-    <NavigationContainer>
-      {isLoggedIn ? (
+    <NavigationContainer key={isLoggedIn ? 'loggedIn' : 'loggedOut'}>
+      {isLoggedIn && !fallbackTriggered ? (
         isBuyer ? (
           <BuyerTabNavigator />
         ) : isAdmin ? (

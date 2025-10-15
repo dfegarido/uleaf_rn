@@ -277,25 +277,29 @@ export const getCountryApi = async () => {
       };
     }
     
-    const response = await fetch(
-      API_ENDPOINTS.GET_COUNTRY,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
+    const url = API_ENDPOINTS.GET_COUNTRY;
+    console.log('🌍 Calling Country API:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
       },
-    );
+    });
+
+    console.log('🌍 Country API response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('🌍 Country API error response:', errorData);
       throw new Error(
         errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
       );
     }
 
     const data = await response.json();
+    console.log('🌍 Country API response:', data);
     return data;
   } catch (error) {
     console.error('Get country API error:', error);
@@ -323,25 +327,29 @@ export const getListingTypeApi = async () => {
       };
     }
     
-    const response = await fetch(
-      API_ENDPOINTS.GET_LISTING_TYPE,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
+    const url = API_ENDPOINTS.GET_LISTING_TYPE;
+    console.log('📋 Calling Listing Type API:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
       },
-    );
+    });
+
+    console.log('📋 Listing Type API response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('📋 Listing Type API error response:', errorData);
       throw new Error(
         errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
       );
     }
 
     const data = await response.json();
+    console.log('📋 Listing Type API response:', data);
     return data;
   } catch (error) {
     console.error('Get listing type API error:', error);
@@ -369,26 +377,30 @@ export const getShippingIndexApi = async () => {
       };
     }
     
-    const response = await fetch(
-      API_ENDPOINTS.GET_SHIPPING_INDEX,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
+    const url = API_ENDPOINTS.GET_SHIPPING_INDEX;
+    console.log('📦 Calling Shipping Index API:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
       },
-    );
+    });
+
+    console.log('📦 Shipping Index API response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('📦 Shipping Index API error response:', errorData);
       throw new Error(
         errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
       );
     }
 
     const data = await response.json();
-    return data
+    console.log('📦 Shipping Index API response:', data);
+    return data;
   } catch (error) {
     console.error('Get shipping index API error:', error);
     return {
@@ -415,25 +427,29 @@ export const getAcclimationIndexApi = async () => {
       };
     }
     
-    const response = await fetch(
-      API_ENDPOINTS.GET_ACCLIMATION_INDEX,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
+    const url = API_ENDPOINTS.GET_ACCLIMATION_INDEX;
+    console.log('🌱 Calling Acclimation Index API:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
       },
-    );
+    });
+
+    console.log('🌱 Acclimation Index API response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('🌱 Acclimation Index API error response:', errorData);
       throw new Error(
         errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
       );
     }
 
     const data = await response.json();
+    console.log('🌱 Acclimation Index API response:', data);
     return data;
   } catch (error) {
     console.error('Get acclimation index API error:', error);

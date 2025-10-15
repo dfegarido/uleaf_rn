@@ -13,6 +13,7 @@ export * from './updateUserStatusApi';
 export * from './deleteUserApi';
 export * from './listAdminsApi';
 export * from './adminManagementApi';
+export * from './getAdminListingsApi';
 
 // Buyer Profile APIs
 export * from './getBuyerProfileApi';
