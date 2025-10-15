@@ -144,7 +144,7 @@ const AddAdmin = () => {
             onPress={() => navigation.goBack()}>
             <BackIcon width={24} height={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Enroll Admin</Text>
+          <Text style={styles.headerTitle}>Enrol Admin</Text>
         </View>
       </View>
 

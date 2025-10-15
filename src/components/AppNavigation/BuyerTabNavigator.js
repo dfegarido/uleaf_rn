@@ -19,6 +19,7 @@ import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
+import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
 import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
@@ -165,6 +166,12 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="TermsOfUseScreen"
         component={TermsOfUseScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="ShoppingPoliciesScreen"
+        component={ShoppingPoliciesScreen}
         options={{headerShown: false}}
       />
 

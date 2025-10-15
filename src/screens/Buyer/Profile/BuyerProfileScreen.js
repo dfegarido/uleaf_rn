@@ -601,6 +601,12 @@ const BuyerProfileScreen = (props) => {
             title="Privacy Policy"
             onPress={() => navigation.navigate('PrivacyPolicyScreen')}
           />
+
+          <MenuItem
+            icon={<ProfileIcon width={24} height={24} fill="#556065" />}
+            title="Shopping Policies"
+            onPress={() => navigation.navigate('ShoppingPoliciesScreen')}
+          />
         </View>
 
         <Divider />

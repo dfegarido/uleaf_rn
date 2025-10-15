@@ -70,7 +70,7 @@ const ListingsViewer = ({ navigation }) => {
   // Badge filter options - following buyer shop badge pattern
   const badgeFilters = [
     { id: 'latest', label: 'Latest Nursery Drop', icon: LeavesIcon },
-    { id: 'below20', label: 'Below 20', icon: PriceTagIcon },
+    { id: 'below20', label: 'Below $20', icon: PriceTagIcon },
     { id: 'unicorn', label: 'Unicorn', icon: UnicornIcon },
     { id: 'wishlist', label: 'Top 5 Buyer Wish List', icon: Top5Icon },
     { id: 'sellers-fave', label: 'Sellers Fave', icon: HeartIcon },
@@ -499,15 +499,16 @@ const styles = StyleSheet.create({
   },
   // Badge Filter Styles (following buyer shop PromoBadge pattern exactly)
   badgeFilterContainer: {
-    maxHeight: 48,
+    // Allow badge row to expand if chips wrap to multiple lines
     borderBottomWidth: 1,
     borderBottomColor: '#E4E7E9',
     flexGrow: 0,
-    paddingVertical: 1,
+    paddingVertical: 4,
   },
   badgeFilterContent: {
     flexDirection: 'row',
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: 8,
     alignItems: 'flex-start',
     paddingHorizontal: 9,
     paddingVertical: 8,
@@ -517,10 +518,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F6F7F6',
     borderRadius: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     marginRight: 5,
     flexShrink: 0,
+    minHeight: 36,
+    maxWidth: 220,
   },
   badgeFilterChipSelected: {
     backgroundColor: '#C0DAC2',
@@ -530,12 +533,15 @@ const styles = StyleSheet.create({
   },
   badgeFilterText: {
     color: '#393D40',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   // Table Styles
   tableScrollContainer: {
     flex: 1,
+    marginTop: 12,
   },
   tableContainer: {
     minWidth: 1992,
