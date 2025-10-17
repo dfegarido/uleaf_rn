@@ -38,6 +38,62 @@ const OrderActionSheet = ({
     listingTypeChange([]);
   };
 
+  const pad = (n) => n.toString().padStart(2, '0');
+  const toYYYYMMDD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  const computeDateRange = (option) => {
+    const today = new Date();
+    if (!option || option === 'All') return { startDate: '', endDate: '' };
+
+    if (option === 'This Week') {
+      const currentDay = today.getDay();
+      const diffToMonday = (currentDay + 6) % 7;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+
+      return { startDate: toYYYYMMDD(monday), endDate: toYYYYMMDD(sunday) };
+    }
+
+    if (option === 'Last Week') {
+      const currentDay = today.getDay();
+      const diffToMonday = (currentDay + 6) % 7;
+      const thisMonday = new Date(today);
+      thisMonday.setDate(today.getDate() - diffToMonday);
+      thisMonday.setHours(0, 0, 0, 0);
+
+      const lastMonday = new Date(thisMonday);
+      lastMonday.setDate(thisMonday.getDate() - 7);
+
+      const lastSunday = new Date(lastMonday);
+      lastSunday.setDate(lastMonday.getDate() + 6);
+      lastSunday.setHours(23, 59, 59, 999);
+
+      return { startDate: toYYYYMMDD(lastMonday), endDate: toYYYYMMDD(lastSunday) };
+    }
+
+    if (option === 'This Month') {
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      const firstDay = new Date(year, month, 1);
+      firstDay.setHours(0, 0, 0, 0);
+
+      const nextMonthFirst = new Date(year, month + 1, 1);
+      nextMonthFirst.setHours(0, 0, 0, 0);
+      const lastDay = new Date(nextMonthFirst);
+      lastDay.setDate(nextMonthFirst.getDate() - 1);
+      lastDay.setHours(23, 59, 59, 999);
+
+      return { startDate: toYYYYMMDD(firstDay), endDate: toYYYYMMDD(lastDay) };
+    }
+
+    return { startDate: '', endDate: '' };
+  };
+
   const renderSheetContent = () => {
     switch (code) {
       case 'SORT':
@@ -85,6 +141,8 @@ const OrderActionSheet = ({
                 onPress={() => {
                   console.log('📦 Orders Sort Filter Applied - View Button Pressed');
                   handleSearchSubmit();
+                  // Close the sheet after applying
+                  onClose && onClose(true);
                 }}
                 style={{
                   paddingHorizontal: 20,
@@ -145,7 +203,12 @@ const OrderActionSheet = ({
               <TouchableOpacity
                 onPress={() => {
                   console.log('📦 Orders Date Filter Applied - View Button Pressed');
-                  handleSearchSubmit();
+                  // compute start/end for the selected date option and apply
+                  const { startDate, endDate } = computeDateRange(dateValue);
+                  console.log('📦 Orders Date Range Computed:', { startDate, endDate });
+                  handleSearchSubmitRange(startDate, endDate);
+                  // Close the sheet after applying
+                  onClose && onClose(true);
                 }}
                 style={{
                   paddingHorizontal: 20,

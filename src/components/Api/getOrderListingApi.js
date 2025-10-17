@@ -115,7 +115,7 @@ export const getOrderListingApi = async (
   date,
   deliveryStatus,
   listingType = [],
-  nextPageToken,
+  offset = 0,
   startDate,
   endDate,
   search,
@@ -125,7 +125,10 @@ export const getOrderListingApi = async (
     const params = new URLSearchParams();
 
     params.append('limit', limit ?? '');
-    params.append('sortBy', sortBy ?? '');
+  // keep existing param name for callers, but also append 'sort' so backend
+  // which expects `sort` (values: 'Oldest'|'Newest') will receive it.
+  params.append('sortBy', sortBy ?? '');
+  params.append('sort', sortBy ?? '');
     params.append('date', date ?? '');
     params.append('deliveryStatus', deliveryStatus ?? '');
     params.append('listingType',
@@ -133,7 +136,7 @@ export const getOrderListingApi = async (
     params.append('startDate', startDate ?? '');
     params.append('endDate', endDate ?? '');
     params.append('plant', search ?? '');
-    params.append('nextPageToken', nextPageToken ?? '');
+    params.append('offset', offset ?? 0);
 
     // console.log(params.toString());
 
@@ -151,8 +154,9 @@ export const getOrderListingApi = async (
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    const json = await response.json();
-    return normalizeResponse(json);
+  const json = await response.json();
+  // normalize orders if present, but return full response so callers can read nextOffset
+  return normalizeResponse(json);
   } catch (error) {
     // console.error('getOrderListingApi error:', error.message);
     throw error;

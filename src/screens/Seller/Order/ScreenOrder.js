@@ -78,12 +78,13 @@ const ScreenOrder = ({navigation}) => {
   const isFocused = useIsFocused();
   const [dataCount, setDataCount] = useState(0);
   const [search, setSearch] = useState('');
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
-    setNextToken('');
-    setNextTokenParam('');
+    setNextOffset(null);
+    setNextOffsetParam(null);
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -111,32 +112,15 @@ const ScreenOrder = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
-    // 🧪 ORDERS API CALL LOGGING
-    console.log('📦 Orders API Call:', {
-      deliveryStatus: active,
-      sortBy: reusableSort,
-      dateFilter: reusableDate,
-      listingTypes: reusableListingType,
-      searchTerm: search,
-      dateRange: {
-        start: reusableStartDate,
-        end: reusableEndDate
-      },
-      pagination: {
-        limit: 10,
-        nextToken: nextTokenParam
-      }
-    });
-
     const res = await retryAsync(
       () =>
         getOrderListingApi(
-          10,
+          0,
           reusableSort,
           reusableDate,
           active,
           reusableListingType,
-          nextTokenParam,
+          nextOffsetParam ?? 0,
           reusableStartDate,
           reusableEndDate,
           search,
@@ -152,22 +136,19 @@ const ScreenOrder = ({navigation}) => {
     console.log('📦 Orders API Response:', {
       ordersCount: res?.orders?.length || 0,
       totalCount: res.count,
-      nextPageToken: res.nextPageToken
+      nextOffset: res.nextOffset
     });
-    setNextToken(res.nextPageToken);
+    setNextOffset(res.nextOffset);
     setDataCount(res.count);
-    setDataTable(
-      prev =>
-        nextTokenParam
-          ? [...prev, ...(res?.orders || [])] // append
-          : res?.orders || [], // replace
-    );
+    setDataTable(prev => nextOffsetParam != null ? [...prev, ...(res?.orders || [])] : res?.orders || []);
+    // If we were loading more (pagination), clear the flag
+    if (nextOffsetParam != null) setLoadingMore(false);
   };
   // ✅ Fetch on mount
 
   // Filters Action Sheet
-  const [nextToken, setNextToken] = useState('');
-  const [nextTokenParam, setNextTokenParam] = useState('');
+  const [nextOffset, setNextOffset] = useState(null);
+  const [nextOffsetParam, setNextOffsetParam] = useState(null);
   const [sortOptions, setSortOptions] = useState([]);
   const [listingTypeOptions, setListingTypeOptions] = useState([]);
 
@@ -181,8 +162,13 @@ const ScreenOrder = ({navigation}) => {
   const [showSheet, setShowSheet] = useState(false);
 
   const handleFilterView = () => {
-    setNextToken('');
-    setNextTokenParam('');
+    // If 'All' is selected, clear any explicit start/end date range
+    if (reusableDate === 'All') {
+      setReusableStartDate('');
+      setReusableEndDate('');
+    }
+    setNextOffset(null);
+    setNextOffsetParam(null);
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -203,8 +189,8 @@ const ScreenOrder = ({navigation}) => {
     });
     setReusableStartDate(formattedStart);
     setReusableEndDate(formattedEnd);
-    setNextToken('');
-    setNextTokenParam('');
+    setNextOffset(null);
+    setNextOffsetParam(null);
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -222,8 +208,8 @@ const ScreenOrder = ({navigation}) => {
       }
     });
 
-    setNextToken('');
-    setNextTokenParam('');
+    setNextOffset(null);
+    setNextOffsetParam(null);
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -239,31 +225,32 @@ const ScreenOrder = ({navigation}) => {
       availableOptions: ['For Delivery', 'Delivered']
     });
     setActive(pressCode);
-    setNextToken('');
-    setNextTokenParam('');
+    setNextOffset(null);
+    setNextOffsetParam(null);
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
   // Filters Action Sheet
 
   // Load more
   useEffect(() => {
-    if (nextTokenParam) {
+    if (nextOffsetParam !== null && nextOffsetParam !== undefined) {
       setLoading(true);
       loadListingData();
       setTimeout(() => {
-        setLoading(false); // or setLoading(false)
+        setLoading(false);
       }, 500);
     }
-  }, [nextTokenParam]);
+  }, [nextOffsetParam]);
 
   const onPressLoadMore = () => {
-    if (nextToken != nextTokenParam) {
+    if (nextOffset != nextOffsetParam && (nextOffset !== null && nextOffset !== undefined)) {
       console.log('📦 Orders Load More Triggered:', {
         currentItemsCount: dataTable.length,
-        nextToken: nextToken,
+        nextOffset: nextOffset,
         totalAvailableCount: dataCount
       });
-      setNextTokenParam(nextToken);
+      setLoadingMore(true);
+      setNextOffsetParam(nextOffset);
     }
   };
   // Load more
@@ -352,7 +339,7 @@ const ScreenOrder = ({navigation}) => {
               placeholder={'Search I Leaf U'}
             /> */}
             <InputSearch
-              placeholder="Search ileafU"
+              placeholder="Search transaction number"
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearchSubmit}
@@ -471,17 +458,11 @@ const ScreenOrder = ({navigation}) => {
       </ScrollView>
       {/* Filter Cards */}
 
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        style={[styles.container, {paddingTop: insets.top}]}
-        stickyHeaderIndices={[0]}>
+      <View style={[styles.container]}> 
         <View
           style={{
             backgroundColor: '#fff',
             minHeight: dataTable.length != 0 && screenHeight * 0.9,
-            // paddingHorizontal: 20,
           }}>
           {dataTable.length == 0 ? (
             <View
@@ -501,28 +482,19 @@ const ScreenOrder = ({navigation}) => {
                 <OrderTableList
                   headers={headers}
                   orders={dataTable}
-                  style={{backgroundColor: 'red'}}
+                  // keep header fixed; rows scroll within this height
+                  rowsHeight={Math.floor(screenHeight * 0.55)}
+                  onLoadMore={onPressLoadMore}
+                  hasMore={dataCount > dataTable.length}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  loadingMore={loadingMore}
                 />
               </View>
-              {dataCount == 10 && (
-                <TouchableOpacity
-                  onPress={() => onPressLoadMore()}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%',
-                    marginTop: 300,
-                    marginBottom: 50,
-                  }}>
-                  <Text style={globalStyles.textLGAccent}>Load More</Text>
-                  <ArrowDownIcon width={25} height={20} />
-                </TouchableOpacity>
-              )}
             </>
           )}
         </View>
-      </ScrollView>
+      </View>
 
       <OrderActionSheet
         code={code}
