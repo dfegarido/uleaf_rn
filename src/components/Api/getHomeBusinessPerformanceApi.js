@@ -1,21 +1,25 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
-export const getHomeBusinessPerformanceApi = async interval => {
+export const getHomeBusinessPerformanceApi = async (interval, options = {}) => {
   try {
     const token = await getStoredAuthToken();
+    const url = API_ENDPOINTS.GET_LISTING_REPORT;
 
-    const response = await fetch(
-      'https://getlistingreport-nstilwgvua-uc.a.run.app',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // use token from AsyncStorage
-        },
+    const body = { interval };
+    if (options.debug) body.debug = true;
 
-        body: JSON.stringify({interval}),
+    if (options.debug) console.info('getHomeBusinessPerformanceApi: POST', url, body);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`, // use token from AsyncStorage
       },
-    );
+
+      body: JSON.stringify(body),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

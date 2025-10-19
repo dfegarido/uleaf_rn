@@ -181,9 +181,17 @@ const generateEndpoints = () => ({
   UPDATE_LISTING: `${getBaseUrl()}/updateListing`,
   DUPLICATE_LISTING: `${getBaseUrl()}/duplicateListing`,
   DELETE_LISTING: `${getBaseUrl()}/deleteListingByPlantCode`,
+  // External listing/reporting service used for business performance charts
+  // Cloud Run endpoint that accepts POST { interval }
+  // Use a local path when running with the emulator so developers can stub the endpoint.
+  GET_LISTING_REPORT: USE_LOCAL_API ? `${getBaseUrl()}/getListingReport` : 'https://getlistingreport-nstilwgvua-uc.a.run.app',
   
   // News & Events (buyer announcements)
   GET_NEWS_AND_EVENT: (limit = 10, category = 'announcement') => `${getBaseUrl()}/getNewsAndEvent?limit=${limit}&category=${encodeURIComponent(category)}`,
+  // External dashboard statistics (not hosted on our functions base)
+  GET_DASHBOARD_STATISTICS: `${getBaseUrl()}/getDashboardStatistics`,
+  // External listing/reporting service used for business performance charts
+  // This is an external Cloud Run endpoint that accepts POST { interval }
   
   // Checkout & Payment APIs
   CHECKOUT: `${getBaseUrl()}/checkout`,

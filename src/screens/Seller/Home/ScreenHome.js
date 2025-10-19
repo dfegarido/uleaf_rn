@@ -77,9 +77,17 @@ const ScreenHome = ({navigation}) => {
     const fetchData = async () => {
       try {
         const netState = await NetInfo.fetch();
+        // Use a tolerant check for network availability. On some emulators
+        // `isInternetReachable` can be unreliable; prefer it when defined,
+        // otherwise fall back to `isConnected`.
+        const isNetworkAvailable = (state) => {
+          if (!state) return false;
+          if (typeof state.isInternetReachable === 'boolean') return state.isInternetReachable;
+          return !!state.isConnected;
+        };
 
-        if (!netState.isConnected || !netState.isInternetReachable) {
-          Alert('Network Information', 'No internet connection.');
+        if (!isNetworkAvailable(netState)) {
+          Alert.alert('Network Information', 'No internet connection.');
           return;
         }
 
@@ -227,7 +235,14 @@ const ScreenHome = ({navigation}) => {
   const loadDurationDropdownData = async () => {
     const netState = await NetInfo.fetch();
 
-    if (!netState.isConnected || !netState.isInternetReachable) {
+    // Reuse tolerant check here as well
+    const isNetworkAvailable = (state) => {
+      if (!state) return false;
+      if (typeof state.isInternetReachable === 'boolean') return state.isInternetReachable;
+      return !!state.isConnected;
+    };
+
+    if (!isNetworkAvailable(netState)) {
       throw new Error('No internet connection.');
     }
 
