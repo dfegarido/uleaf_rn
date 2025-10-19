@@ -126,9 +126,9 @@ const OrderTableList = ({headers = [], orders = [], rowsHeight, onLoadMore, hasM
               ? formatDateMonDayYear(createdDateObj)
               : null;
 
-            const totalPrice = `${localPriceCurrencySymbol || ''}${
-              localPrice?.toLocaleString() || '0'
-            }`;
+            const qtyVal = Number(order.orderQty || order.qty || order.quantity || 0) || 0;
+            const totalVal = Number(order.totalPlantCost ?? (localPrice * qtyVal) ?? 0) || 0;
+            const totalPrice = `${localPriceCurrencySymbol || ''}${totalVal.toLocaleString()}`;
             const imageSource = imagePrimary
               ? {uri: imagePrimary}
               : {uri: 'https://via.placeholder.com/80'};

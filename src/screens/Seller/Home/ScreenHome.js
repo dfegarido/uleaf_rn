@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {CustomSalesChart} from '../../../components/Charts';
-import {formatCurrency} from '../../../utils/formatCurrency';
+import {formatCurrency, formatNumberWithCommas} from '../../../utils/formatCurrency';
 import {getCurrencySymbol} from '../../../utils/getCurrencySymbol';
 import {roundNumber} from '../../../utils/roundNumber';
 import {retryAsync} from '../../../utils/utils';
@@ -400,13 +400,13 @@ const ScreenHome = ({navigation}) => {
                   globalStyles.textBold,
                   {paddingBottom: 10},
                 ]}>
-                {getCurrencySymbol(userInfo)}
-                {totalSales?.thisWeek ?? '0'}
+                {(totalSales?.symbol || getCurrencySymbol(userInfo))}
+                {formatNumberWithCommas(Number(totalSales?.thisWeek || 0))}
               </Text>
               <View style={{flexDirection: 'row', gap: 10}}>
                 <Text
                   style={[globalStyles.textSMWhite, globalStyles.textSemiBold]}>
-                  {totalSales?.lastWeek ?? '0'}
+                  {(totalSales?.symbol || getCurrencySymbol(userInfo))}{formatNumberWithCommas(Number(totalSales?.lastWeek || 0))}
                 </Text>
                 <Text
                   style={[
