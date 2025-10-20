@@ -9,7 +9,7 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Animated, Easing } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from 'react-native-url-polyfill';
 import { paymentPaypalVenmoUrl } from '../../../../config';
@@ -279,6 +280,65 @@ const CheckoutScreen = () => {
   });
 
   const [cargoDate, setCargoDate] = useState('2025-02-15');
+  // If buyer has an existing Ready to Fly order, lock the flight date to that order's flight
+  const [lockedFlightDate, setLockedFlightDate] = useState(null);
+  const [lockedFlightKey, setLockedFlightKey] = useState(null);
+  const [checkingOrders, setCheckingOrders] = useState(false);
+
+  // shimmer animation for skeletons
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let anim;
+    if (checkingOrders) {
+      shimmerAnim.setValue(0);
+      anim = Animated.loop(
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        }),
+      );
+      anim.start();
+    }
+    return () => {
+      if (anim) anim.stop();
+    };
+  }, [checkingOrders, shimmerAnim]);
+
+  // Helper: normalize a flight date string into a month-day key like 'aug-17'
+  const normalizeFlightKey = (input) => {
+    if (!input) return null;
+    try {
+      // If input is a Date or ISO string, parse it
+      if (input instanceof Date) {
+        const m = input.toLocaleString('en-US', { month: 'short' });
+        const d = input.getDate();
+        return `${m.toLowerCase()}-${d}`;
+      }
+      const s = String(input).trim();
+      // Try to extract month name and day with regex like 'Aug 17' or 'Aug-17' or 'August 17 2025'
+      const m = s.match(/([A-Za-z]{3,9})\s*-?\s*(\d{1,2})/);
+      if (m && m.length >= 3) {
+        const month = m[1].slice(0,3).toLowerCase();
+        const day = String(parseInt(m[2], 10));
+        return `${month}-${day}`;
+      }
+      // Try ISO parse fallback
+      const parsed = Date.parse(s);
+      if (!isNaN(parsed)) {
+        const dt = new Date(parsed);
+        const month = dt.toLocaleString('en-US', { month: 'short' }).slice(0,3).toLowerCase();
+        const day = String(dt.getDate());
+        return `${month}-${day}`;
+      }
+      return s.toLowerCase();
+    } catch (e) {
+      return String(input).toLowerCase();
+    }
+  };
+  // (No longer keeping a ready-to-fly order in state; keep previous behavior)
   // Track if buyer already has a paid order for the selected cargo date
   const [priorPaidAirBaseCargoAmount, setPriorPaidAirBaseCargoAmount] =
     useState(0);
@@ -783,6 +843,7 @@ const CheckoutScreen = () => {
   useEffect(() => {
     let mounted = true;
     const checkReadyToFlyOrders = async () => {
+      setCheckingOrders(true);
       try {
         const params = {limit: 50, status: 'Ready to Fly'};
 
@@ -812,8 +873,8 @@ const CheckoutScreen = () => {
 
         
 
-        // Detect if any order (or nested order object) has status 'Ready to Fly'
-        const hasReadyToFly = orders.some(o => {
+        // Find a Ready to Fly order and, if present, lock the flight date to that order's flight
+        const readyOrder = orders.find(o => {
           const statusCandidate = (
             o?.status ||
             o?.order?.status ||
@@ -828,13 +889,42 @@ const CheckoutScreen = () => {
           );
         });
 
-        if (hasReadyToFly && resp?.success !== false) {
+        if (readyOrder && resp?.success !== false) {
+          // Try several places where the flight date might live
+          const flightCandidate =
+            readyOrder.flightDate ||
+            readyOrder.flightDateFormatted ||
+            readyOrder.order?.flightDate ||
+            readyOrder.order?.flightDateFormatted ||
+            (readyOrder.plants && readyOrder.plants[0] && (readyOrder.plants[0].flightDate || readyOrder.plants[0].flightDateFormatted)) ||
+            null;
+
+          if (flightCandidate) {
+            setLockedFlightDate(flightCandidate);
+            // compute normalized key and attempt to match one of the available options
+            const key = normalizeFlightKey(flightCandidate);
+            setLockedFlightKey(key);
+
+            // try to find an option whose normalized key matches
+            const matched = flightDateOptions.find(opt => normalizeFlightKey(opt.value) === key || normalizeFlightKey(opt.label) === key);
+            if (matched) {
+              setSelectedFlightDate(matched.value);
+            } else {
+              // no exact match — keep selectedFlightDate using normalized representation if possible
+              setSelectedFlightDate(flightCandidate);
+            }
+          } else {
+            setLockedFlightDate(null);
+            setLockedFlightKey(null);
+          }
+
           const shippingRates = calculateUpsShippingCost();
           const baseCargoAmount = shippingRates?.baseCargo || 150;
           // Credit the buyer the full base cargo for the current cart so effective becomes $0
           setPriorPaidAirBaseCargoAmount(baseCargoAmount);
-          
         } else {
+          setLockedFlightDate(null);
+          setLockedFlightKey(null);
           setPriorPaidAirBaseCargoAmount(0);
         }
       } catch (error) {
@@ -843,10 +933,12 @@ const CheckoutScreen = () => {
           error,
         );
         setPriorPaidAirBaseCargoAmount(0);
+      } finally {
+        setCheckingOrders(false);
       }
     };
 
-    checkReadyToFlyOrders();
+  checkReadyToFlyOrders();
     return () => {
       mounted = false;
     };
@@ -1575,7 +1667,20 @@ const CheckoutScreen = () => {
         <View style={styles.plantFlight}>
           {/* Title */}
           <View style={styles.flightTitle}>
-            <Text style={styles.flightTitleText}>Plant Flight</Text>
+              <Text style={styles.flightTitleText}>Plant Flight</Text>
+              {lockedFlightDate ? (
+                <TouchableOpacity
+                  style={styles.infoCircle}
+                  onPress={() => {
+                    Alert.alert(
+                      'Flight date locked',
+                      `Disabled because you have an active Ready-to-Fly order on ${lockedFlightDate}`,
+                    );
+                  }}
+                  accessibilityLabel={`Flight locked info ${lockedFlightDate}`}>
+                  <Text style={styles.infoCircleText}>i</Text>
+                </TouchableOpacity>
+              ) : null}
           </View>
 
           {/* Options */}
@@ -1585,27 +1690,50 @@ const CheckoutScreen = () => {
 
               {/* Flight Options */}
               <View style={styles.flightOptionsRow}>
-                {flightDateOptions.map((option, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.optionCard,
-                      selectedFlightDate === option.value
-                        ? styles.selectedOptionCard
-                        : styles.unselectedOptionCard,
-                    ]}
-                    onPress={() => setSelectedFlightDate(option.value)}>
-                    <Text
-                      style={
-                        selectedFlightDate === option.value
-                          ? styles.optionText
-                          : styles.unselectedOptionText
-                      }>
-                      {option.label}
-                    </Text>
-                    <Text style={styles.optionSubtext}>Sat</Text>
-                  </TouchableOpacity>
-                ))}
+                {checkingOrders ? (
+                  // show 3 animated skeleton placeholders while we wait for buyer orders response
+                  [0,1,2].map(i => {
+                    const bg = shimmerAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: ['#EDEFF0', '#F6F7F8', '#EDEFF0'],
+                    });
+                    return (
+                      <Animated.View key={i} style={[styles.optionCard, styles.skeletonCard, {backgroundColor: bg}]} />
+                    );
+                  })
+                ) : (
+                  flightDateOptions.map((option, index) => {
+                    const optionKey = normalizeFlightKey(option.value) || normalizeFlightKey(option.label);
+                    const isLocked = lockedFlightKey && optionKey !== lockedFlightKey;
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.optionCard,
+                          selectedFlightDate === option.value
+                            ? styles.selectedOptionCard
+                            : styles.unselectedOptionCard,
+                          isLocked && styles.mutedOption,
+                        ]}
+                        onPress={() => {
+                          if (isLocked) return; // prevent selecting non-matching options
+                          setSelectedFlightDate(option.value);
+                        }}
+                        activeOpacity={isLocked ? 1 : 0.7}
+                        disabled={isLocked}>
+                        <Text
+                          style={
+                            selectedFlightDate === option.value
+                              ? styles.optionText
+                              : styles.unselectedOptionText
+                          }>
+                          {option.label}
+                        </Text>
+                        <Text style={styles.optionSubtext}>Sat</Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
               </View>
             </View>
           </View>
@@ -2449,6 +2577,21 @@ const styles = StyleSheet.create({
     color: '#393D40',
     flex: 0,
   },
+  infoCircle: {
+    marginLeft: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoCircleText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#2E7D32',
+    fontWeight: '700',
+  },
   flightOptions: {
     flexDirection: 'column',
     alignItems: 'flex-start',
@@ -2486,6 +2629,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 0,
+    paddingBottom: 15,
     gap: 12,
     width: '100%',
     height: 78,
@@ -2545,6 +2689,17 @@ const styles = StyleSheet.create({
     color: '#647276',
     flex: 0,
   },
+  mutedOption: {
+    opacity: 0.45,
+  },
+  skeletonCard: {
+    backgroundColor: '#EDEFF0',
+    borderRadius: 14,
+    minWidth: 92,
+    height: 86,
+    marginRight: 12,
+  },
+  
   plantItemWrapper: {
     flexDirection: 'column',
     alignItems: 'flex-start',
