@@ -3,30 +3,63 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    TextInput,
 } from 'react-native';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import SearchIcon from '../../assets/icons/greylight/magnifying-glass-regular';
 
-const ScreenHeader = ({navigation, scarQr, search, title}) => {
+const ScreenHeader = ({
+    navigation,
+    scarQr,
+    search,
+    title,
+    onSearchPress,
+    searchActive,
+    searchValue,
+    onSearchChange,
+    onSearchSubmit,
+    inputRef,
+}) => {
     return (
         <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
                 <BackSolidIcon />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{title}</Text>
-            {scarQr && 
+
+            {!searchActive && <Text style={styles.headerTitle}>{title}</Text>}
+
+            {searchActive && (
+                <TextInput
+                    ref={inputRef}
+                    style={styles.headerSearchInput}
+                    placeholder="Search by plant code, or name"
+                    placeholderTextColor="#647276"
+                    value={searchValue}
+                    onChangeText={onSearchChange}
+                    onSubmitEditing={onSearchSubmit}
+                    returnKeyType="search"
+                />
+            )}
+
+            {scarQr && !searchActive && (
                 <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
                     <ScanQrIcon />
                 </TouchableOpacity>
-            }
+            )}
 
-            {search && 
-                <TouchableOpacity style={styles.headerAction}>
+            {search && !searchActive && (
+                <TouchableOpacity style={styles.headerAction} onPress={onSearchPress}>
                     <SearchIcon />
                 </TouchableOpacity>
-            }
+            )}
+
+            {search && searchActive && (
+                <TouchableOpacity style={styles.headerAction} onPress={onSearchSubmit}>
+                    <SearchIcon />
+                </TouchableOpacity>
+            )}
         </View>
     );
 };
@@ -45,6 +78,16 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: '700',
+        color: '#202325',
+    },
+    headerSearchInput: {
+        flex: 1,
+        height: 40,
+        backgroundColor: '#F6F7F6',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        fontFamily: 'Inter',
+        fontSize: 14,
         color: '#202325',
     },
     headerAction: {

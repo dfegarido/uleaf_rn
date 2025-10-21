@@ -1,3 +1,12 @@
+// Add IconTile component for use in LeafTrailGreenhouse and other sections
+const IconTile = ({title, children, onPress}) => {
+  return (
+    <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile]} onPress={onPress}>
+      {children}
+      <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>{title}</Text>
+    </TouchableOpacity>
+  );
+};
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -61,7 +70,7 @@ const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}, insets}
 
 const QuickLinkCard = ({title, icon, badgeCount, onPress}) => {
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.quickLinkCard}
       onPress={onPress}
       activeOpacity={0.7}
@@ -84,19 +93,7 @@ const QuickLinkCard = ({title, icon, badgeCount, onPress}) => {
 const BusinessPerformance = ({ navigation }) => {
     return (
       <View style={styles.sectionContainer}>
-        
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Business Performance</Text>
-  
-        {/* Quick Link Cards */}
-        <View style={styles.quickLinksRow}>
-          <QuickLinkCard 
-            title="Listings Viewer"
-            icon={<ListingViewIcon width={200} height={40} />}
-            badgeCount={0}
-            onPress={() => navigation.navigate('ListingsViewer')}
-          />
-        </View>
-
         <View style={styles.cardRow}>
           <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
             <View style={styles.badge}>
@@ -105,7 +102,7 @@ const BusinessPerformance = ({ navigation }) => {
             <SalesReportIcon width={40} height={40} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Sales Report</Text>
           </TouchableOpacity>
-  
+
           <TouchableOpacity  style={[globalStyles.cardLightAccent, styles.card]}>
             <OrderSummaryIcon width={40} height={40} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Order Summary</Text>
@@ -113,51 +110,42 @@ const BusinessPerformance = ({ navigation }) => {
         </View>
       </View>
     );
-  };  const LeafTrailGreenhouse = ({navigation}) => {
-    return (
-      <View style={[styles.sectionContainer, {paddingTop: 24}]}> 
-        <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Leaf Trail / Greenhouse</Text>
+  };
 
-        <View style={styles.grid}>
-          <IconTile title="Scan QR" onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
-            <ScanQrIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Receiving" onPress={() => navigation.navigate('LeafTrailReceivingScreenAdminScreen')}>
-            <ReceivingIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Sorting" onPress={() => navigation.navigate('LeafTrailSortingAdminScreen')}> 
-            <SortingIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Packing" onPress={() => navigation.navigate('LeafTrailPackingAdminScreen')}> 
-            <PackingIcon width={48} height={48} />
-          </IconTile> 
-          <IconTile title="For Shipping" onPress={() => navigation.navigate('LeafTrailShippingAdminScreen')}>
-            <ForShippingIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Shipped">
-            <ShippedIcon width={48} height={48} />
-          </IconTile>
-        </View>
+const LeafTrailGreenhouse = ({navigation}) => {
+  return (
+    <View style={[styles.sectionContainer, {paddingTop: 24}]}>
+      <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Leaf Trail / Greenhouse</Text>
+      <View style={styles.grid}>
+        <IconTile title="Scan QR" onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
+          <ScanQrIcon width={48} height={48} />
+        </IconTile>
+        <IconTile title="Receiving" onPress={() => navigation.navigate('LeafTrailReceivingScreenAdminScreen')}>
+          <ReceivingIcon width={48} height={48} />
+        </IconTile>
+        <IconTile title="Sorting" onPress={() => navigation.navigate('LeafTrailSortingAdminScreen')}>
+          <SortingIcon width={48} height={48} />
+        </IconTile>
+        <IconTile title="Packing" onPress={() => navigation.navigate('LeafTrailPackingAdminScreen')}>
+          <PackingIcon width={48} height={48} />
+        </IconTile>
+        <IconTile title="For Shipping" onPress={() => navigation.navigate('LeafTrailShippingAdminScreen')}>
+          <ForShippingIcon width={48} height={48} />
+        </IconTile>
+        <IconTile title="Shipped">
+          <ShippedIcon width={48} height={48} />
+        </IconTile>
       </View>
-    );
-  };
-  
-  const IconTile = ({title, children, onPress}) => {
-    return (
-      <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile]} onPress={onPress}> 
-        {children}
-        <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>{title}</Text>
-      </TouchableOpacity>
-    );
-  };
-  
+    </View>
+  );
+};
   const BehindTheJungle = () => {
     const navigation = useNavigation();
-  
+
     return (
-      <View style={[styles.sectionContainer, {paddingTop: 24}]}> 
+      <View style={[styles.sectionContainer, {paddingTop: 24}]}>
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Behind the Jungle</Text>
-  
+
         <View style={styles.grid}>
           <IconTile title="Live Setup">
             <LiveSetupIcon width={48} height={48} />
@@ -181,22 +169,22 @@ const BusinessPerformance = ({ navigation }) => {
       </View>
     );
   };
-  
+
   const NewsEventsRewards = () => {
     return (
-      <View style={[styles.sectionContainer, {paddingTop: 24}]}> 
+      <View style={[styles.sectionContainer, {paddingTop: 24}]}>
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>News, Events and Rewards</Text>
-  
+
         <View style={styles.cardRow}>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}> 
+          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
             <HappeningsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Happenings</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}> 
+          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
             <DiscountsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Discounts</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}> 
+          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
             <LeafPointsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Leaf Points</Text>
           </TouchableOpacity>
@@ -204,12 +192,12 @@ const BusinessPerformance = ({ navigation }) => {
       </View>
     );
   };
-  
+
 
 const Home = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  
+
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60; // Standard admin tab bar height
   const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
@@ -226,6 +214,17 @@ const Home = () => {
         style={{flex: 1}}
         contentContainerStyle={{paddingBottom: totalBottomPadding}}
         showsVerticalScrollIndicator={false}>
+        {/* Listings Viewer quick link directly under header */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.quickLinksRow}>
+            <QuickLinkCard
+              title="Listings Viewer"
+              icon={<ListingViewIcon width={200} height={40} />}
+              badgeCount={0}
+              onPress={() => navigation.navigate('ListingsViewer')}
+            />
+          </View>
+        </View>
         <BusinessPerformance navigation={navigation} />
         <LeafTrailGreenhouse navigation={navigation} />
         <BehindTheJungle />
@@ -278,7 +277,6 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -308,7 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  
+
   // Quick Link Card Styles
   quickLinksRow: {
     marginTop: 12,

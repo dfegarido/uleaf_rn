@@ -1,16 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { IMAGE_CELL_WIDTH, IMAGE_CONTENT_GAP, COLUMN_INNER_PADDING } from './constants';
 import CountryFlagIcon from '../../../components/CountryFlagIcon';
+import TrashIcon from '../../../assets/icons/greydark/trash-regular.svg';
 
 const getStatusColor = (status) => {
   switch ((status || '').toLowerCase()) {
-    case 'active': return '#23C16B';
-    case 'reserved': return '#48A7F8';
-    case 'unicorn': return '#6B4EFF';
-    case 'pending': return '#FFB323';
-    case 'unavailable': return '#E7522F';
-    default: return '#23C16B';
+    case 'active': return '#27ae60'; // green
+    case 'inactive': return '#e67e22'; // orange
+    case 'draft': return '#95a5a6'; // gray
+    case 'discounted': return '#8e44ad'; // purple
+    case 'scheduled': return '#3498db'; // blue
+    case 'expired': return '#e74c3c'; // red
+    case 'out of stock':
+    case 'out_of_stock': return '#7f8c8d'; // dark gray
+    default: return '#bdc3c7';
   }
 };
 
@@ -83,19 +88,23 @@ const getPrimaryImage = (listing) => {
   return null;
 };
 
-const renderCell = (key, listing) => {
+const renderCell = (key, listing, onDelete, isDeleting) => {
   // pick representative values, variations fallback to first variation
   const v0 = listing.variations && listing.variations.length ? listing.variations[0] : {};
   switch (key) {
-    case 'code':
-      return (
-        <View>
-          <Text style={styles.plantCode}>{listing.plantCode}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(listing.status) }]}>
-            <Text style={styles.statusText}>{listing.status}</Text>
+      case 'code':
+        // If listing has a discount, surface that as the primary status badge
+        // so Discounted-filter results visibly show 'Discounted' even when the
+        // stored status is 'Draft' or 'Inactive'.
+        const displayStatus = (listing.hasDiscount) ? 'Discounted' : (listing.status || '');
+        return (
+          <View>
+            <Text style={styles.plantCode}>{listing.plantCode}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
+              <Text style={styles.statusText}>{String(displayStatus).replace(/_/g, ' ')}</Text>
+            </View>
           </View>
-        </View>
-      );
+        );
     case 'name':
       return (
         <View>
@@ -117,7 +126,11 @@ const renderCell = (key, listing) => {
       return (listing.discountPercent || listing.discountPrice) ? <Text style={styles.discountText}>{listing.discountPercent ? `${listing.discountPercent}%` : `$${listing.discountPrice}`}</Text> : null;
     case 'garden': {
       // Top: garden/company name. Below: seller full name (first + last) or sellerName fallback.
-      const gardenName = listing.garden || listing.sellerName || 'Unknown Garden';
+  // Prefer normalized garden/company fields when available. Backend may
+  // return `garden`, `gardenOrCompanyName`, or `sellerName` depending on
+  // how supplier docs are populated; include `seller` (full name) as a
+  // secondary fallback before showing the Unknown placeholder.
+  const gardenName = listing.garden || listing.gardenOrCompanyName || listing.sellerName || listing.seller || 'Unknown Garden';
       const sellerFull = listing.seller || listing.sellerName || '';
       return (
         <View>
@@ -173,24 +186,31 @@ const renderCell = (key, listing) => {
 // lightweight in-memory cache for image availability checks
 const imageAvailabilityCache = new Map(); // url -> boolean
 
-const ListingRow = ({ listing, onPress = () => {}, columns = [] }) => {
+const ListingRow = ({ listing, onPress = () => {}, columns = [], onDelete = () => {}, isDeleting = false }) => {
   const [selectedUri, setSelectedUri] = useState(null);
   const [loadingImage, setLoadingImage] = useState(true);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    // Build candidate list in preferred order: explicit webp primary, explicit primary, images array
-    const candidates = [];
-    const addIf = (u) => { if (u) {
-      try { const s = String(u); if (s && !candidates.includes(s)) candidates.push(s); } catch (e) {}
-    }};
 
+    const candidates = [];
+    const addIf = (u) => {
+      if (u) {
+        try {
+          const s = String(u);
+          if (s && !candidates.includes(s)) candidates.push(s);
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+
+    // Build candidate list in preferred order
     addIf(listing?.imagePrimaryWebp);
     addIf(listing?.imagePrimary);
     if (Array.isArray(listing?.images)) listing.images.forEach(addIf);
     if (Array.isArray(listing?.imageCollection)) listing.imageCollection.forEach(addIf);
-
     // append other legacy fallbacks
     addIf(getPrimaryImage(listing));
 
@@ -201,18 +221,13 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [] }) => {
         if (cancelled) return;
         if (!url) continue;
 
-        // If cached as available, pick it immediately
         if (imageAvailabilityCache.get(url) === true) {
           if (mountedRef.current) setSelectedUri(url);
           return;
         }
-        if (imageAvailabilityCache.get(url) === false) {
-          continue;
-        }
+        if (imageAvailabilityCache.get(url) === false) continue;
 
-        // Try prefetch to determine availability
         try {
-          // Image.prefetch returns a Promise<boolean>
           const ok = await Image.prefetch(url);
           imageAvailabilityCache.set(url, !!ok);
           if (ok) {
@@ -221,13 +236,10 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [] }) => {
           }
         } catch (e) {
           imageAvailabilityCache.set(url, false);
-          // continue to next candidate
         }
       }
 
-      // none successful
       if (mountedRef.current) setSelectedUri(null);
-      // indicate loading finished even if no image found
       if (mountedRef.current) setLoadingImage(false);
     };
 
@@ -243,31 +255,40 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [] }) => {
         {selectedUri ? (
           <Image source={{ uri: selectedUri }} style={styles.plantImageActual} />
         ) : loadingImage ? (
-          // Render a skeleton-style block while image check is in-flight
           <View style={styles.skeletonImagePlaceholder} />
         ) : (
           <View style={styles.imagePlaceholder}><Text style={styles.imagePlaceholderText}>No Img</Text></View>
         )}
       </View>
 
-    {/* Render each configured column in order */}
-    <View style={styles.contentContainer}>
-      {columns && columns.length > 0 ? (
-        columns.map((col) => (
-          <View key={col.key} style={[styles.columnCell, { width: col.width || 120 }]}>
-            {renderCell(col.key, listing)}
-          </View>
-        ))
-      ) : (
-        /* fallback small set */
-        <>
-          <View style={[styles.columnCell, { width: 160 }]}>{renderCell('code', listing)}</View>
-          <View style={[styles.columnCell, { width: 320 }]}>{renderCell('name', listing)}</View>
-          <View style={[styles.columnCell, { width: 160 }]}>{renderCell('listingType', listing)}</View>
-        </>
-      )}
-    </View>
-  </TouchableOpacity>
+      {/* Render each configured column in order */}
+      <View style={styles.contentContainer}>
+        {columns && columns.length > 0 ? (
+          columns.map((col) => (
+            <View key={col.key} style={[styles.columnCell, { width: col.width || 120 }]}>
+              {col.key === 'action' ? (
+                  <TouchableOpacity
+                    onPress={() => !isDeleting && onDelete && onDelete(listing)}
+                    style={[styles.deleteButton, isDeleting && styles.deleteButtonDisabled]}
+                    disabled={!!isDeleting}
+                  >
+                    {isDeleting ? <ActivityIndicator size="small" color="#6B4EFF" /> : <TrashIcon width={18} height={18} />}
+                  </TouchableOpacity>
+                ) : (
+                  renderCell(col.key, listing, onDelete, isDeleting)
+                )}
+            </View>
+          ))
+        ) : (
+          /* fallback small set */
+          <>
+            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('code', listing, onDelete)}</View>
+            <View style={[styles.columnCell, { width: 320 }]}>{renderCell('name', listing, onDelete)}</View>
+            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('listingType', listing, onDelete)}</View>
+          </>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 };
 
@@ -294,6 +315,8 @@ const styles = StyleSheet.create({
   sellerNameText: { color: '#647276', fontSize: 12, marginTop: 4 },
   countryText: { color: '#556065', fontWeight: '600' },
   countryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  deleteButton: { padding: 8, borderRadius: 6, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE', alignItems: 'center', justifyContent: 'center' },
+  deleteButtonDisabled: { opacity: 0.6, backgroundColor: '#F7F7FB', borderColor: '#E6E6F0' },
 });
 
 export default ListingRow;
