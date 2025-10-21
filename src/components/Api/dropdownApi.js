@@ -44,28 +44,43 @@ export const getPlantsDropdownApi = async () => {
  */
 export const getAllPlantGenusApi = async () => {
   try {
-    const response = await fetch(
-      API_ENDPOINTS.GET_ALL_PLANT_GENUS,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      },
-    );
+    // Prefer the admin-level combined genus list if available
+    const authToken = await getStoredAuthToken();
+    console.log('getAllPlantGenusApi: authToken present?', !!authToken);
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
-      );
+    const tryEndpoints = [
+      API_ENDPOINTS.GET_GENUS_LIST, // Admin combined list (objects with name, receivedPlants)
+      API_ENDPOINTS.GET_GENUS_DROPDOWN, // dropdown collection (array of objects)
+      API_ENDPOINTS.GET_GENUS_DROPDOWN, // fallback duplicate
+      API_ENDPOINTS.GET_GENUS_LIST, // repeat as safe default
+    ];
+
+    for (const url of tryEndpoints) {
+      try {
+        const response = await fetch(url, { method: 'GET', headers });
+        if (!response.ok) {
+          // try next
+          console.warn('getAllPlantGenusApi: endpoint returned non-OK', url, response.status);
+          continue;
+        }
+
+        const body = await response.json();
+        console.log('getAllPlantGenusApi: successful endpoint', url, 'payloadPreview:', Array.isArray(body) ? body.slice(0,5) : (body.data ? (Array.isArray(body.data) ? body.data.slice(0,5) : body.data) : body));
+        // Normalize: some endpoints return { data: [...] }, some return array
+        const payload = Array.isArray(body) ? body : (body.data || []);
+        return { success: true, data: payload };
+      } catch (innerErr) {
+        // continue to next endpoint
+        console.warn('getAllPlantGenusApi endpoint failed, trying next:', url, innerErr?.message || innerErr);
+      }
     }
 
-    const data = await response.json();
-    return {
-      success: true,
-      data,
-    };
+    // If all attempts failed, return empty gracefully
+    return { success: false, data: [], error: 'No genus endpoints responded successfully' };
   } catch (error) {
     console.error('Get all plant genus API error:', error);
     return {

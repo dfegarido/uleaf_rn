@@ -5,11 +5,12 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
   TextInput,
   Image,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import ScreenHeader from '../../../components/Admin/header';
 import ArrowLeftIcon from '../../../assets/admin-icons/arrow-right.svg';
 import SkeletonRow from './SkeletonRow';
 import ListingRow from './ListingRow';
@@ -19,6 +20,12 @@ import EmptyState from './EmptyState';
 import SearchIcon from '../../../assets/admin-icons/search.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
+import GardenFilter from '../../../components/Admin/gardenFilter';
+import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
+import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
+import { getAllPlantGenusApi, getListingTypeApi, getCountryApi, getShippingIndexApi, getAcclimationIndexApi } from '../../../components/Api/dropdownApi';
+import { getVariegationApi } from '../../../components/Api/getVariegationApi';
 // Import badge icons from buyer-icons following buyer shop pattern
 import LeavesIcon from '../../../assets/buyer-icons/leaves.svg';
 import PriceTagIcon from '../../../assets/buyer-icons/tag-bold.svg';
@@ -27,8 +34,21 @@ import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
 import HeartIcon from '../../../assets/buyer-icons/heart.svg';
 // Import API
 import { getAdminListingsApi } from '../../../components/Api/getAdminListingsApi';
+import { deleteListingApi } from '../../../components/Api/listingManagementApi';
+import { Alert } from 'react-native';
 
 const ListingsViewer = ({ navigation }) => {
+  // Normalize garden/seller names to reduce mismatches (curly quotes, extra spaces)
+  const normalizeGardenName = (s) => {
+    if (!s && s !== 0) return null;
+    try {
+      const str = String(s).trim();
+      // Replace curly apostrophes/quotes with straight apostrophe and collapse spaces
+      return str.replace(/[\u2018\u2019\u201A\u201B\u2032]/g, "'").replace(/\s+/g, ' ').normalize('NFC');
+    } catch (e) {
+      return String(s);
+    }
+  };
   const [selectedFilters, setSelectedFilters] = useState({
     sort: null,
     status: null,
@@ -41,10 +61,46 @@ const ListingsViewer = ({ navigation }) => {
     shippingIndex: null,
     acclimationIndex: null,
   });
+
+  // Sort modal state
+  const [sortModalVisible, setSortModalVisible] = useState(false);
+  // Status modal state
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+    // Genus modal state
+    const [genusModalVisible, setGenusModalVisible] = useState(false);
+    const [genusOptionsState, setGenusOptionsState] = useState([]);
+  const [listingTypeOptionsState, setListingTypeOptionsState] = useState([]);
+    const [variegationOptionsState, setVariegationOptionsState] = useState([]);
+    const [variegationModalVisible, setVariegationModalVisible] = useState(false);
+  const [listingTypeModalVisible, setListingTypeModalVisible] = useState(false);
+  const [gardenOptionsState, setGardenOptionsState] = useState([]);
+  const [gardenCounts, setGardenCounts] = useState({});
+  const [gardenModalVisible, setGardenModalVisible] = useState(false);
+  const [countryOptionsState, setCountryOptionsState] = useState([]);
+  const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const [flightDatesState, setFlightDatesState] = useState([]);
+  const [flightModalVisible, setFlightModalVisible] = useState(false);
+  const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
+  const [shippingIndexModalVisible, setShippingIndexModalVisible] = useState(false);
+  const [acclimationIndexOptions, setAcclimationIndexOptions] = useState([]);
+  const [acclimationIndexModalVisible, setAcclimationIndexModalVisible] = useState(false);
+    // Status options for admin (match backend values)
+    const adminStatusOptions = [
+      { label: 'Active', value: 'active' },
+      { label: 'Inactive', value: 'inactive' },
+      { label: 'Draft', value: 'draft' },
+      { label: 'Discounted', value: 'discounted' },
+      { label: 'Scheduled', value: 'scheduled' },
+      { label: 'Expired', value: 'expired' },
+      { label: 'Out of Stock', value: 'out_of_stock' }
+    ];
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingPlantCodes, setDeletingPlantCodes] = useState({});
   const [selectedBadgeFilter, setSelectedBadgeFilter] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [headerSearchVisible, setHeaderSearchVisible] = useState(false);
+  const searchInputRef = React.useRef(null);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -65,6 +121,15 @@ const ListingsViewer = ({ navigation }) => {
     { label: 'Plant Flight', rightIcon: DownIcon },
     { label: 'Shipping Index', rightIcon: DownIcon },
     { label: 'Acclimation Index', rightIcon: DownIcon },
+  ];
+
+  // Admin sort options (match backend values)
+  const adminSortOptions = [
+    { label: 'Newest to Oldest', value: 'latest' },
+    { label: 'Oldest to Newest', value: 'oldest' },
+    { label: 'Price Low to High', value: 'priceLow' },
+    { label: 'Price High to Low', value: 'priceHigh' },
+    { label: 'Most Loved', value: 'mostLoved' },
   ];
 
   // Badge filter options - following buyer shop badge pattern
@@ -92,6 +157,7 @@ const ListingsViewer = ({ navigation }) => {
     { key: 'plantFlight', label: 'Plant Flight', width: 140 },
     { key: 'shippingIndex', label: 'Shipping Index', width: 120 },
     { key: 'acclimationIndex', label: 'Acclimation Index', width: 120 },
+    { key: 'action', label: 'Action', width: 80 },
   ];
 
   useEffect(() => {
@@ -101,17 +167,34 @@ const ListingsViewer = ({ navigation }) => {
   // Use a columns array without 'image' for header/rows alignment
   const filteredColumns = tableColumns.filter(c => c.key !== 'image');
 
-  const loadListings = async () => {
+  const loadListings = async (opts = {}) => {
     try {
       setLoading(true);
       setError(null);
 
       // Prepare filters for API call
+      const pageToUse = opts.page || pagination.currentPage;
+      // If searching, use a larger limit for better results
+      const isSearching = !!searchTerm && searchTerm.trim() !== '';
+      const limitToUse = opts.limit || (isSearching ? 100 : pagination.itemsPerPage);
+
+      // Build filters explicitly and exclude `status` so Listings Viewer no longer
+      // requests status filtering from the backend. Other admin screens may still
+      // send status when appropriate.
       const filters = {
-        ...selectedFilters,
-        search: searchTerm || undefined,
-        page: pagination.currentPage,
-        limit: pagination.itemsPerPage,
+        sort: selectedFilters.sort || undefined,
+        status: selectedFilters.status || undefined,
+        genus: selectedFilters.genus || undefined,
+        variegation: selectedFilters.variegation || undefined,
+        listingType: selectedFilters.listingType || undefined,
+        garden: selectedFilters.garden || undefined,
+        country: selectedFilters.country || undefined,
+        plantFlight: selectedFilters.plantFlight || undefined,
+        shippingIndex: selectedFilters.shippingIndex || undefined,
+        acclimationIndex: selectedFilters.acclimationIndex || undefined,
+        search: isSearching ? searchTerm : undefined,
+        page: pageToUse,
+        limit: limitToUse,
       };
 
       // Add badge filter mappings
@@ -138,13 +221,135 @@ const ListingsViewer = ({ navigation }) => {
       const response = await getAdminListingsApi(filters);
 
       if (response.success) {
-        setListings(response.data.listings || []);
-        setPagination(response.data.pagination || {
-          currentPage: 1,
-          totalPages: 1,
-          totalItems: 0,
-          itemsPerPage: 50,
-        });
+        // debug: log the full response for troubleshooting when admin reports empty UI
+        if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
+          console.log('DEBUG: getAdminListings response (admin sort):', response);
+        }
+        // Before setting listings, if the admin requested price sorting, ensure
+        // we sort by USD price on the client. Backend may sort by local price,
+        // which leads to incorrect ordering when listings use different currencies.
+        // Robust extraction of listings from various response shapes
+        const extractListingsFromResponse = (resp) => {
+          if (!resp) return [];
+          // resp might be the full response.data or an array or nested shapes
+          if (Array.isArray(resp)) return resp;
+          if (Array.isArray(resp.listings)) return resp.listings;
+          if (Array.isArray(resp.data)) return resp.data;
+          if (Array.isArray(resp.data?.listings)) return resp.data.listings;
+          if (Array.isArray(resp?.data?.data?.listings)) return resp.data.data.listings;
+          if (Array.isArray(resp.list)) return resp.list; // legacy
+          return [];
+        };
+
+        let pageListings = extractListingsFromResponse(response.data) || [];
+
+        // Helper: extract a numeric USD price from a listing. Priority:
+        // 1) listing.usdPrice
+        // 2) first variation.usdPrice
+        // 3) null (meaning unknown)
+        // Notes/assumptions: backend already computes a usable `usdPrice` where
+        // possible. We avoid attempting currency conversion on the client as
+        // exchange rates or pricingBreakdown are not reliably available here.
+        // Listings missing USD price will be placed at the end of sorted lists.
+          const extractPriceForSort = (item) => {
+            const v0 = item?.variations && item.variations.length ? item.variations[0] : undefined;
+            const candidates = [item?.finalPrice, item?.usdPrice, v0?.finalPrice, v0?.usdPrice];
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n)) return n;
+            }
+            return null;
+          };
+
+        if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
+          const asc = selectedFilters.sort === 'priceLow';
+          pageListings = pageListings.slice().sort((a, b) => {
+              const av = extractPriceForSort(a);
+              const bv = extractPriceForSort(b);
+            // Put items with null/undefined USD price at the end
+              if (av === null && bv === null) return 0;
+              if (av === null) return 1;
+              if (bv === null) return -1;
+              return asc ? av - bv : bv - av;
+          });
+        }
+
+        setListings(pageListings);
+        // compute garden counts for the current pageListings so modal can show counts
+        try {
+          const counts = {};
+          (pageListings || []).forEach(l => {
+            const raw = (l?.garden || l?.gardenOrCompanyName || l?.sellerName || l?.seller || null);
+            const key = raw ? normalizeGardenName(raw) : null;
+            if (!key) return;
+            counts[key] = (counts[key] || 0) + 1;
+          });
+          setGardenCounts(counts);
+        } catch (e) {
+          console.warn('Failed to compute gardenCounts', e?.message || e);
+        }
+        // Build garden options from the current page listings so the Garden
+        // filter modal shows the gardens actually present in the listing set.
+        try {
+          const gardens = Array.isArray(pageListings) ? pageListings.map(l => {
+            const raw = (l?.garden || l?.gardenOrCompanyName || l?.sellerName || l?.seller || null);
+            return raw ? normalizeGardenName(raw) : null;
+          }).filter(Boolean) : [];
+          // de-duplicate and sort for stable UI
+          const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
+          setGardenOptionsState(uniqueGardens);
+          if (uniqueGardens.length === 0) {
+            // Keep previous behavior: empty state handled by GardenFilter component
+          }
+          // Fire-and-forget: try to enrich garden options using the full filtered
+          // result set so the Garden modal shows all gardens matching current filters.
+          (async () => {
+            try {
+              const full = await fetchFullGardenList();
+              if (Array.isArray(full) && full.length > 0) {
+                // merge: keep page-derived uniqueGardens first, then append any
+                // remaining gardens from full (both sets are already normalized)
+                const merged = Array.from(new Set([...uniqueGardens, ...full]));
+                setGardenOptionsState(merged.sort((a, b) => a.localeCompare(b)));
+              }
+            } catch (e) {
+              // ignore enrichment failures
+              console.debug('Failed to enrich garden options with full list', e?.message || e);
+            }
+          })();
+        } catch (e) {
+          console.warn('Failed to derive garden options from listings', e?.message || e);
+        }
+        if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
+          console.log('DEBUG: setListings with count =', Array.isArray(pageListings) ? pageListings.length : typeof pageListings, pageListings?.slice?.(0,3));
+        }
+        // ensure pagination uses the page we requested when backend doesn't return one
+        // Defensive: compute a sensible pagination fallback using any available counts
+        const serverPagination = response.data?.pagination;
+        let respPagination = serverPagination || null;
+
+        // Determine total items fallback using several possible sources. Prefer server-provided totalItems,
+        // then pagination.totalItems, then the length of the extracted pageListings, then response.data.listings length.
+        if (!respPagination || typeof respPagination.totalPages !== 'number' || respPagination.totalPages <= 0) {
+          const totalItemsFromServer = response.data?.totalItems || response.data?.count || response.data?.metadata?.totalItems || null;
+          const totalItemsFromPagination = response.data?.pagination?.totalItems || null;
+          const totalItemsFromListings = Array.isArray(pageListings) ? pageListings.length : 0;
+          const totalItemsFallback = Number(totalItemsFromServer || totalItemsFromPagination || totalItemsFromListings || 0);
+
+          let computedTotalPages = totalItemsFallback > 0 ? Math.max(1, Math.ceil(totalItemsFallback / limitToUse)) : 0;
+          // If we have listings in the current page but computedTotalPages is 0 (server omitted counts), show at least 1 page
+          if (computedTotalPages === 0 && Array.isArray(pageListings) && pageListings.length > 0) computedTotalPages = 1;
+
+          respPagination = {
+            currentPage: pageToUse,
+            totalPages: computedTotalPages,
+            totalItems: totalItemsFallback,
+            itemsPerPage: limitToUse,
+          };
+          console.log('DEBUG: computed fallback pagination:', respPagination, 'serverPaginationWas:', !!serverPagination);
+        }
+
+        setPagination(respPagination);
       } else {
         setError(response.error || 'Failed to load listings');
         setListings([]);
@@ -156,6 +361,68 @@ const ListingsViewer = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async (listing) => {
+    if (!listing || !listing.plantCode) return;
+    Alert.alert(
+      'Delete listing',
+      `Are you sure you want to permanently delete ${listing.plantCode}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // mark this plantCode as deleting so the row can disable its delete button
+              setDeletingPlantCodes(prev => ({ ...prev, [listing.plantCode]: true }));
+              setLoading(true);
+              const resp = await deleteListingApi({ plantCode: listing.plantCode });
+              if (resp.success) {
+                // show success toast/alert
+                Alert.alert('Deleted', `Listing ${listing.plantCode} deleted successfully!`);
+                // refresh current page
+                // Defensive extraction: some endpoints or network layers sometimes
+                // wrap payloads differently. Try several common shapes so the UI
+                // remains robust if the response is double-wrapped.
+                let pageListings = [];
+                if (Array.isArray(response?.data?.listings)) {
+                  pageListings = response.data.listings;
+                  if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using response.data.listings, count=', pageListings.length);
+                } else if (Array.isArray(response?.data?.data?.listings)) {
+                  pageListings = response.data.data.listings;
+                  if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using response.data.data.listings, count=', pageListings.length);
+                } else if (Array.isArray(response?.listings)) {
+                  pageListings = response.listings;
+                  if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using response.listings, count=', pageListings.length);
+                } else {
+                  // last-resort: try to find any array on the object named 'listings'
+                  const maybe = Object.values(response || {}).find(v => Array.isArray(v) && v.length && v[0] && (v[0].plantCode || v[0].id || v[0].usdPrice));
+                  if (maybe) {
+                    pageListings = maybe;
+                    if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using fallback detected listings array, count=', pageListings.length);
+                  }
+                }
+              } else {
+                Alert.alert('Error', resp.error || 'Failed to delete listing');
+              }
+            } catch (e) {
+              console.error('Delete listing error', e);
+              Alert.alert('Error', 'Failed to delete listing');
+            } finally {
+              // unmark deleting state for this plantCode
+              setDeletingPlantCodes(prev => {
+                const copy = { ...prev };
+                delete copy[listing.plantCode];
+                return copy;
+              });
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getStatusColor = (status) => {
@@ -176,15 +443,272 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   const handleFilterTabPress = (filterLabel) => {
-    // TODO: Open filter modal/action sheet for this filter
-    // For now, just log the action
-    console.log('Filter pressed:', filterLabel);
+    if (filterLabel === 'Sort') {
+      setSortModalVisible(true);
+    } else {
+        if (filterLabel === 'Status') {
+          setStatusModalVisible(true);
+        } else if (filterLabel === 'Genus') {
+          setGenusModalVisible(true);
+        } else if (filterLabel === 'Variegation') {
+          setVariegationModalVisible(true);
+        } else if (filterLabel === 'Listing Type') {
+          setListingTypeModalVisible(true);
+        } else if (filterLabel === 'Garden') {
+          setGardenModalVisible(true);
+        } else if (filterLabel === 'Country') {
+          setCountryModalVisible(true);
+        } else if (filterLabel === 'Plant Flight') {
+          setFlightModalVisible(true);
+        } else if (filterLabel === 'Shipping Index') {
+          setShippingIndexModalVisible(true);
+        } else if (filterLabel === 'Acclimation Index') {
+          setAcclimationIndexModalVisible(true);
+        } else {
+          // TODO: Open modal for other filters if needed
+          console.log('Filter pressed:', filterLabel);
+        }
+    }
   };
 
+  // For ReusableActionSheet
+  const handleSortChange = (sortValue) => {
+    setSelectedFilters((prev) => ({ ...prev, sort: sortValue }));
+  };
+  const handleSortView = () => {
+    setSortModalVisible(false);
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+    // Status filter handlers
+    const handleStatusChange = (statusValues) => {
+      setSelectedFilters((prev) => ({ ...prev, status: statusValues }));
+    };
+    const handleStatusView = () => {
+      setStatusModalVisible(false);
+      setPagination((prev) => ({ ...prev, currentPage: 1 }));
+    };
+
+  // Genus handlers
+  const handleGenusChange = (values) => {
+    setSelectedFilters((prev) => ({ ...prev, genus: Array.isArray(values) ? values : [] }));
+  };
+  const handleGenusView = () => {
+    setGenusModalVisible(false);
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Variegation handlers
+  const handleVariegationChange = (values) => {
+    setSelectedFilters((prev) => ({ ...prev, variegation: Array.isArray(values) ? values : [] }));
+  };
+  const handleVariegationView = () => {
+    setVariegationModalVisible(false);
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Listing Type handlers
+  const handleListingTypeChange = (values) => {
+    setSelectedFilters((prev) => ({ ...prev, listingType: Array.isArray(values) ? values : [] }));
+  };
+  const handleListingTypeView = () => {
+    setListingTypeModalVisible(false);
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Garden handlers
+  const handleGardenSelect = (garden) => {
+    setSelectedFilters((prev) => ({ ...prev, garden }));
+    setGardenModalVisible(false);
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Provide a helper to fetch the full set of listings for the current
+  // selectedFilters so the GardenFilter modal can derive garden names
+  // from the entire filtered result set (not just the current page). This
+  // will be used by the modal when the user requests "View More" or when
+  // auto-filling to reach PAGE_SIZE items.
+  const fetchFullGardenList = async () => {
+    try {
+      // Reuse the same filters used by loadListings but request a large
+      // limit so we retrieve all matching listings in one call. This keeps
+      // garden derivation consistent with the table's data for the
+      // currently-applied filters.
+      const filters = {
+        sort: selectedFilters.sort || undefined,
+        status: selectedFilters.status || undefined,
+        genus: selectedFilters.genus || undefined,
+        variegation: selectedFilters.variegation || undefined,
+        listingType: selectedFilters.listingType || undefined,
+        garden: selectedFilters.garden || undefined,
+        country: selectedFilters.country || undefined,
+        plantFlight: selectedFilters.plantFlight || undefined,
+        shippingIndex: selectedFilters.shippingIndex || undefined,
+        acclimationIndex: selectedFilters.acclimationIndex || undefined,
+        search: (searchTerm && searchTerm.trim() !== '') ? searchTerm : undefined,
+        page: 1,
+        limit: 1000,
+      };
+
+      const resp = await getAdminListingsApi(filters);
+      if (!resp || !resp.success) return [];
+      // Extract listings robustly (same as loadListings)
+      const extractListingsFromResponse = (respData) => {
+        if (!respData) return [];
+        if (Array.isArray(respData)) return respData;
+        if (Array.isArray(respData.listings)) return respData.listings;
+        if (Array.isArray(respData.data)) return respData.data;
+        if (Array.isArray(respData.data?.listings)) return respData.data.listings;
+        if (Array.isArray(respData?.data?.data?.listings)) return respData.data.data.listings;
+        if (Array.isArray(respData.list)) return respData.list;
+        return [];
+      };
+
+      const allListings = extractListingsFromResponse(resp.data) || [];
+      const gardens = Array.isArray(allListings) ? allListings.map(l => {
+        const raw = (l?.garden || l?.gardenOrCompanyName || l?.sellerName || l?.seller || null);
+        return raw ? normalizeGardenName(raw) : null;
+      }).filter(Boolean) : [];
+      const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
+      // Debug: show count and sample of gardens derived from the full listing fetch
+      try {
+        console.debug('DEBUG fetchFullGardenList: total listings fetched=', allListings.length, 'derivedGardensCount=', uniqueGardens.length, 'sample=', uniqueGardens.slice(0, 12));
+      } catch (e) { /* ignore */ }
+      return uniqueGardens;
+    } catch (e) {
+      console.warn('fetchFullGardenList failed', e?.message || e);
+      return [];
+    }
+  };
+
+  // Country handlers
+  const handleCountryChange = (values) => {
+    setSelectedFilters((prev) => ({ ...prev, country: Array.isArray(values) ? values : [] }));
+  };
+  const handleCountryView = () => {
+    setCountryModalVisible(false);
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
+  useEffect(() => {
+    const loadGenus = async () => {
+      try {
+        const res = await getAllPlantGenusApi();
+        console.log('DEBUG: getAllPlantGenusApi response:', res);
+        if (res.success && Array.isArray(res.data)) {
+          // Map different possible shapes to {label, value, meta}
+          const mapped = res.data.map((g) => {
+            if (!g) return null;
+            // shape: string (just genus name)
+            if (typeof g === 'string') return { label: g, value: g, meta: '' };
+            // shape: admin getGenusList object { id, name, receivedPlants }
+            if (g.name) return { label: g.name, value: g.name, meta: (g.listingCount !== undefined ? String(g.listingCount) : (g.receivedPlants ? String(g.receivedPlants) : (g.count ? String(g.count) : ''))) };
+            // shape: dropdown object { id, genus_name, genusName }
+            const name = g.genus_name || g.genusName || g.name || g.label || g.value;
+            return { label: name, value: name, meta: g.count ? String(g.count) : '' };
+          }).filter(Boolean);
+          console.log('DEBUG: Mapped genus options:', mapped.slice(0, 20));
+          setGenusOptionsState(mapped);
+        } else {
+          console.warn('DEBUG: getAllPlantGenusApi returned no data or not an array');
+        }
+      } catch (err) {
+        console.warn('Failed to load genus options', err);
+      }
+    };
+    loadGenus();
+    const loadVariegation = async () => {
+      try {
+        const resp = await getVariegationApi();
+        // resp may be { data: [...] } or array
+        const payload = Array.isArray(resp) ? resp : (resp.data || []);
+        const mapped = payload.map(v => (typeof v === 'string' ? { label: v, value: v } : { label: v.name || v.label || v.variegation || v.value, value: v.name || v.label || v.variegation || v.value }));
+        setVariegationOptionsState(mapped);
+      } catch (e) {
+        console.warn('Failed to load variegation options', e?.message || e);
+      }
+    };
+    const loadListingType = async () => {
+      try {
+        const res = await getListingTypeApi();
+        const payload = Array.isArray(res) ? res : (res.data || []);
+        const mapped = payload.map(item => ({ label: item.name || item.listingType || item.label, value: item.name || item.listingType || item.value }));
+        setListingTypeOptionsState(mapped);
+      } catch (err) {
+        console.warn('Failed to load listing type options', err?.message || err);
+      }
+    };
+    loadVariegation();
+    loadListingType();
+    const loadCountries = async () => {
+      try {
+        const res = await getCountryApi();
+        console.log('DEBUG: getCountryApi response:', res);
+        const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
+  // Prefer a standardized country code when available. Avoid using internal doc id as the value.
+  const mapped = payload.map(c => ({ label: c.name || c.country || c.label, value: c.code || c.country || c.name }));
+        console.log('DEBUG: Mapped country options:', mapped.slice(0, 20));
+        setCountryOptionsState(mapped);
+      } catch (err) {
+        console.warn('Failed to load country options', err?.message || err);
+      }
+    };
+    loadCountries();
+      const loadShippingIndexData = async () => {
+        try {
+          const res = await getShippingIndexApi();
+          console.log('DEBUG: getShippingIndexApi response:', res);
+          const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
+          const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.shippingIndex || item.label, value: item.name || item.shippingIndex || item.value }));
+          setShippingIndexOptions(mapped);
+        } catch (err) {
+          console.warn('Failed to load shipping index options', err?.message || err);
+        }
+      };
+      const loadAcclimationIndexData = async () => {
+        try {
+          const res = await getAcclimationIndexApi();
+          console.log('DEBUG: getAcclimationIndexApi response:', res);
+          const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
+          const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.acclimationIndex || item.label, value: item.name || item.acclimationIndex || item.value }));
+          setAcclimationIndexOptions(mapped);
+        } catch (err) {
+          console.warn('Failed to load acclimation index options', err?.message || err);
+        }
+      };
+      loadShippingIndexData();
+      loadAcclimationIndexData();
+    // Populate gardens from the listings themselves. We intentionally avoid
+    // calling getAdminLeafTrailFilters here because the Garden filter should
+    // reflect the gardens present in the current listings data.
+    // The `gardenOptionsState` will be populated after each successful
+    // listings load (see below where setListings is called).
+    const loadFlightDates = async () => {
+      try {
+        const res = await getAdminLeafTrailFilters();
+        console.log('DEBUG: getAdminLeafTrailFilters flightDates:', res?.flightDates || res?.data?.flightDates || []);
+        const payload = res?.flightDates || res?.data?.flightDates || [];
+        const mapped = Array.isArray(payload) ? payload.map(d => (typeof d === 'string' ? d : (d.date || d.flight || String(d)))) : [];
+        setFlightDatesState(mapped);
+      } catch (err) {
+        console.warn('Failed to load flight dates', err?.message || err);
+      }
+    };
+    loadFlightDates();
+  }, []);
+
+  // Debug: log listing count at render-time when price sort is active
+  useEffect(() => {
+    if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
+      console.log('DEBUG render-time: selectedFilters.sort=', selectedFilters.sort, 'listings.length=', listings.length);
+    }
+  }, [selectedFilters.sort, listings.length]);
+
   const handleSearch = () => {
-    // Trigger search with current searchTerm
-    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1
-    loadListings();
+    // Always treat searchTerm as a string
+    if (!searchTerm || searchTerm.trim() === '') {
+      setSearchTerm('');
+    }
+    loadListings({ page: 1 });
   };
 
   const handlePageChange = (newPage) => {
@@ -212,8 +736,7 @@ const ListingsViewer = ({ navigation }) => {
     switch (filterLabel) {
       case 'Sort':
         return selectedFilters.sort !== null;
-      case 'Status':
-        return selectedFilters.status !== null;
+      // Status removed from this screen
       case 'Genus':
         return selectedFilters.genus !== null;
       case 'Variegation':
@@ -230,6 +753,10 @@ const ListingsViewer = ({ navigation }) => {
         return selectedFilters.shippingIndex !== null;
       case 'Acclimation Index':
         return selectedFilters.acclimationIndex !== null;
+      case 'Status':
+        // Consider Status active only when at least one status is selected.
+        if (Array.isArray(selectedFilters.status)) return selectedFilters.status.length > 0;
+        return selectedFilters.status !== null;
       default:
         return false;
     }
@@ -295,10 +822,26 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   const PaginationControls = () => {
-    if (pagination.totalPages <= 1) return null;
+    // Show pagination when server reports more than 1 page OR when current
+    // page looks 'full' (listings length >= itemsPerPage) which suggests
+    // there may be additional pages even if server metadata is missing.
+    const itemsPerPage = pagination.itemsPerPage || 50;
+    const hasMultiplePages = typeof pagination.totalPages === 'number' && pagination.totalPages > 1;
+    const looksLikeMorePages = Array.isArray(listings) && listings.length >= itemsPerPage;
+    const totalItemsSuggestsMore = typeof pagination.totalItems === 'number' && pagination.totalItems > itemsPerPage;
+
+  const shouldShow = hasMultiplePages || looksLikeMorePages || totalItemsSuggestsMore;
+    if (!shouldShow) return null;
 
     const canGoPrev = pagination.currentPage > 1;
-    const canGoNext = pagination.currentPage < pagination.totalPages;
+    // If totalPages is known use it; otherwise infer that next may exist when
+    // current page is full (listings length >= itemsPerPage)
+    const canGoNext = (typeof pagination.totalPages === 'number' && pagination.totalPages > 0)
+      ? (pagination.currentPage < pagination.totalPages)
+      : looksLikeMorePages;
+
+    const totalPagesDisplay = (typeof pagination.totalPages === 'number' && pagination.totalPages > 0) ? pagination.totalPages : '...';
+    const totalItemsDisplay = (typeof pagination.totalItems === 'number' && pagination.totalItems > 0) ? `${pagination.totalItems} total listings` : `${listings.length} listings on this page`;
 
     return (
       <View style={styles.paginationContainer}>
@@ -314,10 +857,10 @@ const ListingsViewer = ({ navigation }) => {
 
         <View style={styles.paginationInfo}>
           <Text style={styles.paginationText}>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.currentPage} of {totalPagesDisplay}
           </Text>
           <Text style={styles.paginationSubtext}>
-            {pagination.totalItems} total listings
+            {totalItemsDisplay}
           </Text>
         </View>
 
@@ -337,97 +880,232 @@ const ListingsViewer = ({ navigation }) => {
   
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <ArrowLeftIcon width={24} height={24} style={{ transform: [{ rotate: '180deg' }] }} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Listings Viewer</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by plant code, name, species, or garden..."
-          placeholderTextColor="#647276"
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
+    <SafeAreaProvider>
+      {/* include bottom edge so pagination controls sit above device nav/gesture area */}
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        {/* Header */}
+        <ScreenHeader
+          navigation={navigation}
+          title="Listings Viewer"
+          search
+          onSearchPress={() => {
+            const next = !headerSearchVisible;
+            setHeaderSearchVisible(next);
+            if (next && searchInputRef && searchInputRef.current) {
+              setTimeout(() => searchInputRef.current.focus(), 60);
+            }
+          }}
+          searchActive={headerSearchVisible}
+          searchValue={searchTerm}
+          onSearchChange={(text) => setSearchTerm(text || '')}
+          onSearchSubmit={() => { setHeaderSearchVisible(false); handleSearch(); }}
+          inputRef={searchInputRef}
         />
-        <TouchableOpacity style={styles.searchIconButton} onPress={handleSearch}>
-          <SearchIcon width={20} height={20} />
-        </TouchableOpacity>
-      </View>
 
-      {/* Filter Tabs - following buyer shop pattern */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, paddingVertical: 4 }}
-        contentContainerStyle={{
-          flexDirection: 'row',
-          gap: 10,
-          alignItems: 'flex-start',
-          paddingHorizontal: 10,
-        }}
-      >
-        {filterTabs.map((filter) => (
-          <FilterTab key={filter.label} filter={filter} />
-        ))}
-      </ScrollView>
+        {/* Filter Tabs - following buyer shop pattern */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, paddingVertical: 4 }}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+            paddingHorizontal: 10,
+          }}
+        >
+          {filterTabs.map((filter) => (
+            <FilterTab key={filter.label} filter={filter} />
+          ))}
+        </ScrollView>
 
-      {/* Badge Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.badgeFilterContainer}
-        contentContainerStyle={styles.badgeFilterContent}
-      >
-        {badgeFilters.map((filter) => (
-          <BadgeFilterChip
-            key={filter.id}
-            item={filter}
-            isSelected={selectedBadgeFilter === filter.id}
+        {/* Sort Modal (matches buyer) */}
+        <ReusableActionSheet
+          code="SORT"
+          visible={sortModalVisible}
+          onClose={() => setSortModalVisible(false)}
+          sortOptions={adminSortOptions}
+          sortValue={selectedFilters.sort}
+          sortChange={handleSortChange}
+          handleSearchSubmit={handleSortView}
+        />
+
+          {/* Status Modal (admin) */}
+          <ReusableActionSheet
+            code="STATUS"
+            visible={statusModalVisible}
+            onClose={() => setStatusModalVisible(false)}
+            statusOptions={adminStatusOptions}
+            statusValue={selectedFilters.status || []}
+            statusChange={handleStatusChange}
+            handleSearchSubmit={handleStatusView}
+            clearFilters={() => setSelectedFilters(prev => ({ ...prev, status: null }))}
           />
-        ))}
-      </ScrollView>
 
-      {/* Table */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tableScrollContainer}
-      >
-        <View style={styles.tableContainer}>
-          <TableHeader columns={tableColumns} imageWidth={IMAGE_CELL_TOTAL} />
-          {loading ? (
-            <View style={styles.skeletonContainer}>
-              {Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} />)}
-            </View>
-          ) : error ? (
-            <EmptyState message={`Error: ${error}`} />
-          ) : listings.length === 0 ? (
-            <EmptyState message="No listings found" />
-          ) : (
-            <ScrollView style={styles.tableContent}>
-              {listings.map((listing) => (
-                <ListingRow key={listing.id} listing={listing} onPress={handleListingPress} columns={filteredColumns} />
-              ))}
-            </ScrollView>
-          )}
+          {/* Status Modal removed from Listings Viewer */}
+
+            {/* Genus Modal */}
+            <ReusableActionSheet
+              code="GENUS"
+              visible={genusModalVisible}
+              onClose={() => setGenusModalVisible(false)}
+              genusOptions={genusOptionsState}
+              genusValue={selectedFilters.genus || []}
+              genusChange={handleGenusChange}
+              handleSearchSubmit={handleGenusView}
+              clearFilters={() => handleGenusChange([])}
+            />
+
+          {/* Variegation Modal */}
+          <ReusableActionSheet
+            code="VARIEGATION"
+            visible={variegationModalVisible}
+            onClose={() => setVariegationModalVisible(false)}
+            variegationOptions={variegationOptionsState}
+            variegationValue={selectedFilters.variegation || []}
+            variegationChange={handleVariegationChange}
+            handleSearchSubmit={handleVariegationView}
+            clearFilters={() => handleVariegationChange([])}
+          />
+
+          {/* Listing Type Modal */}
+          <ReusableActionSheet
+            code="LISTINGTYPE"
+            visible={listingTypeModalVisible}
+            onClose={() => setListingTypeModalVisible(false)}
+            listingTypeOptions={listingTypeOptionsState}
+            listingTypeValue={selectedFilters.listingType || []}
+            listingTypeChange={handleListingTypeChange}
+            handleSearchSubmit={handleListingTypeView}
+            clearFilters={() => handleListingTypeChange([])}
+          />
+
+          {/* Garden Modal (Admin specific) */}
+          <GardenFilter
+            isVisible={gardenModalVisible}
+            onClose={() => setGardenModalVisible(false)}
+            onSelectGarden={handleGardenSelect}
+            gardens={gardenOptionsState}
+            gardenCounts={gardenCounts}
+            fetchFullGardenList={fetchFullGardenList}
+            currentGarden={selectedFilters.garden}
+          />
+          {/* Country Modal (reuse shared ActionSheet) */}
+          <ReusableActionSheet
+            code="COUNTRY"
+            visible={countryModalVisible}
+            onClose={() => setCountryModalVisible(false)}
+            countryOptions={countryOptionsState}
+            countryValue={selectedFilters.country || []}
+            countryChange={handleCountryChange}
+            handleSearchSubmit={handleCountryView}
+            clearFilters={() => handleCountryChange([])}
+          />
+
+            {/* Shipping Index Modal (reuse shared ActionSheet) */}
+            <ReusableActionSheet
+              code="SHIPPING_INDEX"
+              visible={shippingIndexModalVisible}
+              onClose={() => setShippingIndexModalVisible(false)}
+              shippingIndexOptions={shippingIndexOptions}
+              shippingIndexValue={selectedFilters.shippingIndex ? [selectedFilters.shippingIndex] : []}
+              shippingIndexChange={(vals) => {
+                // ReusableActionSheet's CheckBoxGroup returns array; we want a single value
+                const v = Array.isArray(vals) ? (vals[0] || null) : vals;
+                setSelectedFilters(prev => ({ ...prev, shippingIndex: v }));
+              }}
+              handleSearchSubmit={() => { setShippingIndexModalVisible(false); setPagination(prev => ({ ...prev, currentPage: 1 })); }}
+              clearFilters={() => setSelectedFilters(prev => ({ ...prev, shippingIndex: null }))}
+            />
+
+            {/* Acclimation Index Modal (reuse shared ActionSheet) */}
+            <ReusableActionSheet
+              code="ACCLIMATION_INDEX"
+              visible={acclimationIndexModalVisible}
+              onClose={() => setAcclimationIndexModalVisible(false)}
+              acclimationIndexOptions={acclimationIndexOptions}
+              acclimationIndexValue={selectedFilters.acclimationIndex ? [selectedFilters.acclimationIndex] : []}
+              acclimationIndexChange={(vals) => {
+                const v = Array.isArray(vals) ? (vals[0] || null) : vals;
+                setSelectedFilters(prev => ({ ...prev, acclimationIndex: v }));
+              }}
+              handleSearchSubmit={() => { setAcclimationIndexModalVisible(false); setPagination(prev => ({ ...prev, currentPage: 1 })); }}
+              clearFilters={() => setSelectedFilters(prev => ({ ...prev, acclimationIndex: null }))}
+            />
+
+          {/* Plant Flight Modal (Admin calendar) */}
+          <PlantFlightFilter
+            isVisible={flightModalVisible}
+            onClose={() => setFlightModalVisible(false)}
+            flightDates={flightDatesState}
+            onSelectFlight={(isoDate) => {
+              setSelectedFilters(prev => ({ ...prev, plantFlight: isoDate }));
+              setFlightModalVisible(false);
+              setPagination(prev => ({ ...prev, currentPage: 1 }));
+            }}
+          />
+
+        {/* Badge Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.badgeFilterContainer}
+          contentContainerStyle={styles.badgeFilterContent}
+        >
+          {badgeFilters.map((filter) => (
+            <BadgeFilterChip
+              key={filter.id}
+              item={filter}
+              isSelected={selectedBadgeFilter === filter.id}
+            />
+          ))}
+        </ScrollView>
+
+        {/* Table */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tableScrollContainer}
+          contentContainerStyle={{ flexGrow: 1 }}
+          nestedScrollEnabled={true}
+        >
+          <View style={styles.tableContainer}>
+            <TableHeader columns={tableColumns} imageWidth={IMAGE_CELL_TOTAL} />
+            {loading ? (
+              <View style={styles.skeletonContainer}>
+                {Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} />)}
+              </View>
+            ) : error ? (
+              <EmptyState message={`Error: ${error}`} />
+            ) : listings.length === 0 ? (
+              <EmptyState message="No listings found" />
+            ) : (
+                  <ScrollView
+                    style={styles.tableContent}
+                    contentContainerStyle={styles.tableContentContainer}
+                    nestedScrollEnabled={true}
+                  >
+                    {listings.map((listing) => (
+                      <ListingRow
+                        key={listing.id}
+                        listing={listing}
+                        onPress={handleListingPress}
+                        columns={filteredColumns}
+                        onDelete={handleDelete}
+                        isDeleting={!!deletingPlantCodes[listing.plantCode]}
+                      />
+                    ))}
+                  </ScrollView>
+                )}
+          </View>
+        </ScrollView>
+
+        {/* Pagination Controls (render inline below the table so it follows content) */}
+        <View style={styles.paginationWrapper}>
+          <PaginationControls />
         </View>
-      </ScrollView>
-
-      {/* Pagination Controls */}
-      <PaginationControls />
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 
@@ -436,66 +1114,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E4E7E9',
-  },
+  // headerBar and headerTitle replaced by shared ScreenHeader component
   backButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#202325',
-    textAlign: 'center',
-  },
-  searchContainer: {
+  headerSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E4E7E9',
   },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    backgroundColor: '#F6F7F6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingRight: 40,
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: '#202325',
-  },
-  searchIconButton: {
-    position: 'absolute',
-    right: 24,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+  headerSearchAction: {
+    marginLeft: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CDD3D4',
-    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff'
   },
   // Badge Filter Styles (following buyer shop PromoBadge pattern exactly)
   badgeFilterContainer: {
@@ -542,9 +1186,12 @@ const styles = StyleSheet.create({
   tableScrollContainer: {
     flex: 1,
     marginTop: 12,
+    // small bottom padding only; pagination is inline now so large padding is not needed
+    paddingBottom: 0,
   },
   tableContainer: {
     minWidth: 1992,
+    flex: 1,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -573,6 +1220,10 @@ const styles = StyleSheet.create({
   },
   tableContent: {
     flex: 1,
+  },
+  tableContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 24, // small breathing room under rows before inline pagination
   },
   listingRow: {
     flexDirection: 'row',
@@ -821,15 +1472,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
   },
+  paginationWrapper: {
+    // Inline wrapper placed after the table content so pagination appears
+    // naturally below the listings instead of overlaying them.
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E4E7E9',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
   paginationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E4E7E9',
+    paddingVertical: 8,
   },
   paginationButton: {
     paddingHorizontal: 16,
