@@ -10,7 +10,7 @@ export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    console.log('cleanedParams', cleanedParams);
+    console.log('cleanedParams', token);
     
     const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailReceiving${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
     

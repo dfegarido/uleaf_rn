@@ -45,6 +45,8 @@
     <string>Allow access to your photo library to select plant photos for listings and profile images.</string>
     <key>NSCameraUsageDescription</key>
     <string>Allow access to the camera to let you take photos of plants for listings and identification.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>We need access to your microphone for audio in the live broadcast.</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSAppTransportSecurity</key>
