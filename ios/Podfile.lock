@@ -3021,7 +3021,7 @@ PODS:
     - React-Core
   - RNFS (2.20.0):
     - React-Core
-  - RNGestureHandler (2.28.0):
+  - RNGestureHandler (2.25.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3107,7 +3107,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNScreens (4.16.0):
+  - RNScreens (4.17.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -3132,6 +3132,12 @@ PODS:
   - RNSVG (12.5.1):
     - React-Core
   - SocketRocket (0.7.0)
+  - VisionCamera (4.7.2):
+    - VisionCamera/Core (= 4.7.2)
+    - VisionCamera/React (= 4.7.2)
+  - VisionCamera/Core (4.7.2)
+  - VisionCamera/React (4.7.2):
+    - React-Core
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -3220,6 +3226,7 @@ DEPENDENCIES:
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
+  - VisionCamera (from `../node_modules/react-native-vision-camera`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -3408,6 +3415,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-screens"
   RNSVG:
     :path: "../node_modules/react-native-svg"
+  VisionCamera:
+    :path: "../node_modules/react-native-vision-camera"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -3510,13 +3519,14 @@ SPEC CHECKSUMS:
   RNFBStorage: 2a52106892b420badb0b4a57da06d95ddf44e97e
   RNFileViewer: 4b5d83358214347e4ab2d4ca8d5c1c90d869e251
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
-  RNGestureHandler: f15c35ef64e8985a5e1e69fc16ccde3ffe8d8aa7
+  RNGestureHandler: ae56ec9557e0569b3f83c220e3bc5e1f55cb76d6
   RNReanimated: bd3da720fbd5baafadea9302e898696a76f66ad3
-  RNScreens: 07dc86bb2aed3f2e4c542c55d10737afb9c48dcd
+  RNScreens: dd27360015c6c0f0397f0ddc688dc060403b6084
   RNSVG: d7cb8bd34550cf4c4fc7edd7ac627905e2b71f3f
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
+  VisionCamera: 30b358b807324c692064f78385e9a732ce1bebfe
   Yoga: b05994d1933f507b0a28ceaa4fdb968dc18da178
 
-PODFILE CHECKSUM: 00b908bf62d630aa52648100613728c46b496b47
+PODFILE CHECKSUM: a31429b177905506c745271e1e23828cfe09ccb3
 
 COCOAPODS: 1.16.2
