@@ -24,7 +24,6 @@ export const setCacheData = async (key, data) => {
       timestamp: Date.now(),
     };
     await AsyncStorage.setItem(key, JSON.stringify(cacheItem));
-    console.log(`Cache saved for ${key}`);
   } catch (error) {
     console.error(`Error saving cache for ${key}:`, error);
   }
@@ -47,12 +46,9 @@ export const getCacheData = async (key) => {
 
     // Check if cache is expired
     if (now - timestamp > CACHE_EXPIRY) {
-      console.log(`Cache expired for ${key}, removing...`);
       await AsyncStorage.removeItem(key);
       return null;
     }
-
-    console.log(`Cache hit for ${key}`);
     return data;
   } catch (error) {
     console.error(`Error reading cache for ${key}:`, error);
@@ -67,7 +63,7 @@ export const clearAllDropdownCache = async () => {
   try {
     const keys = Object.values(CACHE_KEYS);
     await AsyncStorage.multiRemove(keys);
-    console.log('All dropdown cache cleared');
+    
   } catch (error) {
     console.error('Error clearing dropdown cache:', error);
   }
@@ -78,12 +74,11 @@ export const clearAllDropdownCache = async () => {
  * @param {Array<string>} cacheKeys - Array of cache keys to clear
  */
 export const clearSpecificDropdownCache = async (cacheKeys) => {
-  try {
-    await AsyncStorage.multiRemove(cacheKeys);
-    console.log(`Cleared cache for: ${cacheKeys.join(', ')}`);
-  } catch (error) {
-    console.error('Error clearing specific dropdown cache:', error);
-  }
+    try {
+      await AsyncStorage.multiRemove(cacheKeys);
+    } catch (error) {
+      console.error('Error clearing specific dropdown cache:', error);
+    }
 };
 
 /**
@@ -105,7 +100,7 @@ export { CACHE_KEYS };
  */
 export const preloadAllDropdownData = async (apis) => {
   try {
-    console.log('Starting preload of all dropdown data...');
+  // Preload started
     
     const tasks = [];
     
@@ -118,7 +113,6 @@ export const preloadAllDropdownData = async (apis) => {
           if (res?.success && res.data) {
             const mappedData = mapFunction ? mapFunction(res.data) : res.data;
             await setCacheData(cacheKey, mappedData);
-            console.log(`Preloaded and cached ${cacheKey}`);
           }
         } catch (error) {
           console.error(`Error preloading ${cacheKey}:`, error);
@@ -207,7 +201,6 @@ export const preloadAllDropdownData = async (apis) => {
 
     // Execute all preload tasks
     await Promise.allSettled(tasks);
-    console.log('Preload of dropdown data completed');
     
   } catch (error) {
     console.error('Error in preloadAllDropdownData:', error);

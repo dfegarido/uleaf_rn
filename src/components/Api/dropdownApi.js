@@ -45,8 +45,7 @@ export const getPlantsDropdownApi = async () => {
 export const getAllPlantGenusApi = async () => {
   try {
     // Prefer the admin-level combined genus list if available
-    const authToken = await getStoredAuthToken();
-    console.log('getAllPlantGenusApi: authToken present?', !!authToken);
+  const authToken = await getStoredAuthToken();
     const headers = {
       'Content-Type': 'application/json',
     };
@@ -68,8 +67,7 @@ export const getAllPlantGenusApi = async () => {
           continue;
         }
 
-        const body = await response.json();
-        console.log('getAllPlantGenusApi: successful endpoint', url, 'payloadPreview:', Array.isArray(body) ? body.slice(0,5) : (body.data ? (Array.isArray(body.data) ? body.data.slice(0,5) : body.data) : body));
+  const body = await response.json();
         // Normalize: some endpoints return { data: [...] }, some return array
         const payload = Array.isArray(body) ? body : (body.data || []);
         return { success: true, data: payload };
@@ -285,7 +283,6 @@ export const getCountryApi = async () => {
     
     // If no auth token, return empty result instead of error
     if (!authToken) {
-      console.log('No auth token available for getCountryApi, skipping...');
       return {
         success: true,
         data: []
@@ -293,8 +290,6 @@ export const getCountryApi = async () => {
     }
     
     const url = API_ENDPOINTS.GET_COUNTRY;
-    console.log('🌍 Calling Country API:', url);
-    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -303,7 +298,7 @@ export const getCountryApi = async () => {
       },
     });
 
-    console.log('🌍 Country API response status:', response.status);
+    
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -313,9 +308,8 @@ export const getCountryApi = async () => {
       );
     }
 
-    const data = await response.json();
-    console.log('🌍 Country API response:', data);
-    return data;
+  const data = await response.json();
+  return data;
   } catch (error) {
     console.error('Get country API error:', error);
     return {
@@ -335,7 +329,6 @@ export const getListingTypeApi = async () => {
     
     // If no auth token, return empty result instead of error
     if (!authToken) {
-      console.log('No auth token available for getListingTypeApi, skipping...');
       return {
         success: true,
         data: []
@@ -343,8 +336,6 @@ export const getListingTypeApi = async () => {
     }
     
     const url = API_ENDPOINTS.GET_LISTING_TYPE;
-    console.log('📋 Calling Listing Type API:', url);
-    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -353,7 +344,7 @@ export const getListingTypeApi = async () => {
       },
     });
 
-    console.log('📋 Listing Type API response status:', response.status);
+    
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -363,9 +354,8 @@ export const getListingTypeApi = async () => {
       );
     }
 
-    const data = await response.json();
-    console.log('📋 Listing Type API response:', data);
-    return data;
+  const data = await response.json();
+  return data;
   } catch (error) {
     console.error('Get listing type API error:', error);
     return {
@@ -385,7 +375,6 @@ export const getShippingIndexApi = async () => {
     
     // If no auth token, return empty result instead of error
     if (!authToken) {
-      console.log('No auth token available for getShippingIndexApi, skipping...');
       return {
         success: true,
         data: []
@@ -393,8 +382,6 @@ export const getShippingIndexApi = async () => {
     }
     
     const url = API_ENDPOINTS.GET_SHIPPING_INDEX;
-    console.log('📦 Calling Shipping Index API:', url);
-    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -403,7 +390,7 @@ export const getShippingIndexApi = async () => {
       },
     });
 
-    console.log('📦 Shipping Index API response status:', response.status);
+    
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -413,9 +400,8 @@ export const getShippingIndexApi = async () => {
       );
     }
 
-    const data = await response.json();
-    console.log('📦 Shipping Index API response:', data);
-    return data;
+  const data = await response.json();
+  return data;
   } catch (error) {
     console.error('Get shipping index API error:', error);
     return {
@@ -435,7 +421,6 @@ export const getAcclimationIndexApi = async () => {
     
     // If no auth token, return empty result instead of error
     if (!authToken) {
-      console.log('No auth token available for getAcclimationIndexApi, skipping...');
       return {
         success: true,
         data: []
@@ -443,8 +428,6 @@ export const getAcclimationIndexApi = async () => {
     }
     
     const url = API_ENDPOINTS.GET_ACCLIMATION_INDEX;
-    console.log('🌱 Calling Acclimation Index API:', url);
-    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -453,7 +436,7 @@ export const getAcclimationIndexApi = async () => {
       },
     });
 
-    console.log('🌱 Acclimation Index API response status:', response.status);
+    
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -463,9 +446,8 @@ export const getAcclimationIndexApi = async () => {
       );
     }
 
-    const data = await response.json();
-    console.log('🌱 Acclimation Index API response:', data);
-    return data;
+  const data = await response.json();
+  return data;
   } catch (error) {
     console.error('Get acclimation index API error:', error);
     return {

@@ -70,20 +70,39 @@ const ListingsViewer = ({ navigation }) => {
     const [genusModalVisible, setGenusModalVisible] = useState(false);
     const [genusOptionsState, setGenusOptionsState] = useState([]);
   const [listingTypeOptionsState, setListingTypeOptionsState] = useState([]);
+  const [listingTypeLoading, setListingTypeLoading] = useState(false);
+  // Local draft for listing type selections inside the modal. Commit on View.
+  const [listingTypeDraft, setListingTypeDraft] = useState([]);
+    // Local draft for genus selections inside the modal. This prevents
+    // immediate mutation of `selectedFilters` while the user is choosing
+    // options. Selections are committed only when the user presses View.
+    const [genusDraft, setGenusDraft] = useState([]);
+  // Loading indicator for genus dropdown options
+  const [genusLoading, setGenusLoading] = useState(false);
     const [variegationOptionsState, setVariegationOptionsState] = useState([]);
+  const [variegationLoading, setVariegationLoading] = useState(false);
     const [variegationModalVisible, setVariegationModalVisible] = useState(false);
+    // Local draft for variegation selections inside the modal. Commit on View.
+    const [variegationDraft, setVariegationDraft] = useState([]);
   const [listingTypeModalVisible, setListingTypeModalVisible] = useState(false);
   const [gardenOptionsState, setGardenOptionsState] = useState([]);
   const [gardenCounts, setGardenCounts] = useState({});
   const [gardenModalVisible, setGardenModalVisible] = useState(false);
   const [countryOptionsState, setCountryOptionsState] = useState([]);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const [countryLoading, setCountryLoading] = useState(false);
+  // Local draft for country selections inside the modal. Commit on View.
+  const [countryDraft, setCountryDraft] = useState([]);
   const [flightDatesState, setFlightDatesState] = useState([]);
   const [flightModalVisible, setFlightModalVisible] = useState(false);
   const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
+  const [shippingIndexLoading, setShippingIndexLoading] = useState(false);
+  const [shippingIndexDraft, setShippingIndexDraft] = useState([]);
   const [shippingIndexModalVisible, setShippingIndexModalVisible] = useState(false);
   const [acclimationIndexOptions, setAcclimationIndexOptions] = useState([]);
   const [acclimationIndexModalVisible, setAcclimationIndexModalVisible] = useState(false);
+  const [acclimationIndexLoading, setAcclimationIndexLoading] = useState(false);
+  const [acclimationIndexDraft, setAcclimationIndexDraft] = useState([]);
     // Status options for admin (match backend values)
     const adminStatusOptions = [
       { label: 'Active', value: 'active' },
@@ -221,10 +240,7 @@ const ListingsViewer = ({ navigation }) => {
       const response = await getAdminListingsApi(filters);
 
       if (response.success) {
-        // debug: log the full response for troubleshooting when admin reports empty UI
-        if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
-          console.log('DEBUG: getAdminListings response (admin sort):', response);
-        }
+        // debug logs removed for performance
         // Before setting listings, if the admin requested price sorting, ensure
         // we sort by USD price on the client. Backend may sort by local price,
         // which leads to incorrect ordering when listings use different currencies.
@@ -314,15 +330,13 @@ const ListingsViewer = ({ navigation }) => {
               }
             } catch (e) {
               // ignore enrichment failures
-              console.debug('Failed to enrich garden options with full list', e?.message || e);
+              // debug log removed
             }
           })();
         } catch (e) {
           console.warn('Failed to derive garden options from listings', e?.message || e);
         }
-        if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
-          console.log('DEBUG: setListings with count =', Array.isArray(pageListings) ? pageListings.length : typeof pageListings, pageListings?.slice?.(0,3));
-        }
+        // debug logs removed for performance
         // ensure pagination uses the page we requested when backend doesn't return one
         // Defensive: compute a sensible pagination fallback using any available counts
         const serverPagination = response.data?.pagination;
@@ -346,7 +360,7 @@ const ListingsViewer = ({ navigation }) => {
             totalItems: totalItemsFallback,
             itemsPerPage: limitToUse,
           };
-          console.log('DEBUG: computed fallback pagination:', respPagination, 'serverPaginationWas:', !!serverPagination);
+          // debug log removed
         }
 
         setPagination(respPagination);
@@ -383,27 +397,7 @@ const ListingsViewer = ({ navigation }) => {
                 // show success toast/alert
                 Alert.alert('Deleted', `Listing ${listing.plantCode} deleted successfully!`);
                 // refresh current page
-                // Defensive extraction: some endpoints or network layers sometimes
-                // wrap payloads differently. Try several common shapes so the UI
-                // remains robust if the response is double-wrapped.
-                let pageListings = [];
-                if (Array.isArray(response?.data?.listings)) {
-                  pageListings = response.data.listings;
-                  if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using response.data.listings, count=', pageListings.length);
-                } else if (Array.isArray(response?.data?.data?.listings)) {
-                  pageListings = response.data.data.listings;
-                  if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using response.data.data.listings, count=', pageListings.length);
-                } else if (Array.isArray(response?.listings)) {
-                  pageListings = response.listings;
-                  if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using response.listings, count=', pageListings.length);
-                } else {
-                  // last-resort: try to find any array on the object named 'listings'
-                  const maybe = Object.values(response || {}).find(v => Array.isArray(v) && v.length && v[0] && (v[0].plantCode || v[0].id || v[0].usdPrice));
-                  if (maybe) {
-                    pageListings = maybe;
-                    if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') console.log('DEBUG: using fallback detected listings array, count=', pageListings.length);
-                  }
-                }
+                await loadListings({ page: pagination.currentPage });
               } else {
                 Alert.alert('Error', resp.error || 'Failed to delete listing');
               }
@@ -453,7 +447,18 @@ const ListingsViewer = ({ navigation }) => {
         } else if (filterLabel === 'Variegation') {
           setVariegationModalVisible(true);
         } else if (filterLabel === 'Listing Type') {
-          setListingTypeModalVisible(true);
+            // If we don't have listing type options yet, trigger the loading
+            // flag immediately so the modal shows the skeleton on pop-in.
+            if (!listingTypeOptionsState || listingTypeOptionsState.length === 0) {
+              // Ensure loading flag is set before opening the modal so the sheet
+              // can render skeletons immediately during pop-in. Use a micro-
+              // task to allow React to process the state update first.
+              setListingTypeLoading(true);
+              setTimeout(() => setListingTypeModalVisible(true), 0);
+            } else {
+              setListingTypeLoading(false);
+              setListingTypeModalVisible(true);
+            }
         } else if (filterLabel === 'Garden') {
           setGardenModalVisible(true);
         } else if (filterLabel === 'Country') {
@@ -466,7 +471,7 @@ const ListingsViewer = ({ navigation }) => {
           setAcclimationIndexModalVisible(true);
         } else {
           // TODO: Open modal for other filters if needed
-          console.log('Filter pressed:', filterLabel);
+          // Filter pressed (debug log removed)
         }
     }
   };
@@ -490,30 +495,138 @@ const ListingsViewer = ({ navigation }) => {
 
   // Genus handlers
   const handleGenusChange = (values) => {
-    setSelectedFilters((prev) => ({ ...prev, genus: Array.isArray(values) ? values : [] }));
+    // If the genus modal is open, update the local draft so user
+    // interactions don't immediately mutate the active filters (and
+    // cause `loadListings` to re-run). If the modal is not open, treat
+    // changes as immediate updates to selectedFilters.
+    const arr = Array.isArray(values) ? values : [];
+    if (genusModalVisible) {
+      setGenusDraft(arr);
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, genus: arr }));
+    }
   };
+
+  // Initialize draft whenever the genus modal opens so the modal reflects
+  // the current committed selection without instantly writing back while
+  // the user toggles options.
+  useEffect(() => {
+    if (genusModalVisible) {
+      try {
+        setGenusDraft(Array.isArray(selectedFilters.genus) ? selectedFilters.genus.slice() : (selectedFilters.genus ? [selectedFilters.genus] : []));
+      } catch (e) {
+        setGenusDraft([]);
+      }
+    }
+  }, [genusModalVisible]);
+
+  // When the modal opens, populate `genusOptionsState` so the modal can
+  // render the list of genus options. We only fetch the dropdown options
+  // (not listings) and do so only if we don't already have cached options.
+  useEffect(() => {
+    if (genusModalVisible && (!genusOptionsState || genusOptionsState.length === 0)) {
+      (async () => {
+        try {
+          setGenusLoading(true);
+          const res = await getAllPlantGenusApi();
+          const mapped = Array.isArray(res?.data ? res.data : res) ? (res.data || res).map((g) => {
+            if (!g) return null;
+            if (typeof g === 'string') return { label: g, value: g, meta: '' };
+            const name = g.genus_name || g.genusName || g.name || g.label || g.value;
+            return { label: name, value: name, meta: g.count ? String(g.count) : '' };
+          }).filter(Boolean) : [];
+          setGenusOptionsState(mapped);
+        } catch (e) {
+          console.warn('Failed to fetch genus options on open', e?.message || e);
+        } finally {
+          setGenusLoading(false);
+        }
+      })();
+    }
+  }, [genusModalVisible]);
   const handleGenusView = () => {
-    setGenusModalVisible(false);
-    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+    (async () => {
+      try {
+        // Commit the draft selections to the active filters so loadListings
+        // runs only now (on View). This avoids re-fetching listings while
+        // the user is still toggling options in the modal.
+        setSelectedFilters((prev) => ({ ...prev, genus: Array.isArray(genusDraft) ? genusDraft : [] }));
+
+        // Ensure genus options are populated for future opens (fetch only if empty)
+        if (!genusOptionsState || genusOptionsState.length === 0) {
+          setGenusLoading(true);
+          const res = await getAllPlantGenusApi();
+          const mapped = Array.isArray(res?.data ? res.data : res) ? (res.data || res).map((g) => {
+            if (!g) return null;
+            if (typeof g === 'string') return { label: g, value: g, meta: '' };
+            const name = g.genus_name || g.genusName || g.name || g.label || g.value;
+            return { label: name, value: name, meta: g.count ? String(g.count) : '' };
+          }).filter(Boolean) : [];
+          setGenusOptionsState(mapped);
+          setGenusLoading(false);
+        }
+      } catch (e) {
+        console.warn('Fetch genus on View failed', e?.message || e);
+      } finally {
+        setGenusModalVisible(false);
+        setPagination((prev) => ({ ...prev, currentPage: 1 }));
+      }
+    })();
   };
 
   // Variegation handlers
   const handleVariegationChange = (values) => {
-    setSelectedFilters((prev) => ({ ...prev, variegation: Array.isArray(values) ? values : [] }));
+    const arr = Array.isArray(values) ? values : [];
+    if (variegationModalVisible) {
+      setVariegationDraft(arr);
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, variegation: arr }));
+    }
   };
   const handleVariegationView = () => {
+    // Commit draft selections and then close modal so loadListings triggers
+    setSelectedFilters((prev) => ({ ...prev, variegation: Array.isArray(variegationDraft) ? variegationDraft : [] }));
     setVariegationModalVisible(false);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
+  // Initialize variegation draft when modal opens so the modal reflects current committed selection
+  useEffect(() => {
+    if (variegationModalVisible) {
+      try {
+        setVariegationDraft(Array.isArray(selectedFilters.variegation) ? selectedFilters.variegation.slice() : (selectedFilters.variegation ? [selectedFilters.variegation] : []));
+      } catch (e) {
+        setVariegationDraft([]);
+      }
+    }
+  }, [variegationModalVisible]);
+
   // Listing Type handlers
   const handleListingTypeChange = (values) => {
-    setSelectedFilters((prev) => ({ ...prev, listingType: Array.isArray(values) ? values : [] }));
+    const arr = Array.isArray(values) ? values : [];
+    if (listingTypeModalVisible) {
+      setListingTypeDraft(arr);
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, listingType: arr }));
+    }
   };
   const handleListingTypeView = () => {
+    // Commit draft selections and then close modal so loadListings triggers
+    setSelectedFilters((prev) => ({ ...prev, listingType: Array.isArray(listingTypeDraft) ? listingTypeDraft : [] }));
     setListingTypeModalVisible(false);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
+
+  // Initialize listingType draft when modal opens so the modal reflects current committed selection
+  useEffect(() => {
+    if (listingTypeModalVisible) {
+      try {
+        setListingTypeDraft(Array.isArray(selectedFilters.listingType) ? selectedFilters.listingType.slice() : (selectedFilters.listingType ? [selectedFilters.listingType] : []));
+      } catch (e) {
+        setListingTypeDraft([]);
+      }
+    }
+  }, [listingTypeModalVisible]);
 
   // Garden handlers
   const handleGardenSelect = (garden) => {
@@ -571,7 +684,7 @@ const ListingsViewer = ({ navigation }) => {
       const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
       // Debug: show count and sample of gardens derived from the full listing fetch
       try {
-        console.debug('DEBUG fetchFullGardenList: total listings fetched=', allListings.length, 'derivedGardensCount=', uniqueGardens.length, 'sample=', uniqueGardens.slice(0, 12));
+  // fetchFullGardenList debug log removed
       } catch (e) { /* ignore */ }
       return uniqueGardens;
     } catch (e) {
@@ -582,18 +695,94 @@ const ListingsViewer = ({ navigation }) => {
 
   // Country handlers
   const handleCountryChange = (values) => {
-    setSelectedFilters((prev) => ({ ...prev, country: Array.isArray(values) ? values : [] }));
+    const arr = Array.isArray(values) ? values : [];
+    if (countryModalVisible) {
+      setCountryDraft(arr);
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, country: arr }));
+    }
   };
   const handleCountryView = () => {
+    // Commit draft and close modal
+    setSelectedFilters((prev) => ({ ...prev, country: Array.isArray(countryDraft) ? countryDraft : [] }));
     setCountryModalVisible(false);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
+  // Shipping Index handlers (draft while modal open)
+  const handleShippingIndexChange = (values) => {
+    // ReusableActionSheet CheckBoxGroup returns array; we want a single value
+    const arr = Array.isArray(values) ? values : [];
+    if (shippingIndexModalVisible) {
+      setShippingIndexDraft(arr);
+    } else {
+      const v = arr.length ? arr[0] : null;
+      setSelectedFilters(prev => ({ ...prev, shippingIndex: v }));
+    }
+  };
+
+  const handleShippingIndexView = () => {
+    const v = Array.isArray(shippingIndexDraft) && shippingIndexDraft.length ? shippingIndexDraft[0] : null;
+    setSelectedFilters(prev => ({ ...prev, shippingIndex: v }));
+    setShippingIndexModalVisible(false);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Initialize shippingIndex draft when modal opens
+  useEffect(() => {
+    if (shippingIndexModalVisible) {
+      try {
+        setShippingIndexDraft(Array.isArray(selectedFilters.shippingIndex) ? selectedFilters.shippingIndex.slice() : (selectedFilters.shippingIndex ? [selectedFilters.shippingIndex] : []));
+      } catch (e) {
+        setShippingIndexDraft([]);
+      }
+    }
+  }, [shippingIndexModalVisible]);
+
+  // Acclimation Index handlers (draft while modal open)
+  const handleAcclimationIndexChange = (values) => {
+    const arr = Array.isArray(values) ? values : [];
+    if (acclimationIndexModalVisible) {
+      setAcclimationIndexDraft(arr);
+    } else {
+      const v = arr.length ? arr[0] : null;
+      setSelectedFilters(prev => ({ ...prev, acclimationIndex: v }));
+    }
+  };
+
+  const handleAcclimationIndexView = () => {
+    const v = Array.isArray(acclimationIndexDraft) && acclimationIndexDraft.length ? acclimationIndexDraft[0] : null;
+    setSelectedFilters(prev => ({ ...prev, acclimationIndex: v }));
+    setAcclimationIndexModalVisible(false);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Initialize acclimationIndex draft when modal opens
+  useEffect(() => {
+    if (acclimationIndexModalVisible) {
+      try {
+        setAcclimationIndexDraft(Array.isArray(selectedFilters.acclimationIndex) ? selectedFilters.acclimationIndex.slice() : (selectedFilters.acclimationIndex ? [selectedFilters.acclimationIndex] : []));
+      } catch (e) {
+        setAcclimationIndexDraft([]);
+      }
+    }
+  }, [acclimationIndexModalVisible]);
+
+  // Initialize country draft when modal opens
+  useEffect(() => {
+    if (countryModalVisible) {
+      try {
+        setCountryDraft(Array.isArray(selectedFilters.country) ? selectedFilters.country.slice() : (selectedFilters.country ? [selectedFilters.country] : []));
+      } catch (e) {
+        setCountryDraft([]);
+      }
+    }
+  }, [countryModalVisible]);
+
   useEffect(() => {
     const loadGenus = async () => {
       try {
-        const res = await getAllPlantGenusApi();
-        console.log('DEBUG: getAllPlantGenusApi response:', res);
+  const res = await getAllPlantGenusApi();
         if (res.success && Array.isArray(res.data)) {
           // Map different possible shapes to {label, value, meta}
           const mapped = res.data.map((g) => {
@@ -606,101 +795,139 @@ const ListingsViewer = ({ navigation }) => {
             const name = g.genus_name || g.genusName || g.name || g.label || g.value;
             return { label: name, value: name, meta: g.count ? String(g.count) : '' };
           }).filter(Boolean);
-          console.log('DEBUG: Mapped genus options:', mapped.slice(0, 20));
+          // Mapped genus options set (debug log removed)
           setGenusOptionsState(mapped);
         } else {
-          console.warn('DEBUG: getAllPlantGenusApi returned no data or not an array');
+          // no data returned for genus API
         }
       } catch (err) {
         console.warn('Failed to load genus options', err);
       }
     };
-    loadGenus();
-    const loadVariegation = async () => {
-      try {
-        const resp = await getVariegationApi();
-        // resp may be { data: [...] } or array
-        const payload = Array.isArray(resp) ? resp : (resp.data || []);
-        const mapped = payload.map(v => (typeof v === 'string' ? { label: v, value: v } : { label: v.name || v.label || v.variegation || v.value, value: v.name || v.label || v.variegation || v.value }));
-        setVariegationOptionsState(mapped);
-      } catch (e) {
-        console.warn('Failed to load variegation options', e?.message || e);
-      }
-    };
-    const loadListingType = async () => {
-      try {
-        const res = await getListingTypeApi();
-        const payload = Array.isArray(res) ? res : (res.data || []);
-        const mapped = payload.map(item => ({ label: item.name || item.listingType || item.label, value: item.name || item.listingType || item.value }));
-        setListingTypeOptionsState(mapped);
-      } catch (err) {
-        console.warn('Failed to load listing type options', err?.message || err);
-      }
-    };
-    loadVariegation();
-    loadListingType();
-    const loadCountries = async () => {
-      try {
-        const res = await getCountryApi();
-        console.log('DEBUG: getCountryApi response:', res);
-        const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
-  // Prefer a standardized country code when available. Avoid using internal doc id as the value.
-  const mapped = payload.map(c => ({ label: c.name || c.country || c.label, value: c.code || c.country || c.name }));
-        console.log('DEBUG: Mapped country options:', mapped.slice(0, 20));
-        setCountryOptionsState(mapped);
-      } catch (err) {
-        console.warn('Failed to load country options', err?.message || err);
-      }
-    };
-    loadCountries();
-      const loadShippingIndexData = async () => {
+    // Intentionally do not pre-load all dropdowns on mount. We'll lazy-load
+    // each filter when the corresponding modal opens to avoid unnecessary
+    // network requests when admins only glance at the listings table.
+  }, []);
+
+  // NOTE: We intentionally do NOT fetch genus options when the modal opens.
+  // The UI should avoid triggering the dropdown API on open; instead the
+  // options are fetched only when the user confirms (presses View) or when
+  // another part of the app has already populated `genusOptionsState`.
+
+  // Lazy-load variegation when modal opens
+  useEffect(() => {
+    if (variegationModalVisible && (!variegationOptionsState || variegationOptionsState.length === 0)) {
+      (async () => {
+        try {
+          setVariegationLoading(true);
+          const resp = await getVariegationApi();
+          const payload = Array.isArray(resp) ? resp : (resp.data || []);
+          const mapped = payload.map(v => (typeof v === 'string' ? { label: v, value: v } : { label: v.name || v.label || v.variegation || v.value, value: v.name || v.label || v.variegation || v.value }));
+          setVariegationOptionsState(mapped);
+        } catch (e) {
+          console.warn('Lazy load variegation failed', e?.message || e);
+        } finally {
+          setVariegationLoading(false);
+        }
+      })();
+    }
+  }, [variegationModalVisible]);
+
+  // Lazy-load listing type when modal opens
+  useEffect(() => {
+    if (listingTypeModalVisible && (!listingTypeOptionsState || listingTypeOptionsState.length === 0)) {
+      setListingTypeLoading(true);
+      (async () => {
+        try {
+          const res = await getListingTypeApi();
+          const payload = Array.isArray(res) ? res : (res.data || []);
+          const mapped = payload.map(item => ({ label: item.name || item.listingType || item.label, value: item.name || item.listingType || item.value }));
+          setListingTypeOptionsState(mapped);
+        } catch (err) {
+          console.warn('Lazy load listing types failed', err?.message || err);
+        } finally {
+          setListingTypeLoading(false);
+        }
+      })();
+    }
+  }, [listingTypeModalVisible]);
+
+  // Lazy-load country options when modal opens
+  useEffect(() => {
+    if (countryModalVisible && (!countryOptionsState || countryOptionsState.length === 0)) {
+      setCountryLoading(true);
+      (async () => {
+        try {
+          const res = await getCountryApi();
+          const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
+          const mapped = payload.map(c => ({ label: c.name || c.country || c.label, value: c.code || c.country || c.name }));
+          setCountryOptionsState(mapped);
+        } catch (err) {
+          console.warn('Lazy load countries failed', err?.message || err);
+        } finally {
+          setCountryLoading(false);
+        }
+      })();
+    }
+  }, [countryModalVisible]);
+
+  // Lazy-load shipping index when modal opens
+  useEffect(() => {
+    if (shippingIndexModalVisible && (!shippingIndexOptions || shippingIndexOptions.length === 0)) {
+      setShippingIndexLoading(true);
+      (async () => {
         try {
           const res = await getShippingIndexApi();
-          console.log('DEBUG: getShippingIndexApi response:', res);
           const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
           const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.shippingIndex || item.label, value: item.name || item.shippingIndex || item.value }));
           setShippingIndexOptions(mapped);
         } catch (err) {
-          console.warn('Failed to load shipping index options', err?.message || err);
+          console.warn('Lazy load shipping index failed', err?.message || err);
+        } finally {
+          setShippingIndexLoading(false);
         }
-      };
-      const loadAcclimationIndexData = async () => {
+      })();
+    }
+  }, [shippingIndexModalVisible]);
+
+  // Lazy-load acclimation index when modal opens
+  useEffect(() => {
+    if (acclimationIndexModalVisible && (!acclimationIndexOptions || acclimationIndexOptions.length === 0)) {
+      setAcclimationIndexLoading(true);
+      (async () => {
         try {
           const res = await getAcclimationIndexApi();
-          console.log('DEBUG: getAcclimationIndexApi response:', res);
           const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
           const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.acclimationIndex || item.label, value: item.name || item.acclimationIndex || item.value }));
           setAcclimationIndexOptions(mapped);
         } catch (err) {
-          console.warn('Failed to load acclimation index options', err?.message || err);
+          console.warn('Lazy load acclimation index failed', err?.message || err);
+        } finally {
+          setAcclimationIndexLoading(false);
         }
-      };
-      loadShippingIndexData();
-      loadAcclimationIndexData();
-    // Populate gardens from the listings themselves. We intentionally avoid
-    // calling getAdminLeafTrailFilters here because the Garden filter should
-    // reflect the gardens present in the current listings data.
-    // The `gardenOptionsState` will be populated after each successful
-    // listings load (see below where setListings is called).
-    const loadFlightDates = async () => {
-      try {
-        const res = await getAdminLeafTrailFilters();
-        console.log('DEBUG: getAdminLeafTrailFilters flightDates:', res?.flightDates || res?.data?.flightDates || []);
-        const payload = res?.flightDates || res?.data?.flightDates || [];
-        const mapped = Array.isArray(payload) ? payload.map(d => (typeof d === 'string' ? d : (d.date || d.flight || String(d)))) : [];
-        setFlightDatesState(mapped);
-      } catch (err) {
-        console.warn('Failed to load flight dates', err?.message || err);
-      }
-    };
-    loadFlightDates();
-  }, []);
+      })();
+    }
+  }, [acclimationIndexModalVisible]);
+
+  // Lazy-load flight dates when plant flight modal opens
+  useEffect(() => {
+    if (flightModalVisible && (!flightDatesState || flightDatesState.length === 0)) {
+      (async () => {
+        try {
+          const res = await getAdminLeafTrailFilters();
+          const payload = res?.flightDates || res?.data?.flightDates || [];
+          const mapped = Array.isArray(payload) ? payload.map(d => (typeof d === 'string' ? d : (d.date || d.flight || String(d)))) : [];
+          setFlightDatesState(mapped);
+        } catch (err) {
+          console.warn('Lazy load flight dates failed', err?.message || err);
+        }
+      })();
+    }
+  }, [flightModalVisible]);
 
   // Debug: log listing count at render-time when price sort is active
   useEffect(() => {
-    if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
-      console.log('DEBUG render-time: selectedFilters.sort=', selectedFilters.sort, 'listings.length=', listings.length);
-    }
+    // render-time debug log removed
   }, [selectedFilters.sort, listings.length]);
 
   const handleSearch = () => {
@@ -727,8 +954,7 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   const handleListingPress = (listing) => {
-    // Log the full listing object when a row is clicked (debugging/inspection)
-    console.log('Listing clicked:', listing);
+  // listing click debug log removed
   };
 
   // Helper function to check if a filter is active
@@ -950,8 +1176,9 @@ const ListingsViewer = ({ navigation }) => {
               visible={genusModalVisible}
               onClose={() => setGenusModalVisible(false)}
               genusOptions={genusOptionsState}
-              genusValue={selectedFilters.genus || []}
+              genusValue={genusModalVisible ? genusDraft : (selectedFilters.genus || [])}
               genusChange={handleGenusChange}
+              genusLoading={genusLoading}
               handleSearchSubmit={handleGenusView}
               clearFilters={() => handleGenusChange([])}
             />
@@ -962,8 +1189,9 @@ const ListingsViewer = ({ navigation }) => {
             visible={variegationModalVisible}
             onClose={() => setVariegationModalVisible(false)}
             variegationOptions={variegationOptionsState}
-            variegationValue={selectedFilters.variegation || []}
+            variegationValue={variegationModalVisible ? variegationDraft : (selectedFilters.variegation || [])}
             variegationChange={handleVariegationChange}
+            variegationLoading={variegationLoading}
             handleSearchSubmit={handleVariegationView}
             clearFilters={() => handleVariegationChange([])}
           />
@@ -974,8 +1202,9 @@ const ListingsViewer = ({ navigation }) => {
             visible={listingTypeModalVisible}
             onClose={() => setListingTypeModalVisible(false)}
             listingTypeOptions={listingTypeOptionsState}
-            listingTypeValue={selectedFilters.listingType || []}
+            listingTypeValue={listingTypeModalVisible ? listingTypeDraft : (selectedFilters.listingType || [])}
             listingTypeChange={handleListingTypeChange}
+            listingTypeLoading={listingTypeLoading}
             handleSearchSubmit={handleListingTypeView}
             clearFilters={() => handleListingTypeChange([])}
           />
@@ -996,7 +1225,7 @@ const ListingsViewer = ({ navigation }) => {
             visible={countryModalVisible}
             onClose={() => setCountryModalVisible(false)}
             countryOptions={countryOptionsState}
-            countryValue={selectedFilters.country || []}
+            countryValue={countryModalVisible ? countryDraft : (selectedFilters.country || [])}
             countryChange={handleCountryChange}
             handleSearchSubmit={handleCountryView}
             clearFilters={() => handleCountryChange([])}
@@ -1008,14 +1237,11 @@ const ListingsViewer = ({ navigation }) => {
               visible={shippingIndexModalVisible}
               onClose={() => setShippingIndexModalVisible(false)}
               shippingIndexOptions={shippingIndexOptions}
-              shippingIndexValue={selectedFilters.shippingIndex ? [selectedFilters.shippingIndex] : []}
-              shippingIndexChange={(vals) => {
-                // ReusableActionSheet's CheckBoxGroup returns array; we want a single value
-                const v = Array.isArray(vals) ? (vals[0] || null) : vals;
-                setSelectedFilters(prev => ({ ...prev, shippingIndex: v }));
-              }}
-              handleSearchSubmit={() => { setShippingIndexModalVisible(false); setPagination(prev => ({ ...prev, currentPage: 1 })); }}
-              clearFilters={() => setSelectedFilters(prev => ({ ...prev, shippingIndex: null }))}
+              shippingIndexValue={shippingIndexModalVisible ? shippingIndexDraft : (selectedFilters.shippingIndex ? [selectedFilters.shippingIndex] : [])}
+              shippingIndexChange={handleShippingIndexChange}
+              shippingIndexLoading={shippingIndexLoading}
+              handleSearchSubmit={handleShippingIndexView}
+              clearFilters={() => { setShippingIndexDraft([]); setSelectedFilters(prev => ({ ...prev, shippingIndex: null })); }}
             />
 
             {/* Acclimation Index Modal (reuse shared ActionSheet) */}
@@ -1024,13 +1250,11 @@ const ListingsViewer = ({ navigation }) => {
               visible={acclimationIndexModalVisible}
               onClose={() => setAcclimationIndexModalVisible(false)}
               acclimationIndexOptions={acclimationIndexOptions}
-              acclimationIndexValue={selectedFilters.acclimationIndex ? [selectedFilters.acclimationIndex] : []}
-              acclimationIndexChange={(vals) => {
-                const v = Array.isArray(vals) ? (vals[0] || null) : vals;
-                setSelectedFilters(prev => ({ ...prev, acclimationIndex: v }));
-              }}
-              handleSearchSubmit={() => { setAcclimationIndexModalVisible(false); setPagination(prev => ({ ...prev, currentPage: 1 })); }}
-              clearFilters={() => setSelectedFilters(prev => ({ ...prev, acclimationIndex: null }))}
+              acclimationIndexValue={acclimationIndexModalVisible ? acclimationIndexDraft : (selectedFilters.acclimationIndex ? [selectedFilters.acclimationIndex] : [])}
+              acclimationIndexChange={handleAcclimationIndexChange}
+              acclimationIndexLoading={acclimationIndexLoading}
+              handleSearchSubmit={handleAcclimationIndexView}
+              clearFilters={() => { setAcclimationIndexDraft([]); setSelectedFilters(prev => ({ ...prev, acclimationIndex: null })); }}
             />
 
           {/* Plant Flight Modal (Admin calendar) */}

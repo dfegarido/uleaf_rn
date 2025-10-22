@@ -1,10 +1,11 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Animated,
 } from 'react-native';
 import ActionSheet from '../ActionSheet/ActionSheet';
 import {RadioButton} from '../RadioButton';
@@ -17,13 +18,19 @@ const ReusableActionSheet = ({
   code,
   visible,
   onClose,
+  genusLoading,
+  variegationLoading,
   sortOptions,
   genusOptions,
   variegationOptions,
   listingTypeOptions,
+  listingTypeLoading,
   countryOptions,
+  countryLoading,
   shippingIndexOptions,
+  shippingIndexLoading,
   acclimationIndexOptions,
+  acclimationIndexLoading,
   priceOptions,
   sortValue,
   sortChange,
@@ -57,6 +64,23 @@ const ReusableActionSheet = ({
   const resetAcclimationIndexSelection = () => acclimationIndexChange([]);
   const resetPriceSelection = () => priceChange('');
 
+  // Simple pulsing skeleton used for variegation placeholders
+  const VariegationSkeleton = ({style}) => {
+    const anim = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: 0.6, duration: 700, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }, [anim]);
+
+    return <Animated.View style={[style, { opacity: anim, backgroundColor: '#e0e0e0' }]} />;
+  };
+
   const renderSheetContent = () => {
     switch (code) {
       case 'STATUS':
@@ -79,7 +103,7 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
+            <View style={{marginBottom: 60, maxHeight: 340}}>
               <CheckBoxGroup
                 options={finalStatusOptions}
                 selectedValues={statusValue}
@@ -92,7 +116,7 @@ const ReusableActionSheet = ({
                 }}
                 labelStyle={{textAlign: 'left'}}
               />
-            </ScrollView>
+            </View>
             <View
               style={{
                 flexDirection: 'row',
@@ -131,7 +155,7 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
+            <ScrollView style={{marginBottom: 60}} nestedScrollEnabled={true}>
               <RadioButton
                 options={sortOptions}
                 selected={sortValue}
@@ -182,7 +206,7 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
+            <ScrollView style={{marginBottom: 60}} nestedScrollEnabled={true}>
               <RadioButton
                 options={priceOptions}
                 selected={priceValue}
@@ -240,34 +264,44 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.genusScroll} contentContainerStyle={{paddingBottom: 90}}>
-              {(!genusOptions || genusOptions.length === 0) ? (
-                <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
+            <ScrollView style={styles.genusScroll} contentContainerStyle={{paddingBottom: 90}} nestedScrollEnabled={true}>
+              {genusLoading ? (
+                // simple skeleton placeholders while genus list loads
+                Array.from({ length: 8 }).map((_, i) => (
+                  <View key={`sk-${i}`} style={[styles.genusRow, {opacity: 0.4}]}> 
+                    <View style={{width:24, height:24, backgroundColor: '#EEE', borderRadius: 4}} />
+                    <View style={{marginLeft: 12, height: 18, width: 220, backgroundColor: '#EEE', borderRadius: 4}} />
+                  </View>
+                ))
               ) : (
-                genusOptions.map((opt, idx) => {
-                  const selected = Array.isArray(genusValue) && genusValue.includes(opt.value);
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={styles.genusRow}
-                      activeOpacity={0.7}
-                      onPress={() => genusChange(Array.isArray(genusValue) ? (selected ? genusValue.filter(v => v !== opt.value) : [...genusValue, opt.value]) : [opt.value])}
-                    >
-                      <View style={styles.genusLeft}>
-                        {/* optional icon placeholder */}
-                        <View style={{width:24, height:24}} />
-                        <Text style={styles.genusLabel}>{opt.label}</Text>
-                      </View>
-
-                      <View style={styles.genusRight}>
-                        <Text style={styles.genusRightText}>{opt.meta || ''}</Text>
-                        <View style={[styles.genusCheckbox, selected ? styles.genusCheckboxChecked : styles.genusCheckboxUnchecked]}>
-                          {selected && <View style={styles.genusCheckboxInner} />}
+                (!genusOptions || genusOptions.length === 0) ? (
+                  <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
+                ) : (
+                  genusOptions.map((opt, idx) => {
+                    const selected = Array.isArray(genusValue) && genusValue.includes(opt.value);
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        style={styles.genusRow}
+                        activeOpacity={0.7}
+                        onPress={() => genusChange(Array.isArray(genusValue) ? (selected ? genusValue.filter(v => v !== opt.value) : [...genusValue, opt.value]) : [opt.value])}
+                      >
+                        <View style={styles.genusLeft}>
+                          {/* optional icon placeholder */}
+                          <View style={{width:24, height:24}} />
+                          <Text style={styles.genusLabel}>{opt.label}</Text>
                         </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
+
+                        <View style={styles.genusRight}>
+                          <Text style={styles.genusRightText}>{opt.meta || ''}</Text>
+                          <View style={[styles.genusCheckbox, selected ? styles.genusCheckboxChecked : styles.genusCheckboxUnchecked]}>
+                            {selected && <View style={styles.genusCheckboxInner} />}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                )
               )}
             </ScrollView>
 
@@ -286,7 +320,8 @@ const ReusableActionSheet = ({
             </View>
           </ActionSheet>
         );
-      case 'VARIEGATION':
+      case 'VARIEGATION': {
+        // Render variegation with explicit conditional blocks to avoid nested ternaries
         return (
           <ActionSheet
             visible={visible}
@@ -299,10 +334,21 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.variegationContent} contentContainerStyle={{paddingBottom: 110}}>
-              {(!variegationOptions || variegationOptions.length === 0) ? (
+            <View style={styles.variegationContent}>
+              {variegationLoading && (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <VariegationSkeleton
+                    key={`var-sk-${i}`}
+                    style={[styles.filterPill, { height: 40, marginBottom: 8, borderRadius: 20, paddingHorizontal: 12, minHeight: 40 }]}
+                  />
+                ))
+              )}
+
+              {!variegationLoading && (!variegationOptions || variegationOptions.length === 0) && (
                 <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
-              ) : (
+              )}
+
+              {!variegationLoading && variegationOptions && variegationOptions.length > 0 && (
                 <View style={styles.variegationPillsContainer}>
                   {variegationOptions
                     .filter(opt => opt.value !== 'Choose the most suitable variegation.')
@@ -310,12 +356,10 @@ const ReusableActionSheet = ({
                       const selected = safeVariegationValue.includes(opt.value);
                       // Outer tap only adds selection when currently unselected. Inner 'x' handles removal.
                       const onOuterPress = () => {
-                        console.log('VARIEGATION: outer press', opt.value, 'selected=', selected);
                         if (selected) return; // let the inner close button handle unselect
                         variegationChange([...safeVariegationValue, opt.value]);
                       };
                       const onClosePress = () => {
-                        console.log('VARIEGATION: close press', opt.value, 'before=', JSON.stringify(safeVariegationValue));
                         variegationChange(safeVariegationValue.filter(v => v !== opt.value));
                       };
 
@@ -350,7 +394,7 @@ const ReusableActionSheet = ({
                     })}
                 </View>
               )}
-            </ScrollView>
+            </View>
 
             <View style={styles.variegationActionRow}>
               <TouchableOpacity onPress={resetSelection} style={styles.variegationActionButton}>
@@ -367,7 +411,9 @@ const ReusableActionSheet = ({
             </View>
           </ActionSheet>
         );
+      }
       case 'LISTINGTYPE':
+        // console.debug('ReusableActionSheet LISTINGTYPE props:', { visible, listingTypeLoading });
         return (
           <ActionSheet
             visible={visible}
@@ -380,24 +426,35 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            {(!listingTypeOptions || listingTypeOptions.length === 0) ? (
-              <Text style={{padding: 20, color: '#7F8D91'}}>
-                No options available
-              </Text>
-            ) : (
-              <CheckBoxGroup
-                options={listingTypeOptions}
-                selectedValues={listingTypeValue}
-                onChange={listingTypeChange}
-                checkboxPosition="right"
-                optionStyle={{
-                  justifyContent: 'space-between',
-                  paddingHorizontal: 20,
-                  paddingBottom: 10,
-                }}
-                labelStyle={{textAlign: 'left'}}
-              />
-            )}
+            {((!listingTypeOptions || listingTypeOptions.length === 0) && visible) ? (
+                <View style={{paddingHorizontal: 0}}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <View key={`lt-row-${i}`} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0'}}>
+                      <VariegationSkeleton style={{width: '70%', height: 16, borderRadius: 6}} />
+                      <VariegationSkeleton style={{width: 20, height: 20, borderRadius: 6, marginLeft: 12}} />
+                    </View>
+                  ))}
+                </View>
+              ) : ((!listingTypeOptions || listingTypeOptions.length === 0) ? (
+                <Text style={{padding: 20, color: '#7F8D91'}}>
+                  No options available
+                </Text>
+              ) : (
+                <View style={{maxHeight: 300, marginBottom: 20}}>
+                  <CheckBoxGroup
+                    options={listingTypeOptions}
+                    selectedValues={listingTypeValue}
+                    onChange={listingTypeChange}
+                    checkboxPosition="right"
+                    optionStyle={{
+                      justifyContent: 'space-between',
+                      paddingHorizontal: 20,
+                      paddingBottom: 10,
+                    }}
+                    labelStyle={{textAlign: 'left'}}
+                  />
+                </View>
+              ))}
 
             <View
               style={{
@@ -445,7 +502,13 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            {(!listingTypeOptions || listingTypeOptions.length === 0) ? (
+            {listingTypeLoading ? (
+              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20, paddingTop: 12}}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <VariegationSkeleton key={`lt-sk-${i}`} style={[styles.filterPill, { height: 40, marginBottom: 8, borderRadius: 20 }]} />
+                ))}
+              </View>
+            ) : ((!listingTypeOptions || listingTypeOptions.length === 0) ? (
               <Text style={{padding: 20, color: '#7F8D91'}}>
                 No options available
               </Text>
@@ -462,7 +525,7 @@ const ReusableActionSheet = ({
                 }}
                 labelStyle={{textAlign: 'left'}}
               />
-            )}
+            ))}
 
             <View
               style={{
@@ -507,8 +570,17 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
-              {(!countryOptions || countryOptions.length === 0) ? (
+            <View style={{marginBottom: 60, maxHeight: 360}}>
+              {((!countryOptions || countryOptions.length === 0) && visible) ? (
+                <View>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <View key={`country-sk-${i}`} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0'}}>
+                      <VariegationSkeleton style={{width: '70%', height: 16, borderRadius: 6}} />
+                      <VariegationSkeleton style={{width: 20, height: 20, borderRadius: 6, marginLeft: 12}} />
+                    </View>
+                  ))}
+                </View>
+              ) : ((!countryOptions || countryOptions.length === 0) ? (
                 <Text style={{padding: 20, color: '#7F8D91'}}>
                   No options available
                 </Text>
@@ -525,8 +597,8 @@ const ReusableActionSheet = ({
                   }}
                   labelStyle={{textAlign: 'left'}}
                 />
-              )}
-            </ScrollView>
+              ))}
+            </View>
             <View
               style={{
                 flexDirection: 'row',
@@ -569,8 +641,17 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
-              {(!shippingIndexOptions || shippingIndexOptions.length === 0) ? (
+            <View style={{marginBottom: 60, maxHeight: 320}}>
+              {(shippingIndexLoading && visible) ? (
+                <View style={{paddingHorizontal: 0}}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <View key={`si-row-${i}`} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0'}}>
+                      <VariegationSkeleton style={{width: '70%', height: 16, borderRadius: 6}} />
+                      <VariegationSkeleton style={{width: 20, height: 20, borderRadius: 6, marginLeft: 12}} />
+                    </View>
+                  ))}
+                </View>
+              ) : ((!shippingIndexOptions || shippingIndexOptions.length === 0) ? (
                 <Text style={{padding: 20, color: '#7F8D91'}}>
                   No options available
                 </Text>
@@ -587,8 +668,8 @@ const ReusableActionSheet = ({
                   }}
                   labelStyle={{textAlign: 'left'}}
                 />
-              )}
-            </ScrollView>
+              ))}
+            </View>
             <View
               style={{
                 flexDirection: 'row',
@@ -631,8 +712,17 @@ const ReusableActionSheet = ({
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{marginBottom: 60}}>
-              {(!acclimationIndexOptions || acclimationIndexOptions.length === 0) ? (
+            <View style={{marginBottom: 60, maxHeight: 320}}>
+              {(acclimationIndexLoading && visible) ? (
+                <View style={{paddingHorizontal: 0}}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <View key={`ai-row-${i}`} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0'}}>
+                      <VariegationSkeleton style={{width: '70%', height: 16, borderRadius: 6}} />
+                      <VariegationSkeleton style={{width: 20, height: 20, borderRadius: 6, marginLeft: 12}} />
+                    </View>
+                  ))}
+                </View>
+              ) : ((!acclimationIndexOptions || acclimationIndexOptions.length === 0) ? (
                 <Text style={{padding: 20, color: '#7F8D91'}}>
                   No options available
                 </Text>
@@ -649,8 +739,8 @@ const ReusableActionSheet = ({
                   }}
                   labelStyle={{textAlign: 'left'}}
                 />
-              )}
-            </ScrollView>
+              ))}
+            </View>
             <View
               style={{
                 flexDirection: 'row',

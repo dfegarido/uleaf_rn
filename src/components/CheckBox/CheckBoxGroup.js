@@ -40,6 +40,11 @@ const CheckBoxGroup = ({
         keyExtractor={(item) => String(item.value)}
         renderItem={renderItem}
         keyboardShouldPersistTaps="handled"
+        // Allow this FlatList to be nested inside ScrollViews used by
+        // various action-sheet/modal wrappers. This avoids the common
+        // runtime warning about VirtualizedLists nested in plain ScrollViews
+        // while preserving native nested scrolling behavior.
+        nestedScrollEnabled={true}
         removeClippedSubviews={true}
         initialNumToRender={20}
         maxToRenderPerBatch={20}
