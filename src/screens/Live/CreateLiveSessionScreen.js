@@ -127,7 +127,7 @@ const CreateLiveSessionScreen = () => {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.goLiveButton} onPress={handleGoLive}>
-          <Text style={styles.goLiveButtonText}>Go Live</Text>
+          <Text style={styles.goLiveButtonText}>Preview Live</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

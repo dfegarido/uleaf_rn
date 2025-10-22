@@ -19,14 +19,15 @@ import {
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
-import GuideIcon from '../../assets/live-icon/guide.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
+import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
 import ShareIcon from '../../assets/live-icon/share.svg';
 import ShopIcon from '../../assets/live-icon/shop.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { generateAgoraToken } from '../../components/Api/agoraLiveApi';
+import CreateLiveListingScreen from './CreateLiveListingScreen'; // Import the modal component
 
 const APP_ID = '8ebb97041b6840eab002f6c0335488f6';
 
@@ -39,6 +40,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [uid, setUid] = useState(userInfo.uid);
   const [error, setError] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
+  const [isCreateListingModalVisible, setCreateListingModalVisible] = useState(false); // New state for modal visibility
 
     // Mocked chat messages
   const chatData = [
@@ -201,8 +203,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               </TouchableOpacity>
               <View style={styles.topAction}>
                 <TouchableOpacity style={styles.guide}>
-                      <GuideIcon width={19} height={19} />
-                      <Text style={styles.guideText}>Guide</Text>
+                      <ReverseCameraIcon width={19} height={19} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.liveViewer}>
                       <ViewersIcon width={24} height={24} />
@@ -236,12 +237,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             </View>
             <View style={styles.sideActions}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                  <LoveIcon width={40} height={40} />
+                  <LoveIcon />
+                  <Text>0</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                  <ShareIcon width={40} height={40} />
+                  <ShareIcon onPress={() => setCreateListingModalVisible(true)} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
+                <TouchableOpacity 
+                  style={styles.sideAction}
+                >
                   <ShopIcon width={40} height={40} />
                 </TouchableOpacity>
             </View>
@@ -280,6 +284,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             </View>
           </>
         )}
+
+        {/* Render the CreateLiveListingScreen as a modal */}
+        <CreateLiveListingScreen
+          isVisible={isCreateListingModalVisible}
+          onClose={() => setCreateListingModalVisible(false)}
+          sessionId={sessionId}
+          navigation={navigation}
+        />
       </SafeAreaView>
     );
 };
@@ -340,6 +352,7 @@ const styles = StyleSheet.create({
   },
   topAction: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 8,
     width: 178,

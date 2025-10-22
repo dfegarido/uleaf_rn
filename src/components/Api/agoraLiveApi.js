@@ -6,7 +6,7 @@ export const generateAgoraToken = async (channelName) => {
 console.log('token', token);
 console.log('channelName', channelName);
 return {
-  token: '007eJxTYOD5upvxlblIh6/JhtiFVm/lfSundeS0NW5Zu+Tx4mPSUSIKDBapSUmW5gYmhklmFiYGqYlJBgZGaWbJBsbGpiYWFmlmxxO+ZTQEMjLMPtLHwsgAgSA+G0NmTmpiWigDAwBq5SA5'
+  token: '007eJxTYJjbfqwt/lHSC7EPRl9urqt/eszh+k2/lDKdwL07ZCfWf5JSYLBITUqyNDcwMUwyszAxSE1MMjAwSjNLNjA2NjWxsEgzm3b5R0ZDICNDsM5PRkYGCATx2Rgyc1IT00IZGAB6VCMA'
 }
     const url = `https://us-central1-i-leaf-u.cloudfunctions.net/generateAgoraToken`
     

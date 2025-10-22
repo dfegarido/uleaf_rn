@@ -687,6 +687,7 @@ const MainStack = () => {
       <Stack.Screen
         name="LiveBroadcastScreen"
         component={LiveBroadcastScreen}
+        options={{headerShown: false}}
       />
 
       <Stack.Screen
