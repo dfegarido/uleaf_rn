@@ -116,6 +116,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
+  const handleSwitchCamera = () => {
+    if (rtcEngineRef.current) {
+      console.log('🔄 Switching camera...');
+      rtcEngineRef.current.switchCamera();
+    }
+  };
+
   useEffect(() => {
     // Fetch the token when the component mounts
     fetchToken();
@@ -307,7 +314,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                       <BackSolidIcon width={24} height={24} color="#333" />
               </TouchableOpacity>
               <View style={styles.topAction}>
-                <TouchableOpacity style={styles.guide}>
+                <TouchableOpacity style={styles.guide} onPress={handleSwitchCamera}>
                       <ReverseCameraIcon width={19} height={19} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.liveViewer}>
