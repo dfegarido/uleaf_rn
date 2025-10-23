@@ -520,14 +520,12 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [genusModalVisible]);
 
-  // When the modal opens, populate `genusOptionsState` so the modal can
-  // render the list of genus options. We only fetch the dropdown options
-  // (not listings) and do so only if we don't already have cached options.
+  // Genus modal fallback - should already be pre-loaded
   useEffect(() => {
     if (genusModalVisible && (!genusOptionsState || genusOptionsState.length === 0)) {
+      setGenusLoading(true);
       (async () => {
         try {
-          setGenusLoading(true);
           const res = await getAllPlantGenusApi();
           const mapped = Array.isArray(res?.data ? res.data : res) ? (res.data || res).map((g) => {
             if (!g) return null;
@@ -537,7 +535,7 @@ const ListingsViewer = ({ navigation }) => {
           }).filter(Boolean) : [];
           setGenusOptionsState(mapped);
         } catch (e) {
-          console.warn('Failed to fetch genus options on open', e?.message || e);
+          console.warn('Fallback genus load failed', e?.message || e);
         } finally {
           setGenusLoading(false);
         }
@@ -779,53 +777,113 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [countryModalVisible]);
 
+  // Pre-load all filter options on component mount for instant modal opening
   useEffect(() => {
-    const loadGenus = async () => {
+    // Pre-load genus options
+    (async () => {
       try {
-  const res = await getAllPlantGenusApi();
-        if (res.success && Array.isArray(res.data)) {
-          // Map different possible shapes to {label, value, meta}
-          const mapped = res.data.map((g) => {
-            if (!g) return null;
-            // shape: string (just genus name)
-            if (typeof g === 'string') return { label: g, value: g, meta: '' };
-            // shape: admin getGenusList object { id, name, receivedPlants }
-            if (g.name) return { label: g.name, value: g.name, meta: (g.listingCount !== undefined ? String(g.listingCount) : (g.receivedPlants ? String(g.receivedPlants) : (g.count ? String(g.count) : ''))) };
-            // shape: dropdown object { id, genus_name, genusName }
-            const name = g.genus_name || g.genusName || g.name || g.label || g.value;
-            return { label: name, value: name, meta: g.count ? String(g.count) : '' };
-          }).filter(Boolean);
-          // Mapped genus options set (debug log removed)
-          setGenusOptionsState(mapped);
-        } else {
-          // no data returned for genus API
-        }
-      } catch (err) {
-        console.warn('Failed to load genus options', err);
+        const res = await getAllPlantGenusApi();
+        const mapped = Array.isArray(res?.data ? res.data : res) ? (res.data || res).map((g) => {
+          if (!g) return null;
+          if (typeof g === 'string') return { label: g, value: g, meta: '' };
+          if (g.name) return { label: g.name, value: g.name, meta: (g.listingCount !== undefined ? String(g.listingCount) : (g.receivedPlants ? String(g.receivedPlants) : (g.count ? String(g.count) : ''))) };
+          const name = g.genus_name || g.genusName || g.name || g.label || g.value;
+          return { label: name, value: name, meta: g.count ? String(g.count) : '' };
+        }).filter(Boolean) : [];
+        setGenusOptionsState(mapped);
+      } catch (e) {
+        console.warn('Failed to pre-load genus options', e?.message || e);
       }
-    };
-    // Intentionally do not pre-load all dropdowns on mount. We'll lazy-load
-    // each filter when the corresponding modal opens to avoid unnecessary
-    // network requests when admins only glance at the listings table.
+    })();
+
+    // Pre-load variegation options
+    (async () => {
+      try {
+        const resp = await getVariegationApi();
+        const payload = Array.isArray(resp) ? resp : (resp.data || []);
+        const mapped = payload.map(v => (typeof v === 'string' ? { label: v, value: v } : { label: v.name || v.label || v.variegation || v.value, value: v.name || v.label || v.variegation || v.value }));
+        setVariegationOptionsState(mapped);
+      } catch (e) {
+        console.warn('Failed to pre-load variegation options', e?.message || e);
+      }
+    })();
+
+    // Pre-load listing type options
+    (async () => {
+      try {
+        const res = await getListingTypeApi();
+        const payload = Array.isArray(res) ? res : (res.data || []);
+        const mapped = payload.map(item => ({ label: item.name || item.listingType || item.label, value: item.name || item.listingType || item.value }));
+        setListingTypeOptionsState(mapped);
+      } catch (err) {
+        console.warn('Failed to pre-load listing types', err?.message || err);
+      }
+    })();
+
+    // Pre-load country options
+    (async () => {
+      try {
+        const res = await getCountryApi();
+        const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
+        const mapped = payload.map(c => ({ label: c.name || c.country || c.label, value: c.code || c.country || c.name }));
+        setCountryOptionsState(mapped);
+      } catch (err) {
+        console.warn('Failed to pre-load countries', err?.message || err);
+      }
+    })();
+
+    // Pre-load shipping index options
+    (async () => {
+      try {
+        const res = await getShippingIndexApi();
+        const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
+        const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.shippingIndex || item.label, value: item.name || item.shippingIndex || item.value }));
+        setShippingIndexOptions(mapped);
+      } catch (err) {
+        console.warn('Failed to pre-load shipping index', err?.message || err);
+      }
+    })();
+
+    // Pre-load acclimation index options
+    (async () => {
+      try {
+        const res = await getAcclimationIndexApi();
+        const payload = Array.isArray(res?.data) ? res.data : (res?.data || []);
+        const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.acclimationIndex || item.label, value: item.name || item.acclimationIndex || item.value }));
+        setAcclimationIndexOptions(mapped);
+      } catch (err) {
+        console.warn('Failed to pre-load acclimation index', err?.message || err);
+      }
+    })();
+
+    // Pre-load flight dates
+    (async () => {
+      try {
+        const res = await getAdminLeafTrailFilters();
+        const payload = res?.flightDates || res?.data?.flightDates || [];
+        const mapped = Array.isArray(payload) ? payload.map(d => (typeof d === 'string' ? d : (d.date || d.flight || String(d)))) : [];
+        setFlightDatesState(mapped);
+      } catch (err) {
+        console.warn('Failed to pre-load flight dates', err?.message || err);
+      }
+    })();
   }, []);
 
-  // NOTE: We intentionally do NOT fetch genus options when the modal opens.
-  // The UI should avoid triggering the dropdown API on open; instead the
-  // options are fetched only when the user confirms (presses View) or when
-  // another part of the app has already populated `genusOptionsState`.
+  // The following useEffects are FALLBACKS only - data is now pre-loaded on mount.
+  // They only run if pre-loading somehow failed.
 
-  // Lazy-load variegation when modal opens
   useEffect(() => {
+    // Variegation - should already be pre-loaded
     if (variegationModalVisible && (!variegationOptionsState || variegationOptionsState.length === 0)) {
+      setVariegationLoading(true);
       (async () => {
         try {
-          setVariegationLoading(true);
           const resp = await getVariegationApi();
           const payload = Array.isArray(resp) ? resp : (resp.data || []);
           const mapped = payload.map(v => (typeof v === 'string' ? { label: v, value: v } : { label: v.name || v.label || v.variegation || v.value, value: v.name || v.label || v.variegation || v.value }));
           setVariegationOptionsState(mapped);
         } catch (e) {
-          console.warn('Lazy load variegation failed', e?.message || e);
+          console.warn('Fallback variegation load failed', e?.message || e);
         } finally {
           setVariegationLoading(false);
         }
@@ -833,8 +891,8 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [variegationModalVisible]);
 
-  // Lazy-load listing type when modal opens
   useEffect(() => {
+    // Listing type - should already be pre-loaded
     if (listingTypeModalVisible && (!listingTypeOptionsState || listingTypeOptionsState.length === 0)) {
       setListingTypeLoading(true);
       (async () => {
@@ -844,7 +902,7 @@ const ListingsViewer = ({ navigation }) => {
           const mapped = payload.map(item => ({ label: item.name || item.listingType || item.label, value: item.name || item.listingType || item.value }));
           setListingTypeOptionsState(mapped);
         } catch (err) {
-          console.warn('Lazy load listing types failed', err?.message || err);
+          console.warn('Fallback listing type load failed', err?.message || err);
         } finally {
           setListingTypeLoading(false);
         }
@@ -852,8 +910,8 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [listingTypeModalVisible]);
 
-  // Lazy-load country options when modal opens
   useEffect(() => {
+    // Country - should already be pre-loaded
     if (countryModalVisible && (!countryOptionsState || countryOptionsState.length === 0)) {
       setCountryLoading(true);
       (async () => {
@@ -863,7 +921,7 @@ const ListingsViewer = ({ navigation }) => {
           const mapped = payload.map(c => ({ label: c.name || c.country || c.label, value: c.code || c.country || c.name }));
           setCountryOptionsState(mapped);
         } catch (err) {
-          console.warn('Lazy load countries failed', err?.message || err);
+          console.warn('Fallback country load failed', err?.message || err);
         } finally {
           setCountryLoading(false);
         }
@@ -871,8 +929,8 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [countryModalVisible]);
 
-  // Lazy-load shipping index when modal opens
   useEffect(() => {
+    // Shipping index - should already be pre-loaded
     if (shippingIndexModalVisible && (!shippingIndexOptions || shippingIndexOptions.length === 0)) {
       setShippingIndexLoading(true);
       (async () => {
@@ -882,7 +940,7 @@ const ListingsViewer = ({ navigation }) => {
           const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.shippingIndex || item.label, value: item.name || item.shippingIndex || item.value }));
           setShippingIndexOptions(mapped);
         } catch (err) {
-          console.warn('Lazy load shipping index failed', err?.message || err);
+          console.warn('Fallback shipping index load failed', err?.message || err);
         } finally {
           setShippingIndexLoading(false);
         }
@@ -890,8 +948,8 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [shippingIndexModalVisible]);
 
-  // Lazy-load acclimation index when modal opens
   useEffect(() => {
+    // Acclimation index - should already be pre-loaded
     if (acclimationIndexModalVisible && (!acclimationIndexOptions || acclimationIndexOptions.length === 0)) {
       setAcclimationIndexLoading(true);
       (async () => {
@@ -901,7 +959,7 @@ const ListingsViewer = ({ navigation }) => {
           const mapped = payload.map(item => (typeof item === 'string' ? { label: item, value: item } : { label: item.name || item.acclimationIndex || item.label, value: item.name || item.acclimationIndex || item.value }));
           setAcclimationIndexOptions(mapped);
         } catch (err) {
-          console.warn('Lazy load acclimation index failed', err?.message || err);
+          console.warn('Fallback acclimation index load failed', err?.message || err);
         } finally {
           setAcclimationIndexLoading(false);
         }
@@ -909,8 +967,8 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [acclimationIndexModalVisible]);
 
-  // Lazy-load flight dates when plant flight modal opens
   useEffect(() => {
+    // Flight dates - should already be pre-loaded
     if (flightModalVisible && (!flightDatesState || flightDatesState.length === 0)) {
       (async () => {
         try {
@@ -919,7 +977,7 @@ const ListingsViewer = ({ navigation }) => {
           const mapped = Array.isArray(payload) ? payload.map(d => (typeof d === 'string' ? d : (d.date || d.flight || String(d)))) : [];
           setFlightDatesState(mapped);
         } catch (err) {
-          console.warn('Lazy load flight dates failed', err?.message || err);
+          console.warn('Fallback flight dates load failed', err?.message || err);
         }
       })();
     }
@@ -1262,9 +1320,14 @@ const ListingsViewer = ({ navigation }) => {
             isVisible={flightModalVisible}
             onClose={() => setFlightModalVisible(false)}
             flightDates={flightDatesState}
+            selectedValue={selectedFilters.plantFlight}
             onSelectFlight={(isoDate) => {
               setSelectedFilters(prev => ({ ...prev, plantFlight: isoDate }));
               setFlightModalVisible(false);
+              setPagination(prev => ({ ...prev, currentPage: 1 }));
+            }}
+            onReset={() => {
+              setSelectedFilters(prev => ({ ...prev, plantFlight: null }));
               setPagination(prev => ({ ...prev, currentPage: 1 }));
             }}
           />

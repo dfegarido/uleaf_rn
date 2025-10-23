@@ -334,7 +334,11 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.variegationContent}>
+            <ScrollView 
+              style={styles.variegationScrollView}
+              contentContainerStyle={styles.variegationContent}
+              nestedScrollEnabled={true}
+            >
               {variegationLoading && (
                 Array.from({ length: 8 }).map((_, i) => (
                   <VariegationSkeleton
@@ -394,7 +398,7 @@ const ReusableActionSheet = ({
                     })}
                 </View>
               )}
-            </View>
+            </ScrollView>
 
             <View style={styles.variegationActionRow}>
               <TouchableOpacity onPress={resetSelection} style={styles.variegationActionButton}>
@@ -888,9 +892,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   /* Variegation styles */
-  variegationContent: {
+  variegationScrollView: {
+    maxHeight: 450,
     paddingTop: 8,
+  },
+  variegationContent: {
     paddingHorizontal: 24,
+    paddingBottom: 90, // Space for action buttons
   },
   variegationPillsContainer: {
     flexDirection: 'row',

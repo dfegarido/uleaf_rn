@@ -10,26 +10,34 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 
-// Represents a single selectable receiver in the list
 const ReceiverItem = ({ name, avatarUrl, onSelect }) => (
   <TouchableOpacity style={styles.receiverItemContainer} onPress={onSelect}>
-    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-    <Text style={styles.receiverName}>{name}</Text>
+    {/* Avatar */}
+    <View style={styles.avatarWrapper}>
+      <View style={styles.avatarContainer}>
+        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+      </View>
+    </View>
+
+    {/* Details */}
+    <View style={styles.detailsContainer}>
+      <Text style={styles.receiverName}>{name}</Text>
+    </View>
   </TouchableOpacity>
 );
 
-const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, receivers }) => {
-  // Mock data for the list of receivers
-  const allReceivers = receivers;
-
+const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receivers = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const scrollRef = React.useRef(null);
 
   // Filter receivers based on the search query
-  const filteredReceivers = allReceivers.filter(receiver => {
+  const filteredReceivers = receivers.filter(receiver => {
     const name = receiver.name || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase())
   });
@@ -37,6 +45,12 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, receivers }) => 
   const handleSelect = (receiver) => {
     onSelectReceiver(receiver?.id || null);
     onClose();
+  };
+
+  const handleReset = () => {
+    if (onReset && typeof onReset === 'function') {
+      onReset();
+    }
   };
 
   return (
@@ -49,52 +63,116 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, receivers }) => 
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={styles.actionSheetContainer}>
-              <SafeAreaView>
-                {/* Header */}
-                <View style={styles.header}>
-                  <Text style={styles.headerTitle}>Receiver</Text>
-                  <TouchableOpacity onPress={onClose}>
-                    <CloseIcon />
+              <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={80}
+              >
+                <SafeAreaView>
+                {/* Title */}
+                <View style={styles.titleContainer}>
+                  <Text style={styles.titleText}>Receiver</Text>
+                  
+                  {/* Close */}
+                  <TouchableOpacity 
+                    style={styles.closeButton}
+                    onPress={onClose}
+                    activeOpacity={0.7}
+                  >
+                    <CloseIcon width={24} height={24} style={styles.closeIcon} />
                   </TouchableOpacity>
                 </View>
 
-                {/* Content Area */}
+                {/* Content */}
                 <View style={styles.contentContainer}>
-                  {/* Search Bar */}
+                  {/* Search Field */}
                   <View style={styles.searchFieldContainer}>
-                    <SearchIcon />
+                    <SearchIcon width={24} height={24} />
                     <TextInput
                       style={styles.textInput}
                       placeholder="Search"
                       placeholderTextColor="#647276"
                       value={searchQuery}
                       onChangeText={setSearchQuery}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          try {
+                            if (scrollRef && scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
+                              scrollRef.current.scrollTo({ y: 0, animated: true });
+                            }
+                          } catch (e) {
+                            // ignore
+                          }
+                        }, 120);
+                      }}
+                      caretColor="#539461"
+                      selectionColor="#539461"
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                      allowFontScaling={false}
+                      editable={true}
                     />
                   </View>
 
-                  {/* Scrollable List of Receivers */}
-                  <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-                    {filteredReceivers.map((receiver, index) => (
-                      <View key={receiver.id}>
-                        <ReceiverItem
-                          name={receiver.name}
-                          avatarUrl={receiver.avatar}
-                          onSelect={() => handleSelect(receiver)}
-                        />
-                        {index < filteredReceivers.length - 1 && <View style={styles.divider} />}
+                  {/* Lists */}
+                  <ScrollView 
+                    ref={scrollRef}
+                    style={styles.listsContainer} 
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={[
+                      styles.listsContentContainer,
+                      filteredReceivers.length === 0 && styles.listsContentContainerEmpty
+                    ]}
+                  >
+                    {filteredReceivers.length === 0 ? (
+                      <View style={styles.emptyStateContainer}>
+                        <Text style={styles.emptyStateText}>No receivers found</Text>
+                        <Text style={styles.emptyStateSubtext}>
+                          {searchQuery ? 'Try adjusting your search' : 'No receiver data available for these orders'}
+                        </Text>
                       </View>
-                    ))}
+                    ) : (
+                      filteredReceivers.map((receiver, index) => (
+                        <View key={receiver.id}>
+                          {/* Social / Option User List */}
+                          <ReceiverItem
+                            name={receiver.name}
+                            avatarUrl={receiver.avatar}
+                            onSelect={() => handleSelect(receiver)}
+                          />
+                          {/* Divider */}
+                          {index < filteredReceivers.length - 1 && (
+                            <View style={styles.dividerWrapper}>
+                              <View style={styles.divider} />
+                            </View>
+                          )}
+                        </View>
+                      ))
+                    )}
                   </ScrollView>
                 </View>
-                
-                {/* Action Button */}
+
+                {/* Action */}
                 <View style={styles.actionContainer}>
-                  <TouchableOpacity style={styles.viewAllButton} onPress={onClose}>
-                    <Text style={styles.viewAllButtonText}>Update Schedule</Text>
+                  {/* Button View */}
+                  <TouchableOpacity 
+                    style={styles.buttonView} 
+                    onPress={onClose}
+                    activeOpacity={0.7}
+                  >
+                    {/* Text */}
+                    <View style={styles.buttonTextContainer}>
+                      <Text style={styles.buttonText}>View All</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
 
-              </SafeAreaView>
+                </SafeAreaView>
+              </KeyboardAvoidingView>
+
+              {/* System / Home Indicator */}
+              <View style={styles.homeIndicator}>
+                <View style={styles.gestureBar} />
+              </View>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -110,34 +188,81 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
+  // Filter: Receiver
+  filterContainer: {
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
+    padding: 0,
+    position: 'relative',
+    width: '100%',
+    height: 569,
+  },
+  // Action Sheet
   actionSheetContainer: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 569, // As per Figma
+    maxHeight: 620,
+    height: '80%',
   },
-  header: {
+  // Title
+  titleContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
+    paddingTop: 24,
+    paddingBottom: 12,
     paddingHorizontal: 24,
+    gap: 16,
+    width: '100%',
     height: 60,
+    backgroundColor: '#FFFFFF',
+    flex: 0,
   },
-  headerTitle: {
+  // Text
+  titleText: {
+    width: 287,
+    height: 24,
     fontFamily: 'Inter',
+    fontStyle: 'normal',
     fontWeight: '700',
     fontSize: 18,
+    lineHeight: 24,
     color: '#202325',
+    flex: 0,
+    flexGrow: 1,
   },
-  closeIconText: {
-    fontSize: 16,
-    color: '#7F8D91',
+  // Close
+  closeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 0,
+    gap: 12,
+    width: 24,
+    height: 24,
+    flex: 0,
   },
+  // Icon
+  closeIcon: {
+    width: 24,
+    height: 24,
+    flex: 0,
+  },
+  // Content
   contentContainer: {
-    paddingHorizontal: 24,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 8,
+    paddingHorizontal: 24,
+    gap: 8,
+    width: '100%',
+    height: 415,
+    flex: 0,
+    alignSelf: 'stretch',
   },
+  // Search Field
   searchFieldContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -146,12 +271,32 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
+    gap: 8,
   },
-  searchIconText: {
-    fontSize: 18,
-    color: '#7F8D91',
-    marginRight: 12,
+  // Text Field
+  textFieldContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+    width: '100%',
+    height: 48,
+    minHeight: 48,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
+    alignSelf: 'stretch',
   },
+  // Icon: Left
+  searchIcon: {
+    width: 24,
+    height: 24,
+    flex: 0,
+  },
+  // Placeholder / Text Input
   textInput: {
     flex: 1,
     fontFamily: 'Inter',
@@ -160,50 +305,219 @@ const styles = StyleSheet.create({
     color: '#202325',
     height: '100%',
   },
-  listContainer: {
+  // Lists
+  listsContainer: {
+    width: '100%',
     height: 343,
-    marginTop: 16,
+    flex: 0,
+    alignSelf: 'stretch',
   },
-  receiverItemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    height: 40,
+  listsContentContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingVertical: 16,
+    paddingHorizontal: 0,
+    gap: 6,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#539461',
-  },
-  receiverName: {
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#202325',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E4E7E9',
-    marginVertical: 8,
-  },
-  actionContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-  },
-  viewAllButton: {
-    backgroundColor: '#F2F7F3',
-    borderRadius: 12,
-    height: 48,
+  listsContentContainerEmpty: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  viewAllButtonText: {
+  // Empty State
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyStateText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 16,
+    color: '#393D40',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 14,
+    color: '#647276',
+    textAlign: 'center',
+  },
+  // Social / Option User List
+  receiverItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 0,
+    width: '100%',
+    height: 39,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  // Avatar wrapper
+  avatarWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 0,
+    gap: 10,
+    width: 40,
+    height: 40,
+    flex: 0,
+  },
+  // Avatar
+  avatarContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 40,
+    minWidth: 40,
+    height: 40,
+    minHeight: 40,
+    borderRadius: 1000,
+    flex: 0,
+  },
+  // avatar image
+  avatar: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#539461',
+    borderRadius: 1000,
+    flex: 0,
+  },
+  // Details
+  detailsContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    width: 279,
+    height: 22,
+    flex: 1,
+    marginLeft: 8,
+  },
+  // Text
+  receiverName: {
+    width: '100%',
+    height: 22,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '700',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#202325',
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  // Divider wrapper
+  dividerWrapper: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    width: '100%',
+    height: 17,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  // Divider
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E4E7E9',
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  // Action
+  actionContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingTop: 12,
+    paddingBottom: 0,
+    paddingHorizontal: 24,
+    gap: 8,
+    width: '100%',
+    height: 60,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  // Reset Button
+  resetButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    height: 48,
+    minHeight: 48,
+    backgroundColor: '#F2F7F3',
+    borderRadius: 12,
+    flex: 1,
+  },
+  resetButtonText: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 16,
     color: '#539461',
+  },
+  // Button View
+  buttonView: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    width: '100%',
+    height: 48,
+    minHeight: 48,
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    flex: 1,
+  },
+  // Text container
+  buttonTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 0,
+    paddingHorizontal: 8,
+    gap: 8,
+    width: 79,
+    height: 16,
+    flex: 0,
+  },
+  // Button text
+  buttonText: {
+    width: 63,
+    height: 16,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 16,
+    color: '#FFFFFF',
+    flex: 0,
+  },
+  // System / Home Indicator
+  homeIndicator: {
+    width: '100%',
+    height: 34,
+    backgroundColor: '#FFFFFF',
+    flex: 0,
+  },
+  // Gesture Bar
+  gestureBar: {
+    position: 'absolute',
+    width: 148,
+    height: 5,
+    left: '50%',
+    marginLeft: -74,
+    bottom: 8,
+    backgroundColor: '#202325',
+    borderRadius: 100,
   },
 });
 

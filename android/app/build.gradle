@@ -89,8 +89,8 @@ android {
         applicationId "com.ileafu"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 21
-    versionName "1.0.17"
+    versionCode 22
+    versionName "1.0.18"
     }
     signingConfigs {
         debug {
