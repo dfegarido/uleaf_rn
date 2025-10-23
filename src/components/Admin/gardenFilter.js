@@ -75,8 +75,15 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
       if (typeof fetchFullGardenList === 'function') {
         payload = await fetchFullGardenList();
       } else {
-        const res = await getAdminLeafTrailFilters();
-        payload = res?.garden || res?.data?.garden || res?.gardenList || [];
+        try {
+          const res = await getAdminLeafTrailFilters();
+          payload = res?.garden || res?.data?.garden || res?.gardenList || [];
+        } catch (apiError) {
+          // If API fails (e.g. for Order Summary which uses different order types),
+          // just use the current gardens list - no additional gardens to fetch
+          console.warn('API call failed, using current gardens only:', apiError?.message || apiError);
+          payload = [];
+        }
       }
     const mapped = Array.isArray(payload) ? payload.map(g => (typeof g === 'string' ? g : (g.name || g.garden || String(g)))) : [];
     // Normalize, clean results: remove falsy values and placeholder 'N/A'
@@ -104,7 +111,8 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
 
       // Clear any active search so the newly-loaded list is visible
       setSearchQuery('');
-      setOverrideGardens(merged);
+      // If we have a merged list with items, use it; otherwise just use current gardens
+      setOverrideGardens(merged.length > 0 ? merged : normalizedCurrent);
       // After the override list is set, wait a short moment for the list to render
       // then scroll to the end so the newly-loaded gardens are visible to the user.
       setTimeout(() => {
@@ -138,8 +146,15 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
       if (typeof fetchFullGardenList === 'function') {
         payload = await fetchFullGardenList();
       } else {
-        const res = await getAdminLeafTrailFilters();
-        payload = res?.garden || res?.data?.garden || res?.gardenList || [];
+        try {
+          const res = await getAdminLeafTrailFilters();
+          payload = res?.garden || res?.data?.garden || res?.gardenList || [];
+        } catch (apiError) {
+          // If API fails (e.g. for Order Summary which uses different order types),
+          // just use the current gardens list - no additional gardens to fetch
+          console.warn('fetchAndMergeToFill API call failed, using current gardens only:', apiError?.message || apiError);
+          payload = [];
+        }
       }
   const mapped = Array.isArray(payload) ? payload.map(g => (typeof g === 'string' ? g : (g.name || g.garden || String(g)))) : [];
   const cleaned = mapped.map(m => normalizeGardenName(m)).filter(Boolean).filter(m => m !== 'N/A');
@@ -208,24 +223,6 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
 
     onSelectGarden(garden);
     onClose();
-  };
-
-  const resetToListingGardens = () => {
-    // New behavior: when the user presses Reset, load the full garden list
-    // (same behavior as View More) so the modal displays all available
-    // garden names. This intentionally replaces the previous snapshot/restore
-    // pattern, because Reset should expose the full option set for admins.
-    (async () => {
-      try {
-        setLoadingAll(true);
-        await fetchAllGardens();
-        setVisiblePage(1);
-      } catch (e) {
-        console.warn('resetToListingGardens: failed to fetch full garden list', e?.message || e);
-      } finally {
-        setLoadingAll(false);
-      }
-    })();
   };
 
   // Reset visible page whenever the source set changes or modal is opened
@@ -341,9 +338,9 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                 </View>
                 
                     {/* Action Buttons */}
-                    <View style={styles.actionContainerRow}>
+                    <View style={styles.actionContainer}>
                       <TouchableOpacity
-                        style={styles.viewMoreButton}
+                        style={styles.showAllButton}
                         onPress={() => {
                           // If there are more local items, just increase visiblePage
                           if (visibleGardens.length < filteredGardens.length) {
@@ -355,10 +352,7 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                         }}
                         disabled={loadingAll}
                       >
-                        {loadingAll ? <ActivityIndicator color="#FFF" /> : <Text style={styles.viewMoreButtonText}>View More</Text>}
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.resetButton} onPress={resetToListingGardens}>
-                        <Text style={styles.resetButtonText}>Reset</Text>
+                        {loadingAll ? <ActivityIndicator color="#FFF" /> : <Text style={styles.showAllButtonText}>View All</Text>}
                       </TouchableOpacity>
                     </View>
 
@@ -498,72 +492,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 12,
   },
-  actionContainerRow: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between'
-  },
   showAllButton: {
     backgroundColor: '#539461',
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
   },
   showAllButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 16,
     color: '#FFFFFF',
-  },
-  viewMoreButton: {
-    backgroundColor: '#539461',
-    borderRadius: 12,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  viewMoreButtonText: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  resetButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#CED8D8',
-    paddingHorizontal: 12,
-    marginRight: 8,
-  },
-  resetButtonText: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#202325',
-  },
-  viewAllButton: {
-    backgroundColor: '#F2F7F3',
-    borderRadius: 12,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewAllButtonText: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#539461',
   },
 });
 

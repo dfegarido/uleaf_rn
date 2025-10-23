@@ -103,7 +103,7 @@ const BusinessPerformance = ({ navigation }) => {
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Sales Report</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity  style={[globalStyles.cardLightAccent, styles.card]}>
+          <TouchableOpacity  style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('OrderSummary')}>
             <OrderSummaryIcon width={40} height={40} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Order Summary</Text>
           </TouchableOpacity>

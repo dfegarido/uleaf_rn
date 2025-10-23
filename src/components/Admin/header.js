@@ -34,7 +34,7 @@ const ScreenHeader = ({
                 <TextInput
                     ref={inputRef}
                     style={styles.headerSearchInput}
-                    placeholder="Search by plant code, or name"
+                    placeholder="Search orders, plants, buyers, gardens..."
                     placeholderTextColor="#647276"
                     value={searchValue}
                     onChangeText={onSearchChange}
