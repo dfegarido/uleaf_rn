@@ -1,3 +1,4 @@
+import { doc, onSnapshot } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +19,7 @@ import {
   RtcSurfaceView,
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../../../firebase'; // Assuming firebase config is here
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
@@ -40,7 +42,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [token, setToken] = useState(null);
   const [uid, setUid] = useState(null);
   const [error, setError] = useState(null);
-  const [viewerCount, setViewerCount] = useState(0);
+  const [liveStats, setLiveStats] = useState({ viewerCount: 0, likeCount: 0 });
   const [isCreateListingModalVisible, setCreateListingModalVisible] = useState(false); // New state for modal visibility
   const [isLiveListingModalVisible, setLiveListingModalVisible] = useState(false); // State for the listings modal
   const [activeListing, setActiveListing] = useState(null); // State for the currently displayed listing
@@ -190,6 +192,29 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
   }, [token, channelName, appId]); // Re-run this effect if the token or channelName changes.
 
+  useEffect(() => {
+    if (!sessionId) return;
+
+    console.log(`Setting up snapshot listener for live session: ${sessionId}`);
+    const sessionDocRef = doc(db, 'live', sessionId);
+
+    const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        console.log('Live session data updated:', data);
+        setLiveStats({
+          viewerCount: data.viewerCount || 0,
+          likeCount: data.likeCount || 0,
+        });
+      } else {
+        console.log('Live session document does not exist.');
+      }
+    });
+
+    // Cleanup listener on component unmount
+    return () => unsubscribe();
+  }, [sessionId]);
+
   // When a new active listing is set from the modal, update the UI
   const handleActiveListingSet = async (listing) => {
     console.log('zxcv');
@@ -246,7 +271,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.liveViewer}>
                       <ViewersIcon width={24} height={24} />
-                      <Text style={styles.liveViewerText}>{viewerCount}</Text>
+                      <Text style={styles.liveViewerText}>{liveStats.viewerCount}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -277,7 +302,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             <View style={styles.sideActions}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
                   <LoveIcon />
-                  <Text>0</Text>
+                  <Text style={styles.sideActionText}>{liveStats.likeCount}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
                   <ShareIcon onPress={() => setCreateListingModalVisible(true)} />
@@ -535,6 +560,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 5,
+  },
+  sideActionText: {
+    ...baseFont,
+    fontWeight: '600',
+    fontSize: 14,
+    marginTop: 4,
   },
   shop: {
     flexDirection: 'column',
