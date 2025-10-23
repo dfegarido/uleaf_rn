@@ -2,6 +2,7 @@ import NetInfo from '@react-native-community/netinfo';
 import React, {
   useContext,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState
 } from 'react';
@@ -33,6 +34,7 @@ import {
   postSellWholesaleOrGrowersPlantApi,
   uploadMultipleImagesToBackend
 } from '../../../components/Api';
+import { getActiveLiveListingApi } from '../../../components/Api/agoraLiveApi';
 import { ImagePickerModal } from '../../../components/ImagePicker';
 import {
   InputBox,
@@ -43,10 +45,7 @@ import {
 import { retryAsync } from '../../../utils/utils';
 import SellConfirmDraft from './components/SellConfirmDraft';
 
-import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
-import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import EditNoteIcon from '../../../assets/icons/greydark/edit-note.svg';
-import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import TrashRedIcon from '../../../assets/icons/red/trash.svg';
 import PlusIcon from '../../../assets/icons/white/plus-regular.svg';
 
@@ -59,9 +58,16 @@ const screenWidth = Dimensions.get('window').width;
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenGrowersSellLive = ({navigation, route}) => {
+const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const [hasActiveLiveListing, setHasActiveLiveListing] = useState(false);
+  
+  useImperativeHandle(publishRef, () => ({
+      triggerChildFunction: () => {
+        onPressPublish('Live');
+      },
+  }));
 
   const routes = useNavigationState(state => state.routes);
   const previousRoute = routes[routes.length - 2]; // Previous screen
@@ -403,6 +409,16 @@ const ScreenGrowersSellLive = ({navigation, route}) => {
       const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
       console.log('✅ Main images uploaded:', uploadedMainImageUrls);
 
+      if (sessionId) {
+              const activeListingRes = await getActiveLiveListingApi(sessionId);
+              console.log('activeListingRes', activeListingRes);
+              
+              if (activeListingRes?.success) {
+                setHasActiveLiveListing(true);
+                setLoading(false);
+              }
+      }
+
       // Upload variation images to Backend API
       console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
       const uploadedPotSizeList = await Promise.all(
@@ -430,7 +446,9 @@ const ScreenGrowersSellLive = ({navigation, route}) => {
         potSize: null,
         localPrice: null,
         approximateHeight: null,
-        status: 'Active',
+        status: 'Live',
+        sessionId: sessionId || null,
+        isActiveLiveListing: !hasActiveLiveListing,
         publishType: 'Publish Now',
         variation: uploadedPotSizeList.map(item => ({
           imagePrimary: item.image,
@@ -614,10 +632,10 @@ const ScreenGrowersSellLive = ({navigation, route}) => {
 
   // Details
   const {
-    plantCode = '',
     availableQty,
-    status,
-    publishType,
+    plantCode = '',
+    status = 'Live',
+    publishType = 'Publish Now',
     onGoBack,
   } = route?.params ?? {};
 
@@ -683,6 +701,13 @@ const ScreenGrowersSellLive = ({navigation, route}) => {
     }
     setLoading(true);
     try {
+      if (sessionId) {
+            const activeListingRes = await getActiveLiveListingApi(sessionId);
+            if (activeListingRes?.success) {
+              setHasActiveLiveListing(true);
+              setLoading(false);
+            }
+      }
       // Upload main listing images to Backend API
       console.log('📤 Uploading', images.length, 'main images to backend...');
       const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
@@ -846,50 +871,8 @@ const ScreenGrowersSellLive = ({navigation, route}) => {
   return (
     <View
       style={[
-        styles.mainContent,
-        {paddingTop: insets.top + 10, paddingBottom: insets.bottom},
+        styles.mainContent
       ]}>
-      {/* Sticky Header */}
-      <View
-        style={[
-          {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingHorizontal: 20,
-            paddingBottom: 10,
-          },
-        ]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[
-            styles.iconButton,
-            {
-              borderWidth: 1,
-              borderColor: '#CDD3D4',
-              padding: 5,
-              borderRadius: 10,
-              backgroundColor: '#fff',
-            },
-          ]}>
-          <LeftIcon width={20} height={20} />
-        </TouchableOpacity>
-        <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
-          Grower's Choice
-        </Text>
-        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
-          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
-            <Text style={globalStyles.textLGAccent}>Save</Text>
-          </TouchableOpacity>
-        )} */}
-        {isFromDuplicateSell || !plantCode || isFromDraftSell ? (
-          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
-            <Text style={globalStyles.textLGAccent}>Save</Text>
-          </TouchableOpacity>
-        ) : (
-          <Text>{''}</Text> // empty string element
-        )}
-      </View>
       <ScrollView
         style={styles.mainContent}
         contentContainerStyle={{
@@ -938,17 +921,6 @@ const ScreenGrowersSellLive = ({navigation, route}) => {
               disabled={dropdownVariegationDisable}
             />
           </View>
-          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-            Can't find genus or species name?
-          </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ScreenProfileRequest')}>
-            <View style={{flexDirection: 'row', paddingTop: 10}}>
-              <QuestionIcon width={20} height={20}></QuestionIcon>
-              <Text style={globalStyles.textMDAccent}> Request here</Text>
-              <ArrowUpIcon width={20} height={20}></ArrowUpIcon>
-            </View>
-          </TouchableOpacity>
         </View>
         {/* Mutations */}
         <View style={styles.formContainer}>
@@ -1105,104 +1077,6 @@ const ScreenGrowersSellLive = ({navigation, route}) => {
               <Text style={globalStyles.grayButtonText}> Add pot size</Text>
             </View>
           </TouchableOpacity>
-        </View>
-
-        {/* Publish buttons */}
-        <View style={styles.formContainer}>
-          <View style={{paddingTop: 30}}>
-            {isFromDuplicateSell == false &&
-              !plantCode == false &&
-              isFromDraftSell == false && (
-                <TouchableOpacity
-                  style={globalStyles.primaryButton}
-                  onPress={() => onPressUpdate('')}>
-                  <Text style={globalStyles.primaryButtonText}>
-                    Update Listing
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-            {isFromDraftSell == true && (
-              <>
-                <TouchableOpacity
-                  style={globalStyles.primaryButton}
-                  onPress={() => onPressUpdate('Active')}>
-                  <Text style={globalStyles.primaryButtonText}>
-                    Publish Now
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                  <TouchableOpacity
-                    onPress={() => onPressUpdate('Scheduled')}
-                    style={globalStyles.secondaryButtonAccent}>
-                    <Text
-                      style={[
-                        globalStyles.textLGAccent,
-                        {textAlign: 'center'},
-                      ]}>
-                      Publish on Nursery Drop
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
-            {isFromDuplicateSell == false &&
-              !plantCode &&
-              isFromDraftSell == false && (
-                <>
-                  <TouchableOpacity
-                    style={globalStyles.primaryButton}
-                    onPress={onPressPublish}>
-                    <Text style={globalStyles.primaryButtonText}>
-                      Publish Now
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View
-                    style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                    <TouchableOpacity
-                      onPress={onPressPublishNurseryDrop}
-                      style={globalStyles.secondaryButtonAccent}>
-                      <Text
-                        style={[
-                          globalStyles.textLGAccent,
-                          {textAlign: 'center'},
-                        ]}>
-                        Publish on Nursery Drop
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-            {isFromDuplicateSell == true && (
-              <>
-                <TouchableOpacity
-                  style={globalStyles.primaryButton}
-                  onPress={onPressPublish}>
-                  <Text style={globalStyles.primaryButtonText}>
-                    Publish Now
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                  <TouchableOpacity
-                    onPress={onPressPublishNurseryDrop}
-                    style={globalStyles.secondaryButtonAccent}>
-                    <Text
-                      style={[
-                        globalStyles.textLGAccent,
-                        {textAlign: 'center'},
-                      ]}>
-                      Publish on Nursery Drop
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
         </View>
 
         {/* Action Sheet */}

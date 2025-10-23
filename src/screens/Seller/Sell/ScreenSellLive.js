@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import { retryAsync } from '../../../utils/utils';
-import ScreenGrowersSellLive from '../../Seller/Sell/ScreenGrowersSell';
+import ScreenGrowersSellLive from '../../Seller/Sell/ScreenGrowersSellLive';
 import ScreenSingleSellLive from '../../Seller/Sell/ScreenSingleSellLive';
 import CarouselSell from './components/CarouselSell';
 
@@ -140,9 +140,9 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId}) 
           </View>
         </Modal>
       )}
-
+      
       {isSinglePlant && (<ScreenSingleSellLive sessionId={sessionId} publishRef={childAddRef} navigation={navigation} />)}
-      {isGrower && (<ScreenGrowersSellLive navigation={navigation} />)}
+      {isGrower && (<ScreenGrowersSellLive sessionId={sessionId} publishRef={childAddRef} navigation={navigation} />)}
 
 
       {!isGrower && !isSinglePlant && (<View style={styles.mainContainer}>

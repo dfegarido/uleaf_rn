@@ -24,8 +24,9 @@ import {
   getSellVariegationApi,
   postSellSinglePlantApi,
   postSellUpdateApi,
-  uploadMultipleImagesToBackend
+  uploadMultipleImagesToBackend,
 } from '../../../components/Api';
+import { getActiveLiveListingApi } from '../../../components/Api/agoraLiveApi';
 import { ImagePickerModal } from '../../../components/ImagePicker';
 import {
   InputBox,
@@ -38,9 +39,6 @@ import { retryAsync } from '../../../utils/utils';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
-import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -63,10 +61,11 @@ import { useNavigationState } from '@react-navigation/native';
 const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const [hasActiveLiveListing, setHasActiveLiveListing] = useState(false);
 
   useImperativeHandle(publishRef, () => ({
       triggerChildFunction: () => {
-        onPressUpdate('Live');
+        onPressPublish();
       },
   }));
 
@@ -342,6 +341,16 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
         throw new Error('No internet connection.');
       }
 
+      if (sessionId) {
+        const activeListingRes = await getActiveLiveListingApi(sessionId);
+        console.log('activeListingRes', activeListingRes);
+        
+        if (activeListingRes?.success) {
+          setHasActiveLiveListing(true);
+          setLoading(false);
+        }
+      }
+
       // Upload images to Backend API (which handles Firebase Storage)
       console.log('📤 Uploading', images.length, 'images to backend...');
       const uploadedUrls = await uploadMultipleImagesToBackend(images);
@@ -361,8 +370,10 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status: 'Active',
+        status: 'Live',
         publishType: 'Publish Now',
+        sessionId: sessionId || null,
+        isActiveLiveListing: !hasActiveLiveListing,
       };
 
       const response = await postSellSinglePlantApi(data);
@@ -515,10 +526,10 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
 
   // Details
   const {
-    plantCode = '',
-    availableQty,
     status = 'Live',
     publishType = 'Publish Now',
+    availableQty,
+    plantCode = '',
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -575,8 +586,6 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
   };
 
   const onPressUpdate = async paramStatus => {
-    
-
     const errors = validateForm();
     if (errors.length > 0) {
       Alert.alert('Validation', errors.join('\n'));
@@ -585,6 +594,16 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
     setLoading(true);
     try {
       let netState = await NetInfo.fetch();
+
+      if (sessionId) {
+        const activeListingRes = await getActiveLiveListingApi(sessionId);
+        console.log('activeListingRes', activeListingRes);
+        
+        if (activeListingRes?.success) {
+          setHasActiveLiveListing(true);
+          setLoading(false);
+        }
+      }
       if (!netState.isConnected || !netState.isInternetReachable) {
         throw new Error('No internet connection.');
       }
@@ -615,7 +634,7 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
             ? status
             : paramStatus,
         sessionId: sessionId || null,
-        isActiveLiveListing: isChecked,
+        isActiveLiveListing: !hasActiveLiveListing,
         publishType:
           isFromDraftSell == false && isFromDuplicateSell == false
             ? publishType
@@ -678,7 +697,8 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
         keyboardDismissMode="on-drag"
         contentContainerStyle={{
           paddingBottom: insets.bottom + 40,
-        }}>
+        }}
+        >
         {loading && (
           <Modal transparent animationType="fade">
             <View style={styles.loadingOverlay}>
@@ -732,17 +752,6 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
               </Text>
             )}
           </View>
-          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-            Can't find genus or species name?
-          </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ScreenProfileRequest')}>
-            <View style={{flexDirection: 'row', paddingTop: 10}}>
-              <QuestionIcon width={20} height={20}></QuestionIcon>
-              <Text style={globalStyles.textMDAccent}> Request here</Text>
-              <ArrowUpIcon width={20} height={20}></ArrowUpIcon>
-            </View>
-          </TouchableOpacity>
         </View>
         <View style={styles.formContainer}>
           <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
@@ -822,6 +831,7 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
                 Local Price <Text style={globalStyles.textXSRed}>*</Text>
               </Text>
               <InputBox
+                isNumeric={true}
                 placeholder={'Enter price'}
                 value={localPrice}
                 setValue={setLocalPrice}></InputBox>

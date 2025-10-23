@@ -64,3 +64,24 @@ export const createLiveSession = async ({ title, coverPhoto, filename, mimeType 
     throw error;
   }
 };
+
+export const getActiveLiveListingApi = async (sessionId) => {
+  try {
+    const token = await getStoredAuthToken();
+    // Use the local development URL for now.
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getActiveLiveListing?sessionId=${sessionId}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error('getActiveLiveListingApi error:', error.message);
+    return error;
+  }
+};
