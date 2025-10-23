@@ -61,8 +61,7 @@ export const getAdminListingsApi = async (filters = {}) => {
     
     const url = `${API_ENDPOINTS.GET_ADMIN_LISTINGS}?${queryParams.toString()}`;
     
-    console.log('Fetching admin listings from:', url);
-    console.log('With filters:', filters);
+  // debug logs removed
     
     const response = await fetch(url, {
       method: 'GET',
@@ -72,7 +71,7 @@ export const getAdminListingsApi = async (filters = {}) => {
       },
     });
 
-    console.log('Response status:', response.status);
+  // response status logging removed
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -83,15 +82,39 @@ export const getAdminListingsApi = async (filters = {}) => {
     }
 
     const data = await response.json();
-    console.log('API response data:', data);
+  // API response logging removed
 
-    // Ensure draft and inactive listings are not returned to the admin UI
+    // If the caller did not request an explicit status filter, apply a
+    // defensive client-side exclusion of drafts/inactive. If the admin did
+    // request status values explicitly (filters.status present), honor the
+    // backend result as-is so admins can view those statuses.
     const EXCLUDED_STATUSES = ['draft', 'inactive'];
     const rawListings = data.data?.listings || [];
-    const filteredListings = rawListings.filter(item => {
-      const st = item?.status ? String(item.status).toLowerCase() : '';
-      return !EXCLUDED_STATUSES.includes(st);
-    });
+  // debug logs removed
+
+    let filteredListings = rawListings;
+    if (!filters.status) {
+      const excludedSet = new Set(EXCLUDED_STATUSES.map(s => s.toLowerCase()));
+      filteredListings = rawListings.filter(item => {
+        const st = item?.status ? String(item.status).toLowerCase() : '';
+        return !excludedSet.has(st);
+      });
+  // debug logs removed
+    } else {
+      // caller requested explicit status - no client-side exclusion performed
+    }
+
+    // If backend returned items but our client-side filter removed all of them,
+    // log statuses and a sample item to help debug unexpected status values.
+    if (rawListings.length > 0 && filteredListings.length === 0) {
+      try {
+        const statuses = rawListings.map(r => r?.status);
+        console.warn('getAdminListingsApi: raw status values:', statuses);
+        console.warn('getAdminListingsApi: sample raw listing[0]:', rawListings[0]);
+      } catch (e) {
+        console.warn('getAdminListingsApi: failed to inspect rawListings', e);
+      }
+    }
 
     return {
       success: true,

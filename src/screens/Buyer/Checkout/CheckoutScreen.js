@@ -41,6 +41,7 @@ import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.s
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import TagIcon from '../../../assets/icons/greylight/tag.svg';
 import { getAddressBookEntriesApi } from '../../../components/Api';
+import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
 import { checkoutApi } from '../../../components/Api/checkoutApi';
 import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
@@ -279,11 +280,13 @@ const CheckoutScreen = () => {
     specialInstructions: 'Leave at front door',
   });
 
-  const [cargoDate, setCargoDate] = useState('2025-02-15');
+  const [cargoDate, setCargoDate] = useState();
   // If buyer has an existing Ready to Fly order, lock the flight date to that order's flight
   const [lockedFlightDate, setLockedFlightDate] = useState(null);
   const [lockedFlightKey, setLockedFlightKey] = useState(null);
   const [checkingOrders, setCheckingOrders] = useState(false);
+  // When true, prevent changing plant flight options (used when an existing order date must be enforced)
+  const [disablePlantFlightSelection, setDisablePlantFlightSelection] = useState(false);
 
   // shimmer animation for skeletons
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -336,6 +339,74 @@ const CheckoutScreen = () => {
       return s.toLowerCase();
     } catch (e) {
       return String(input).toLowerCase();
+    }
+  };
+
+  // Convert various flight date inputs ("Aug 17", "Aug-17", "2025-08-17", "Nov 22") into ISO YYYY-MM-DD
+  const formatFlightDateToISO = (input, fallbackYear) => {
+    if (!input) return null;
+    try {
+      const s = String(input).trim();
+      // If already ISO-like (YYYY-MM-DD), return normalized
+      const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (isoMatch) return s;
+
+      // Try Date.parse first (handles many formats)
+      const parsed = Date.parse(s);
+      if (!isNaN(parsed)) {
+        const dt = new Date(parsed);
+        return dt.toISOString().slice(0, 10);
+      }
+
+      // Try patterns like 'Aug 17' or 'Aug-17' -> attach year
+      const m = s.match(/([A-Za-z]{3,9})\s*-?\s*(\d{1,2})/);
+      if (m && m.length >= 3) {
+        const monthName = m[1];
+        const day = parseInt(m[2], 10);
+        const year = fallbackYear || new Date().getFullYear();
+        const candidate = `${monthName} ${day} ${year}`;
+        const p = Date.parse(candidate);
+        if (!isNaN(p)) {
+          return new Date(p).toISOString().slice(0, 10);
+        }
+      }
+
+      // Last resort: attempt parsing with provided fallbackYear added to plain day
+      if (/^\d{1,2}$/.test(s) && fallbackYear) {
+        const dt = new Date(fallbackYear, 0, parseInt(s, 10));
+        return dt.toISOString().slice(0, 10);
+      }
+
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Format a Date to local YYYY-MM-DD (avoid UTC shift from toISOString)
+  const toLocalISO = (date) => {
+    try {
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d)) return null;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Convert ISO YYYY-MM-DD to a human label like 'Nov 01'
+  const isoToLabel = (iso) => {
+    try {
+      if (!iso) return iso;
+      const d = new Date(iso);
+      if (isNaN(d)) return iso;
+      // e.g. 'Nov 01'
+      return d.toLocaleString('en-US', { month: 'short', day: '2-digit' }).replace(',', '');
+    } catch (e) {
+      return iso;
     }
   };
   // (No longer keeping a ready-to-fly order in state; keep previous behavior)
@@ -509,10 +580,11 @@ const CheckoutScreen = () => {
       baseDate = new Date(currentYear + 1, monthIndex, parseInt(day));
     }
 
-    // Option 1: Use the plant flight date as-is (should already be a Saturday from backend)
+    // Option 1: Use the plant flight date as-is (ISO value, human label)
     options.push({
       label: formatFlightDate(baseDate),
-      value: formatFlightDate(baseDate),
+      value: toLocalISO(baseDate),
+      iso: toLocalISO(baseDate),
       fullDate: baseDate,
     });
 
@@ -520,7 +592,8 @@ const CheckoutScreen = () => {
     const nextSaturday = getNextSaturday(baseDate);
     options.push({
       label: formatFlightDate(nextSaturday),
-      value: formatFlightDate(nextSaturday),
+      value: toLocalISO(nextSaturday),
+      iso: toLocalISO(nextSaturday),
       fullDate: nextSaturday,
     });
 
@@ -528,7 +601,8 @@ const CheckoutScreen = () => {
     const laterSaturday = getNextSaturday(nextSaturday);
     options.push({
       label: formatFlightDate(laterSaturday),
-      value: formatFlightDate(laterSaturday),
+      value: toLocalISO(laterSaturday),
+      iso: toLocalISO(laterSaturday),
       fullDate: laterSaturday,
     });
 
@@ -537,11 +611,34 @@ const CheckoutScreen = () => {
 
   const flightDateOptions = getFlightDateOptions();
 
-  // Initialize selectedFlightDate with the first option
+  // Precompute locking info for flight options to keep JSX clean and avoid inline IIFEs
+  const flightLockInfo = useMemo(() => {
+    const maxOptionIso = (flightDateOptions || []).reduce((acc, o) => {
+      if (!o?.iso) return acc;
+      return acc ? (o.iso > acc ? o.iso : acc) : o.iso;
+    }, null);
+    const lockedIsoForCompare = lockedFlightDate;
+    const forceLockedToGreater = lockedIsoForCompare && maxOptionIso && lockedIsoForCompare > maxOptionIso;
+    const plantIsTH = (plantData?.country || (plantItems && plantItems[0] && plantItems[0].country) || '').toString().toUpperCase() === 'TH';
+    return { maxOptionIso, lockedIsoForCompare, forceLockedToGreater, plantIsTH };
+  }, [flightDateOptions, lockedFlightDate, plantData, plantItems]);
+
+  // Initialize selectedFlightDate with the first option (object {label, iso})
   const [selectedFlightDate, setSelectedFlightDate] = useState(() => {
     const options = getFlightDateOptions();
-    return options[0]?.value || getInitialFlightDate();
+    const first = options[0];
+    if (first) return { label: first.label, iso: first.iso || first.value };
+    const init = getInitialFlightDate();
+    return { label: init, iso: formatFlightDateToISO(init, new Date().getFullYear()) };
   });
+
+  // Keep cargoDate in sync with the selected flight ISO whenever selection changes
+  useEffect(() => {
+    if (selectedFlightDate?.iso && selectedFlightDate.iso !== cargoDate) {
+      console.log('Syncing cargoDate to selected flight iso:', selectedFlightDate.iso);
+      setCargoDate(selectedFlightDate.iso);
+    }
+  }, [selectedFlightDate]);
 
   // Calculate UPS 2nd Day shipping cost based on plant details (matching ScreenPlantDetail logic)
   const calculateUpsShippingCost = () => {
@@ -609,6 +706,40 @@ const CheckoutScreen = () => {
     setShippingCreditsEnabled(!shippingCreditsEnabled);
     
   };
+
+  // Fetch buyer profile and apply shipping defaults (if any)
+  useEffect(() => {
+    let mounted = true;
+    const applyDefaults = async () => {
+      try {
+        const resp = await getBuyerProfileApi();
+        if (!mounted) return;
+        if (resp && resp.data && resp.data.shippingDefaults) {
+          const sd = resp.data.shippingDefaults;
+          if (sd.firstOrderDateISO) {
+            const isoSd = formatFlightDateToISO(sd.firstOrderDateISO, new Date(cargoDate).getFullYear());
+            console.log('Checkout UI - applying buyer default selectedFlightDate (applyDefaults):', { value: isoSd || sd.firstOrderDateISO });
+            const sdObj = { label: sd.firstOrderDateISO, iso: isoSd || sd.firstOrderDateISO };
+            setSelectedFlightDate(sdObj);
+            setLockedFlightDate(sdObj.iso);
+            setLockedFlightKey(normalizeFlightKey(sdObj.iso));
+            // keep cargoDate in sync with the selected plant flight (ISO when possible)
+            if (sdObj.iso) setCargoDate(sdObj.iso);
+            // keep cargoDate in sync with the selected plant flight (ISO when possible)
+            if (isoSd) setCargoDate(isoSd);
+          }
+          if (sd.firstOrderUPS) {
+            // Map stored value to flags used in UI
+            setUpsNextDayEnabled(sd.firstOrderUPS === 'UPS_NEXT_DAY');
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch buyer profile for shipping defaults:', e);
+      }
+    };
+    applyDefaults();
+    return () => { mounted = false; };
+  }, []);
 
   // Prepare plant items for display - handle cart data, direct product data, and buy now
   const plantItems = useMemo(() => {
@@ -830,8 +961,11 @@ const CheckoutScreen = () => {
     if (useCart && cartItems.length > 0) {
       const latestFlightDate = getInitialFlightDate();
       if (latestFlightDate && latestFlightDate !== 'N/A') {
-        setSelectedFlightDate(latestFlightDate);
-        
+  const iso = formatFlightDateToISO(latestFlightDate, new Date(cargoDate).getFullYear());
+  console.log('Checkout UI - setting selectedFlightDate from cart items effect:', { value: iso || latestFlightDate });
+  const obj = { label: latestFlightDate, iso: iso || latestFlightDate };
+  setSelectedFlightDate(obj);
+  if (obj.iso) setCargoDate(obj.iso);
       }
     }
   }, [useCart, cartItems]);
@@ -873,8 +1007,8 @@ const CheckoutScreen = () => {
 
         
 
-        // Find a Ready to Fly order and, if present, lock the flight date to that order's flight
-        const readyOrder = orders.find(o => {
+        // Collect all Ready-to-Fly orders and compute the greatest flight date among them
+        const readyOrders = orders.filter(o => {
           const statusCandidate = (
             o?.status ||
             o?.order?.status ||
@@ -889,33 +1023,70 @@ const CheckoutScreen = () => {
           );
         });
 
-        if (readyOrder && resp?.success !== false) {
-          // Try several places where the flight date might live
-          const flightCandidate =
-            readyOrder.flightDate ||
-            readyOrder.flightDateFormatted ||
-            readyOrder.order?.flightDate ||
-            readyOrder.order?.flightDateFormatted ||
-            (readyOrder.plants && readyOrder.plants[0] && (readyOrder.plants[0].flightDate || readyOrder.plants[0].flightDateFormatted)) ||
-            null;
+        if (readyOrders.length > 0 && resp?.success !== false) {
+          // Map each ready order to an ISO flight date when possible
+          const readyIsos = readyOrders
+            .map(ro => {
+              const candidate =
+                ro.flightDate ||
+                ro.flightDateFormatted ||
+                ro.order?.flightDate ||
+                ro.order?.flightDateFormatted ||
+                (ro.plants && ro.plants[0] && (ro.plants[0].flightDate || ro.plants[0].flightDateFormatted)) ||
+                null;
+              if (!candidate) return null;
+              return formatFlightDateToISO(candidate, new Date().getFullYear());
+            })
+            .filter(Boolean);
 
-          if (flightCandidate) {
-            setLockedFlightDate(flightCandidate);
-            // compute normalized key and attempt to match one of the available options
-            const key = normalizeFlightKey(flightCandidate);
-            setLockedFlightKey(key);
+          // Choose the greatest (latest) ISO date string
+          const greatestIso = readyIsos.length > 0 ? readyIsos.reduce((a, b) => (a > b ? a : b)) : null;
 
-            // try to find an option whose normalized key matches
-            const matched = flightDateOptions.find(opt => normalizeFlightKey(opt.value) === key || normalizeFlightKey(opt.label) === key);
-            if (matched) {
-              setSelectedFlightDate(matched.value);
+          if (greatestIso) {
+            // suggestedOptionIso is the first generated option; prefer comparing against that
+            const suggestedOptionIso = flightDateOptions && flightDateOptions[0] && (flightDateOptions[0].iso || flightDateOptions[0].value);
+            // Normalize both dates to canonical ISO (if possible) before comparing
+            const normalizedGreatest = formatFlightDateToISO(greatestIso, new Date().getFullYear()) || greatestIso;
+            const normalizedSuggested = formatFlightDateToISO(suggestedOptionIso, new Date().getFullYear()) || suggestedOptionIso;
+            console.log('Checkout UI - Ready-to-Fly compare:', { greatestIso, suggestedOptionIso, normalizedGreatest, normalizedSuggested });
+            // If there is an existing Ready-to-Fly order date that is equal or greater than the suggested option,
+            // enforce the existing order date and disable the plant flight selection button.
+            if (suggestedOptionIso && normalizedGreatest && normalizedGreatest >= normalizedSuggested) {
+              console.log('Checkout UI - existing Ready order date is equal/or later than suggested; enforcing existing date and disabling selection:', { normalizedGreatest, normalizedSuggested });
+              setLockedFlightDate(normalizedGreatest);
+              setLockedFlightKey(normalizeFlightKey(normalizedGreatest));
+              // set selection to the existing order date and disable changes
+              const obj = { label: normalizedGreatest, iso: normalizedGreatest };
+              setSelectedFlightDate(obj);
+              setCargoDate(normalizedGreatest);
+              setDisablePlantFlightSelection(true);
             } else {
-              // no exact match — keep selectedFlightDate using normalized representation if possible
-              setSelectedFlightDate(flightCandidate);
+              // Otherwise, allow suggestion/lock behavior as before
+              setLockedFlightDate(greatestIso);
+              const key = normalizeFlightKey(greatestIso);
+              setLockedFlightKey(key);
+
+              // try to match one of the available options
+              const matched = flightDateOptions.find(opt => normalizeFlightKey(opt.iso || opt.value) === key || normalizeFlightKey(opt.label) === key);
+              if (matched) {
+                const iso = formatFlightDateToISO(matched.iso || matched.value, new Date(cargoDate).getFullYear());
+                console.log('Checkout UI - setting selectedFlightDate from matched Ready order option (greatest):', { value: iso || matched.iso || matched.value });
+                const obj = { label: matched.label || matched.value, iso: iso || matched.iso || matched.value };
+                setSelectedFlightDate(obj);
+                if (obj.iso) setCargoDate(obj.iso);
+              } else {
+                console.log('Checkout UI - setting selectedFlightDate from greatest Ready order iso:', { value: greatestIso });
+                const obj = { label: greatestIso, iso: greatestIso };
+                setSelectedFlightDate(obj);
+                if (obj.iso) setCargoDate(obj.iso);
+              }
+              // ensure selection is enabled when suggestion is acceptable
+              setDisablePlantFlightSelection(false);
             }
           } else {
             setLockedFlightDate(null);
             setLockedFlightKey(null);
+            setDisablePlantFlightSelection(false);
           }
 
           const shippingRates = calculateUpsShippingCost();
@@ -942,7 +1113,7 @@ const CheckoutScreen = () => {
     return () => {
       mounted = false;
     };
-  }, [cargoDate, selectedFlightDate]);
+  }, [selectedFlightDate?.iso]);
 
   const orderSummary = useMemo(() => {
     // Calculate default shipping cost
@@ -1289,8 +1460,14 @@ const CheckoutScreen = () => {
   useEffect(() => {
     if (fromBuyNow && plantData) {
       // Update flight date if available from plant data
-      if (plantData.flightDate) {
-        setSelectedFlightDate(plantData.flightDate);
+      // Accept both `flightDate` and the alternative `plantFlightDate` (some payloads use this key)
+      const incomingFlight = plantData.flightDate || plantData.plantFlightDate || plantData.plantFlightDateFormatted;
+      if (incomingFlight) {
+        const iso = formatFlightDateToISO(incomingFlight, new Date(cargoDate).getFullYear());
+        console.log('Checkout UI - applying plantData flight date (fromBuyNow):', { raw: incomingFlight, iso });
+        const obj = { label: incomingFlight, iso: iso || incomingFlight };
+        setSelectedFlightDate(obj);
+        if (obj.iso) setCargoDate(obj.iso);
       }
 
       // Update cargo date if available
@@ -1372,9 +1549,73 @@ const CheckoutScreen = () => {
       setLoading(true);
 
       // Prepare order data for API
+      // Ensure we send a sensible ISO flight date. If the current UI state is missing or unparsable,
+      // try fallbacks: plantData.plantFlightDate, first product's flightDateFormatted, or plantItems[0].flightInfo.
+
+  // Defensive cargo year: fall back to plantData.cargoDate year or current year if cargoDate is not set yet
+  const cargoYear = cargoDate
+    ? new Date(cargoDate).getFullYear()
+    : plantData?.cargoDate
+    ? new Date(plantData.cargoDate).getFullYear()
+    : new Date().getFullYear();
+
+  const parsedSelected = formatFlightDateToISO(selectedFlightDate?.iso || selectedFlightDate, cargoYear);
+    console.log('DEBUG - parsedSelected:', parsedSelected);
+      const fallbackFromProduct = formatFlightDateToISO(productData?.[0]?.flightDateFormatted || productData?.[0]?.flightDate, cargoYear);
+      console.log('DEBUG - fallbackFromProduct:', fallbackFromProduct);
+  const plantRawFlight = plantData?.plantFlightDate || plantData?.flightDate || plantData?.plantFlightDateFormatted || selectedFlightDate?.label;
+  const fallbackFromPlant = formatFlightDateToISO(plantRawFlight, cargoYear);
+      console.log('DEBUG - fallbackFromPlant:', fallbackFromPlant);
+          // Try to derive from plantItems: prefer flightInfo string, then fullDate (Date object), then flightDate
+          let fallbackFromItems = null;
+          const itemCandidate = plantItems?.[0];
+          if (itemCandidate) {
+            if (itemCandidate.flightInfo) {
+              fallbackFromItems = formatFlightDateToISO(itemCandidate.flightInfo, cargoYear);
+            } else if (itemCandidate.fullDate) {
+              // fullDate may be a JS Date — convert to ISO YYYY-MM-DD
+              try {
+                const d = itemCandidate.fullDate instanceof Date ? itemCandidate.fullDate : new Date(itemCandidate.fullDate);
+                if (!isNaN(d)) fallbackFromItems = toLocalISO(d);
+              } catch (e) {
+                /* ignore */
+              }
+            } else if (itemCandidate.flightDate) {
+              fallbackFromItems = formatFlightDateToISO(itemCandidate.flightDate, cargoYear);
+            }
+          }
+          console.log('DEBUG - fallbackFromItems:', fallbackFromItems);
+
+      // Prefer explicit plant flight date for Buy Now flows
+      const selectedFlightDateIso = parsedSelected || fallbackFromPlant || fallbackFromProduct || fallbackFromItems || null;
+
+      // Determine final cargoDate (backend requires this). Prefer the ISO-selected flight.
+      const finalCargoDate = selectedFlightDateIso || cargoDate || fallbackFromItems || null;
+      // Ensure component state is in sync so later effects/readers see the cargo date
+      if (finalCargoDate && finalCargoDate !== cargoDate) {
+        setCargoDate(finalCargoDate);
+      }
+
+      if (!selectedFlightDateIso && plantRawFlight) {
+        // As a last resort, try to build ISO from plantRawFlight explicitly
+        const explicitPlantIso = formatFlightDateToISO(plantRawFlight, cargoYear);
+        if (explicitPlantIso) {
+          console.log('Checkout UI - using explicit plantFlightDate as selectedFlightDateIso:', explicitPlantIso);
+        }
+      }
+      console.log('Preparing order with selectedFlightDateIso:', selectedFlightDateIso, 'finalCargoDate:', finalCargoDate);
+      // If we couldn't resolve a cargo date, block checkout and ask the user to select one.
+      if (!finalCargoDate) {
+        setLoading(false);
+        Alert.alert(
+          'Select Flight',
+          'Please select a plant flight date before placing your order.'
+        );
+        return;
+      }
       const orderData = {
-        cargoDate,
-        selectedFlightDate,
+        cargoDate: finalCargoDate,
+        selectedFlightDate: selectedFlightDateIso,
         deliveryDetails: {
           address: deliveryDetails.address,
           contactPhone: deliveryDetails.contactPhone,
@@ -1410,6 +1651,9 @@ const CheckoutScreen = () => {
           const tmp = current; current = original; original = tmp;
         }
         // Direct purchase from plant detail
+        // Ensure productData uses the plant flight ISO when available
+  const plantFlightIsoForProduct = formatFlightDateToISO(plantData.flightDate || plantData.plantFlightDate || selectedFlightDate?.iso || cargoDate, new Date(cargoDate).getFullYear());
+
         orderData.productData = [
           {
             plantCode: plantCode,
@@ -1421,9 +1665,8 @@ const CheckoutScreen = () => {
             price: current,
             originalPrice: original,
             country: plantData.country,
-            // Include flight/cargo date and plant source country for backend
-            flightDate:
-              plantData.flightDate || plantData.plantFlightDate || cargoDate,
+            // Include flight/cargo date and plant source country for backend (ISO)
+            flightDate: plantFlightIsoForProduct,
             plantSourceCountry:
               plantData.country || plantData.plantSourceCountry || null,
           },
@@ -1459,8 +1702,8 @@ const CheckoutScreen = () => {
             quantity: item.quantity || 1,
             potSize: item.potSize || item.size,
             price: item.price,
-            // Include flight date and plantSourceCountry fields
-            flightDate: item.flightDate || cargoDate,
+            // Include flight date and plantSourceCountry fields (ISO)
+            flightDate: formatFlightDateToISO(item.flightDate || selectedFlightDate || cargoDate, new Date(cargoDate).getFullYear()),
             plantSourceCountry: country,
           };
         });
@@ -1704,30 +1947,63 @@ const CheckoutScreen = () => {
                 ) : (
                   flightDateOptions.map((option, index) => {
                     const optionKey = normalizeFlightKey(option.value) || normalizeFlightKey(option.label);
-                    const isLocked = lockedFlightKey && optionKey !== lockedFlightKey;
+                    // Use precomputed lock info
+                    const { forceLockedToGreater, plantIsTH } = flightLockInfo || {};
+                    // If buyer has a locked Ready-to-Fly flight, decide locking behavior:
+                    // - For TH plants: only allow the exact locked date (others disabled)
+                    // - Otherwise: disable only options earlier than the locked date
+                    let isLocked = false;
+                    if (lockedFlightDate) {
+                      const fallbackYear = cargoDate ? new Date(cargoDate).getFullYear() : (selectedFlightDate?.iso ? new Date(selectedFlightDate.iso).getFullYear() : new Date().getFullYear());
+                      const lockedIso = formatFlightDateToISO(lockedFlightDate, fallbackYear);
+                      if (lockedIso && option.iso) {
+                        if (forceLockedToGreater) {
+                          // If locked date is beyond available options, only allow the lockedIso (others disabled)
+                          isLocked = option.iso !== lockedIso;
+                        } else if (plantIsTH) {
+                          // For TH plants, only the locked date is selectable
+                          isLocked = option.iso !== lockedIso;
+                        } else {
+                          // For others, options earlier than the locked date are disabled
+                          isLocked = option.iso < lockedIso;
+                        }
+                      } else {
+                        // Fallback: preserve previous key-based behavior
+                        if (plantIsTH || forceLockedToGreater) {
+                          isLocked = optionKey !== lockedFlightKey;
+                        } else {
+                          isLocked = lockedFlightKey && optionKey !== lockedFlightKey;
+                        }
+                      }
+                    }
+                    const isEffectivelyLocked = isLocked || disablePlantFlightSelection;
                     return (
                       <TouchableOpacity
                         key={index}
                         style={[
                           styles.optionCard,
-                          selectedFlightDate === option.value
+                          selectedFlightDate?.iso === option.iso
                             ? styles.selectedOptionCard
                             : styles.unselectedOptionCard,
-                          isLocked && styles.mutedOption,
+                          isEffectivelyLocked && styles.mutedOption,
                         ]}
                         onPress={() => {
-                          if (isLocked) return; // prevent selecting non-matching options
-                          setSelectedFlightDate(option.value);
-                        }}
-                        activeOpacity={isLocked ? 1 : 0.7}
-                        disabled={isLocked}>
+                              if (isEffectivelyLocked) return; // prevent selecting non-matching options or enforced lock
+                              const iso = formatFlightDateToISO(option.value, new Date(cargoDate).getFullYear());
+                              console.log('Checkout UI - option pressed:', { optionValue: option.value, optionLabel: option.label, derivedISO: iso });
+                              const obj = { label: option.label, iso: iso || option.value || option.iso };
+                              setSelectedFlightDate(obj);
+                              if (obj.iso) setCargoDate(obj.iso);
+                            }}
+                        activeOpacity={isEffectivelyLocked ? 1 : 0.7}
+                        disabled={isEffectivelyLocked}>
                         <Text
                           style={
-                            selectedFlightDate === option.value
+                            selectedFlightDate?.iso === option.iso
                               ? styles.optionText
                               : styles.unselectedOptionText
                           }>
-                          {option.label}
+                          {option.displayLabel || option.label}
                         </Text>
                         <Text style={styles.optionSubtext}>Sat</Text>
                       </TouchableOpacity>

@@ -103,10 +103,8 @@ const getBaseUrl = () => {
 // Helper function to dynamically switch API environment
 export const setApiEnvironment = (useLocal) => {
   USE_LOCAL_API = useLocal;
-  console.log(`🔄 API Environment switched to: ${useLocal ? 'LOCAL DEVELOPMENT' : 'PRODUCTION'}`);
-  console.log(`🌐 New Base URL: ${getBaseUrl()}`);
-  
-  // Regenerate endpoints with new base URL
+  // Environment switch - minimal logging
+  console.info(`API environment switched to: ${useLocal ? 'LOCAL' : 'PROD'}`);
   updateEndpoints();
 };
 
@@ -265,7 +263,4 @@ export const setApiMode = (useLocal) => {
   setApiEnvironment(useLocal);
 };
 
-// Log current configuration
-console.log('🔧 API Configuration:');
-console.log(`📍 Mode: ${USE_LOCAL_API ? 'LOCAL DEVELOPMENT' : 'PRODUCTION'}`);
-console.log(`🌐 Base URL: ${getBaseUrl()}`);
+// Current API configuration logging suppressed in normal runs. Use getCurrentApiEnvironment() to inspect.
