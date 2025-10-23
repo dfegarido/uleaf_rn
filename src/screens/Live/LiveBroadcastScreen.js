@@ -1,4 +1,12 @@
-import { doc, onSnapshot } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp
+} from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -47,18 +55,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isLiveListingModalVisible, setLiveListingModalVisible] = useState(false); // State for the listings modal
   const [activeListing, setActiveListing] = useState(null); // State for the currently displayed listing
   const [appId, setAppId] = useState('7212620b0b054407926d0a3dc9c69100');
-
-    // Mocked chat messages
-  const chatData = [
-    { id: '1', name: 'Chloe Bennett', message: 'Joined 👋', avatar: 'https://i.pravatar.cc/40?img=1' },
-    { id: '2', name: 'Ashley Carter', message: 'Leaf it to this plant to steal the show 😁', avatar: 'https://i.pravatar.cc/40?img=2' },
-    { id: '3', name: 'Dylan Brooks', message: 'Look at those variegated leaves, absolute stunner!😍', avatar: 'https://i.pravatar.cc/40?img=3' },
-  ];
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
   
   const currentUserInfo = userInfo || asyncUserInfo;
   const [channelName, setChannelName] = useState('ileafU');
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
   const [isLive, setIsLive] = useState(false);
+  const flatListRef = useRef(null);
 
   const updateLiveSessionStatus = async (newStatus) => {
     try {
@@ -215,18 +219,55 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     return () => unsubscribe();
   }, [sessionId]);
 
+  // Effect for fetching comments
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+    const q = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedComments = [];
+      querySnapshot.forEach((doc) => {
+        fetchedComments.push({ id: doc.id, ...doc.data() });
+      });
+      setComments(fetchedComments);
+    });
+
+    return () => unsubscribe();
+  }, [sessionId]);
+
+  useEffect(() => {
+      if (comments.length > 0) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
+  }, [comments]); // This effect runs whenever 'messages' array changes
+
+  const handleSendComment = async () => {
+    if (newComment.trim() === '' || !sessionId || !currentUserInfo) return;
+
+    try {
+      const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+      await addDoc(commentsCollectionRef, {
+        message: newComment,
+        name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
+        avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
+        uid: currentUserInfo.uid,
+        createdAt: serverTimestamp(),
+      });
+      setNewComment(''); // Clear input after sending
+    } catch (error) {
+      console.error('Error sending comment:', error);
+    }
+  };
+
   // When a new active listing is set from the modal, update the UI
   const handleActiveListingSet = async (listing) => {
-    console.log('zxcv');
-    
     if (sessionId) {
         const activeListingRes = await getActiveLiveListingApi(sessionId);
-        console.log('Active listing response:', activeListingRes.success);
             
       if (activeListingRes?.success) {
         setActiveListing(activeListingRes.data);
-        console.log('setActiveListing', setActiveListing);
-        
         setLoading(false);
       }
     }
@@ -280,7 +321,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           <View style={styles.social}>
             <View style={styles.comments}>
               <FlatList
-                data={chatData}
+                ref={flatListRef}
+                data={comments}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <View style={styles.commentRow}>
@@ -293,19 +335,22 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 )}
               />
               <TextInput
-                style={styles.commentInput}
-                placeholder="Comment"
-                placeholderTextColor="#888"
-              />
+                  style={styles.commentInput}
+                  placeholder="Comment"
+                  placeholderTextColor="#888"
+                  value={newComment}
+                  onChangeText={setNewComment}
+                  onSubmitEditing={handleSendComment}
+                />
   
             </View>
             <View style={styles.sideActions}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
+                <TouchableOpacity style={styles.sideAction}>
                   <LoveIcon />
                   <Text style={styles.sideActionText}>{liveStats.likeCount}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                  <ShareIcon onPress={() => setCreateListingModalVisible(true)} />
+                <TouchableOpacity onPress={() => setCreateListingModalVisible(true)}  style={styles.sideAction}>
+                  <ShareIcon />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.sideAction}
@@ -534,6 +579,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 22,
+    color: '#FFF',
   },
   commentInput: {
     flexDirection: 'row',
