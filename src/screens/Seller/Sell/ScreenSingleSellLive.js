@@ -55,10 +55,9 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose}) => {
+const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose, onListingCreated}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
-  const [hasActiveLiveListing, setHasActiveLiveListing] = useState(false);
 
   useImperativeHandle(publishRef, () => ({
       triggerChildFunction: () => {
@@ -326,12 +325,14 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
         throw new Error('No internet connection.');
       }
 
+      let withActiveLiveListing = false;
+
       if (sessionId) {
         const activeListingRes = await getActiveLiveListingApi(sessionId);
-        console.log('activeListingRes', activeListingRes);
+        console.log('Active listing response:', activeListingRes);
         
         if (activeListingRes?.success) {
-          setHasActiveLiveListing(true);
+          withActiveLiveListing = true;
           setLoading(false);
         }
       }
@@ -358,7 +359,7 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
         status: 'Live',
         publishType: 'Publish Now',
         sessionId: sessionId || null,
-        isActiveLiveListing: !hasActiveLiveListing,
+        isActiveLiveListing: !withActiveLiveListing,
       };
 
       const response = await postSellSinglePlantApi(data);
@@ -371,6 +372,7 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
 
       // TODO: Replace this with your actual API call
       // await submitListing(data);
+      onListingCreated(); // Notify parent of new listing
       showAlertSuccess('Publish Now', 'Listing published successfully!');
       onClose();
     } catch (error) {

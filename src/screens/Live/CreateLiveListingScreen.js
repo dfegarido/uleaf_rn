@@ -5,7 +5,7 @@ import CloseIcom from '../../assets/live-icon/close-x.svg';
 import { addListing } from '../../components/Api/listingApi'; // Assuming you have this API function
 import ScreenSellLive from '../Seller/Sell/ScreenSellLive';
 
-const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId }) => {
+const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId, onListingCreated }) => {
   // const route = useRoute(); // No longer needed as sessionId is passed as prop
   // const { sessionId } = route.params; // No longer needed
 
@@ -115,7 +115,7 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId }) 
             </View>
 
       <ScrollView style={styles.container}>
-        <ScreenSellLive onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
+        <ScreenSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
         {/* <Text style={styles.label}>Genus</Text>
         <TextInput
           style={styles.input}

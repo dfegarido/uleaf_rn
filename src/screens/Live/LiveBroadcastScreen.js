@@ -26,21 +26,25 @@ import ShopIcon from '../../assets/live-icon/shop.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../auth/AuthProvider';
-import { generateAgoraToken } from '../../components/Api/agoraLiveApi';
+import { generateAgoraToken, getActiveLiveListingApi, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen'; // Import the modal component
+import LiveListingsModal from './LiveListingsModal'; // Import the new modal
 
-const APP_ID = '8ebb97041b6840eab002f6c0335488f6';
+// const APP_ID = '7212620b0b054407926d0a3dc9c69100';
 
 const LiveBroadcastScreen = ({navigation, route}) => {
   const { userInfo } = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const rtcEngineRef = useRef(null);
   const [joined, setJoined] = useState(false);
-  const [token, setToken] = useState('');
-  const [uid, setUid] = useState(userInfo.uid);
+  const [token, setToken] = useState(null);
+  const [uid, setUid] = useState(null);
   const [error, setError] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [isCreateListingModalVisible, setCreateListingModalVisible] = useState(false); // New state for modal visibility
+  const [isLiveListingModalVisible, setLiveListingModalVisible] = useState(false); // State for the listings modal
+  const [activeListing, setActiveListing] = useState(null); // State for the currently displayed listing
+  const [appId, setAppId] = useState('7212620b0b054407926d0a3dc9c69100');
 
     // Mocked chat messages
   const chatData = [
@@ -52,16 +56,31 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const currentUserInfo = userInfo || asyncUserInfo;
   const [channelName, setChannelName] = useState('ileafU');
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
+  const [isLive, setIsLive] = useState(false);
 
+  const updateLiveSessionStatus = async (newStatus) => {
+    try {
+      const response = await updateLiveSessionStatusApi(sessionId, newStatus);
+      console.log('Live session status updated:', response);  
+      if (response?.success && response?.newStatus === 'live') {
+        setIsLive(true);
+      } else {
+        setIsLive(false);
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error('Error updating live session status:', error);
+    }
+  }
 
   const fetchToken = async () => {
     try {
       const response = await generateAgoraToken(channelName);
+      console.log('Fetched token response:', response);
       
-      console.log('New token:', response);
-      
-      // Update token state
       setToken(response.token);
+      setAppId(response.appId);
+      setUid(response.agoraUid);
       
     } catch (error) {
       console.error('Error fetching token:', error);
@@ -76,8 +95,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       // you would make an API call to get a fresh token
       console.log('⚠️ Token expired, fetching new token');
       
-      const response = await generateAgoraToken(channelName);
+      const response = await generateAgoraToken(channelName, uid);
+            console.log('Fetched token response:', response);
       setToken(response.token);
+      setAppId(response.appId);
+      setUid(response.agoraUid);
       // Rejoin channel with the new token
       if (rtcEngineRef.current) {
         console.log('🔄 Rejoining channel with new token');
@@ -90,7 +112,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   useEffect(() => {
     // Fetch the token when the component mounts
-    setUid(userInfo.uid);
     fetchToken();
 
     // Ensure the engine is released before starting.
@@ -123,7 +144,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
-        appId: APP_ID,
+        appId: appId,
         channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
       rtc.registerEventHandler({
@@ -167,7 +188,25 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     return () => {
       cleanup();
     };
-  }, [token, channelName]); // Re-run this effect if the token or channelName changes
+  }, [token, channelName, appId]); // Re-run this effect if the token or channelName changes.
+
+  // When a new active listing is set from the modal, update the UI
+  const handleActiveListingSet = async (listing) => {
+    console.log('zxcv');
+    
+    if (sessionId) {
+        const activeListingRes = await getActiveLiveListingApi(sessionId);
+        console.log('Active listing response:', activeListingRes.success);
+            
+      if (activeListingRes?.success) {
+        setActiveListing(activeListingRes.data);
+        console.log('setActiveListing', setActiveListing);
+        
+        setLoading(false);
+      }
+    }
+    
+  };
 
   return (
        <SafeAreaView style={styles.container}>
@@ -198,7 +237,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         {joined && (
           <>
             <View style={styles.topBar}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.backButton}>
                       <BackSolidIcon width={24} height={24} color="#333" />
               </TouchableOpacity>
               <View style={styles.topAction}>
@@ -243,45 +282,56 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
                   <ShareIcon onPress={() => setCreateListingModalVisible(true)} />
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.sideAction}
+                  onPress={() => setLiveListingModalVisible(true)} // Open the listings modal
                 >
                   <ShopIcon width={40} height={40} />
                 </TouchableOpacity>
             </View>
           </View>
-          <View style={styles.shop}>
-              <View style={styles.plant}>
-                <View style={styles.plantDetails}>
-                  <View style={styles.plantName}>
-                    <Text style={styles.name}>Coriandrum Sativum</Text>
-                    <Text style={styles.variegation}>Inner Variegated · 2”–4”</Text>
-                  </View>
-                  <View style={styles.price}>
-                    <Text style={styles.plantPrice}>$48.95</Text>
-                    <View style={styles.discount}>
-                      <Text style={styles.discountText}>33% OFF</Text>
+          {activeListing && (
+            <View style={styles.shop}>
+                <View style={styles.plant}>
+                  <View style={styles.plantDetails}>
+                    <View style={styles.plantName}>
+                      <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
+                      <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text>
                     </View>
+                    <View style={styles.price}>
+                      <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
+                      {/* Discount logic can be added here if available in data */}
+                      {/* <View style={styles.discount}>
+                        <Text style={styles.discountText}>33% OFF</Text>
+                      </View> */}
+                    </View>
+                    
                   </View>
-                  
+                  <View style={styles.shipping}>
+                      <View style={styles.shippingType}>
+                        <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
+                      </View>
+                      <View style={styles.shipDays}>
+                        <TruckIcon width={24} height={24} />
+                        {/* Shipping info can be added if available */}
+                        <Text style={styles.shipText}>UPS 2nd Day $50</Text>
+                      </View>
+                    </View>
                 </View>
-                <View style={styles.shipping}>
-                    <View style={styles.shippingType}>
-                      <Text style={styles.shippingDetails}>Grower’s Choice</Text>
-                    </View>
-                    <View style={styles.shipDays}>
-                      <TruckIcon width={24} height={24} />
-                      <Text style={styles.shipText}>UPS 2nd Day $50</Text>
-                    </View>
-                  </View>
-              </View>
-              <View style={styles.actionButton}>
-                <TouchableOpacity style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Buy Now</Text>
-                </TouchableOpacity>
-              </View>
-          </View>
+                <View style={styles.actionButton}>
+                  {!isLive && (<TouchableOpacity onPress={() => updateLiveSessionStatus('live')} style={styles.actionButtonTouch}>
+                    <Text style={styles.actionText}>Go Live</Text>
+                  </TouchableOpacity>)}
+                  {isLive && (<TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.actionEndButtonTouch}>
+                    <Text style={styles.actionText}>End Live</Text>
+                  </TouchableOpacity>)}
+                </View>
             </View>
+          )}
+          {!activeListing && (<View style={styles.shop}>
+              <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
+            </View>)}
+          </View>
           </>
         )}
 
@@ -289,8 +339,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         <CreateLiveListingScreen
           isVisible={isCreateListingModalVisible}
           onClose={() => setCreateListingModalVisible(false)}
+          onListingCreated={handleActiveListingSet}
           sessionId={sessionId}
           navigation={navigation}
+        />
+
+        <LiveListingsModal
+          isVisible={isLiveListingModalVisible}
+          onClose={() => setLiveListingModalVisible(false)}
+          sessionId={sessionId}
+          onActiveListingSet={handleActiveListingSet}
         />
       </SafeAreaView>
     );
@@ -599,6 +657,15 @@ const styles = StyleSheet.create({
     width: 327,
     height: 48,
     backgroundColor: '#539461',
+    borderRadius: 12,
+  },
+  actionEndButtonTouch: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
+    width: 327,
+    height: 48,
+    backgroundColor: '#E7522F',
     borderRadius: 12,
   },
   actionText: {

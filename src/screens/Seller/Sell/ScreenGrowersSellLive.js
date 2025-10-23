@@ -54,10 +54,9 @@ const screenWidth = Dimensions.get('window').width;
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClose}) => {
+const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClose, onListingCreated}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
-  const [hasActiveLiveListing, setHasActiveLiveListing] = useState(false);
   
   useImperativeHandle(publishRef, () => ({
       triggerChildFunction: () => {
@@ -391,13 +390,13 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
       console.log('📤 Uploading', images.length, 'main images to backend...');
       const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
       console.log('✅ Main images uploaded:', uploadedMainImageUrls);
-
+      let withActiveLiveListing = false;
       if (sessionId) {
               const activeListingRes = await getActiveLiveListingApi(sessionId);
               console.log('activeListingRes', activeListingRes);
               
               if (activeListingRes?.success) {
-                setHasActiveLiveListing(true);
+                withActiveLiveListing = true;
                 setLoading(false);
               }
       }
@@ -431,7 +430,7 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
         approximateHeight: null,
         status: 'Live',
         sessionId: sessionId || null,
-        isActiveLiveListing: !hasActiveLiveListing,
+        isActiveLiveListing: !withActiveLiveListing,
         publishType: 'Publish Now',
         variation: uploadedPotSizeList.map(item => ({
           imagePrimary: item.image,
@@ -449,12 +448,9 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
         throw new Error(response?.message || 'Publish now failed.');
       }
 
-      // TODO: Replace this with your actual API call
-      // await submitListing(data);
-
+      onListingCreated(); // Notify parent of new listing
       showAlertSuccess('Publish Now', 'Listing published successfully!');
       onClose();
-      // Alert.alert('Publish Now', 'Listing published successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish Now', error.message);
