@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import CloseIcom from '../../assets/live-icon/close-x.svg';
@@ -16,6 +16,21 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId }) 
   const [imagePrimary, setImagePrimary] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [goBackButtonVisible, setOnGobackModalVisible] = useState(false);
+
+  const childBackRef = useRef(null);
+  const childAddRef = useRef(null);
+
+  const handleParentBackButtonClick = () => {
+    if (childBackRef.current) {
+      childBackRef.current.triggerChildFunction(); // Call the exposed child function
+    }
+  };
+
+  const handleParentAddButtonClick = () => {
+    if (childAddRef.current) {
+      childAddRef.current.triggerChildFunction(); // Call the exposed child function
+    }
+  };
 
   const goBackButton = () => {
     setOnGobackModalVisible(!goBackButtonVisible);
@@ -100,7 +115,7 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId }) 
             </View>
 
       <ScrollView style={styles.container}>
-        <ScreenSellLive navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
+        <ScreenSellLive sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
         {/* <Text style={styles.label}>Genus</Text>
         <TextInput
           style={styles.input}
@@ -148,10 +163,10 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId }) 
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.goLiveButton}>
+        <TouchableOpacity style={styles.goLiveButton} onPress={handleParentAddButtonClick}>
           <Text style={styles.goLiveButtonText}>Add Listing to Live</Text>
         </TouchableOpacity>
-        {goBackButtonVisible && (<TouchableOpacity style={styles.goBackButton} onPress={goBackButton}>
+        {goBackButtonVisible && (<TouchableOpacity style={styles.goBackButton} onPress={handleParentBackButtonClick}>
           <Text style={styles.goBackButtonText}>Back</Text>
         </TouchableOpacity>)}
       </View>

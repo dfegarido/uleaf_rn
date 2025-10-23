@@ -1,5 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -60,9 +60,15 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route}) => {
+const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+
+  useImperativeHandle(publishRef, () => ({
+      triggerChildFunction: () => {
+        onPressUpdate('Live');
+      },
+  }));
 
   const routes = useNavigationState(state => state.routes);
   const previousRoute = routes[routes.length - 2]; // Previous screen
@@ -511,8 +517,8 @@ const ScreenSingleSellLive = ({navigation, route}) => {
   const {
     plantCode = '',
     availableQty,
-    status,
-    publishType,
+    status = 'Live',
+    publishType = 'Publish Now',
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -569,6 +575,8 @@ const ScreenSingleSellLive = ({navigation, route}) => {
   };
 
   const onPressUpdate = async paramStatus => {
+    
+
     const errors = validateForm();
     if (errors.length > 0) {
       Alert.alert('Validation', errors.join('\n'));
@@ -606,12 +614,15 @@ const ScreenSingleSellLive = ({navigation, route}) => {
           isFromDraftSell == false && isFromDuplicateSell == false
             ? status
             : paramStatus,
+        sessionId: sessionId || null,
+        isActiveLiveListing: isChecked,
         publishType:
           isFromDraftSell == false && isFromDuplicateSell == false
             ? publishType
             : paramStatus == 'Active'
             ? 'Publish Now'
             : 'Publish on Nursery Drop',
+            
       };
       // console.log(data);
       const response = await postSellUpdateApi(data);
@@ -796,8 +807,11 @@ const ScreenSingleSellLive = ({navigation, route}) => {
           </Text>
           <View
             style={{
-              flexDirection: 'row',
+              flexDirection: 'column',
               justifyContent: 'space-between',
+              gap: 10,
+              alignItems: 'center',
+              alignContent: 'center',
               marginVertical: 10,
             }}>
             {renderPotSizes()}
@@ -818,9 +832,11 @@ const ScreenSingleSellLive = ({navigation, route}) => {
               </Text>
               <View
                 style={{
-                  flexDirection: 'row',
-                  marginTop: 10,
+                  flexDirection: 'column',
                   justifyContent: 'space-between',
+                  gap: 10,
+                  alignItems: 'center',
+                  alignContent: 'center',
                 }}>
                 {renderHeightOptions()}
               </View>
@@ -842,86 +858,6 @@ const ScreenSingleSellLive = ({navigation, route}) => {
                 </TouchableOpacity>
               )}
 
-            {isFromDraftSell == true && (
-              <>
-                <TouchableOpacity
-                  style={globalStyles.primaryButton}
-                  onPress={() => onPressUpdate('Active')}>
-                  <Text style={globalStyles.primaryButtonText}>
-                    Publish Now
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                  <TouchableOpacity
-                    onPress={() => onPressUpdate('Scheduled')}
-                    style={globalStyles.secondaryButtonAccent}>
-                    <Text
-                      style={[
-                        globalStyles.textLGAccent,
-                        {textAlign: 'center'},
-                      ]}>
-                      Publish on Nursery Drop
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
-            {isFromDuplicateSell == false &&
-              !plantCode &&
-              isFromDraftSell == false && (
-                <>
-                  <TouchableOpacity
-                    style={globalStyles.primaryButton}
-                    onPress={onPressPublish}>
-                    <Text style={globalStyles.primaryButtonText}>
-                      Publish Now
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View
-                    style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                    <TouchableOpacity
-                      onPress={onPressPublishNurseryDrop}
-                      style={globalStyles.secondaryButtonAccent}>
-                      <Text
-                        style={[
-                          globalStyles.textLGAccent,
-                          {textAlign: 'center'},
-                        ]}>
-                        Publish on Nursery Drop
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-            {isFromDuplicateSell == true && (
-              <>
-                <TouchableOpacity
-                  style={globalStyles.primaryButton}
-                  onPress={onPressPublish}>
-                  <Text style={globalStyles.primaryButtonText}>
-                    Publish Now
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-                  <TouchableOpacity
-                    onPress={onPressPublishNurseryDrop}
-                    style={globalStyles.secondaryButtonAccent}>
-                    <Text
-                      style={[
-                        globalStyles.textLGAccent,
-                        {textAlign: 'center'},
-                      ]}>
-                      Publish on Nursery Drop
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
           </View>
         </View>
       </ScrollView>

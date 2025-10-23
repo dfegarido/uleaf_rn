@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,7 +31,7 @@ import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
 const screenWidth = Dimensions.get('window').width;
 
-const ScreenSellLive = ({navigation, goBackButton}) => {
+const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId}) => {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
 
@@ -45,6 +45,23 @@ const ScreenSellLive = ({navigation, goBackButton}) => {
   const [showSheet, setShowSheet] = useState(false);
   const [isSinglePlant, setIsSinglePlant] = useState(false);
   const [isGrower, setIsGrower] = useState(false);
+
+  useImperativeHandle(backRef, () => ({
+    triggerChildFunction: () => {
+      setIsGrower(false);
+      setIsSinglePlant(false);
+      goBackButton();
+    },
+  }));
+
+  const childAddRef = useRef(null);
+  useImperativeHandle(addRef, () => ({
+    triggerChildFunction: () => {
+      if (childAddRef.current) {
+        childAddRef.current.triggerChildFunction(); // Call the exposed child function
+      }
+    },
+  }));
 
   const openSheet = sheetOpen => {
     setShowSheet(!sheetOpen);
@@ -124,7 +141,7 @@ const ScreenSellLive = ({navigation, goBackButton}) => {
         </Modal>
       )}
 
-      {isSinglePlant && (<ScreenSingleSellLive navigation={navigation} />)}
+      {isSinglePlant && (<ScreenSingleSellLive sessionId={sessionId} publishRef={childAddRef} navigation={navigation} />)}
       {isGrower && (<ScreenGrowersSellLive navigation={navigation} />)}
 
 
