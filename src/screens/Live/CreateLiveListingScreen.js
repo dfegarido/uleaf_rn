@@ -115,7 +115,7 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId }) 
             </View>
 
       <ScrollView style={styles.container}>
-        <ScreenSellLive sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
+        <ScreenSellLive onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
         {/* <Text style={styles.label}>Genus</Text>
         <TextInput
           style={styles.input}

@@ -1,5 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
-import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,14 +17,12 @@ import {
 } from 'react-native';
 import { globalStyles } from '../../../assets/styles/styles';
 import {
-  getListingDetails,
   getMutationApi,
   getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
   postSellSinglePlantApi,
-  postSellUpdateApi,
-  uploadMultipleImagesToBackend,
+  uploadMultipleImagesToBackend
 } from '../../../components/Api';
 import { getActiveLiveListingApi } from '../../../components/Api/agoraLiveApi';
 import { ImagePickerModal } from '../../../components/ImagePicker';
@@ -35,7 +33,6 @@ import {
   InputDropdownSearch,
 } from '../../../components/Input';
 import { getCachedResponse, setCachedResponse } from '../../../utils/apiResponseCache';
-import { retryAsync } from '../../../utils/utils';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,7 +55,7 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
+const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [hasActiveLiveListing, setHasActiveLiveListing] = useState(false);
@@ -73,18 +70,6 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
   const previousRoute = routes[routes.length - 2]; // Previous screen
   const isFromDuplicateSell = previousRoute?.name === 'ScreenDuplicateSell';
   const isFromDraftSell = previousRoute?.name === 'ScreenDraftSell';
-
-  // useEffect(() => {
-  //   if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
-  //     navigation.setOptions({
-  //       headerRight: () => (
-  //         <TouchableOpacity onPress={() => onPressSave()} color="#000">
-  //           <Text style={globalStyles.textLGAccent}>Save</Text>
-  //         </TouchableOpacity>
-  //       ),
-  //     });
-  //   }
-  // }, [navigation, plantCode]);
 
   // Dropdown
   const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
@@ -386,8 +371,8 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
 
       // TODO: Replace this with your actual API call
       // await submitListing(data);
-      isManuallyNavigating.current = true;
       showAlertSuccess('Publish Now', 'Listing published successfully!');
+      onClose();
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish Now', error.message);
@@ -397,276 +382,10 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
   };
   // Publish now
 
-  // Publish on nursery drop
-  const onPressPublishNurseryDrop = async () => {
-    const errors = validateForm();
-    if (errors.length > 0) {
-      Alert.alert('Validation', errors.join('\n'));
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      // Upload images to Backend API (which handles Firebase Storage)
-      console.log('📤 Uploading', images.length, 'images to backend...');
-      const uploadedUrls = await uploadMultipleImagesToBackend(images);
-      console.log('✅ All images uploaded:', uploadedUrls);
-
-      // Build final JSON using uploaded URLs
-      const data = {
-        listingType: 'Single Plant',
-        genus: selectedGenus || null,
-        species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
-        isMutation: isChecked,
-        mutation: isChecked ? selectedMutation : null,
-        imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
-        imageCollection: uploadedUrls,
-        potSize: selectedPotSize,
-        localPrice: localPrice ? parseFloat(localPrice) : null,
-        approximateHeight:
-          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status: 'Scheduled',
-        publishType: 'Publish on Nursery Drop',
-      };
-
-      const response = await postSellSinglePlantApi(data);
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Publish on Nursery Drop failed.');
-      }
-
-      // console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
-
-      // TODO: Replace this with your actual API call
-      // await submitListing(data);
-
-      isManuallyNavigating.current = true;
-      showAlertSuccess(
-        'Publish on Nursery Drop',
-        'Listing published on nursery drop successfully!',
-      );
-    } catch (error) {
-      console.error('Upload or submission failed:', error);
-      Alert.alert('Publish on Nursery Drop', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Publish on nursery drop
-
-  // Save as draft
-  const onPressSave = async () => {
-    // const errors = validateForm();
-    // if (errors.length > 0) {
-    //   Alert.alert('Validation', errors.join('\n'));
-    //   return;
-    // }
-    setLoading(true);
-    try {
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      // Upload images to Backend API (which handles Firebase Storage)
-      const uploadedUrls = [];
-
-      console.log(uploadedUrls);
-      console.log('📤 Uploading', images.length, 'images to backend...');
-      const urls = await uploadMultipleImagesToBackend(images);
-      uploadedUrls.push(...urls);
-      console.log('✅ All images uploaded:', uploadedUrls);
-
-      // Build final JSON using uploaded URLs
-      const data = {
-        listingType: 'Single Plant',
-        genus: selectedGenus || null,
-        species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
-        isMutation: isChecked,
-        mutation: isChecked ? selectedMutation : null,
-        imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
-        imageCollection: uploadedUrls,
-        potSize: selectedPotSize,
-        localPrice: localPrice ? parseFloat(localPrice) : 0,
-        approximateHeight:
-          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status: 'Draft',
-        publishType: '',
-      };
-
-      const response = await postSellSinglePlantApi(data);
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Save failed.');
-      }
-
-      // console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
-
-      // TODO: Replace this with your actual API call
-      // await submitListing(data);
-
-      isManuallyNavigating.current = true;
-      showAlertSuccess('Save Listing', 'Listing saved successfully!');
-    } catch (error) {
-      console.error('Upload or submission failed:', error);
-      Alert.alert('Save Listing', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Save as draft
-
   // Details
   const {
-    status = 'Live',
-    publishType = 'Publish Now',
-    availableQty,
     plantCode = '',
   } = route?.params ?? {};
-
-  useEffect(() => {
-    if (!plantCode) return; // Skip if plantCode is not set
-
-    setLoading(true);
-
-    const fetchDetailed = async () => {
-      try {
-        await loadListingDetail(plantCode);
-      } catch (error) {
-        console.log('Fetching details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDetailed();
-  }, [plantCode]);
-
-  const loadListingDetail = async plantCode => {
-    let netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
-    console.log(plantCode);
-
-    const res = await retryAsync(() => getListingDetails(plantCode), 3, 1000);
-
-    if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load sort api');
-    }
-    console.log(res.data.localPrice || '');
-    setSelectedGenus(res.data.genus || null);
-    setSelectedSpecies(res.data.species || null);
-    setSelectedVariegation(res.data.variegation || null);
-    setIsChecked(!!res.data.isMutation);
-    setSelectedMutation(res.data.mutation || null);
-    if (isFromDuplicateSell == false) {
-      setImages(res.data.imageCollection || []);
-    }
-    setLocalPrice(String(res.data.localPrice ?? ''));
-    setSelectPotSize(res.data.potSize || null);
-    setSelectMeasure(
-      res.data.approximateHeight === 'Below 12 inches'
-        ? 'below'
-        : 'above' || null,
-    );
-
-    console.log(res.data);
-    // setSwitchActive(res.data.status == 'Active' ? true : false);
-    // setListingData(res.data);
-  };
-
-  const onPressUpdate = async paramStatus => {
-    const errors = validateForm();
-    if (errors.length > 0) {
-      Alert.alert('Validation', errors.join('\n'));
-      return;
-    }
-    setLoading(true);
-    try {
-      let netState = await NetInfo.fetch();
-
-      if (sessionId) {
-        const activeListingRes = await getActiveLiveListingApi(sessionId);
-        console.log('activeListingRes', activeListingRes);
-        
-        if (activeListingRes?.success) {
-          setHasActiveLiveListing(true);
-          setLoading(false);
-        }
-      }
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      // Upload images to Backend API (which handles Firebase Storage)
-      console.log('📤 Uploading', images.length, 'images to backend...');
-      const uploadedUrls = await uploadMultipleImagesToBackend(images);
-      console.log('✅ All images uploaded:', uploadedUrls);
-
-      // Build final JSON using uploaded URLs
-      const data = {
-        plantCode: plantCode,
-        availableQty: availableQty,
-        listingType: 'Single Plant',
-        genus: selectedGenus || null,
-        species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
-        isMutation: isChecked,
-        mutation: isChecked ? selectedMutation : null,
-        imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
-        imageCollection: uploadedUrls,
-        potSize: selectedPotSize,
-        localPrice: localPrice ? parseFloat(localPrice) : null,
-        approximateHeight:
-          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status:
-          isFromDraftSell == false && isFromDuplicateSell == false
-            ? status
-            : paramStatus,
-        sessionId: sessionId || null,
-        isActiveLiveListing: !hasActiveLiveListing,
-        publishType:
-          isFromDraftSell == false && isFromDuplicateSell == false
-            ? publishType
-            : paramStatus == 'Active'
-            ? 'Publish Now'
-            : 'Publish on Nursery Drop',
-            
-      };
-      // console.log(data);
-      const response = await postSellUpdateApi(data);
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Update listing failed.');
-      }
-
-      // console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
-
-      // TODO: Replace this with your actual API call
-      // await submitListing(data);
-
-      isManuallyNavigating.current = true;
-      showAlertSuccess('Update Listing', 'Listing updated successfully!');
-    } catch (error) {
-      console.error('Upload or submission failed:', error);
-      Alert.alert('Update Listing', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Details
-
-  const isManuallyNavigating = useRef(false);
 
   // Show success alert
   const showAlertSuccess = (titleText, messageText) => {
@@ -676,7 +395,6 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId}) => {
       [
         {
           text: 'OK',
-          onPress: () => navigation.goBack(), // 👈 Go back to the previous screen
         },
       ],
       {

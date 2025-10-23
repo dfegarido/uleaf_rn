@@ -25,12 +25,10 @@ import { globalStyles } from '../../../assets/styles/styles';
 import { AuthContext } from '../../../auth/AuthProvider';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {
-  getListingDetails,
   getMutationApi,
   getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
-  postSellUpdateApi,
   postSellWholesaleOrGrowersPlantApi,
   uploadMultipleImagesToBackend
 } from '../../../components/Api';
@@ -42,8 +40,6 @@ import {
   InputDropdown,
   InputDropdownSearch,
 } from '../../../components/Input';
-import { retryAsync } from '../../../utils/utils';
-import SellConfirmDraft from './components/SellConfirmDraft';
 
 import EditNoteIcon from '../../../assets/icons/greydark/edit-note.svg';
 import TrashRedIcon from '../../../assets/icons/red/trash.svg';
@@ -58,7 +54,7 @@ const screenWidth = Dimensions.get('window').width;
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
+const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClose}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [hasActiveLiveListing, setHasActiveLiveListing] = useState(false);
@@ -75,19 +71,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
   const isFromDraftSell = previousRoute?.name === 'ScreenDraftSell';
 
   const {userInfo} = useContext(AuthContext);
-
-  // useEffect(() => {
-  //   setUserCurrency(userInfo?.currencySymbol ?? '');
-  //   if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
-  //     navigation.setOptions({
-  //       headerRight: () => (
-  //         <TouchableOpacity onPress={() => onPressSave()} color="#000">
-  //           <Text style={globalStyles.textLGAccent}>Save</Text>
-  //         </TouchableOpacity>
-  //       ),
-  //     });
-  //   }
-  // }, [navigation, plantCode]);
 
   // Dropdown
   const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
@@ -469,9 +452,8 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
 
-      isManuallyNavigating.current = true;
       showAlertSuccess('Publish Now', 'Listing published successfully!');
-
+      onClose();
       // Alert.alert('Publish Now', 'Listing published successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
@@ -482,153 +464,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
   };
   // Publish Now
 
-  // Publish on Nursery Drop
-  const onPressPublishNurseryDrop = async () => {
-    const errors = validateForm();
-    if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n'));
-      return;
-    }
-    setLoading(true);
-    try {
-      // Upload main listing images to Backend API
-      console.log('📤 Uploading', images.length, 'main images to backend...');
-      const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
-      console.log('✅ Main images uploaded:', uploadedMainImageUrls);
-
-      // Upload variation images to Backend API
-      console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
-      const uploadedPotSizeList = await Promise.all(
-        potSizeList.map(async item => {
-          const imageUrl = await uploadMultipleImagesToBackend([item.image]);
-          return {
-            ...item,
-            image: imageUrl[0], // Get first (and only) URL from array
-          };
-        }),
-      );
-      console.log('✅ Variation images uploaded');
-
-      // Build JSON payload
-      const data = {
-        listingType: "Grower's Choice",
-        genus: selectedGenus || null,
-        species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
-        isMutation: isChecked,
-        mutation: isChecked ? selectedMutation : null,
-        imagePrimary:
-          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
-        imageCollection: uploadedMainImageUrls,
-        potSize: null,
-        localPrice: null,
-        approximateHeight: null,
-        status: 'Scheduled',
-        publishType: 'Publish on Nursery Drop',
-        variation: uploadedPotSizeList.map(item => ({
-          imagePrimary: item.image,
-          potSize: item.size,
-          localPrice: Number(item.price),
-          availableQty: Number(item.quantity),
-          approximateHeight:
-            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        })),
-      };
-
-      const response = await postSellWholesaleOrGrowersPlantApi(data);
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Publish on nursery drop failed.');
-      }
-
-      // TODO: Replace this with your actual API call
-      // await submitListing(data);
-      isManuallyNavigating.current = true;
-      showAlertSuccess(
-        'Publish on Nursery Drop',
-        'Listing published on nursery drop successfully!',
-      );
-    } catch (error) {
-      console.error('Upload or submission failed:', error);
-      Alert.alert('Publish on Nursery Drop', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Publish on Nursery Drop
-
-  // Save as draft
-  const onPressSave = async () => {
-    // const errors = validateForm();
-    // if (errors.length > 0) {
-    //   Alert.alert('Validation Error', errors.join('\n'));
-    //   return;
-    // }
-    setLoading(true);
-    try {
-      // Upload main listing images to Backend API
-      console.log('📤 Uploading', images.length, 'main images to backend...');
-      const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
-      console.log('✅ Main images uploaded:', uploadedMainImageUrls);
-
-      // Upload variation images to Backend API
-      console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
-      const uploadedPotSizeList = await Promise.all(
-        potSizeList.map(async item => {
-          const imageUrl = await uploadMultipleImagesToBackend([item.image]);
-          return {
-            ...item,
-            image: imageUrl[0], // Get first (and only) URL from array
-          };
-        }),
-      );
-      console.log('✅ Variation images uploaded');
-
-      // Build JSON payload
-      const data = {
-        listingType: "Grower's Choice",
-        genus: selectedGenus || null,
-        species: selectedSpecies || null,
-        // variegation: selectedVariegation || null,
-        isMutation: isChecked,
-        mutation: isChecked ? selectedMutation : null,
-        imagePrimary:
-          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
-        imageCollection: uploadedMainImageUrls,
-        potSize: null,
-        localPrice: 0,
-        approximateHeight: null,
-        status: 'Draft',
-        publishType: '',
-        variation: uploadedPotSizeList.map(item => ({
-          imagePrimary: item.image,
-          potSize: item.size,
-          localPrice: Number(item.price),
-          availableQty: Number(item.quantity),
-          approximateHeight:
-            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        })),
-      };
-
-      const response = await postSellWholesaleOrGrowersPlantApi(data);
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Publish now failed.');
-      }
-
-      // TODO: Replace this with your actual API call
-      // await submitListing(data);
-
-      isManuallyNavigating.current = true;
-      showAlertSuccess('Save Listing', 'Listing saved successfully!');
-    } catch (error) {
-      console.error('Upload or submission failed:', error);
-      Alert.alert('Publish Now', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Save as draft
 
   // Details
   const {
@@ -638,152 +473,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
     publishType = 'Publish Now',
     onGoBack,
   } = route?.params ?? {};
-
-  useEffect(() => {
-    if (!plantCode) return; // Skip if plantCode is not set
-
-    setLoading(true);
-
-    const fetchDetailed = async () => {
-      try {
-        await loadListingDetail(plantCode);
-      } catch (error) {
-        console.log('Fetching details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDetailed();
-  }, [plantCode]);
-
-  const loadListingDetail = async plantCode => {
-    let netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
-    console.log(plantCode);
-
-    const res = await retryAsync(() => getListingDetails(plantCode), 3, 1000);
-
-    if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load sort api');
-    }
-    console.log(res.data.localPrice || '');
-    setSelectedGenus(res.data.genus || null);
-    setSelectedSpecies(res.data.species || null);
-    setSelectedVariegation(res.data.variegation || null);
-    setIsChecked(!!res.data.isMutation);
-    setSelectedMutation(res.data.mutation || null);
-    if (isFromDuplicateSell == false) {
-      setImages(res.data.imageCollection || []);
-    }
-
-    const newPotSize = res.data.variations.map(variation => ({
-      // id: variation.id,
-      id: variation.id,
-      image: variation.imagePrimary ?? null,
-      size: variation.potSize ?? '',
-      price: variation.localPrice ?? 0,
-      quantity: variation.availableQty ?? 0,
-      measure: variation.approximateHeight ?? '', // if 'measure' refers to height
-    }));
-
-    setPotSizeList(newPotSize);
-  };
-
-  const onPressUpdate = async paramStatus => {
-    const errors = validateForm();
-    if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n'));
-      return;
-    }
-    setLoading(true);
-    try {
-      if (sessionId) {
-            const activeListingRes = await getActiveLiveListingApi(sessionId);
-            if (activeListingRes?.success) {
-              setHasActiveLiveListing(true);
-              setLoading(false);
-            }
-      }
-      // Upload main listing images to Backend API
-      console.log('📤 Uploading', images.length, 'main images to backend...');
-      const uploadedMainImageUrls = await uploadMultipleImagesToBackend(images);
-      console.log('✅ Main images uploaded:', uploadedMainImageUrls);
-
-      // Upload variation images to Backend API
-      console.log('📤 Uploading', potSizeList.length, 'variation images to backend...');
-      console.log('🔧 Pot Size List before upload:', JSON.stringify(potSizeList, null, 2));
-      const uploadedPotSizeList = await Promise.all(
-        potSizeList.map(async item => {
-          const imageUrl = await uploadMultipleImagesToBackend([item.image]);
-          return {
-            ...item,
-            image: imageUrl[0], // Get first (and only) URL from array
-          };
-        }),
-      );
-      console.log('✅ Variation images uploaded');
-
-      // Build JSON payload
-      const data = {
-        plantCode: plantCode,
-        listingType: "Grower's Choice",
-        genus: selectedGenus || null,
-        species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
-        isMutation: isChecked,
-        mutation: isChecked ? selectedMutation : null,
-        imagePrimary:
-          uploadedMainImageUrls.length > 0 ? uploadedMainImageUrls[0] : null,
-        imageCollection: uploadedMainImageUrls,
-        potSize: null,
-        localPrice: null,
-        approximateHeight: null,
-        status:
-          isFromDraftSell == false && isFromDuplicateSell == false
-            ? status
-            : paramStatus,
-        publishType:
-          isFromDraftSell == false && isFromDuplicateSell == false
-            ? publishType
-            : paramStatus == 'Active'
-            ? 'Publish Now'
-            : 'Publish on Nursery Drop',
-        variation: uploadedPotSizeList.map(item => ({
-          id: item.id,
-          imagePrimary: item.image,
-          potSize: item.size,
-          localPrice: Number(item.price),
-          availableQty: Number(item.quantity),
-          approximateHeight:
-            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        })),
-      };
-
-      console.log('🔧 Update API Payload:', JSON.stringify(data, null, 2));
-
-      const response = await postSellUpdateApi(data);
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Update listing failed.');
-      }
-
-      // TODO: Replace this with your actual API call
-      // await submitListing(data);
-
-      isManuallyNavigating.current = true;
-      showAlertSuccess('Update Listing', 'Listing updated successfully!');
-    } catch (error) {
-      console.error('Upload or submission failed:', error);
-      Alert.alert('Update Listing', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Details
 
   // Confirm
   const [onGobackModalVisible, setOnGobackModalVisible] = useState(false);
@@ -853,11 +542,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
         {
           text: 'OK',
           onPress: () => {
-            // Call the callback to refresh the listing detail screen
-            if (onGoBack && typeof onGoBack === 'function') {
-              onGoBack();
-            }
-            navigation.goBack(); // 👈 Go back to the previous screen
           },
         },
       ],
@@ -1213,12 +897,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId}) => {
             </TouchableOpacity>
           </View>
         </ActionSheet>
-        <SellConfirmDraft
-          visible={onGobackModalVisible}
-          onConfirm={onPressSave}
-          onExit={handleConfirmExit}
-          onCancel={handleCancelExit}
-        />
       </ScrollView>
     </View>
   );
