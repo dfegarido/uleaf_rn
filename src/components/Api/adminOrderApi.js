@@ -17,7 +17,7 @@ export const getAdminOrdersApi = async (filters = {}) => {
 
     // Map frontend status to backend status
     const statusMapping = {
-      'readyToFly': 'pending_payment', // Orders ready to fly
+      'readyToFly': 'Ready to Fly', // Orders ready to fly
       'completed': 'completed', // Completed orders
       'wildgone': 'cancelled' // Cancelled/wildgone orders
     };
