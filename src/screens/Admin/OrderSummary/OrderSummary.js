@@ -231,6 +231,7 @@ const OrderSummary = ({navigation}) => {
       localPrices: localPrices,
       usdPrices: usdPrices,
       localCurrency: order.localPriceCurrency || 'USD',
+      localCurrencySymbol: order.localPriceCurrencySymbol || '$',
       gardenName: order.gardenOrCompanyName || '—',
       sellerName: order.sellerName || '—',
       buyerFirstName: order.buyerInfo?.firstName || '—',
@@ -1148,7 +1149,7 @@ const OrderSummary = ({navigation}) => {
                       <View style={styles.sizeStockPriceContainer}>
                         {Array.isArray(order.localPrices) && order.localPrices.map((price, idx) => (
                           <Text key={idx} style={styles.priceText}>
-                            {price !== 0 ? `${order.localCurrency === 'USD' ? '$' : order.localCurrency}${price.toFixed(2)}` : '—'}
+                            {price !== 0 ? `${order.localCurrencySymbol}${price.toFixed(2)}` : '—'}
                           </Text>
                         ))}
                       </View>

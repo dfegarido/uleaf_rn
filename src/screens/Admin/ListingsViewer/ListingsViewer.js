@@ -22,7 +22,6 @@ import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
 import GardenFilter from '../../../components/Admin/gardenFilter';
-import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
 import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
 import { getAllPlantGenusApi, getListingTypeApi, getCountryApi, getShippingIndexApi, getAcclimationIndexApi } from '../../../components/Api/dropdownApi';
 import { getVariegationApi } from '../../../components/Api/getVariegationApi';
@@ -57,7 +56,6 @@ const ListingsViewer = ({ navigation }) => {
     listingType: null,
     garden: null,
     country: null,
-    plantFlight: null,
     shippingIndex: null,
     acclimationIndex: null,
   });
@@ -93,8 +91,6 @@ const ListingsViewer = ({ navigation }) => {
   const [countryLoading, setCountryLoading] = useState(false);
   // Local draft for country selections inside the modal. Commit on View.
   const [countryDraft, setCountryDraft] = useState([]);
-  const [flightDatesState, setFlightDatesState] = useState([]);
-  const [flightModalVisible, setFlightModalVisible] = useState(false);
   const [shippingIndexOptions, setShippingIndexOptions] = useState([]);
   const [shippingIndexLoading, setShippingIndexLoading] = useState(false);
   const [shippingIndexDraft, setShippingIndexDraft] = useState([]);
@@ -109,7 +105,6 @@ const ListingsViewer = ({ navigation }) => {
       { label: 'Inactive', value: 'inactive' },
       { label: 'Draft', value: 'draft' },
       { label: 'Discounted', value: 'discounted' },
-      { label: 'Scheduled', value: 'scheduled' },
       { label: 'Expired', value: 'expired' },
       { label: 'Out of Stock', value: 'out_of_stock' }
     ];
@@ -137,7 +132,6 @@ const ListingsViewer = ({ navigation }) => {
     { label: 'Listing Type', rightIcon: DownIcon },
     { label: 'Garden', rightIcon: DownIcon },
     { label: 'Country', rightIcon: DownIcon },
-    { label: 'Plant Flight', rightIcon: DownIcon },
     { label: 'Shipping Index', rightIcon: DownIcon },
     { label: 'Acclimation Index', rightIcon: DownIcon },
   ];
@@ -173,7 +167,6 @@ const ListingsViewer = ({ navigation }) => {
   { key: 'discount', label: 'Discount', width: 120 },
   { key: 'garden', label: 'Garden', width: 200 },
     { key: 'country', label: 'Country', width: 100 },
-    { key: 'plantFlight', label: 'Plant Flight', width: 140 },
     { key: 'shippingIndex', label: 'Shipping Index', width: 120 },
     { key: 'acclimationIndex', label: 'Acclimation Index', width: 120 },
     { key: 'action', label: 'Action', width: 80 },
@@ -208,7 +201,6 @@ const ListingsViewer = ({ navigation }) => {
         listingType: selectedFilters.listingType || undefined,
         garden: selectedFilters.garden || undefined,
         country: selectedFilters.country || undefined,
-        plantFlight: selectedFilters.plantFlight || undefined,
         shippingIndex: selectedFilters.shippingIndex || undefined,
         acclimationIndex: selectedFilters.acclimationIndex || undefined,
         search: isSearching ? searchTerm : undefined,
@@ -237,9 +229,27 @@ const ListingsViewer = ({ navigation }) => {
         }
       }
 
+      // Debug logging for expired status filtering
+      if (filters.status && filters.status.includes('expired')) {
+        console.log('🔍 Filtering for EXPIRED status:', filters);
+      }
+
       const response = await getAdminListingsApi(filters);
 
       if (response.success) {
+        // Debug logging for expired status results
+        if (filters.status && filters.status.includes('expired')) {
+          console.log('📊 Expired status results:', {
+            totalListings: response.data?.listings?.length || 0,
+            pagination: response.data?.pagination,
+            sampleListing: response.data?.listings?.[0] ? {
+              id: response.data.listings[0].id,
+              status: response.data.listings[0].status,
+              expirationDate: response.data.listings[0].expirationDate,
+              plantCode: response.data.listings[0].plantCode
+            } : null
+          });
+        }
         // debug logs removed for performance
         // Before setting listings, if the admin requested price sorting, ensure
         // we sort by USD price on the client. Backend may sort by local price,
@@ -437,6 +447,16 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   const handleFilterTabPress = (filterLabel) => {
+    // Check if this filter is already active
+    const isCurrentlyActive = isFilterActive(filterLabel);
+    
+    // If filter is active and clicked again, reset it instead of opening modal
+    if (isCurrentlyActive) {
+      handleResetFilter(filterLabel);
+      return;
+    }
+    
+    // Otherwise, open the appropriate modal
     if (filterLabel === 'Sort') {
       setSortModalVisible(true);
     } else {
@@ -463,8 +483,6 @@ const ListingsViewer = ({ navigation }) => {
           setGardenModalVisible(true);
         } else if (filterLabel === 'Country') {
           setCountryModalVisible(true);
-        } else if (filterLabel === 'Plant Flight') {
-          setFlightModalVisible(true);
         } else if (filterLabel === 'Shipping Index') {
           setShippingIndexModalVisible(true);
         } else if (filterLabel === 'Acclimation Index') {
@@ -486,9 +504,11 @@ const ListingsViewer = ({ navigation }) => {
   };
     // Status filter handlers
     const handleStatusChange = (statusValues) => {
+      console.log('Status filter changed:', statusValues);
       setSelectedFilters((prev) => ({ ...prev, status: statusValues }));
     };
     const handleStatusView = () => {
+      console.log('Status filter applied:', selectedFilters.status);
       setStatusModalVisible(false);
       setPagination((prev) => ({ ...prev, currentPage: 1 }));
     };
@@ -652,7 +672,6 @@ const ListingsViewer = ({ navigation }) => {
         listingType: selectedFilters.listingType || undefined,
         garden: selectedFilters.garden || undefined,
         country: selectedFilters.country || undefined,
-        plantFlight: selectedFilters.plantFlight || undefined,
         shippingIndex: selectedFilters.shippingIndex || undefined,
         acclimationIndex: selectedFilters.acclimationIndex || undefined,
         search: (searchTerm && searchTerm.trim() !== '') ? searchTerm : undefined,
@@ -967,21 +986,6 @@ const ListingsViewer = ({ navigation }) => {
     }
   }, [acclimationIndexModalVisible]);
 
-  useEffect(() => {
-    // Flight dates - should already be pre-loaded
-    if (flightModalVisible && (!flightDatesState || flightDatesState.length === 0)) {
-      (async () => {
-        try {
-          const res = await getAdminLeafTrailFilters();
-          const payload = res?.flightDates || res?.data?.flightDates || [];
-          const mapped = Array.isArray(payload) ? payload.map(d => (typeof d === 'string' ? d : (d.date || d.flight || String(d)))) : [];
-          setFlightDatesState(mapped);
-        } catch (err) {
-          console.warn('Fallback flight dates load failed', err?.message || err);
-        }
-      })();
-    }
-  }, [flightModalVisible]);
 
   // Debug: log listing count at render-time when price sort is active
   useEffect(() => {
@@ -1015,32 +1019,112 @@ const ListingsViewer = ({ navigation }) => {
   // listing click debug log removed
   };
 
+  // Reset specific filter
+  const handleResetFilter = (filterLabel) => {
+    switch (filterLabel) {
+      case 'Sort':
+        setSelectedFilters((prev) => ({ ...prev, sort: null }));
+        break;
+      case 'Status':
+        setSelectedFilters((prev) => ({ ...prev, status: null }));
+        break;
+      case 'Genus':
+        setSelectedFilters((prev) => ({ ...prev, genus: null }));
+        setGenusDraft([]);
+        break;
+      case 'Variegation':
+        setSelectedFilters((prev) => ({ ...prev, variegation: null }));
+        setVariegationDraft([]);
+        break;
+      case 'Listing Type':
+        setSelectedFilters((prev) => ({ ...prev, listingType: null }));
+        setListingTypeDraft([]);
+        break;
+      case 'Garden':
+        setSelectedFilters((prev) => ({ ...prev, garden: null }));
+        break;
+      case 'Country':
+        setSelectedFilters((prev) => ({ ...prev, country: null }));
+        setCountryDraft([]);
+        break;
+      case 'Shipping Index':
+        setSelectedFilters((prev) => ({ ...prev, shippingIndex: null }));
+        setShippingIndexDraft([]);
+        break;
+      case 'Acclimation Index':
+        setSelectedFilters((prev) => ({ ...prev, acclimationIndex: null }));
+        setAcclimationIndexDraft([]);
+        break;
+      default:
+        break;
+    }
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Reset all filters
+  const handleResetAllFilters = () => {
+    setSelectedFilters({
+      sort: null,
+      status: null,
+      genus: null,
+      variegation: null,
+      listingType: null,
+      garden: null,
+      country: null,
+      shippingIndex: null,
+      acclimationIndex: null,
+    });
+    
+    // Reset all draft states
+    setGenusDraft([]);
+    setVariegationDraft([]);
+    setListingTypeDraft([]);
+    setCountryDraft([]);
+    setShippingIndexDraft([]);
+    setAcclimationIndexDraft([]);
+    
+    // Reset badge filter
+    setSelectedBadgeFilter(null);
+    
+    // Reset search
+    setSearchTerm('');
+    setHeaderSearchVisible(false);
+    
+    // Reset pagination
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
   // Helper function to check if a filter is active
   const isFilterActive = (filterLabel) => {
     switch (filterLabel) {
       case 'Sort':
         return selectedFilters.sort !== null;
-      // Status removed from this screen
-      case 'Genus':
-        return selectedFilters.genus !== null;
-      case 'Variegation':
-        return selectedFilters.variegation !== null;
-      case 'Listing Type':
-        return selectedFilters.listingType !== null;
-      case 'Garden':
-        return selectedFilters.garden !== null;
-      case 'Country':
-        return selectedFilters.country !== null;
-      case 'Plant Flight':
-        return selectedFilters.plantFlight !== null;
-      case 'Shipping Index':
-        return selectedFilters.shippingIndex !== null;
-      case 'Acclimation Index':
-        return selectedFilters.acclimationIndex !== null;
       case 'Status':
         // Consider Status active only when at least one status is selected.
         if (Array.isArray(selectedFilters.status)) return selectedFilters.status.length > 0;
         return selectedFilters.status !== null;
+      case 'Genus':
+        // Check if genus filter has any selected values
+        if (Array.isArray(selectedFilters.genus)) return selectedFilters.genus.length > 0;
+        return selectedFilters.genus !== null;
+      case 'Variegation':
+        // Check if variegation filter has any selected values
+        if (Array.isArray(selectedFilters.variegation)) return selectedFilters.variegation.length > 0;
+        return selectedFilters.variegation !== null;
+      case 'Listing Type':
+        // Check if listing type filter has any selected values
+        if (Array.isArray(selectedFilters.listingType)) return selectedFilters.listingType.length > 0;
+        return selectedFilters.listingType !== null;
+      case 'Garden':
+        return selectedFilters.garden !== null;
+      case 'Country':
+        // Check if country filter has any selected values
+        if (Array.isArray(selectedFilters.country)) return selectedFilters.country.length > 0;
+        return selectedFilters.country !== null;
+      case 'Shipping Index':
+        return selectedFilters.shippingIndex !== null;
+      case 'Acclimation Index':
+        return selectedFilters.acclimationIndex !== null;
       default:
         return false;
     }
@@ -1212,6 +1296,7 @@ const ListingsViewer = ({ navigation }) => {
           sortValue={selectedFilters.sort}
           sortChange={handleSortChange}
           handleSearchSubmit={handleSortView}
+          clearFilters={() => handleResetFilter('Sort')}
         />
 
           {/* Status Modal (admin) */}
@@ -1223,7 +1308,7 @@ const ListingsViewer = ({ navigation }) => {
             statusValue={selectedFilters.status || []}
             statusChange={handleStatusChange}
             handleSearchSubmit={handleStatusView}
-            clearFilters={() => setSelectedFilters(prev => ({ ...prev, status: null }))}
+            clearFilters={() => handleResetFilter('Status')}
           />
 
           {/* Status Modal removed from Listings Viewer */}
@@ -1238,7 +1323,7 @@ const ListingsViewer = ({ navigation }) => {
               genusChange={handleGenusChange}
               genusLoading={genusLoading}
               handleSearchSubmit={handleGenusView}
-              clearFilters={() => handleGenusChange([])}
+              clearFilters={() => handleResetFilter('Genus')}
             />
 
           {/* Variegation Modal */}
@@ -1251,7 +1336,7 @@ const ListingsViewer = ({ navigation }) => {
             variegationChange={handleVariegationChange}
             variegationLoading={variegationLoading}
             handleSearchSubmit={handleVariegationView}
-            clearFilters={() => handleVariegationChange([])}
+            clearFilters={() => handleResetFilter('Variegation')}
           />
 
           {/* Listing Type Modal */}
@@ -1264,7 +1349,7 @@ const ListingsViewer = ({ navigation }) => {
             listingTypeChange={handleListingTypeChange}
             listingTypeLoading={listingTypeLoading}
             handleSearchSubmit={handleListingTypeView}
-            clearFilters={() => handleListingTypeChange([])}
+            clearFilters={() => handleResetFilter('Listing Type')}
           />
 
           {/* Garden Modal (Admin specific) */}
@@ -1286,7 +1371,7 @@ const ListingsViewer = ({ navigation }) => {
             countryValue={countryModalVisible ? countryDraft : (selectedFilters.country || [])}
             countryChange={handleCountryChange}
             handleSearchSubmit={handleCountryView}
-            clearFilters={() => handleCountryChange([])}
+            clearFilters={() => handleResetFilter('Country')}
           />
 
             {/* Shipping Index Modal (reuse shared ActionSheet) */}
@@ -1299,7 +1384,7 @@ const ListingsViewer = ({ navigation }) => {
               shippingIndexChange={handleShippingIndexChange}
               shippingIndexLoading={shippingIndexLoading}
               handleSearchSubmit={handleShippingIndexView}
-              clearFilters={() => { setShippingIndexDraft([]); setSelectedFilters(prev => ({ ...prev, shippingIndex: null })); }}
+              clearFilters={() => handleResetFilter('Shipping Index')}
             />
 
             {/* Acclimation Index Modal (reuse shared ActionSheet) */}
@@ -1312,25 +1397,9 @@ const ListingsViewer = ({ navigation }) => {
               acclimationIndexChange={handleAcclimationIndexChange}
               acclimationIndexLoading={acclimationIndexLoading}
               handleSearchSubmit={handleAcclimationIndexView}
-              clearFilters={() => { setAcclimationIndexDraft([]); setSelectedFilters(prev => ({ ...prev, acclimationIndex: null })); }}
+              clearFilters={() => handleResetFilter('Acclimation Index')}
             />
 
-          {/* Plant Flight Modal (Admin calendar) */}
-          <PlantFlightFilter
-            isVisible={flightModalVisible}
-            onClose={() => setFlightModalVisible(false)}
-            flightDates={flightDatesState}
-            selectedValue={selectedFilters.plantFlight}
-            onSelectFlight={(isoDate) => {
-              setSelectedFilters(prev => ({ ...prev, plantFlight: isoDate }));
-              setFlightModalVisible(false);
-              setPagination(prev => ({ ...prev, currentPage: 1 }));
-            }}
-            onReset={() => {
-              setSelectedFilters(prev => ({ ...prev, plantFlight: null }));
-              setPagination(prev => ({ ...prev, currentPage: 1 }));
-            }}
-          />
 
         {/* Badge Filters */}
         <ScrollView
