@@ -25,24 +25,40 @@ import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   
-  // Calculate proper bottom padding for tab bar + safe area (this screen is accessed from tab navigation)
-  const tabBarHeight = 60; // Standard tab bar height  
+  // Calculate proper bottom padding for safe area
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
-  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
   const routeParams = route?.params || {};
   const avatarUrl = routeParams.avatarUrl || '';
-  const name = routeParams.name || routeParams.title || 'Chat';
+  const chatType = routeParams.type || 'private'; // Get chat type: 'group' or 'private'
+  const name = routeParams.name || routeParams.title || '';
   const id = routeParams.id || routeParams.chatId || null;
   const participantIds = Array.isArray(routeParams.participantIds) ? routeParams.participantIds : (Array.isArray(routeParams.participants) ? routeParams.participants.map(p => p.uid).filter(Boolean) : []);
   const participants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
   
+  // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
+  const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+  
   // Make sure participants is an array and has at least one element
-  const otherUserInfo = Array.isArray(participants) && participants.length > 0
-    ? participants.find(p => p?.uid !== userInfo?.uid) || participants[0]
-    : {};
+  // For group chats, we want to show the group name
+  let displayName;
+  if (chatType === 'group') {
+    // For group chats, use the group name from params
+    displayName = name;
+  } else {
+    // For private chats, show the other participant's name
+    displayName = participants.length > 0 
+      ? (participants.find(p => p?.uid !== currentUserUid) || participants[0])?.name 
+      : name;
+  }
+  
+  const otherUserInfo = chatType === 'group' 
+    ? { name: name, avatarUrl: '' }  // Group chats use the group name
+    : (Array.isArray(participants) && participants.length > 0
+      ? participants.find(p => p?.uid !== currentUserUid) || participants[0]
+      : {});
     
   // Process avatarUrl if it's a number (e.g., requiring a local asset) or other non-string type
   if (otherUserInfo?.avatarUrl !== undefined && typeof otherUserInfo.avatarUrl !== 'string') {
@@ -64,7 +80,7 @@ const ChatScreen = ({navigation, route}) => {
     try {
       const newMsg = {
         chatId: id,
-        senderId: userInfo?.uid || null,
+        senderId: currentUserUid || null,
         text: text.trim(),
         timestamp: Timestamp.now(),
       };
@@ -74,7 +90,7 @@ const ChatScreen = ({navigation, route}) => {
 
       // Mark chat lastMessage and update timestamp, mark unread for other participants
       const otherParticipantIds = Array.isArray(participantIds)
-        ? participantIds.filter(pid => pid && pid !== userInfo?.uid)
+        ? participantIds.filter(pid => pid && pid !== currentUserUid)
         : [];
 
       try {
@@ -205,7 +221,7 @@ const ChatScreen = ({navigation, route}) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
-        <View style={[styles.header, {paddingTop: Math.min(insets.top, 8)}]}>
+        <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}>
@@ -217,12 +233,21 @@ const ChatScreen = ({navigation, route}) => {
               style={styles.avatar}
             />
             <View style={styles.userInfoText}>
-              <Text style={styles.title}>{otherUserInfo?.name || name || 'Chat'}</Text>
-              <Text style={styles.subtitle}>Active now</Text>
+              <Text style={styles.title} numberOfLines={1}>{displayName || 'Chat'}</Text>
+              <Text style={styles.subtitle}>
+                {chatType === 'group' 
+                  ? `${participants.length} ${participants.length === 1 ? 'member' : 'members'}`
+                  : 'Active now'}
+              </Text>
             </View>
           </View>
           <TouchableOpacity style={styles.options}
-            onPress={() => navigation.navigate('ChatSettingsScreen', { chatId: id, participants })}>
+            onPress={() => navigation.navigate('ChatSettingsScreen', { 
+              chatId: id, 
+              participants,
+              type: chatType,
+              name: name
+            })}>
             <OptionIcon />
           </TouchableOpacity>
         </View>
@@ -244,8 +269,8 @@ const ChatScreen = ({navigation, route}) => {
             if (item.type === 'date') return <DateSeparator text={item.text} />;
 
             const nextMsg = messages[index + 1];
-            const isMe = item?.senderId === userInfo?.uid;
-            const nextMsgIsMe = nextMsg?.senderId === userInfo?.uid;
+            const isMe = item?.senderId === currentUserUid;
+            const nextMsgIsMe = nextMsg?.senderId === currentUserUid;
             const showAvatar = !isMe && (!nextMsg || nextMsgIsMe || nextMsgIsMe !== isMe);
 
             return (
@@ -256,7 +281,7 @@ const ChatScreen = ({navigation, route}) => {
               />
             );
           }}
-          contentContainerStyle={{ paddingVertical: 10, paddingBottom: 20 }}
+          contentContainerStyle={{ paddingVertical: 10, paddingBottom: safeBottomPadding + 16 }}
           style={{ flex: 1 }}
           onContentSizeChange={() => {
             setTimeout(() => {
@@ -297,13 +322,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f1f1f1',
-    paddingTop: 25,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-  paddingBottom: 12,
+    paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderColor: '#ddd',

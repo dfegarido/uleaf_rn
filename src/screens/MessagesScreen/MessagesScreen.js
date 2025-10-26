@@ -32,6 +32,7 @@ import CreateChat from '../../assets/iconchat/new-chat.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import {AuthContext} from '../../auth/AuthProvider';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
+import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 
 const MessagesScreen = ({navigation}) => {
   const insets = useSafeAreaInsets();
@@ -42,12 +43,19 @@ const MessagesScreen = ({navigation}) => {
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
   const {userInfo} = useContext(AuthContext);
-  const userFullName = userInfo
-    ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim()
+  // Handle admin API response structure: userInfo.data.* or regular userInfo.user.* or flat userInfo.*
+  const userFirstName = userInfo?.data?.firstName || userInfo?.user?.firstName || userInfo?.firstName || '';
+  const userLastName = userInfo?.data?.lastName || userInfo?.user?.lastName || userInfo?.lastName || '';
+  const userFullName = userFirstName || userLastName 
+    ? `${userFirstName} ${userLastName}`.trim()
     : 'User';
+  
+  // Check if user is an admin
+  const isAdmin = userInfo?.data?.role === 'admin' || userInfo?.data?.role === 'sub_admin' || userInfo?.role === 'admin' || userInfo?.role === 'sub_admin';
 
   const [messages, setMessages] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [groupChatModalVisible, setGroupChatModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   // Map of uid -> image source (either {uri: ...} or local numeric require)
   const [avatarMap, setAvatarMap] = useState({});
@@ -60,12 +68,15 @@ const MessagesScreen = ({navigation}) => {
       // Collect unique other participant UIDs
       const uidsToFetch = new Set();
       
+      // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
+      const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+      
       chats.forEach(chat => {
         const participants = chat.participants || [];
 
         participants.forEach(p => {
           const uid = p && p.uid;
-          if (uid && uid !== userInfo.uid ) {
+          if (uid && uid !== currentUserUid ) {
             uidsToFetch.add(uid);
           }
         });
@@ -110,7 +121,11 @@ const MessagesScreen = ({navigation}) => {
 
   useEffect(() => {
     setLoading(true);
-    if (!userInfo || !userInfo.uid) {
+    
+    // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
+    const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+    
+    if (!userInfo || !currentUserUid) {
       setLoading(false);
       return;
     }
@@ -119,7 +134,7 @@ const MessagesScreen = ({navigation}) => {
       // Create a query with cache-first approach
       const q = query(
         collection(db, 'chats'),
-        where('participantIds', 'array-contains', userInfo.uid),
+        where('participantIds', 'array-contains', currentUserUid),
         orderBy('timestamp', 'desc'),
       );
 
@@ -166,9 +181,12 @@ const MessagesScreen = ({navigation}) => {
         return;
       }
 
+      // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
+      const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+      
       // Await update to ensure chat doc is updated before navigating
       await updateDoc(doc(db, 'chats', item.id), {
-        unreadBy: arrayRemove(userInfo.uid),
+        unreadBy: arrayRemove(currentUserUid),
       });
 
       // Sanitize navigation params to ensure ChatScreen receives expected fields
@@ -178,6 +196,7 @@ const MessagesScreen = ({navigation}) => {
         participants: Array.isArray(item.participants) ? item.participants : [],
         avatarUrl: item.avatarUrl || '',
         name: item.name || (item.participants && item.participants[0] && item.participants[0].name) || 'Chat',
+        type: item.type || 'private', // Include chat type for ChatScreen
       };
 
   navigation.navigate('ChatScreen', safeParams);
@@ -197,14 +216,18 @@ const MessagesScreen = ({navigation}) => {
         throw new Error('Invalid user data');
       }
 
+      // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
+      const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+      
       // Ensure userInfo exists
-      if (!userInfo || !userInfo.uid) {
+      if (!userInfo || !currentUserUid) {
         throw new Error('Your user profile is not available');
       }
+      
       // First check if a chat already exists with this user
       const existingChatQuery = query(
         collection(db, 'chats'),
-        where('participantIds', 'array-contains', userInfo.uid),
+        where('participantIds', 'array-contains', currentUserUid),
       );
 
       const existingChatsSnapshot = await getDocs(existingChatQuery);
@@ -225,13 +248,13 @@ const MessagesScreen = ({navigation}) => {
 
       // Otherwise create a new chat
       // First make sure we have valid data for all required fields
-      const currentUserAvatar = userInfo.profilePhotoUrl || '';
+      const currentUserAvatar = userInfo?.data?.profileImage || userInfo?.data?.profilePhotoUrl || userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
       const otherUserAvatar = user.avatarUrl || '';
 
       let chatData = {
         participants: [
           {
-            uid: userInfo.uid || '',
+            uid: currentUserUid || '',
             avatarUrl: currentUserAvatar || '', // Ensure empty string if null/undefined
             name: userFullName || 'User',
           },
@@ -241,7 +264,7 @@ const MessagesScreen = ({navigation}) => {
             name: user.name || 'Contact',
           },
         ],
-        participantIds: [userInfo.uid, user.uid].filter(Boolean), // Remove any undefined/null values
+        participantIds: [currentUserUid, user.uid].filter(Boolean), // Remove any undefined/null values
         lastMessage: '',
         timestamp: new Date(),
   unreadBy: [user.uid].filter(Boolean), // Remove any undefined/null values
@@ -266,28 +289,108 @@ const MessagesScreen = ({navigation}) => {
         } else {
           throw new Error('Failed to get created chat document');
         }
-  } catch (firestoreError) {
+      } catch (firestoreError) {
+        // Log the full Firestore error for debugging (kept out of user alert)
+        console.error('createChat: Firestore error creating chat document:', firestoreError);
         Alert.alert(
           'Error',
           'Failed to create chat. There might be an issue with the user data.',
         );
       }
     } catch (error) {
+      // Log unexpected errors for debugging
+      console.error('createChat: unexpected error:', error);
       Alert.alert('Error', 'Failed to create chat. Please try again.');
+    }
+  };
+
+  const handleCreateGroup = async ({name, selectedUsers}) => {
+    setGroupChatModalVisible(false);
+
+    try {
+      // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
+      const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+      
+      // Ensure userInfo exists
+      if (!userInfo || !currentUserUid) {
+        throw new Error('Your user profile is not available');
+      }
+
+      // Create participants array including the current user
+      const allParticipantIds = [currentUserUid, ...selectedUsers.map(u => u.uid)];
+      const allParticipants = [
+        {
+          uid: currentUserUid,
+          avatarUrl: userInfo?.data?.profileImage || userInfo?.data?.profilePhotoUrl || userInfo?.profileImage || userInfo?.profilePhotoUrl || '',
+          name: userFullName,
+        },
+        ...selectedUsers.map(u => ({
+          uid: u.uid,
+          avatarUrl: u.avatarUrl || '',
+          name: u.name,
+        }))
+      ];
+
+      // Prepare group chat data
+      const groupChatData = {
+        participants: allParticipants,
+        participantIds: allParticipantIds,
+        lastMessage: '',
+        timestamp: new Date(),
+        name: name,
+        type: 'group',
+      };
+
+      // Create the group chat
+      try {
+        const addChat = await addDoc(collection(db, 'chats'), groupChatData);
+        
+        const docRef = doc(db, 'chats', addChat.id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const newChatData = {id: docSnap.id, ...docSnap.data()};
+          navigation.navigate('ChatScreen', newChatData);
+        } else {
+          throw new Error('Failed to get created chat document');
+        }
+      } catch (firestoreError) {
+        console.error('handleCreateGroup: Firestore error creating chat document:', firestoreError);
+        Alert.alert(
+          'Error',
+          'Failed to create group chat. Please try again.',
+        );
+      }
+    } catch (error) {
+      console.error('handleCreateGroup: unexpected error:', error);
+      Alert.alert('Error', 'Failed to create group chat. Please try again.');
     }
   };
 
   const renderItem = ({item}) => {
   // Add null check to handle potential undefined participants
   const participants = item.participants || [];
-    const otherUserInfo = participants.find(p => p.uid !== userInfo.uid) || {};
-    // Determine avatar source: prefer participant-provided avatar, then avatarMap, then default
-    let avatarSource = DefaultAvatar;
-    if (otherUserInfo && otherUserInfo.avatarUrl) {
-      if (Object.prototype.toString.call(otherUserInfo.avatarUrl) === '[object Object]' && otherUserInfo.avatarUrl.uri) {
-        avatarSource = { uri: otherUserInfo.avatarUrl?.uri };
-      }
+  const chatType = item.type || 'private';
+  
+  // Handle both admin (nested user) and regular user structures
+  const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+  
+  // For group chats, use the group name; for private chats, use the other participant's name
+  const displayName = chatType === 'group' 
+    ? item.name 
+    : (participants.find(p => p.uid !== currentUserUid) || participants[0])?.name;
+  
+  const otherUserInfo = chatType === 'group' 
+    ? participants[0] // Use first participant for avatar in group chats
+    : participants.find(p => p.uid !== currentUserUid) || {};
+    
+  // Determine avatar source: prefer participant-provided avatar, then avatarMap, then default
+  let avatarSource = DefaultAvatar;
+  if (otherUserInfo && otherUserInfo.avatarUrl) {
+    if (Object.prototype.toString.call(otherUserInfo.avatarUrl) === '[object Object]' && otherUserInfo.avatarUrl.uri) {
+      avatarSource = { uri: otherUserInfo.avatarUrl?.uri };
     }
+  }
 
     return (
       <TouchableOpacity
@@ -298,13 +401,11 @@ const MessagesScreen = ({navigation}) => {
           <View style={styles.chatHeader}>
             <View style={styles.chatSubHeader}>
               <Text style={styles.chatName}>
-                {item.name ||
-                  (otherUserInfo && otherUserInfo.name) ||
-                  'Unknown'}
+                {displayName || item.name || 'Unknown'}
               </Text>
               <Text
                 style={[
-                  item.unreadBy && item.unreadBy.includes(userInfo.uid)
+                  item.unreadBy && item.unreadBy.includes(currentUserUid)
                     ? styles.unreadChatTime
                     : styles.chatTime,
                 ]}>
@@ -314,7 +415,7 @@ const MessagesScreen = ({navigation}) => {
               </Text>
             </View>
             <View style={styles.timeContainer}>
-              {item.unreadBy && item.unreadBy.includes(userInfo.uid) && (
+              {item.unreadBy && item.unreadBy.includes(currentUserUid) && (
                 <View style={styles.unreadDot} />
               )}
             </View>
@@ -322,7 +423,7 @@ const MessagesScreen = ({navigation}) => {
           <Text
             numberOfLines={1}
             style={[
-              item.unreadBy && item.unreadBy.includes(userInfo.uid)
+              item.unreadBy && item.unreadBy.includes(currentUserUid)
                 ? styles.unreadChatMessage
                 : styles.chatMessage,
             ]}>
@@ -366,11 +467,20 @@ const MessagesScreen = ({navigation}) => {
             <BackSolidIcon />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Messages</Text>
-          <TouchableOpacity
-            style={styles.createChat}
-            onPress={() => setModalVisible(true)}>
-            <CreateChat />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.createChat, styles.groupChatButton]}
+                onPress={() => setGroupChatModalVisible(true)}>
+                <Text style={styles.groupChatButtonText}>Group</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.createChat}
+              onPress={() => setModalVisible(true)}>
+              <CreateChat />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <FlatList
@@ -409,6 +519,12 @@ const MessagesScreen = ({navigation}) => {
           onClose={() => setModalVisible(false)}
           onSelect={user => createChat(user)}
         />
+        
+        <GroupChatModal
+          visible={groupChatModalVisible}
+          onClose={() => setGroupChatModalVisible(false)}
+          onCreateGroup={handleCreateGroup}
+        />
       </View>
     </SafeAreaView>
   );
@@ -419,11 +535,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F3F3F5',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   createChat: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  groupChatButton: {
+    backgroundColor: '#539461',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    width: 'auto',
+    height: 32,
+  },
+  groupChatButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',

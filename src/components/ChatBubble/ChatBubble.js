@@ -4,7 +4,7 @@ import AvatarIcon from '../../assets/images/avatar.svg';
 
 const ChatBubble = ({text, isMe, showAvatar }) => {
   return (
-    <View style={[styles.row, isMe ? styles.rowReverse : {}, !isMe && showAvatar ? styles.rowReverseGap : {}]}>
+    <View style={[styles.row, isMe ? styles.rightAlign : styles.leftAlign, !isMe && showAvatar ? styles.rowReverseGap : {}]}>
       {!isMe && showAvatar && <AvatarIcon width={25} height={25} />}
       <View
         style={[
@@ -13,7 +13,6 @@ const ChatBubble = ({text, isMe, showAvatar }) => {
         ]}>
         <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>
       </View>
-      {/* Removed incorrectly placed {isMe} here */}
     </View>
   );
 }
@@ -23,20 +22,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     marginHorizontal: 10,
-    marginVertical: 1,
+    marginVertical: 4,
   },
-  rowReverse: {
-    flexDirection: 'row-reverse',
+  rightAlign: {
+    justifyContent: 'flex-end',
+  },
+  leftAlign: {
+    justifyContent: 'flex-start',
   },
   rowReverseGap: {  marginBottom: 10 },
   bubble: {
     padding: 10,
     borderRadius: 16,
     maxWidth: '70%',
-    marginLeft: 33,
   },
   myBubble: {
-    backgroundColor: '#5ca15c',
+    backgroundColor: '#539461',
   },
   theirBubble: {
     backgroundColor: '#fff',
