@@ -704,70 +704,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Latest Nursery Drop badge with specific parameters
   const loadLatestNurseryDropPlants = async () => {
-    console.log('🌱 loadLatestNurseryDropPlants called');
+    console.log('🌱 loadLatestNurseryDropPlants called - returning empty results (feature not yet implemented)');
     setLoading(true);
     setPlants([]);
     
     try {
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      // Specific parameters for Latest Nursery Drop badge - show ALL nursery listings
-      const latestNurseryDropParams = {
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-      };
-
-      console.log('🌱 Loading Latest Nursery Drop plants with params:', latestNurseryDropParams);
-
-      const res = await retryAsync(() => getBuyerListingsApi(latestNurseryDropParams), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to load Latest Nursery Drop plants');
-      }
-
-      console.log('Latest Nursery Drop plants loaded successfully:', res.data?.listings?.length || 0);
-
-      const rawPlants = (res.data?.listings || []).map(p => ({
-        ...p,
-        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
-        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
-      }));
+      // Since "Publish to Nursery Drop" is not yet working on seller side,
+      // return empty results for this filter
+      console.log('Latest Nursery Drop feature is not yet implemented - showing empty results');
       
-      // Filter out plants with invalid data (same logic as other loading functions)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-          console.log('Filtering out invalid Latest Nursery Drop plant:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
-        }
-        
-        return isValid;
-      });
-      
-      console.log(`Filtered ${rawPlants.length} Latest Nursery Drop plants down to ${newPlants.length} valid plants`);
-      
-      setPlants(newPlants);
-      setOffset(newPlants.length);
-
-      // For Latest Nursery Drop, load all items at once - no pagination needed
+      setPlants([]);
+      setOffset(0);
       setHasMore(false);
 
     } catch (error) {
@@ -1397,7 +1344,9 @@ const ScreenGenusPlants = ({navigation, route}) => {
                     }
                   }}>
                   <Text style={styles.searchResultName} numberOfLines={2}>
-                    {plant.title}
+                    {plant.title && !plant.title.includes('Choose the most suitable variegation') 
+                      ? plant.title 
+                      : `${plant.genus} ${plant.species}${plant.variegation && plant.variegation !== 'Choose the most suitable variegation.' ? ' ' + plant.variegation : ''}`}
                   </Text>
                 </TouchableOpacity>
               ))}
