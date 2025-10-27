@@ -1065,7 +1065,9 @@ const ScreenShop = ({navigation}) => {
                     }}
                   >
                     <Text style={styles.searchResultName} numberOfLines={2}>
-                      {plant.title}
+                      {plant.title && !plant.title.includes('Choose the most suitable variegation') 
+                        ? plant.title 
+                        : `${plant.genus} ${plant.species}${plant.variegation && plant.variegation !== 'Choose the most suitable variegation.' ? ' ' + plant.variegation : ''}`}
                     </Text>
                   </TouchableOpacity>
                 ))}

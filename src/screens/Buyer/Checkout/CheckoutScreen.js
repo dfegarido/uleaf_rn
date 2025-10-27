@@ -397,14 +397,14 @@ const CheckoutScreen = () => {
     }
   };
 
-  // Convert ISO YYYY-MM-DD to a human label like 'Nov 01'
+  // Convert ISO YYYY-MM-DD to a human label like 'Nov 01, 2025'
   const isoToLabel = (iso) => {
     try {
       if (!iso) return iso;
       const d = new Date(iso);
       if (isNaN(d)) return iso;
-      // e.g. 'Nov 01'
-      return d.toLocaleString('en-US', { month: 'short', day: '2-digit' }).replace(',', '');
+      // e.g. 'Nov 01, 2025'
+      return d.toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
     } catch (e) {
       return iso;
     }
@@ -524,7 +524,7 @@ const CheckoutScreen = () => {
       return nextSaturday;
     };
 
-    // Helper function to format date as "MMM DD"
+    // Helper function to format date as "MMM DD, YYYY"
     const formatFlightDate = date => {
       const monthNames = [
         'Jan',
@@ -540,7 +540,7 @@ const CheckoutScreen = () => {
         'Nov',
         'Dec',
       ];
-      return `${monthNames[date.getMonth()]} ${date.getDate()}`;
+      return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     };
 
     // Parse the base flight date (format: "Aug 17" or "Aug-17")
@@ -1226,11 +1226,11 @@ const CheckoutScreen = () => {
     
     
     
-    // Add UPS Next Day upgrade if enabled (60% of UPS 2nd day shipping cost)
+    // Add UPS Next Day upgrade if enabled (30% of UPS 2nd day shipping cost)
     let upsNextDayUpgradeCost = 0;
     const baseUpsShipping = shipping; // Store the base UPS 2nd day cost
     if (upsNextDayEnabled) {
-      upsNextDayUpgradeCost = shipping * 0.6; // 60% of UPS 2nd day shipping cost
+      upsNextDayUpgradeCost = shipping * 0.3; // 30% of UPS 2nd day shipping cost
       shipping += upsNextDayUpgradeCost;
       
     }

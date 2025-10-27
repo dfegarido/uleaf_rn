@@ -101,7 +101,7 @@ const SearchHeader = ({
       <View style={styles.searchResultContent}>
         <Text style={styles.searchResultTitle}>
           {item.genus} {item.species}
-          {item.variegation ? ` ${item.variegation}` : ''}
+          {item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ` ${item.variegation}` : ''}
         </Text>
         <Text style={styles.searchResultSubtitle}>
           {item.listingType} • ${item.finalPrice}
