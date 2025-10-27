@@ -204,6 +204,12 @@ const generateEndpoints = () => ({
   GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,
   GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
   
+  // System APIs
+  CHECK_MAINTENANCE: `${getBaseUrl()}/checkMaintenance`,
+  SET_MAINTENANCE: `${getBaseUrl()}/setMaintenance`,
+  GET_APP_VERSION: `${getBaseUrl()}/getAppVersion`,
+  SET_APP_VERSION: `${getBaseUrl()}/setAppVersion`,
+  
   // Credit Request APIs
   REQUEST_CREDIT: `${getBaseUrl()}/requestCredit`,
   GET_BUYER_CREDIT_REQUESTS: `${getBaseUrl()}/getBuyerCreditRequests`,
