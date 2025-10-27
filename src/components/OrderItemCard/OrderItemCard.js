@@ -106,6 +106,12 @@ const OrderItemCard = ({
   };
 
   const handleCardPress = async () => {
+    // Disable navigation for "Pay to Board" screen
+    if (activeTab === 'Pay to Board') {
+      console.log('OrderItemCard - Navigation disabled for Pay to Board items');
+      return;
+    }
+
     // Helper to safely format dates from ISO string / Firestore timestamp / Date
     const formatOrderDate = (value) => {
       if (!value) return 'Unknown';
@@ -254,10 +260,12 @@ const OrderItemCard = ({
             <Text style={styles.variety}>
               {variety} • {size}
             </Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>{price}</Text>
-              <Text style={styles.quantity}>{quantity}x</Text>
-            </View>
+            {activeTab !== 'Pay to Board' && (
+              <View style={styles.priceRow}>
+                <Text style={styles.price}>{price}</Text>
+                <Text style={styles.quantity}>{quantity}x</Text>
+              </View>
+            )}
             {showRequestCredit && (
               <View style={styles.requestCreditContainer}>
                 <TouchableOpacity
