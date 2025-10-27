@@ -167,6 +167,7 @@ const ScreenShop = ({navigation}) => {
   
   // Browse plants state persistence to prevent unnecessary reloading
   const [browseMorePlantsKey, setBrowseMorePlantsKey] = useState(1);
+  const [browseMorePlantsComponent, setBrowseMorePlantsComponent] = useState(null);
   // (Removed) recommendations state – replaced by BrowseMorePlants component elsewhere
   
   // ----------------------
@@ -1084,6 +1085,18 @@ const ScreenShop = ({navigation}) => {
         ref={mainScrollRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
         contentContainerStyle={{paddingBottom: totalBottomPadding}}
+        onScroll={(event) => {
+          const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+          const paddingToBottom = 400; // Trigger when 400px from bottom
+          const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+          
+          if (isCloseToBottom && browseMorePlantsComponent) {
+            // Trigger load more in BrowseMorePlants component
+            console.log('🌱 ScreenShop: User is near bottom, triggering load more');
+            browseMorePlantsComponent.handleLoadMore();
+          }
+        }}
+        scrollEventThrottle={400}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1434,11 +1447,12 @@ const ScreenShop = ({navigation}) => {
 
         {/* Browse More Plants Component */}
         <BrowseMorePlants
+          ref={setBrowseMorePlantsComponent}
           key={`browse-more-${browseMorePlantsKey}`}
           title="More from our Jungle"
-          initialLimit={4}
-          loadMoreLimit={4}
-          showLoadMore={true}
+          initialLimit={8}
+          loadMoreLimit={8}
+          showLoadMore={false}
           autoLoad={true}
           forceRefresh={refreshing} // Force refresh when user pulls to refresh
           onAddToCart={handleAddToCartFromBrowseMore}

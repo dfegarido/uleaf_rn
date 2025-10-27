@@ -299,9 +299,9 @@ const ScreenPlantsAreHome = () => {
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15}}
           />
         </ScrollView>
@@ -368,9 +368,9 @@ const ScreenPlantsAreHome = () => {
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 32}}
           />
 

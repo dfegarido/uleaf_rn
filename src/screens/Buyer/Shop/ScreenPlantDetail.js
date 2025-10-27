@@ -68,6 +68,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [potSizeGroups, setPotSizeGroups] = useState({});
   
   // (Replaced manual recommendations with BrowseMorePlants component)
+  const browseMorePlantsRef = React.useRef(null);
   
   // Add to cart modal state
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
@@ -740,7 +741,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
         <ScrollView 
           style={styles.scrollContainer}
-          contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) }}>
+          contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) }}
+          scrollEventThrottle={400}
+          onScroll={(event) => {
+            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+            const paddingToBottom = 600; // Trigger when 600px from bottom (larger for plant detail)
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+            
+            if (isCloseToBottom && browseMorePlantsRef?.current) {
+              console.log('🌱 ScreenPlantDetail: User is near bottom, triggering load more recommendations');
+              browseMorePlantsRef.current.handleLoadMore();
+            }
+          }}
+        >
 
 
           {/* Content */}
@@ -1110,9 +1123,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
           {/* You may also like section (BrowseMorePlants component) */}
           
             <BrowseMorePlants
+              ref={browseMorePlantsRef}
               title="You May Also Like"
-              initialLimit={4}
-              loadMoreLimit={4}
+              initialLimit={8}
+              loadMoreLimit={8}
+              showLoadMore={false}
               onPlantPress={(plant) => navigation.push('ScreenPlantDetail', { plantCode: plant.plantCode, plantData: plant })}
               containerStyle={{paddingVertical:0}}
             />

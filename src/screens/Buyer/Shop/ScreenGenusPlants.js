@@ -1418,7 +1418,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
         contentContainerStyle={[styles.plantsGrid, {paddingBottom: totalBottomPadding}]}
         scrollEventThrottle={400}
         refreshing={refreshing}
-        onRefresh={() => loadPlants(true)}>
+        onRefresh={() => loadPlants(true)}
+        onScroll={(event) => {
+          const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+          const paddingToBottom = 400; // Trigger when 400px from bottom
+          const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+          
+          if (isCloseToBottom && hasMore && !loadingMore) {
+            console.log('🌱 ScreenGenusPlants: User is near bottom, triggering load more');
+            handleLoadMore();
+          }
+        }}>
         
         {plants.length > 0 ? (
           <View style={styles.plantsGridContainer}>
@@ -1466,23 +1476,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
               );
             }).filter(Boolean)}
             
-            {/* Load More Button */}
-            {hasMore && plants.length > 0 && (
+            {/* Loading Indicator for Infinite Scroll */}
+            {loadingMore && plants.length > 0 && (
               <View style={styles.loadMoreContainer}>
-                <TouchableOpacity 
-                  onPress={handleLoadMore} 
-                  style={styles.loadMoreButton}
-                  disabled={loadingMore}
-                >
-                  <View style={styles.loadMoreTextContainer}>
-                    <Text style={styles.loadMoreText}>
-                      {loadingMore ? 'Loading more...' : 'Load More'}
-                    </Text>
-                    {!loadingMore && (
-                      <DownIcon width={24} height={24} style={styles.loadMoreIcon} />
-                    )}
-                  </View>
-                </TouchableOpacity>
+                <ActivityIndicator size="large" color="#539461" />
+                <Text style={styles.loadingMoreText}>Loading more plants...</Text>
               </View>
             )}
             
@@ -1801,6 +1799,12 @@ const styles = StyleSheet.create({
     color: '#647276',
     textAlign: 'center',
     width: '100%'
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#539461',
+    textAlign: 'center',
   },
   emptyTitle: {
     fontSize: 18,

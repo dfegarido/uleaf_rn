@@ -1060,9 +1060,9 @@ const ScreenCart = () => {
           
           <BrowseMorePlants 
             title="More from our Jungle" 
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{paddingTop: 0}}
             onAddToCart={handleAddToCartFromRecommendations}
           />

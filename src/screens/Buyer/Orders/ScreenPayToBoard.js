@@ -30,6 +30,7 @@ const ScreenPayToBoard = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const browseMorePlantsRef = React.useRef(null);
 
   // Load orders from API
   const loadOrders = async (isRefresh = false, append = false) => {
@@ -195,9 +196,9 @@ const ScreenPayToBoard = () => {
           ))}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15}}
           />
         </ScrollView>
@@ -205,6 +206,17 @@ const ScreenPayToBoard = () => {
         <ScrollView
           style={{flex: 1}}
           contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
+          scrollEventThrottle={400}
+          onScroll={(event) => {
+            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+            const paddingToBottom = 600;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+            
+            if (isCloseToBottom && browseMorePlantsRef?.current) {
+              console.log('🌱 ScreenPayToBoard: User is near bottom, triggering load more recommendations');
+              browseMorePlantsRef.current.handleLoadMore();
+            }
+          }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -260,10 +272,11 @@ const ScreenPayToBoard = () => {
           </View>
 
           <BrowseMorePlants 
+            ref={browseMorePlantsRef}
             title="More from our Jungle"
-            initialLimit={6}
-            loadMoreLimit={6}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
           />
 
