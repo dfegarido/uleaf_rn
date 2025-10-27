@@ -1,3 +1,10 @@
+import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query
+} from 'firebase/firestore';
+import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
@@ -8,14 +15,14 @@ import {
   Text,
   TouchableOpacity,
   View,
-  SafeAreaView
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../../../../firebase';
 
 // Import SVG icons
+import CalendarWhiteIcon from '../../../assets/buyer-icons/calendar-white.svg';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
-import CalendarWhiteIcon from '../../../assets/buyer-icons/calendar-white.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import { InputGroupLeftIcon } from '../../../components/InputGroup/Left';
@@ -50,80 +57,6 @@ const getScreenDimensions = () => {
 let {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH, availableWidth} =
   getScreenDimensions();
 
-// Mock data for live streams
-const liveStreams = [
-  {
-    id: 1,
-    title: 'Monstera Deliciosa Propagation',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: true,
-    viewers: 1234,
-  },
-  {
-    id: 2,
-    title: 'Rare Philodendron Collection',
-    thumbnail: require('../../../assets/images/plant2.png'),
-    isLive: false,
-    viewers: 856,
-  },
-  {
-    id: 3,
-    title: 'Fiddle Leaf Fig Care Tips',
-    thumbnail: require('../../../assets/images/plant3.png'),
-    isLive: false,
-    viewers: 423,
-  },
-  {
-    id: 4,
-    title: 'Orchid Repotting Guide',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: false,
-    viewers: 678,
-  },
-  {
-    id: 5,
-    title: 'Succulent Arrangements',
-    thumbnail: require('../../../assets/images/plant2.png'),
-    isLive: false,
-    viewers: 234,
-  },
-  {
-    id: 6,
-    title: 'Indoor Garden Setup',
-    thumbnail: require('../../../assets/images/plant3.png'),
-    isLive: false,
-    viewers: 567,
-  },
-  {
-    id: 7,
-    title: 'Snake Plant Care Workshop',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: true,
-    viewers: 892,
-  },
-  {
-    id: 8,
-    title: 'Pothos Propagation Tips',
-    thumbnail: require('../../../assets/images/plant2.png'),
-    isLive: true,
-    viewers: 1567,
-  },
-  {
-    id: 9,
-    title: 'Air Plant Collection Tour',
-    thumbnail: require('../../../assets/images/plant3.png'),
-    isLive: true,
-    viewers: 743,
-  },
-  {
-    id: 10,
-    title: 'Calathea Care Secrets',
-    thumbnail: require('../../../assets/images/plant1.png'),
-    isLive: true,
-    viewers: 456,
-  },
-];
-
 const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
   const formatViewers = (count) => {
     if (count >= 1000) {
@@ -150,14 +83,19 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
 
   return (
     <TouchableOpacity 
-      onPress={() => navigation.navigate('BuyerLiveStreamScreen')} 
+      // onPress={stream.isLive ? () => navigation.navigate('BuyerLiveStreamScreen', {
+      //     sessionId: stream.sessionId,
+      //   }) : () => {}} 
+         onPress={() => navigation.navigate('BuyerLiveStreamScreen', {
+          sessionId: stream.sessionId,
+        })} 
       style={[styles.videoCard, cardStyle]}
     >
       {/* Video container */}
       <View style={styles.videoContainer}>
         <View style={styles.thumbnailContainer}>
           <ImageBackground
-            source={stream.thumbnail}
+            source={{uri:stream.thumbnail}}
             style={[styles.thumbnail, {width: thumbnailWidth, height: thumbnailHeight}]}
             imageStyle={styles.thumbnailImage}
           >
@@ -184,7 +122,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
               <View style={styles.bottomOverlay}>
                 <View style={styles.dateContainer}>
                   <CalendarWhiteIcon width={16} height={16} />
-                  <Text style={styles.dateText}>Dec-15 12:00AM</Text>
+                  <Text style={styles.dateText}>{stream.createdAt}</Text>
                 </View>
               </View>
             )}
@@ -262,6 +200,7 @@ const LiveTabs = ({activeTab, setActiveTab}) => {
 const LiveScreen = ({navigation}) => {
   const [dimensions, setDimensions] = useState(getScreenDimensions());
   const [activeTab, setActiveTab] = useState('recaps');
+  const [liveStreams, setLiveStreams] = useState([]);
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({window}) => {
@@ -276,6 +215,45 @@ const LiveScreen = ({navigation}) => {
 
     return () => subscription?.remove();
   }, []);
+
+  useEffect(() => {
+    const liveCollectionRef = collection(db, 'live');
+    const q = query(liveCollectionRef, orderBy('createdAt', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedLiveStreams = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+         console.log('Live Stream Doc:', moment(data.createdAt.seconds * 1000).format('MMM-DD hh:mmA'));
+        const mutatedData = {
+          title: data.title || 'Untitled Stream',
+          thumbnail: data.coverPhotoUrl || require('../../../assets/images/plant1.png'),
+          status: data.status || 'draft',
+          createdAt: moment(data.createdAt.seconds * 1000).format('MMM-DD hh:mmA'),
+          sessionId: data.sessionId || '',
+          id: doc.id,
+          isLive: data.status === 'live',
+          viewers: formatViewers(data.totalViewers || 0),
+        };
+        fetchedLiveStreams.push(mutatedData);
+      });
+      console.log('Live Stream Data:', fetchedLiveStreams);
+      setLiveStreams(fetchedLiveStreams);
+    });
+
+    // Cleanup listener on component unmount
+    return () => unsubscribe();
+  }, []);
+
+  const formatViewers = (viewers) => {
+    // Use 'en-US' locale, compact notation, and 0-1 fraction digits
+    const formatter = new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 1
+    });
+
+    return formatter.format(viewers);
+  }
 
   const dynamicStyles = StyleSheet.create({
     plantsContainer: {
@@ -292,8 +270,8 @@ const LiveScreen = ({navigation}) => {
 
   // Filter streams based on active tab
   const filteredStreams = activeTab === 'recaps' 
-    ? liveStreams.filter(stream => !stream.isLive) 
-    : liveStreams.filter(stream => stream.isLive);
+    ? liveStreams.filter(stream => stream.status === 'ended' || stream.status === 'live') 
+    : liveStreams.filter(stream => stream.status === 'draft');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -438,7 +416,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#FFFFFF',
-    width: 28,
+    width: 31,
     height: 20,
   },
   viewersContainer: {
@@ -484,7 +462,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#FFFFFF',
-    width: 108,
+    width: 122,
     height: 20,
   },
   // Title section styles

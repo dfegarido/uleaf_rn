@@ -27,7 +27,7 @@ import {
   RtcSurfaceView,
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../firebase'; // Assuming firebase config is here
+import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
@@ -39,8 +39,6 @@ import { AuthContext } from '../../auth/AuthProvider';
 import { generateAgoraToken, getActiveLiveListingApi, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen'; // Import the modal component
 import LiveListingsModal from './LiveListingsModal'; // Import the new modal
-
-// const APP_ID = '7212620b0b054407926d0a3dc9c69100';
 
 const LiveBroadcastScreen = ({navigation, route}) => {
   const { userInfo } = useContext(AuthContext);
@@ -54,12 +52,12 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isCreateListingModalVisible, setCreateListingModalVisible] = useState(false); // New state for modal visibility
   const [isLiveListingModalVisible, setLiveListingModalVisible] = useState(false); // State for the listings modal
   const [activeListing, setActiveListing] = useState(null); // State for the currently displayed listing
-  const [appId, setAppId] = useState('7212620b0b054407926d0a3dc9c69100');
+  const [appId, setAppId] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   
   const currentUserInfo = userInfo || asyncUserInfo;
-  const [channelName, setChannelName] = useState('ileafU');
+  const [channelName, setChannelName] = useState(null);
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
   const [isLive, setIsLive] = useState(false);
   const flatListRef = useRef(null);
@@ -86,6 +84,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       
       setToken(response.token);
       setAppId(response.appId);
+      setChannelName(response.channelName);
       setUid(response.agoraUid);
       
     } catch (error) {
@@ -105,6 +104,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             console.log('Fetched token response:', response);
       setToken(response.token);
       setAppId(response.appId);
+      setChannelName(response.channelName);
       setUid(response.agoraUid);
       // Rejoin channel with the new token
       if (rtcEngineRef.current) {

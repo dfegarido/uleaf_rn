@@ -302,7 +302,7 @@ const ScreenHome = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={ (userInfo.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com' ? () => navigation.navigate('CreateLiveSession') : () => {}}
+                onPress={ (userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com' ? () => navigation.navigate('CreateLiveSession') : () => {}}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}

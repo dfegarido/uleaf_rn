@@ -1,3 +1,11 @@
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp
+} from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,26 +26,32 @@ import {
   RtcSurfaceView
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../../../../firebase';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
 import ShareIcon from '../../../assets/live-icon/share.svg';
-import ShopIcon from '../../../assets/live-icon/shop.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
+import {
+  generateAgoraToken,
+} from '../../../components/Api/agoraLiveApi';
 
-const APP_ID = '77bffba08cc144228a447e99bae16ec1';
-// Note: You should generate a new token from Agora console if this one is expired
-const TOKEN = "007eJxTYNCU6kqdJ5U0i8f9wbfvjZtXd7zXSP98w7z2xJyeK9kMzeoKDObmSWlpSYkGFsnJhiYmRkYWiSYm5qmWlkmJqYZmqcmGe5fUZDQEMjKsCTzAwAiFID4bQ2lOamKaCQMDAN91IZY="; // your token here
-const CHANNEL_NAME = 'uleaf4';
-
-const BuyerLiveStreamScreen = ({navigation}) => {
+const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
   const [remoteUid, setRemoteUid] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [appId, setAppId] = useState(null);
+  const [channelName, setChannelName] = useState(null);
+  const [token, setToken] = useState(null);
+  const [sessionId, setSessionId] = useState(route.params?.sessionId);
+  const [liveStats, setLiveStats] = useState({ viewerCount: 0, likeCount: 0 });
+  const [activeListing, setActiveListing] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
 
   // Mocked chat messages
   const chatData = [
@@ -46,7 +60,102 @@ const BuyerLiveStreamScreen = ({navigation}) => {
     { id: '3', name: 'Dylan Brooks', message: 'Look at those variegated leaves, absolute stunner!😍', avatar: 'https://i.pravatar.cc/40?img=3' },
   ];
 
+  const handleSendComment = async () => {
+      if (newComment.trim() === '' || !sessionId || !currentUserInfo) return;
+  
+      try {
+        const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+        await addDoc(commentsCollectionRef, {
+          message: newComment,
+          name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
+          avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
+          uid: currentUserInfo.uid,
+          createdAt: serverTimestamp(),
+        });
+        setNewComment(''); // Clear input after sending
+      } catch (error) {
+        console.error('Error sending comment:', error);
+      }
+  };
+
+  const formatViewersLikes = (data) => {
+    // Use 'en-US' locale, compact notation, and 0-1 fraction digits
+    const formatter = new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 1
+    });
+
+    return formatter.format(data);
+  }
+
+  const addLike = () => {
+    // Increment like count locally for demo purposes
+  }
+
+
+  const goBack = () => {
+    navigation.goBack();
+  }
+
+  const fetchToken = async () => {
+      try {
+        const response = await generateAgoraToken(channelName);
+        console.log('Fetched token response:', response);
+        
+        setToken(response.token);
+        setAppId(response.appId);
+        setChannelName(response.channelName);
+        
+      } catch (error) {
+        console.error('Error fetching token:', error);
+      }
+ };
+
   useEffect(() => {
+     if (!sessionId) return;
+ console.log('zxcv', sessionId);
+ 
+     const listingDocRef = doc(db, 'listing');
+     console.log('zxcvzxc1');
+     
+     const q = query(listingDocRef, where('sessionId', '==', sessionId), where('status', '==', 'live'), where('isActiveLiveListing', '==', true));
+      console.log('zxcvzxc12');
+     const unsubscribe = onSnapshot(q, (doc) => {
+       if (doc.exists()) {
+         const data = doc.data();
+         console.log('listings:', data);
+         setActiveListing(data);
+       } else {
+         console.log('Live session listing document does not exist.');
+       }
+     });
+ 
+     // Cleanup listener on component unmount
+     return () => unsubscribe();
+   }, [sessionId]);
+
+   useEffect(() => {
+     if (!sessionId) return;
+ 
+     console.log(`Setting up snapshot listener for live session: ${sessionId}`);
+     const sessionDocRef = doc(db, 'live', sessionId);
+ 
+     const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
+       if (doc.exists()) {
+         const data = doc.data();
+         console.log('Live session data updated:', data);
+         setLiveStats(data);
+       } else {
+         console.log('Live session document does not exist.');
+       }
+     });
+ 
+     // Cleanup listener on component unmount
+     return () => unsubscribe();
+   }, [sessionId]);
+
+  useEffect(() => {
+    fetchToken();
     const startAgora = async () => {
       if (Platform.OS === 'android') {
         await PermissionsAndroid.requestMultiple([
@@ -58,7 +167,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
-        appId: APP_ID,
+        appId: appId,
         channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
       
@@ -156,12 +265,12 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       rtc.setClientRole(ClientRoleType.ClientRoleAudience);
       
       // Log to help with debugging
-      console.log('Joining channel:', CHANNEL_NAME);
-      console.log('Using token:', TOKEN ? 'Token provided' : 'No token');
+      console.log('Joining channel:', channelName);
+      console.log('Using token:', token ? 'Token provided' : 'No token');
       
       try {
         // Join the channel with specific options
-        rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {
+        rtc.joinChannel(token, channelName, 0, {
           autoSubscribeVideo: true,
           autoSubscribeAudio: true,
           publishLocalAudio: false,
@@ -188,7 +297,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
         rtcEngineRef.current = null;
       }
     };
-  }, []);
+  }, [token, appId, channelName]);
 
   useEffect(() => {
     // Timeout if no broadcaster is found
@@ -234,7 +343,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       {joined && remoteUid && (
         <>
           <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
                     <BackSolidIcon width={24} height={24} color="#333" />
             </TouchableOpacity>
             <View style={styles.topAction}>
@@ -244,7 +353,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.liveViewer}>
                     <ViewersIcon width={24} height={24} />
-                    <Text style={styles.liveViewerText}>{viewerCount}</Text>
+                    <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -253,7 +362,8 @@ const BuyerLiveStreamScreen = ({navigation}) => {
         <View style={styles.social}>
           <View style={styles.comments}>
             <FlatList
-              data={chatData}
+              ref={flatListRef}
+              data={comments}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <View style={styles.commentRow}>
@@ -269,39 +379,41 @@ const BuyerLiveStreamScreen = ({navigation}) => {
               style={styles.commentInput}
               placeholder="Comment"
               placeholderTextColor="#888"
+              value={newComment}
+              onChangeText={setNewComment}
+              onSubmitEditing={handleSendComment}
             />
 
           </View>
           <View style={styles.sideActions}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                <LoveIcon width={40} height={40} />
+              <TouchableOpacity onPress={() => addLike()} style={styles.sideAction}>
+                <LoveIcon />
+                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                <ShareIcon width={40} height={40} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                <ShopIcon width={40} height={40} />
+              <TouchableOpacity style={styles.sideAction}>
+                <ShareIcon />
               </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.shop}>
+        {activeListing && (<View style={styles.shop}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
                 <View style={styles.plantName}>
-                  <Text style={styles.name}>Coriandrum Sativum</Text>
-                  <Text style={styles.variegation}>Inner Variegated · 2”–4”</Text>
+                  <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
+                  <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text>
                 </View>
                 <View style={styles.price}>
-                  <Text style={styles.plantPrice}>$48.95</Text>
-                  <View style={styles.discount}>
-                    <Text style={styles.discountText}>33% OFF</Text>
-                  </View>
+                  <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
+                  {/* Discount logic can be added here if available in data */}
+                      {/* <View style={styles.discount}>
+                        <Text style={styles.discountText}>33% OFF</Text>
+                      </View> */}
                 </View>
                 
               </View>
               <View style={styles.shipping}>
                   <View style={styles.shippingType}>
-                    <Text style={styles.shippingDetails}>Grower’s Choice</Text>
+                    <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
                   </View>
                   <View style={styles.shipDays}>
                     <TruckIcon width={24} height={24} />
@@ -314,7 +426,10 @@ const BuyerLiveStreamScreen = ({navigation}) => {
                 <Text style={styles.actionText}>Buy Now</Text>
               </TouchableOpacity>
             </View>
-        </View>
+        </View>)}
+        {!activeListing && (<View style={styles.shop}>
+                      <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
+                    </View>)}
           </View>
         </>
       )}
@@ -574,6 +689,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#E7522F',
+  },
+  sideActionText: {
+    ...baseFont,
+    fontWeight: '600',
+    fontSize: 14,
+    marginTop: 4,
   },
   shipping: {
     flexDirection: 'row',

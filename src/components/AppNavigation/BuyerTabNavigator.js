@@ -1,39 +1,39 @@
 /* eslint-disable react-native/no-inline-styles */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable react/no-unstable-nested-components */
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {useNavigation} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import buyer screens
-import {BuyerLiveStreamScreen} from '../../screens/Buyer/Live';
-// import LiveScreen from '../../screens/Buyer/Live/LiveScreen'; // Disabled for now
+import { ScreenCart } from '../../screens/Buyer/Cart';
+import CheckoutScreen from '../../screens/Buyer/Checkout/CheckoutScreen';
+import { BuyerLiveStreamScreen } from '../../screens/Buyer/Live';
+import LiveScreen from '../../screens/Buyer/Live/LiveScreen'; // Disabled for now
+import { OrderDetailsScreen } from '../../screens/Buyer/Orders';
+import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
+import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
+import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
+import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
+import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
+import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
-import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
-import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
-import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
-import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
-import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
-import ChatScreen from '../../screens/ChatScreen/ChatScreen';
-import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
-import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
+import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
-import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
-import {OrderDetailsScreen} from '../../screens/Buyer/Orders';
-import {ScreenCart} from '../../screens/Buyer/Cart';
-import CheckoutScreen from '../../screens/Buyer/Checkout/CheckoutScreen';
+import ChatScreen from '../../screens/ChatScreen/ChatScreen';
+import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 
-import {LiveBroadcastScreen} from '../../screens/Live';
+import { LiveBroadcastScreen } from '../../screens/Live';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
@@ -49,7 +49,7 @@ import LiveIcon from '../../assets/icontabs/buyer-tabs/live-solid.svg';
 import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
 
-import {ScreenOrders} from '../../screens/Buyer/Orders';
+import { ScreenOrders } from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -148,6 +148,12 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="BuyerLiveStreamScreen"
         component={BuyerLiveStreamScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="LiveScreen"
+        component={LiveScreen}
         options={{headerShown: false}}
       />
 
@@ -291,7 +297,7 @@ function BuyerTabs() {
       })}>
       <Tab.Screen
         name="Live"
-        component={LivePlaceholder}
+        component={LiveScreen}
         listeners={({navigation}) => ({
           tabPress: e => {
             // Don't prevent default - let it navigate to placeholder
