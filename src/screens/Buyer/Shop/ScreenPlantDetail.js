@@ -87,13 +87,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
   );
 
   useEffect(() => {
-    console.log('🚀 Plant data useEffect triggered with:', {
-      hasPlantData: !!plantData,
-      variationsLength: plantData?.variations?.length || 0,
-      mainPotSize: plantData?.potSize,
-      availablePotSizes: plantData?.availablePotSizes
-    });
-    
     if (plantData?.imagePrimary) {
       setImageSource({uri: plantData.imagePrimary});
     }
@@ -103,10 +96,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
     
     // Handle variations-based pot size structure
     if (plantData?.variations && plantData.variations.length > 0) {
-      console.log('🔍 Processing variations for pot sizes:', plantData.variations);
       // Extract pot sizes from variations
       const potSizes = plantData.variations.map(variation => variation.potSize).filter(Boolean);
-      console.log('🧪 Extracted pot sizes:', potSizes);
       setAvailablePotSizes(potSizes);
       
       // Create pot size groups mapping from variations
@@ -117,11 +108,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
         }
       });
       setPotSizeGroups(potSizeGroups);
-      console.log('📦 Pot size groups:', potSizeGroups);
       
       // Set initial pot size to the first available one
       if (potSizes.length > 0 && (!selectedPotSize || !potSizes.includes(selectedPotSize))) {
-        console.log('🎯 Setting selected pot size to:', potSizes[0]);
         setSelectedPotSize(potSizes[0]);
       }
     } else if (plantData?.availablePotSizes && plantData.availablePotSizes.length > 0) {
@@ -158,7 +147,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
   // Reset quantity to 1 when pot size changes for variations (Grower's Choice, Wholesale)
   useEffect(() => {
     if (plantData?.variations && plantData.variations.length > 0 && selectedPotSize) {
-      console.log('🔄 Pot size changed, resetting quantity to 1 for variation:', selectedPotSize);
       setQuantity(1);
     }
   }, [selectedPotSize]);
@@ -178,21 +166,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load plant details');
       }
       // Extract the nested data object from the response
-      console.log('📱 Plant data loaded:', {
-        plantCode,
-        listingType: res.data?.listingType,
-        hasVariations: !!res.data?.variations,
-        variationsLength: res.data?.variations?.length || 0,
-        availableQty: res.data?.availableQty,
-        stockInfo: {
-          availableQty: res.data?.availableQty,
-          totalQuantity: res.data?.totalQuantity,
-          maxQuantity: res.data?.maxQuantity,
-          stock: res.data?.stock,
-          quantity: res.data?.quantity
-        },
-        fullData: res.data
-      });
       setPlantData(res.data);
 
     } catch (error) {
@@ -203,23 +176,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const handleAddToCart = () => {
-    console.log('🛒 Opening Add to Cart modal for plant:', {
-      plantCode,
-      listingType: plantData?.listingType,
-      currentQuantity: quantity,
-      plantDataExists: !!plantData
-    });
     setModalAction('add-to-cart');
     setShowAddToCartModal(true);
   };
 
   const handleBuyNow = () => {
-    console.log('💰 Opening Buy Now modal for plant:', {
-      plantCode,
-      listingType: plantData?.listingType,
-      currentQuantity: quantity,
-      plantDataExists: !!plantData
-    });
     setModalAction('buy-now');
     setShowAddToCartModal(true);
   };
@@ -266,13 +227,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
         
         plantDataWithCountry.country = mapCurrencyToCountry(plantDataWithCountry.localCurrency);
       }
-      
-      console.log('🛍️ Buy Now navigation with plant data:', {
-        plantCode: plantCode,
-        listingType: plantData.listingType,
-        quantity: quantity,
-        name: `${plantData.genus || ''} ${plantData.species || ''}`.trim()
-      });
       
       navigation.navigate('CheckoutScreen', {
         plantData: {
@@ -371,7 +325,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
   // Helper function to check if plant is single
   const isSinglePlant = () => {
     if (!plantData) {
-      console.log('🔍 No plant data available');
       return false;
     }
     
@@ -390,43 +343,21 @@ const ScreenPlantDetail = ({navigation, route}) => {
     
     const isSingle = checks.listingTypeExact || checks.listingTypeIncludes;
     
-    console.log('🔍 Plant listing type check:', {
-      originalListingType: listingType,
-      lowercaseListingType: listingTypeLower,
-      checks,
-      finalResult: isSingle,
-      currentQuantity: quantity,
-      modalVisible: showAddToCartModal
-    });
-    
     return isSingle;
   };
 
   // Get available stock quantity
   const getAvailableStock = () => {
-    console.log('plantData for stock calculation:', plantData);
     
     // For Grower's Choice and Wholesale with variations, get stock from selected variation
     if (selectedPotSize && potSizeGroups[selectedPotSize] && potSizeGroups[selectedPotSize].length > 0) {
       const selectedVariation = potSizeGroups[selectedPotSize][0];
       const variationStock = selectedVariation.availableQty || selectedVariation.stock || 999;
-      console.log('📊 Available stock from selected variation:', {
-        selectedPotSize,
-        variationStock,
-        selectedVariation
-      });
       return variationStock;
     }
     
     // Fallback to parent plant data for single listing types
     const stock = plantData?.availableQty || plantData?.stock || plantData?.quantity || plantData?.maxQuantity || 999;
-    console.log('📊 Available stock calculation (fallback):', {
-      availableQty: plantData?.availableQty,
-      stock: plantData?.stock,
-      quantity: plantData?.quantity,
-      maxQuantity: plantData?.maxQuantity,
-      finalStock: stock
-    });
     return stock;
   };
 
@@ -440,7 +371,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const increaseQuantity = () => {
     // Early return for single plants - absolutely no quantity changes allowed
     if (isSinglePlant()) {
-      console.log('🚫 Increment blocked: Single plant detected');
       return;
     }
     
@@ -449,31 +379,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
     
     // Check stock limits
     if (newQuantity > availableStock) {
-      console.log('🚫 Increment blocked: Stock limit reached', {
-        currentQuantity: quantity,
-        newQuantity,
-        availableStock
-      });
       Alert.alert('Stock Limit', `Only ${availableStock} items available in stock`);
       return;
     }
     
-    console.log('✅ Increment allowed:', {
-      currentQuantity: quantity,
-      newQuantity,
-      availableStock
-    });
     setQuantity(prev => prev + 1);
   };
 
   const decreaseQuantity = () => {
     // Early return for single plants - absolutely no quantity changes allowed
     if (isSinglePlant()) {
-      console.log('🚫 Decrement blocked: Single plant detected');
       return;
     }
     if (quantity > 1) {
-      console.log('✅ Decrement allowed: Not a single plant and quantity > 1');
       setQuantity(prev => prev - 1);
     }
   };
@@ -751,7 +669,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
             const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
             
             if (isCloseToBottom && browseMorePlantsRef?.current) {
-              console.log('🌱 ScreenPlantDetail: User is near bottom, triggering load more recommendations');
               browseMorePlantsRef.current.handleLoadMore();
             }
           }}
@@ -1295,7 +1212,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
                     value={quantity.toString()}
                     onChangeText={(text) => {
                       if (isSinglePlant()) {
-                        console.log('🚫 Text input blocked: Single plant detected');
                         return;
                       }
                       const num = parseInt(text) || 1;
@@ -1303,7 +1219,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
                       const availableStock = getAvailableStock();
                       
                       if (validatedNum > availableStock) {
-                        console.log('🚫 Quantity exceeds stock limit:', { requested: validatedNum, available: availableStock });
                         Alert.alert(
                           'Stock Limit Exceeded',
                           `Only ${availableStock} items available in stock. Please reduce your quantity.`,
