@@ -118,21 +118,6 @@ const PlantItemComponent = ({
   hasAirCargo,
   onPress,
 }) => {
-  console.log('🚨 PlantItemComponent CALLED:', { name, listingType, quantity });
-  console.log('🏷️ PlantItemComponent props:', {
-    name,
-    originalListingType: listingType,
-    listingTypeLower: listingType?.toLowerCase(),
-    actualQuantity: quantity,
-    isGrowerChoiceCheck: listingType && (listingType.toLowerCase().includes('grower') || listingType.toLowerCase().includes('choice')),
-    includesGrower: listingType?.toLowerCase().includes('grower'),
-    includesChoice: listingType?.toLowerCase().includes('choice'),
-    exactMatch1: listingType?.toLowerCase() === "grower's choice",
-    exactMatch2: listingType?.toLowerCase() === "growers choice",
-    finalDisplayName: listingType && (listingType.toLowerCase().includes('grower') || listingType.toLowerCase().includes('choice')) 
-      ? `${listingType} (${quantity}x) - ${name}`
-      : name
-  });
   
   // Enhanced detection for Grower's Choice plants
   const isGrowerChoice = listingType && (
@@ -159,13 +144,6 @@ const PlantItemComponent = ({
             const displayName = isGrowerChoice
               ? `${listingType} (${quantity}x) - ${name}`
               : name;
-            console.log('🎯 RENDERING NAME:', { 
-              isGrowerChoice, 
-              listingType, 
-              quantity, 
-              name, 
-              displayName 
-            });
             return displayName;
           })()}
         </Text>
@@ -252,18 +230,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     totalAmount = 0,
   } = listingDetails || {};
 
-  console.log('🛒 CheckoutScreen navigation params:', {
-    useCart,
-    fromBuyNow,
-    cartItemsLength: cartItems.length,
-    plantDataExists: !!plantData,
-    plantDataListingType: plantData?.listingType,
-    cartItemsPreview: cartItems.slice(0, 2).map(item => ({
-      name: item.name,
-      listingType: item.listingType,
-      quantity: item.quantity
-    }))
-  });
   const [loading, setLoading] = useState(false);
   const [transactionNum, setTransactionNum] = useState(null);
   const [deliveryDetails, setDeliveryDetails] = useState({
@@ -633,7 +599,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
   // Keep cargoDate in sync with the selected flight ISO whenever selection changes
   useEffect(() => {
     if (selectedFlightDate?.iso && selectedFlightDate.iso !== cargoDate) {
-      console.log('Syncing cargoDate to selected flight iso:', selectedFlightDate.iso);
       setCargoDate(selectedFlightDate.iso);
     }
   }, [selectedFlightDate]);
@@ -641,54 +606,46 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
   // State for backend shipping calculation
   // Initially loading: true to show skeleton on first render
   const [shippingCalculation, setShippingCalculation] = useState({ 
-    baseCost: 50, 
+    baseCost: undefined,  // No hardcoded values - wait for backend
     addOnCost: 0, 
-    baseCargo: 150,
+    baseCargo: undefined, // No hardcoded values - wait for backend
+    wholesaleAirCargo: undefined,
     loading: true 
   });
-
-  // Memoize plant items to prevent unnecessary re-renders
-  const plants = useMemo(() => {
-    return plantItems && plantItems.length > 0 ? plantItems : (useCart ? cartItems : []);
-  }, [plantItems?.length, cartItems?.length, useCart]);
 
   // Fetch shipping calculation from backend API
   useEffect(() => {
     let isCancelled = false;
     
     const fetchShippingCalculation = async () => {
+      console.log('🔍 fetchShippingCalculation called:', {
+        plantsLength: plants?.length,
+        cargoDate,
+        plantItemsLength: plantItems?.length,
+        cartItemsLength: cartItems?.length,
+        useCart,
+        fromBuyNow,
+        hasPlantData: !!plantData
+      });
+      
       if (!plants || plants.length === 0) {
+        console.log('⚠️ No plants found, skipping API call');
         setShippingCalculation({ baseCost: 50, addOnCost: 0, baseCargo: 150, loading: false });
         return;
       }
 
+      console.log('✅ Calling calculateCheckoutShippingApi with plants:', plants.length);
       setShippingCalculation(prev => ({ ...prev, loading: true }));
       
       try {
         const result = await calculateCheckoutShippingApi(plants, cargoDate);
         
-        console.log('✅ Backend shipping calculation result:', {
-          shippingTotal: result.shippingTotal,
-          airCargoTotal: result.airCargoTotal,
-          wholesaleAirCargoTotal: result.wholesaleAirCargoTotal,
-          total: result.total,
-          details: result.details,
-          expectedTotal: result.shippingTotal + result.airCargoTotal + (result.wholesaleAirCargoTotal || 0),
-          isSucceedingOrder: result.isSucceedingOrder
-        });
-        
         if (!isCancelled) {
-          console.log('💾 Setting shippingCalculation state with result:', {
-            shippingTotal: result.shippingTotal,
-            isSucceedingOrder: result.isSucceedingOrder,
-            wholesaleAirCargoTotal: result.wholesaleAirCargoTotal
-          });
-          
           setShippingCalculation({
-            baseCost: result.shippingTotal || 50,
+            baseCost: result.shippingTotal ?? 0,     // Use backend value or 0
             addOnCost: 0,
-            baseCargo: result.airCargoTotal || 150, // Base air cargo for non-wholesale
-            wholesaleAirCargo: result.wholesaleAirCargoTotal || 0, // Wholesale air cargo
+            baseCargo: 150,   // Use backend value or 0
+            wholesaleAirCargo: result.wholesaleAirCargoTotal ?? 0, // Use backend value or 0
             loading: false,
             details: result.details,
             appliedCredit: result.appliedAirBaseCredit,
@@ -702,9 +659,14 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           });
         }
       } catch (error) {
-        console.warn('Backend shipping calculation failed, using defaults:', error);
         if (!isCancelled) {
-          setShippingCalculation({ baseCost: 50, addOnCost: 0, baseCargo: 150, loading: false });
+          setShippingCalculation({ 
+            baseCost: undefined, 
+            addOnCost: 0, 
+            baseCargo: 150,
+            wholesaleAirCargo: undefined,
+            loading: false 
+          });
         }
       }
     };
@@ -714,7 +676,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     return () => {
       isCancelled = true;
     };
-  }, [plants?.length, cargoDate]); // Depend on cargoDate to recalculate when flight date changes
+  }, [plants?.length, cargoDate]); // Re-run when plants count or cargoDate changes
 
   // Calculate UPS 2nd Day shipping cost using backend calculation
   // Note: This is now state-based from useEffect above
@@ -765,7 +727,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           const sd = resp.data.shippingDefaults;
           if (sd.firstOrderDateISO) {
             const isoSd = formatFlightDateToISO(sd.firstOrderDateISO, new Date(cargoDate).getFullYear());
-            console.log('Checkout UI - applying buyer default selectedFlightDate (applyDefaults):', { value: isoSd || sd.firstOrderDateISO });
             const sdObj = { label: sd.firstOrderDateISO, iso: isoSd || sd.firstOrderDateISO };
             setSelectedFlightDate(sdObj);
             setLockedFlightDate(sdObj.iso);
@@ -781,7 +742,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           }
         }
       } catch (e) {
-        console.warn('Failed to fetch buyer profile for shipping defaults:', e);
       }
     };
     applyDefaults();
@@ -790,13 +750,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
 
   // Prepare plant items for display - handle cart data, direct product data, and buy now
   const plantItems = useMemo(() => {
-    console.log('🏪 Preparing plant items for checkout:', {
-      fromBuyNow,
-      useCart,
-      hasPlantData: !!plantData,
-      cartItemsLength: cartItems.length,
-      productDataLength: productData.length
-    });
+
     
     if (fromBuyNow && plantData) {
       // Normalize price/original for Buy Now flow
@@ -878,21 +832,8 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           hasAirCargo: true,
         };
       
-      console.log('🌱 Buy Now plant item prepared:', {
-        name: item.name,
-        listingType: item.listingType,
-        quantity: item.quantity,
-        originalListingType: plantData.listingType
-      });
-      
       return [item];
     } else if (useCart && cartItems.length > 0) {
-      console.log('🛒💰 Cart items received in checkout:', cartItems.map(item => ({
-        name: item.name,
-        price: item.price,
-        originalPrice: item.originalPrice,
-        hasOriginalPrice: item.originalPrice != null
-      })));
       
       const cartPlantItems = cartItems.map(item => {
         // Normalize price types and ensure discounted price is used when both exist
@@ -900,13 +841,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         const origNum = item.originalPrice != null
           ? (typeof item.originalPrice === 'string' ? parseFloat(item.originalPrice) : item.originalPrice)
           : null;
-
-        console.log('💰 Processing cart item:', {
-          name: item.name,
-          priceNum,
-          origNum,
-          hasDiscount: origNum != null && origNum > priceNum
-        });
 
         let normalizedPrice = priceNum;
         let normalizedOriginal = origNum;
@@ -948,14 +882,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           cartItemId: item.cartItemId,
         };
       });
-      
-      console.log('🛒 Cart plant items prepared:', 
-        cartPlantItems.map(item => ({
-          name: item.name,
-          listingType: item.listingType,
-          quantity: item.quantity
-        }))
-      );
       
       return cartPlantItems;
     } else if (productData.length > 0) {
@@ -1003,13 +929,18 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     productData,
   ]);
 
+  // Memoize plants to prevent unnecessary re-renders
+  // Use plantItems for both cart and Buy Now flows
+  const plants = useMemo(() => {
+    return plantItems && plantItems.length > 0 ? plantItems : [];
+  }, [plantItems]);
+
   // Update selected flight date when cart items change
   useEffect(() => {
     if (useCart && cartItems.length > 0) {
       const latestFlightDate = getInitialFlightDate();
       if (latestFlightDate && latestFlightDate !== 'N/A') {
   const iso = formatFlightDateToISO(latestFlightDate, new Date(cargoDate).getFullYear());
-  console.log('Checkout UI - setting selectedFlightDate from cart items effect:', { value: iso || latestFlightDate });
   const obj = { label: latestFlightDate, iso: iso || latestFlightDate };
   setSelectedFlightDate(obj);
   if (obj.iso) setCargoDate(obj.iso);
@@ -1095,11 +1026,9 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
             // Normalize both dates to canonical ISO (if possible) before comparing
             const normalizedGreatest = formatFlightDateToISO(greatestIso, new Date().getFullYear()) || greatestIso;
             const normalizedSuggested = formatFlightDateToISO(suggestedOptionIso, new Date().getFullYear()) || suggestedOptionIso;
-            console.log('Checkout UI - Ready-to-Fly compare:', { greatestIso, suggestedOptionIso, normalizedGreatest, normalizedSuggested });
             // If there is an existing Ready-to-Fly order date that is equal or greater than the suggested option,
             // enforce the existing order date and disable the plant flight selection button.
             if (suggestedOptionIso && normalizedGreatest && normalizedGreatest >= normalizedSuggested) {
-              console.log('Checkout UI - existing Ready order date is equal/or later than suggested; enforcing existing date and disabling selection:', { normalizedGreatest, normalizedSuggested });
               setLockedFlightDate(normalizedGreatest);
               setLockedFlightKey(normalizeFlightKey(normalizedGreatest));
               // set selection to the existing order date and disable changes
@@ -1117,12 +1046,10 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
               const matched = flightDateOptions.find(opt => normalizeFlightKey(opt.iso || opt.value) === key || normalizeFlightKey(opt.label) === key);
               if (matched) {
                 const iso = formatFlightDateToISO(matched.iso || matched.value, new Date(cargoDate).getFullYear());
-                console.log('Checkout UI - setting selectedFlightDate from matched Ready order option (greatest):', { value: iso || matched.iso || matched.value });
                 const obj = { label: matched.label || matched.value, iso: iso || matched.iso || matched.value };
                 setSelectedFlightDate(obj);
                 if (obj.iso) setCargoDate(obj.iso);
               } else {
-                console.log('Checkout UI - setting selectedFlightDate from greatest Ready order iso:', { value: greatestIso });
                 const obj = { label: greatestIso, iso: greatestIso };
                 setSelectedFlightDate(obj);
                 if (obj.iso) setCargoDate(obj.iso);
@@ -1146,10 +1073,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           setPriorPaidAirBaseCargoAmount(0);
         }
       } catch (error) {
-        console.warn(
-          'Failed to fetch buyer orders for Ready To Fly check:',
-          error,
-        );
+
         setPriorPaidAirBaseCargoAmount(0);
       } finally {
         setCheckingOrders(false);
@@ -1185,22 +1109,15 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       };
     }
     
-    // Calculate default shipping cost
-    const defaultShippingRates = calculateUpsShippingCost();
-    const defaultShipping = defaultShippingRates.baseCost;
-
-    const defaultSummary = {
-      totalItems: 0,
-      subtotal: 0,
-      totalOriginalCost: 0,
-      shipping: defaultShipping,
-      discount: 0,
-      finalTotal: defaultShipping,
-    };
-
     if (!plantItems || plantItems.length === 0) {
-      
-      return defaultSummary;
+      return {
+        totalItems: 0,
+        subtotal: 0,
+        totalOriginalCost: 0,
+        shipping: 0,
+        discount: 0,
+        finalTotal: 0,
+      };
     }
 
     const totalItems = plantItems.reduce(
@@ -1245,192 +1162,63 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     // Calculate UPS 2nd Day shipping cost based on plant characteristics
     // Use backend API calculation results stored in state
     const shippingRates = calculateUpsShippingCost();
-    // ALWAYS use backend result - it already handles succeeding order logic
-    let shipping = shippingRates.baseCost || 50;
     
-    console.log('🚀 Using backend shipping result:', shipping);
+// ===================================================
+    // SIMPLIFIED: USE BACKEND VALUES DIRECTLY
+    // Backend handles all succeeding order logic
+    // Frontend just displays what backend returns
+    // ===================================================
+    const baseShipping = shippingRates.baseCost ?? 0;
+    const airCargo = shippingRates.baseCargo ?? 0;
+    const wholesaleAirCargo = shippingRates.wholesaleAirCargo ?? 0;
+    
+    // Apply credit for buyers who already paid air cargo on first order
+    const airBaseCargoCredit = priorPaidAirBaseCargoAmount;
+    const airBaseCargoEffective = Math.max(0, airCargo - airBaseCargoCredit);
+    
+    let shipping = baseShipping; // Use backend value
 
-    // Use backend calculated shipping total (already includes add-on costs)
-    shipping = shippingRates.baseCost || shipping;
-
-    // Get wholesale air cargo from backend calculation
-    const wholesaleItems = plantItems.filter(
-      item =>
-        item.listingType?.toLowerCase() === 'wholesale' ||
-        item.listingType?.toLowerCase().includes('wholesale'),
-    );
-
-    let wholesaleAirCargo = shippingRates.wholesaleAirCargo || 0;
-    let airBaseCargo = 0;
+    // UPS Next Day upgrade (only frontend calculation - user toggle)
+    const upsNextDayUpgradeCost = upsNextDayEnabled ? (baseShipping * 0.3) : 0;
     
-    console.log('📦 Shipping Rates from Backend:', {
-      baseCost: shippingRates.baseCost,
-      baseCargo: shippingRates.baseCargo,
-      wholesaleAirCargo: shippingRates.wholesaleAirCargo,
-      allRates: shippingRates
-    });
+    // Shipping credits (qualifies if >=$500 and >=15 items)
+    const qualifiesForShippingCredits = subtotal >= 500 && totalItems >= 15;
+    const shippingCreditsDiscount = qualifiesForShippingCredits ? 150 : 0;
     
-    // Base Air Cargo is only for single/grower's choice items, not wholesale
-    // Only show it if there are non-wholesale items in the order
-    const hasNonWholesaleItems = plantItems.some(
-      item =>
-        item.listingType?.toLowerCase() !== 'wholesale' &&
-        !item.listingType?.toLowerCase().includes('wholesale'),
-    );
-    
-    if (hasNonWholesaleItems) {
-      // For succeeding orders, backend returns airCargoTotal: 0
-      // We should show the original $150 and apply a -$150 credit
-      if (shippingRates.wholesaleAirCargo > 0 || shippingRates.baseCargo === 0) {
-        // This is a succeeding order (backend returned 0 for base cargo)
-        // Show original $150 for display, credit will be applied separately
-        airBaseCargo = 150;
-      } else {
-        // First order: use backend value
-        airBaseCargo = shippingRates.baseCargo || 150;
-      }
-    } else {
-      // Only wholesale items: Base Air Cargo is $0
-      airBaseCargo = 0;
-    }
-    
-    console.log('📦 Air Cargo Calculation:', {
-      hasWholesale: wholesaleItems.length > 0,
-      wholesaleAirCargo,
-      airBaseCargo,
-      priorPaid: priorPaidAirBaseCargoAmount,
-      backendBaseCargo: shippingRates.baseCargo,
-      shippingRatesWhole: shippingRates
-    });
-    
-    // Calculate air base cargo credit and effective air base cargo
-    // For succeeding orders, backend returns 0 for baseCargo, so apply credit
-    let appliedAirBaseCargoCredit = 0;
-    let effectiveAirBaseCargo = airBaseCargo;
-    let effectiveWholesaleAirCargo = wholesaleAirCargo;
-    
-    // UPS shipping for succeeding orders is already calculated by backend
-    // Just use the backend result directly
-    let appliedUpsBaseCredit = 0;
-    let effectiveBaseUpsShipping = shipping; // Use backend result
-    
-    // If this is a succeeding order with non-wholesale items, apply $150 credit
-    if (hasNonWholesaleItems && shippingRates.baseCargo === 0 && shippingRates.wholesaleAirCargo > 0) {
-      // Succeeding order: waive the $150 base air cargo
-      appliedAirBaseCargoCredit = 150;
-      effectiveAirBaseCargo = 0;
-      // Wholesale air cargo is already correct from backend ($100 = 2 × $50)
-      effectiveWholesaleAirCargo = wholesaleAirCargo;
-    } else if (hasNonWholesaleItems && priorPaidAirBaseCargoAmount > 0) {
-      // Legacy logic for display purposes
-      appliedAirBaseCargoCredit = priorPaidAirBaseCargoAmount;
-      effectiveAirBaseCargo = Math.max(0, airBaseCargo - appliedAirBaseCargoCredit);
-      effectiveWholesaleAirCargo = wholesaleAirCargo;
-    }
-    
-    console.log('💳 Air Cargo Breakdown:', {
-      airBaseCargo, // Original amount
-      priorPaidAirBaseCargoAmount, // What was paid before
-      appliedAirBaseCargoCredit, // Credit to apply
-      effectiveAirBaseCargo // Final amount after credit
-    });
-    
-    
-    
-    // Add UPS Next Day upgrade if enabled (30% of UPS 2nd day shipping cost)
-    let upsNextDayUpgradeCost = 0;
-    const baseUpsShipping = shipping; // Store the base UPS 2nd day cost (from backend)
-    // Always use backend result - it already handles succeeding order logic correctly
-    let effectiveShipping = shipping;
-    
-    if (upsNextDayEnabled) {
-      upsNextDayUpgradeCost = effectiveShipping * 0.3; // 30% of effective UPS shipping cost
-      effectiveShipping += upsNextDayUpgradeCost;
-    }
-
-  // Calculate total shipping including air cargo costs
-  // Use effectiveShipping (which includes UPS credit for succeeding orders)
-  const totalShippingCost = effectiveShipping + effectiveAirBaseCargo + effectiveWholesaleAirCargo;
-  
-    // Calculate shipping credits (NEW FEATURE)
-    // Apply $150 shipping credit if both conditions are met:
-    // 1. Total spend >= $500
-    // 2. Total quantity >= 15 plants
-    let shippingCreditsDiscount = 0;
-    const SHIPPING_CREDITS_AMOUNT = 150;
-    const MIN_SPEND_FOR_CREDITS = 500;
-    const MIN_QUANTITY_FOR_CREDITS = 15;
-    
-    if (subtotal >= MIN_SPEND_FOR_CREDITS && totalItems >= MIN_QUANTITY_FOR_CREDITS) {
-      shippingCreditsDiscount = SHIPPING_CREDITS_AMOUNT;
-      console.log('🎉 Shipping credits applied:', {
-        subtotal,
-        totalItems,
-        shippingCreditsDiscount
-      });
-    } else {
-      console.log('🚫 Shipping credits not applied:', {
-        subtotal,
-        totalItems,
-        needsSpend: MIN_SPEND_FOR_CREDITS,
-        needsQuantity: MIN_QUANTITY_FOR_CREDITS
-      });
-    }
-    
-    // Apply the shipping credits discount to total shipping cost
+    // Calculate total shipping (use effective air cargo, not base)
+    const totalShippingCost = baseShipping + airBaseCargoEffective + wholesaleAirCargo + upsNextDayUpgradeCost;
     const finalShippingCost = Math.max(0, totalShippingCost - shippingCreditsDiscount);
   
     
-    // Apply credits
+    // Apply user-selected credits
     let creditsApplied = 0;
-    if (leafPointsEnabled) {
-      creditsApplied += leafPoints;
-    }
-    if (plantCreditsEnabled) {
-      creditsApplied += plantCredits;
-    }
-    if (shippingCreditsEnabled) {
-      creditsApplied += shippingCredits;
-    }
+    if (leafPointsEnabled) creditsApplied += leafPoints;
+    if (plantCreditsEnabled) creditsApplied += plantCredits;
+    if (shippingCreditsEnabled) creditsApplied += shippingCredits;
 
-    const finalTotal = Math.max(
-      0,
-      subtotal + finalShippingCost - creditsApplied,
-    );
+    const finalTotal = Math.max(0, subtotal + finalShippingCost - creditsApplied);
 
     const summary = {
       totalItems,
       subtotal,
-      totalOriginalCost, // NEW: Total of all original prices before discounts
-      shipping, // This includes UPS upgrade if enabled
-      baseUpsShipping: priorPaidAirBaseCargoAmount > 0 ? effectiveBaseUpsShipping : baseUpsShipping, // Effective UPS base cost (after credit for succeeding orders)
-      upsNextDayUpgradeCost: upsNextDayUpgradeCost, // Add UPS Next Day upgrade cost to summary
-      airBaseCargo: airBaseCargo, // ALWAYS show original amount ($150) even if credit is applied
-      airBaseCargoCreditApplied: appliedAirBaseCargoCredit, // Credit applied because buyer already paid base cargo
-      airBaseCargoEffective: effectiveAirBaseCargo, // Effective base cargo after credit (for calculation only, not display)
-      wholesaleAirCargo: wholesaleAirCargo, // Add wholesale air cargo to summary
-      totalShippingCost: totalShippingCost, // Total of all shipping costs combined (before shipping credits)
-      shippingCreditsDiscount: shippingCreditsDiscount, // NEW: Shipping credits discount applied
-      finalShippingCost: finalShippingCost, // NEW: Final shipping cost after shipping credits
-      appliedAirBaseCargoCredit: appliedAirBaseCargoCredit, // Credit for succeeding orders
+      totalOriginalCost,
+      shipping: baseShipping,
+      baseUpsShipping: baseShipping,
+      upsNextDayUpgradeCost,
+      airBaseCargo: airCargo,
+      airBaseCargoCreditApplied: airBaseCargoCredit,
+      airBaseCargoEffective: airBaseCargoEffective,
+      wholesaleAirCargo,
+      totalShippingCost,
+      shippingCreditsDiscount,
+      finalShippingCost,
+      appliedAirBaseCargoCredit: airBaseCargoCredit,
       discount: discountAmount,
       creditsApplied,
-      finalTotal,
+      finalTotal
     };
 
-    // Log the summary for debugging
-    console.log('💰 Order Summary:', {
-      subtotal: summary.subtotal,
-      totalOriginalCost: summary.totalOriginalCost,
-      discount: summary.discount,
-      totalItems: summary.totalItems,
-      totalShippingCost: summary.totalShippingCost,
-      shippingCreditsDiscount: summary.shippingCreditsDiscount,
-      finalShippingCost: summary.finalShippingCost,
-      finalTotal: summary.finalTotal
-    });
-
-    
+ 
 
     return summary;
   }, [
@@ -1493,16 +1281,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       return sum;
     }, 0);
 
-    console.log('📊 Quantity breakdown calculated:', {
-      singlePlant,
-      wholesale,
-      growersChoice,
-      plantItems: plantItems.map(item => ({
-        name: item.name,
-        listingType: item.listingType,
-        quantity: item.quantity
-      }))
-    });
+
 
     return {
       singlePlant,
@@ -1525,7 +1304,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
             );
 
             if (defaultAddress) {
-              console.log('Default address found:', defaultAddress);
               setDeliveryDetails({
                 address: {
                   street:
@@ -1544,10 +1322,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
             } else if (response.data.length > 0) {
               // If no default address is set, use the first one
               const firstAddress = response.data[0];
-              console.log(
-                'No default address found, using first address:',
-                firstAddress,
-              );
               setDeliveryDetails({
                 address: {
                   street:
@@ -1564,7 +1338,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
             }
           }
         } catch (error) {
-          console.error('Error fetching default address:', error);
         }
       };
 
@@ -1580,7 +1353,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       const incomingFlight = plantData.flightDate || plantData.plantFlightDate || plantData.plantFlightDateFormatted;
       if (incomingFlight) {
         const iso = formatFlightDateToISO(incomingFlight, new Date(cargoDate).getFullYear());
-        console.log('Checkout UI - applying plantData flight date (fromBuyNow):', { raw: incomingFlight, iso });
         const obj = { label: incomingFlight, iso: iso || incomingFlight };
         setSelectedFlightDate(obj);
         if (obj.iso) setCargoDate(obj.iso);
@@ -1594,7 +1366,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
   }, [fromBuyNow, plantData]);
 
   useEffect(() => {
-    console.log('🔔 Setting up Firestore listener for confirmed orders with transaction number:', transactionNum);
     
     const q = query(collection(db, 'order'), 
     where('status', '==', 'Ready to Fly'), 
@@ -1607,13 +1378,11 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       querySnapshot.forEach((doc) => {
         orders.push({ id: doc.id, ...doc.data() });
       });
-      console.log('Current confirmed orders in Firestore:', orders);
       
       if (orders.length > 0) {
         navigation.navigate('Orders');
       }
     }, (error) => {
-      console.error('Error listening to pending orders:', error);
     });
 
     // --- CRITICAL STEP ---
@@ -1630,7 +1399,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         try {
           navigation.navigate('Orders');
         } catch (error) {
-            console.error("Failed to parse deep link URL", error);
         }
       } else if (url.startsWith('ileafu://payment-cancel')) {
         Alert.alert(
@@ -1676,12 +1444,9 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     : new Date().getFullYear();
 
   const parsedSelected = formatFlightDateToISO(selectedFlightDate?.iso || selectedFlightDate, cargoYear);
-    console.log('DEBUG - parsedSelected:', parsedSelected);
       const fallbackFromProduct = formatFlightDateToISO(productData?.[0]?.flightDateFormatted || productData?.[0]?.flightDate, cargoYear);
-      console.log('DEBUG - fallbackFromProduct:', fallbackFromProduct);
   const plantRawFlight = plantData?.plantFlightDate || plantData?.flightDate || plantData?.plantFlightDateFormatted || selectedFlightDate?.label;
   const fallbackFromPlant = formatFlightDateToISO(plantRawFlight, cargoYear);
-      console.log('DEBUG - fallbackFromPlant:', fallbackFromPlant);
           // Try to derive from plantItems: prefer flightInfo string, then fullDate (Date object), then flightDate
           let fallbackFromItems = null;
           const itemCandidate = plantItems?.[0];
@@ -1700,7 +1465,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
               fallbackFromItems = formatFlightDateToISO(itemCandidate.flightDate, cargoYear);
             }
           }
-          console.log('DEBUG - fallbackFromItems:', fallbackFromItems);
 
       // Prefer explicit plant flight date for Buy Now flows
       const selectedFlightDateIso = parsedSelected || fallbackFromPlant || fallbackFromProduct || fallbackFromItems || null;
@@ -1716,10 +1480,8 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         // As a last resort, try to build ISO from plantRawFlight explicitly
         const explicitPlantIso = formatFlightDateToISO(plantRawFlight, cargoYear);
         if (explicitPlantIso) {
-          console.log('Checkout UI - using explicit plantFlightDate as selectedFlightDateIso:', explicitPlantIso);
         }
       }
-      console.log('Preparing order with selectedFlightDateIso:', selectedFlightDateIso, 'finalCargoDate:', finalCargoDate);
       // If we couldn't resolve a cargo date, block checkout and ask the user to select one.
       if (!finalCargoDate) {
         setLoading(false);
@@ -1753,14 +1515,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           total: orderSummary.finalTotal,
         },
       };
-
-      console.log('📊 Order Summary Being Submitted:', {
-        subtotal: orderSummary.subtotal,
-        shipping: orderSummary.finalShippingCost || orderSummary.totalShippingCost,
-        upsNextDayUpgrade: orderSummary.upsNextDayUpgradeCost,
-        total: orderSummary.finalTotal,
-        upsNextDayEnabled
-      });
 
       // Add items based on checkout type
       if (fromBuyNow && plantData) {
@@ -1802,7 +1556,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         orderData.useCart = true;
 
         // Console log cart items to debug plantSourceCountry
-        console.log('Cart items for checkout:', cartItems);
 
         // When using cart, we need to add plantSourceCountry to each item
         // Also map the cart item data to a properly formatted productData array
@@ -1881,7 +1634,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         return;
       }
 
-      console.log('🛒 Starting checkout with order data:', orderData);
 
       // Call checkout API without showing confirmation dialog first
       // The loading state is already active, so the button is disabled
@@ -1901,7 +1653,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
 
         // Automatically redirect to PayPal/Venmo payment page after a brief delay
         setTimeout(() => {
-          console.log('💳 Opening payment page for order:', transactionNumber);
           Linking.openURL(
             `${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${transactionNumber}`,
           );
@@ -1917,7 +1668,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         );
       }
     } catch (error) {
-      console.error('❌ Checkout error:', error);
       Alert.alert(
         'Checkout Error',
         error.message || 'An unexpected error occurred. Please try again.',
@@ -2109,7 +1859,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                         onPress={() => {
                               if (isEffectivelyLocked) return; // prevent selecting non-matching options or enforced lock
                               const iso = formatFlightDateToISO(option.value, new Date(cargoDate).getFullYear());
-                              console.log('Checkout UI - option pressed:', { optionValue: option.value, optionLabel: option.label, derivedISO: iso });
                               const obj = { label: option.label, iso: iso || option.value || option.iso };
                               setSelectedFlightDate(obj);
                               if (obj.iso) setCargoDate(obj.iso);
@@ -2160,7 +1909,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                       plantCode: item.plantCode,
                     });
                   } else {
-                    console.warn('No plantCode available for navigation');
                   }
                 }}
               />
@@ -2698,7 +2446,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
             </View>
           </View>
         </View>
-        <View style={{ height: 200 }} />
+      <View style={{ height: 200 }} />
       </ScrollView>
 
       {/* Fixed Checkout Bar */}
