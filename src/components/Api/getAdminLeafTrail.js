@@ -10,8 +10,6 @@ export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    console.log('cleanedParams', token);
-    
     const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailReceiving${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
     
     const response = await fetch(
@@ -33,7 +31,7 @@ export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getAdminLeafTrailReceiving error:', error.message);
+    console.error('getAdminLeafTrailReceiving error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
@@ -62,7 +60,7 @@ export const updateLeafTrailStatus = async (orderId, status) => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('updateLeafTrailStatus error:', error.message);
+    console.error('updateLeafTrailStatus error:', error.message);
     return error; 
   }
 };
@@ -97,7 +95,7 @@ export const getAdminScanQr = async (filters) => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getAdminScanQr error:', error.message);
+    console.error('getAdminScanQr error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
@@ -132,7 +130,7 @@ export const getAdminLeafTrailFilters = async (filters = {sort: 'desc'}) => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getAdminLeafTrailFilters error:', error.message);
+    console.error('getAdminLeafTrailFilters error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
@@ -161,7 +159,7 @@ export const getAdminLeafTrailSorting = async () => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getAdminLeafTrailSorting error:', error.message);
+    console.error('getAdminLeafTrailSorting error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
@@ -189,7 +187,7 @@ export const getAdminLeafTrailPacking = async () => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getAdminLeafTrailPacking error:', error.message);
+    console.error('getAdminLeafTrailPacking error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
@@ -217,7 +215,7 @@ export const getAdminLeafTrailShipping = async () => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getAdminLeafTrailShipping error:', error.message);
+    console.error('getAdminLeafTrailShipping error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };

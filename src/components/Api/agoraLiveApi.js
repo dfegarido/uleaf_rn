@@ -3,7 +3,6 @@ import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 export const generateAgoraToken = async (channelName, agoraUid=null) => {
   try {
     const token = await getStoredAuthToken();
-console.log('token', token);
     
     const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/generateLiveSessionData', {
       method: 'POST',
@@ -16,7 +15,7 @@ console.log('token', token);
 
     return await response.json();
   } catch (error) {
-    console.log('generateAgoraToken error:', error.message);
+    console.error('generateAgoraToken error:', error.message);
     return error; 
   }
 };

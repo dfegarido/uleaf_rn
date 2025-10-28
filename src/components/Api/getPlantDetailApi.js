@@ -32,7 +32,6 @@ export const getPlantDetailApi = async (plantCode) => {
 export const getPlantDetailApiLive = async (plantCode) => {
   try {
     const token = await getStoredAuthToken();
-    console.log("authToken", token)
     const response = await fetch(
       `${API_ENDPOINTS.GET_BUYER_LISTING_LIVE}?plantCode=${plantCode}`,
       {
@@ -52,7 +51,7 @@ export const getPlantDetailApiLive = async (plantCode) => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getPlantDetailApiLive error:', error.message);
+    console.error('getPlantDetailApiLive error:', error.message);
     throw error;
   }
 };
