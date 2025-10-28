@@ -3,10 +3,12 @@ import {
   collection,
   doc,
   onSnapshot,
+  orderBy,
   query,
-  serverTimestamp
+  serverTimestamp,
+  where
 } from 'firebase/firestore';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,14 +30,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import ActiveLoveIcon from '../../../assets/live-icon/active-love.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
-import ShareIcon from '../../../assets/live-icon/share.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
+import { AuthContext } from '../../../auth/AuthProvider';
 import {
+  addViewerToLiveSession,
   generateAgoraToken,
+  removeViewerFromLiveSession,
+  toggleLoveLiveSession,
 } from '../../../components/Api/agoraLiveApi';
+import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
@@ -52,21 +59,89 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [activeListing, setActiveListing] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const flatListRef = useRef(null);
+  const { userInfo } = useContext(AuthContext);
+  const [asyncUserInfo, setAsyncUserInfo] = useState(null);
+  const currentUserInfo = userInfo || asyncUserInfo;
+  const [unitPrice, setUnitPrice] = useState(null);
+  const [plantDataCountry, setPlantDataCountry] = useState(null);
+  const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
 
-  // Mocked chat messages
-  const chatData = [
-    { id: '1', name: 'Chloe Bennett', message: 'Joined 👋', avatar: 'https://i.pravatar.cc/40?img=1' },
-    { id: '2', name: 'Ashley Carter', message: 'Leaf it to this plant to steal the show 😁', avatar: 'https://i.pravatar.cc/40?img=2' },
-    { id: '3', name: 'Dylan Brooks', message: 'Look at those variegated leaves, absolute stunner!😍', avatar: 'https://i.pravatar.cc/40?img=3' },
-  ];
+  const getDiscountedPrice = () => {
+    const priceData = activeListing;
+    
+    // Preferred fields per spec
+    const original = parseFloat(priceData.originalPrice ?? priceData.usdPrice ?? 0) || 0;
+    let current = parseFloat(priceData.usdPriceNew ?? priceData.finalPrice ?? priceData.usdPrice ?? original) || 0;
 
-  const handleSendComment = async () => {
-      if (newComment.trim() === '' || !sessionId || !currentUserInfo) return;
+    // Guard: if current is 0 but original exists, fallback to original
+    if (current === 0 && original > 0) current = original;
+
+    let deduction = 0;
+    let discountPercent = 0;
+    if (original > 0 && current < original) {
+      deduction = original - current;
+      discountPercent = (deduction / original) * 100;
+    }
+
+    const discountedPriceData = current.toFixed(2);
+    const unitPrice = parseFloat(discountedPriceData);
+    
+    setUnitPrice(unitPrice);
+
+
+    // Ensure plantData has a country code
+    const plantDataWithCountry = { ...activeListing };
+    // If country is missing, try to determine it from currency
+
+    if (!plantDataWithCountry.country) {
+      const mapCurrencyToCountry = (localCurrency) => {
+        if (!localCurrency) return 'ID'; // Default to Indonesia
+          
+        switch (localCurrency.toUpperCase()) {
+          case 'PHP':
+            return 'PH';
+          case 'THB':
+            return 'TH';
+          case 'IDR':
+            return 'ID';
+          default:
+            return 'ID'; // Default to Indonesia
+        }
+      };
+        
+      plantDataWithCountry.country = mapCurrencyToCountry(plantDataWithCountry.localCurrency);
+    }
+
+    setPlantDataCountry(plantDataWithCountry)
+  };
+
+    // Effect for fetching comments
+  useEffect(() => {
+      if (!sessionId) return;
+  
+      const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+      const q = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
+  
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedComments = [];
+        querySnapshot.forEach((doc) => {
+          fetchedComments.push({ id: doc.id, ...doc.data() });
+        });
+        setComments(fetchedComments);
+      });
+  
+      return () => unsubscribe();
+    }, [sessionId]);
+
+  const handleSendComment = async (initialComment) => {
+      const commentToSend = initialComment !== undefined ? initialComment : newComment;
+      if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
   
       try {
         const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
         await addDoc(commentsCollectionRef, {
-          message: newComment,
+          message: commentToSend,
           name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
           avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
           uid: currentUserInfo.uid,
@@ -88,12 +163,21 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     return formatter.format(data);
   }
 
-  const addLike = () => {
+  const toggleLove = async () => {
     // Increment like count locally for demo purposes
+    await toggleLoveLiveSession(sessionId);
   }
 
+  const addViewers = async () => {
+    await addViewerToLiveSession(sessionId);
+  }
 
-  const goBack = () => {
+  const removeViewers = async () => {
+    await removeViewerFromLiveSession(sessionId);
+  }
+
+  const goBack = async () => {
+    await removeViewers();
     navigation.goBack();
   }
 
@@ -111,28 +195,35 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       }
  };
 
+ useEffect(() => {
+  if (!activeListing) return;
+  getDiscountedPrice();
+ }, [activeListing]);
+
+
   useEffect(() => {
-     if (!sessionId) return;
- console.log('zxcv', sessionId);
- 
-     const listingDocRef = doc(db, 'listing');
-     console.log('zxcvzxc1');
-     
-     const q = query(listingDocRef, where('sessionId', '==', sessionId), where('status', '==', 'live'), where('isActiveLiveListing', '==', true));
-      console.log('zxcvzxc12');
-     const unsubscribe = onSnapshot(q, (doc) => {
-       if (doc.exists()) {
-         const data = doc.data();
-         console.log('listings:', data);
-         setActiveListing(data);
-       } else {
-         console.log('Live session listing document does not exist.');
-       }
-     });
- 
-     // Cleanup listener on component unmount
-     return () => unsubscribe();
-   }, [sessionId]);
+    if (!sessionId) return;
+
+    const listingsCollectionRef = collection(db, 'listing');
+    const q = query(
+      listingsCollectionRef,
+      where('sessionId', '==', sessionId),
+      where('isActiveLiveListing', '==', true)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const activeDoc = querySnapshot.docs[0];
+        console.log('Active listing found:', activeDoc.id, activeDoc.data());
+        
+        setActiveListing({ id: activeDoc.id, ...activeDoc.data() });
+      } else {
+        setActiveListing(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [sessionId]);
 
    useEffect(() => {
      if (!sessionId) return;
@@ -197,6 +288,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         onJoinChannelSuccess: (connection, elapsed) => {
           console.log('✅ Joined Channel as viewer:', connection, 'Elapsed:', elapsed);
           setJoined(true);
+          addViewers();
+          handleSendComment('Joined 👋');
         },
         onUserJoined: (connection, remoteUid) => {
           console.log('👤 Remote user joined:', connection, 'uid:', remoteUid);
@@ -229,7 +322,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           navigation.navigate('Live');
         },
         onRemoteVideoStateChanged: (uid, state, reason, elapsed) => {
-          console.log('📹 Remote video state:', { uid, state, reason, elapsed });
           
           // Handle different video states
           if (state === 0) { // STOPPED
@@ -247,10 +339,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           setError('Agora Error: ' + (err.message || err));
         },
         onRemoteVideoStats: (stats) => {
-          console.log('📊 Remote Video Stats:', stats);
+          // console.log('📊 Remote Video Stats:', stats);
         },
         onRemoteAudioStats: (stats) => {
-          console.log('🔊 Remote Audio Stats:', stats);
+          // console.log('🔊 Remote Audio Stats:', stats);
         },
         onWarning: (warn) => {
           console.warn('⚠️ Agora Warning:', warn);
@@ -314,8 +406,30 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     }
   }, [joined, remoteUid, navigation, sessionEnded]);
 
+  useEffect(() => {
+        if (comments.length > 0) {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }
+  }, [comments]); // This effect runs whenever 'messages' array changes
+
   return (
      <SafeAreaView style={styles.container}>
+       <CheckoutLiveModal
+          isVisible={isPlantDetailLiveModalVisible}
+          onClose={() => setPlantDetailLiveModalVisible(false)}
+          listingDetails={{
+            fromBuyNow: true,
+            plantData: {
+              ...plantDataCountry,
+              flightDate: activeListing ? activeListing.flightDate : null,
+              cargoDate: activeListing ? activeListing.cargoDate : null,
+            },
+            selectedPotSize: activeListing ? activeListing.potSize : null,
+            quantity: 1,
+            plantCode: activeListing ? activeListing.plantCode : null,
+            totalAmount: unitPrice * 1,
+          }}
+      />
       <View style={styles.stream}>
         {joined && remoteUid ? (
           <RtcSurfaceView
@@ -386,13 +500,16 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
           </View>
           <View style={styles.sideActions}>
-              <TouchableOpacity onPress={() => addLike()} style={styles.sideAction}>
+              {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                <ActiveLoveIcon />
+                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+              </TouchableOpacity>) : 
+              (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
                 <LoveIcon />
                 <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.sideAction}>
-                <ShareIcon />
-              </TouchableOpacity>
+              )}
+              
           </View>
         </View>
         {activeListing && (<View style={styles.shop}>
@@ -422,7 +539,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 </View>
             </View>
             <View style={styles.actionButton}>
-              <TouchableOpacity style={styles.actionButtonTouch}>
+              <TouchableOpacity onPress={() => {
+                setPlantDetailLiveModalVisible(true);
+              }} style={styles.actionButtonTouch}>
                 <Text style={styles.actionText}>Buy Now</Text>
               </TouchableOpacity>
             </View>

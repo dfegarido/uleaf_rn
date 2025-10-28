@@ -23,7 +23,6 @@ import CarouselSell from './components/CarouselSell';
 
 import { getSellMostLove } from '../../../components/Api';
 
-import GrowerPlantIcon from '../../../assets/sellicon/growers.svg';
 import SinglePlantIcon from '../../../assets/sellicon/single.svg';
 
 import { useFocusEffect } from '@react-navigation/native';
@@ -175,7 +174,7 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, o
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
+            {/* <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
               <TouchableOpacity
                 onPress={handlePressGrowers}
                 style={{
@@ -195,7 +194,7 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, o
                   Grower's Choice
                 </Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </View>
         </View>
 

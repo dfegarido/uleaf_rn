@@ -83,12 +83,9 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
 
   return (
     <TouchableOpacity 
-      // onPress={stream.isLive ? () => navigation.navigate('BuyerLiveStreamScreen', {
-      //     sessionId: stream.sessionId,
-      //   }) : () => {}} 
-         onPress={() => navigation.navigate('BuyerLiveStreamScreen', {
+      onPress={stream.isLive ? () => navigation.navigate('BuyerLiveStreamScreen', {
           sessionId: stream.sessionId,
-        })} 
+        }) : () => {}} 
       style={[styles.videoCard, cardStyle]}
     >
       {/* Video container */}
@@ -218,13 +215,12 @@ const LiveScreen = ({navigation}) => {
 
   useEffect(() => {
     const liveCollectionRef = collection(db, 'live');
-    const q = query(liveCollectionRef, orderBy('createdAt', 'asc'));
+    const q = query(liveCollectionRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedLiveStreams = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-         console.log('Live Stream Doc:', moment(data.createdAt.seconds * 1000).format('MMM-DD hh:mmA'));
         const mutatedData = {
           title: data.title || 'Untitled Stream',
           thumbnail: data.coverPhotoUrl || require('../../../assets/images/plant1.png'),

@@ -10,8 +10,10 @@ import {
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
+  Modal,
   PermissionsAndroid,
   Platform,
   StyleSheet,
@@ -61,16 +63,39 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
   const [isLive, setIsLive] = useState(false);
   const flatListRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const updateLiveStatus = async (newStatus) => {
+    setIsLoading(true);
+    const response = await updateLiveSessionStatusApi(sessionId, newStatus);
+      if (response?.success && response?.newStatus === 'live') {
+        setIsLive(true);
+        setIsLoading(false);
+      } else {
+        setIsLive(false);
+        setIsLoading(false);
+        navigation.goBack();
+      }
+  }
 
   const updateLiveSessionStatus = async (newStatus) => {
     try {
-      const response = await updateLiveSessionStatusApi(sessionId, newStatus);
-      console.log('Live session status updated:', response);  
-      if (response?.success && response?.newStatus === 'live') {
-        setIsLive(true);
+      if (newStatus === 'ended') {
+        Alert.alert(
+          "End Live Session",
+          "Are you sure you want to end the live session?",
+          [
+            { 
+              text: "Yes",
+              onPress: () => updateLiveStatus(newStatus)
+            },
+            { 
+              text: "Cancel",
+            }
+          ]
+        );
       } else {
-        setIsLive(false);
-        navigation.goBack();
+        await updateLiveStatus(newStatus);
       }
     } catch (error) {
       console.error('Error updating live session status:', error);
@@ -135,6 +160,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
 
     const startBroadcast = async () => {
+      
       // Do not proceed if the token is not yet available.
       if (!token) {
         console.log('Waiting for token...');
@@ -283,6 +309,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   return (
        <SafeAreaView style={styles.container}>
+        {isLoading && (
+                <Modal transparent animationType="fade">
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#699E73" />
+                  </View>
+                </Modal>
+              )}
         <View style={styles.stream}>
           {joined ? (
             <RtcSurfaceView
@@ -440,6 +473,12 @@ const baseFont = {
 };
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: { 
     flex: 1,
     justifyContent: 'space-between',

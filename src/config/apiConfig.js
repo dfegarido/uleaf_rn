@@ -170,6 +170,7 @@ const generateEndpoints = () => ({
   SEARCH_PLANTS: `${getBaseUrl()}/searchPlants`,
   GET_BUYER_LISTINGS: `${getBaseUrl()}/getBuyerListings`,
   GET_BUYER_LISTING: `${getBaseUrl()}/getBuyerListing`, // Single plant detail
+  GET_BUYER_LISTING_LIVE: `${getBaseUrl()}/getBuyerListingLive`, // Single plant detail
   GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   

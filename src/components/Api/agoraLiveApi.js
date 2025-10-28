@@ -4,9 +4,6 @@ export const generateAgoraToken = async (channelName, agoraUid=null) => {
   try {
     const token = await getStoredAuthToken();
 console.log('token', token);
-// return {
-//   token: '007eJxTYJjbfqwt/lHSC7EPRl9urqt/eszh+k2/lDKdwL07ZCfWf5JSYLBITUqyNDcwMUwyszAxSE1MMjAwSjNLNjA2NjWxsEgzm3b5R0ZDICNDsM5PRkYGCATx2Rgyc1IT00IZGAB6VCMA'
-// }
     
     const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/generateLiveSessionData', {
       method: 'POST',
@@ -146,6 +143,69 @@ export const updateLiveSessionStatusApi = async (sessionId, newStatus) => {
     return await response.json();
   } catch (error) {
     console.error('updateLiveSessionStatus error:', error.message);
+    return error;
+  }
+};
+
+export const addViewerToLiveSession = async (sessionId) => {
+  try {
+    const token = await getStoredAuthToken();
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/addViewerToLiveSession`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ sessionId }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error('addViewerToLiveSession error:', error.message);
+    return error;
+  }
+};
+
+export const removeViewerFromLiveSession = async (sessionId) => {
+  try {
+    const token = await getStoredAuthToken();
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/removeViewerFromLiveSession`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ sessionId }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error('removeViewerFromLiveSession error:', error.message);
+    return error;
+  }
+};
+
+export const toggleLoveLiveSession = async (sessionId) => {
+  try {
+    const token = await getStoredAuthToken();
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/toggleLoveLiveSession`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ sessionId }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error('toggleLoveLiveSession error:', error.message);
     return error;
   }
 };
