@@ -20,6 +20,7 @@ import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 import { LiveBroadcastScreen } from '../../screens/Live';
+import CreateLiveSessionScreen from '../../screens/Live/CreateLiveSessionScreen';
 
 import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
 import {
@@ -687,6 +688,13 @@ const MainStack = () => {
       <Stack.Screen
         name="LiveBroadcastScreen"
         component={LiveBroadcastScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="CreateLiveSession"
+        component={CreateLiveSessionScreen}
+        options={{headerShown: false}}
       />
 
       <Stack.Screen

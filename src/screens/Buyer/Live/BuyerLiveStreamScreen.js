@@ -1,4 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  where
+} from 'firebase/firestore';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -18,35 +28,226 @@ import {
   RtcSurfaceView
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../../../../firebase';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import ActiveLoveIcon from '../../../assets/live-icon/active-love.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
-import ShareIcon from '../../../assets/live-icon/share.svg';
-import ShopIcon from '../../../assets/live-icon/shop.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
+import { AuthContext } from '../../../auth/AuthProvider';
+import {
+  addViewerToLiveSession,
+  generateAgoraToken,
+  removeViewerFromLiveSession,
+  toggleLoveLiveSession,
+} from '../../../components/Api/agoraLiveApi';
+import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
+import GuideModal from './GuideModal'; // Import the new modal
 
-const APP_ID = '77bffba08cc144228a447e99bae16ec1';
-// Note: You should generate a new token from Agora console if this one is expired
-const TOKEN = "007eJxTYNCU6kqdJ5U0i8f9wbfvjZtXd7zXSP98w7z2xJyeK9kMzeoKDObmSWlpSYkGFsnJhiYmRkYWiSYm5qmWlkmJqYZmqcmGe5fUZDQEMjKsCTzAwAiFID4bQ2lOamKaCQMDAN91IZY="; // your token here
-const CHANNEL_NAME = 'uleaf4';
-
-const BuyerLiveStreamScreen = ({navigation}) => {
+const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
   const [remoteUid, setRemoteUid] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [appId, setAppId] = useState(null);
+  const [channelName, setChannelName] = useState(null);
+  const [token, setToken] = useState(null);
+  const [sessionId, setSessionId] = useState(route.params?.sessionId);
+  const [liveStats, setLiveStats] = useState({ viewerCount: 0, likeCount: 0 });
+  const [activeListing, setActiveListing] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const flatListRef = useRef(null);
+  const { userInfo } = useContext(AuthContext);
+  const [asyncUserInfo, setAsyncUserInfo] = useState(null);
+  const currentUserInfo = userInfo || asyncUserInfo;
+  const [unitPrice, setUnitPrice] = useState(null);
+  const [plantDataCountry, setPlantDataCountry] = useState(null);
+  const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
+  const [isGuideModalVisible, setIsGuideModalVisible] = useState(false);
 
-  // Mocked chat messages
-  const chatData = [
-    { id: '1', name: 'Chloe Bennett', message: 'Joined 👋', avatar: 'https://i.pravatar.cc/40?img=1' },
-    { id: '2', name: 'Ashley Carter', message: 'Leaf it to this plant to steal the show 😁', avatar: 'https://i.pravatar.cc/40?img=2' },
-    { id: '3', name: 'Dylan Brooks', message: 'Look at those variegated leaves, absolute stunner!😍', avatar: 'https://i.pravatar.cc/40?img=3' },
-  ];
+  const getDiscountedPrice = () => {
+    const priceData = activeListing;
+    
+    // Preferred fields per spec
+    const original = parseFloat(priceData.originalPrice ?? priceData.usdPrice ?? 0) || 0;
+    let current = parseFloat(priceData.usdPriceNew ?? priceData.finalPrice ?? priceData.usdPrice ?? original) || 0;
+
+    // Guard: if current is 0 but original exists, fallback to original
+    if (current === 0 && original > 0) current = original;
+
+    let deduction = 0;
+    let discountPercent = 0;
+    if (original > 0 && current < original) {
+      deduction = original - current;
+      discountPercent = (deduction / original) * 100;
+    }
+
+    const discountedPriceData = current.toFixed(2);
+    const unitPrice = parseFloat(discountedPriceData);
+    
+    setUnitPrice(unitPrice);
+
+    // Ensure plantData has a country code
+    const plantDataWithCountry = { ...activeListing };
+    // If country is missing, try to determine it from currency
+
+    if (!plantDataWithCountry.country) {
+      const mapCurrencyToCountry = (localCurrency) => {
+        if (!localCurrency) return 'ID'; // Default to Indonesia
+          
+        switch (localCurrency.toUpperCase()) {
+          case 'PHP':
+            return 'PH';
+          case 'THB':
+            return 'TH';
+          case 'IDR':
+            return 'ID';
+          default:
+            return 'ID'; // Default to Indonesia
+        }
+      };
+        
+      plantDataWithCountry.country = mapCurrencyToCountry(plantDataWithCountry.localCurrency);
+    }
+
+    setPlantDataCountry(plantDataWithCountry)
+  };
+
+    // Effect for fetching comments
+  useEffect(() => {
+      if (!sessionId) return;
+  
+      const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+      const q = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
+  
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedComments = [];
+        querySnapshot.forEach((doc) => {
+          fetchedComments.push({ id: doc.id, ...doc.data() });
+        });
+        setComments(fetchedComments);
+      });
+  
+      return () => unsubscribe();
+    }, [sessionId]);
+
+  const handleSendComment = async (initialComment) => {
+      const commentToSend = initialComment !== undefined ? initialComment : newComment;
+      if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
+  
+      try {
+        const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+        await addDoc(commentsCollectionRef, {
+          message: commentToSend,
+          name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
+          avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
+          uid: currentUserInfo.uid,
+          createdAt: serverTimestamp(),
+        });
+        setNewComment(''); // Clear input after sending
+      } catch (error) {
+        console.error('Error sending comment:', error);
+      }
+  };
+
+  const formatViewersLikes = (data) => {
+    // Use 'en-US' locale, compact notation, and 0-1 fraction digits
+    const formatter = new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 1
+    });
+
+    return formatter.format(data);
+  }
+
+  const toggleLove = async () => {
+    // Increment like count locally for demo purposes
+    await toggleLoveLiveSession(sessionId);
+  }
+
+  const addViewers = async () => {
+    await addViewerToLiveSession(sessionId);
+  }
+
+  const removeViewers = async () => {
+    await removeViewerFromLiveSession(sessionId);
+  }
+
+  const goBack = async () => {
+    await removeViewers();
+    navigation.goBack();
+  }
+
+  const fetchToken = async () => {
+      try {
+        const response = await generateAgoraToken(channelName);
+        console.log('Fetched token response:', response);
+        
+        setToken(response.token);
+        setAppId(response.appId);
+        setChannelName(response.channelName);
+        
+      } catch (error) {
+        console.error('Error fetching token:', error);
+      }
+ };
+
+ useEffect(() => {
+  if (!activeListing) return;
+  getDiscountedPrice();
+ }, [activeListing]);
+
 
   useEffect(() => {
+    if (!sessionId) return;
+
+    const listingsCollectionRef = collection(db, 'listing');
+    const q = query(
+      listingsCollectionRef,
+      where('sessionId', '==', sessionId),
+      where('isActiveLiveListing', '==', true)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const activeDoc = querySnapshot.docs[0];
+        console.log('Active listing found:', activeDoc.id, activeDoc.data());
+        
+        setActiveListing({ id: activeDoc.id, ...activeDoc.data() });
+      } else {
+        setActiveListing(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [sessionId]);
+
+   useEffect(() => {
+     if (!sessionId) return;
+ 
+     console.log(`Setting up snapshot listener for live session: ${sessionId}`);
+     const sessionDocRef = doc(db, 'live', sessionId);
+ 
+     const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
+       if (doc.exists()) {
+         const data = doc.data();
+         console.log('Live session data updated:', data);
+         setLiveStats(data);
+       } else {
+         console.log('Live session document does not exist.');
+       }
+     });
+ 
+     // Cleanup listener on component unmount
+     return () => unsubscribe();
+   }, [sessionId]);
+
+  useEffect(() => {
+    fetchToken();
     const startAgora = async () => {
       if (Platform.OS === 'android') {
         await PermissionsAndroid.requestMultiple([
@@ -58,7 +259,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
-        appId: APP_ID,
+        appId: appId,
         channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
       
@@ -88,6 +289,8 @@ const BuyerLiveStreamScreen = ({navigation}) => {
         onJoinChannelSuccess: (connection, elapsed) => {
           console.log('✅ Joined Channel as viewer:', connection, 'Elapsed:', elapsed);
           setJoined(true);
+          addViewers();
+          handleSendComment('Joined 👋');
         },
         onUserJoined: (connection, remoteUid) => {
           console.log('👤 Remote user joined:', connection, 'uid:', remoteUid);
@@ -120,7 +323,6 @@ const BuyerLiveStreamScreen = ({navigation}) => {
           navigation.navigate('Live');
         },
         onRemoteVideoStateChanged: (uid, state, reason, elapsed) => {
-          console.log('📹 Remote video state:', { uid, state, reason, elapsed });
           
           // Handle different video states
           if (state === 0) { // STOPPED
@@ -138,10 +340,10 @@ const BuyerLiveStreamScreen = ({navigation}) => {
           setError('Agora Error: ' + (err.message || err));
         },
         onRemoteVideoStats: (stats) => {
-          console.log('📊 Remote Video Stats:', stats);
+          // console.log('📊 Remote Video Stats:', stats);
         },
         onRemoteAudioStats: (stats) => {
-          console.log('🔊 Remote Audio Stats:', stats);
+          // console.log('🔊 Remote Audio Stats:', stats);
         },
         onWarning: (warn) => {
           console.warn('⚠️ Agora Warning:', warn);
@@ -156,12 +358,12 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       rtc.setClientRole(ClientRoleType.ClientRoleAudience);
       
       // Log to help with debugging
-      console.log('Joining channel:', CHANNEL_NAME);
-      console.log('Using token:', TOKEN ? 'Token provided' : 'No token');
+      console.log('Joining channel:', channelName);
+      console.log('Using token:', token ? 'Token provided' : 'No token');
       
       try {
         // Join the channel with specific options
-        rtc.joinChannel(TOKEN, CHANNEL_NAME, 0, {
+        rtc.joinChannel(token, channelName, 0, {
           autoSubscribeVideo: true,
           autoSubscribeAudio: true,
           publishLocalAudio: false,
@@ -188,7 +390,7 @@ const BuyerLiveStreamScreen = ({navigation}) => {
         rtcEngineRef.current = null;
       }
     };
-  }, []);
+  }, [token, appId, channelName]);
 
   useEffect(() => {
     // Timeout if no broadcaster is found
@@ -205,8 +407,34 @@ const BuyerLiveStreamScreen = ({navigation}) => {
     }
   }, [joined, remoteUid, navigation, sessionEnded]);
 
+  useEffect(() => {
+        if (comments.length > 0) {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }
+  }, [comments]); // This effect runs whenever 'messages' array changes
+
   return (
      <SafeAreaView style={styles.container}>
+       <CheckoutLiveModal
+          isVisible={isPlantDetailLiveModalVisible}
+          onClose={() => setPlantDetailLiveModalVisible(false)}
+          listingDetails={{
+            fromBuyNow: true,
+            plantData: {
+              ...plantDataCountry,
+              flightDate: activeListing ? activeListing.flightDate : null,
+              cargoDate: activeListing ? activeListing.cargoDate : null,
+            },
+            selectedPotSize: activeListing ? activeListing.potSize : null,
+            quantity: 1,
+            plantCode: activeListing ? activeListing.plantCode : null,
+            totalAmount: unitPrice * 1,
+          }}
+      />
+      <GuideModal
+        isVisible={isGuideModalVisible}
+        onClose={() => setIsGuideModalVisible(false)}
+      />
       <View style={styles.stream}>
         {joined && remoteUid ? (
           <RtcSurfaceView
@@ -234,17 +462,17 @@ const BuyerLiveStreamScreen = ({navigation}) => {
       {joined && remoteUid && (
         <>
           <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
                     <BackSolidIcon width={24} height={24} color="#333" />
             </TouchableOpacity>
             <View style={styles.topAction}>
-              <TouchableOpacity style={styles.guide}>
+              <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
                     <GuideIcon width={19} height={19} />
                     <Text style={styles.guideText}>Guide</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.liveViewer}>
                     <ViewersIcon width={24} height={24} />
-                    <Text style={styles.liveViewerText}>{viewerCount}</Text>
+                    <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -253,7 +481,8 @@ const BuyerLiveStreamScreen = ({navigation}) => {
         <View style={styles.social}>
           <View style={styles.comments}>
             <FlatList
-              data={chatData}
+              ref={flatListRef}
+              data={comments}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <View style={styles.commentRow}>
@@ -269,39 +498,44 @@ const BuyerLiveStreamScreen = ({navigation}) => {
               style={styles.commentInput}
               placeholder="Comment"
               placeholderTextColor="#888"
+              value={newComment}
+              onChangeText={setNewComment}
+              onSubmitEditing={handleSendComment}
             />
 
           </View>
           <View style={styles.sideActions}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                <LoveIcon width={40} height={40} />
+              {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                <ActiveLoveIcon />
+                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+              </TouchableOpacity>) : 
+              (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                <LoveIcon />
+                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                <ShareIcon width={40} height={40} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.sideAction}>
-                <ShopIcon width={40} height={40} />
-              </TouchableOpacity>
+              )}
+              
           </View>
         </View>
-        <View style={styles.shop}>
+        {activeListing && (<View style={styles.shop}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
                 <View style={styles.plantName}>
-                  <Text style={styles.name}>Coriandrum Sativum</Text>
-                  <Text style={styles.variegation}>Inner Variegated · 2”–4”</Text>
+                  <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
+                  <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text>
                 </View>
                 <View style={styles.price}>
-                  <Text style={styles.plantPrice}>$48.95</Text>
-                  <View style={styles.discount}>
-                    <Text style={styles.discountText}>33% OFF</Text>
-                  </View>
+                  <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
+                  {/* Discount logic can be added here if available in data */}
+                      {/* <View style={styles.discount}>
+                        <Text style={styles.discountText}>33% OFF</Text>
+                      </View> */}
                 </View>
                 
               </View>
               <View style={styles.shipping}>
                   <View style={styles.shippingType}>
-                    <Text style={styles.shippingDetails}>Grower’s Choice</Text>
+                    <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
                   </View>
                   <View style={styles.shipDays}>
                     <TruckIcon width={24} height={24} />
@@ -310,11 +544,16 @@ const BuyerLiveStreamScreen = ({navigation}) => {
                 </View>
             </View>
             <View style={styles.actionButton}>
-              <TouchableOpacity style={styles.actionButtonTouch}>
+              <TouchableOpacity onPress={() => {
+                setPlantDetailLiveModalVisible(true);
+              }} style={styles.actionButtonTouch}>
                 <Text style={styles.actionText}>Buy Now</Text>
               </TouchableOpacity>
             </View>
-        </View>
+        </View>)}
+        {!activeListing && (<View style={styles.shop}>
+                      <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
+                    </View>)}
           </View>
         </>
       )}
@@ -574,6 +813,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#E7522F',
+  },
+  sideActionText: {
+    ...baseFont,
+    fontWeight: '600',
+    fontSize: 14,
+    marginTop: 4,
   },
   shipping: {
     flexDirection: 'row',

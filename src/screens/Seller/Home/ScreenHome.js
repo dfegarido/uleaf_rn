@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
-import {useFocusEffect, useIsFocused} from '@react-navigation/native';
-import React, {useEffect, useState, useContext} from 'react';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,15 +16,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {CustomSalesChart} from '../../../components/Charts';
-import {formatCurrency, formatNumberWithCommas} from '../../../utils/formatCurrency';
-import {getCurrencySymbol} from '../../../utils/getCurrencySymbol';
-import {roundNumber} from '../../../utils/roundNumber';
-import {retryAsync} from '../../../utils/utils';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AuthContext } from '../../../auth/AuthProvider';
+import { CustomSalesChart } from '../../../components/Charts';
+import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
+import { getCurrencySymbol } from '../../../utils/getCurrencySymbol';
+import { roundNumber } from '../../../utils/roundNumber';
+import { retryAsync } from '../../../utils/utils';
 import BusinessPerformance from './components/BusinessPerformance';
 import HomeDurationDropdown from './components/HomeDurationDropdown';
-import {AuthContext} from '../../../auth/AuthProvider';
 
 import {
   getDateFilterApi,
@@ -33,7 +33,6 @@ import {
   getHomeSummaryApi,
 } from '../../../components/Api';
 
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import AvatarIcon from '../../../assets/images/avatar.svg';
@@ -41,7 +40,7 @@ import LiveIcon from '../../../assets/images/live.svg';
 import MessageIcon from '../../../assets/images/messages.svg';
 import MyStoreIcon from '../../../assets/images/mystore.svg';
 import PayoutsIcon from '../../../assets/images/payouts.svg';
-import {globalStyles} from '../../../assets/styles/styles';
+import { globalStyles } from '../../../assets/styles/styles';
 
 const screenHeight = Dimensions.get('window').height;
 
@@ -72,6 +71,7 @@ const ScreenHome = ({navigation}) => {
   // Fetch on mount
   const isFocused = useIsFocused();
   useEffect(() => {
+    
     let isMounted = true;
 
     const fetchData = async () => {
@@ -302,7 +302,7 @@ const ScreenHome = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => {}}
+                onPress={ (userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com' ? () => navigation.navigate('CreateLiveSession') : () => {}}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}
