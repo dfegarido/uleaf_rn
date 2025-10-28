@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { auth } from '../../../firebase';
 import {postSellerAfterSignInApi, postAdminAfterSignInApi} from '../../components/Api';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useHeaderHeight} from '@react-navigation/elements';
+import {checkMaintenanceApi} from '../../components/Api/maintenanceApi';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
@@ -107,9 +108,44 @@ const ScreenLoginForm = ({navigation}) => {
           formData.email,
           formData.password,
         );
+        
         const user = authResult.user;
 
+        // After successful login, check maintenance status
         if (user) {
+          const maintenanceResponse = await checkMaintenanceApi();
+          if (maintenanceResponse.success && maintenanceResponse.data?.maintenance?.enabled) {
+            // Check if user is admin - if yes, allow access; if no, block
+            try {
+              // Try admin endpoint to check if user is admin
+              const adminResponse = await postAdminAfterSignInApi(await user.getIdToken());
+              if (adminResponse?.user) {
+                // User is admin, allow access
+                console.log('✅ Admin access allowed during maintenance');
+              } else {
+                // User is not admin, block and logout
+                await auth.signOut();
+                Alert.alert(
+                  'Under Maintenance',
+                  'The app is under maintenance. Please try again later.',
+                  [{text: 'OK', onPress: () => {}}]
+                );
+                setLoading(false);
+                return;
+              }
+            } catch (error) {
+              // If admin check fails, treat as non-admin
+              await auth.signOut();
+              Alert.alert(
+                'Under Maintenance',
+                'The app is under maintenance. Please try again later.',
+                [{text: 'OK', onPress: () => {}}]
+              );
+              setLoading(false);
+              return;
+            }
+          }
+          
           const localIdToken = await user.getIdToken();
           console.log('Token:', localIdToken);
           const userData = await loadData(localIdToken);

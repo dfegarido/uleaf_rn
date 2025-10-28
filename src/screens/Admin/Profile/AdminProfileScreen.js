@@ -11,12 +11,14 @@ import {
   Alert,
   RefreshControl,
   Animated,
+  Switch,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../../auth/AuthProvider';
 import {useIsFocused} from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import {getAdminInfoApi} from '../../../components/Api';
+import {checkMaintenanceApi, setMaintenanceApi} from '../../../components/Api/maintenanceApi';
 
 // Import icons
 import ProfileIcon from '../../../assets/icons/greydark/profile.svg';
@@ -129,6 +131,8 @@ const AdminProfileScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [adminData, setAdminData] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [isMaintenanceLoading, setIsMaintenanceLoading] = useState(false);
 
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60; // Standard admin tab bar height
@@ -159,13 +163,67 @@ const AdminProfileScreen = () => {
   useEffect(() => {
     if (isFocused) {
       fetchAdminInfo(true);
+      fetchMaintenanceStatus();
     }
   }, [isFocused]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchAdminInfo(false);
+    await fetchMaintenanceStatus();
     setRefreshing(false);
+  };
+
+  // Fetch maintenance status
+  const fetchMaintenanceStatus = async () => {
+    try {
+      const response = await checkMaintenanceApi();
+      if (response.success && response.data?.maintenance) {
+        setMaintenanceEnabled(response.data.maintenance.enabled);
+      }
+    } catch (error) {
+      console.error('Error fetching maintenance status:', error);
+    }
+  };
+
+  // Toggle maintenance mode
+  const handleMaintenanceToggle = async (value) => {
+    Alert.alert(
+      value ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode',
+      value 
+        ? 'This will force all users to logout and show the maintenance screen. Are you sure?'
+        : 'This will allow users to access the app again. Are you sure?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {}, // Keep previous value
+        },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setIsMaintenanceLoading(true);
+            try {
+              const response = await setMaintenanceApi(value);
+              if (response.success) {
+                setMaintenanceEnabled(value);
+                Alert.alert(
+                  'Success',
+                  value ? 'Maintenance mode enabled' : 'Maintenance mode disabled'
+                );
+              } else {
+                throw new Error(response.error || 'Failed to update maintenance status');
+              }
+            } catch (error) {
+              console.error('Error updating maintenance status:', error);
+              Alert.alert('Error', error.message || 'Failed to update maintenance status');
+            } finally {
+              setIsMaintenanceLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -234,6 +292,35 @@ const AdminProfileScreen = () => {
             title="Update Password"
             onPress={() => navigation.navigate('AdminUpdatePassword')}
           />
+        </View>
+
+        <Divider />
+
+        {/* System Maintenance Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionTitle}>System</Text>
+
+          <View style={styles.maintenanceToggle}>
+            <View style={styles.maintenanceToggleLeft}>
+              <Text style={styles.maintenanceTitle}>App Maintenance</Text>
+              <Text style={styles.maintenanceDescription}>
+                {maintenanceEnabled 
+                  ? 'App is currently disabled for all users'
+                  : 'App is currently accessible to all users'}
+              </Text>
+            </View>
+            {isMaintenanceLoading ? (
+              <ActivityIndicator size="small" color="#539461" />
+            ) : (
+              <Switch
+                value={maintenanceEnabled}
+                onValueChange={handleMaintenanceToggle}
+                trackColor={{ false: '#CDD3D4', true: '#539461' }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor="#CDD3D4"
+              />
+            )}
+          </View>
         </View>
 
         <Divider />
@@ -444,6 +531,30 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  maintenanceToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  maintenanceToggleLeft: {
+    flex: 1,
+    marginRight: 16,
+  },
+  maintenanceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#393D40',
+    marginBottom: 4,
+  },
+  maintenanceDescription: {
+    fontSize: 13,
+    color: '#556065',
+    lineHeight: 18,
   },
 });
 

@@ -5,13 +5,29 @@ import RightArrowIcon from '../../assets/admin-icons/rigth-arrow.svg';
 
 // Lightweight calendar-style Plant Flight picker matching Figma
 
-const DayButton = ({label, onPress, isSelected, isToday}) => (
-  <TouchableOpacity onPress={onPress} style={[styles.dayButton, isSelected ? styles.dayButtonSelected : null]}>
-    <Text style={[styles.dayText, isSelected ? styles.dayTextSelected : null, isToday ? styles.dayTextToday : null]}>{label}</Text>
+const DayButton = ({label, onPress, isSelected, isToday, isAvailable, disabled}) => (
+  <TouchableOpacity 
+    onPress={onPress} 
+    disabled={disabled}
+    style={[
+      styles.dayButton, 
+      isSelected && styles.dayButtonSelected,
+      isAvailable && !isSelected && styles.dayButtonAvailable,
+      disabled && styles.dayButtonDisabled
+    ]}
+  >
+    <Text style={[
+      styles.dayText, 
+      isSelected && styles.dayTextSelected, 
+      isToday && !isSelected && styles.dayTextToday,
+      disabled && styles.dayTextDisabled
+    ]}>
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
-const SimpleMonthView = ({year, month, selectedDate, onSelect}) => {
+const SimpleMonthView = ({year, month, selectedDate, onSelect, availableDates = [], restrictToAvailable = false}) => {
   const firstDay = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startWeekday = firstDay.getDay();
@@ -33,6 +49,16 @@ const SimpleMonthView = ({year, month, selectedDate, onSelect}) => {
 
   const today = new Date();
 
+  // Helper to check if a date is available
+  const isDateAvailable = (year, month, day) => {
+    if (availableDates.length === 0) return true; // If no available dates specified, allow all
+    return availableDates.some(availDate => 
+      availDate.getFullYear() === year && 
+      availDate.getMonth() === month && 
+      availDate.getDate() === day
+    );
+  };
+
   return (
     <View style={styles.calendarGrid}>
       <View style={styles.weekHeader}>
@@ -42,39 +68,62 @@ const SimpleMonthView = ({year, month, selectedDate, onSelect}) => {
       </View>
       {weeks.map((week, idx) => (
         <View key={idx} style={styles.weekRow}>
-          {week.map((d, i) => (
-            <View key={i} style={styles.dayCell}>
-              {d ? (
-                <DayButton
-                  label={String(d)}
-                  onPress={() => onSelect(new Date(year, month, d))}
-                  isSelected={selectedDate && selectedDate.getFullYear() === year && selectedDate.getMonth() === month && selectedDate.getDate() === d}
-                  isToday={today.getFullYear() === year && today.getMonth() === month && today.getDate() === d}
-                />
-              ) : (
-                <View style={styles.emptyDay} />
-              )}
-            </View>
-          ))}
+          {week.map((d, i) => {
+            const isAvailable = d ? isDateAvailable(year, month, d) : false;
+            const shouldDisable = restrictToAvailable && d && !isAvailable;
+            
+            return (
+              <View key={i} style={styles.dayCell}>
+                {d ? (
+                  <DayButton
+                    label={String(d)}
+                    onPress={() => !shouldDisable && onSelect(new Date(year, month, d))}
+                    isSelected={selectedDate && selectedDate.getFullYear() === year && selectedDate.getMonth() === month && selectedDate.getDate() === d}
+                    isToday={today.getFullYear() === year && today.getMonth() === month && today.getDate() === d}
+                    isAvailable={isAvailable}
+                    disabled={shouldDisable}
+                  />
+                ) : (
+                  <View style={styles.emptyDay} />
+                )}
+              </View>
+            );
+          })}
         </View>
       ))}
     </View>
   );
 };
 
-const PlantFlightFilter = ({isVisible, onClose, onSelectFlight, flightDates = []}) => {
+const PlantFlightFilter = ({isVisible, onClose, onSelectFlight, onReset, flightDates = [], selectedValue = null}) => {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState(null);
 
-  useEffect(() => {
-    if (flightDates && flightDates.length > 0 && !selectedDate) {
-      const fd = flightDates[0];
-      const parsed = new Date(fd);
-      if (!isNaN(parsed)) setSelectedDate(parsed);
-    }
+  // Parse flightDates into Date objects for comparison
+  const availableDates = React.useMemo(() => {
+    return flightDates.map(dateStr => {
+      const d = new Date(dateStr);
+      return !isNaN(d) ? d : null;
+    }).filter(Boolean);
   }, [flightDates]);
+
+  // Initialize selected date from selectedValue prop
+  useEffect(() => {
+    if (isVisible) {
+      if (selectedValue) {
+        const parsed = new Date(selectedValue);
+        if (!isNaN(parsed)) {
+          setSelectedDate(parsed);
+          setViewYear(parsed.getFullYear());
+          setViewMonth(parsed.getMonth());
+        }
+      } else {
+        setSelectedDate(null);
+      }
+    }
+  }, [isVisible, selectedValue]);
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -95,10 +144,22 @@ const PlantFlightFilter = ({isVisible, onClose, onSelectFlight, flightDates = []
 
   const handleApply = () => {
     if (selectedDate) {
-      const iso = selectedDate.toISOString().split('T')[0];
+      // Format date without timezone conversion to avoid date shift
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const iso = `${year}-${month}-${day}`;
       onSelectFlight(iso);
     } else {
       onSelectFlight(null);
+    }
+    onClose();
+  };
+
+  const handleReset = () => {
+    setSelectedDate(null);
+    if (onReset && typeof onReset === 'function') {
+      onReset();
     }
     onClose();
   };
@@ -129,10 +190,17 @@ const PlantFlightFilter = ({isVisible, onClose, onSelectFlight, flightDates = []
             </TouchableOpacity>
           </View>
 
-          <SimpleMonthView year={viewYear} month={viewMonth} selectedDate={selectedDate} onSelect={setSelectedDate} />
+          <SimpleMonthView 
+            year={viewYear} 
+            month={viewMonth} 
+            selectedDate={selectedDate} 
+            onSelect={setSelectedDate}
+            availableDates={availableDates}
+            restrictToAvailable={false}
+          />
 
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.resetButton} onPress={() => setSelectedDate(null)}>
+            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
               <Text style={styles.resetText}>Reset</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.viewButton} onPress={handleApply}>
@@ -147,30 +215,33 @@ const PlantFlightFilter = ({isVisible, onClose, onSelectFlight, flightDates = []
 
 const styles = StyleSheet.create({
   overlay: {flex:1, backgroundColor:'rgba(0,0,0,0.5)'},
-  sheetContainer: {position:'absolute', bottom:0, left:0, right:0, backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight: 582},
-  sheetHeader: {flexDirection:'row', paddingHorizontal:24, paddingTop:20, paddingBottom:12, alignItems:'center', justifyContent:'space-between', borderBottomWidth:StyleSheet.hairlineWidth, borderBottomColor:'#F0F0F0'},
+  sheetContainer: {position:'absolute', bottom:0, left:0, right:0, backgroundColor:'#FFFFFF', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight: 582},
+  sheetHeader: {flexDirection:'row', paddingHorizontal:24, paddingTop:20, paddingBottom:12, alignItems:'center', justifyContent:'space-between', borderBottomWidth:StyleSheet.hairlineWidth, borderBottomColor:'#E4E7E9'},
   sheetTitle: {fontSize:18, fontWeight:'700', color:'#202325'},
   closeButton: {padding:6},
-  content: {paddingHorizontal:24, paddingTop:8, paddingBottom:20},
+  content: {paddingHorizontal:24, paddingTop:8, paddingBottom:20, backgroundColor:'#FFFFFF'},
   monthRow: {flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingVertical:16},
-  monthTitle: {fontSize:20, fontWeight:'600', color:'#393D40', textAlign:'center', flex:1},
-  navButton: {width:48, height:48, borderRadius:12, borderWidth:1, borderColor:'#CDD3D4', alignItems:'center', justifyContent:'center', backgroundColor:'#fff'},
-  calendarGrid: {width:327, alignSelf:'center'},
+  monthTitle: {fontSize:20, fontWeight:'600', color:'#202325', textAlign:'center', flex:1},
+  navButton: {width:48, height:48, borderRadius:12, borderWidth:1, borderColor:'#CDD3D4', alignItems:'center', justifyContent:'center', backgroundColor:'#FFFFFF'},
+  calendarGrid: {width:327, alignSelf:'center', backgroundColor:'#FFFFFF'},
   weekHeader: {flexDirection:'row', justifyContent:'space-between', marginBottom:8},
-  weekHeaderText: {width:46, textAlign:'center', color:'#539461', fontWeight:'500'},
+  weekHeaderText: {width:46, textAlign:'center', color:'#647276', fontWeight:'500', fontSize:14},
   weekRow: {flexDirection:'row', justifyContent:'space-between', marginBottom:8},
   dayCell: {width:46, alignItems:'center'},
   dayButton: {width:42, height:42, borderRadius:12, alignItems:'center', justifyContent:'center'},
-  dayButtonSelected: {backgroundColor:'#539461'},
-  dayText: {color:'#393D40'},
-  dayTextSelected: {color:'#fff', fontWeight:'700'},
-  dayTextToday: {color:'#A9B3B7'},
+  dayButtonSelected: {backgroundColor:'#23C16B'},
+  dayButtonAvailable: {},
+  dayButtonDisabled: {opacity:0.3},
+  dayText: {color:'#393D40', fontSize:16, fontWeight:'600'},
+  dayTextSelected: {color:'#FFFFFF', fontWeight:'600'},
+  dayTextToday: {color:'#23C16B', fontWeight:'600'},
+  dayTextDisabled: {color:'#9BA5A8'},
   emptyDay: {width:42, height:42},
   actionRow: {flexDirection:'row', gap:8, justifyContent:'center', marginTop:12},
   resetButton: {flex:1, backgroundColor:'#F2F7F3', borderRadius:12, height:48, alignItems:'center', justifyContent:'center'},
-  resetText: {color:'#539461', fontWeight:'600', fontSize:16},
-  viewButton: {flex:1, backgroundColor:'#539461', borderRadius:12, height:48, alignItems:'center', justifyContent:'center'},
-  viewText: {color:'#fff', fontWeight:'600', fontSize:16}
+  resetText: {color:'#23C16B', fontWeight:'600', fontSize:16},
+  viewButton: {flex:1, backgroundColor:'#23C16B', borderRadius:12, height:48, alignItems:'center', justifyContent:'center'},
+  viewText: {color:'#FFFFFF', fontWeight:'600', fontSize:16}
 });
 
 export default PlantFlightFilter;

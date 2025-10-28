@@ -4,24 +4,47 @@ import AttachIcon from '../../assets/iconchat/attach.svg';
 
 const MessageInput = ({onSend}) => {
   const [message, setMessage] = useState('');
+  const [inputHeight, setInputHeight] = useState(40); // Initial height
 
   const handleSend = () => {
     if (message.trim()) {
       onSend(message);
       setMessage('');
+      setInputHeight(40); // Reset height after sending
     }
+  };
+
+  const handleKeyPress = (event) => {
+    if (event.nativeEvent.key === 'Enter') {
+      if (event.nativeEvent.shiftKey) {
+        // Shift+Enter: Allow line break (default behavior)
+        return;
+      } else {
+        // Enter alone: Send message
+        event.preventDefault();
+        handleSend();
+      }
+    }
+  };
+
+  const handleContentSizeChange = (event) => {
+    const newHeight = Math.min(Math.max(40, event.nativeEvent.contentSize.height), 120); // Min 40px, Max 120px
+    setInputHeight(newHeight);
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.inputWrapper}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { height: inputHeight }]}
           placeholder="Message..."
           value={message}
           onChangeText={setMessage}
-          onSubmitEditing={handleSend}
-          returnKeyType="send"
+          onKeyPress={handleKeyPress}
+          onContentSizeChange={handleContentSizeChange}
+          multiline={true}
+          textAlignVertical="top"
+          returnKeyType="default"
           placeholderTextColor="#999"
         />
         <TouchableOpacity
@@ -43,29 +66,36 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end', // Changed from 'center' to 'flex-end' for better alignment with multiline
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 16,
     paddingHorizontal: 12,
+    paddingVertical: 8, // Added vertical padding for better spacing
     backgroundColor: '#fff',
+    minHeight: 56, // Increased minimum height to accommodate send button
   },
   input: {
     flex: 1,
     paddingVertical: 8,
-    color: '#000', // Force black text color
+    color: '#000',
     fontSize: 16,
-    minHeight: 40, // Ensure minimum height for better visibility
+    minHeight: 40,
+    maxHeight: 120, // Maximum height before scrolling
+    lineHeight: 20, // Better line spacing for readability
   },
   sendButton: {
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: '#5ca15c',
     borderRadius: 12,
     marginLeft: 8,
+    alignSelf: 'flex-end', // Align to bottom for better visual balance
   },
   sendText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 14,
   }
 });
 

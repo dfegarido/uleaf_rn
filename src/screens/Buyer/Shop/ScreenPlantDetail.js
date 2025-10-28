@@ -68,6 +68,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [potSizeGroups, setPotSizeGroups] = useState({});
   
   // (Replaced manual recommendations with BrowseMorePlants component)
+  const browseMorePlantsRef = React.useRef(null);
   
   // Add to cart modal state
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
@@ -621,11 +622,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   if (loading) {
     return (
+      <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["left", "right", "top", "bottom"]}>
       <View style={styles.container}>
         {/* Skeleton Background Image */}
         <View style={styles.skeletonBackgroundImage} />
         
-        <SafeAreaView style={styles.safeArea}>
+        
           {/* Header Navigation */}
           <View style={styles.header}>
             <TouchableOpacity
@@ -696,8 +698,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
               </View>
             </View>
           </ScrollView>
-        </SafeAreaView>
+        
       </View>
+      </SafeAreaView>
     );
   }
 
@@ -740,7 +743,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
         <ScrollView 
           style={styles.scrollContainer}
-          contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) }}>
+          contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) }}
+          scrollEventThrottle={400}
+          onScroll={(event) => {
+            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+            const paddingToBottom = 600; // Trigger when 600px from bottom (larger for plant detail)
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+            
+            if (isCloseToBottom && browseMorePlantsRef?.current) {
+              console.log('🌱 ScreenPlantDetail: User is near bottom, triggering load more recommendations');
+              browseMorePlantsRef.current.handleLoadMore();
+            }
+          }}
+        >
 
 
           {/* Content */}
@@ -1110,9 +1125,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
           {/* You may also like section (BrowseMorePlants component) */}
           
             <BrowseMorePlants
+              ref={browseMorePlantsRef}
               title="You May Also Like"
-              initialLimit={4}
-              loadMoreLimit={4}
+              initialLimit={8}
+              loadMoreLimit={8}
+              showLoadMore={false}
               onPlantPress={(plant) => navigation.push('ScreenPlantDetail', { plantCode: plant.plantCode, plantData: plant })}
               containerStyle={{paddingVertical:0}}
             />
@@ -1121,7 +1138,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         </ScrollView>
 
         {/* Action Bar */}
-        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, 8), height: 72 + Math.max(insets.bottom, 8) }]}>
+        <View style={[styles.actionBar, { paddingBottom: 8, height: 72 }]}>
           <TouchableOpacity 
             style={styles.cartButton}
             onPress={() => navigation.navigate('ScreenCart')}>
@@ -1349,6 +1366,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   container: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#fff',
   },
   backgroundImage: {
     position: 'absolute',
@@ -1412,7 +1430,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1428,7 +1446,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 44,
   },
   shareButton: {
     flexDirection: 'row',

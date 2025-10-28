@@ -48,6 +48,8 @@ import ImportTaxonomyScreen from '../../screens/Admin/Taxonomy/ImportTaxonomyScr
 import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+import { ChatScreen } from '../../screens/ChatScreen';
+import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -141,14 +143,13 @@ function AdminTabs() {
         <Tab.Screen name="Taxonomy" component={Taxonomy} />
   
         <Tab.Screen
-         
           name="Chat"
           component={MessagesScreen}
           listeners={({navigation}) => ({
             tabPress: e => {
               e.preventDefault();
-              // Use parent navigation to navigate to Chat screen without tabs
-              navigation.getParent()?.navigate('Chat');
+              // Navigate to MessagesScreen
+              navigation.navigate('Chat');
             },
           })}
         />
@@ -168,6 +169,8 @@ function AdminTabs() {
      <Stack.Screen name="EnrollSeller" options={{headerShown: false}} component={EnrollSeller} />
      <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
+     <Stack.Screen name="ChatScreen" options={{headerShown: false}} component={ChatScreen} />
+     <Stack.Screen name="ChatSettingsScreen" options={{headerShown: false}} component={ChatSettingsScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
      <Stack.Screen name="LeafTrailSortingAdminScreen" options={{headerShown: false}} component={SortingScreen} />
      <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
@@ -183,6 +186,8 @@ function AdminTabs() {
       
       {/* Listings Viewer */}
       <Stack.Screen name="ListingsViewer" options={{headerShown: false}} component={ListingsViewer} />
+      {/* Order Summary */}
+      <Stack.Screen name="OrderSummary" options={{headerShown: false}} component={require('../../screens/Admin/OrderSummary/OrderSummary').default} />
       
       {/* Taxonomy Screens */}
       <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />

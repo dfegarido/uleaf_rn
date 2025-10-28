@@ -506,7 +506,7 @@ const AccountInformationScreen = () => {
                 <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
                 {/* Header */}
-                <View style={[styles.header, {paddingTop: insets.top }]}>
+                <View style={[styles.header, {paddingTop: 16}]}>
                   <TouchableOpacity
                     onPress={() => navigation.goBack()}
                     style={styles.backButton}>
@@ -679,11 +679,6 @@ const AccountInformationScreen = () => {
           </View>
         </View>
       </Modal>
-
-      {/* Home Indicator */}
-      <View style={styles.homeIndicator}>
-        <View style={styles.gestureBar} />
-      </View>
 
       {/* Image Picker Modal */}
       <Modal

@@ -47,7 +47,7 @@ import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
 import { roundToCents } from '../../../utils/money';
-import { computeGroupedShipping } from '../../../utils/shippingCalculator';
+import { calculateCheckoutShippingApi } from '../../../components/Api/checkoutShippingApi';
 
 // Helper function to determine country from currency
 const getCountryFromCurrency = currency => {
@@ -397,14 +397,14 @@ const CheckoutScreen = () => {
     }
   };
 
-  // Convert ISO YYYY-MM-DD to a human label like 'Nov 01'
+  // Convert ISO YYYY-MM-DD to a human label like 'Nov 01, 2025'
   const isoToLabel = (iso) => {
     try {
       if (!iso) return iso;
       const d = new Date(iso);
       if (isNaN(d)) return iso;
-      // e.g. 'Nov 01'
-      return d.toLocaleString('en-US', { month: 'short', day: '2-digit' }).replace(',', '');
+      // e.g. 'Nov 01, 2025'
+      return d.toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
     } catch (e) {
       return iso;
     }
@@ -524,7 +524,7 @@ const CheckoutScreen = () => {
       return nextSaturday;
     };
 
-    // Helper function to format date as "MMM DD"
+    // Helper function to format date as "MMM DD, YYYY"
     const formatFlightDate = date => {
       const monthNames = [
         'Jan',
@@ -540,7 +540,7 @@ const CheckoutScreen = () => {
         'Nov',
         'Dec',
       ];
-      return `${monthNames[date.getMonth()]} ${date.getDate()}`;
+      return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     };
 
     // Parse the base flight date (format: "Aug 17" or "Aug-17")
@@ -640,39 +640,88 @@ const CheckoutScreen = () => {
     }
   }, [selectedFlightDate]);
 
-  // Calculate UPS 2nd Day shipping cost based on plant details (matching ScreenPlantDetail logic)
+  // State for backend shipping calculation
+  // Initially loading: true to show skeleton on first render
+  const [shippingCalculation, setShippingCalculation] = useState({ 
+    baseCost: 50, 
+    addOnCost: 0, 
+    baseCargo: 150,
+    loading: true 
+  });
+
+  // Memoize plant items to prevent unnecessary re-renders
+  const plants = useMemo(() => {
+    return plantItems && plantItems.length > 0 ? plantItems : (useCart ? cartItems : []);
+  }, [plantItems?.length, cartItems?.length, useCart]);
+
+  // Fetch shipping calculation from backend API
+  useEffect(() => {
+    let isCancelled = false;
+    
+    const fetchShippingCalculation = async () => {
+      if (!plants || plants.length === 0) {
+        setShippingCalculation({ baseCost: 50, addOnCost: 0, baseCargo: 150, loading: false });
+        return;
+      }
+
+      setShippingCalculation(prev => ({ ...prev, loading: true }));
+      
+      try {
+        const result = await calculateCheckoutShippingApi(plants, cargoDate);
+        
+        console.log('✅ Backend shipping calculation result:', {
+          shippingTotal: result.shippingTotal,
+          airCargoTotal: result.airCargoTotal,
+          wholesaleAirCargoTotal: result.wholesaleAirCargoTotal,
+          total: result.total,
+          details: result.details,
+          expectedTotal: result.shippingTotal + result.airCargoTotal + (result.wholesaleAirCargoTotal || 0),
+          isSucceedingOrder: result.isSucceedingOrder
+        });
+        
+        if (!isCancelled) {
+          console.log('💾 Setting shippingCalculation state with result:', {
+            shippingTotal: result.shippingTotal,
+            isSucceedingOrder: result.isSucceedingOrder,
+            wholesaleAirCargoTotal: result.wholesaleAirCargoTotal
+          });
+          
+          setShippingCalculation({
+            baseCost: result.shippingTotal || 50,
+            addOnCost: 0,
+            baseCargo: result.airCargoTotal || 150, // Base air cargo for non-wholesale
+            wholesaleAirCargo: result.wholesaleAirCargoTotal || 0, // Wholesale air cargo
+            loading: false,
+            details: result.details,
+            appliedCredit: result.appliedAirBaseCredit,
+            _grouped: {
+              shippingTotal: result.shippingTotal,
+              airCargoTotal: result.airCargoTotal,
+              wholesaleAirCargoTotal: result.wholesaleAirCargoTotal,
+              total: result.total,
+              details: result.details
+            }
+          });
+        }
+      } catch (error) {
+        console.warn('Backend shipping calculation failed, using defaults:', error);
+        if (!isCancelled) {
+          setShippingCalculation({ baseCost: 50, addOnCost: 0, baseCargo: 150, loading: false });
+        }
+      }
+    };
+
+    fetchShippingCalculation();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [plants?.length, cargoDate]); // Depend on cargoDate to recalculate when flight date changes
+
+  // Calculate UPS 2nd Day shipping cost using backend calculation
+  // Note: This is now state-based from useEffect above
   const calculateUpsShippingCost = () => {
-    // New grouped shipping logic uses the plantItems (prepared earlier)
-    const plants = plantItems && plantItems.length > 0 ? plantItems : (useCart ? cartItems : []);
-    try {
-      const grouped = computeGroupedShipping(plants || []);
-      // Return an object compatible with previous usage: baseCost, addOnCost, baseCargo
-      // We'll use baseCost/addOnCost for legacy per-item UPS calculation by deriving a per-item average
-      const baseCost = grouped.shippingTotal > 0 ? roundToCents(grouped.shippingTotal) : 50;
-      // approximate addOn as 0 (legacy code expects addOnCost) - orderSummary will use grouped totals
-      return { baseCost, addOnCost: 0, baseCargo: grouped.airCargoTotal, _grouped: grouped };
-    } catch (e) {
-      console.warn('computeGroupedShipping failed, falling back to legacy:', e);
-      // Fallback to previous single-item heuristic
-      const plantsLocal = useCart ? cartItems : plantItems;
-
-      if (!plantsLocal || plantsLocal.length === 0) {
-        return {baseCost: 50, addOnCost: 5, baseCargo: 150}; // Default
-      }
-
-      const firstPlant = plantsLocal[0];
-      const listingType = firstPlant.listingType?.toLowerCase() || 'single';
-      // Keep a simple fallback
-      const height = parseFloat(firstPlant.height || firstPlant.approximateHeight || 0);
-      const potSizeNum = parseFloat((firstPlant.potSize || firstPlant.size || '2"').replace('"','')) || 2;
-      if (listingType.includes('whole')) {
-        return { baseCost: potSizeNum > 4 ? 200 : 150, addOnCost: potSizeNum > 4 ? 25 : 20, baseCargo: 250 };
-      }
-      if (listingType.includes('grower') || listingType.includes('choice')) {
-        return { baseCost: potSizeNum > 4 ? 70 : 50, addOnCost: potSizeNum > 4 ? 7 : 5, baseCargo: 150 };
-      }
-      return { baseCost: height > 12 ? 70 : 50, addOnCost: height > 12 ? 7 : 5, baseCargo: 150 };
-    }
+    return shippingCalculation;
   };
 
   const [paymentMethod, setPaymentMethod] = useState('PAYPAL');
@@ -1090,9 +1139,9 @@ const CheckoutScreen = () => {
           }
 
           const shippingRates = calculateUpsShippingCost();
-          const baseCargoAmount = shippingRates?.baseCargo || 150;
-          // Credit the buyer the full base cargo for the current cart so effective becomes $0
-          setPriorPaidAirBaseCargoAmount(baseCargoAmount);
+          // Apply credit for buyers who already paid air cargo on first order
+          // This will show Base Air Cargo: $150, Credit: -$150, Effective: $0
+          setPriorPaidAirBaseCargoAmount(150);
         } else {
           setLockedFlightDate(null);
           setLockedFlightKey(null);
@@ -1116,6 +1165,28 @@ const CheckoutScreen = () => {
   }, [selectedFlightDate?.iso]);
 
   const orderSummary = useMemo(() => {
+    // If still loading, return empty/zero values - skeleton will show
+    if (shippingCalculation.loading) {
+      return {
+        totalItems: 0,
+        subtotal: 0,
+        totalOriginalCost: 0,
+        shipping: 0,
+        baseUpsShipping: 0,
+        upsNextDayUpgradeCost: 0,
+        airBaseCargo: 0,
+        airBaseCargoCreditApplied: 0,
+        airBaseCargoEffective: 0,
+        wholesaleAirCargo: 0,
+        totalShippingCost: 0,
+        shippingCreditsDiscount: 0,
+        finalShippingCost: 0,
+        discount: 0,
+        creditsApplied: 0,
+        finalTotal: 0,
+      };
+    }
+    
     // Calculate default shipping cost
     const defaultShippingRates = calculateUpsShippingCost();
     const defaultShipping = defaultShippingRates.baseCost;
@@ -1174,69 +1245,114 @@ const CheckoutScreen = () => {
     }
 
     // Calculate UPS 2nd Day shipping cost based on plant characteristics
+    // Use backend API calculation results stored in state
     const shippingRates = calculateUpsShippingCost();
-    let shipping = shippingRates.baseCost;
+    // ALWAYS use backend result - it already handles succeeding order logic
+    let shipping = shippingRates.baseCost || 50;
+    
+    console.log('🚀 Using backend shipping result:', shipping);
 
-    // Add costs for additional plants beyond the first one
-    const totalItemsForShipping = plantItems.reduce(
-      (sum, item) => sum + (item.quantity || 1),
-      0,
-    );
-    if (totalItemsForShipping > 1) {
-      shipping += (totalItemsForShipping - 1) * shippingRates.addOnCost;
-    }
+    // Use backend calculated shipping total (already includes add-on costs)
+    shipping = shippingRates.baseCost || shipping;
 
-    // Calculate wholesale air cargo separately if there are wholesale items
-    let wholesaleAirCargo = 0;
-    let airBaseCargo = shippingRates.baseCargo || 0;
-
+    // Get wholesale air cargo from backend calculation
     const wholesaleItems = plantItems.filter(
       item =>
         item.listingType?.toLowerCase() === 'wholesale' ||
         item.listingType?.toLowerCase().includes('wholesale'),
     );
 
-    // Rule: If cart has wholesale items, base air cargo becomes zero and wholesale air cargo is populated
-    if (wholesaleItems.length > 0) {
-      airBaseCargo = 0; // Base air cargo becomes zero when wholesale items are present
-
-      // Calculate wholesale air cargo cost - use the wholesale base cargo from shipping rates
-      const wholesaleQuantity = wholesaleItems.reduce(
-        (sum, item) => sum + (item.quantity || 1),
-        0,
-      );
-      wholesaleAirCargo = shippingRates.baseCargo; // Use the wholesale base cargo (250)
-
-      // Add additional wholesale item costs if more than 1 wholesale item
-      if (wholesaleQuantity > 1) {
-        wholesaleAirCargo += (wholesaleQuantity - 1) * 50; // $50 per additional wholesale item
+    let wholesaleAirCargo = shippingRates.wholesaleAirCargo || 0;
+    let airBaseCargo = 0;
+    
+    console.log('📦 Shipping Rates from Backend:', {
+      baseCost: shippingRates.baseCost,
+      baseCargo: shippingRates.baseCargo,
+      wholesaleAirCargo: shippingRates.wholesaleAirCargo,
+      allRates: shippingRates
+    });
+    
+    // Base Air Cargo is only for single/grower's choice items, not wholesale
+    // Only show it if there are non-wholesale items in the order
+    const hasNonWholesaleItems = plantItems.some(
+      item =>
+        item.listingType?.toLowerCase() !== 'wholesale' &&
+        !item.listingType?.toLowerCase().includes('wholesale'),
+    );
+    
+    if (hasNonWholesaleItems) {
+      // For succeeding orders, backend returns airCargoTotal: 0
+      // We should show the original $150 and apply a -$150 credit
+      if (shippingRates.wholesaleAirCargo > 0 || shippingRates.baseCargo === 0) {
+        // This is a succeeding order (backend returned 0 for base cargo)
+        // Show original $150 for display, credit will be applied separately
+        airBaseCargo = 150;
+      } else {
+        // First order: use backend value
+        airBaseCargo = shippingRates.baseCargo || 150;
       }
+    } else {
+      // Only wholesale items: Base Air Cargo is $0
+      airBaseCargo = 0;
     }
+    
+    console.log('📦 Air Cargo Calculation:', {
+      hasWholesale: wholesaleItems.length > 0,
+      wholesaleAirCargo,
+      airBaseCargo,
+      priorPaid: priorPaidAirBaseCargoAmount,
+      backendBaseCargo: shippingRates.baseCargo,
+      shippingRatesWhole: shippingRates
+    });
     
     // Calculate air base cargo credit and effective air base cargo
-    // If buyer has already paid air base cargo for this flight date, apply credit
+    // For succeeding orders, backend returns 0 for baseCargo, so apply credit
     let appliedAirBaseCargoCredit = 0;
     let effectiveAirBaseCargo = airBaseCargo;
+    let effectiveWholesaleAirCargo = wholesaleAirCargo;
     
-    if (priorPaidAirBaseCargoAmount > 0 && airBaseCargo > 0) {
-      // Apply the credit (reduce the air base cargo by the amount already paid)
-      appliedAirBaseCargoCredit = Math.min(airBaseCargo, priorPaidAirBaseCargoAmount);
+    // UPS shipping for succeeding orders is already calculated by backend
+    // Just use the backend result directly
+    let appliedUpsBaseCredit = 0;
+    let effectiveBaseUpsShipping = shipping; // Use backend result
+    
+    // If this is a succeeding order with non-wholesale items, apply $150 credit
+    if (hasNonWholesaleItems && shippingRates.baseCargo === 0 && shippingRates.wholesaleAirCargo > 0) {
+      // Succeeding order: waive the $150 base air cargo
+      appliedAirBaseCargoCredit = 150;
+      effectiveAirBaseCargo = 0;
+      // Wholesale air cargo is already correct from backend ($100 = 2 × $50)
+      effectiveWholesaleAirCargo = wholesaleAirCargo;
+    } else if (hasNonWholesaleItems && priorPaidAirBaseCargoAmount > 0) {
+      // Legacy logic for display purposes
+      appliedAirBaseCargoCredit = priorPaidAirBaseCargoAmount;
       effectiveAirBaseCargo = Math.max(0, airBaseCargo - appliedAirBaseCargoCredit);
+      effectiveWholesaleAirCargo = wholesaleAirCargo;
     }
     
+    console.log('💳 Air Cargo Breakdown:', {
+      airBaseCargo, // Original amount
+      priorPaidAirBaseCargoAmount, // What was paid before
+      appliedAirBaseCargoCredit, // Credit to apply
+      effectiveAirBaseCargo // Final amount after credit
+    });
     
     
-    // Add UPS Next Day upgrade if enabled (60% of UPS 2nd day shipping cost)
+    
+    // Add UPS Next Day upgrade if enabled (30% of UPS 2nd day shipping cost)
     let upsNextDayUpgradeCost = 0;
-    const baseUpsShipping = shipping; // Store the base UPS 2nd day cost
+    const baseUpsShipping = shipping; // Store the base UPS 2nd day cost (from backend)
+    // Always use backend result - it already handles succeeding order logic correctly
+    let effectiveShipping = shipping;
+    
     if (upsNextDayEnabled) {
-      upsNextDayUpgradeCost = shipping * 0.6; // 60% of UPS 2nd day shipping cost
-      shipping += upsNextDayUpgradeCost;
-      
+      upsNextDayUpgradeCost = effectiveShipping * 0.3; // 30% of effective UPS shipping cost
+      effectiveShipping += upsNextDayUpgradeCost;
     }
 
   // Calculate total shipping including air cargo costs
-  const totalShippingCost = shipping + effectiveAirBaseCargo + wholesaleAirCargo;
+  // Use effectiveShipping (which includes UPS credit for succeeding orders)
+  const totalShippingCost = effectiveShipping + effectiveAirBaseCargo + effectiveWholesaleAirCargo;
   
     // Calculate shipping credits (NEW FEATURE)
     // Apply $150 shipping credit if both conditions are met:
@@ -1289,15 +1405,16 @@ const CheckoutScreen = () => {
       subtotal,
       totalOriginalCost, // NEW: Total of all original prices before discounts
       shipping, // This includes UPS upgrade if enabled
-      baseUpsShipping, // Base UPS 2nd day shipping cost (before upgrade)
+      baseUpsShipping: priorPaidAirBaseCargoAmount > 0 ? effectiveBaseUpsShipping : baseUpsShipping, // Effective UPS base cost (after credit for succeeding orders)
       upsNextDayUpgradeCost: upsNextDayUpgradeCost, // Add UPS Next Day upgrade cost to summary
-      airBaseCargo: airBaseCargo, // Original air base cargo (before credit)
+      airBaseCargo: airBaseCargo, // ALWAYS show original amount ($150) even if credit is applied
       airBaseCargoCreditApplied: appliedAirBaseCargoCredit, // Credit applied because buyer already paid base cargo
-      airBaseCargoEffective: effectiveAirBaseCargo, // Effective base cargo after credit
+      airBaseCargoEffective: effectiveAirBaseCargo, // Effective base cargo after credit (for calculation only, not display)
       wholesaleAirCargo: wholesaleAirCargo, // Add wholesale air cargo to summary
       totalShippingCost: totalShippingCost, // Total of all shipping costs combined (before shipping credits)
       shippingCreditsDiscount: shippingCreditsDiscount, // NEW: Shipping credits discount applied
       finalShippingCost: finalShippingCost, // NEW: Final shipping cost after shipping credits
+      appliedAirBaseCargoCredit: appliedAirBaseCargoCredit, // Credit for succeeding orders
       discount: discountAmount,
       creditsApplied,
       finalTotal,
@@ -1331,6 +1448,7 @@ const CheckoutScreen = () => {
     plantCredits,
     shippingCredits,
     priorPaidAirBaseCargoAmount,
+    shippingCalculation.loading, // Add loading state to dependencies
   ]);
 
   const quantityBreakdown = useMemo(() => {
@@ -1633,9 +1751,18 @@ const CheckoutScreen = () => {
           creditsApplied: orderSummary.creditsApplied || 0,
           shipping: orderSummary.finalShippingCost || orderSummary.totalShippingCost,
           shippingCreditsDiscount: orderSummary.shippingCreditsDiscount || 0,
+          upsNextDayUpgradeCost: orderSummary.upsNextDayUpgradeCost || 0,
           total: orderSummary.finalTotal,
         },
       };
+
+      console.log('📊 Order Summary Being Submitted:', {
+        subtotal: orderSummary.subtotal,
+        shipping: orderSummary.finalShippingCost || orderSummary.totalShippingCost,
+        upsNextDayUpgrade: orderSummary.upsNextDayUpgradeCost,
+        total: orderSummary.finalTotal,
+        upsNextDayEnabled
+      });
 
       // Add items based on checkout type
       if (fromBuyNow && plantData) {
@@ -1699,6 +1826,7 @@ const CheckoutScreen = () => {
 
           return {
             plantCode: item.plantCode,
+            listingType: item.listingType, // Include listingType for backend shipping calculation
             quantity: item.quantity || 1,
             potSize: item.potSize || item.size,
             price: item.price,
@@ -1837,33 +1965,22 @@ const CheckoutScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["left", "right", "top"]}>
+      <View style={styles.container}>
       {/* Fixed Header */}
-      <View style={styles.header}>
-        <View style={styles.controls}>
-          {/* Back Button */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}>
-            <BackIcon width={24} height={24} />
-          </TouchableOpacity>
-
-          {/* Title */}
-          <Text style={styles.headerTitle}>Checkout</Text>
-
-          {/* Navbar Right (hidden) */}
-          <View style={styles.navbarRight} />
-        </View>
+      <View style={[styles.header, {paddingTop: 15}]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <BackIcon width={24} height={24} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Checkout</Text>
+        <View />
       </View>
 
       {/* Scrollable Content */}
       <ScrollView
         style={styles.scrollableContent}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContentContainer,
-          {paddingBottom: 130 + Math.max(insets.bottom, 8)},
-        ]}>
+        contentContainerStyle={styles.scrollContentContainer}>
         {/* Shipping Address Section */}
         <View style={styles.shipping}>
           {/* Title */}
@@ -2242,15 +2359,50 @@ const CheckoutScreen = () => {
 
             {/* Content */}
             <View style={styles.shippingSummaryContent}>
-              {/* Shipping Fee */}
-              <View style={styles.shippingFeeRow}>
-                <Text style={styles.summaryRowLabel}>
-                  UPS 2nd day shipping
-                </Text>
-                <Text style={styles.summaryRowNumber}>
-                  {formatCurrencyFull(orderSummary.baseUpsShipping)}
-                </Text>
-              </View>
+              {/* Loading skeleton for shipping calculation */}
+              {shippingCalculation.loading ? (
+                <>
+                  {/* UPS 2nd day shipping skeleton */}
+                  <View style={styles.shippingFeeRow}>
+                    <View style={styles.skeletonText} />
+                    <Animated.View style={[styles.skeletonAmount, { opacity: shimmerAnim }]} />
+                  </View>
+                  
+                  {/* Next Day upgrade skeleton */}
+                  <View style={styles.labeledToggle}>
+                    <View style={styles.skeletonTextShort} />
+                    <Animated.View style={[styles.skeletonToggle, { opacity: shimmerAnim }]} />
+                  </View>
+                  
+                  {/* Base Air Cargo skeleton */}
+                  <View style={styles.baseAirCargoRow}>
+                    <View style={styles.skeletonText} />
+                    <Animated.View style={[styles.skeletonAmount, { opacity: shimmerAnim }]} />
+                  </View>
+                  
+                  {/* Wholesale Air Cargo skeleton */}
+                  <View style={styles.wholesaleAirCargoRow}>
+                    <View style={styles.skeletonText} />
+                    <Animated.View style={[styles.skeletonAmount, { opacity: shimmerAnim }]} />
+                  </View>
+                  
+                  {/* Total skeleton */}
+                  <View style={styles.shippingTotalRow}>
+                    <View style={styles.skeletonTextTotal} />
+                    <Animated.View style={[styles.skeletonAmountLarge, { opacity: shimmerAnim }]} />
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* Shipping Fee */}
+                  <View style={styles.shippingFeeRow}>
+                    <Text style={styles.summaryRowLabel}>
+                      UPS 2nd day shipping
+                    </Text>
+                    <Text style={styles.summaryRowNumber}>
+                      {formatCurrencyFull(orderSummary.baseUpsShipping)}
+                    </Text>
+                  </View>
 
               {/* Form / Labeled Toggle */}
               <View style={styles.labeledToggle}>
@@ -2299,14 +2451,11 @@ const CheckoutScreen = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Base Air Cargo (effective after any prior-paid credit) */}
+              {/* Base Air Cargo (always show original amount $150) */}
               <View style={styles.baseAirCargoRow}>
                 <Text style={styles.summaryRowLabel}>Base Air Cargo</Text>
                 <Text style={styles.summaryRowNumber}>
-                  {formatCurrencyFull(
-                    orderSummary.airBaseCargoEffective ??
-                      orderSummary.airBaseCargo,
-                  )}
+                  {formatCurrencyFull(orderSummary.airBaseCargo)}
                 </Text>
               </View>
 
@@ -2352,6 +2501,8 @@ const CheckoutScreen = () => {
                   {formatCurrencyFull(orderSummary.finalShippingCost || orderSummary.totalShippingCost)}
                 </Text>
               </View>
+                </>
+              )}
             </View>
           </View>
 
@@ -2558,13 +2709,7 @@ const CheckoutScreen = () => {
 
       {/* Fixed Checkout Bar */}
       <View
-        style={[
-          styles.checkoutBar,
-          {
-            paddingBottom: Math.max(insets.bottom, 8),
-            height: 98 + Math.max(insets.bottom, 8),
-          },
-        ]}>
+        style={styles.checkoutBar}>
         {/* Content */}
         <View style={styles.checkoutContent}>
           {/* Summary */}
@@ -2606,11 +2751,6 @@ const CheckoutScreen = () => {
             </View>
           </TouchableOpacity>
         </View>
-
-        {/* Home Indicator */}
-        <View style={styles.homeIndicator}>
-          <View style={styles.gestureBar} />
-        </View>
       </View>
 
       {/* Loading Modal */}
@@ -2627,6 +2767,7 @@ const CheckoutScreen = () => {
           </View>
         </View>
       </Modal>
+      </View>
     </SafeAreaView>
   );
 };
@@ -2634,24 +2775,23 @@ const CheckoutScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F3F3F5',
   },
   scrollableContent: {
     flex: 1,
-    marginTop: 24,
   },
   scrollContentContainer: {
     flexGrow: 1,
-    paddingBottom: 100,
   },
   header: {
-    width: '100%',
-    height: 58,
-    minHeight: 58,
-    backgroundColor: '#FFFFFF',
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E4E7E9',
+    borderBottomColor: '#E0E0E0',
   },
   controls: {
     flexDirection: 'row',
@@ -4350,14 +4490,6 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#141414',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 8,
     flex: 0,
     zIndex: 2,
   },
@@ -4548,6 +4680,43 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     fontFamily: 'Inter',
+  },
+  // Skeleton styles
+  skeletonText: {
+    height: 16,
+    width: 120,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+  },
+  skeletonTextShort: {
+    height: 16,
+    width: 80,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+  },
+  skeletonTextTotal: {
+    height: 20,
+    width: 140,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+  },
+  skeletonAmount: {
+    height: 16,
+    width: 60,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+  },
+  skeletonAmountLarge: {
+    height: 20,
+    width: 80,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+  },
+  skeletonToggle: {
+    height: 24,
+    width: 50,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
   },
 });
 

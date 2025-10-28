@@ -11,10 +11,14 @@ import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import {OrderItemCard, OrderItemCardSkeleton} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
-import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
+import {getBuyerOrdersApi, getBuyerOrdersGroupedApi} from '../../../components/Api/orderManagementApi';
+import {checkoutApi} from '../../../components/Api/checkoutApi';
+import {paymentPaypalVenmoUrl} from '../../../../config';
+import {Linking} from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 
 const ScreenPayToBoard = () => {
+  const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
   
@@ -30,6 +34,9 @@ const ScreenPayToBoard = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const browseMorePlantsRef = React.useRef(null);
+  const [expandedTransactions, setExpandedTransactions] = useState(new Set());
+  const [payingTransaction, setPayingTransaction] = useState(null);
 
   // Load orders from API
   const loadOrders = async (isRefresh = false, append = false) => {
@@ -62,22 +69,21 @@ const ScreenPayToBoard = () => {
       };
 
       console.log('🔍 Loading Pay to Board orders with params:', params);
-      const response = await getBuyerOrdersApi(params);
-      console.log('📡 Pay to Board API response:', { success: response.success, plantCount: response.data?.data?.plants?.length });
+      const response = await getBuyerOrdersGroupedApi(params);
+      console.log('📡 Pay to Board Grouped API response:', { success: response.success, groupCount: response.data?.data?.groups?.length });
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to load orders');
       }
 
-      const plantsData = response.data?.data?.plants || [];
-      console.log('📦 Loaded Pay to Board plant records:', plantsData);
+      const groupedOrders = response.data?.data?.groups || [];
+      console.log('📦 Loaded Pay to Board grouped orders:', groupedOrders);
 
-      const transformedOrders = plantsData.map(plant => transformPlantToComponentFormat(plant));
       if (append) {
-        setOrders(prev => [...prev, ...transformedOrders]);
+        setOrders(prev => [...prev, ...groupedOrders]);
         setPage(prev => prev + 1);
       } else {
-        setOrders(transformedOrders);
+        setOrders(groupedOrders);
         setPage(0);
       }
 
@@ -164,6 +170,56 @@ const ScreenPayToBoard = () => {
     }
   };
 
+  // Toggle transaction expansion
+  const toggleTransaction = (transactionNumber) => {
+    setExpandedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(transactionNumber)) {
+        newSet.delete(transactionNumber);
+      } else {
+        newSet.add(transactionNumber);
+      }
+      return newSet;
+    });
+  };
+
+  // Calculate total for a transaction group
+  const calculateTransactionTotal = (group) => {
+    return group.pricing?.finalTotal || group.finalTotal || 0;
+  };
+
+  // Handle payment for transaction
+  const handlePayTransaction = async (group) => {
+    const total = calculateTransactionTotal(group);
+    const transactionNumber = group.transactionNumber;
+    
+    console.log('💳 Pay button clicked for existing transaction:', transactionNumber);
+    
+    setPayingTransaction(transactionNumber);
+    
+    try {
+      // Navigate to Orders screen
+      navigation.navigate('Orders');
+      
+      // Redirect to PayPal/Venmo payment page for existing transaction
+      // No need to create a new transaction - just pay for the existing one
+      setTimeout(() => {
+        console.log('💳 Opening payment page for existing order:', transactionNumber);
+        Linking.openURL(
+          `${paymentPaypalVenmoUrl}?amount=${total}&ileafuOrderId=${transactionNumber}`,
+        );
+      }, 500);
+    } catch (error) {
+      console.error('❌ Payment error:', error);
+      Alert.alert(
+        'Payment Error',
+        error.message || 'An unexpected error occurred. Please try again.',
+      );
+    } finally {
+      setPayingTransaction(null);
+    }
+  };
+
   useEffect(() => {
     loadOrders();
   }, []);
@@ -195,9 +251,9 @@ const ScreenPayToBoard = () => {
           ))}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15}}
           />
         </ScrollView>
@@ -205,6 +261,24 @@ const ScreenPayToBoard = () => {
         <ScrollView
           style={{flex: 1}}
           contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
+          scrollEventThrottle={400}
+          onScroll={(event) => {
+            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+            const paddingToBottom = 600;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+            
+            // Load more orders when scrolling near bottom
+            if (isCloseToBottom && !loadingMore && !refreshing) {
+              console.log('📦 ScreenPayToBoard: User is near bottom, loading more orders');
+              handleLoadMore();
+            }
+            
+            // Load more recommendations when scrolling near bottom
+            if (isCloseToBottom && browseMorePlantsRef?.current) {
+              console.log('🌱 ScreenPayToBoard: User is near bottom, triggering load more recommendations');
+              browseMorePlantsRef.current.handleLoadMore();
+            }
+          }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -232,9 +306,73 @@ const ScreenPayToBoard = () => {
               </Text>
             </View>
           ) : (
-            orders.map((item, index) => (
-              <OrderItemCard key={`${item.plantCode}_${index}`} {...item} activeTab="Pay to Board" />
-            ))
+            orders.map((group, groupIndex) => {
+              const transactionNumber = group.transactionNumber || group.orderId || `group-${groupIndex}`;
+              const isExpanded = expandedTransactions.has(transactionNumber);
+              const total = calculateTransactionTotal(group);
+              const plantCount = group.plants?.length || 0;
+              
+              return (
+                <View key={transactionNumber} style={styles.transactionGroup}>
+                  <View style={styles.transactionHeader}>
+                    <TouchableOpacity 
+                      style={styles.transactionHeaderContent}
+                      onPress={() => toggleTransaction(transactionNumber)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.transactionInfo}>
+                        <Text style={styles.transactionNumber}>
+                          TXN {transactionNumber}
+                        </Text>
+                        <Text style={styles.transactionTotal}>
+                          Total: ${total.toFixed(2)}
+                        </Text>
+                        <Text style={styles.transactionCount}>
+                          {plantCount} {plantCount === 1 ? 'plant' : 'plants'}
+                        </Text>
+                      </View>
+                      <View style={styles.transactionHeaderRight}>
+                        <CaretDownIcon 
+                          width={24} 
+                          height={24} 
+                          style={{transform: [{rotate: isExpanded ? '180deg' : '0deg'}]}}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.payButton}
+                      onPress={() => handlePayTransaction(group)}
+                      activeOpacity={0.7}
+                      disabled={payingTransaction === group.transactionNumber}
+                    >
+                      {payingTransaction === group.transactionNumber ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.payButtonText}>Pay ${total.toFixed(2)}</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {isExpanded && group.plants && group.plants.length > 0 && (
+                    <View style={styles.transactionPlants}>
+                      {group.plants.map((plant, index) => {
+                        const plantData = transformPlantToComponentFormat({
+                          ...plant,
+                          order: group
+                        });
+                        return (
+                          <OrderItemCard 
+                            key={`${plant.plantCode}_${index}`} 
+                            {...plantData}
+                            activeTab="Pay to Board" 
+                          />
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })
           )
           }
 
@@ -246,24 +384,13 @@ const ScreenPayToBoard = () => {
             </View>
           )}
 
-          <View style={{width: '100%', alignItems: 'center', marginTop: 12, paddingHorizontal: 16}}>
-            <TouchableOpacity
-              onPress={handleLoadMore}
-              style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 24, width: '100%', maxWidth: 375, height: 48, borderRadius: 12, backgroundColor: 'transparent'}}
-              disabled={loadingMore}
-            >
-              <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8, gap: 8, height: 16}}>
-                <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, lineHeight: 16, color: '#539461', textAlign: 'center'}}>{loadingMore ? 'Loading more...' : 'Load More'}</Text>
-                {!loadingMore && (<CaretDownIcon width={24} height={24} style={{width:24, height:24}} />)}
-              </View>
-            </TouchableOpacity>
-          </View>
 
           <BrowseMorePlants 
+            ref={browseMorePlantsRef}
             title="More from our Jungle"
-            initialLimit={6}
-            loadMoreLimit={6}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
           />
 
@@ -324,6 +451,70 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontFamily: 'Inter',
     textAlign: 'center',
+  },
+  transactionGroup: {
+    marginBottom: 8,
+  },
+  transactionHeader: {
+    backgroundColor: '#F3F3F5',
+    borderRadius: 12,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  transactionHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  transactionHeaderRight: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  transactionTotal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#10b981',
+    fontFamily: 'Inter',
+    marginBottom: 2,
+  },
+  transactionCount: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontFamily: 'Inter',
+  },
+  transactionPlants: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginHorizontal: 8,
+    marginBottom: 8,
+  },
+  payButton: {
+    backgroundColor: '#10b981',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  payButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    fontFamily: 'Inter',
   },
 });
 

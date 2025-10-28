@@ -110,6 +110,60 @@ export const getBuyerOrdersApi = async (params = {}) => {
 };
 
 /**
+ * Get buyer orders grouped by transaction number
+ * @param {Object} params - Query parameters
+ * @param {string} params.status - Order status filter
+ * @param {number} params.limit - Number of grouped orders to fetch
+ * @param {number} params.offset - Pagination offset
+ * @returns {Promise<Object>} Buyer orders grouped response
+ */
+export const getBuyerOrdersGroupedApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
+
+    const url = `${API_ENDPOINTS.GET_BUYER_ORDERS_GROUPED}?${queryParams.toString()}`
+    console.log("🔍 getBuyerOrdersGroupedApi url:", url);
+    
+    const response = await fetch(
+      url,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log("✅ getBuyerOrdersGroupedApi response:", data);
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get buyer orders grouped API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching grouped buyer orders',
+    };
+  }
+};
+
+/**
  * Get detailed information for a specific order
  * @param {Object} params - Query parameters
  * @param {string} params.orderId - Order ID (backend may still require transactionNumber+plantCode)

@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onIdTokenChanged, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import {getBuyerProfileApi} from '../components/Api/buyerProfileApi';
+import {checkMaintenanceApi} from '../components/Api/maintenanceApi';
 
 export const AuthContext = createContext();
 
@@ -84,6 +85,32 @@ export const AuthProvider = ({children}) => {
 
     return () => unsubscribe();
   }, []);
+
+  // Check maintenance status periodically and force logout if enabled
+  useEffect(() => {
+    const checkMaintenanceAndLogout = async () => {
+      try {
+        const response = await checkMaintenanceApi();
+        
+        if (response.success && response.data?.maintenance?.enabled) {
+          // Force logout if maintenance is enabled
+          console.log('🔧 Maintenance mode enabled, forcing logout');
+          await logout();
+        }
+      } catch (error) {
+        console.error('Error checking maintenance in AuthProvider:', error);
+      }
+    };
+
+    // Check every 5 minutes when user is logged in
+    const interval = setInterval(() => {
+      if (isLoggedIn) {
+        checkMaintenanceAndLogout();
+      }
+    }, 300000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [isLoggedIn]);
 
   const updateProfileImage = async newImage => {
     try {

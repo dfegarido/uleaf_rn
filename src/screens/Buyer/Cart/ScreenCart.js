@@ -239,7 +239,9 @@ const CartHeader = ({insets}) => {
                   }}
                 >
                   <Text style={styles.searchResultName} numberOfLines={2}>
-                    {plant.title}
+                    {plant.title && !plant.title.includes('Choose the most suitable variegation') 
+                      ? plant.title 
+                      : `${plant.genus} ${plant.species}${plant.variegation && plant.variegation !== 'Choose the most suitable variegation.' ? ' ' + plant.variegation : ''}`}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -656,7 +658,10 @@ const ScreenCart = () => {
           flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
           isUnavailable: isListingUnavailable,
-          listingType: item.listingDetails?.listingType || 'Single Plant' // Add the listing type
+          listingType: item.listingDetails?.listingType || 'Single Plant', // Add the listing type
+          plantSourceCountry: item.listingDetails?.country || 'TH', // Add plantSourceCountry for backend
+          potSize: item.selectedVariation?.potSize || item.potSize,
+          listingDetails: item.listingDetails // Include full listing details for reference
         };
       }) || [];
 
@@ -920,7 +925,9 @@ const ScreenCart = () => {
       selectedCartItems.map(item => ({
         name: item.name,
         listingType: item.listingType,
-        quantity: item.quantity
+        quantity: item.quantity,
+        plantSourceCountry: item.plantSourceCountry,
+        plantCode: item.plantCode
       }))
     );
     
@@ -1060,9 +1067,9 @@ const ScreenCart = () => {
           
           <BrowseMorePlants 
             title="More from our Jungle" 
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{paddingTop: 0}}
             onAddToCart={handleAddToCartFromRecommendations}
           />

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
@@ -167,6 +167,7 @@ const ScreenShop = ({navigation}) => {
   
   // Browse plants state persistence to prevent unnecessary reloading
   const [browseMorePlantsKey, setBrowseMorePlantsKey] = useState(1);
+  const [browseMorePlantsComponent, setBrowseMorePlantsComponent] = useState(null);
   // (Removed) recommendations state – replaced by BrowseMorePlants component elsewhere
   
   // ----------------------
@@ -897,7 +898,7 @@ const ScreenShop = ({navigation}) => {
   const Avatar = require('../../../components/Avatar/Avatar').default;
 
   return (
-    <>
+    <SafeAreaView style={{flex: 1}} edges={[]}>
       <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
         <View style={styles.header}>
           <View style={styles.searchContainer}>
@@ -1065,7 +1066,9 @@ const ScreenShop = ({navigation}) => {
                     }}
                   >
                     <Text style={styles.searchResultName} numberOfLines={2}>
-                      {plant.title}
+                      {plant.title && !plant.title.includes('Choose the most suitable variegation') 
+                        ? plant.title 
+                        : `${plant.genus} ${plant.species}${plant.variegation && plant.variegation !== 'Choose the most suitable variegation.' ? ' ' + plant.variegation : ''}`}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -1084,6 +1087,18 @@ const ScreenShop = ({navigation}) => {
         ref={mainScrollRef}
         style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
         contentContainerStyle={{paddingBottom: totalBottomPadding}}
+        onScroll={(event) => {
+          const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+          const paddingToBottom = 400; // Trigger when 400px from bottom
+          const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+          
+          if (isCloseToBottom && browseMorePlantsComponent) {
+            // Trigger load more in BrowseMorePlants component
+            console.log('🌱 ScreenShop: User is near bottom, triggering load more');
+            browseMorePlantsComponent.handleLoadMore();
+          }
+        }}
+        scrollEventThrottle={400}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1434,11 +1449,12 @@ const ScreenShop = ({navigation}) => {
 
         {/* Browse More Plants Component */}
         <BrowseMorePlants
+          ref={setBrowseMorePlantsComponent}
           key={`browse-more-${browseMorePlantsKey}`}
           title="More from our Jungle"
-          initialLimit={4}
-          loadMoreLimit={4}
-          showLoadMore={true}
+          initialLimit={8}
+          loadMoreLimit={8}
+          showLoadMore={false}
           autoLoad={true}
           forceRefresh={refreshing} // Force refresh when user pulls to refresh
           onAddToCart={handleAddToCartFromBrowseMore}
@@ -1477,7 +1493,7 @@ const ScreenShop = ({navigation}) => {
         handleSearchSubmit={handleFilterView}
         clearFilters={clearFilters}
       />
-    </>
+    </SafeAreaView>
   );
 };
 

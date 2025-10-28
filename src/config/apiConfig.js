@@ -194,13 +194,22 @@ const generateEndpoints = () => ({
   
   // Checkout & Payment APIs
   CHECKOUT: `${getBaseUrl()}/checkout`,
+  CALCULATE_CHECKOUT_SHIPPING: `${getBaseUrl()}/calculateCheckoutShipping`,
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
   
   // Order APIs
   GET_ORDERS: `${getBaseUrl()}/getOrders`,
   GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
+  GET_BUYER_ORDERS_GROUPED: `${getBaseUrl()}/getBuyerOrdersGrouped`,
+  GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,
   GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
+  
+  // System APIs
+  CHECK_MAINTENANCE: `${getBaseUrl()}/checkMaintenance`,
+  SET_MAINTENANCE: `${getBaseUrl()}/setMaintenance`,
+  GET_APP_VERSION: `${getBaseUrl()}/getAppVersion`,
+  SET_APP_VERSION: `${getBaseUrl()}/setAppVersion`,
   
   // Credit Request APIs
   REQUEST_CREDIT: `${getBaseUrl()}/requestCredit`,

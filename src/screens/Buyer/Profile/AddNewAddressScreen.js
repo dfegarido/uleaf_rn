@@ -569,10 +569,7 @@ const AddNewAddressScreen = () => {
         </View>
         </View>
       </ScrollView>
-      {/* Home Indicator */}
-      <View style={styles.homeIndicator}>
-        <View style={styles.gestureBar} />
-      </View>
+
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>

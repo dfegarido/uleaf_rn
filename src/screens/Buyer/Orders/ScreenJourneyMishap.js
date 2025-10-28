@@ -31,6 +31,7 @@ const ScreenJourneyMishap = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const browseMorePlantsRef = React.useRef(null);
 
   // Load credit requests from API using the new comprehensive Journey Mishap API
   const loadOrders = async (isRefresh = false, append = false) => {
@@ -436,9 +437,9 @@ const ScreenJourneyMishap = () => {
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
             title="More from our Jungle"
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15}}
           />
         </ScrollView>
@@ -446,6 +447,24 @@ const ScreenJourneyMishap = () => {
         <ScrollView
           style={{flex: 1}}
           contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
+          scrollEventThrottle={400}
+          onScroll={(event) => {
+            const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+            const paddingToBottom = 600;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+            
+            // Load more orders when scrolling near bottom
+            if (isCloseToBottom && !loadingMore && !refreshing) {
+              console.log('📦 ScreenJourneyMishap: User is near bottom, loading more orders');
+              handleLoadMore();
+            }
+            
+            // Load more recommendations when scrolling near bottom
+            if (isCloseToBottom && browseMorePlantsRef?.current) {
+              console.log('🌱 ScreenJourneyMishap: User is near bottom, triggering load more recommendations');
+              browseMorePlantsRef.current.handleLoadMore();
+            }
+          }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -490,26 +509,13 @@ const ScreenJourneyMishap = () => {
 
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
+            ref={browseMorePlantsRef}
             title="More from our Jungle"
-            initialLimit={4}
-            loadMoreLimit={4}
-            showLoadMore={true}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15}}
+            initialLimit={8}
+            loadMoreLimit={8}
+            showLoadMore={false}
+            containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
           />
-
-          {/* Load more orders button */}
-          <View style={{width: '100%', alignItems: 'center', marginTop: 12, paddingHorizontal: 16}}>
-            <TouchableOpacity
-              onPress={handleLoadMore}
-              style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 24, width: '100%', maxWidth: 375, height: 48, borderRadius: 12, backgroundColor: 'transparent'}}
-              disabled={loadingMore}
-            >
-              <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8, gap: 8, height: 16}}>
-                <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, lineHeight: 16, color: '#539461', textAlign: 'center'}}>{loadingMore ? 'Loading more...' : 'Load More'}</Text>
-                {!loadingMore && (<CaretDownIcon width={24} height={24} style={{width:24, height:24}} />)}
-              </View>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       )}
     </SafeAreaView>
