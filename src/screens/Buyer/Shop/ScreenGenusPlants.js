@@ -193,7 +193,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const performSearch = async (searchTerm) => {
     try {
       setLoadingSearch(true);
-      console.log('🔍 Starting genus screen search for:', searchTerm);
 
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
@@ -214,8 +213,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }
 
       const plants = res.data?.plants || [];
-      console.log(`✅ Genus screen search completed: found ${plants.length} plants for "${searchTerm}"`);
-      console.log('📋 First plant data:', plants[0]); // Debug plant structure
       setSearchResults(plants);
       
     } catch (error) {
@@ -238,7 +235,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       try {
         // Check if this is a special badge navigation (from ScreenShop)
         if (fromBadge && filter) {
-          console.log(`🎯 Navigated from badge: ${filter}`);
           setActiveBadge(filter);
           justFiltered.current = true;
           
@@ -286,7 +282,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         justFiltered.current = false;
       } else if (hasAppliedFilters()) {
         // Only reload if there are applied filters from another screen
-        console.log('Loading plants with applied filters from another screen:', appliedFilters);
         loadPlants(true);
       }
       // If no applied filters, don't auto-reload to prevent unnecessary API calls
@@ -298,7 +293,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
   
   useEffect(() => {
     if (filterType && filterValue && !routeFilterApplied.current) {
-      console.log(`🎯 Route parameter filter detected: ${filterType} = ${filterValue}`);
       
       // Apply the filter based on filterType
       if (filterType === 'listingType' && filterValue === 'Wholesale') {
@@ -314,7 +308,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
           listingType: ['Wholesale']
         });
         
-        console.log('✅ Applied wholesale filter from route parameters');
         
         // Mark as applied to prevent infinite loop
         routeFilterApplied.current = true;
@@ -360,24 +353,16 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (fromFilter) {
         // Came from filter sheet - FilterContext is the source of truth
-        console.log('📍 From filter sheet - using FilterContext genus:', appliedFilters?.genus);
         // buildFilterParams will handle adding genus from FilterContext
       } else if (!hasFilterContextGenus && genus && genus !== 'All') {
         // Direct genus navigation (clicked genus card), no filter context
         baseParams.genus = genus.toLowerCase();
-        console.log('📍 Using route genus parameter:', genus.toLowerCase());
       } else if (hasFilterContextGenus) {
-        console.log('📍 FilterContext genus will be applied by buildFilterParams:', appliedFilters.genus);
       }
 
       // Use buildFilterParams to construct all filter parameters
       // This will add genus from FilterContext if available
       const params = buildFilterParams(baseParams);
-
-      console.log('🔍 Loading plants with params:', JSON.stringify(params, null, 2));
-      console.log('📋 Applied filters:', appliedFilters);
-      console.log('📋 Global filters:', globalFilters);
-      console.log('✅ Has applied filters:', hasAppliedFilters());
 
       const res = await retryAsync(() => getBuyerListingsApi(params), 3, 1000);
 
@@ -385,8 +370,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load plants');
       }
 
-      console.log('Plants loaded successfully:', res.data?.listings?.length || 0);
-      
       // Debug: Log prices to verify sort order from API
       if (res.data?.listings && res.data.listings.length > 0) {
         const prices = res.data.listings.slice(0, 10).map(p => ({
@@ -395,7 +378,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
           finalPrice: p.finalPrice,
           loveCount: p.loveCount
         }));
-        console.log('📊 First 10 plants prices from API:', JSON.stringify(prices, null, 2));
       }
 
       const rawPlants = (res.data?.listings || []).map(p => ({
@@ -417,21 +399,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
-          console.log('Filtering out invalid genus plant:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
+
         }
         
         return isValid;
       });
       
-      console.log(`Filtered ${rawPlants.length} genus plants down to ${newPlants.length} valid plants`);
       
       if (refresh) {
         setPlants(newPlants);
@@ -463,7 +436,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Top 5 Buyer Wish List badge with specific parameters
   const loadTop5WishListPlants = async () => {
-    console.log('⭐ loadTop5WishListPlants called');
     setLoading(true);
     setPlants([]);
     
@@ -481,7 +453,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         sortOrder: 'desc',
       };
 
-      console.log('⭐ Loading Top 5 Buyer Wish List plants with params:', top5WishListParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(top5WishListParams), 3, 1000);
 
@@ -489,7 +460,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load Top 5 Buyer Wish List plants');
       }
 
-      console.log('Top 5 Buyer Wish List plants loaded successfully:', res.data?.listings?.length || 0);
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -509,21 +479,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
-          console.log('Filtering out invalid Top 5 Buyer Wish List plant:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
+
         }
         
         return isValid;
       });
       
-      console.log(`Filtered ${rawPlants.length} Top 5 Buyer Wish List plants down to ${newPlants.length} valid plants`);
       
       setPlants(newPlants);
       setOffset(newPlants.length);
@@ -543,7 +504,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Unicorn badge with specific parameters
   const loadUnicornPlants = async () => {
-    console.log('🦄 loadUnicornPlants called');
     setLoading(true);
     setPlants([]);
     
@@ -560,7 +520,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         sortOrder: 'desc',
       };
 
-      console.log('🦄 Loading Unicorn plants with params:', unicornParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(unicornParams), 3, 1000);
 
@@ -568,7 +527,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load Unicorn plants');
       }
 
-      console.log('🦄 Unicorn plants loaded successfully:', res.data?.listings?.length || 0);
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -588,21 +546,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
-          console.log('Filtering out invalid Unicorn plant:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
         }
         
         return isValid;
       });
       
-      console.log(`🦄 Filtered ${rawPlants.length} Unicorn plants down to ${newPlants.length} valid plants`);
       
       setPlants(newPlants);
       setOffset(newPlants.length);
@@ -610,13 +558,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
       // For Unicorn category, load all items at once - no pagination needed
       setHasMore(false);
       
-      console.log('🦄 State updated - plants:', newPlants.length, 'hasMore: false (all items loaded)');
 
     } catch (error) {
       console.error('🦄 Error loading Unicorn plants:', error);
       Alert.alert('Error', error.message);
     } finally {
-      console.log('🦄 loadUnicornPlants finally block - setting loading to false');
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
@@ -625,7 +571,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Below $20 badge with specific parameters
   const loadBelow20Plants = async () => {
-    console.log('💵 loadBelow20Plants called');
     setLoading(true);
     setPlants([]);
     
@@ -642,7 +587,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         sortOrder: 'desc',
       };
 
-      console.log('💵 Loading Below $20 plants with params:', below20Params);
 
       const res = await retryAsync(() => getBuyerListingsApi(below20Params), 3, 1000);
 
@@ -650,7 +594,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load Below $20 plants');
       }
 
-      console.log('Below $20 plants loaded successfully:', res.data?.listings?.length || 0);
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -670,21 +613,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
-          console.log('Filtering out invalid Below $20 plant:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
         }
         
         return isValid;
       });
       
-      console.log(`Filtered ${rawPlants.length} Below $20 plants down to ${newPlants.length} valid plants`);
       
       setPlants(newPlants);
       setOffset(newPlants.length);
@@ -704,14 +637,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Latest Nursery Drop badge with specific parameters
   const loadLatestNurseryDropPlants = async () => {
-    console.log('🌱 loadLatestNurseryDropPlants called - returning empty results (feature not yet implemented)');
     setLoading(true);
     setPlants([]);
     
     try {
       // Since "Publish to Nursery Drop" is not yet working on seller side,
       // return empty results for this filter
-      console.log('Latest Nursery Drop feature is not yet implemented - showing empty results');
       
       setPlants([]);
       setOffset(0);
@@ -729,7 +660,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for New Arrivals badge with specific parameters
   const loadNewArrivalsPlants = async () => {
-    console.log('🆕 loadNewArrivalsPlants called');
     setLoading(true);
     setPlants([]);
     
@@ -747,7 +677,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         sortOrder: 'desc',
       };
 
-      console.log('🆕 Loading New Arrivals plants with params:', newArrivalsParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(newArrivalsParams), 3, 1000);
 
@@ -755,7 +684,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load New Arrivals plants');
       }
 
-      console.log('New Arrivals plants loaded successfully:', res.data?.listings?.length || 0);
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -775,21 +703,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
-          console.log('Filtering out invalid New Arrivals plant:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
         }
         
         return isValid;
       });
       
-      console.log(`Filtered ${rawPlants.length} New Arrivals plants down to ${newPlants.length} valid plants`);
       
       setPlants(newPlants);
       setOffset(newPlants.length);
@@ -809,7 +727,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Load plants for Price Drop badge with specific parameters
   const loadPriceDropPlants = async () => {
-    console.log('💰 loadPriceDropPlants called');
     setLoading(true);
     setPlants([]);
     
@@ -826,7 +743,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         sortOrder: 'desc',
       };
 
-      console.log('💰 Loading Price Drop plants with params:', priceDropParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(priceDropParams), 3, 1000);
 
@@ -834,7 +750,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load Price Drop plants');
       }
 
-      console.log('Price Drop plants loaded successfully:', res.data?.listings?.length || 0);
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -854,21 +769,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
-          console.log('Filtering out invalid Price Drop plant:', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
         }
         
         return isValid;
       });
       
-      console.log(`Filtered ${rawPlants.length} Price Drop plants down to ${newPlants.length} valid plants`);
       
       setPlants(newPlants);
       setOffset(newPlants.length);
@@ -918,7 +823,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }
 
       // Build filter parameters manually with the provided filters
-      console.log('Building filter params with local filters:', filters);
       
       // Apply sort filter
       if (filters.sort && filters.sort.length > 0) {
@@ -990,7 +894,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         }
       }
 
-      console.log('Loading plants with local filter params:', baseParams);
 
       const res = await retryAsync(() => getBuyerListingsApi(baseParams), 3, 1000);
 
@@ -998,7 +901,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load plants');
       }
 
-      console.log('Plants loaded successfully with local filters:', res.data?.listings?.length || 0);
 
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
@@ -1018,21 +920,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
-          console.log('Filtering out invalid genus plant (local filters):', {
-            plantCode: plant?.plantCode,
-            genus: plant?.genus,
-            species: plant?.species,
-            variegation: plant?.variegation,
-            plantName: plant?.plantName,
-            finalPrice: plant?.finalPrice,
-            usdPrice: plant?.usdPrice
-          });
         }
         
         return isValid;
       });
       
-      console.log(`Filtered ${rawPlants.length} genus plants (local filters) down to ${newPlants.length} valid plants`);
       
       if (refresh) {
         setPlants(newPlants);
@@ -1090,7 +982,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Price Drop badge with specific API parameters
       if (label === 'Price Drop') {
-        console.log('💰 Price Drop badge clicked');
         setActiveBadge('Price Drop');
         justFiltered.current = true;
         loadPriceDropPlants();
@@ -1099,7 +990,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for New Arrivals badge with specific API parameters
       if (label === 'New Arrivals') {
-        console.log('🆕 New Arrivals badge clicked');
         setActiveBadge('New Arrivals');
         justFiltered.current = true;
         loadNewArrivalsPlants();
@@ -1108,7 +998,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Latest Nursery Drop badge with specific API parameters
       if (label === 'Latest Nursery Drop') {
-        console.log('🌱 Latest Nursery Drop badge clicked');
         setActiveBadge('Latest Nursery Drop');
         justFiltered.current = true;
         loadLatestNurseryDropPlants();
@@ -1117,7 +1006,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Below $20 badge with specific API parameters
       if (label === 'Below $20') {
-        console.log('💵 Below $20 badge clicked');
         setActiveBadge('Below $20');
         justFiltered.current = true;
         loadBelow20Plants();
@@ -1126,7 +1014,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Unicorn badge with specific API parameters
       if (label === 'Unicorn') {
-        console.log('🦄 Unicorn badge clicked');
         setActiveBadge('Unicorn');
         justFiltered.current = true;
         loadUnicornPlants();
@@ -1135,7 +1022,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Top 5 Buyer Wish List badge with specific API parameters
       if (label === 'Top 5 Buyer Wish List') {
-        console.log('⭐ Top 5 Buyer Wish List badge clicked');
         setActiveBadge('Top 5 Buyer Wish List');
         justFiltered.current = true;
         loadTop5WishListPlants();
@@ -1221,7 +1107,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
   };
 
   const handleFilterView = () => {
-    console.log('Applying local filters to global state:', localFilters);
     
     // Update global filters with local filter selections
     updateFilters({
@@ -1288,7 +1173,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
   // because Unicorn now loads all items at once without pagination
   const loadMoreUnicornPlants = async () => {
     // Unicorn category loads all items at once, so this function should not be called
-    console.log('🦄 loadMoreUnicornPlants called - but Unicorn loads all items at once');
     return;
   };
 
@@ -1374,7 +1258,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
           const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
           
           if (isCloseToBottom && hasMore && !loadingMore) {
-            console.log('🌱 ScreenGenusPlants: User is near bottom, triggering load more');
             handleLoadMore();
           }
         }}>
@@ -1387,7 +1270,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
                   !plant.plantCode || 
                   typeof plant.plantCode !== 'string' ||
                   plant.plantCode.trim() === '') {
-                console.log('Skipping invalid genus plant at render:', plant);
                 return null;
               }
               
@@ -1398,7 +1280,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
                                       (plant.variegation && typeof plant.variegation === 'string');
               
               if (!hasValidTitle || !hasValidSubtitle) {
-                console.log('Skipping genus plant with invalid text fields:', plant);
                 return null;
               }
               
@@ -1415,7 +1296,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
                     data={plant}
                     cardStyle={{ height: 220, margin: 8}}
                     onPress={() => {
-                      console.log('Navigate to plant detail:', plant.plantCode);
                       // TODO: Navigate to plant detail screen
                       // navigation.navigate('PlantDetail', {plantCode: plant.plantCode});
                     }}

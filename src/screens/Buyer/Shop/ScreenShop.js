@@ -169,22 +169,10 @@ const ScreenShop = ({navigation}) => {
   const [browseMorePlantsKey, setBrowseMorePlantsKey] = useState(1);
   const [browseMorePlantsComponent, setBrowseMorePlantsComponent] = useState(null);
   // (Removed) recommendations state – replaced by BrowseMorePlants component elsewhere
-  
-  // ----------------------
-  // Hooks (Effects)
-  // ----------------------
-  // Component mount/unmount debugging (moved below state declarations to avoid hook order shift on hot reload)
-  useEffect(() => {
-    console.log('🏪 ScreenShop: Component mounted');
-    return () => {
-      console.log('🏪 ScreenShop: Component unmounted');
-    };
-  }, []);
 
   // Log auth token and user info when Shop tab is accessed
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🏪 ScreenShop: Screen focused');
       const logAuthInfo = async () => {
         try {
           const token = await AsyncStorage.getItem('authToken');
@@ -388,11 +376,9 @@ const ScreenShop = ({navigation}) => {
 
   const loadCountryData = async () => {
     try {
-      console.log('🌍 Loading country dropdown data...');
       // Always fetch fresh data - no caching for country dropdown
       // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getCountryApi(), 3, 1000);
-      console.log('🌍 Country API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load country api');
@@ -403,7 +389,6 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.country,
       }));
 
-      console.log('🌍 Country dropdown options:', localCountryData.length, 'items');
       setCountryOptions(localCountryData);
     } catch (error) {
       console.error('❌ Error loading country data:', error);
@@ -412,11 +397,9 @@ const ScreenShop = ({navigation}) => {
 
   const loadListingTypeData = async () => {
     try {
-      console.log('📋 Loading listing type dropdown data...');
       // Always fetch fresh data - no caching for listing type dropdown
       // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getListingTypeApi(), 3, 1000);
-      console.log('📋 Listing Type API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load listing type api');
@@ -427,7 +410,6 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.listingType,
       }));
 
-      console.log('📋 Listing type dropdown options:', localListingTypeData.length, 'items');
       setListingTypeOptions(localListingTypeData);
     } catch (error) {
       console.error('❌ Error loading listing type data:', error);
@@ -436,11 +418,9 @@ const ScreenShop = ({navigation}) => {
 
   const loadShippingIndexData = async () => {
     try {
-      console.log('📦 Loading shipping index dropdown data...');
       // Always fetch fresh data - no caching for shipping index dropdown
       // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getShippingIndexApi(), 3, 1000);
-      console.log('📦 Shipping Index API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load shipping index api');
@@ -451,7 +431,6 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.shippingIndex,
       }));
 
-      console.log('📦 Shipping index dropdown options:', localShippingIndexData.length, 'items');
       setShippingIndexOptions(localShippingIndexData);
     } catch (error) {
       console.error('❌ Error loading shipping index data:', error);
@@ -460,11 +439,9 @@ const ScreenShop = ({navigation}) => {
 
   const loadAcclimationIndexData = async () => {
     try {
-      console.log('🌱 Loading acclimation index dropdown data...');
       // Always fetch fresh data - no caching for acclimation index dropdown
       // Skip network check - let the API call handle connectivity issues
       const res = await retryAsync(() => getAcclimationIndexApi(), 3, 1000);
-      console.log('🌱 Acclimation Index API response:', res);
 
       if (!res?.success) {
         throw new Error(res?.message || 'Failed to load acclimation index api');
@@ -475,7 +452,6 @@ const ScreenShop = ({navigation}) => {
         value: item.name || item.acclimationIndex,
       }));
 
-      console.log('🌱 Acclimation index dropdown options:', localAcclimationIndexData.length, 'items');
       setAcclimationIndexOptions(localAcclimationIndexData);
     } catch (error) {
       console.error('❌ Error loading acclimation index data:', error);
@@ -667,7 +643,6 @@ const ScreenShop = ({navigation}) => {
 
   // Filter update functions that sync with global state
   const handleSortChange = (value) => {
-    console.log('🔀 Sort changed to:', value);
     // Sort is a single selection - update only sort, keep other filters
     updateFilters({ sort: value });
   };
@@ -708,7 +683,6 @@ const ScreenShop = ({navigation}) => {
   };
 
   const handleFilterView = () => {
-    console.log('🔍 handleFilterView called with globalFilters:', globalFilters);
     
     // Apply filters to global state
     applyFilters(globalFilters);
@@ -722,8 +696,6 @@ const ScreenShop = ({navigation}) => {
     const targetGenus = globalFilters.genus && globalFilters.genus.length > 0 
       ? globalFilters.genus[0] 
       : 'All';
-    
-    console.log('🎯 Navigating to ScreenGenusPlants with genus:', targetGenus, 'and filters:', globalFilters);
     
     navigation.navigate('ScreenGenusPlants', {
       genus: targetGenus,
@@ -741,11 +713,10 @@ const ScreenShop = ({navigation}) => {
         };
         
         const filterParams = buildFilterParams(baseParams);
-        console.log('🔍 Background API call with params:', filterParams);
+
         
         // Call buyer listings API with applied filters (in background)
         await getBuyerListingsApi(filterParams);
-        console.log('🔍 Filter API call completed in background');
       } catch (error) {
         console.error('Error in background filter API call:', error);
       }
@@ -1094,7 +1065,6 @@ const ScreenShop = ({navigation}) => {
           
           if (isCloseToBottom && browseMorePlantsComponent) {
             // Trigger load more in BrowseMorePlants component
-            console.log('🌱 ScreenShop: User is near bottom, triggering load more');
             browseMorePlantsComponent.handleLoadMore();
           }
         }}

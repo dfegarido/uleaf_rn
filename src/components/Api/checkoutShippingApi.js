@@ -28,7 +28,7 @@ export const calculateCheckoutShippingApi = async (items, flightDate = null) => 
     });
 
     const data = await response.json();
-
+    console.log('💰 Backend shipping calculation result:', data);
     if (!response.ok || !data.success) {
       throw new Error(data.error || 'Failed to calculate shipping');
     }
