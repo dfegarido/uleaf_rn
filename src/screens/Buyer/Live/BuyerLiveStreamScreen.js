@@ -43,6 +43,7 @@ import {
   toggleLoveLiveSession,
 } from '../../../components/Api/agoraLiveApi';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
+import GuideModal from './GuideModal'; // Import the new modal
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
@@ -66,6 +67,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [unitPrice, setUnitPrice] = useState(null);
   const [plantDataCountry, setPlantDataCountry] = useState(null);
   const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
+  const [isGuideModalVisible, setIsGuideModalVisible] = useState(false);
 
   const getDiscountedPrice = () => {
     const priceData = activeListing;
@@ -88,7 +90,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     const unitPrice = parseFloat(discountedPriceData);
     
     setUnitPrice(unitPrice);
-
 
     // Ensure plantData has a country code
     const plantDataWithCountry = { ...activeListing };
@@ -430,6 +431,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             totalAmount: unitPrice * 1,
           }}
       />
+      <GuideModal
+        isVisible={isGuideModalVisible}
+        onClose={() => setIsGuideModalVisible(false)}
+      />
       <View style={styles.stream}>
         {joined && remoteUid ? (
           <RtcSurfaceView
@@ -461,7 +466,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                     <BackSolidIcon width={24} height={24} color="#333" />
             </TouchableOpacity>
             <View style={styles.topAction}>
-              <TouchableOpacity style={styles.guide}>
+              <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
                     <GuideIcon width={19} height={19} />
                     <Text style={styles.guideText}>Guide</Text>
               </TouchableOpacity>
