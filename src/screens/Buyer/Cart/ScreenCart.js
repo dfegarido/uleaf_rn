@@ -658,7 +658,10 @@ const ScreenCart = () => {
           flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
           availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
           isUnavailable: isListingUnavailable,
-          listingType: item.listingDetails?.listingType || 'Single Plant' // Add the listing type
+          listingType: item.listingDetails?.listingType || 'Single Plant', // Add the listing type
+          plantSourceCountry: item.listingDetails?.country || 'TH', // Add plantSourceCountry for backend
+          potSize: item.selectedVariation?.potSize || item.potSize,
+          listingDetails: item.listingDetails // Include full listing details for reference
         };
       }) || [];
 
@@ -922,7 +925,9 @@ const ScreenCart = () => {
       selectedCartItems.map(item => ({
         name: item.name,
         listingType: item.listingType,
-        quantity: item.quantity
+        quantity: item.quantity,
+        plantSourceCountry: item.plantSourceCountry,
+        plantCode: item.plantCode
       }))
     );
     

@@ -667,7 +667,7 @@ const CheckoutScreen = () => {
       setShippingCalculation(prev => ({ ...prev, loading: true }));
       
       try {
-        const result = await calculateCheckoutShippingApi(plants);
+        const result = await calculateCheckoutShippingApi(plants, cargoDate);
         
         console.log('✅ Backend shipping calculation result:', {
           shippingTotal: result.shippingTotal,
@@ -675,10 +675,17 @@ const CheckoutScreen = () => {
           wholesaleAirCargoTotal: result.wholesaleAirCargoTotal,
           total: result.total,
           details: result.details,
-          expectedTotal: result.shippingTotal + result.airCargoTotal + (result.wholesaleAirCargoTotal || 0)
+          expectedTotal: result.shippingTotal + result.airCargoTotal + (result.wholesaleAirCargoTotal || 0),
+          isSucceedingOrder: result.isSucceedingOrder
         });
         
         if (!isCancelled) {
+          console.log('💾 Setting shippingCalculation state with result:', {
+            shippingTotal: result.shippingTotal,
+            isSucceedingOrder: result.isSucceedingOrder,
+            wholesaleAirCargoTotal: result.wholesaleAirCargoTotal
+          });
+          
           setShippingCalculation({
             baseCost: result.shippingTotal || 50,
             addOnCost: 0,
@@ -709,7 +716,7 @@ const CheckoutScreen = () => {
     return () => {
       isCancelled = true;
     };
-  }, [plants?.length]); // Only depend on length to prevent infinite loops
+  }, [plants?.length, cargoDate]); // Depend on cargoDate to recalculate when flight date changes
 
   // Calculate UPS 2nd Day shipping cost using backend calculation
   // Note: This is now state-based from useEffect above
@@ -1240,7 +1247,10 @@ const CheckoutScreen = () => {
     // Calculate UPS 2nd Day shipping cost based on plant characteristics
     // Use backend API calculation results stored in state
     const shippingRates = calculateUpsShippingCost();
+    // ALWAYS use backend result - it already handles succeeding order logic
     let shipping = shippingRates.baseCost || 50;
+    
+    console.log('🚀 Using backend shipping result:', shipping);
 
     // Use backend calculated shipping total (already includes add-on costs)
     shipping = shippingRates.baseCost || shipping;
@@ -1262,14 +1272,28 @@ const CheckoutScreen = () => {
       allRates: shippingRates
     });
     
-    // Rule: If cart has wholesale items, base air cargo stays $0 if only wholesale
-    // But if there are also single/growers, base air cargo is $150
-    if (wholesaleItems.length > 0 && wholesaleItems.length === plantItems.length) {
-      // Only wholesale items in cart, no base air cargo
-      airBaseCargo = 0;
+    // Base Air Cargo is only for single/grower's choice items, not wholesale
+    // Only show it if there are non-wholesale items in the order
+    const hasNonWholesaleItems = plantItems.some(
+      item =>
+        item.listingType?.toLowerCase() !== 'wholesale' &&
+        !item.listingType?.toLowerCase().includes('wholesale'),
+    );
+    
+    if (hasNonWholesaleItems) {
+      // For succeeding orders, backend returns airCargoTotal: 0
+      // We should show the original $150 and apply a -$150 credit
+      if (shippingRates.wholesaleAirCargo > 0 || shippingRates.baseCargo === 0) {
+        // This is a succeeding order (backend returned 0 for base cargo)
+        // Show original $150 for display, credit will be applied separately
+        airBaseCargo = 150;
+      } else {
+        // First order: use backend value
+        airBaseCargo = shippingRates.baseCargo || 150;
+      }
     } else {
-      // Has single/growers items, apply base air cargo
-      airBaseCargo = shippingRates.baseCargo || 150;
+      // Only wholesale items: Base Air Cargo is $0
+      airBaseCargo = 0;
     }
     
     console.log('📦 Air Cargo Calculation:', {
@@ -1282,42 +1306,28 @@ const CheckoutScreen = () => {
     });
     
     // Calculate air base cargo credit and effective air base cargo
-    // If buyer has already paid air base cargo for this flight date, apply credit
+    // For succeeding orders, backend returns 0 for baseCargo, so apply credit
     let appliedAirBaseCargoCredit = 0;
     let effectiveAirBaseCargo = airBaseCargo;
     let effectiveWholesaleAirCargo = wholesaleAirCargo;
     
-    // Also apply UPS base fee credit for succeeding orders
+    // UPS shipping for succeeding orders is already calculated by backend
+    // Just use the backend result directly
     let appliedUpsBaseCredit = 0;
-    let effectiveBaseUpsShipping = shipping;
+    let effectiveBaseUpsShipping = shipping; // Use backend result
     
-    if (priorPaidAirBaseCargoAmount > 0) {
-      // For succeeding orders on same flight date, waive both:
-      // 1. UPS base fee ($50)
-      // 2. Air cargo base fee ($150)
-      
-      // Apply UPS base fee credit
-      // For succeeding order: waive the $50 base fee, but still charge add-ons
-      // 2 plants = $5 × 2 = $10
-      const totalItems = plantItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
-      const addOnRate = 5; // $5 per add-on item
-      const upsBaseFee = 50;
-      
-      // Calculate: (number of items × $5) = total add-on cost
-      effectiveBaseUpsShipping = totalItems * addOnRate;
-      appliedUpsBaseCredit = upsBaseFee; // Keep for display
-      
-      if (wholesaleItems.length > 0) {
-        // For wholesale orders, apply credit to wholesale air cargo
-        appliedAirBaseCargoCredit = Math.min(wholesaleAirCargo, priorPaidAirBaseCargoAmount);
-        effectiveWholesaleAirCargo = Math.max(0, wholesaleAirCargo - appliedAirBaseCargoCredit);
-      } else {
-        // For non-wholesale orders (Single Plant / Grower's Choice)
-        // Air Cargo: $150 for 1st, $0 per add-on
-        // Credit the full amount for second order on same flight date
-        appliedAirBaseCargoCredit = priorPaidAirBaseCargoAmount;
-        effectiveAirBaseCargo = Math.max(0, airBaseCargo - appliedAirBaseCargoCredit);
-      }
+    // If this is a succeeding order with non-wholesale items, apply $150 credit
+    if (hasNonWholesaleItems && shippingRates.baseCargo === 0 && shippingRates.wholesaleAirCargo > 0) {
+      // Succeeding order: waive the $150 base air cargo
+      appliedAirBaseCargoCredit = 150;
+      effectiveAirBaseCargo = 0;
+      // Wholesale air cargo is already correct from backend ($100 = 2 × $50)
+      effectiveWholesaleAirCargo = wholesaleAirCargo;
+    } else if (hasNonWholesaleItems && priorPaidAirBaseCargoAmount > 0) {
+      // Legacy logic for display purposes
+      appliedAirBaseCargoCredit = priorPaidAirBaseCargoAmount;
+      effectiveAirBaseCargo = Math.max(0, airBaseCargo - appliedAirBaseCargoCredit);
+      effectiveWholesaleAirCargo = wholesaleAirCargo;
     }
     
     console.log('💳 Air Cargo Breakdown:', {
@@ -1331,8 +1341,9 @@ const CheckoutScreen = () => {
     
     // Add UPS Next Day upgrade if enabled (30% of UPS 2nd day shipping cost)
     let upsNextDayUpgradeCost = 0;
-    const baseUpsShipping = shipping; // Store the base UPS 2nd day cost
-    let effectiveShipping = priorPaidAirBaseCargoAmount > 0 ? effectiveBaseUpsShipping : shipping;
+    const baseUpsShipping = shipping; // Store the base UPS 2nd day cost (from backend)
+    // Always use backend result - it already handles succeeding order logic correctly
+    let effectiveShipping = shipping;
     
     if (upsNextDayEnabled) {
       upsNextDayUpgradeCost = effectiveShipping * 0.3; // 30% of effective UPS shipping cost
@@ -1403,6 +1414,7 @@ const CheckoutScreen = () => {
       totalShippingCost: totalShippingCost, // Total of all shipping costs combined (before shipping credits)
       shippingCreditsDiscount: shippingCreditsDiscount, // NEW: Shipping credits discount applied
       finalShippingCost: finalShippingCost, // NEW: Final shipping cost after shipping credits
+      appliedAirBaseCargoCredit: appliedAirBaseCargoCredit, // Credit for succeeding orders
       discount: discountAmount,
       creditsApplied,
       finalTotal,

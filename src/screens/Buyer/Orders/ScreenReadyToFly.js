@@ -1,7 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
@@ -23,21 +23,16 @@ const ScreenReadyToFly = () => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
-  const PAGE_SIZE = 4;
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const browseMorePlantsRef = React.useRef(null);
 
   // Load orders from API
-  const loadOrders = async (isRefresh = false, append = false) => {
+  const loadOrders = useCallback(async (isRefresh = false) => {
     try {
-      if (append) {
-        setLoadingMore(true);
-      } else if (!isRefresh) {
+      if (!isRefresh) {
         setLoading(true);
       }
       setError(null);
@@ -47,12 +42,10 @@ const ScreenReadyToFly = () => {
         throw new Error('No internet connection');
       }
 
-      const limit = PAGE_SIZE;
+      // Fetch all orders with status "Ready to Fly" (no limit)
       const params = {
-        limit,
-        offset: append ? (page + 1) * limit : 0,
-        status: ["Ready to Fly"],
-        includeDetails: true, // Get detailed order information
+        status: "Ready to Fly",
+        includeDetails: true,
       };
 
       console.log('🔍 Loading Ready to Fly orders');
@@ -64,28 +57,12 @@ const ScreenReadyToFly = () => {
 
       // New API returns a flattened plants[] array where each plant contains its order metadata
       const plantsData = response.data?.data?.plants || [];
-      console.log('📦 Loaded Ready to Fly plant records:', plantsData);
-
-      // Debug: Log the first plant's relevant fields
-      if (plantsData.length > 0) {
-        console.log('First plant record:', {
-          listingId: plantsData[0].listingId,
-          plantCode: plantsData[0].plantCode,
-          flightDateFormatted: plantsData[0].flightDateFormatted,
-          plantSourceCountry: plantsData[0].plantSourceCountry,
-          orderId: plantsData[0].order?.id,
-        });
-      }
+      console.log('📦 Loaded Ready to Fly plant records:', plantsData.length, 'plants');
 
       // Transform plant-level API data to component expected format
       const transformedOrders = plantsData.map(plant => transformPlantToComponentFormat(plant));
-      if (append) {
-        setOrders(prev => [...prev, ...transformedOrders]);
-        setPage(prev => prev + 1);
-      } else {
-        setOrders(transformedOrders);
-        setPage(0);
-      }
+      
+      setOrders(transformedOrders);
 
     } catch (error) {
       console.error('Error loading Ready to Fly orders:', error);
@@ -93,12 +70,11 @@ const ScreenReadyToFly = () => {
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
       if (isRefresh) {
         setRefreshing(false);
       }
     }
-  };
+  }, []);
 
   // Transform API plant-level data to component expected format
   const transformPlantToComponentFormat = (plant) => {
@@ -139,6 +115,15 @@ const ScreenReadyToFly = () => {
   const getCountryCode = (record) => {
     if (!record) return 'ID';
 
+    console.log('🔍 getCountryCode - Checking record for plantSourceCountry:', {
+      hasRecord: !!record,
+      plantSourceCountry: record.plantSourceCountry,
+      orderPlantSourceCountry: record.order?.plantSourceCountry,
+      supplierName: record.supplierName,
+      supplierCode: record.supplierCode,
+      plantDetails: record.plantDetails ? Object.keys(record.plantDetails) : 'none'
+    });
+
     // Prefer explicit plant-level country first
     if (record.plantSourceCountry) return record.plantSourceCountry;
 
@@ -154,12 +139,14 @@ const ScreenReadyToFly = () => {
     if (record.plantDetails && record.plantDetails.plantSourceCountry) return record.plantDetails.plantSourceCountry;
 
     // Do NOT return supplierCode or sellerCode (they are identifiers, not country codes)
+    console.warn('⚠️ No plantSourceCountry found, defaulting to ID for plant:', record.plantName || record.plantCode);
     return 'ID';
   };
 
   const getCountryFlag = (order) => {
     const countryCode = getCountryCode(order);
-    console.log('Country code for flag:', countryCode);
+    console.log('🔍 getCountryFlag - raw order:', JSON.stringify(order, null, 2).substring(0, 500));
+    console.log('🔍 Country code for flag:', countryCode, 'for plant:', order?.plantName || order?.plantCode);
     
     // Map country codes to flag components
     const flagMap = {
@@ -179,7 +166,7 @@ const ScreenReadyToFly = () => {
   // Load orders when component mounts
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [loadOrders]);
 
   // Listen for refresh parameter
   useEffect(() => {
@@ -193,13 +180,6 @@ const ScreenReadyToFly = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadOrders(true);
-  };
-
-  // Load more handler
-  const handleLoadMore = async () => {
-    // Prevent concurrent load more
-    if (loadingMore) return;
-    await loadOrders(false, true);
   };
 
   return (
@@ -230,18 +210,11 @@ const ScreenReadyToFly = () => {
           scrollEventThrottle={400}
           onScroll={(event) => {
             const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-            const paddingToBottom = 600;
-            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
             
-            // Load more orders when scrolling near bottom
-            if (isCloseToBottom && !loadingMore && !refreshing) {
-              console.log('📦 ScreenReadyToFly: User is near bottom, loading more orders');
-              handleLoadMore();
-            }
+            // Trigger load more plants when very close to bottom (within 200px)
+            const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
             
-            // Load more recommendations when scrolling near bottom
-            if (isCloseToBottom && browseMorePlantsRef?.current) {
-              console.log('🌱 ScreenReadyToFly: User is near bottom, triggering load more recommendations');
+            if (distanceFromBottom <= 200 && browseMorePlantsRef?.current) {
               browseMorePlantsRef.current.handleLoadMore();
             }
           }}
@@ -265,27 +238,24 @@ const ScreenReadyToFly = () => {
             </View>
           )}
 
-          {orders.length === 0 && !error ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No Ready to Fly orders found</Text>
-              <Text style={styles.emptySubtext}>
-                Your confirmed orders will appear here
-              </Text>
-            </View>
+          {/* Orders container with tracking */}
+          <View 
+            onLayout={(event) => {
+              // This will be used to track when orders section ends
+            }}>
+            {orders.length === 0 && !error ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No Ready to Fly orders found</Text>
+                <Text style={styles.emptySubtext}>
+                  Your confirmed orders will appear here
+                </Text>
+              </View>
           ) : (
             orders.map((item, index) => (
               <OrderItemCard key={`${item.plantCode}_${index}`} {...item} activeTab="Ready to Fly" />
             ))
           )}
-
-          {/* Show skeleton placeholders while loading more orders (above Load More) */}
-          {loadingMore && (
-            <View style={{paddingHorizontal: 0, marginTop: 12}}>
-              {Array.from({length: PAGE_SIZE}).map((_, i) => (
-                <OrderItemCardSkeleton key={`load-more-skel-${i}`} />
-              ))}
-            </View>
-          )}
+          </View>
 
           {/* Browse More Plants Component */}
           <BrowseMorePlants 
