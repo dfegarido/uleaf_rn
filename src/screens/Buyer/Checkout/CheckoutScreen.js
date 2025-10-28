@@ -1965,24 +1965,15 @@ const CheckoutScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1}} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["left", "right", "top"]}>
       <View style={styles.container}>
       {/* Fixed Header */}
-      <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
-        <View style={styles.controls}>
-          {/* Back Button */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}>
-            <BackIcon width={24} height={24} />
-          </TouchableOpacity>
-
-          {/* Title */}
-          <Text style={styles.headerTitle}>Checkout</Text>
-
-          {/* Navbar Right (hidden) */}
-          <View style={styles.navbarRight} />
-        </View>
+      <View style={[styles.header, {paddingTop: 15}]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <BackIcon width={24} height={24} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Checkout</Text>
+        <View />
       </View>
 
       {/* Scrollable Content */}
@@ -2718,13 +2709,7 @@ const CheckoutScreen = () => {
 
       {/* Fixed Checkout Bar */}
       <View
-        style={[
-          styles.checkoutBar,
-          {
-            paddingBottom: Math.max(insets.bottom, 8),
-            height: 98 + Math.max(insets.bottom, 8),
-          },
-        ]}>
+        style={styles.checkoutBar}>
         {/* Content */}
         <View style={styles.checkoutContent}>
           {/* Summary */}
@@ -2766,11 +2751,6 @@ const CheckoutScreen = () => {
             </View>
           </TouchableOpacity>
         </View>
-
-        {/* Home Indicator */}
-        <View style={styles.homeIndicator}>
-          <View style={styles.gestureBar} />
-        </View>
       </View>
 
       {/* Loading Modal */}
@@ -2802,7 +2782,6 @@ const styles = StyleSheet.create({
   },
   scrollContentContainer: {
     flexGrow: 1,
-    paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
@@ -4511,14 +4490,6 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#141414',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 8,
     flex: 0,
     zIndex: 2,
   },

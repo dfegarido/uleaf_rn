@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
@@ -957,19 +958,21 @@ const AppNavigation = () => {
   console.log('========================');
 
   return (
-    <NavigationContainer key={isLoggedIn ? 'loggedIn' : 'loggedOut'}>
-      {isLoggedIn && !fallbackTriggered ? (
-        isBuyer ? (
-          <BuyerTabNavigator />
-        ) : isAdmin ? (
-          <AdminTabNavigator />
+    // <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={[]}>
+      <NavigationContainer key={isLoggedIn ? 'loggedIn' : 'loggedOut'}>
+        {isLoggedIn && !fallbackTriggered ? (
+          isBuyer ? (
+            <BuyerTabNavigator />
+          ) : isAdmin ? (
+            <AdminTabNavigator />
+          ) : (
+            <MainStack />
+          )
         ) : (
-          <MainStack />
-        )
-      ) : (
-        <AuthStack />
-      )}
-    </NavigationContainer>
+          <AuthStack />
+        )}
+      </NavigationContainer>
+    // </SafeAreaView>
   );
 };
 

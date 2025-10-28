@@ -622,11 +622,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   if (loading) {
     return (
+      <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["left", "right", "top", "bottom"]}>
       <View style={styles.container}>
         {/* Skeleton Background Image */}
         <View style={styles.skeletonBackgroundImage} />
         
-        <SafeAreaView style={styles.safeArea}>
+        
           {/* Header Navigation */}
           <View style={styles.header}>
             <TouchableOpacity
@@ -697,8 +698,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
               </View>
             </View>
           </ScrollView>
-        </SafeAreaView>
+        
       </View>
+      </SafeAreaView>
     );
   }
 
@@ -1136,7 +1138,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         </ScrollView>
 
         {/* Action Bar */}
-        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, 8), height: 72 + Math.max(insets.bottom, 8) }]}>
+        <View style={[styles.actionBar, { paddingBottom: 8, height: 72 }]}>
           <TouchableOpacity 
             style={styles.cartButton}
             onPress={() => navigation.navigate('ScreenCart')}>
@@ -1364,6 +1366,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   container: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#fff',
   },
   backgroundImage: {
     position: 'absolute',
@@ -1427,7 +1430,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1443,7 +1446,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 44,
   },
   shareButton: {
     flexDirection: 'row',

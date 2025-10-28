@@ -128,7 +128,7 @@ const UpdatePasswordScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, {paddingTop: insets.top }]}>
+      <View style={[styles.header, {paddingTop: 16}]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <LeftIcon width={24} height={24} fill="#393D40" />
         </TouchableOpacity>

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect} from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
@@ -898,7 +898,7 @@ const ScreenShop = ({navigation}) => {
   const Avatar = require('../../../components/Avatar/Avatar').default;
 
   return (
-    <>
+    <SafeAreaView style={{flex: 1}} edges={[]}>
       <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
         <View style={styles.header}>
           <View style={styles.searchContainer}>
@@ -1493,7 +1493,7 @@ const ScreenShop = ({navigation}) => {
         handleSearchSubmit={handleFilterView}
         clearFilters={clearFilters}
       />
-    </>
+    </SafeAreaView>
   );
 };
 

@@ -214,9 +214,9 @@ const ChatScreen = ({navigation, route}) => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+        style={{flex: 1}} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
@@ -321,7 +321,6 @@ const ChatScreen = ({navigation, route}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f1f1',
   },
   header: {
     flexDirection: 'row',

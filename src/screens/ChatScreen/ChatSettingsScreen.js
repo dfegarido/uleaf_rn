@@ -176,6 +176,68 @@ const ChatSettingsScreen = ({navigation, route}) => {
     }
   };
 
+  const handleLeaveGroup = async () => {
+    Alert.alert(
+      'Leave Group',
+      `Are you sure you want to leave "${name || 'this group'}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              // Get the current chat document
+              const chatDocRef = doc(db, 'chats', chatId);
+              const chatDocSnap = await getDoc(chatDocRef);
+              
+              if (!chatDocSnap.exists()) {
+                throw new Error('Chat not found');
+              }
+              
+              const chatData = chatDocSnap.data();
+              const currentParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
+              const currentParticipantIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
+              
+              // Find the exact participant object
+              const myParticipant = currentParticipants.find(p => p.uid === currentUserUid);
+              
+              if (myParticipant) {
+                // Remove yourself from the group
+                await updateDoc(chatDocRef, {
+                  participants: arrayRemove(myParticipant),
+                  participantIds: arrayRemove(currentUserUid),
+                });
+              } else {
+                // Fallback: manually filter
+                const updatedParticipants = currentParticipants.filter(p => p.uid !== currentUserUid);
+                const updatedParticipantIds = currentParticipantIds.filter(id => id !== currentUserUid);
+                
+                await updateDoc(chatDocRef, {
+                  participants: updatedParticipants,
+                  participantIds: updatedParticipantIds,
+                });
+              }
+              
+              setLoading(false);
+              // Navigate back to chat list
+              navigation.navigate('Chat');
+            } catch (error) {
+              console.error('Error leaving group:', error);
+              Alert.alert('Error', 'Failed to leave group. Please try again.');
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleRemoveMember = async (member) => {
     // Prevent removing yourself
     if (member.uid === currentUserUid) {
@@ -366,6 +428,20 @@ const ChatSettingsScreen = ({navigation, route}) => {
               </View>
             </>
           )}
+
+          {/* Leave Group Button - Show for non-admin users */}
+          {!isAdmin && (
+            <>
+              <View style={styles.divider} />
+
+              <View style={styles.actionSection}>
+                <TouchableOpacity onPress={handleLeaveGroup} style={styles.deleteButton}>
+                  <TrashcanIcon />
+                  <Text style={styles.deleteText}>Leave Group</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </>
       ) : (
         <>
@@ -380,15 +456,13 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
           <View style={styles.divider} />
 
-          {/* Delete Button - Only show for admins */}
-          {isAdmin && (
-            <View style={styles.actionSection}>
-              <TouchableOpacity onPress={deleteChat} style={styles.deleteButton}>
-                <TrashcanIcon />
-                <Text style={styles.deleteText}>Delete Chat</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Delete Button - Show for all users */}
+          <View style={styles.actionSection}>
+            <TouchableOpacity onPress={deleteChat} style={styles.deleteButton}>
+              <TrashcanIcon />
+              <Text style={styles.deleteText}>Delete Chat</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 

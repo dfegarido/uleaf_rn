@@ -463,7 +463,7 @@ const MessagesScreen = ({navigation}) => {
     <SafeAreaView style={{flex: 1}} edges={["left", "right", "bottom"]}>
       <View style={styles.container}>
         <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.navigate('BuyerTabs', { screen: 'Shop' })}>
             <BackSolidIcon />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Messages</Text>

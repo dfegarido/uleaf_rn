@@ -225,10 +225,8 @@ function BuyerTabNavigator() {
 
 function BuyerTabs() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView style={{flex: 1}} edges={["bottom"]}>
-      <Tab.Navigator
+    <Tab.Navigator
       initialRouteName="Shop"
       screenOptions={({route}) => ({
         tabBarStyle: [styles.tabBar],
@@ -324,8 +322,7 @@ function BuyerTabs() {
         name="Chat"
         component={MessagesScreen}
       />
-      </Tab.Navigator>
-    </SafeAreaView>
+    </Tab.Navigator>
   );
 }
 
@@ -342,7 +339,11 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   tabBar: {
-    paddingBottom: 5,
+    paddingBottom: 30,
+    height: 80,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
   },
 });
 
