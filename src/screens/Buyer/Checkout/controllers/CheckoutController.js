@@ -141,15 +141,38 @@ export const useCheckoutController = () => {
     if (!listingType) return 'single_grower'; // Default
     const normalized = String(listingType).toLowerCase().trim();
     
-    // Handle various formats
-    if (normalized.includes('whole')) return 'wholesale';
-    if (normalized.includes('grower') || normalized.includes('choice')) return 'growers_choice';
-    if (normalized.includes('single')) return 'single_grower';
-    
-    // Direct matches
+    // Direct/exact matches first (most specific)
+    // Handle common database formats
     if (normalized === 'wholesale') return 'wholesale';
-    if (normalized === 'growers_choice' || normalized === "grower's choice") return 'growers_choice';
-    if (normalized === 'single_grower' || normalized === 'single plant') return 'single_grower';
+    if (normalized === "grower's choice" || normalized === 'growers choice' || normalized === 'grower choice' || 
+        normalized === 'growers_choice' || normalized === 'growerschoice') {
+      return 'growers_choice';
+    }
+    if (normalized === 'single plant' || normalized === 'singleplant' || 
+        normalized === 'single_grower' || normalized === 'singlegrower' ||
+        normalized === 'single') {
+      return 'single_grower';
+    }
+    
+    // Handle compound terms with underscores or special characters (check before partial matches)
+    if (normalized.includes('single_grower') || normalized.includes('single-plant') || 
+        normalized.includes('singleplant')) {
+      return 'single_grower';
+    }
+    
+    // Handle various formats (partial matches)
+    // Wholesale check
+    if (normalized.includes('whole')) return 'wholesale';
+    
+    // Grower's choice check - only if it's NOT part of 'single' context
+    // Check for 'grower' or 'choice' but exclude if it's a single plant variant
+    if ((normalized.includes('grower') || normalized.includes('choice')) && 
+        !normalized.includes('single') && !normalized.includes('single_grower')) {
+      return 'growers_choice';
+    }
+    
+    // Single plant check (should come last to avoid mis-matching)
+    if (normalized.includes('single')) return 'single_grower';
     
     // Default fallback
     return 'single_grower';
@@ -576,18 +599,30 @@ export const useCheckoutController = () => {
     };
 
     plantItems.forEach(item => {
+      const originalListingType = item.listingType;
       const normalizedType = normalizeListingType(item.listingType);
+      const qty = Number(item.quantity) || 1;
+      
+      // Debug logging for quantity breakdown
+      console.log('📊 [quantityBreakdown] Processing item:', {
+        originalListingType,
+        normalizedType,
+        quantity: qty,
+        itemId: item.id || item.plantCode,
+      });
+      
       if (normalizedType === 'single_grower') {
-        breakdown.singlePlant += item.quantity;
-        breakdown.singleGrower += item.quantity; // Keep for backwards compatibility
+        breakdown.singlePlant += qty;
+        breakdown.singleGrower += qty; // Keep for backwards compatibility
       } else if (normalizedType === 'wholesale') {
-        breakdown.wholesale += item.quantity;
+        breakdown.wholesale += qty;
       } else if (normalizedType === 'growers_choice') {
-        breakdown.growersChoice += item.quantity;
+        breakdown.growersChoice += qty;
       }
-      breakdown.total += item.quantity;
+      breakdown.total += qty;
     });
 
+    console.log('📊 [quantityBreakdown] Final breakdown:', breakdown);
     return breakdown;
   }, [plantItems, normalizeListingType]);
 
