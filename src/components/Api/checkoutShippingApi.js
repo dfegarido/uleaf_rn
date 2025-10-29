@@ -7,9 +7,11 @@ import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
  * 
  * @param {Array} items - Array of plant items with listingType, quantity, price, etc.
  * @param {string} flightDate - Optional flight date to check if it's a succeeding order
+ * @param {boolean} upsNextDay - Whether UPS Next Day upgrade is enabled
+ * @param {number} userCredits - Total user credits (leaf points + plant credits + shipping credits)
  * @returns {Promise<Object>} Shipping calculation result
  */
-export const calculateCheckoutShippingApi = async (items, flightDate = null) => {
+export const calculateCheckoutShippingApi = async (items, flightDate = null, upsNextDay = false, userCredits = 0) => {
   try {
     const authToken = await getStoredAuthToken();
     
@@ -24,11 +26,10 @@ export const calculateCheckoutShippingApi = async (items, flightDate = null) => 
     const response = await fetch(API_ENDPOINTS.CALCULATE_CHECKOUT_SHIPPING, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ items, flightDate }),
+      body: JSON.stringify({ items, flightDate, upsNextDay, userCredits }),
     });
 
     const data = await response.json();
-    console.log('💰 Backend shipping calculation result:', data);
     if (!response.ok || !data.success) {
       throw new Error(data.error || 'Failed to calculate shipping');
     }

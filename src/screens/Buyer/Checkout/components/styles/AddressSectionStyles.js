@@ -1,0 +1,95 @@
+import { StyleSheet } from 'react-native';
+
+const styles = StyleSheet.create({
+  shipping: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  shippingTitle: {
+    marginBottom: 12,
+  },
+  shippingTitleText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  addressList: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 12,
+    gap: 12,
+    width: '100%',
+    height: 92,
+    backgroundColor: '#F5F6F6',
+    borderRadius: 0,
+    flex: 0,
+  },
+  addressContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    gap: 12,
+    width: '100%',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFE7E2',
+    borderRadius: 1000,
+    flex: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addressDetails: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 4,
+    height: 44,
+    flex: 1,
+  },
+  addressAction: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 0,
+    gap: 12,
+    width: '100%',
+    height: 44,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  addressText: {
+    height: 44,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#111827',
+    flex: 1,
+  },
+  actionContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 0,
+  },
+  arrow: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
+export default styles;
