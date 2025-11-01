@@ -42,6 +42,7 @@ import {
   generateAgoraToken,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,
+  updateLiveSessionStatusApi,
 } from '../../../components/Api/agoraLiveApi';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import GuideModal from './GuideModal'; // Import the new modal
@@ -414,11 +415,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }, [token, appId, channelName]);
 
   const endLiveSession = () => {
-      
-      const timer = setTimeout(() => {
-        navigation.navigate('Live');
-      }, 8000);
-      return () => clearTimeout(timer);
+      updateLiveSessionStatusApi(sessionId, 'ended');
+      navigation.navigate('Live');
   };
 
   useEffect(() => {
