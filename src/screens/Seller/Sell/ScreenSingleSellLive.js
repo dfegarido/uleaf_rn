@@ -408,7 +408,7 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : ''}
       style={[styles.mainContent]}>
       <ScrollView
         style={styles.mainContent}

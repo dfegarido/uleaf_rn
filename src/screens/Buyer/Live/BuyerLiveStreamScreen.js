@@ -68,6 +68,26 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [plantDataCountry, setPlantDataCountry] = useState(null);
   const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
   const [isGuideModalVisible, setIsGuideModalVisible] = useState(false);
+  const [orderStatus, setOrderStatus] = useState(null);
+
+  useEffect(() => {
+      if (!sessionId) return;
+  
+      const orderCollectionRef = collection(db, 'order');
+      
+      const q = query(orderCollectionRef, where('buyerUid', '==' , currentUserInfo?.uid || null), where('listingId', '==' , activeListing?.id || null));
+  
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedOrders = [];
+        querySnapshot.forEach((doc) => {
+          fetchedOrders.push({ id: doc.id, ...doc.data() });
+        });
+        setOrderStatus(fetchedOrders[0]?.status || null);
+      });
+      
+      return () => unsubscribe();
+    }, [sessionId, activeListing]);
+
 
   const getDiscountedPrice = () => {
     const priceData = activeListing;
@@ -544,11 +564,27 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 </View>
             </View>
             <View style={styles.actionButton}>
-              <TouchableOpacity onPress={() => {
-                setPlantDetailLiveModalVisible(true);
-              }} style={styles.actionButtonTouch}>
-                <Text style={styles.actionText}>Buy Now</Text>
-              </TouchableOpacity>
+              {orderStatus === 'pending_payment' && (
+                <TouchableOpacity onPress={() => {
+                }} style={styles.actionButtonTouch}>
+                  <Text style={styles.actionText}>Pending Payment</Text>
+                </TouchableOpacity>
+              )} 
+
+              {orderStatus === 'Ready to Fly' && (
+                <TouchableOpacity onPress={() => {
+                }} style={styles.actionButtonTouch}>
+                  <Text style={styles.actionText}>Already Brought</Text>
+                </TouchableOpacity>
+              )} 
+
+              {!orderStatus && (
+               <TouchableOpacity onPress={() => {
+                  setPlantDetailLiveModalVisible(true);
+                }} style={styles.actionButtonTouch}>
+                  <Text style={styles.actionText}>Buy Now</Text>
+                </TouchableOpacity>
+              )} 
             </View>
         </View>)}
         {!activeListing && (<View style={styles.shop}>
