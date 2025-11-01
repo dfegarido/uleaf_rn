@@ -11,6 +11,7 @@ import {
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   PermissionsAndroid,
@@ -412,14 +413,23 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     };
   }, [token, appId, channelName]);
 
+  const endLiveSession = () => {
+      
+      const timer = setTimeout(() => {
+        navigation.navigate('Live');
+      }, 8000);
+      return () => clearTimeout(timer);
+  };
+
   useEffect(() => {
     // Timeout if no broadcaster is found
     if (joined && !remoteUid && !sessionEnded) {
       const timer = setTimeout(() => {
         // Re-check remoteUid before navigating
         if (!remoteUid) {
+          endLiveSession();
           console.log('No broadcaster found after 8 seconds. Navigating to Live screen.');
-          navigation.navigate('Live');
+          Alert.alert('No broadcaster found. Live session has ended.');
         }
       }, 8000); // 8 seconds
 

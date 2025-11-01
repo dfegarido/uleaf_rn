@@ -127,7 +127,10 @@ const CreateLiveSessionScreen = () => {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.goLiveButton} onPress={handleGoLive}>
-          <Text style={styles.goLiveButtonText}>Preview Live</Text>
+          <Text style={styles.goLiveButtonText}>Setup Live</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.goLivePurgeButton} >
+          <Text style={styles.goLiveButtonText}>Setup Live Purge</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -175,6 +178,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  goLivePurgeButton: {
+    backgroundColor: '#539461',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10
   },
   goLiveButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   loadingOverlay: {

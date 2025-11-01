@@ -215,7 +215,7 @@ const LiveScreen = ({navigation}) => {
 
   useEffect(() => {
     const liveCollectionRef = collection(db, 'live');
-    const q = query(liveCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(liveCollectionRef, orderBy('status', 'desc'), orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedLiveStreams = [];
