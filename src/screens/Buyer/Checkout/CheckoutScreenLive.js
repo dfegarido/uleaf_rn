@@ -1649,8 +1649,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
 
         // Navigate to Orders screen immediately after order creation
         // This prevents the issue where user returns to empty cart after payment cancellation
-        navigation.navigate('Orders');
-
+        onClose();
         // Automatically redirect to PayPal/Venmo payment page after a brief delay
         setTimeout(() => {
           Linking.openURL(

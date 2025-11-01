@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import CloseIcom from '../../assets/live-icon/close-x.svg';
 import { addListing } from '../../components/Api/listingApi'; // Assuming you have this API function
@@ -114,53 +114,7 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId, on
               <View style={{ width: 24 }} />
             </View>
 
-      <ScrollView style={styles.container}>
         <ScreenSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
-        {/* <Text style={styles.label}>Genus</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., Monstera"
-          value={genus}
-          onChangeText={setGenus}
-        />
-
-        <Text style={styles.label}>Species</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., deliciosa"
-          value={species}
-          onChangeText={setSpecies}
-        />
-
-        <Text style={styles.label}>Variegation (Optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., Albo"
-          value={variegation}
-          onChangeText={setVariegation}
-        />
-
-        <Text style={styles.label}>Price</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter price"
-          value={localPrice}
-          onChangeText={setLocalPrice}
-          keyboardType="numeric"
-        />
-
-        <Text style={styles.label}>Cover Photo</Text>
-        <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
-          {imagePrimary ? (
-            <Image source={{ uri: imagePrimary.uri }} style={styles.coverImage} />
-          ) : (
-            <>
-              <UploadIcon width={48} height={48} />
-              <Text style={styles.imagePickerText}>Upload Plant Photo</Text>
-            </>
-          )}
-        </TouchableOpacity> */}
-      </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.goLiveButton} onPress={handleParentAddButtonClick}>
