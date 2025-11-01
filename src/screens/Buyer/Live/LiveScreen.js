@@ -83,7 +83,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
 
   return (
     <TouchableOpacity 
-      onPress={stream.isLive ? () => navigation.navigate('BuyerLiveStreamScreen', {
+      onPress={stream.isLive ? () => navigation.navigate(stream.liveType === 'purge' ? 'BuyerLivePurgeScreen' : 'BuyerLiveStreamScreen', {
           sessionId: stream.sessionId,
         }) : () => {}} 
       style={[styles.videoCard, cardStyle]}

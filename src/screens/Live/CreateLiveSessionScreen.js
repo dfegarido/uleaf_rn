@@ -49,7 +49,7 @@ const CreateLiveSessionScreen = () => {
     );
   };
 
-  const handleGoLive = async () => {
+  const handleGoLive = async (liveType) => {
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a title for your live stream.');
       return;
@@ -66,12 +66,13 @@ const CreateLiveSessionScreen = () => {
         coverPhoto: coverPhoto.base64,
         filename: coverPhoto.fileName,
         mimeType: coverPhoto.type,
+        liveType
       });
 
       // Assuming the API returns a channelName or other session details
       // For now, we just navigate on success.
       if (response.success) {
-        navigation.navigate('LiveBroadcastScreen', {
+        navigation.navigate(liveType === 'purge' ? 'LivePurgeScreen' : 'LiveBroadcastScreen', {
           sessionId: response.sessionId,
         });
       } else {
@@ -126,10 +127,10 @@ const CreateLiveSessionScreen = () => {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.goLiveButton} onPress={handleGoLive}>
+        <TouchableOpacity style={styles.goLiveButton} onPress={handleGoLive('live')}>
           <Text style={styles.goLiveButtonText}>Setup Live</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.goLivePurgeButton} >
+        <TouchableOpacity style={styles.goLivePurgeButton} onPress={handleGoLive('purge')}>
           <Text style={styles.goLiveButtonText}>Setup Live Purge</Text>
         </TouchableOpacity>
       </View>
