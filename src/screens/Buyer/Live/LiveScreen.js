@@ -83,7 +83,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
 
   return (
     <TouchableOpacity 
-      onPress={stream.isLive ? () => navigation.navigate('BuyerLiveStreamScreen', {
+      onPress={stream.isLive ? () => navigation.navigate(stream.liveType === 'purge' ? 'BuyerLivePurgeScreen' : 'BuyerLiveStreamScreen', {
           sessionId: stream.sessionId,
         }) : () => {}} 
       style={[styles.videoCard, cardStyle]}
@@ -215,7 +215,7 @@ const LiveScreen = ({navigation}) => {
 
   useEffect(() => {
     const liveCollectionRef = collection(db, 'live');
-    const q = query(liveCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(liveCollectionRef, orderBy('status', 'desc'), orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedLiveStreams = [];

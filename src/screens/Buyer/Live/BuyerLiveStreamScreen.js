@@ -11,6 +11,7 @@ import {
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   PermissionsAndroid,
@@ -41,6 +42,7 @@ import {
   generateAgoraToken,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,
+  updateLiveSessionStatusApi,
 } from '../../../components/Api/agoraLiveApi';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import GuideModal from './GuideModal'; // Import the new modal
@@ -412,14 +414,20 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     };
   }, [token, appId, channelName]);
 
+  const endLiveSession = () => {
+      updateLiveSessionStatusApi(sessionId, 'ended');
+      navigation.navigate('Live');
+  };
+
   useEffect(() => {
     // Timeout if no broadcaster is found
     if (joined && !remoteUid && !sessionEnded) {
       const timer = setTimeout(() => {
         // Re-check remoteUid before navigating
         if (!remoteUid) {
+          endLiveSession();
           console.log('No broadcaster found after 8 seconds. Navigating to Live screen.');
-          navigation.navigate('Live');
+          Alert.alert('No broadcaster found. Live session has ended.');
         }
       }, 8000); // 8 seconds
 
