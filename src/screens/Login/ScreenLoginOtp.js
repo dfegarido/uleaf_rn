@@ -77,9 +77,25 @@ const ScreenLoginOtp = ({navigation}) => {
     }
   }, []);
 
-  // Auto-submit when pin reaches expected length
+  // Auto-submit when pin reaches expected length (skip for test user)
   useEffect(() => {
     const EXPECTED_LENGTH = 4;
+    const isTestUser = currentUser?.email === 'testuser@example.com';
+    
+    // For test user, auto-submit immediately without requiring PIN
+    if (isTestUser && !loading && !autoSubmitRef.current) {
+      autoSubmitRef.current = true;
+      setTimeout(async () => {
+        try {
+          await handlePressLogin();
+        } finally {
+          autoSubmitRef.current = false;
+        }
+      }, 100);
+      return;
+    }
+    
+    // For regular users, require 4-digit PIN
     if (pin && pin.length === EXPECTED_LENGTH && !loading && !autoSubmitRef.current) {
       autoSubmitRef.current = true; // prevent duplicate auto submissions
       // small timeout so UI updates (keyboard dismiss, etc.) before action
@@ -92,7 +108,7 @@ const ScreenLoginOtp = ({navigation}) => {
         }
       }, 100);
     }
-  }, [pin, loading]);
+  }, [pin, loading, currentUser?.email]);
 
   // const handlePressLogin = async () => {
   //   if (pin.length !== 4) {
@@ -118,7 +134,10 @@ const ScreenLoginOtp = ({navigation}) => {
   // };
 
   const handlePressLogin = async () => {
-    if (pin.length !== 4) {
+    const isTestUser = currentUser?.email === 'testuser@example.com';
+    
+    // For test user, skip PIN validation
+    if (!isTestUser && pin.length !== 4) {
       Alert.alert('Invalid Code', 'Please enter the 4-digit code.');
       return;
     }
@@ -126,17 +145,12 @@ const ScreenLoginOtp = ({navigation}) => {
     try {
       if (idToken !== '') {
         setLoading(true);
-        // console.log(
-        //   currentUser?.email !== 'cherry.cascante83@gmail.com' &&
-        //     currentUser?.email !== 'cherry.cascante1129@gmail.com' &&
-        //     currentUser?.email !== 'belenmichael03@gmail.com',
-        // );
-        if (
-          currentUser?.email !== 'cherry.cascante83@gmail.com' &&
-          currentUser?.email !== 'cherry.cascante1129@gmail.com' &&
-          currentUser?.email !== 'belenmichael03@gmail.com'
-        ) {
+        
+        // Skip OTP verification for test user
+        if (!isTestUser) {
           await postData(idToken);
+        } else {
+          console.log('Skipping OTP verification for test user:', currentUser?.email);
         }
 
         await AsyncStorage.setItem('authToken', idToken);
@@ -161,11 +175,14 @@ const ScreenLoginOtp = ({navigation}) => {
       }
     } catch (error) {
       console.error('OTP verification error:', error);
-      Alert.alert(
-        'Incorrect Code',
-        'The authentication code you entered is incorrect. Please check and try again.',
-        [{text: 'OK'}]
-      );
+      // Only show error alert if not a test user (test user skips OTP)
+      if (!isTestUser) {
+        Alert.alert(
+          'Incorrect Code',
+          'The authentication code you entered is incorrect. Please check and try again.',
+          [{text: 'OK'}]
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -207,15 +224,28 @@ const ScreenLoginOtp = ({navigation}) => {
           ]}>
           Enter authentication code
         </Text>
-        <Text
-          style={[
-            globalStyles.textLGGreyDark,
-            styles.subtTitle,
-            {textAlign: 'center'},
-          ]}>
-          Enter the 4-digit that we have sent via the email
-        </Text>
-        <OtpInput length={4} onChangeOtp={setPin} />
+        {currentUser?.email === 'testuser@example.com' ? (
+          <Text
+            style={[
+              globalStyles.textLGGreyDark,
+              styles.subtTitle,
+              {textAlign: 'center', color: '#699E73', fontStyle: 'italic'},
+            ]}>
+            Test user detected - OTP verification skipped
+          </Text>
+        ) : (
+          <Text
+            style={[
+              globalStyles.textLGGreyDark,
+              styles.subtTitle,
+              {textAlign: 'center'},
+            ]}>
+            Enter the 4-digit that we have sent via the email
+          </Text>
+        )}
+        {currentUser?.email !== 'testuser@example.com' && (
+          <OtpInput length={4} onChangeOtp={setPin} />
+        )}
         <View
           style={[
             styles.buttonContainer,
@@ -226,11 +256,13 @@ const ScreenLoginOtp = ({navigation}) => {
             onPress={handlePressLogin}>
             <Text style={globalStyles.primaryButtonText}>Continue</Text>
           </TouchableOpacity>
-          <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
-            <TouchableOpacity onPress={handleResendPin}>
-              <Text style={globalStyles.textLGAccent}>Resend Code</Text>
-            </TouchableOpacity>
-          </View>
+          {currentUser?.email !== 'testuser@example.com' && (
+            <View style={[styles.loginAccountContainer, {paddingTop: 10}]}>
+              <TouchableOpacity onPress={handleResendPin}>
+                <Text style={globalStyles.textLGAccent}>Resend Code</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </View>

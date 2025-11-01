@@ -302,7 +302,7 @@ const ScreenHome = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={ (userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com' ? () => navigation.navigate('CreateLiveSession') : () => {}}
+                onPress={ (userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo?.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com' ? () => navigation.navigate('CreateLiveSession') : () => {}}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}
@@ -353,7 +353,12 @@ const ScreenHome = ({navigation}) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.topNavItem}
-            onPress={() => navigation.navigate('MessagesScreen')}>
+            onPress={() => {
+              // Disable navigation for suppliers
+              if (userInfo?.user?.userType !== 'supplier') {
+                navigation.navigate('MessagesScreen');
+              }
+            }}>
             <View style={styles.msgIcon}>
               <MessageIcon width={40} height={40} />
               <View style={styles.msgBadge}>
