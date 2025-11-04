@@ -131,6 +131,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
   },
+  discountAmount: {
+    color: '#23C16B', // Green color for discount amount
+  },
   shippingCreditsNotification: {
     backgroundColor: '#F0FDF4',
     borderRadius: 8,
@@ -545,6 +548,10 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     borderRadius: 12,
   },
+  textFieldContainerApplied: {
+    borderColor: '#23C16B',
+    backgroundColor: '#F0FDF4',
+  },
   textFieldIcon: {
     width: 24,
     height: 24,
@@ -557,6 +564,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#647276',
     padding: 0,
+    borderWidth: 0,
+    outlineStyle: 'none',
   },
   discountApplyButton: {
     flexDirection: 'row',
@@ -575,6 +584,55 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#FFFFFF',
     paddingHorizontal: 8,
+  },
+  discountAppliedSimple: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+  },
+  discountAppliedSimpleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    color: '#23C16B',
+  },
+  discountAppliedConfirmation: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#23C16B',
+  },
+  discountAppliedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  discountAppliedIcon: {
+    width: 20,
+    height: 20,
+    marginTop: 2,
+  },
+  discountAppliedContent: {
+    flex: 1,
+    gap: 4,
+  },
+  discountAppliedText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    color: '#202325',
+  },
+  discountCodeBold: {
+    fontWeight: '700',
+    color: '#23C16B',
+  },
+  discountAppliedAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+    color: '#23C16B',
   },
   plantCreditsOption: {
     flexDirection: 'row',
