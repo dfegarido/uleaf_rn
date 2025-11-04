@@ -270,6 +270,34 @@ const PlantItemCard = ({
             </View>
           )}
           
+          {/* SOLD Badge - Show when quantity is 0 */}
+          {(() => {
+            const availableQty = plantData?.availableQty ?? plantData?.quantity ?? plantData?.stock ?? null;
+            const quantityValue = availableQty !== null ? parseInt(availableQty) : null;
+            const isSold = quantityValue !== null && quantityValue === 0;
+            
+            // For listings with variations, check if all variations are sold out
+            if (!isSold && Array.isArray(plantData?.variations) && plantData.variations.length > 0) {
+              const allVariationsSold = plantData.variations.every(v => {
+                const vQty = parseInt(v.availableQty ?? v.quantity ?? v.stock ?? 0) || 0;
+                return vQty === 0;
+              });
+              if (allVariationsSold) {
+                return (
+                  <View style={styles.soldBadge}>
+                    <Text style={styles.soldText}>SOLD</Text>
+                  </View>
+                );
+              }
+            }
+            
+            return isSold ? (
+              <View style={styles.soldBadge}>
+                <Text style={styles.soldText}>SOLD</Text>
+              </View>
+            ) : null;
+          })()}
+          
           {/* Love Count Badge - Now Interactive */}
           <TouchableOpacity 
             style={[styles.loveBadge, plantIsLoved && styles.loveBadgeActive]}
@@ -418,6 +446,22 @@ const styles = StyleSheet.create({
     color: '#E7522F',
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  soldBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#E7522F',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    zIndex: 3,
+  },
+  soldText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   loveBadge: {
     position: 'absolute',

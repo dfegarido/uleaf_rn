@@ -84,6 +84,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const fetchUsers = async (query = '') => {
     try {
       setFetchingUsers(true);
+      // Show up to 50 users (both online and offline)
       const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${query}&userType=buyer&limit=50&offset=0`;
       const response = await fetch(apiUrl, {
         method: 'GET',

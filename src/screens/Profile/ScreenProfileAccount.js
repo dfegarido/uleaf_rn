@@ -25,7 +25,7 @@ import {PhoneInput} from '../../components/PhoneInput';
 import {InputDropdown} from '../../components/Input';
 import NetInfo from '@react-native-community/netinfo';
 import {ImagePickerNoButton} from '../../components/ImagePicker';
-import {uploadImageToFirebaseProfile} from '../../utils/uploadImageToFirebaseProfile';
+import {uploadProfilePhotoApi} from '../../components/Api/uploadProfilePhotoApi';
 import {AuthContext} from '../../auth/AuthProvider';
 import Avatar from '../../components/Avatar/Avatar';
 
@@ -212,36 +212,56 @@ const ScreenProfileAccount = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Upload images to Firebase only if image changed and user is authenticated
+      // Use already uploaded image URL if available, otherwise upload now
       const uploadedUrls = [];
       if (isImageChange && images.length > 0) {
-        try {
-          // Import auth to check current user
-          const auth = require('@react-native-firebase/auth').default;
-          const currentUser = auth().currentUser;
-          
-          if (!currentUser) {
-            console.warn('User not authenticated, skipping image upload');
+        // If image was already auto-uploaded, use that URL
+        if (uploadedImageUrl) {
+          console.log('✅ Using already uploaded image URL:', uploadedImageUrl);
+          uploadedUrls.push(uploadedImageUrl);
+        } else {
+          // Otherwise, upload now (fallback for edge cases)
+          try {
+            console.log('🖼️ Starting profile image upload...', { isImageChange, imageCount: images.length });
+            
+            // Upload using backend API (works for both buyer and seller via Bearer token)
+            for (let i = 0; i < images.length; i++) {
+              const uri = images[i];
+              // Skip if it's already a URL (not a local file)
+              if (uri.startsWith('http://') || uri.startsWith('https://')) {
+                console.log('ℹ️ Image is already a URL, skipping upload:', uri);
+                uploadedUrls.push(uri);
+                continue;
+              }
+              
+              console.log(`📤 Uploading image ${i + 1}/${images.length}:`, uri);
+              try {
+                const result = await uploadProfilePhotoApi(uri);
+                const imageUrl = result?.profilePhotoUrl || result?.profileImage;
+                if (!imageUrl) {
+                  throw new Error('Upload succeeded but no URL returned');
+                }
+                console.log('✅ Image uploaded successfully:', imageUrl);
+                uploadedUrls.push(imageUrl);
+              } catch (uploadError) {
+                console.error(`❌ Failed to upload image ${i + 1}:`, uploadError);
+                throw new Error(`Failed to upload image: ${uploadError.message}`);
+              }
+            }
+            console.log('✅ All images uploaded successfully:', uploadedUrls);
+          } catch (uploadError) {
+            console.error('❌ Image upload error:', uploadError);
             Alert.alert(
-              'Authentication Required',
-              'You need to be logged in to update your profile image. Your other changes will still be saved.',
+              'Image Upload Failed',
+              `Could not upload profile image: ${uploadError.message}`,
               [{ text: 'OK' }]
             );
-          } else {
-            // User is authenticated, proceed with image upload
-            for (const uri of images) {
-              const firebaseUrl = await uploadImageToFirebaseProfile(uri);
-              uploadedUrls.push(firebaseUrl);
-            }
+            // Don't continue with profile update if image upload fails
+            throw uploadError;
           }
-        } catch (authError) {
-          console.error('Image upload error:', authError);
-          Alert.alert(
-            'Image Upload Failed',
-            'Could not upload profile image, but your other changes will still be saved.',
-            [{ text: 'OK' }]
-          );
         }
+      } else {
+        console.log('ℹ️ No image change detected or no images to upload', { isImageChange, imageCount: images.length });
       }
 
       const response = await postProfileUpdateInfoApi(
@@ -287,12 +307,50 @@ const ScreenProfileAccount = ({navigation, route}) => {
   const [images, setImages] = useState([]);
   const [isImageChange, setIsImageChange] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const handleImagePicked = uris => {
-    setIsImageChange(!isImageChange);
-    // console.log(isImageChange);
-    setHasChanges(true);
-    setImages(uris);
-    // console.log(uris);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
+  
+  const handleImagePicked = async uris => {
+    console.log('📸 handleImagePicked called with:', uris);
+    if (uris && uris.length > 0 && Array.isArray(uris)) {
+      const imageUri = uris[0];
+      setImages([imageUri]);
+      setHasChanges(true);
+      // Close the modal after image is picked
+      setModalVisible(false);
+      
+      // Auto-upload the image immediately
+      setUploadingImage(true);
+      try {
+        console.log('🖼️ Auto-uploading profile image...');
+        const result = await uploadProfilePhotoApi(imageUri);
+        const imageUrl = result?.profilePhotoUrl || result?.profileImage;
+        
+        if (!imageUrl) {
+          throw new Error('Upload succeeded but no URL returned');
+        }
+        
+        console.log('✅ Profile image auto-uploaded successfully:', imageUrl);
+        setUploadedImageUrl(imageUrl);
+        setIsImageChange(true);
+        
+        // Update the AuthContext immediately so the image shows in the UI
+        if (updateProfileImage) {
+          updateProfileImage(imageUrl);
+        }
+        
+        // Also update the images array with the uploaded URL for display
+        setImages([imageUrl]);
+      } catch (uploadError) {
+        console.error('❌ Auto-upload failed:', uploadError);
+        // Don't show alert here - let the user try again when they click Update
+        // Just keep the local image for now
+      } finally {
+        setUploadingImage(false);
+      }
+    } else {
+      console.warn('⚠️ handleImagePicked received invalid URIs:', uris);
+    }
   };
 
   return (
@@ -348,13 +406,32 @@ const ScreenProfileAccount = ({navigation, route}) => {
             <View style={{position: 'relative'}}>
               {/* Use shared Avatar component so profile updates propagate across screens */}
               {(() => {
-                // Determine the canonical image and timestamp to build a cache-busted URI
-                const canonical = userInfo?.profileImage || images[0] || '';
-                const ts = userInfo?.profileImageTimestamp || Date.now();
-                const avatarUri = canonical
-                  ? `${canonical}${canonical.includes('?') ? '&' : '?'}cb=${ts}`
+                // Show uploaded image immediately if available, otherwise show current image
+                const displayImage = uploadedImageUrl || images[0] || userInfo?.profileImage || '';
+                const ts = Date.now();
+                const avatarUri = displayImage
+                  ? `${displayImage}${displayImage.includes('?') ? '&' : '?'}cb=${ts}`
                   : null;
-                return <Avatar size={120} imageUri={avatarUri} rounded />;
+                return (
+                  <View>
+                    <Avatar size={120} imageUri={avatarUri} rounded />
+                    {uploadingImage && (
+                      <View style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.3)',
+                        borderRadius: 60,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                        <ActivityIndicator size="large" color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
+                );
               })()}
 
               <TouchableOpacity

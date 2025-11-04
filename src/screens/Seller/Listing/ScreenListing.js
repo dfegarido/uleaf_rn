@@ -30,7 +30,7 @@ import {
   getManageListingApi,
   postListingPinActionApi,
   getSortApi,
-  getGenusApi,
+  getAllPlantGenusApi,
   getVariegationApi,
   getListingTypeApi,
   postListingUpdateStockActionApi,
@@ -143,33 +143,118 @@ const ScreenListing = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
+    // Convert discount boolean to string 'true' or 'false' for API
+    const discountParam = discount === true ? 'true' : (discount === false ? 'false' : '');
+    
+    // Map tab names to API status values (exact match required by backend)
+    // Ensure status is a valid string and map correctly
+    let apiStatus = status || 'All';
+    
+    // Handle status mapping - ensure 'All' is passed correctly
+    if (status === 'All' || !status || status === '') {
+      apiStatus = 'All'; // Show all statuses
+    } else if (status === 'Discounted') {
+      apiStatus = 'All'; // Discounted uses 'All' status with discount=true
+    } else if (status === 'Out of Stock') {
+      apiStatus = 'Out of Stock'; // Ensure exact match with space
+    } else if (status === 'Active') {
+      apiStatus = 'Active'; // Explicitly set Active status
+    } else if (status === 'Inactive') {
+      apiStatus = 'Inactive';
+    } else if (status === 'Scheduled') {
+      apiStatus = 'Scheduled';
+    } else if (status === 'Expired') {
+      apiStatus = 'Expired';
+    }
+    
+    console.log('📊 Status mapping:', { 
+      originalStatus: status, 
+      mappedStatus: apiStatus,
+      isAll: apiStatus === 'All'
+    });
+    
+    // Normalize sortBy to match backend expectations (case-sensitive)
+    // Backend expects: 'Price Low To High', 'Price High To Low', 'Most Loved', or empty/default
+    let normalizedSortBy = sortBy || '';
+    if (sortBy) {
+      const sortTrimmed = sortBy.trim();
+      const sortLower = sortTrimmed.toLowerCase();
+      
+      // Check for exact matches first (most common case)
+      if (sortTrimmed === 'Price Low To High' || sortTrimmed === 'Price Low to High') {
+        normalizedSortBy = 'Price Low To High';
+      } else if (sortTrimmed === 'Price High To Low' || sortTrimmed === 'Price High to Low') {
+        normalizedSortBy = 'Price High To Low';
+      } else if (sortTrimmed === 'Most Loved') {
+        normalizedSortBy = 'Most Loved';
+      } else if (sortTrimmed === 'Newest to Oldest' || sortTrimmed === 'Newest To Oldest') {
+        normalizedSortBy = 'Newest to Oldest';
+      } else if (sortTrimmed === 'Oldest to Newest' || sortTrimmed === 'Oldest To Newest') {
+        normalizedSortBy = 'Oldest to Newest';
+      } else {
+        // Fallback: try to match by keywords
+        if (sortLower.includes('price') && sortLower.includes('low') && sortLower.includes('high')) {
+          normalizedSortBy = 'Price Low To High';
+        } else if (sortLower.includes('price') && sortLower.includes('high') && sortLower.includes('low')) {
+          normalizedSortBy = 'Price High To Low';
+        } else if (sortLower.includes('most') && sortLower.includes('loved')) {
+          normalizedSortBy = 'Most Loved';
+        } else if (sortLower.includes('newest') && sortLower.includes('oldest')) {
+          // "Newest to Oldest" - newest first
+          normalizedSortBy = 'Newest to Oldest';
+        } else if (sortLower.includes('oldest') && sortLower.includes('newest')) {
+          // "Oldest to Newest" - oldest first
+          normalizedSortBy = 'Oldest to Newest';
+        } else if (sortLower.includes('newest')) {
+          // Just "Newest" - default to newest first
+          normalizedSortBy = 'Newest to Oldest';
+        } else if (sortLower.includes('oldest')) {
+          // Just "Oldest" - default to oldest first
+          normalizedSortBy = 'Oldest to Newest';
+        } else {
+          // Keep original if it matches expected format
+          normalizedSortBy = sortTrimmed;
+        }
+      }
+    }
+    
+    console.log('📊 Sort mapping:', { originalSort: sortBy, normalizedSort: normalizedSortBy });
+    
     console.log('🔍 API Call Parameters:', {
       filterMine,
-      sortBy,
+      sortBy: normalizedSortBy,
       genus,
       variegation,
       listingType,
-      status: status == 'Discounted' ? 'All' : status,
-      discount,
+      status: apiStatus,
+      discount: discountParam,
       limit,
       plant,
       pinTag,
       nextPageToken,
     });
-
+    
     const getManageListingApiData = await getManageListingApi(
       filterMine,
-      sortBy,
+      normalizedSortBy, // Use normalized sort value
       genus,
       variegation,
       listingType,
-      status == 'Discounted' ? 'All' : status,
-      discount,
+      apiStatus,
+      discountParam,
       limit,
       plant,
       pinTag,
       nextPageToken,
     );
+
+    console.log('📦 API Response:', {
+      success: getManageListingApiData?.success,
+      listingsCount: getManageListingApiData?.listings?.length || 0,
+      hasListings: !!getManageListingApiData?.listings,
+      message: getManageListingApiData?.message,
+      nextPageToken: getManageListingApiData?.nextPageToken,
+    });
 
     if (!getManageListingApiData?.success) {
       throw new Error(
@@ -177,15 +262,19 @@ const ScreenListing = ({navigation}) => {
       );
     }
 
-    // console.log(getManageListingApiData.listings[0]);
-    // console.log(getManageListingApiData?.nextPageToken);
-    setNextToken(getManageListingApiData?.nextPageToken);
-    // setDataTable(getManageListingApiData?.listings || []);
+    // Ensure we have a valid listings array
+    const listings = Array.isArray(getManageListingApiData?.listings) 
+      ? getManageListingApiData.listings 
+      : [];
+    
+    console.log('📋 Setting dataTable with', listings.length, 'listings');
+    
+    setNextToken(getManageListingApiData?.nextPageToken || '');
     setDataTable(
       prev =>
         nextTokenParam
-          ? [...prev, ...(getManageListingApiData?.listings || [])] // append
-          : getManageListingApiData?.listings || [], // replace
+          ? [...prev, ...listings] // append
+          : listings, // replace
     );
     // console.log(JSON.stringify(dataTable));
   };
@@ -194,13 +283,21 @@ const ScreenListing = ({navigation}) => {
   const fetchData = async () => {
     try {
       // setErrorMessage('');
+      console.log('🔄 fetchData called with:', {
+        activeTab,
+        isDiscounted,
+        reusableSort,
+        reusableGenus,
+        reusableVariegation,
+        reusableListingType,
+      });
       await loadData(
         true,
         reusableSort,
         reusableGenus,
         reusableVariegation,
         reusableListingType,
-        activeTab,
+        activeTab, // This should be 'Active', 'Inactive', 'Scheduled', 'Expired', 'Out of Stock', 'Discounted', or 'All'
         isDiscounted,
         10,
         search,
@@ -270,9 +367,17 @@ const ScreenListing = ({navigation}) => {
       variegation: reusableVariegation,
       listingType: reusableListingType,
     });
+    
+    // Verify sort value format matches backend expectations
+    if (reusableSort) {
+      console.log('🔍 Sort value before normalization:', reusableSort);
+    }
+    
     setNextToken('');
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    // Close the modal after applying filters
+    setShowSheet(false);
   };
   // Search
 
@@ -360,17 +465,35 @@ const ScreenListing = ({navigation}) => {
       throw new Error('No internet connection.');
     }
 
-    const res = await retryAsync(() => getGenusApi(), 3, 1000);
+    const res = await retryAsync(() => getAllPlantGenusApi(), 3, 1000);
 
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load genus api');
     }
 
-    let localGenusData = res.data.map(item => ({
-      label: item.name,
-      value: item.name,
-    }));
+    // Handle different response formats like other screens
+    // 1. { success: true, data: ['genus1', 'genus2', ...] } - array of strings
+    // 2. { success: true, data: [{ name: 'genus1' }, ...] } - array of objects
+    let localGenusData = [];
+    if (Array.isArray(res.data)) {
+      localGenusData = res.data.map(item => {
+        if (typeof item === 'string') {
+          return { label: item, value: item };
+        } else if (item && typeof item === 'object') {
+          const name = item.name || item.genus_name || item.genusName || item.genus || '';
+          return { label: name, value: name };
+        }
+        return null;
+      }).filter(Boolean);
+    } else if (res.data && typeof res.data === 'object') {
+      // Handle case where data might be an object with a name property
+      const name = res.data.name || res.data.genus_name || res.data.genusName || res.data.genus || '';
+      if (name) {
+        localGenusData = [{ label: name, value: name }];
+      }
+    }
 
+    console.log('✅ Loaded genus options:', localGenusData.length);
     setGenusOptions(localGenusData);
   };
 
@@ -443,17 +566,80 @@ const ScreenListing = ({navigation}) => {
     setIsDiscounted(false);
     setNextToken('');
     setNextTokenParam('');
-    if (pressTab == 'Discounted') {
+    
+    // Handle Discounted tab - set discount flag and reset status
+    if (pressTab === 'Discounted') {
       setIsDiscounted(true);
       console.log('💰 Discount Filter Activated');
+    } else {
+      setIsDiscounted(false);
     }
+    
+    // Trigger refresh to apply new filter
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
   const [code, setCode] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
 
+  // Check if a filter is active
+  const isFilterActive = (filterLabel) => {
+    switch (filterLabel) {
+      case 'Sort':
+        return reusableSort && reusableSort !== '';
+      case 'Genus':
+        return Array.isArray(reusableGenus) && reusableGenus.length > 0;
+      case 'Variegation':
+        return Array.isArray(reusableVariegation) && reusableVariegation.length > 0;
+      case 'Listing Type':
+        return Array.isArray(reusableListingType) && reusableListingType.length > 0;
+      default:
+        return false;
+    }
+  };
+
+  // Clear a specific filter
+  const clearSpecificFilter = (filterLabel) => {
+    switch (filterLabel) {
+      case 'Sort':
+        setReusableSort('');
+        break;
+      case 'Genus':
+        setReusableGenus([]);
+        break;
+      case 'Variegation':
+        setReusableVariegation([]);
+        break;
+      case 'Listing Type':
+        setReusableListingType([]);
+        break;
+      default:
+        return;
+    }
+    // Refresh listings after clearing filter
+    setNextToken('');
+    setNextTokenParam('');
+    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  };
+
   const onPressFilter = pressCode => {
+    // Map pressCode to filter label
+    const filterLabelMap = {
+      'SORT': 'Sort',
+      'GENUS': 'Genus',
+      'VARIEGATION': 'Variegation',
+      'LISTINGTYPE': 'Listing Type',
+    };
+    
+    const filterLabel = filterLabelMap[pressCode];
+    
+    // If filter is active, clear it instead of opening the modal
+    if (filterLabel && isFilterActive(filterLabel)) {
+      clearSpecificFilter(filterLabel);
+      return;
+    }
+    
+    // Otherwise, open the filter modal as usual
     setCode(pressCode);
     setShowSheet(true);
   };
@@ -768,12 +954,18 @@ const ScreenListing = ({navigation}) => {
               style={{
                 borderRadius: 20,
                 borderWidth: 1,
-                borderColor: '#CDD3D4',
+                borderColor: isFilterActive('Sort') ? '#23C16B' : '#CDD3D4',
+                backgroundColor: isFilterActive('Sort') ? '#E8F5E9' : '#FFFFFF',
                 padding: 10,
                 flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
               }}>
-              <SortIcon width={20} height={20}></SortIcon>
-              <Text style={globalStyles.textSMGreyDark}>Sort</Text>
+              <SortIcon width={20} height={20} />
+              <Text style={[
+                globalStyles.textSMGreyDark,
+                isFilterActive('Sort') && { color: '#23C16B', fontWeight: '600' }
+              ]}>Sort</Text>
             </View>
           </TouchableOpacity>
 
@@ -782,12 +974,18 @@ const ScreenListing = ({navigation}) => {
               style={{
                 borderRadius: 20,
                 borderWidth: 1,
-                borderColor: '#CDD3D4',
+                borderColor: isFilterActive('Genus') ? '#23C16B' : '#CDD3D4',
+                backgroundColor: isFilterActive('Genus') ? '#E8F5E9' : '#FFFFFF',
                 padding: 10,
                 flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
               }}>
-              <Text style={globalStyles.textSMGreyDark}>Genus</Text>
-              <DownIcon width={20} height={20}></DownIcon>
+              <Text style={[
+                globalStyles.textSMGreyDark,
+                isFilterActive('Genus') && { color: '#23C16B', fontWeight: '600' }
+              ]}>Genus</Text>
+              <DownIcon width={20} height={20} />
             </View>
           </TouchableOpacity>
 
@@ -796,12 +994,18 @@ const ScreenListing = ({navigation}) => {
               style={{
                 borderRadius: 20,
                 borderWidth: 1,
-                borderColor: '#CDD3D4',
+                borderColor: isFilterActive('Variegation') ? '#23C16B' : '#CDD3D4',
+                backgroundColor: isFilterActive('Variegation') ? '#E8F5E9' : '#FFFFFF',
                 padding: 10,
                 flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
               }}>
-              <Text style={globalStyles.textSMGreyDark}>Variegation</Text>
-              <DownIcon width={20} height={20}></DownIcon>
+              <Text style={[
+                globalStyles.textSMGreyDark,
+                isFilterActive('Variegation') && { color: '#23C16B', fontWeight: '600' }
+              ]}>Variegation</Text>
+              <DownIcon width={20} height={20} />
             </View>
           </TouchableOpacity>
 
@@ -810,13 +1014,19 @@ const ScreenListing = ({navigation}) => {
               style={{
                 borderRadius: 20,
                 borderWidth: 1,
-                borderColor: '#CDD3D4',
+                borderColor: isFilterActive('Listing Type') ? '#23C16B' : '#CDD3D4',
+                backgroundColor: isFilterActive('Listing Type') ? '#E8F5E9' : '#FFFFFF',
                 padding: 10,
                 flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
                 marginRight: 30,
               }}>
-              <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
-              <DownIcon width={20} height={20}></DownIcon>
+              <Text style={[
+                globalStyles.textSMGreyDark,
+                isFilterActive('Listing Type') && { color: '#23C16B', fontWeight: '600' }
+              ]}>Listing Type</Text>
+              <DownIcon width={20} height={20} />
             </View>
           </TouchableOpacity>
         </ScrollView>

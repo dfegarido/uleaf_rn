@@ -726,7 +726,67 @@ const ScreenShop = ({navigation}) => {
     callFilterApi();
   };
 
+  // Function to clear a specific filter
+  const clearSpecificFilter = (filterLabel) => {
+    let filterUpdate = {};
+    
+    switch (filterLabel) {
+      case 'Sort':
+        filterUpdate = { sort: 'Newest to Oldest' };
+        break;
+      case 'Price':
+        filterUpdate = { price: '' };
+        break;
+      case 'Genus':
+        filterUpdate = { genus: [] };
+        break;
+      case 'Variegation':
+        filterUpdate = { variegation: [] };
+        break;
+      case 'Country':
+        filterUpdate = { country: [] };
+        break;
+      case 'Listing Type':
+        filterUpdate = { listingType: [] };
+        break;
+      case 'Shipping Index':
+        filterUpdate = { shippingIndex: [] };
+        break;
+      case 'Acclimation Index':
+        filterUpdate = { acclimationIndex: [] };
+        break;
+      default:
+        return;
+    }
+    
+    // Update and apply the cleared filter
+    const updatedFilters = { ...globalFilters, ...filterUpdate };
+    updateFilters(filterUpdate);
+    applyFilters(updatedFilters);
+  };
+
   const onPressFilter = pressCode => {
+    // Map pressCode to filter label
+    const filterLabelMap = {
+      'SORT': 'Sort',
+      'PRICE': 'Price',
+      'GENUS': 'Genus',
+      'VARIEGATION': 'Variegation',
+      'COUNTRY': 'Country',
+      'LISTING_TYPE': 'Listing Type',
+      'SHIPPING_INDEX': 'Shipping Index',
+      'ACCLIMATION_INDEX': 'Acclimation Index',
+    };
+    
+    const filterLabel = filterLabelMap[pressCode];
+    
+    // If filter is active, clear it instead of opening the modal
+    if (filterLabel && isFilterActive(filterLabel)) {
+      clearSpecificFilter(filterLabel);
+      return;
+    }
+    
+    // Otherwise, open the filter modal as usual
     setCode(pressCode);
     setShowSheet(true);
   };

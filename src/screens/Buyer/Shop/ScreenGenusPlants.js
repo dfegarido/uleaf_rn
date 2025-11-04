@@ -42,6 +42,7 @@ const GenusHeader = ({
   insets,
   onBadgePress, // handler passed from parent to handle badge clicks in-place
   profilePhotoUri,
+  activeBadge, // active badge for visual state
 }) => {
   return (
     <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
@@ -109,7 +110,7 @@ const GenusHeader = ({
       </View>
     </View>
     
-  <PromoBadgeList navigation={navigation} onBadgePress={onBadgePress} />
+  <PromoBadgeList navigation={navigation} onBadgePress={onBadgePress} activeBadge={activeBadge} />
     </View>
   );
 };
@@ -980,6 +981,19 @@ const ScreenGenusPlants = ({navigation, route}) => {
       const label = badge?.label;
       if (!label) return;
 
+      // Check if this badge is already active - if so, clear it
+      const isCurrentlyActive = activeBadge === label;
+      
+      if (isCurrentlyActive) {
+        // Clear the active badge and reset to normal plants
+        setActiveBadge(null);
+        setLoading(true);
+        setPlants([]);
+        justFiltered.current = true;
+        loadPlants(true);
+        return;
+      }
+
       // Special handling for Price Drop badge with specific API parameters
       if (label === 'Price Drop') {
         setActiveBadge('Price Drop');
@@ -1198,6 +1212,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         insets={insets}
         onBadgePress={handleBadgePress}
         profilePhotoUri={profilePhotoUri}
+        activeBadge={activeBadge}
       />
 
       {/* Search Results - Positioned outside header to appear above content */}

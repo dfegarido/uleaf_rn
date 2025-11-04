@@ -150,8 +150,13 @@ const SearchHeader = ({
             renderItem={renderSearchResult}
             keyExtractor={(item) => item.id}
             style={styles.dropdownList}
+            contentContainerStyle={styles.dropdownContent}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+            scrollEnabled={true}
+            removeClippedSubviews={false}
+            bounces={true}
           />
         </View>
       )}
@@ -211,11 +216,16 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    maxHeight: 300,
+    height: 400,
     zIndex: 1001,
+    overflow: 'hidden',
   },
   dropdownList: {
+    flex: 1,
     borderRadius: 15,
+  },
+  dropdownContent: {
+    paddingBottom: 0,
   },
   searchResultItem: {
     padding: 15,
