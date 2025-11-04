@@ -49,6 +49,7 @@ const PromoBadgeList = ({
   contentContainerStyle = {},
   badgeStyle = {},
   showScrollIndicator = false,
+  activeBadge = null,
 }) => {
   // Default badge press handler that navigates to ScreenGenusPlants
   const handleDefaultBadgePress = (badgeLabel) => {
@@ -100,6 +101,7 @@ const PromoBadgeList = ({
             label={badge.label}
             style={[{marginRight: 5}, badgeStyle]}
             onPress={onBadgePress ? () => onBadgePress(badge) : () => handleDefaultBadgePress(badge.label)}
+            isActive={activeBadge === badge.label}
             {...(badge.props || {})}
           />
         ))}

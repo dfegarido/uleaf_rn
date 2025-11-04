@@ -374,10 +374,8 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                       <TouchableOpacity
                         style={styles.showAllButton}
                         onPress={() => {
-                          // Fetch the full garden list if not all gardens are already loaded
-                          if ((overrideGardens || allGardens || []).length < filteredGardens.length || filteredGardens.length === 0) {
-                            fetchAllGardens();
-                          }
+                          // Always fetch all gardens when "View All" is clicked
+                          fetchAllGardens();
                         }}
                         disabled={loadingAll}
                       >

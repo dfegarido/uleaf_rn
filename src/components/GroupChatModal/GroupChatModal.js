@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../config/apiConfig';
@@ -14,6 +14,9 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   const [searchText, setSearchText] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [groupName, setGroupName] = useState('');
+  const scrollViewRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const groupNameInputRef = useRef(null);
   
   // Fetch users when modal becomes visible
   useEffect(() => {
@@ -45,6 +48,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       setLoading(true);
       
       // Build URL with query parameter using apiConfig
+      // Show up to 50 users (both online and offline)
       const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${query}&userType=buyer&limit=50&offset=0`;
       
       // Make API request
@@ -152,109 +156,136 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       visible={visible} 
       animationType="slide" 
       transparent
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent={true}>
       <View style={styles.overlay}>
-        <View style={styles.modal}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable onPress={onClose} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </Pressable>
-            <Text style={styles.title}>New Group</Text>
-            <TouchableOpacity 
-              onPress={handleCreateGroup}
-              style={[
-                styles.createButton,
-                (selectedUsers.length < 2 || !groupName.trim()) && styles.createButtonDisabled
-              ]}
-              disabled={selectedUsers.length < 2 || !groupName.trim()}>
-              <Text style={[
-                styles.createButtonText,
-                (selectedUsers.length < 2 || !groupName.trim()) && styles.createButtonTextDisabled
-              ]}>Create</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Group Name Input */}
-          <View style={styles.groupNameContainer}>
-            <TextInput
-              placeholder="Group Name"
-              placeholderTextColor="#647276"
-              style={styles.groupNameInput}
-              value={groupName}
-              onChangeText={setGroupName}
-            />
-          </View>
-
-          {/* Selected Users Count */}
-          {selectedUsers.length > 0 && (
-            <View style={styles.selectedCountContainer}>
-              <Text style={styles.selectedCountText}>
-                {selectedUsers.length} {selectedUsers.length === 1 ? 'person' : 'people'} selected
-              </Text>
+        <View style={styles.modalContainer}>
+          <View style={styles.modal}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Pressable onPress={onClose} style={styles.cancelButton}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Text style={styles.title}>New Group</Text>
+              <TouchableOpacity 
+                onPress={handleCreateGroup}
+                style={[
+                  styles.createButton,
+                  (selectedUsers.length < 2 || !groupName.trim()) && styles.createButtonDisabled
+                ]}
+                disabled={selectedUsers.length < 2 || !groupName.trim()}>
+                <Text style={[
+                  styles.createButtonText,
+                  (selectedUsers.length < 2 || !groupName.trim()) && styles.createButtonTextDisabled
+                ]}>Create</Text>
+              </TouchableOpacity>
             </View>
-          )}
 
-          {/* Search Field */}
-          <View style={styles.searchBox}>
-            <View style={styles.searchIconContainer}>
-              <Text style={styles.searchIconText}>🔍</Text>
+            {/* Group Name Input */}
+            <View style={styles.groupNameContainer}>
+              <TextInput
+                ref={groupNameInputRef}
+                placeholder="Group Name"
+                placeholderTextColor="#647276"
+                style={styles.groupNameInput}
+                value={groupName}
+                onChangeText={setGroupName}
+                onFocus={() => {
+                  // Scroll to top to ensure input is visible
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                  }, 100);
+                }}
+              />
             </View>
-            <TextInput
-              placeholder="Search"
-              placeholderTextColor="#647276"
-              style={styles.searchInput}
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-          </View>
 
-          {/* List */}
-          {loading ? (
-            <ScrollView contentContainerStyle={styles.userList}>
-              {Array.from({length: 5}).map((_, idx) => (
-                <SkeletonUserItem key={idx} index={idx} />
-              ))}
-            </ScrollView>
-          ) : filteredUsers.length > 0 ? (
-            <ScrollView contentContainerStyle={styles.userList}>
-              {filteredUsers.map((user, index) => {
-                const isSelected = selectedUsers.some(u => u.id === user.id);
-                return (
-                  <TouchableOpacity 
-                    onPress={() => toggleUserSelection(user)} 
-                    key={user.id || index} 
-                    style={[
-                      styles.userItem,
-                      index !== filteredUsers.length - 1 && styles.userItemBorder,
-                      isSelected && styles.userItemSelected
-                    ]}
-                  >
-                    <Image 
-                      source={user.avatarUrl}
-                      style={styles.avatar}
-                      defaultSource={AvatarImage}
-                    />
-                    <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{user.name}</Text>
-                      {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
-                    </View>
-                    {isSelected && (
-                      <View style={styles.checkIcon}>
-                        <Text style={styles.checkIconText}>✓</Text>
+            {/* Selected Users Count */}
+            {selectedUsers.length > 0 && (
+              <View style={styles.selectedCountContainer}>
+                <Text style={styles.selectedCountText}>
+                  {selectedUsers.length} {selectedUsers.length === 1 ? 'person' : 'people'} selected
+                </Text>
+              </View>
+            )}
+
+            {/* Search Field */}
+            <View style={styles.searchBox}>
+              <View style={styles.searchIconContainer}>
+                <Text style={styles.searchIconText}>🔍</Text>
+              </View>
+              <TextInput
+                ref={searchInputRef}
+                placeholder="Search"
+                placeholderTextColor="#647276"
+                style={styles.searchInput}
+                value={searchText}
+                onChangeText={setSearchText}
+                onFocus={() => {
+                  // Scroll to show search input when focused
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: 150, animated: true });
+                  }, 100);
+                }}
+              />
+            </View>
+
+            {/* List */}
+            {loading ? (
+              <View style={styles.userList}>
+                {Array.from({length: 5}).map((_, idx) => (
+                  <SkeletonUserItem key={idx} index={idx} />
+                ))}
+              </View>
+            ) : filteredUsers.length > 0 ? (
+              <View style={styles.userList}>
+                {filteredUsers.map((user, index) => {
+                  const isSelected = selectedUsers.some(u => u.id === user.id);
+                  return (
+                    <TouchableOpacity 
+                      onPress={() => toggleUserSelection(user)} 
+                      key={user.id || index} 
+                      style={[
+                        styles.userItem,
+                        index !== filteredUsers.length - 1 && styles.userItemBorder,
+                        isSelected && styles.userItemSelected
+                      ]}
+                    >
+                      <Image 
+                        source={user.avatarUrl}
+                        style={styles.avatar}
+                        defaultSource={AvatarImage}
+                      />
+                      <View style={styles.userInfo}>
+                        <Text style={styles.userName}>{user.name}</Text>
+                        {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
                       </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchText.trim() ? `No users found for "${searchText}"` : 'No users found'}
-              </Text>
-            </View>
-          )}
+                      {isSelected && (
+                        <View style={styles.checkIcon}>
+                          <Text style={styles.checkIconText}>✓</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {searchText.trim() ? `No users found for "${searchText}"` : 'No users found'}
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+          </View>
         </View>
       </View>
     </Modal>
@@ -265,17 +296,37 @@ export default GroupChatModal;
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  modalContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 600,
+    width: '100%',
+    zIndex: 1000,
   },
   modal: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 34,
+    height: 600,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
-    maxHeight: '85%',
+    paddingBottom: 34,
   },
   header: {
     flexDirection: 'row',

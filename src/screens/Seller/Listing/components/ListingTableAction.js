@@ -303,8 +303,11 @@ const ListingTableAction = ({
 
             {/* Available Quantity */}
             <View style={styles.cell}>
-              <Text style={globalStyles.textSMGreyDark}>
-                {listing.availableQty}
+              <Text style={[
+                globalStyles.textSMGreyDark,
+                (parseInt(listing.availableQty) || 0) === 0 && {color: '#E7522F', fontWeight: '600'}
+              ]}>
+                {(parseInt(listing.availableQty) || 0) === 0 ? 'SOLD' : listing.availableQty}
               </Text>
             </View>
 

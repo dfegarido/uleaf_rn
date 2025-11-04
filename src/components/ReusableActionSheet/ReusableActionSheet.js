@@ -84,26 +84,25 @@ const ReusableActionSheet = ({
   const renderSheetContent = () => {
     switch (code) {
       case 'STATUS':
-        // Use incoming statusOptions but explicitly filter out 'sold' and 'archived'
-        const incoming = Array.isArray(statusOptions) ? statusOptions.slice() : [];
-        const filtered = incoming.filter(i => {
-          const v = String(i.value || '').toLowerCase();
-          return v !== 'sold' && v !== 'archived';
-        });
-        const finalStatusOptions = filtered;
+        // Use incoming statusOptions as-is (no filtering)
+        const finalStatusOptions = Array.isArray(statusOptions) ? statusOptions.slice() : [];
 
           return (
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'40%'}>
+            heightPercent={'50%'}>
             <View style={styles.sheetTitleContainer}>
               <Text style={styles.sheetTitle}>Status</Text>
               <TouchableOpacity onPress={() => onClose(true)}>
                 <IconEx width={20} height={20} />
               </TouchableOpacity>
             </View>
-            <View style={{marginBottom: 60, maxHeight: 340}}>
+            <ScrollView 
+              style={{flex: 1}} 
+              contentContainerStyle={{paddingBottom: 90}} 
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}>
               <CheckBoxGroup
                 options={finalStatusOptions}
                 selectedValues={statusValue}
@@ -112,19 +111,22 @@ const ReusableActionSheet = ({
                 optionStyle={{
                   justifyContent: 'space-between',
                   paddingHorizontal: 20,
-                  paddingBottom: 10,
+                  paddingVertical: 12,
                 }}
                 labelStyle={{textAlign: 'left'}}
               />
-            </View>
+            </ScrollView>
             <View
               style={{
                 flexDirection: 'row',
                 gap: 10,
                 justifyContent: 'center',
-                position: 'absolute',
-                bottom: 10,
-                width: '100%',
+                paddingHorizontal: 20,
+                paddingBottom: 20,
+                paddingTop: 10,
+                backgroundColor: '#FFFFFF',
+                borderTopWidth: 1,
+                borderTopColor: '#E5E5E5',
               }}>
               <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>

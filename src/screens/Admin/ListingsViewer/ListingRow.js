@@ -15,6 +15,7 @@ const getStatusColor = (status) => {
     case 'expired': return '#e74c3c'; // red
     case 'out of stock':
     case 'out_of_stock': return '#7f8c8d'; // dark gray
+    case 'sold': return '#E7522F'; // red-orange for sold
     default: return '#bdc3c7';
   }
 };
@@ -93,10 +94,27 @@ const renderCell = (key, listing, onDelete, isDeleting) => {
   const v0 = listing.variations && listing.variations.length ? listing.variations[0] : {};
   switch (key) {
       case 'code':
-        // If listing has a discount, surface that as the primary status badge
-        // so Discounted-filter results visibly show 'Discounted' even when the
-        // stored status is 'Draft' or 'Inactive'.
-        const displayStatus = (listing.hasDiscount) ? 'Discounted' : (listing.status || '');
+        // Determine display status: priority order is Sold > Discounted > actual status
+        // Check if listing is sold (quantity = 0)
+        const qty = listing.quantity ?? v0.availableQty ?? 0;
+        const quantityValue = parseInt(qty) || 0;
+        
+        // For listings with variations, check if all variations are sold out
+        let isSold = false;
+        if (quantityValue === 0) {
+          isSold = true;
+        } else if (listing.listingType === "Grower's Choice" || listing.listingType === "Wholesale") {
+          // Check if all variations are sold out
+          if (listing.variations && listing.variations.length > 0) {
+            isSold = listing.variations.every(v => {
+              const vQty = parseInt(v.availableQty ?? v.quantity ?? 0) || 0;
+              return vQty === 0;
+            });
+          }
+        }
+        
+        // Priority: Sold > Discounted > actual status
+        const displayStatus = isSold ? 'Sold' : (listing.hasDiscount ? 'Discounted' : (listing.status || ''));
         return (
           <View>
             <Text style={styles.plantCode}>{listing.plantCode}</Text>
@@ -116,8 +134,18 @@ const renderCell = (key, listing, onDelete, isDeleting) => {
       return <Text style={styles.listingTypeText}>{listing.listingType}</Text>;
     case 'size':
       return <Text style={styles.infoText}>{listing.potSize || v0.potSize || 'N/A'}</Text>;
-    case 'quantity':
-      return <Text style={styles.quantityText}>{listing.quantity ?? v0.availableQty ?? 0}</Text>;
+    case 'quantity': {
+      const qty = listing.quantity ?? v0.availableQty ?? 0;
+      const quantityValue = parseInt(qty) || 0;
+      return (
+        <Text style={[
+          styles.quantityText,
+          quantityValue === 0 && {color: '#E7522F', fontWeight: '600'}
+        ]}>
+          {quantityValue === 0 ? 'SOLD' : quantityValue}
+        </Text>
+      );
+    }
     case 'localPrice':
       return <Text style={styles.priceText}>{(listing.localCurrencySymbol || v0.localCurrencySymbol || '') + (listing.localPrice ?? v0.localPrice ?? 0)}</Text>;
     case 'usdPrice':

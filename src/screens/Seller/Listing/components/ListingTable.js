@@ -346,8 +346,15 @@ const ListingTable = ({
                       {listing.variations.map((variation, varIndex) => {
                         const qty = parseInt(variation.availableQty) || 0;
                         return (
-                          <Text key={`qty-${varIndex}`} style={[globalStyles.textSMGreyDark, {marginBottom: 4}]}>
-                            {qty}
+                          <Text 
+                            key={`qty-${varIndex}`} 
+                            style={[
+                              globalStyles.textSMGreyDark, 
+                              {marginBottom: 4},
+                              qty === 0 && {color: '#E7522F', fontWeight: '600'}
+                            ]}
+                          >
+                            {qty === 0 ? 'SOLD' : qty}
                           </Text>
                         );
                       })}
@@ -371,8 +378,11 @@ const ListingTable = ({
                 
                 return (
                   <>
-                    <Text style={globalStyles.textSMGreyDark}>
-                      {qty}
+                    <Text style={[
+                      globalStyles.textSMGreyDark,
+                      qty === 0 && {color: '#E7522F', fontWeight: '600'}
+                    ]}>
+                      {qty === 0 ? 'SOLD' : qty}
                     </Text>
                     {listing.listingType !== 'Single Plant' && (
                       <TouchableOpacity

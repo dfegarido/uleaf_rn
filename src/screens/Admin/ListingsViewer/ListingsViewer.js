@@ -106,7 +106,8 @@ const ListingsViewer = ({ navigation }) => {
       { label: 'Draft', value: 'draft' },
       { label: 'Discounted', value: 'discounted' },
       { label: 'Expired', value: 'expired' },
-      { label: 'Out of Stock', value: 'out_of_stock' }
+      { label: 'Out of Stock', value: 'out_of_stock' },
+      { label: 'Sold', value: 'sold' }
     ];
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1131,12 +1132,11 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   // Filter Tab Button Component - following buyer shop pattern exactly
-  const FilterTab = ({ filter }) => {
-    const isActive = isFilterActive(filter.label);
-    
+  // Memoized to prevent unnecessary re-renders during scroll
+  const FilterTab = React.memo(({ filter, isActive, displayText, onPress }) => {
     return (
       <TouchableOpacity
-        onPress={() => handleFilterTabPress(filter.label)}
+        onPress={onPress}
         style={{
           borderRadius: 12,
           borderWidth: 1,
@@ -1146,6 +1146,7 @@ const ListingsViewer = ({ navigation }) => {
           marginTop: 5,
           flexDirection: 'row',
           alignItems: 'center',
+          maxWidth: 200, // Prevent button from getting too wide
         }}
         activeOpacity={0.7}
       >
@@ -1156,12 +1157,17 @@ const ListingsViewer = ({ navigation }) => {
             style={{ marginRight: 4 }}
           />
         )}
-        <Text style={{
-          fontSize: 14,
-          fontWeight: isActive ? '600' : '500',
-          color: isActive ? '#23C16B' : '#393D40'
-        }}>
-          {filter.label}
+        <Text 
+          style={{
+            fontSize: 14,
+            fontWeight: isActive ? '600' : '500',
+            color: isActive ? '#23C16B' : '#393D40',
+            flexShrink: 1, // Allow text to shrink if needed
+          }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {displayText}
         </Text>
         {filter.rightIcon && (
           <filter.rightIcon
@@ -1172,7 +1178,11 @@ const ListingsViewer = ({ navigation }) => {
         )}
       </TouchableOpacity>
     );
-  };
+  }, (prevProps, nextProps) => {
+    // Only re-render if active state or display text changes
+    return prevProps.isActive === nextProps.isActive && 
+           prevProps.displayText === nextProps.displayText;
+  });
 
   // Badge Filter Chip Component - following buyer shop PromoBadge pattern
   const BadgeFilterChip = ({ item, isSelected }) => {
@@ -1281,10 +1291,28 @@ const ListingsViewer = ({ navigation }) => {
             alignItems: 'flex-start',
             paddingHorizontal: 10,
           }}
+          removeClippedSubviews={true}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
         >
-          {filterTabs.map((filter) => (
-            <FilterTab key={filter.label} filter={filter} />
-          ))}
+          {filterTabs.map((filter) => {
+            const isActive = isFilterActive(filter.label);
+            // Get display text - show selected value if available, otherwise show label
+            let displayText = filter.label;
+            if (filter.label === 'Garden' && selectedFilters.garden) {
+              const gardenName = String(selectedFilters.garden);
+              displayText = gardenName.length > 20 ? gardenName.substring(0, 17) + '...' : gardenName;
+            }
+            return (
+              <FilterTab 
+                key={filter.label} 
+                filter={filter}
+                isActive={isActive}
+                displayText={displayText}
+                onPress={() => handleFilterTabPress(filter.label)}
+              />
+            );
+          })}
         </ScrollView>
 
         {/* Sort Modal (matches buyer) */}

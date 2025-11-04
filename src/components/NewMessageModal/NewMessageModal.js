@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../config/apiConfig';
@@ -11,6 +11,8 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const scrollViewRef = useRef(null);
+  const searchInputRef = useRef(null);
   
   // Fetch users when modal becomes visible
   useEffect(() => {
@@ -37,7 +39,9 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
       setLoading(true);
       
       // Build URL with query parameter using apiConfig
-      const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${query}&userType=buyer&limit=5&offset=0`;
+      // Increase limit to show more users (both online and offline)
+      const limit = query.trim().length >= 2 ? 50 : 50; // Show up to 50 users regardless of search
+      const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${query}&userType=buyer&limit=${limit}&offset=0`;
       console.log('Fetching users from:', apiUrl);
       // Make API requestquest
       const response = await fetch(apiUrl, {
@@ -129,82 +133,93 @@ const NewMessageModal = ({ visible, onClose, onSelect }) => {
       visible={visible} 
       animationType="slide" 
       transparent
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent={true}>
       <View style={styles.overlay}>
-        <View style={styles.modal}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>People</Text>
-            <Pressable onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeIconText}>✕</Text>
-            </Pressable>
-          </View>
-
-          {/* Search Field */}
-          <View style={styles.searchBox}>
-            {/* Use View instead of SVG for search icon */}
-            <View style={styles.searchIconContainer}>
-              <Text style={styles.searchIconText}>🔍</Text>
+        <View style={styles.modalContainer}>
+          <View style={styles.modal}>
+            {/* Header - Fixed */}
+            <View style={styles.header}>
+              <Text style={styles.title}>People</Text>
+              <Pressable onPress={onClose} style={styles.closeButton}>
+                <Text style={styles.closeIconText}>✕</Text>
+              </Pressable>
             </View>
-            <TextInput
-              placeholder="Search"
-              placeholderTextColor="#647276"
-              style={styles.searchInput}
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-          </View>
 
-          {/* List */}
-          {loading ? (
-            <ScrollView contentContainerStyle={styles.userList}>
-              {Array.from({length: 5}).map((_, idx) => (
-                <SkeletonUserItem key={idx} index={idx} />
-              ))}
-            </ScrollView>
-          ) : filteredUsers.length > 0 ? (
-            <ScrollView contentContainerStyle={styles.userList}>
-              {filteredUsers.map((user, index) => ( 
-                <TouchableOpacity 
-                  onPress={() => {
-                    // Validate user data before passing to onSelect
-                    if (user && user.id) {
-                      // Make sure uid is set
-                      const validatedUser = {
-                        ...user,
-                        uid: user.uid || user.id // Ensure uid is available
-                      };
-                      console.log('Selected user:', validatedUser);
-                      onSelect(validatedUser);
-                    } else {
-                      Alert.alert('Error', 'Invalid user data. Please try again.');
-                    }
-                  }} 
-                  key={user.id || index} 
-                  style={[
-                    styles.userItem,
-                    index !== filteredUsers.length - 1 && styles.userItemBorder
-                  ]}
-                >
-                  <Image 
-                    source={user.avatarUrl}
-                    style={styles.avatar}
-                    defaultSource={AvatarImage}
-                  />
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{user.name}</Text>
-                    {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchText.trim() ? `No users found for "${searchText}"` : 'No users found'}
-              </Text>
+            {/* Search Field - Fixed */}
+            <View style={styles.searchBox}>
+              <View style={styles.searchIconContainer}>
+                <Text style={styles.searchIconText}>🔍</Text>
+              </View>
+              <TextInput
+                ref={searchInputRef}
+                placeholder="Search"
+                placeholderTextColor="#647276"
+                style={styles.searchInput}
+                value={searchText}
+                onChangeText={setSearchText}
+              />
             </View>
-          )}
+
+            {/* List - Scrollable */}
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}>
+            {loading ? (
+              <View style={styles.userList}>
+                {Array.from({length: 5}).map((_, idx) => (
+                  <SkeletonUserItem key={idx} index={idx} />
+                ))}
+              </View>
+            ) : filteredUsers.length > 0 ? (
+              <View style={styles.userList}>
+                {filteredUsers.map((user, index) => ( 
+                  <TouchableOpacity 
+                    onPress={() => {
+                      if (user && user.id) {
+                        const validatedUser = {
+                          ...user,
+                          uid: user.uid || user.id
+                        };
+                        console.log('Selected user:', validatedUser);
+                        onSelect(validatedUser);
+                      } else {
+                        Alert.alert('Error', 'Invalid user data. Please try again.');
+                      }
+                    }} 
+                    key={user.id || index} 
+                    style={[
+                      styles.userItem,
+                      index !== filteredUsers.length - 1 && styles.userItemBorder
+                    ]}
+                  >
+                    <Image 
+                      source={user.avatarUrl}
+                      style={styles.avatar}
+                      defaultSource={AvatarImage}
+                    />
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName}>{user.name}</Text>
+                      {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {searchText.trim() ? `No users found for "${searchText}"` : 'No users found'}
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+          </View>
         </View>
       </View>
     </Modal>
@@ -215,17 +230,37 @@ export default NewMessageModal;
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  modalContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 600,
+    width: '100%',
+    zIndex: 1000,
   },
   modal: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 34,
+    height: 600,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
-    maxHeight: 600,
+    paddingBottom: 34,
   },
   header: {
     flexDirection: 'row',
@@ -233,6 +268,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
     paddingBottom: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 18,
@@ -273,6 +310,8 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     paddingHorizontal: 16,
     marginBottom: 12,
+    marginHorizontal: 24,
+    backgroundColor: '#fff',
   },
   searchIcon: {
     width: 20,

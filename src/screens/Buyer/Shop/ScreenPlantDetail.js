@@ -1178,8 +1178,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 {isSinglePlant() ? (
                   <Text style={styles.singlePlantNote}>Single plant only</Text>
                 ) : (
-                  <Text style={styles.stockAvailabilityNote}>
-                    {getAvailableStock()} available
+                  <Text style={[
+                    styles.stockAvailabilityNote,
+                    getAvailableStock() === 0 && {color: '#E7522F', fontWeight: '600'}
+                  ]}>
+                    {getAvailableStock() === 0 ? 'SOLD' : `${getAvailableStock()} available`}
                   </Text>
                 )}
               </View>

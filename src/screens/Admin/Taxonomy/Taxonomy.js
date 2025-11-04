@@ -470,6 +470,7 @@ const Taxonomy = () => {
   
   // Species data for variegation filtering
   const [speciesData, setSpeciesData] = useState([]);
+  const [speciesDataLoading, setSpeciesDataLoading] = useState(true);
 
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60;
@@ -533,18 +534,22 @@ const Taxonomy = () => {
   // Load filter options from APIs
   useEffect(() => {
     loadFilterOptions();
-    loadSpeciesData(); // Load species data for variegation filtering
+    // Species data is now loaded in fetchAllData, but load it here too as backup
+    // in case the component mounts without calling fetchAllData
+    loadSpeciesData();
   }, []);
 
   // Load species data for variegation filtering
   const loadSpeciesData = async () => {
     try {
+      setSpeciesDataLoading(true);
       console.log('🌿 Loading species data for variegation filtering...');
       const response = await getSpeciesFromPlantCatalogApi();
       
       if (response?.success && response.data && Array.isArray(response.data)) {
         console.log('✅ Species data loaded:', response.data.length, 'items');
         setSpeciesData(response.data);
+        setSpeciesDataLoading(false);
         
         // Log sample species with variegation
         const samplesWithVariegation = response.data
@@ -555,13 +560,43 @@ const Taxonomy = () => {
           name: s.name,
           variegation: s.variegation
         })));
+        
+        // Log sample species with shipping/acclimation indexes
+        const samplesWithIndexes = response.data
+          .filter(s => (s.shipping_index || s.shippingIndex || s.acclimation_index || s.acclimationIndex) && s.genus)
+          .slice(0, 5);
+        console.log('🔍 Sample species with indexes:', samplesWithIndexes.map(s => ({
+          genus: s.genus || s.genus_name,
+          name: s.name || s.species_name,
+          shipping_index: s.shipping_index || s.shippingIndex,
+          acclimation_index: s.acclimation_index || s.acclimationIndex,
+          allFields: Object.keys(s)
+        })));
+        
+        // Log count of species with shipping/acclimation indexes
+        const withShippingIndex = response.data.filter(s => {
+          const idx = s.shippingIndex ?? s.shipping_index;
+          return idx !== undefined && idx !== null && !isNaN(parseInt(idx));
+        }).length;
+        const withAcclimationIndex = response.data.filter(s => {
+          const idx = s.acclimationIndex ?? s.acclimation_index;
+          return idx !== undefined && idx !== null && !isNaN(parseInt(idx));
+        }).length;
+        console.log(`📊 Species with shipping index: ${withShippingIndex}/${response.data.length}`);
+        console.log(`📊 Species with acclimation index: ${withAcclimationIndex}/${response.data.length}`);
+        
+        return response.data;
       } else {
         console.log('⚠️ Species API returned unexpected format');
         setSpeciesData([]);
+        setSpeciesDataLoading(false);
+        return [];
       }
     } catch (error) {
       console.error('❌ Failed to load species data:', error);
       setSpeciesData([]);
+      setSpeciesDataLoading(false);
+      return [];
     }
   };
 
@@ -765,73 +800,179 @@ const Taxonomy = () => {
           console.log(`🔍 Variegation filter: ${beforeCount} → ${filtered.length} items`);
         }
 
-        // Shipping Index filter
+        // Shipping Index filter - Use species collection to find genus with selected shipping index
         if (activeFilters.shippingIndex && activeFilters.shippingIndex.length > 0) {
-          console.log('🔍 Applying shipping index filter:', activeFilters.shippingIndex);
+          console.log('🔍 Applying shipping index filter via species collection:', activeFilters.shippingIndex);
           const beforeCount = filtered.length;
-          filtered = filtered.filter(item => {
-            // Use the actual shipping_index from the genus data if available
-            const genusShippingIndex = parseInt(item.shipping_index || item.shippingIndex);
-            console.log(`🔍 Checking genus ${item.name}: shipping_index=${genusShippingIndex}, filter=${activeFilters.shippingIndex}`);
+          
+          if (speciesData && speciesData.length > 0) {
+            console.log(`🔍 Starting filter with ${speciesData.length} species, checking for:`, activeFilters.shippingIndex);
             
-            if (!isNaN(genusShippingIndex)) {
-              // Check if the genus index falls within any selected range
-              const matches = activeFilters.shippingIndex.some(filterLabel => {
-                // Parse range from label like "Better (4-6)" -> [4, 6]
+            // Find species that match the selected shipping index ranges
+            const matchingSpecies = speciesData.filter(species => {
+              // Check for both field name variations (camelCase first since API returns camelCase)
+              const shippingIndex = species.shippingIndex ?? species.shipping_index;
+              
+              // Check for genus in multiple possible fields
+              const genusName = species.genus || species.genus_name;
+              
+              // Must have genus and a valid shipping index
+              if (!genusName || shippingIndex === undefined || shippingIndex === null) {
+                return false;
+              }
+              
+              const speciesShippingIndex = parseInt(shippingIndex);
+              if (isNaN(speciesShippingIndex)) {
+                return false;
+              }
+              // Allow 0 values (some species might have 0 as a valid index)
+              
+              // Check if the species index falls within any selected range
+              return activeFilters.shippingIndex.some(filterLabel => {
+                // Parse range from label like "Better (4-6)" or "Better (4-7)" -> [4, 6] or [4, 7]
                 const rangeMatch = filterLabel.match(/\((\d+)-(\d+)\)/);
                 if (rangeMatch) {
                   const min = parseInt(rangeMatch[1]);
                   const max = parseInt(rangeMatch[2]);
-                  const isInRange = genusShippingIndex >= min && genusShippingIndex <= max;
-                  console.log(`  Range ${filterLabel}: ${min}-${max}, value ${genusShippingIndex} in range: ${isInRange}`);
+                  const isInRange = speciesShippingIndex >= min && speciesShippingIndex <= max;
+                  if (isInRange) {
+                    console.log(`  ✅ Species match: ${species.name || species.species_name || 'unknown'} (genus: ${genusName}), shipping_index=${speciesShippingIndex}, range ${min}-${max}`);
+                  }
                   return isInRange;
+                } else {
+                  console.log(`  ⚠️ Could not parse range from filter label: ${filterLabel}`);
                 }
                 return false;
               });
-              
-              if (matches) {
-                console.log('✅ Shipping index match:', item.name, 'index:', genusShippingIndex);
-              }
-              return matches;
+            });
+            
+            console.log(`🔍 Found ${matchingSpecies.length} matching species out of ${speciesData.length} total`);
+            
+            // Extract unique genus names from matching species
+            const genusWithShippingIndex = [...new Set(
+              matchingSpecies
+                .map(s => {
+                  const genusName = s.genus_name?.toUpperCase().trim() || s.genus?.toUpperCase().trim();
+                  return genusName;
+                })
+                .filter(Boolean)
+            )];
+            
+            console.log(`🔍 Genus with matching species (${genusWithShippingIndex.length}):`, genusWithShippingIndex.slice(0, 10));
+            
+            if (genusWithShippingIndex.length > 0) {
+              // Filter genus list to only show genus that have species with selected shipping index
+              filtered = filtered.filter(genus => {
+                const genusName = (genus.name || genus.genus_name || '').toUpperCase().trim();
+                const matches = genusWithShippingIndex.includes(genusName);
+                if (matches) {
+                  console.log(`✅ Genus ${genus.name} matches shipping index filter`);
+                }
+                return matches;
+              });
+            } else {
+              console.log('⚠️ No species found with selected shipping index - showing empty list');
+              filtered = []; // No genus to show if no species match
             }
-            console.log('❌ No shipping index for genus:', item.name);
-            return false;
-          });
+          } else {
+            if (speciesDataLoading) {
+              console.log('⏳ Species data is still loading, waiting before applying shipping index filter');
+              // Keep current filtered data (don't apply filter yet) - will re-run when speciesData loads
+            } else {
+              console.log('⚠️ Species data not available (may be empty or failed to load)');
+              // No species data available - show empty results
+              filtered = [];
+            }
+          }
+          
           console.log(`🔍 Shipping index filter: ${beforeCount} → ${filtered.length} items`);
         }
 
-        // Acclimation Index filter
+        // Acclimation Index filter - Use species collection to find genus with selected acclimation index
         if (activeFilters.acclimationIndex && activeFilters.acclimationIndex.length > 0) {
-          console.log('🔍 Applying acclimation index filter:', activeFilters.acclimationIndex);
+          console.log('🔍 Applying acclimation index filter via species collection:', activeFilters.acclimationIndex);
           const beforeCount = filtered.length;
-          filtered = filtered.filter(item => {
-            // Use the actual acclimation_index from the genus data if available
-            const genusAcclimationIndex = parseInt(item.acclimation_index || item.acclimationIndex);
-            console.log(`🔍 Checking genus ${item.name}: acclimation_index=${genusAcclimationIndex}, filter=${activeFilters.acclimationIndex}`);
+          
+          if (speciesData && speciesData.length > 0) {
+            console.log(`🔍 Starting filter with ${speciesData.length} species, checking for:`, activeFilters.acclimationIndex);
             
-            if (!isNaN(genusAcclimationIndex)) {
-              // Check if the genus index falls within any selected range
-              const matches = activeFilters.acclimationIndex.some(filterLabel => {
-                // Parse range from label like "Better (4-6)" -> [4, 6]
+            // Find species that match the selected acclimation index ranges
+            const matchingSpecies = speciesData.filter(species => {
+              // Check for both field name variations (camelCase first since API returns camelCase)
+              const acclimationIndex = species.acclimationIndex ?? species.acclimation_index;
+              
+              // Check for genus in multiple possible fields
+              const genusName = species.genus || species.genus_name;
+              
+              // Must have genus and a valid acclimation index
+              if (!genusName || acclimationIndex === undefined || acclimationIndex === null) {
+                return false;
+              }
+              
+              const speciesAcclimationIndex = parseInt(acclimationIndex);
+              if (isNaN(speciesAcclimationIndex)) {
+                return false;
+              }
+              // Allow 0 values (some species might have 0 as a valid index)
+              
+              // Check if the species index falls within any selected range
+              return activeFilters.acclimationIndex.some(filterLabel => {
+                // Parse range from label like "Better (4-6)" or "Better (4-7)" -> [4, 6] or [4, 7]
                 const rangeMatch = filterLabel.match(/\((\d+)-(\d+)\)/);
                 if (rangeMatch) {
                   const min = parseInt(rangeMatch[1]);
                   const max = parseInt(rangeMatch[2]);
-                  const isInRange = genusAcclimationIndex >= min && genusAcclimationIndex <= max;
-                  console.log(`  Range ${filterLabel}: ${min}-${max}, value ${genusAcclimationIndex} in range: ${isInRange}`);
+                  const isInRange = speciesAcclimationIndex >= min && speciesAcclimationIndex <= max;
+                  if (isInRange) {
+                    console.log(`  ✅ Species match: ${species.name || species.species_name || 'unknown'} (genus: ${genusName}), acclimation_index=${speciesAcclimationIndex}, range ${min}-${max}`);
+                  }
                   return isInRange;
+                } else {
+                  console.log(`  ⚠️ Could not parse range from filter label: ${filterLabel}`);
                 }
                 return false;
               });
-              
-              if (matches) {
-                console.log('✅ Acclimation index match:', item.name, 'index:', genusAcclimationIndex);
-              }
-              return matches;
+            });
+            
+            console.log(`🔍 Found ${matchingSpecies.length} matching species out of ${speciesData.length} total`);
+            
+            // Extract unique genus names from matching species
+            const genusWithAcclimationIndex = [...new Set(
+              matchingSpecies
+                .map(s => {
+                  const genusName = s.genus_name?.toUpperCase().trim() || s.genus?.toUpperCase().trim();
+                  return genusName;
+                })
+                .filter(Boolean)
+            )];
+            
+            console.log(`🔍 Genus with matching species (${genusWithAcclimationIndex.length}):`, genusWithAcclimationIndex.slice(0, 10));
+            
+            if (genusWithAcclimationIndex.length > 0) {
+              // Filter genus list to only show genus that have species with selected acclimation index
+              filtered = filtered.filter(genus => {
+                const genusName = (genus.name || genus.genus_name || '').toUpperCase().trim();
+                const matches = genusWithAcclimationIndex.includes(genusName);
+                if (matches) {
+                  console.log(`✅ Genus ${genus.name} matches acclimation index filter`);
+                }
+                return matches;
+              });
+            } else {
+              console.log('⚠️ No species found with selected acclimation index - showing empty list');
+              filtered = []; // No genus to show if no species match
             }
-            console.log('❌ No acclimation index for genus:', item.name);
-            return false;
-          });
+          } else {
+            if (speciesDataLoading) {
+              console.log('⏳ Species data is still loading, waiting before applying acclimation index filter');
+              // Keep current filtered data (don't apply filter yet) - will re-run when speciesData loads
+            } else {
+              console.log('⚠️ Species data not available (may be empty or failed to load)');
+              // No species data available - show empty results
+              filtered = [];
+            }
+          }
+          
           console.log(`🔍 Acclimation index filter: ${beforeCount} → ${filtered.length} items`);
         }
       }
@@ -842,7 +983,7 @@ const Taxonomy = () => {
       console.error('🌿 Error deriving filteredData:', e);
       return [];
     }
-  }, [activeTab, taxonomyData, requestsData, debouncedQuery, activeFilters, speciesData]);
+  }, [activeTab, taxonomyData, requestsData, debouncedQuery, activeFilters, speciesData, speciesDataLoading]);
 
   const fetchAllData = async (showLoading = true) => {
     console.log('🌿 fetchAllData called, showLoading:', showLoading);
@@ -853,10 +994,11 @@ const Taxonomy = () => {
     }
     
     try {
-      // Fetch both genus data and requests data in parallel
-      const [genusResult, requestsResult] = await Promise.allSettled([
+      // Fetch genus data, requests data, and species data in parallel
+      const [genusResult, requestsResult, speciesResult] = await Promise.allSettled([
         fetchGenusData(),
-        fetchRequestsData()
+        fetchRequestsData(),
+        loadSpeciesData()
       ]);
       
       // Log results
@@ -865,6 +1007,12 @@ const Taxonomy = () => {
         console.log('✅ Genus data length:', genusResult.value?.length || 0);
       } else {
         console.error('❌ Genus data fetch failed:', genusResult.reason);
+      }
+      
+      if (speciesResult.status === 'fulfilled') {
+        console.log('✅ Species data fetch completed successfully');
+      } else {
+        console.error('❌ Species data fetch failed:', speciesResult.reason);
       }
       
       if (requestsResult.status === 'fulfilled') {
