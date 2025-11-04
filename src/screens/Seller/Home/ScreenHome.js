@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import React, { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -300,7 +300,7 @@ const ScreenHome = ({navigation}) => {
           </TouchableOpacity>
 
           <View style={styles.headerIcons}>
-            {userInfo?.liveFlag != 'No' && (
+            {(userInfo?.liveFlag != 'No' && ((userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo?.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com')) && (
               <TouchableOpacity
                 onPress={ (userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo?.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com' ? () => navigation.navigate('CreateLiveSession') : () => {}}
                 style={styles.iconButton}>

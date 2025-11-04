@@ -8,7 +8,6 @@ const IconTile = ({title, children, onPress}) => {
   );
 };
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
@@ -35,10 +34,10 @@ import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
 
 
-const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}, insets}) => {
+const AdminHeader = ({onPressProfile = () => {}, insets}) => {
   const {userInfo} = useAuth();
   const firstName = userInfo?.user?.firstName || userInfo?.firstName || 'Admin';
-  const canGoLive = userInfo?.liveFlag !== 'No';
+  const canGoLive = false;
   const profileImage = userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
 
   return (
@@ -47,7 +46,7 @@ const AdminHeader = ({onPressLive = () => {}, onPressProfile = () => {}, insets}
 
       <View style={styles.headerActions}>
         {canGoLive && (
-          <TouchableOpacity onPress={onPressLive} style={styles.liveButton}>
+          <TouchableOpacity style={styles.liveButton}>
             <LiveIcon width={40} height={39} />
           </TouchableOpacity>
         )}
@@ -207,7 +206,6 @@ const Home = () => {
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       <AdminHeader
-        onPressLive={() => navigation.navigate('LiveBroadcastScreen')}
         onPressProfile={() => navigation.navigate('AdminProfile')}
         insets={insets}
       />
