@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Modal,
   SafeAreaView,
@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GardenIcon from '../../assets/admin-icons/garden-avatar.svg';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
@@ -35,6 +36,7 @@ const GardenItem = ({ name, onSelect, count, isActive }) => (
 );
 
 const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCounts = {}, fetchFullGardenList, currentGarden = null }) => {
+  const insets = useSafeAreaInsets();
   // Mock data for the list of gardens
   const allGardens = gardens;
 
@@ -192,6 +194,7 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
 
   const [overrideGardens, setOverrideGardens] = React.useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   // pagination for modal list
   const PAGE_SIZE = 6;
   const [visiblePage, setVisiblePage] = React.useState(1);
@@ -200,13 +203,32 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
   const lastFetchedRef = React.useRef([]);
   const lastMergedRef = React.useRef([]);
 
-  // Filter gardens based on the search query
-  const sourceGardens = overrideGardens || allGardens || [];
-  const filteredGardens = sourceGardens.filter(garden =>
-    garden.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Debounce search query to prevent excessive filtering
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 150); // 150ms debounce delay
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Memoize filtered gardens to prevent recalculating on every render
+  const filteredGardens = useMemo(() => {
+    const source = overrideGardens || allGardens || [];
+    if (!debouncedSearchQuery.trim()) {
+      return source;
+    }
+    const queryLower = debouncedSearchQuery.toLowerCase();
+    return source.filter(garden => {
+      if (typeof garden !== 'string') return false;
+      return garden.toLowerCase().includes(queryLower);
+    });
+  }, [overrideGardens, allGardens, debouncedSearchQuery]);
+
   // visible subset based on pagination
-  const visibleGardens = filteredGardens.slice(0, visiblePage * PAGE_SIZE);
+  const visibleGardens = useMemo(() => {
+    return filteredGardens.slice(0, visiblePage * PAGE_SIZE);
+  }, [filteredGardens, visiblePage]);
 
   const handleSelect = (garden) => {
     // Prevent re-selecting the already-applied garden from clearing the filter
@@ -229,6 +251,11 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
   React.useEffect(() => {
     setVisiblePage(1);
   }, [isVisible, overrideGardens, allGardens]);
+
+  // Reset visible page when search query changes (after debounce)
+  useEffect(() => {
+    setVisiblePage(1);
+  }, [debouncedSearchQuery]);
 
   // On modal open, if listing-derived gardens are fewer than a page, try to
   // fetch-and-merge enough gardens to show PAGE_SIZE items (automatic fill).
@@ -258,8 +285,8 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={styles.actionSheetContainer}>
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={80}>
-                <SafeAreaView>
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={80} style={{flex: 1}}>
+                <SafeAreaView style={{flex: 1}}>
                 {/* Header */}
                 <View style={styles.header}>
                   <Text style={styles.headerTitle}>Garden</Text>
@@ -271,7 +298,7 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                 </View>
 
                 {/* Content Area */}
-                <View style={styles.contentContainer}>
+                <View style={[styles.contentContainer, {flex: 1}]}>
                   {/* debug panel removed */}
                   {/* Search Bar */}
                   <View style={styles.searchFieldContainer}>
@@ -308,14 +335,19 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                   <ScrollView
                     ref={scrollRef}
                     style={styles.listContainer}
+                    contentContainerStyle={styles.listContentContainer}
                     keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled={true}
+                    scrollEventThrottle={16}
+                    bounces={true}
+                    showsVerticalScrollIndicator={true}
                   >
                     {filteredGardens.length === 0 ? (
                       <View style={styles.emptyContainer}>
                         <Text style={styles.emptyText}>No gardens found</Text>
                       </View>
                     ) : (
-                        visibleGardens.map((garden, index) => {
+                        filteredGardens.map((garden, index) => {
                           // determine active state using normalized comparison to avoid
                           // mismatches caused by quotes/spacing variants
                           const normCurrent = normalizeGardenName(currentGarden || '');
@@ -329,7 +361,7 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                                 onSelect={() => handleSelect(garden)}
                                 isActive={isActive}
                               />
-                              {index < visibleGardens.length - 1 && <View style={styles.divider} />}
+                              {index < filteredGardens.length - 1 && <View style={styles.divider} />}
                             </View>
                           );
                         })
@@ -338,17 +370,14 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                 </View>
                 
                     {/* Action Buttons */}
-                    <View style={styles.actionContainer}>
+                    <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                       <TouchableOpacity
                         style={styles.showAllButton}
                         onPress={() => {
-                          // If there are more local items, just increase visiblePage
-                          if (visibleGardens.length < filteredGardens.length) {
-                            setVisiblePage(prev => prev + 1);
-                            return;
+                          // Fetch the full garden list if not all gardens are already loaded
+                          if ((overrideGardens || allGardens || []).length < filteredGardens.length || filteredGardens.length === 0) {
+                            fetchAllGardens();
                           }
-                          // No more local items: fall back to fetching the full garden list
-                          fetchAllGardens();
                         }}
                         disabled={loadingAll}
                       >
@@ -400,7 +429,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 24,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 0,
+    flex: 1,
   },
   searchFieldContainer: {
     flexDirection: 'row',
@@ -425,8 +456,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   listContainer: {
-    height: 343,
+    flex: 1,
     marginTop: 16,
+  },
+  listContentContainer: {
+    paddingBottom: 8,
   },
   gardenItemContainer: {
     flexDirection: 'row',

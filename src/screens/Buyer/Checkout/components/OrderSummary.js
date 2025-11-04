@@ -30,6 +30,12 @@ const OrderSummary = ({
   onDiscountCodeChange = () => {},
   onApplyDiscount = () => {},
 }) => {
+  // Debug logging for discount
+  console.log('📋 [OrderSummary] Component render:', {
+    codeDiscount: orderSummary.codeDiscount,
+    discountCode,
+    hasCodeDiscount: orderSummary.codeDiscount > 0,
+  });
   return (
     <>
       {/* Payment Method */}
@@ -102,7 +108,8 @@ const OrderSummary = ({
           {/* Total Plant Cost Row - Conditional display based on discount */}
           <View style={styles.plantCostRow}>
             <Text style={styles.subtotalLabel}>Total Plant Cost</Text>
-            {orderSummary.discount > 0 ? (
+            {/* Only show crossed out price if original cost is actually higher than subtotal */}
+            {orderSummary.totalOriginalCost > orderSummary.subtotal ? (
               <View style={styles.priceComparisonContainer}>
                 <Text style={styles.originalPriceStrikethrough}>
                   {formatCurrencyFull(orderSummary.totalOriginalCost)}
@@ -118,15 +125,25 @@ const OrderSummary = ({
             )}
           </View>
 
-          {/* Discount - Only show if there is a discount */}
-          {orderSummary.discount > 0 && (
-            <View style={styles.subtotalRow}>
-              <Text style={styles.subtotalLabel}>Total Discount</Text>
-              <Text style={styles.subtotalNumber}>
-                -{formatCurrencyFull(orderSummary.discount)}
-              </Text>
-            </View>
-          )}
+          {/* Discount Code - Show when discount code is applied */}
+          {(() => {
+            const hasDiscount = orderSummary.codeDiscount > 0;
+            console.log('🎯 [OrderSummary] Rendering discount row:', {
+              codeDiscount: orderSummary.codeDiscount,
+              hasDiscount,
+              discountCode,
+            });
+            return hasDiscount ? (
+              <View style={styles.subtotalRow}>
+                <Text style={styles.subtotalLabel}>
+                  Discount {discountCode ? `(${discountCode})` : ''}
+                </Text>
+                <Text style={[styles.subtotalNumber, styles.discountAmount]}>
+                  -{formatCurrencyFull(orderSummary.codeDiscount)}
+                </Text>
+              </View>
+            ) : null;
+          })()}
 
           {/* Credits Applied */}
           {orderSummary.creditsApplied > 0 && (
@@ -333,19 +350,36 @@ const OrderSummary = ({
           <View style={styles.discountInputSection}>
             {/* Text Field */}
             <View style={styles.discountTextField}>
-              <View style={styles.textFieldContainer}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" style={styles.textFieldIcon}>
-                  <Path
-                    d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM11 7H13V13H11V7ZM11 15H13V17H11V15Z"
-                    fill="#7F8D91"
-                  />
-                </Svg>
+              <View style={[
+                styles.textFieldContainer,
+                orderSummary.codeDiscount > 0 && styles.textFieldContainerApplied
+              ]}>
+                {orderSummary.codeDiscount > 0 ? (
+                  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none" style={styles.textFieldIcon}>
+                    <Path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18ZM13.7071 8.29289C14.0976 8.68342 14.0976 9.31658 13.7071 9.70711L9.70711 13.7071C9.31658 14.0976 8.68342 14.0976 8.29289 13.7071L6.29289 11.7071C5.90237 11.3166 5.90237 10.6834 6.29289 10.2929C6.68342 9.90237 7.31658 9.90237 7.70711 10.2929L9 11.5858L12.2929 8.29289C12.6834 7.90237 13.3166 7.90237 13.7071 8.29289Z"
+                      fill="#23C16B"
+                    />
+                  </Svg>
+                ) : (
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" style={styles.textFieldIcon}>
+                    <Path
+                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM11 7H13V13H11V7ZM11 15H13V17H11V15Z"
+                      fill="#7F8D91"
+                    />
+                  </Svg>
+                )}
                 <TextInput
                   style={styles.textFieldInput}
-                  placeholder="Enter discount code"
-                  placeholderTextColor="#647276"
+                  placeholder={orderSummary.codeDiscount > 0 ? `${discountCode} applied` : "Enter discount code"}
+                  placeholderTextColor={orderSummary.codeDiscount > 0 ? "#23C16B" : "#647276"}
                   value={discountCode}
                   onChangeText={onDiscountCodeChange}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  editable={orderSummary.codeDiscount === 0}
                 />
               </View>
             </View>
@@ -357,6 +391,15 @@ const OrderSummary = ({
               <Text style={styles.discountApplyButtonText}>Apply</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Discount Applied Confirmation - Simple text indicator */}
+          {orderSummary.codeDiscount > 0 && (
+            <View style={styles.discountAppliedSimple}>
+              <Text style={styles.discountAppliedSimpleText}>
+                ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied • You saved {formatCurrencyFull(orderSummary.codeDiscount)}
+              </Text>
+            </View>
+          )}
 
           {/* Point Options */}
           <View style={styles.pointOptions}>

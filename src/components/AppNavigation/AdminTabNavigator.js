@@ -47,6 +47,14 @@ import EditTaxonomy from '../../screens/Admin/Taxonomy/EditTaxonomy';
 import ImportTaxonomyScreen from '../../screens/Admin/Taxonomy/ImportTaxonomyScreen';
 import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
+import Discounts from '../../screens/Admin/Discounts/Discounts';
+import AmountOffPlants from '../../screens/Admin/Discounts/AmountOffPlants';
+import AmountOffPlantsPercentage from '../../screens/Admin/Discounts/AmountOffPlantsPercentage';
+import BuyXGetY from '../../screens/Admin/Discounts/BuyXGetY';
+import EventGift from '../../screens/Admin/Discounts/EventGift';
+import EventGiftFixed from '../../screens/Admin/Discounts/EventGiftFixed';
+import EditDiscount from '../../screens/Admin/Discounts/EditDiscount';
+import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 import { ChatScreen } from '../../screens/ChatScreen';
 import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
@@ -186,6 +194,15 @@ function AdminTabs() {
       
       {/* Listings Viewer */}
       <Stack.Screen name="ListingsViewer" options={{headerShown: false}} component={ListingsViewer} />
+      {/* Discounts */}
+      <Stack.Screen name="AdminDiscounts" options={{headerShown: false}} component={Discounts} />
+      <Stack.Screen name="AdminDiscountAmountOffPlants" options={{headerShown: false}} component={AmountOffPlants} />
+      <Stack.Screen name="AdminDiscountAmountOffPlantsPercentage" options={{headerShown: false}} component={AmountOffPlantsPercentage} />
+      <Stack.Screen name="AdminDiscountBuyXGetY" options={{headerShown: false}} component={BuyXGetY} />
+      <Stack.Screen name="AdminDiscountEventGiftPercentage" options={{headerShown: false}} component={EventGift} />
+      <Stack.Screen name="AdminDiscountEventGiftFixed" options={{headerShown: false}} component={EventGiftFixed} />
+      <Stack.Screen name="AdminDiscountEdit" options={{headerShown: false}} component={EditDiscount} />
+      <Stack.Screen name="AdminDiscountSelectListing" options={{headerShown: false}} component={SelectListingScreen} />
       {/* Order Summary */}
       <Stack.Screen name="OrderSummary" options={{headerShown: false}} component={require('../../screens/Admin/OrderSummary/OrderSummary').default} />
       

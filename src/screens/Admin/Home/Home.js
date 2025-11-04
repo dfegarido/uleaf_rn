@@ -105,7 +105,7 @@ const BusinessPerformance = ({ navigation }) => {
 
           <TouchableOpacity  style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('OrderSummary')}>
             <OrderSummaryIcon width={40} height={40} />
-            <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Order Summary</Text>
+            <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Orders</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -171,6 +171,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
   };
 
   const NewsEventsRewards = () => {
+    const navigation = useNavigation();
     return (
       <View style={[styles.sectionContainer, {paddingTop: 24}]}>
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>News, Events and Rewards</Text>
@@ -180,7 +181,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
             <HappeningsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Happenings</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
+          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('AdminDiscounts')}>
             <DiscountsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Discounts</Text>
           </TouchableOpacity>

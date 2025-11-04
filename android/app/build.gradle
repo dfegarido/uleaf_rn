@@ -145,13 +145,4 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:7.4.2")
-        classpath("com.google.gms:google-services:4.3.10") // Google Services plugin
-    }
-}
+// Removed obsolete local buildscript block to avoid conflicting AGP versions; root build.gradle defines AGP and Google Services

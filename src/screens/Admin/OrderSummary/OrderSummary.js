@@ -271,21 +271,33 @@ const OrderSummary = ({navigation}) => {
       });
 
       if (response.success && response.orders) {
-        console.log('Full order data from API:', JSON.stringify(response.orders[0], null, 2));
-        console.log('Total orders received:', response.orders.length);
+        console.log('Orders API response:', {
+          success: response.success,
+          ordersCount: response.orders.length,
+          total: response.total,
+          totalPages: response.totalPages,
+          currentPage: response.currentPage
+        });
+        if (response.orders.length > 0) {
+          console.log('Full order data from API (first order):', JSON.stringify(response.orders[0], null, 2));
+        } else {
+          console.log('No orders returned from API. This might be due to filtering or no orders in the database.');
+        }
         
         // Debug: Log price fields from first few orders
-        console.log('Price data in orders:', response.orders.slice(0, 5).map((o, i) => ({
-          index: i,
-          transactionNumber: o.transactionNumber,
-          localPrice: o.localPrice,
-          usdPrice: o.usdPrice,
-          localPrices: o.localPrices,
-          usdPrices: o.usdPrices,
-          totalPrice: o.totalPrice,
-          totalUsdPrice: o.totalUsdPrice,
-          localPriceCurrency: o.localPriceCurrency
-        })));
+        if (response.orders.length > 0) {
+          console.log('Price data in orders:', response.orders.slice(0, 5).map((o, i) => ({
+            index: i,
+            transactionNumber: o.transactionNumber,
+            localPrice: o.localPrice,
+            usdPrice: o.usdPrice,
+            localPrices: o.localPrices,
+            usdPrices: o.usdPrices,
+            totalPrice: o.totalPrice,
+            totalUsdPrice: o.totalUsdPrice,
+            localPriceCurrency: o.localPriceCurrency
+          })));
+        }
         
         const mappedOrders = response.orders.map(mapOrderToTableRow);
         setOrders(mappedOrders);

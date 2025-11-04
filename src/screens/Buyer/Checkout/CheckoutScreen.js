@@ -319,7 +319,7 @@ const CheckoutScreen = () => {
       
       <CheckoutBar
         total={orderSummary.finalTotal}
-        discount={orderSummary.discount}
+        discount={orderSummary.codeDiscount || 0}
         loading={loading || isCalculatingShipping}
         selectedFlightDateIso={selectedFlightDate?.iso}
         onCheckoutPress={handleCheckout}

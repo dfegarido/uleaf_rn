@@ -60,20 +60,34 @@ export const getAllPlantGenusApi = async () => {
 
     for (const url of tryEndpoints) {
       try {
+        console.log('🌿 getAllPlantGenusApi: Trying endpoint:', url);
         const response = await fetch(url, { method: 'GET', headers });
+        console.log('🌿 getAllPlantGenusApi: Response status:', response.status, response.ok);
         if (!response.ok) {
           // try next
-          console.warn('getAllPlantGenusApi: endpoint returned non-OK', url, response.status);
+          console.warn('⚠️ getAllPlantGenusApi: endpoint returned non-OK', url, response.status);
           continue;
         }
 
-  const body = await response.json();
+        const body = await response.json();
+        console.log('🌿 getAllPlantGenusApi: Response body:', {
+          hasData: !!body.data,
+          dataIsArray: Array.isArray(body.data),
+          dataLength: Array.isArray(body.data) ? body.data.length : 0,
+          success: body.success,
+          error: body.error
+        });
         // Normalize: some endpoints return { data: [...] }, some return array
         const payload = Array.isArray(body) ? body : (body.data || []);
-        return { success: true, data: payload };
+        if (payload.length > 0) {
+          console.log('✅ getAllPlantGenusApi: Successfully loaded', payload.length, 'genus items from', url);
+          return { success: true, data: payload };
+        } else {
+          console.warn('⚠️ getAllPlantGenusApi: Empty payload from', url);
+        }
       } catch (innerErr) {
         // continue to next endpoint
-        console.warn('getAllPlantGenusApi endpoint failed, trying next:', url, innerErr?.message || innerErr);
+        console.warn('❌ getAllPlantGenusApi endpoint failed, trying next:', url, innerErr?.message || innerErr);
       }
     }
 

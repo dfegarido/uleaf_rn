@@ -15,6 +15,17 @@ const {height: screenHeight} = Dimensions.get('window');
 const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
 
+  // Calculate height from percentage string or use as-is if it's a number
+  const getHeight = () => {
+    if (typeof heightPercent === 'string' && heightPercent.endsWith('%')) {
+      const percent = parseFloat(heightPercent);
+      return (screenHeight * percent) / 100;
+    }
+    return typeof heightPercent === 'number' ? heightPercent : screenHeight * 0.3;
+  };
+
+  const sheetHeight = getHeight();
+
   useEffect(() => {
     if (visible) {
       Animated.timing(slideAnim, {
@@ -31,6 +42,8 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
     }
   }, [visible, slideAnim]);
 
+  console.log('ActionSheet render - visible:', visible, 'height:', sheetHeight);
+
   return (
     <Modal
       visible={visible}
@@ -46,13 +59,13 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
               <Animated.View
                 style={[
                   styles.sheet,
-                  {height: heightPercent},
+                  {height: sheetHeight},
                   {
                     transform: [
                       {
                         translateY: slideAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [300, 0], // Start 300px below, slide to 0
+                          outputRange: [sheetHeight, 0], // Start below screen, slide to position
                         }),
                       },
                     ],

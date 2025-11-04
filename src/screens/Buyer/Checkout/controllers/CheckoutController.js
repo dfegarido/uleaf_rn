@@ -10,6 +10,7 @@ import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileAp
 import { checkoutApi } from '../../../../components/Api/checkoutApi';
 import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
 import { calculateCheckoutShippingApi } from '../../../../components/Api/checkoutShippingApi';
+import { validateDiscountCodeApi } from '../../../../components/Api/discountApi';
 import { formatCurrencyFull } from '../../../../utils/formatCurrency';
 import { roundToCents } from '../../../../utils/money';
 
@@ -73,6 +74,7 @@ export const useCheckoutController = () => {
   const [loading, setLoading] = useState(false);
   const [transactionNum, setTransactionNum] = useState(null);
   const [discountCode, setDiscountCode] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState({ amount: 0, discountId: null, code: null });
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
       street: '123 Main St',
@@ -640,10 +642,21 @@ export const useCheckoutController = () => {
     // For display purposes, use backend's finalTotal if available (it accounts for all credits)
     // Otherwise calculate: subtotal + shipping (already has credits applied)
     const backendFinalTotal = shippingCalculation?.finalTotal;
-    const discount = shippingCalculation?.discount || 0;
-    const finalTotal = backendFinalTotal !== undefined 
-      ? backendFinalTotal 
-      : (subtotal + shippingTotal - discount);
+    const shippingDiscount = shippingCalculation?.discount || 0;
+    const codeDiscount = appliedDiscount.amount || 0;
+    const totalDiscount = shippingDiscount + codeDiscount;
+    
+    // Calculate final total - ensure it never goes negative
+    let finalTotal;
+    if (backendFinalTotal !== undefined) {
+      // Backend's finalTotal includes: subtotal + shipping - userCredits
+      // It does NOT include discount codes, so we need to subtract the discount code amount
+      // But ensure the result is never negative
+      finalTotal = Math.max(0, backendFinalTotal - codeDiscount);
+    } else {
+      // Calculate from components: subtotal + shipping - all discounts
+      finalTotal = Math.max(0, subtotal + shippingTotal - totalDiscount);
+    }
     
     // Debug logging for shipping calculation matching
     console.log('🔍 [orderSummary] Shipping calculation check:', {
@@ -653,9 +666,26 @@ export const useCheckoutController = () => {
       shippingTotal,
       backendFinalTotal,
       subtotal,
-      calculatedFinalTotal: subtotal + shippingTotal - discount,
+      calculatedFinalTotal: subtotal + shippingTotal - totalDiscount,
       finalTotal,
+      codeDiscount,
+      appliedDiscountState: appliedDiscount,
+      shippingDiscount,
     });
+    
+    // Log if discount should be visible
+    if (codeDiscount > 0) {
+      console.log('✅ [orderSummary] Code discount is active:', {
+        amount: codeDiscount,
+        code: appliedDiscount.code,
+        shouldDisplay: true,
+      });
+    } else {
+      console.log('ℹ️ [orderSummary] No code discount:', {
+        appliedDiscountAmount: appliedDiscount.amount,
+        codeDiscount,
+      });
+    }
 
     // Calculate total items
     const totalItems = quantityBreakdown.total || 0;
@@ -693,7 +723,9 @@ export const useCheckoutController = () => {
 
     return {
       subtotal: roundToCents(subtotal),
-      discount: roundToCents(discount),
+      discount: roundToCents(totalDiscount),
+      codeDiscount: roundToCents(codeDiscount),
+      shippingDiscount: roundToCents(shippingDiscount),
       shipping: roundToCents(shippingTotal),
       finalTotal: roundToCents(finalTotal),
       totalItems: totalItems,
@@ -708,7 +740,7 @@ export const useCheckoutController = () => {
       finalShippingCost: roundToCents(backendFinalShippingCost),
       totalShippingCost: roundToCents(backendTotalShippingCost),
     };
-  }, [plantItems, shippingCalculation, quantityBreakdown, leafPointsEnabled, plantCreditsEnabled, leafPoints, plantCredits, normalizeListingType]);
+  }, [plantItems, shippingCalculation, quantityBreakdown, leafPointsEnabled, plantCreditsEnabled, leafPoints, plantCredits, normalizeListingType, appliedDiscount]);
 
   // Check if all plants are from Thailand
   const isThailandPlant = useMemo(() => {
@@ -1793,16 +1825,218 @@ export const useCheckoutController = () => {
     navigation.goBack()
   };
 
-  const handleApplyDiscount = () => {
+  const handleApplyDiscount = async () => {
     if (!discountCode.trim()) {
       Alert.alert('Error', 'Please enter a discount code');
       return;
     }
-    // TODO: Implement discount code validation and application
-    // This should call an API to validate the discount code
-    // and update the order summary with the discount
-    console.log('💳 [handleApplyDiscount] Applying discount code:', discountCode);
-    Alert.alert('Info', `Discount code "${discountCode}" will be validated. Implementation pending.`);
+
+    try {
+      setLoading(true);
+
+      // Prepare cart items for discount validation
+      // Note: listingType should be in original format (not normalized) to match discount criteria
+      // The plantItems have been normalized, so we need to get original values
+      const cartItemsForDiscount = plantItems.map(item => {
+        if (!item || !item.plantCode) {
+          console.warn('💳 [handleApplyDiscount] Skipping invalid item:', item);
+          return null;
+        }
+
+        // Try to get original listing type before normalization
+        // Check various sources in order of preference
+        let listingType = null;
+        
+        // First, check if we have access to original cartItem/plantData
+        // The item might have originalListingType or we need to get it from cartItems array
+        if (cartItems && cartItems.length > 0) {
+          const originalCartItem = cartItems.find(ci => ci?.plantCode === item.plantCode);
+          if (originalCartItem) {
+            listingType = originalCartItem.listingType || originalCartItem.listingDetails?.listingType;
+          }
+        }
+        
+        // Also check productData if available
+        if (!listingType && productData && productData.length > 0) {
+          const originalProduct = productData.find(p => p?.plantCode === item.plantCode);
+          if (originalProduct) {
+            listingType = originalProduct.listingType || originalProduct.listingDetails?.listingType;
+          }
+        }
+        
+        // If not found, check if listingType is already in original format
+        if (!listingType) {
+          const currentType = item.listingType || item.listingDetails?.listingType;
+          // If it doesn't contain underscore, it's probably already original format
+          if (currentType && typeof currentType === 'string' && !currentType.includes('_') && !currentType.includes('single_grower')) {
+            listingType = currentType;
+          }
+        }
+        
+        // Fallback to checking listingDetails directly
+        if (!listingType && item.listingDetails?.listingType) {
+          listingType = item.listingDetails.listingType;
+        }
+        
+        // Last resort: map normalized back to original format
+        if (!listingType) {
+          const normalized = item.listingType || '';
+          if (normalized && typeof normalized === 'string') {
+            if (normalized.includes('single_grower') || normalized === 'single_grower') {
+              listingType = 'Single Plant';
+            } else if (normalized.includes('growers_choice') || normalized === 'growers_choice') {
+              listingType = 'Grower\'s Choice';
+            } else if (normalized.includes('wholesale') || normalized === 'wholesale') {
+              listingType = 'Wholesale';
+            } else {
+              listingType = normalized;
+            }
+          }
+        }
+
+        // Final fallback to default
+        if (!listingType) {
+          listingType = 'Single Plant';
+        }
+
+        // Ensure genus is extracted properly
+        const genus = item.genus || 
+                     item.listingDetails?.genus || 
+                     (item.name && typeof item.name === 'string' ? item.name.split(' ')[0] : '') ||
+                     '';
+
+        // Get country - try multiple sources
+        const country = item.country || 
+                       item.listingDetails?.country || 
+                       item.plantSourceCountry || 
+                       'ID';
+
+        // Get price - ensure it's a number
+        const price = typeof item.price === 'number' ? item.price : 
+                     (typeof item.unitPrice === 'number' ? item.unitPrice : 
+                     (parseFloat(item.price) || parseFloat(item.unitPrice) || 0));
+
+        // Get seller code
+        const sellerCode = item.sellerCode || 
+                          item.listingDetails?.sellerCode || 
+                          '';
+
+        const cartItem = {
+          plantCode: item.plantCode,
+          quantity: item.quantity || 1,
+          price: price,
+          listingType: listingType,
+          country: country,
+          genus: genus,
+          sellerCode: sellerCode,
+        };
+
+        console.log(`💳 [handleApplyDiscount] Prepared cart item for ${item.plantCode}:`, cartItem);
+
+        return cartItem;
+      }).filter(item => item !== null); // Remove any null items
+
+      console.log('💳 [handleApplyDiscount] Validating discount code:', discountCode);
+      console.log('💳 [handleApplyDiscount] Plant items count:', plantItems.length);
+      console.log('💳 [handleApplyDiscount] Cart items for discount:', JSON.stringify(cartItemsForDiscount, null, 2));
+
+      if (!cartItemsForDiscount || cartItemsForDiscount.length === 0) {
+        Alert.alert('Error', 'No items in cart to apply discount to');
+        setLoading(false);
+        return;
+      }
+
+      const result = await validateDiscountCodeApi(discountCode, cartItemsForDiscount);
+
+      console.log('💳 [handleApplyDiscount] API Result:', JSON.stringify(result, null, 2));
+
+      if (result.success && result.data) {
+        let discountAmount = result.data.discountAmount || 0;
+        const discountId = result.data.discountId;
+        const discountDetails = result.data.discountDetails || {};
+        
+        // Calculate current subtotal to ensure discount doesn't exceed it
+        const currentSubtotal = plantItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
+        const currentShipping = shippingCalculation?.finalShippingCost || shippingCalculation?.totalShippingCost || 0;
+        const currentTotalBeforeDiscount = currentSubtotal + currentShipping;
+        
+        // Cap discount amount to never exceed the total (subtotal + shipping)
+        // Discount should never make the total negative
+        const maxAllowedDiscount = Math.max(0, currentTotalBeforeDiscount);
+        discountAmount = Math.min(discountAmount, maxAllowedDiscount);
+        
+        console.log('💳 [handleApplyDiscount] Discount applied successfully:', {
+          discountAmount,
+          originalDiscountAmount: result.data.discountAmount || 0,
+          discountId,
+          code: discountCode.trim().toUpperCase(),
+          resultData: result.data,
+          discountDetails,
+          currentSubtotal,
+          currentShipping,
+          currentTotalBeforeDiscount,
+          maxAllowedDiscount,
+        });
+        
+        if (discountAmount <= 0) {
+          console.warn('⚠️ [handleApplyDiscount] Discount amount is 0 or negative:', discountAmount);
+          
+          // For Buy X Get Y discounts, provide specific message
+          if (discountDetails.type === 'buyXGetY') {
+            const buyQty = discountDetails.buyQuantity || 2;
+            const currentQty = discountDetails.eligibleQuantity || 0;
+            Alert.alert(
+              'Minimum Quantity Required',
+              `This discount requires buying ${buyQty} items to qualify. You currently have ${currentQty} eligible item${currentQty !== 1 ? 's' : ''} in your cart. Please add more items to apply this discount.`
+            );
+            setLoading(false);
+            return;
+          }
+          
+          // For other discount types, show generic message
+          Alert.alert(
+            'Discount Not Applicable',
+            'The discount code was validated, but no discount amount was calculated. This may be because the discount has already been fully used or the items in your cart do not meet the discount requirements.'
+          );
+          setLoading(false);
+          return;
+        }
+        
+        // Store applied discount
+        setAppliedDiscount({
+          amount: discountAmount,
+          discountId: discountId,
+          code: discountCode.trim().toUpperCase(),
+        });
+
+        console.log('💳 [handleApplyDiscount] Applied discount state updated with amount:', discountAmount);
+        console.log('💳 [handleApplyDiscount] State will trigger orderSummary recalculation');
+        
+        // Don't show alert - the discount confirmation banner will show instead
+        // Just log success for debugging
+        console.log('✅ [handleApplyDiscount] Discount successfully applied and visible in UI');
+      } else {
+        const errorMessage = result.error || result.message || 'Failed to apply discount code';
+        console.error('💳 [handleApplyDiscount] Discount validation failed:', errorMessage);
+        console.error('💳 [handleApplyDiscount] Debug info:', result.debug);
+        
+        // Show user-friendly error message
+        let userMessage = errorMessage;
+        if (result.debug && errorMessage.includes('No eligible items')) {
+          userMessage = `No eligible items in cart for this discount code.\n\nThis discount applies to: ${result.debug.appliesTo || 'Unknown'}\n\nPlease check that your cart items match the discount criteria.`;
+        }
+        
+        Alert.alert('Discount Not Applicable', userMessage);
+      }
+    } catch (error) {
+      console.error('💳 [handleApplyDiscount] Exception caught:', error);
+      console.error('💳 [handleApplyDiscount] Error message:', error.message);
+      console.error('💳 [handleApplyDiscount] Error stack:', error.stack);
+      console.error('💳 [handleApplyDiscount] Full error object:', JSON.stringify(error, null, 2));
+      Alert.alert('Error', error.message || 'An error occurred while applying the discount code');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCheckout = async () => {
@@ -1843,6 +2077,11 @@ export const useCheckoutController = () => {
           discount: orderSummary.discount || 0,
           creditsApplied: orderSummary.creditsApplied || 0,
         },
+        // Include discount information to track usage
+        ...(appliedDiscount.discountId && appliedDiscount.amount > 0 && {
+          discountId: appliedDiscount.discountId,
+          discountCode: appliedDiscount.code,
+        }),
       };
 
       console.log('🛒 [handleCheckout] Sending checkout data:', {
