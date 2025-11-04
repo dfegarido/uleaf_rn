@@ -1,7 +1,7 @@
 // API Configuration for local and production environments
 
 // Set this to true for local development, false for production
-const USE_LOCAL_API = false;
+const USE_LOCAL_API = true;
 
 // Local development endpoints (Firebase Functions Emulator)
 // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
@@ -240,6 +240,13 @@ const generateEndpoints = () => ({
   
   // User related endpoints
   SEARCH_USER: `${getBaseUrl()}/searchUser`,
+  
+  // Shipping Buddy endpoints
+  SUBMIT_RECEIVER_REQUEST: `${getBaseUrl()}/submitReceiverRequest`,
+  GET_BUDDY_REQUESTS: `${getBaseUrl()}/getBuddyRequests`,
+  APPROVE_REJECT_BUDDY_REQUEST: `${getBaseUrl()}/approveRejectBuddyRequest`,
+  GET_MY_RECEIVER_REQUEST: `${getBaseUrl()}/getMyReceiverRequest`,
+  CANCEL_RECEIVER_REQUEST: `${getBaseUrl()}/cancelReceiverRequest`,
 });
 
 // API Endpoints - Initially generated with default environment

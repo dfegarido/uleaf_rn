@@ -476,20 +476,27 @@ const BuyerProfileScreen = (props) => {
 
         {/* Shipping Buddies */}
         <View style={styles.shippingBuddiesContainer}>
-          <View style={styles.shippingBuddiesCard}>
+          <TouchableOpacity
+            style={styles.shippingBuddiesCard}
+            onPress={() => navigation.navigate('MyShippingBuddiesScreen')}
+            activeOpacity={0.7}>
             <View style={styles.buddiesContent}>
               <Text style={styles.buddiesTitle}>My Shipping Buddies</Text>
               <View style={styles.requestsRow}>
                 <Text style={styles.requestsText}>Joiner request(s)</Text>
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.badgeText}>{profileStats.buddyRequests}</Text>
-                </View>
+                {profileStats.buddyRequests > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.badgeText}>{profileStats.buddyRequests}</Text>
+                  </View>
+                )}
               </View>
             </View>
-            <View style={styles.highFiveIcon}>
-              <ShippingBuddiesIcon width={80} height={80} />
+            <View style={styles.highFiveIconContainer}>
+              <View style={styles.highFiveIcon}>
+                <ShippingBuddiesIcon width={80} height={80} />
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Profile Section */}
@@ -813,7 +820,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 16,
-    height: 112,
+    minHeight: 112,
+    position: 'relative',
   },
   buddiesContent: {
     flex: 1,
@@ -852,6 +860,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#FFFFFF',
     fontFamily: 'Inter',
+  },
+  highFiveIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 80,
   },
   highFiveIcon: {
     width: 80,
