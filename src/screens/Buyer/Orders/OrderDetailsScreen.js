@@ -170,6 +170,13 @@ const OrderDetailsScreen = () => {
           console.log('🔍 Using getOrderDetailApi for order details');
           response = await getOrderDetailApi(apiParams);
           
+          // If API returns error with availablePlantCodes, try with the first available plantCode
+          if (!response.success && response.data?.availablePlantCodes && response.data.availablePlantCodes.length > 0) {
+            console.log('⚠️ PlantCode mismatch detected. Retrying with available plantCode:', response.data.availablePlantCodes[0]);
+            apiParams.plantCode = response.data.availablePlantCodes[0];
+            response = await getOrderDetailApi(apiParams);
+          }
+          
           // New API response structure: Single plant object with embedded order
           // { plantCode, plantName, plantDetails: {...}, order: {...} }
           if (response.success && response.data?.data) {
@@ -928,11 +935,6 @@ const OrderDetailsScreen = () => {
                         {order?.creditRequestStatus?.hasRequest ? 'Credit Requested' : 'Request Credit'}
                       </Text>
                     </TouchableOpacity>
-                    {!order?.creditRequestStatus?.hasRequest && (
-                      <Text style={styles.requestCreditSubtext}>
-                        If there's an issue with your plant, request credit by May-31 12:00 AM
-                      </Text>
-                    )}
                   </View>
                 )}
               </View>

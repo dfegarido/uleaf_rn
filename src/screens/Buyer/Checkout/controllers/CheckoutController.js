@@ -5,11 +5,13 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import { paymentPaypalVenmoUrl } from '../../../../../config';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../../../firebase';
-import { getAddressBookEntriesApi } from '../../../../components/Api';
+import { getAddressBookEntriesApi, getMyReceiverRequestApi } from '../../../../components/Api';
 import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileApi';
 import { checkoutApi } from '../../../../components/Api/checkoutApi';
+import { checkoutJoinerApi } from '../../../../components/Api/checkoutJoinerApi';
 import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
 import { calculateCheckoutShippingApi } from '../../../../components/Api/checkoutShippingApi';
+import { calculateCheckoutShippingJoinerApi } from '../../../../components/Api/checkoutShippingJoinerApi';
 import { validateDiscountCodeApi } from '../../../../components/Api/discountApi';
 import { formatCurrencyFull } from '../../../../utils/formatCurrency';
 import { roundToCents } from '../../../../utils/money';
@@ -111,6 +113,13 @@ export const useCheckoutController = () => {
   const [leafPointsEnabled, setLeafPointsEnabled] = useState(false);
   const [plantCreditsEnabled, setPlantCreditsEnabled] = useState(false);
   const [shippingCreditsEnabled, setShippingCreditsEnabled] = useState(false);
+  
+  // Joiner state - if user is a joiner with approved receiver
+  const [isJoiner, setIsJoiner] = useState(false);
+  const [isJoinerApproved, setIsJoinerApproved] = useState(false);
+  const [receiverFlightDate, setReceiverFlightDate] = useState(null);
+  const [disableAddressSelection, setDisableAddressSelection] = useState(false);
+  const [disableFlightSelection, setDisableFlightSelection] = useState(false);
 
   // Animation refs
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -1096,12 +1105,20 @@ export const useCheckoutController = () => {
         totalUserCredits,
       });
 
-      const result = await calculateCheckoutShippingApi(
-        plants, 
-        selectedFlightDate.iso, 
-        upsNextDayEnabled, 
-        totalUserCredits
-      );
+      // Use joiner shipping API if user is an approved joiner
+      const result = isJoinerApproved
+        ? await calculateCheckoutShippingJoinerApi(
+            plants, 
+            selectedFlightDate.iso, 
+            upsNextDayEnabled, 
+            totalUserCredits
+          )
+        : await calculateCheckoutShippingApi(
+            plants, 
+            selectedFlightDate.iso, 
+            upsNextDayEnabled, 
+            totalUserCredits
+          );
 
       if (result && result.success) {
         // The API returns data directly, not nested in result.data
@@ -1692,8 +1709,180 @@ export const useCheckoutController = () => {
   );
 
   // Load delivery details
+  // Check if user is a joiner with approved receiver
+  useEffect(() => {
+    const checkJoinerStatus = async () => {
+      try {
+        const receiverRequestResult = await getMyReceiverRequestApi();
+        console.log('[CheckoutController] Receiver request result:', receiverRequestResult);
+        
+        if (receiverRequestResult?.success && receiverRequestResult?.data?.isJoiner) {
+          const receiverData = receiverRequestResult.data;
+          setIsJoiner(true);
+          
+          // Check if request is approved
+          if (receiverData.status === 'approved') {
+            setIsJoinerApproved(true);
+            setDisableAddressSelection(true);
+            setDisableFlightSelection(true);
+            
+            // Use structured shipping address data if available, otherwise parse the string
+            if (receiverData.shippingAddressData) {
+              // Use structured data directly (preferred)
+              const addr = receiverData.shippingAddressData;
+              setDeliveryDetails({
+                address: {
+                  street: addr.street || '',
+                  city: addr.city || '',
+                  state: addr.state || '',
+                  zipCode: addr.zipCode || '',
+                  country: addr.country || 'US',
+                },
+                contactPhone: '',
+                specialInstructions: 'All plants will be delivered to receiver address',
+              });
+            } else {
+              // Fallback: Parse shipping address string to extract components
+              // Format: "street, city, state zipCode" or similar
+              const shippingAddress = receiverData.shippingAddress || '';
+              if (shippingAddress) {
+                // Try to parse the address string
+                // Common formats:
+                // "123 Main St, New York, NY 10001"
+                // "123 Main St, New York, NY"
+                const addressParts = shippingAddress.split(',').map(s => s.trim());
+                
+                let street = '';
+                let city = '';
+                let state = '';
+                let zipCode = '';
+                
+                if (addressParts.length >= 3) {
+                  street = addressParts[0] || '';
+                  city = addressParts[1] || '';
+                  const stateZip = addressParts[2] || '';
+                  // Try to split state and zip (e.g., "NY 10001")
+                  const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(-\d{4})?)$/);
+                  if (stateZipMatch) {
+                    state = stateZipMatch[1];
+                    zipCode = stateZipMatch[2];
+                  } else {
+                    // If no zip code match, might be just state
+                    state = stateZip;
+                  }
+                } else if (addressParts.length === 2) {
+                  street = addressParts[0] || '';
+                  // Second part might be city or city+state+zip
+                  const secondPart = addressParts[1] || '';
+                  // Try to see if it contains state and zip
+                  const stateZipMatch = secondPart.match(/\b([A-Z]{2})\s+(\d{5}(-\d{4})?)\b/);
+                  if (stateZipMatch) {
+                    city = secondPart.substring(0, stateZipMatch.index).trim();
+                    state = stateZipMatch[1];
+                    zipCode = stateZipMatch[2];
+                  } else {
+                    city = secondPart;
+                  }
+                } else if (addressParts.length === 1) {
+                  street = addressParts[0] || '';
+                }
+                
+                // Set delivery details to receiver's address
+                setDeliveryDetails({
+                  address: {
+                    street: street || shippingAddress,
+                    city: city || '',
+                    state: state || '',
+                    zipCode: zipCode || '',
+                    country: 'US',
+                  },
+                  contactPhone: '',
+                  specialInstructions: 'All plants will be delivered to receiver address',
+                });
+              }
+            }
+            
+            // Set receiver's flight date (prefer receiverFlightDate from orders, fallback to expirationDate)
+            const flightDate = receiverData.receiverFlightDate || receiverData.expirationDate;
+            if (flightDate) {
+              setReceiverFlightDate(flightDate);
+              
+              // Convert to ISO format and set as cargoDate
+              try {
+                let date;
+                // Handle different date formats
+                if (typeof flightDate === 'string') {
+                  // If already in ISO format (YYYY-MM-DD), use it directly
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(flightDate)) {
+                    setCargoDate(flightDate);
+                    const dateObj = new Date(flightDate);
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const label = `${monthNames[dateObj.getMonth()]} ${dateObj.getDate()}`;
+                    setSelectedFlightDate({ label, iso: flightDate });
+                  } else {
+                    date = new Date(flightDate);
+                    if (!isNaN(date.getTime())) {
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const isoDate = `${year}-${month}-${day}`;
+                      setCargoDate(isoDate);
+                      
+                      // Also set selectedFlightDate
+                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const label = `${monthNames[date.getMonth()]} ${date.getDate()}`;
+                      setSelectedFlightDate({ label, iso: isoDate });
+                    }
+                  }
+                } else {
+                  date = new Date(flightDate);
+                  if (!isNaN(date.getTime())) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const isoDate = `${year}-${month}-${day}`;
+                    setCargoDate(isoDate);
+                    
+                    // Also set selectedFlightDate
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const label = `${monthNames[date.getMonth()]} ${date.getDate()}`;
+                    setSelectedFlightDate({ label, iso: isoDate });
+                  }
+                }
+              } catch (error) {
+                console.error('Error parsing receiver flight date:', error);
+              }
+            }
+          } else {
+            setIsJoinerApproved(false);
+            setDisableAddressSelection(false);
+            setDisableFlightSelection(false);
+          }
+        } else {
+          setIsJoiner(false);
+          setIsJoinerApproved(false);
+          setDisableAddressSelection(false);
+          setDisableFlightSelection(false);
+        }
+      } catch (error) {
+        console.error('[CheckoutController] Error checking joiner status:', error);
+        setIsJoiner(false);
+        setIsJoinerApproved(false);
+        setDisableAddressSelection(false);
+        setDisableFlightSelection(false);
+      }
+    };
+
+    checkJoinerStatus();
+  }, []);
+
   useEffect(() => {
     const loadDeliveryDetails = async () => {
+      // Skip loading if user is an approved joiner (address already set from receiver)
+      if (isJoinerApproved) {
+        return;
+      }
+      
       try {
         const addressResult = await getAddressBookEntriesApi();
         if (addressResult && addressResult.success && addressResult.data && addressResult.data.length > 0) {
@@ -1718,7 +1907,7 @@ export const useCheckoutController = () => {
     };
 
     loadDeliveryDetails();
-  }, []);
+  }, [isJoinerApproved]);
 
   // Load user profile and credits
   useEffect(() => {
@@ -1750,6 +1939,15 @@ export const useCheckoutController = () => {
 
   // Event handlers
   const handleUpdateDeliveryDetails = (newDetails) => {
+    // If user is an approved joiner, disable address selection
+    if (disableAddressSelection) {
+      Alert.alert(
+        'Address Locked',
+        'Your shipping address is set to your receiver\'s address. All plants will be delivered to the receiver.',
+      );
+      return;
+    }
+    
     // If newDetails is provided directly (e.g., from route params), use it
     if (newDetails && newDetails.address) {
       setDeliveryDetails(newDetails);
@@ -1777,6 +1975,11 @@ export const useCheckoutController = () => {
   useFocusEffect(
     useCallback(() => {
       const reloadAddress = async () => {
+        // Skip reloading if user is an approved joiner (address locked to receiver)
+        if (isJoinerApproved) {
+          return;
+        }
+        
         try {
           const addressResult = await getAddressBookEntriesApi();
           if (addressResult && addressResult.success && addressResult.data && addressResult.data.length > 0) {
@@ -1801,7 +2004,7 @@ export const useCheckoutController = () => {
       };
       
       reloadAddress();
-    }, [])
+    }, [isJoinerApproved])
   );
 
   const toggleUpsNextDay = () => {
@@ -2093,7 +2296,10 @@ export const useCheckoutController = () => {
         orderSummary: checkoutData.orderSummary,
       });
 
-      const result = await checkoutApi(checkoutData);
+      // Use joiner checkout API if user is an approved joiner
+      const result = isJoinerApproved 
+        ? await checkoutJoinerApi(checkoutData)
+        : await checkoutApi(checkoutData);
       
       if (result.success) {
         // Extract transaction number from response
@@ -2194,6 +2400,13 @@ export const useCheckoutController = () => {
     discountCode,
     setDiscountCode,
     handleApplyDiscount,
+    
+    // Joiner state
+    isJoiner,
+    isJoinerApproved,
+    disableAddressSelection,
+    disableFlightSelection,
+    receiverFlightDate,
     
     // Helpers
     normalizeFlightKey,

@@ -8,15 +8,17 @@ import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import {OrderItemCard, OrderItemCardSkeleton} from '../../../components/OrderItemCard';
+import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
+import {useAuth} from '../../../auth/AuthProvider';
 
-const ScreenReadyToFly = () => {
+const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const {user} = useAuth();
   
   // Calculate proper bottom padding for tab bar + safe area
   const tabBarHeight = 60; // Standard tab bar height  
@@ -24,6 +26,7 @@ const ScreenReadyToFly = () => {
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
   const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]); // Store all orders (unfiltered)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -62,7 +65,64 @@ const ScreenReadyToFly = () => {
       // Transform plant-level API data to component expected format
       const transformedOrders = plantsData.map(plant => transformPlantToComponentFormat(plant));
       
-      setOrders(transformedOrders);
+      setAllOrders(transformedOrders);
+      
+      // Extract unique buyers from orders and notify parent
+      if (onBuyersLoaded) {
+        const buyersMap = new Map();
+        
+        // Extract buyers from all orders (both receiver and joiner orders)
+        transformedOrders.forEach(order => {
+          const buyerUid = order.buyerUid || order._rawPlantRecord?.buyerUid || order.fullOrderData?.buyerUid;
+          
+          if (buyerUid && !buyersMap.has(buyerUid)) {
+            // Get buyer info from order data
+            let buyerInfo = null;
+            
+            if (order.isJoinerOrder && order.joinerInfo) {
+              // Joiner order - use joinerInfo
+              buyerInfo = {
+                buyerUid: buyerUid,
+                name: `${order.joinerInfo.firstName || ''} ${order.joinerInfo.lastName || ''}`.trim() || order.joinerInfo.username || 'Buyer',
+                firstName: order.joinerInfo.firstName || '',
+                lastName: order.joinerInfo.lastName || '',
+                username: order.joinerInfo.username || ''
+              };
+            } else {
+              // Receiver order - use buyerInfo from order or current user
+              const orderBuyerInfo = order.fullOrderData?.buyerInfo || order._rawPlantRecord?.order?.buyerInfo;
+              if (orderBuyerInfo) {
+                buyerInfo = {
+                  buyerUid: buyerUid,
+                  name: `${orderBuyerInfo.firstName || ''} ${orderBuyerInfo.lastName || ''}`.trim() || user?.firstName || 'Buyer',
+                  firstName: orderBuyerInfo.firstName || user?.firstName || '',
+                  lastName: orderBuyerInfo.lastName || user?.lastName || '',
+                  username: orderBuyerInfo.username || user?.username || ''
+                };
+              } else {
+                // Fallback to current user
+                buyerInfo = {
+                  buyerUid: buyerUid,
+                  name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'You',
+                  firstName: user?.firstName || '',
+                  lastName: user?.lastName || '',
+                  username: user?.username || ''
+                };
+              }
+            }
+            
+            if (buyerInfo && buyerInfo.name) {
+              buyersMap.set(buyerUid, buyerInfo);
+            }
+          }
+        });
+        
+        const uniqueBuyers = Array.from(buyersMap.values());
+        onBuyersLoaded(uniqueBuyers);
+      }
+      
+      // Apply filter if provided
+      applyPlantOwnerFilter(transformedOrders, plantOwnerFilter);
 
     } catch (error) {
       console.error('Error loading Ready to Fly orders:', error);
@@ -84,7 +144,8 @@ const ScreenReadyToFly = () => {
     // Build a minimal order-like object to satisfy components that expect fullOrderData.products
     const fullOrderLike = {
       ...orderMeta,
-      products: [plant]
+      products: [plant],
+      plantDetails: plantDetails,
     };
 
     return {
@@ -106,6 +167,11 @@ const ScreenReadyToFly = () => {
       transactionNumber: orderMeta.transactionNumber || orderMeta.id,
       products: [plant],
       fullOrderData: fullOrderLike,
+      // Include joiner order flags and info
+      isJoinerOrder: plant.isJoinerOrder || false,
+      joinerInfo: plant.joinerInfo || null,
+      // Include buyerUid for filtering
+      buyerUid: plant.buyerUid || orderMeta.buyerUid || null,
       // include original plant record for any additional fields
       _rawPlantRecord: plant
     };
@@ -162,6 +228,29 @@ const ScreenReadyToFly = () => {
     // Use matching flag or default to Indonesia
     return flagMap[countryCode] || IndonesiaFlag;
   };
+
+  // Apply plant owner filter
+  const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
+    if (!filter || filter === null) {
+      setOrders(ordersToFilter);
+      return;
+    }
+
+    // Filter by buyerUid
+    const filtered = ordersToFilter.filter(order => {
+      const orderBuyerUid = order.buyerUid || order._rawPlantRecord?.buyerUid || order.fullOrderData?.buyerUid;
+      return orderBuyerUid === filter;
+    });
+    
+    setOrders(filtered);
+  }, []);
+
+  // Apply filter when plantOwnerFilter prop changes
+  useEffect(() => {
+    if (allOrders.length > 0) {
+      applyPlantOwnerFilter(allOrders, plantOwnerFilter);
+    }
+  }, [plantOwnerFilter, allOrders, applyPlantOwnerFilter]);
 
   // Load orders when component mounts
   useEffect(() => {
@@ -251,9 +340,34 @@ const ScreenReadyToFly = () => {
                 </Text>
               </View>
           ) : (
-            orders.map((item, index) => (
-              <OrderItemCard key={`${item.plantCode}_${index}`} {...item} activeTab="Ready to Fly" />
-            ))
+            orders.map((item, index) => {
+              // Check if this is a joiner order
+              if (item.isJoinerOrder && item.joinerInfo) {
+                return (
+                  <JoinerOrderCard
+                    key={`joiner_${item.plantCode}_${index}`}
+                    status={item.status}
+                    airCargoDate={item.airCargoDate}
+                    countryCode={item.countryCode}
+                    flag={item.flag}
+                    image={item.image}
+                    plantName={item.plantName}
+                    variety={item.variety}
+                    size={item.size}
+                    price={item.price}
+                    quantity={item.quantity}
+                    plantCode={item.plantCode}
+                    fullOrderData={item.fullOrderData}
+                    activeTab="Ready to Fly"
+                    joinerInfo={item.joinerInfo}
+                  />
+                );
+              }
+              // Regular order card
+              return (
+                <OrderItemCard key={`${item.plantCode}_${index}`} {...item} activeTab="Ready to Fly" />
+              );
+            })
           )}
           </View>
 

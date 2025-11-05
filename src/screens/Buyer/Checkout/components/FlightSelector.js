@@ -18,6 +18,8 @@ const FlightSelector = ({
   onSelectFlightDate,
   normalizeFlightKey,
   formatFlightDateToISO,
+  disableFlightSelection = false, // For joiner logic
+  receiverFlightDate = null, // Receiver's flight date for joiner
 }) => {
   // Debug logging
   console.log('🛫 [FlightSelector] Render:', {
@@ -31,8 +33,41 @@ const FlightSelector = ({
     cargoDate,
     willDisableAll: disablePlantFlightSelection,
   });
+  // Format receiver flight date for display
+  const formatReceiverFlightDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      // Handle Firestore Timestamp
+      let date;
+      if (dateString.toDate && typeof dateString.toDate === 'function') {
+        date = dateString.toDate();
+      } else if (dateString.seconds || dateString._seconds) {
+        date = new Date((dateString.seconds || dateString._seconds) * 1000);
+      } else {
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) return '';
+      
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const day = date.getDate();
+      const year = date.getFullYear();
+      return `${month} ${day}, ${year}`;
+    } catch (error) {
+      console.error('Error formatting receiver flight date:', error);
+      return '';
+    }
+  };
+
   const handleFlightSelection = (option) => {
     console.log('🛫 [FlightSelector] handleFlightSelection called with option:', option);
+    
+    // If disabled for joiner, don't allow selection
+    if (disableFlightSelection) {
+      console.log('⚠️ [FlightSelector] Flight selection disabled for joiner');
+      return;
+    }
     
     const optionKey = normalizeFlightKey(option.value) || normalizeFlightKey(option.label);
     console.log('🔍 [FlightSelector] optionKey calculated:', optionKey);
@@ -53,10 +88,11 @@ const FlightSelector = ({
       console.log('🔍 [FlightSelector] Option enabled - all selections enabled (existing order > earliest option)');
     }
     
-    const isEffectivelyLocked = isLocked || disablePlantFlightSelection;
+    const isEffectivelyLocked = isLocked || disablePlantFlightSelection || disableFlightSelection;
     console.log('🔍 [FlightSelector] isEffectivelyLocked:', isEffectivelyLocked, {
       isLocked,
       disablePlantFlightSelection,
+      disableFlightSelection,
     });
     
     if (isEffectivelyLocked) {
@@ -77,7 +113,18 @@ const FlightSelector = ({
       {/* Title */}
       <View style={styles.flightTitle}>
         <Text style={styles.flightTitleText}>Plant Flight</Text>
-        {lockedFlightDate ? (
+        {disableFlightSelection ? (
+          <Text style={styles.disabledNote}>
+            {receiverFlightDate ? (
+              <>
+                Locked to receiver flight date:{' '}
+                <Text style={styles.disabledNoteBold}>{formatReceiverFlightDate(receiverFlightDate)}</Text>
+              </>
+            ) : (
+              'Locked to receiver flight date'
+            )}
+          </Text>
+        ) : lockedFlightDate ? (
           <TouchableOpacity
             style={styles.infoCircle}
             onPress={() => {
@@ -125,7 +172,8 @@ const FlightSelector = ({
                 const optionKey = normalizeFlightKey(option.value) || normalizeFlightKey(option.label);
                 
                 // If disablePlantFlightSelection is true, ALL options are disabled
-                const isLocked = disablePlantFlightSelection;
+                // Also disable if joiner logic requires it
+                const isLocked = disablePlantFlightSelection || disableFlightSelection;
                 const isEffectivelyLocked = isLocked;
                 
                 console.log(`🔍 [FlightSelector] Option ${index} (${option.label}):`, {

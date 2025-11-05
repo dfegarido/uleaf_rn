@@ -103,22 +103,16 @@ const ScreenRequestCredit = () => {
       const response = await requestCreditApi(requestParams);
 
       if (response.success) {
-        Alert.alert(
-          'Success',
-          'Your credit request has been submitted successfully. We will review it within 2-3 business days.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Navigate back and trigger refresh
-                navigation.navigate('Orders', { 
-                  refreshData: true,
-                  timestamp: Date.now() // Force refresh with timestamp
-                });
-              }
-            }
-          ]
-        );
+        // Optimistic approach: Navigate back immediately with success params
+        // Navigate to Orders tab and pass params for Plants are Home screen
+        navigation.navigate('Orders', { 
+          initialTab: 'Plants are Home',
+          creditRequestSuccess: true,
+          creditRequestPlantCode: finalPlantCode,
+          creditRequestOrderId: finalOrderId,
+          refreshData: true,
+          timestamp: Date.now()
+        });
       } else {
         Alert.alert('Error', response.error || 'Failed to submit credit request');
       }

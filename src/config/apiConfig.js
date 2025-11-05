@@ -194,7 +194,9 @@ const generateEndpoints = () => ({
   
   // Checkout & Payment APIs
   CHECKOUT: `${getBaseUrl()}/checkout`,
+  CHECKOUT_JOINER: `${getBaseUrl()}/checkoutJoiner`,
   CALCULATE_CHECKOUT_SHIPPING: `${getBaseUrl()}/calculateCheckoutShipping`,
+  CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getBaseUrl()}/calculateCheckoutShippingJoiner`,
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
   
@@ -240,6 +242,13 @@ const generateEndpoints = () => ({
   
   // User related endpoints
   SEARCH_USER: `${getBaseUrl()}/searchUser`,
+  
+  // Shipping Buddy endpoints
+  SUBMIT_RECEIVER_REQUEST: `${getBaseUrl()}/submitReceiverRequest`,
+  GET_BUDDY_REQUESTS: `${getBaseUrl()}/getBuddyRequests`,
+  APPROVE_REJECT_BUDDY_REQUEST: `${getBaseUrl()}/approveRejectBuddyRequest`,
+  GET_MY_RECEIVER_REQUEST: `${getBaseUrl()}/getMyReceiverRequest`,
+  CANCEL_RECEIVER_REQUEST: `${getBaseUrl()}/cancelReceiverRequest`,
 });
 
 // API Endpoints - Initially generated with default environment

@@ -22,7 +22,7 @@ import ScreenPayToBoard from './ScreenPayToBoard';
 // Header height constant for safe area calculations
 const HEADER_HEIGHT = 140;
 
-const OrdersHeader = ({activeTab, setActiveTab}) => {
+const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerFilter, buyerList = []}) => {
   const insets = useSafeAreaInsets();
   const {user} = useAuth();
   // Search state
@@ -42,25 +42,17 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
     plantOwner: null
   });
 
-  // Initialize selectedPlantOwner with buyer's first name
-  useEffect(() => {
-    if (user?.firstName) {
-      setSelectedPlantOwner({
-        id: user.id || user.uid,
-        name: user.firstName,
-        firstName: user.firstName,
-        username: user.username
-      });
-    }
-  }, [user]);
-
-  // Plant Owner options (for now, just the current buyer)
-  const plantOwnerOptions = user?.firstName ? [{
-    id: user.id || user.uid,
-    name: user.firstName,
-    firstName: user.firstName,
-    username: user.username
-  }] : [];
+  // Don't initialize with buyer's name - start with "All Plant Owners"
+  
+  // Plant Owner options - populated from buyerList prop
+  const plantOwnerOptions = buyerList.map(buyer => ({
+    id: buyer.buyerUid,
+    name: buyer.name,
+    firstName: buyer.firstName,
+    lastName: buyer.lastName,
+    username: buyer.username,
+    buyerUid: buyer.buyerUid
+  }));
 
   // Check if a filter is active
   const isFilterActive = (filterLabel) => {
@@ -78,6 +70,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
       case 'Plant Owner':
         setActiveFilters(prev => ({ ...prev, plantOwner: null }));
         setSelectedPlantOwner(null);
+        setPlantOwnerFilter(null);
         break;
       default:
         break;
@@ -85,8 +78,18 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
   };
 
   const handlePlantOwnerSelect = (owner) => {
-    setSelectedPlantOwner(owner);
-    setActiveFilters(prev => ({ ...prev, plantOwner: owner }));
+    if (owner === null || owner === 'all') {
+      // "All Plant Owners" selected
+      setSelectedPlantOwner(null);
+      setActiveFilters(prev => ({ ...prev, plantOwner: null }));
+      setPlantOwnerFilter(null);
+    } else {
+      // Specific buyer selected
+      setSelectedPlantOwner(owner);
+      setActiveFilters(prev => ({ ...prev, plantOwner: owner }));
+      // Set filter to buyerUid
+      setPlantOwnerFilter(owner.buyerUid || owner.id);
+    }
     setPlantOwnerModalVisible(false);
   };
 
@@ -153,13 +156,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
     {filterKey: 'Journey Mishap'},
   ];
 
-  const filterOptions =
-    activeTab === 'Plants are Home' || activeTab === 'Journey Mishap'
-      ? [
-          {label: 'Plant Owner', rightIcon: DownIcon},
-          {label: 'Plant Flight', rightIcon: DownIcon},
-        ]
-      : [{label: 'Plant Owner', rightIcon: DownIcon}];
+  const filterOptions = [{label: 'Plant Owner', rightIcon: DownIcon}];
 
   const onPressTab = ({pressTab}) => {
     setActiveTab(pressTab);
@@ -350,6 +347,8 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
               }}>
                 {option.label === 'Plant Owner' && selectedPlantOwner 
                   ? selectedPlantOwner.name 
+                  : option.label === 'Plant Owner' && plantOwnerFilter === null
+                  ? 'All Plant Owners'
                   : option.label}
               </Text>
               {option.rightIcon && (
@@ -395,11 +394,7 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
                       styles.ownerItem,
                       !selectedPlantOwner && styles.selectedOwnerItem
                     ]}
-                    onPress={() => {
-                      setSelectedPlantOwner(null);
-                      setActiveFilters(prev => ({ ...prev, plantOwner: null }));
-                      setPlantOwnerModalVisible(false);
-                    }}>
+                    onPress={() => handlePlantOwnerSelect(null)}>
                     <View style={styles.ownerInfo}>
                       <Text style={styles.ownerName}>All Plant Owners</Text>
                       <Text style={styles.ownerUsername}>Show all orders</Text>
@@ -421,7 +416,9 @@ const OrdersHeader = ({activeTab, setActiveTab}) => {
                       ]}
                       onPress={() => handlePlantOwnerSelect(owner)}>
                       <View style={styles.ownerInfo}>
-                        <Text style={styles.ownerName}>{owner.firstName}</Text>
+                        <Text style={styles.ownerName}>
+                          {`${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.name}
+                        </Text>
                         <Text style={styles.ownerUsername}>@{owner.username}</Text>
                       </View>
                       {selectedPlantOwner?.id === owner.id && (
@@ -445,6 +442,15 @@ const ScreenOrders = () => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('Ready to Fly');
+  const [plantOwnerFilter, setPlantOwnerFilter] = useState(null); // buyerUid or null for 'All'
+  const [buyerList, setBuyerList] = useState([]); // List of buyers who have orders
+
+  // Set initial tab from navigation params if provided
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
 
   // Pass through route params to child screens for refresh functionality
   const getChildScreenProps = () => ({
@@ -458,13 +464,13 @@ const ScreenOrders = () => {
     
     switch (activeTab) {
       case 'Ready to Fly':
-        return <ScreenReadyToFly {...childProps} />;
+        return <ScreenReadyToFly {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Pay to Board':
-        return <ScreenPayToBoard {...childProps} />;
+        return <ScreenPayToBoard {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Plants are Home':
-        return <ScreenPlantsAreHome {...childProps} />;
+        return <ScreenPlantsAreHome {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Journey Mishap':
-        return <ScreenJourneyMishap {...childProps} />;
+        return <ScreenJourneyMishap {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       default:
         return <ScreenPayToBoard {...childProps} />;
     }
@@ -472,7 +478,13 @@ const ScreenOrders = () => {
 
   return (
     <SafeAreaView style={[styles.container]}>
-      <OrdersHeader activeTab={activeTab} setActiveTab={setActiveTab} />
+      <OrdersHeader 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        plantOwnerFilter={plantOwnerFilter}
+        setPlantOwnerFilter={setPlantOwnerFilter}
+        buyerList={buyerList}
+      />
       
       {/* Content area with dynamic screen based on active tab */}
       <View style={[styles.contentContainer]}>
