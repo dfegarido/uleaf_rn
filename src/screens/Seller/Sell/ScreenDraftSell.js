@@ -1,23 +1,22 @@
-import React, {useEffect, useState, useLayoutEffect} from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useIsFocused } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
   ActivityIndicator,
+  Image,
+  Modal,
   RefreshControl,
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useIsFocused} from '@react-navigation/native';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
-import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
-import {globalStyles} from '../../../assets/styles/styles';
-import {getSellDraftListingApi} from '../../../components/Api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { globalStyles } from '../../../assets/styles/styles';
+import { getSellDraftListingApi } from '../../../components/Api';
+import { retryAsync } from '../../../utils/utils';
 
 import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 

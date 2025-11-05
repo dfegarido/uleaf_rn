@@ -130,9 +130,6 @@ const CreateLiveSessionScreen = () => {
         <TouchableOpacity style={styles.goLiveButton} onPress={() => handleGoLive('live')}>
           <Text style={styles.goLiveButtonText}>Setup Live</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.goLivePurgeButton} onPress={() => handleGoLive('purge')}>
-          <Text style={styles.goLiveButtonText}>Setup Live Purge</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

@@ -55,7 +55,6 @@ const ScreenHome = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const {userInfo} = useContext(AuthContext);
-  // console.log(userInfo);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -300,9 +299,9 @@ const ScreenHome = ({navigation}) => {
           </TouchableOpacity>
 
           <View style={styles.headerIcons}>
-            {(userInfo?.liveFlag != 'No' && ((userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo?.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com')) && (
+            {userInfo?.liveFlag === 'Yes'  && (
               <TouchableOpacity
-                onPress={ (userInfo?.email || '').toLowerCase() === 'ryanquin.02@gmail.com' || (userInfo?.email || '').toLowerCase() === 'Florabelle.gagalac@gmail.com' ? () => navigation.navigate('CreateLiveSession') : () => {}}
+                onPress={ () => navigation.navigate('CreateLiveSession')}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}

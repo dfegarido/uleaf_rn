@@ -1,8 +1,9 @@
 import NetInfo from '@react-native-community/netinfo';
-import React, { useEffect, useImperativeHandle, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Dimensions,
   FlatList,
   Image,
@@ -13,18 +14,19 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { globalStyles } from '../../../assets/styles/styles';
 import {
+  getListingDetails,
   getMutationApi,
   getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
   postSellSinglePlantApi,
+  postSellUpdateApi,
   uploadMultipleImagesToBackend
 } from '../../../components/Api';
-import { getActiveLiveListingApi } from '../../../components/Api/agoraLiveApi';
 import { ImagePickerModal } from '../../../components/ImagePicker';
 import {
   InputBox,
@@ -33,9 +35,15 @@ import {
   InputDropdownSearch,
 } from '../../../components/Input';
 import { getCachedResponse, setCachedResponse } from '../../../utils/apiResponseCache';
+import { retryAsync } from '../../../utils/utils';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
+import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
+import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
+import { getActiveLiveListingApi } from '../../../components/Api/agoraLiveApi';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -55,20 +63,26 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose, onListingCreated}) => {
+const ScreenSingleSellLive = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
-
-  useImperativeHandle(publishRef, () => ({
-      triggerChildFunction: () => {
-        onPressPublish();
-      },
-  }));
 
   const routes = useNavigationState(state => state.routes);
   const previousRoute = routes[routes.length - 2]; // Previous screen
   const isFromDuplicateSell = previousRoute?.name === 'ScreenDuplicateSell';
   const isFromDraftSell = previousRoute?.name === 'ScreenDraftSell';
+
+  // useEffect(() => {
+  //   if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+  //     navigation.setOptions({
+  //       headerRight: () => (
+  //         <TouchableOpacity onPress={() => onPressSave()} color="#000">
+  //           <Text style={globalStyles.textLGAccent}>Save</Text>
+  //         </TouchableOpacity>
+  //       ),
+  //     });
+  //   }
+  // }, [navigation, plantCode]);
 
   // Dropdown
   const [dropdownOptionGenus, setDropdownOptionGenus] = useState([]);
@@ -327,14 +341,10 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
 
       let withActiveLiveListing = false;
 
-      if (sessionId) {
-        const activeListingRes = await getActiveLiveListingApi(sessionId);
-        console.log('Active listing response:', activeListingRes);
+      const activeListingRes = await getActiveLiveListingApi();
         
-        if (activeListingRes?.success) {
+      if (activeListingRes?.success) {
           withActiveLiveListing = true;
-          setLoading(false);
-        }
       }
 
       // Upload images to Backend API (which handles Firebase Storage)
@@ -358,7 +368,6 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
         status: 'Live',
         publishType: 'Publish Now',
-        sessionId: sessionId || null,
         isActiveLiveListing: !withActiveLiveListing,
       };
 
@@ -372,9 +381,17 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
 
       // TODO: Replace this with your actual API call
       // await submitListing(data);
-      onListingCreated(); // Notify parent of new listing
-      showAlertSuccess('Publish Now', 'Listing published successfully!');
-      onClose();
+      setLoading(false);
+      Alert.alert(
+        "Success",
+        "Listing published successfully!",
+        [
+          { 
+            text: "Ok",
+            onPress: () => navigation.goBack()
+          },
+        ]
+      );
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish Now', error.message);
@@ -387,7 +404,174 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
   // Details
   const {
     plantCode = '',
+    availableQty,
+    status,
+    publishType,
   } = route?.params ?? {};
+
+  useEffect(() => {
+    if (!plantCode) return; // Skip if plantCode is not set
+
+    setLoading(true);
+
+    const fetchDetailed = async () => {
+      try {
+        await loadListingDetail(plantCode);
+      } catch (error) {
+        console.log('Fetching details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDetailed();
+  }, [plantCode]);
+
+  const loadListingDetail = async plantCode => {
+    let netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    console.log(plantCode);
+
+    const res = await retryAsync(() => getListingDetails(plantCode), 3, 1000);
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Failed to load sort api');
+    }
+    console.log(res.data.localPrice || '');
+    setSelectedGenus(res.data.genus || null);
+    setSelectedSpecies(res.data.species || null);
+    setSelectedVariegation(res.data.variegation || null);
+    setIsChecked(!!res.data.isMutation);
+    setSelectedMutation(res.data.mutation || null);
+    if (isFromDuplicateSell == false) {
+      setImages(res.data.imageCollection || []);
+    }
+    setLocalPrice(String(res.data.localPrice ?? ''));
+    setSelectPotSize(res.data.potSize || null);
+    setSelectMeasure(
+      res.data.approximateHeight === 'Below 12 inches'
+        ? 'below'
+        : 'above' || null,
+    );
+
+    console.log(res.data);
+    // setSwitchActive(res.data.status == 'Active' ? true : false);
+    // setListingData(res.data);
+  };
+
+  const onPressUpdate = async paramStatus => {
+    const errors = validateForm();
+    if (errors.length > 0) {
+      Alert.alert('Validation', errors.join('\n'));
+      return;
+    }
+    setLoading(true);
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Upload images to Backend API (which handles Firebase Storage)
+      console.log('📤 Uploading', images.length, 'images to backend...');
+      const uploadedUrls = await uploadMultipleImagesToBackend(images);
+      console.log('✅ All images uploaded:', uploadedUrls);
+
+      // Build final JSON using uploaded URLs
+      const data = {
+        plantCode: plantCode,
+        availableQty: availableQty,
+        listingType: 'Single Plant',
+        genus: selectedGenus || null,
+        species: selectedSpecies || null,
+        variegation: selectedVariegation || null,
+        isMutation: isChecked,
+        mutation: isChecked ? selectedMutation : null,
+        imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+        imageCollection: uploadedUrls,
+        potSize: selectedPotSize,
+        localPrice: localPrice ? parseFloat(localPrice) : null,
+        approximateHeight:
+          selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
+        status:
+          isFromDraftSell == false && isFromDuplicateSell == false
+            ? status
+            : paramStatus,
+        publishType:
+          isFromDraftSell == false && isFromDuplicateSell == false
+            ? publishType
+            : paramStatus == 'Active'
+            ? 'Publish Now'
+            : 'Publish on Nursery Drop',
+      };
+      // console.log(data);
+      const response = await postSellUpdateApi(data);
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Update listing failed.');
+      }
+
+      // console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
+
+      // TODO: Replace this with your actual API call
+      // await submitListing(data);
+
+      isManuallyNavigating.current = true;
+      showAlertSuccess('Update Listing', 'Listing updated successfully!');
+    } catch (error) {
+      console.error('Upload or submission failed:', error);
+      Alert.alert('Update Listing', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Details
+
+  // Confirm
+  const [onGobackModalVisible, setOnGobackModalVisible] = useState(false);
+  // Confirm
+
+  // On go back
+  const [blockNavEvent, setBlockNavEvent] = useState(null); // for delayed navigation
+
+  const isManuallyNavigating = useRef(false);
+
+  useEffect(() => {
+    if (isFromDuplicateSell || !plantCode || isFromDraftSell) {
+      const unsubscribeNav = navigation.addListener('beforeRemove', e => {
+        if (isManuallyNavigating.current) {
+          // Allow navigation without confirmation
+          return;
+        }
+
+        if (onGobackModalVisible) {
+          return;
+        }
+
+        e.preventDefault(); // Block default behavior
+        setBlockNavEvent(e);
+        setOnGobackModalVisible(true);
+      });
+
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          if (onGobackModalVisible) return true;
+
+          setOnGobackModalVisible(true);
+          return true;
+        },
+      );
+
+      return () => {
+        unsubscribeNav();
+        backHandler.remove();
+      };
+    }
+  }, [navigation, onGobackModalVisible]);
 
   // Show success alert
   const showAlertSuccess = (titleText, messageText) => {
@@ -397,6 +581,7 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
       [
         {
           text: 'OK',
+          onPress: () => navigation.goBack(), // 👈 Go back to the previous screen
         },
       ],
       {
@@ -408,8 +593,43 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : ''}
-      style={[styles.mainContent]}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.mainContent, {paddingTop: insets.top + 10}]}>
+      {/* Sticky Header */}
+      <View
+        style={[
+          {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingBottom: 10,
+          },
+        ]}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[
+            styles.iconButton,
+            {
+              borderWidth: 1,
+              borderColor: '#CDD3D4',
+              padding: 5,
+              borderRadius: 10,
+              backgroundColor: '#fff',
+            },
+          ]}>
+          <LeftIcon width={20} height={20} />
+        </TouchableOpacity>
+        <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
+          Live Single Plant
+        </Text>
+        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
+          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
+            <Text style={globalStyles.textLGAccent}>Save</Text>
+          </TouchableOpacity>
+        )} */}
+        <Text>{''}</Text>
+      </View>
       <ScrollView
         style={styles.mainContent}
         showsVerticalScrollIndicator={false}
@@ -417,8 +637,7 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
         keyboardDismissMode="on-drag"
         contentContainerStyle={{
           paddingBottom: insets.bottom + 40,
-        }}
-        >
+        }}>
         {loading && (
           <Modal transparent animationType="fade">
             <View style={styles.loadingOverlay}>
@@ -472,6 +691,17 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
               </Text>
             )}
           </View>
+          <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
+            Can't find genus or species name?
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ScreenProfileRequest')}>
+            <View style={{flexDirection: 'row', paddingTop: 10}}>
+              <QuestionIcon width={20} height={20}></QuestionIcon>
+              <Text style={globalStyles.textMDAccent}> Request here</Text>
+              <ArrowUpIcon width={20} height={20}></ArrowUpIcon>
+            </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.formContainer}>
           <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
@@ -536,11 +766,8 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
           </Text>
           <View
             style={{
-              flexDirection: 'column',
+              flexDirection: 'row',
               justifyContent: 'space-between',
-              gap: 10,
-              alignItems: 'center',
-              alignContent: 'center',
               marginVertical: 10,
             }}>
             {renderPotSizes()}
@@ -551,7 +778,6 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
                 Local Price <Text style={globalStyles.textXSRed}>*</Text>
               </Text>
               <InputBox
-                isNumeric={true}
                 placeholder={'Enter price'}
                 value={localPrice}
                 setValue={setLocalPrice}></InputBox>
@@ -562,11 +788,9 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
               </Text>
               <View
                 style={{
-                  flexDirection: 'column',
+                  flexDirection: 'row',
+                  marginTop: 10,
                   justifyContent: 'space-between',
-                  gap: 10,
-                  alignItems: 'center',
-                  alignContent: 'center',
                 }}>
                 {renderHeightOptions()}
               </View>
@@ -588,6 +812,31 @@ const ScreenSingleSellLive = ({navigation, route, publishRef, sessionId, onClose
                 </TouchableOpacity>
               )}
 
+            {isFromDraftSell == true && (
+              <>
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={() => onPressUpdate('Active')}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Publish Now
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {isFromDuplicateSell == false &&
+              !plantCode &&
+              isFromDraftSell == false && (
+                <>
+                  <TouchableOpacity
+                    style={globalStyles.primaryButton}
+                    onPress={onPressPublish}>
+                    <Text style={globalStyles.primaryButtonText}>
+                      Publish Now
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
           </View>
         </View>
       </ScrollView>

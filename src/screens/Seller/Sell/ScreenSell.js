@@ -1,35 +1,33 @@
-import React, {useEffect, useState} from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useIsFocused } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Button,
-  Dimensions,
-  StyleSheet,
-  StatusBar,
-  Modal,
   ActivityIndicator,
   Alert,
+  Dimensions,
+  Modal,
   Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import {useIsFocused} from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {globalStyles} from '../../../assets/styles/styles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { globalStyles } from '../../../assets/styles/styles';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
+import { retryAsync } from '../../../utils/utils';
 import CarouselSell from './components/CarouselSell';
-import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
 
-import {getSellMostLove} from '../../../components/Api';
+import { getSellMostLove } from '../../../components/Api';
 
-import SinglePlantIcon from '../../../assets/sellicon/single.svg';
 import GrowerPlantIcon from '../../../assets/sellicon/growers.svg';
+import SinglePlantIcon from '../../../assets/sellicon/single.svg';
 import WholeSalePlantIcon from '../../../assets/sellicon/wholesale.svg';
 
-import DuplicateIcon from '../../../assets/images/duplicate.svg';
+import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
-import {useFocusEffect} from '@react-navigation/native';
+import DuplicateIcon from '../../../assets/images/duplicate.svg';
 const screenWidth = Dimensions.get('window').width;
 
 const ScreenSell = ({navigation}) => {
@@ -51,6 +49,9 @@ const ScreenSell = ({navigation}) => {
 
   const handlePressSingle = () => {
     navigation.navigate('ScreenSingleSell');
+  };
+  const handlePressSingleLive = () => {
+    navigation.navigate('ScreenSingleSellLive');
   };
   const handlePressWholesale = () => {
     navigation.navigate('ScreenWholesaleSell');
@@ -206,6 +207,51 @@ const ScreenSell = ({navigation}) => {
                 1 order = 10 plants
               </Text>
             </TouchableOpacity>
+          </View>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginTop: 20,
+            }}>
+            <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
+              <TouchableOpacity
+                onPress={handlePressSingleLive}
+                style={{
+                  marginTop: 10,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <SinglePlantIcon width={42} height={52}></SinglePlantIcon>
+                <Text
+                  style={[
+                    globalStyles.textMDAccentDark,
+                    {paddingTop: 10, fontWeight: '800'},
+                  ]}>
+                  Live Plant
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
+              <TouchableOpacity
+                style={{
+                  marginTop: 10,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <GrowerPlantIcon width={42} height={52}></GrowerPlantIcon>
+                <Text
+                  style={[
+                    globalStyles.textMDAccentDark,
+                    {
+                      paddingTop: 10,
+                      fontWeight: '800',
+                    },
+                  ]}>
+                  Purge (soon)
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
