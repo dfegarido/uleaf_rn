@@ -20,7 +20,7 @@ import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
-import MyShippingBuddiesScreen from '../../screens/Buyer/Profile/MyShippingBuddiesScreen';
+import MyShippingBuddiesRouter from '../../screens/Buyer/Profile/ShippingBuddies/MyShippingBuddiesRouter';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
 import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
@@ -172,7 +172,7 @@ function BuyerTabNavigator() {
 
       <Stack.Screen
         name="MyShippingBuddiesScreen"
-        component={MyShippingBuddiesScreen}
+        component={MyShippingBuddiesRouter}
         options={{headerShown: false}}
       />
 

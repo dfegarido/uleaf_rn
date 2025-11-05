@@ -1,14 +1,14 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import {OrderItemCard, OrderItemCardSkeleton} from '../../../components/OrderItemCard';
+import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import {getBuyerOrdersApi, getBuyerOrdersGroupedApi} from '../../../components/Api/orderManagementApi';
@@ -16,11 +16,13 @@ import {checkoutApi} from '../../../components/Api/checkoutApi';
 import {paymentPaypalVenmoUrl} from '../../../../config';
 import {Linking} from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import {useAuth} from '../../../auth/AuthProvider';
 
-const ScreenPayToBoard = () => {
+const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const {user} = useAuth();
   
   // Calculate proper bottom padding for tab bar + safe area
   const tabBarHeight = 60; // Standard tab bar height  
@@ -29,6 +31,7 @@ const ScreenPayToBoard = () => {
   
   const PAGE_SIZE = 4;
   const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]); // Store all orders (unfiltered)
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -37,6 +40,35 @@ const ScreenPayToBoard = () => {
   const browseMorePlantsRef = React.useRef(null);
   const [expandedTransactions, setExpandedTransactions] = useState(new Set());
   const [payingTransaction, setPayingTransaction] = useState(null);
+
+  // Apply plant owner filter
+  const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
+    if (!filter || filter === null) {
+      setOrders(ordersToFilter);
+      return;
+    }
+
+    // Filter grouped orders by buyerUid
+    // A group should be included if any of its plants match the filter
+    const filtered = ordersToFilter.filter(group => {
+      // Check group level buyerUid
+      if (group.buyerUid === filter) {
+        return true;
+      }
+      
+      // Check if any plant in the group matches
+      if (group.plants && group.plants.length > 0) {
+        return group.plants.some(plant => {
+          const plantBuyerUid = plant.buyerUid || group.buyerUid;
+          return plantBuyerUid === filter;
+        });
+      }
+      
+      return false;
+    });
+    
+    setOrders(filtered);
+  }, []);
 
   // Load orders from API
   const loadOrders = async (isRefresh = false, append = false) => {
@@ -79,11 +111,74 @@ const ScreenPayToBoard = () => {
       const groupedOrders = response.data?.data?.groups || [];
       console.log('📦 Loaded Pay to Board grouped orders:', groupedOrders);
 
+      // Extract unique buyers from orders
+      if (onBuyersLoaded && groupedOrders.length > 0 && !append) {
+        const uniqueBuyers = new Map();
+        
+        // Add receiver (current user) to the list
+        if (user) {
+          uniqueBuyers.set(user.uid, {
+            buyerUid: user.uid,
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email?.split('@')[0] || 'You',
+            username: user.username || '',
+            type: 'receiver'
+          });
+        }
+        
+        // Extract buyers from groups and their plants
+        groupedOrders.forEach(group => {
+          // Check group level
+          if (group.buyerUid && !uniqueBuyers.has(group.buyerUid)) {
+            const joinerInfo = group.joinerInfo;
+            if (joinerInfo) {
+              uniqueBuyers.set(group.buyerUid, {
+                buyerUid: group.buyerUid,
+                name: `${joinerInfo.firstName || ''} ${joinerInfo.lastName || ''}`.trim() || joinerInfo.username || 'Unknown',
+                username: joinerInfo.username || '',
+                type: 'joiner'
+              });
+            }
+          }
+          
+          // Check plant level
+          if (group.plants && group.plants.length > 0) {
+            group.plants.forEach(plant => {
+              const plantBuyerUid = plant.buyerUid || group.buyerUid;
+              if (plantBuyerUid && !uniqueBuyers.has(plantBuyerUid)) {
+                const joinerInfo = plant.joinerInfo || group.joinerInfo;
+                if (joinerInfo) {
+                  uniqueBuyers.set(plantBuyerUid, {
+                    buyerUid: plantBuyerUid,
+                    name: `${joinerInfo.firstName || ''} ${joinerInfo.lastName || ''}`.trim() || joinerInfo.username || 'Unknown',
+                    username: joinerInfo.username || '',
+                    type: 'joiner'
+                  });
+                } else if (plantBuyerUid === user?.uid) {
+                  uniqueBuyers.set(plantBuyerUid, {
+                    buyerUid: plantBuyerUid,
+                    name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email?.split('@')[0] || 'You',
+                    username: user.username || '',
+                    type: 'receiver'
+                  });
+                }
+              }
+            });
+          }
+        });
+        
+        const buyersArray = Array.from(uniqueBuyers.values());
+        console.log('👥 Pay to Board unique buyers:', buyersArray);
+        onBuyersLoaded(buyersArray);
+      }
+
       if (append) {
-        setOrders(prev => [...prev, ...groupedOrders]);
+        const updatedAllOrders = [...allOrders, ...groupedOrders];
+        setAllOrders(updatedAllOrders);
+        applyPlantOwnerFilter(updatedAllOrders, plantOwnerFilter);
         setPage(prev => prev + 1);
       } else {
-        setOrders(groupedOrders);
+        setAllOrders(groupedOrders);
+        applyPlantOwnerFilter(groupedOrders, plantOwnerFilter);
         setPage(0);
       }
 
@@ -99,6 +194,13 @@ const ScreenPayToBoard = () => {
       }
     }
   };
+
+  // Apply filter when plantOwnerFilter prop changes
+  useEffect(() => {
+    if (allOrders.length > 0) {
+      applyPlantOwnerFilter(allOrders, plantOwnerFilter);
+    }
+  }, [plantOwnerFilter, allOrders, applyPlantOwnerFilter]);
 
   // Transform API plant-level data to component expected format
   const transformPlantToComponentFormat = (plant) => {
@@ -127,6 +229,10 @@ const ScreenPayToBoard = () => {
       transactionNumber: orderMeta.transactionNumber || orderMeta.id,
       products: [plant],
       fullOrderData: fullOrderLike,
+      // Include joiner order flags and info
+      isJoinerOrder: plant.isJoinerOrder || orderMeta.isJoinerOrder || false,
+      joinerInfo: plant.joinerInfo || orderMeta.joinerInfo || null,
+      buyerUid: plant.buyerUid || orderMeta.buyerUid || null,
       _rawPlantRecord: plant
     };
   };
@@ -360,7 +466,17 @@ const ScreenPayToBoard = () => {
                           ...plant,
                           order: group
                         });
-                        return (
+                        // Check if this is a joiner order
+                        const isJoinerOrder = plantData.isJoinerOrder || group.isJoinerOrder || false;
+                        
+                        return isJoinerOrder ? (
+                          <JoinerOrderCard 
+                            key={`${plant.plantCode}_${index}`} 
+                            {...plantData}
+                            joinerInfo={plantData.joinerInfo || group.joinerInfo}
+                            activeTab="Pay to Board" 
+                          />
+                        ) : (
                           <OrderItemCard 
                             key={`${plant.plantCode}_${index}`} 
                             {...plantData}

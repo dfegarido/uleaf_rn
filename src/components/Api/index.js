@@ -29,6 +29,9 @@ export * from './cartApi';
 
 // Checkout & Payment APIs
 export * from './checkoutApi';
+export * from './checkoutJoinerApi';
+export * from './checkoutShippingApi';
+export * from './checkoutShippingJoinerApi';
 export * from './paymentApi';
 
 // Credit Management APIs

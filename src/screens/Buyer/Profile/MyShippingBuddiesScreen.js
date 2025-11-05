@@ -1,3 +1,20 @@
+/**
+ * @deprecated This file is deprecated and no longer used.
+ * 
+ * The Shipping Buddies feature has been refactored into an atomic design structure.
+ * The navigation now routes to MyShippingBuddiesRouter which uses:
+ * - ReceiverShippingBuddiesScreen (for receivers)
+ * - JoinerShippingBuddiesScreen (for joiners)
+ * 
+ * These new screens use the following components:
+ * - JoinerCard, JoinerList, EmptyState, BuddyDetails, UserSearchModal
+ * - ShippingBuddiesController (for business logic)
+ * 
+ * See: ileafu/src/screens/Buyer/Profile/ShippingBuddies/
+ * 
+ * This file is kept for reference but should not be used.
+ */
+
 import React, {useState, useEffect, useContext} from 'react';
 import {
   View,

@@ -95,6 +95,16 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
   },
+  disabledNote: {
+    fontSize: 12,
+    color: '#647276',
+    fontStyle: 'italic',
+    marginLeft: 8,
+  },
+  disabledNoteBold: {
+    fontWeight: '700',
+    fontStyle: 'normal',
+  },
 });
 
 export default styles;

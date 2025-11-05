@@ -1,7 +1,7 @@
 // API Configuration for local and production environments
 
 // Set this to true for local development, false for production
-const USE_LOCAL_API = true;
+const USE_LOCAL_API = false;
 
 // Local development endpoints (Firebase Functions Emulator)
 // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
@@ -194,7 +194,9 @@ const generateEndpoints = () => ({
   
   // Checkout & Payment APIs
   CHECKOUT: `${getBaseUrl()}/checkout`,
+  CHECKOUT_JOINER: `${getBaseUrl()}/checkoutJoiner`,
   CALCULATE_CHECKOUT_SHIPPING: `${getBaseUrl()}/calculateCheckoutShipping`,
+  CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getBaseUrl()}/calculateCheckoutShippingJoiner`,
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
   
