@@ -158,9 +158,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       return () => unsubscribe();
     }, [sessionId]);
 
-  const handleSendComment = async (initialComment) => {
-      const commentToSend = initialComment !== undefined ? initialComment : newComment;
-      if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
+  const handleSendComment = async (initialComment=false) => {
+      const commentToSend = initialComment ? initialComment : newComment;
+      if (commentToSend.trim() === '' || !sessionId || !currentUserInfo.uid) return;
   
       try {
         const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
