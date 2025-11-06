@@ -33,7 +33,8 @@ import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
 import HeartIcon from '../../../assets/buyer-icons/heart.svg';
 // Import API
 import { getAdminListingsApi } from '../../../components/Api/getAdminListingsApi';
-import { deleteListingApi } from '../../../components/Api/listingManagementApi';
+import { postListingDeactivateActionApi } from '../../../components/Api/postListingDeactivateActionApi';
+import { postListingActivateActionApi } from '../../../components/Api/postListingActivateActionApi';
 import { Alert } from 'react-native';
 
 const ListingsViewer = ({ navigation }) => {
@@ -111,7 +112,7 @@ const ListingsViewer = ({ navigation }) => {
     ];
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deletingPlantCodes, setDeletingPlantCodes] = useState({});
+  const [activatingPlantCodes, setActivatingPlantCodes] = useState({});
   const [selectedBadgeFilter, setSelectedBadgeFilter] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [headerSearchVisible, setHeaderSearchVisible] = useState(false);
@@ -170,7 +171,7 @@ const ListingsViewer = ({ navigation }) => {
     { key: 'country', label: 'Country', width: 100 },
     { key: 'shippingIndex', label: 'Shipping Index', width: 120 },
     { key: 'acclimationIndex', label: 'Acclimation Index', width: 120 },
-    { key: 'action', label: 'Action', width: 80 },
+    { key: 'action', label: 'Action', width: 100 },
   ];
 
   useEffect(() => {
@@ -388,36 +389,48 @@ const ListingsViewer = ({ navigation }) => {
     }
   };
 
-  const handleDelete = async (listing) => {
+  const handleToggleStatus = async (listing) => {
     if (!listing || !listing.plantCode) return;
+    
+    const isInactive = listing.status && listing.status.toLowerCase() === 'inactive';
+    const action = isInactive ? 'activate' : 'deactivate';
+    const actionCapitalized = isInactive ? 'Activate' : 'Deactivate';
+
     Alert.alert(
-      'Delete listing',
-      `Are you sure you want to permanently delete ${listing.plantCode}?`,
+      `${actionCapitalized} listing`,
+      `Are you sure you want to ${action} ${listing.plantCode}? ${isInactive ? 'The listing will be visible to buyers again.' : 'The listing will be hidden from buyers but can be reactivated later.'}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: actionCapitalized,
+          style: isInactive ? 'default' : 'destructive',
           onPress: async () => {
             try {
-              // mark this plantCode as deleting so the row can disable its delete button
-              setDeletingPlantCodes(prev => ({ ...prev, [listing.plantCode]: true }));
+              // mark this plantCode as processing so the row can disable its button
+              setActivatingPlantCodes(prev => ({ ...prev, [listing.plantCode]: true }));
               setLoading(true);
-              const resp = await deleteListingApi({ plantCode: listing.plantCode });
+              
+              const resp = isInactive 
+                ? await postListingActivateActionApi([listing.plantCode])
+                : await postListingDeactivateActionApi([listing.plantCode]);
+              
               if (resp.success) {
                 // show success toast/alert
-                Alert.alert('Deleted', `Listing ${listing.plantCode} deleted successfully!`);
+                Alert.alert(
+                  actionCapitalized,
+                  `Listing ${listing.plantCode} has been ${action}d successfully!`
+                );
                 // refresh current page
                 await loadListings({ page: pagination.currentPage });
               } else {
-                Alert.alert('Error', resp.error || 'Failed to delete listing');
+                Alert.alert('Error', resp.message || resp.error || `Failed to ${action} listing`);
               }
             } catch (e) {
-              console.error('Delete listing error', e);
-              Alert.alert('Error', 'Failed to delete listing');
+              console.error(`${actionCapitalized} listing error`, e);
+              Alert.alert('Error', e.message || `Failed to ${action} listing`);
             } finally {
-              // unmark deleting state for this plantCode
-              setDeletingPlantCodes(prev => {
+              // unmark processing state for this plantCode
+              setActivatingPlantCodes(prev => {
                 const copy = { ...prev };
                 delete copy[listing.plantCode];
                 return copy;
@@ -1475,8 +1488,8 @@ const ListingsViewer = ({ navigation }) => {
                         listing={listing}
                         onPress={handleListingPress}
                         columns={filteredColumns}
-                        onDelete={handleDelete}
-                        isDeleting={!!deletingPlantCodes[listing.plantCode]}
+                        onToggleStatus={handleToggleStatus}
+                        isProcessing={!!activatingPlantCodes[listing.plantCode]}
                       />
                     ))}
                   </ScrollView>

@@ -96,7 +96,8 @@ const ListingTable = ({
               style={[
                 styles.cell,
                 index === 0 && {width: 100},
-                index === 2 && {width: 80},
+                index === 2 && {width: 70}, // Pin column - matches data
+                index === 6 && {width: 250, minWidth: 250}, // Quantity column
                 index === 7 && {width: 150}, // Expiration Date column
                 index === 8 && {width: 180}, // Discount column
                 {padding: 10, borderColor: '#ccc', borderBottomWidth: 1},
@@ -167,12 +168,13 @@ const ListingTable = ({
               <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 5}]}>
                 {listing.variegation}
               </Text>
-              {(activeTab === 'Live' && listing?.isActiveLiveListing) && 
+              {activeTab === 'Live' && listing?.isActiveLiveListing ? (
                 <StatusBadge statusCode={'Active'} />
-              }
-              {activeTab !== 'Live' && 
-                <StatusBadge statusCode={listing.status} />
-              }
+              ) : (
+                <StatusBadge statusCode={
+                  (parseInt(listing.availableQty) || 0) === 0 ? 'Out of Stock' : listing.status
+                } />
+              )}
             </View>
 
             {/* Pin Tag */}
@@ -360,7 +362,7 @@ const ListingTable = ({
             </View>
 
             {/* Available Quantity - show all variation quantities */}
-            <View style={styles.cell}>
+            <View style={[styles.cell, {width: 250, minWidth: 250}]}>
               {(() => {
                 // If listing has variations, show each variation's quantity
                 if (
@@ -371,16 +373,54 @@ const ListingTable = ({
                     <>
                       {listing.variations.map((variation, varIndex) => {
                         const qty = parseInt(variation.availableQty) || 0;
-                        return (
+                        return qty === 0 ? (
+                          <View 
+                            key={`qty-${varIndex}`} 
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              marginBottom: 4,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <View style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 12,
+                              backgroundColor: '#E7522F',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              marginRight: 4,
+                              flexShrink: 0,
+                            }}>
+                              <Text style={{
+                                color: '#FFFFFF',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                              }}>i</Text>
+                            </View>
+                            <Text style={{
+                              fontFamily: 'Inter',
+                              fontStyle: 'normal',
+                              fontWeight: '600',
+                              fontSize: 16,
+                              lineHeight: 22,
+                              color: '#E7522F',
+                              flex: 1,
+                              flexShrink: 1,
+                            }}>
+                              This plant has been sold.
+                            </Text>
+                          </View>
+                        ) : (
                           <Text 
                             key={`qty-${varIndex}`} 
                             style={[
                               globalStyles.textSMGreyDark, 
-                              {marginBottom: 4},
-                              qty === 0 && {color: '#E7522F', fontWeight: '600'}
+                              {marginBottom: 4}
                             ]}
                           >
-                            {qty === 0 ? 'SOLD' : qty}
+                            {qty}
                           </Text>
                         );
                       })}
@@ -404,12 +444,46 @@ const ListingTable = ({
                 
                 return (
                   <>
-                    <Text style={[
-                      globalStyles.textSMGreyDark,
-                      qty === 0 && {color: '#E7522F', fontWeight: '600'}
-                    ]}>
-                      {qty === 0 ? 'SOLD' : qty}
+                    {qty === 0 ? (
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                      }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          backgroundColor: '#E7522F',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          marginRight: 4,
+                          flexShrink: 0,
+                        }}>
+                          <Text style={{
+                            color: '#FFFFFF',
+                            fontSize: 14,
+                            fontWeight: 'bold',
+                          }}>i</Text>
+                        </View>
+                        <Text style={{
+                          fontFamily: 'Inter',
+                          fontStyle: 'normal',
+                          fontWeight: '600',
+                          fontSize: 16,
+                          lineHeight: 22,
+                          color: '#E7522F',
+                          flex: 1,
+                          flexShrink: 1,
+                        }}>
+                          This plant has been sold.
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={globalStyles.textSMGreyDark}>
+                        {qty}
                     </Text>
+                    )}
                     {listing.listingType !== 'Single Plant' && (
                       <TouchableOpacity
                         onPress={() =>

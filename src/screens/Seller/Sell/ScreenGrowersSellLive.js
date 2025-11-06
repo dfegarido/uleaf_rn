@@ -432,14 +432,32 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
         sessionId: sessionId || null,
         isActiveLiveListing: !withActiveLiveListing,
         publishType: 'Publish Now',
-        variation: uploadedPotSizeList.map(item => ({
-          imagePrimary: item.image,
-          potSize: item.size,
-          localPrice: Number(item.price),
-          availableQty: Number(item.quantity),
-          approximateHeight:
-            item.measure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        })),
+        variation: uploadedPotSizeList.map(item => {
+          // Automatically determine approximate height based on pot size
+          // 2"-4" pot size → "Below 12 inches"
+          // 5"-8" pot size → "12 inches & above"
+          let approximateHeight = 'Below 12 inches'; // default
+          const potSize = item.size ?? '';
+          
+          if (potSize.includes('5"') || potSize.includes('5"-8"')) {
+            approximateHeight = '12 inches & above';
+          } else if (potSize.includes('2"') || potSize.includes('2"-4"')) {
+            approximateHeight = 'Below 12 inches';
+          } else if (item.measure === 'above') {
+            // Fallback to measure if pot size doesn't match expected values
+            approximateHeight = '12 inches & above';
+          } else if (item.measure === 'below') {
+            approximateHeight = 'Below 12 inches';
+          }
+
+          return {
+            imagePrimary: item.image,
+            potSize: item.size,
+            localPrice: Number(item.price),
+            availableQty: Number(item.quantity),
+            approximateHeight: approximateHeight,
+          };
+        }),
       };
 
       const response = await postSellWholesaleOrGrowersPlantApi(data);

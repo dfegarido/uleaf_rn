@@ -307,48 +307,73 @@ const OrderSummary = ({navigation}) => {
         setTotalPages(response.totalPages || Math.ceil((response.total || response.orders.length) / 50));
         setCurrentPage(page);
 
-        // Build garden options from the current page orders
+        // Use garden options from backend response (includes all gardens from filtered orders, not just current page)
+        // Fallback to deriving from current page if backend doesn't provide gardens
         try {
-          const counts = {};
-          const gardens = Array.isArray(response.orders) ? response.orders.map(order => {
-            const gardenName = order.gardenOrCompanyName || order.garden || order.gardenName || null;
-            if (gardenName) {
-              counts[gardenName] = (counts[gardenName] || 0) + 1;
-            }
-            return gardenName;
-          }).filter(Boolean) : [];
-          
-          const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
-          setGardenOptionsState(uniqueGardens);
-          setGardenCounts(counts);
+          if (response.gardens && Array.isArray(response.gardens)) {
+            // Use complete garden list from backend
+            setGardenOptionsState(response.gardens);
+            setGardenCounts(response.gardenCounts || {});
+            console.log('Using gardens from backend response:', {
+              count: response.gardens.length,
+              sample: response.gardens.slice(0, 10)
+            });
+          } else {
+            // Fallback: derive from current page orders (backward compatibility)
+            const counts = {};
+            const gardens = Array.isArray(response.orders) ? response.orders.map(order => {
+              const gardenName = order.gardenOrCompanyName || order.garden || order.gardenName || null;
+              if (gardenName) {
+                counts[gardenName] = (counts[gardenName] || 0) + 1;
+              }
+              return gardenName;
+            }).filter(Boolean) : [];
+            
+            const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
+            setGardenOptionsState(uniqueGardens);
+            setGardenCounts(counts);
+            console.warn('Backend did not provide gardens, falling back to current page extraction');
+          }
         } catch (e) {
-          console.warn('Failed to derive garden options from orders', e?.message || e);
+          console.warn('Failed to set garden options', e?.message || e);
         }
 
-        // Build buyer options from the current page orders
+        // Use buyer options from backend response (includes all buyers from filtered orders, not just current page)
+        // Fallback to deriving from current page if backend doesn't provide buyers
         try {
-          const buyersMap = new Map();
-          if (Array.isArray(response.orders)) {
-            response.orders.forEach(order => {
-              if (order.buyerInfo && order.buyerUid) {
-                const buyerId = order.buyerUid;
-                const buyerName = `${order.buyerInfo.firstName || ''} ${order.buyerInfo.lastName || ''}`.trim();
-                const buyerAvatar = order.buyerInfo.avatar || order.buyerInfo.profileImage || 'https://via.placeholder.com/40';
-                
-                if (!buyersMap.has(buyerId) && buyerName) {
-                  buyersMap.set(buyerId, {
-                    id: buyerId,
-                    name: buyerName,
-                    avatar: buyerAvatar,
-                  });
-                }
-              }
+          if (response.buyers && Array.isArray(response.buyers)) {
+            // Use complete buyer list from backend
+            setBuyerOptionsState(response.buyers);
+            console.log('Using buyers from backend response:', {
+              count: response.buyers.length,
+              sample: response.buyers.slice(0, 10).map(b => b.name)
             });
+          } else {
+            // Fallback: derive from current page orders (backward compatibility)
+            const buyersMap = new Map();
+            if (Array.isArray(response.orders)) {
+              response.orders.forEach(order => {
+                if (order.buyerInfo && order.buyerUid) {
+                  const buyerId = order.buyerUid;
+                  const buyerName = `${order.buyerInfo.firstName || ''} ${order.buyerInfo.lastName || ''}`.trim();
+                  const buyerAvatar = order.buyerInfo.avatar || order.buyerInfo.profileImage || 'https://via.placeholder.com/40';
+                  
+                  if (!buyersMap.has(buyerId) && buyerName) {
+                    buyersMap.set(buyerId, {
+                      id: buyerId,
+                      name: buyerName,
+                      avatar: buyerAvatar,
+                    });
+                  }
+                }
+              });
+            }
+            const uniqueBuyers = Array.from(buyersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+            setBuyerOptionsState(uniqueBuyers);
+            console.warn('Backend did not provide buyers, falling back to current page extraction');
           }
-          const uniqueBuyers = Array.from(buyersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-          setBuyerOptionsState(uniqueBuyers);
         } catch (e) {
-          console.warn('Failed to derive buyer options from orders', e?.message || e);
+          console.warn('Failed to set buyer options', e?.message || e);
         }
 
         // Build receiver options from the current page orders

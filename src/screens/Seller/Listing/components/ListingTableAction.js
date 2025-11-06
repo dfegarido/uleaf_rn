@@ -42,7 +42,8 @@ const ListingTableAction = ({
               style={[
                 styles.cell,
                 index === 0 && {width: 100},
-                index === 2 && {width: 80},
+                index === 2 && {width: 70}, // Pin column - matches data
+                index === 6 && {width: 250, minWidth: 250}, // Quantity column
                 index === 7 && {width: 180},
                 {padding: 10, borderColor: '#ccc', borderBottomWidth: 1},
               ]}>
@@ -99,7 +100,9 @@ const ListingTableAction = ({
               <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 5}]}>
                 {listing.variegation}
               </Text>
-              <StatusBadge statusCode={listing.status} />
+              <StatusBadge statusCode={
+                (parseInt(listing.availableQty) || 0) === 0 ? 'Out of Stock' : listing.status
+              } />
             </View>
 
             {/* Pin Tag */}
@@ -302,13 +305,47 @@ const ListingTableAction = ({
             )} */}
 
             {/* Available Quantity */}
-            <View style={styles.cell}>
-              <Text style={[
-                globalStyles.textSMGreyDark,
-                (parseInt(listing.availableQty) || 0) === 0 && {color: '#E7522F', fontWeight: '600'}
-              ]}>
-                {(parseInt(listing.availableQty) || 0) === 0 ? 'SOLD' : listing.availableQty}
-              </Text>
+            <View style={[styles.cell, {width: 250, minWidth: 250}]}>
+              {(parseInt(listing.availableQty) || 0) === 0 ? (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                }}>
+                  <View style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: '#E7522F',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 4,
+                    flexShrink: 0,
+                  }}>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontSize: 14,
+                      fontWeight: 'bold',
+                    }}>i</Text>
+                  </View>
+                  <Text style={{
+                    fontFamily: 'Inter',
+                    fontStyle: 'normal',
+                    fontWeight: '600',
+                    fontSize: 16,
+                    lineHeight: 22,
+                    color: '#E7522F',
+                    flex: 1,
+                    flexShrink: 1,
+                  }}>
+                    This plant has been sold.
+                  </Text>
+                </View>
+              ) : (
+                <Text style={globalStyles.textSMGreyDark}>
+                  {listing.availableQty}
+                </Text>
+              )}
             </View>
 
             {/* Seller Name */}

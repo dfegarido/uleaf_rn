@@ -25,7 +25,11 @@ const StatusBadge = ({statusCode}) => {
       break;
     case 'Expired':
       badgeStyle = styles.expired;
-      text = 'Scheduled';
+      text = 'Expired';
+      break;
+    case 'Out of Stock':
+      badgeStyle = styles.outOfStock;
+      text = 'Out of Stock';
       break;
     case 'Live':
       badgeStyle = styles.expired;
@@ -36,7 +40,7 @@ const StatusBadge = ({statusCode}) => {
       text = 'ToActive';
       break;
     default:
-      badgeStyle = styles.expired;
+      badgeStyle = styles.outOfStock;
       text = 'Out of Stock';
   }
 
@@ -65,6 +69,9 @@ const styles = StyleSheet.create({
   },
   expired: {
     backgroundColor: '#6B4EFF',
+  },
+  outOfStock: {
+    backgroundColor: '#E7522F',
   },
   unknown: {
     backgroundColor: '#E7522F',

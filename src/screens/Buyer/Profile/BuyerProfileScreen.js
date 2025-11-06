@@ -602,6 +602,59 @@ const BuyerProfileScreen = (props) => {
 
         <Divider />
 
+        {/* Connect Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionTitle}>Connect</Text>
+
+          <MenuItem
+            icon={
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 2H15C13.6739 2 12.4021 2.52678 11.4645 3.46447C10.5268 4.40215 10 5.67392 10 7V10H7V14H10V22H14V14H17V10H14V7C14 6.73478 14.1054 6.48043 14.2929 6.29289C14.4804 6.10536 14.7348 6 15 6H18V2Z"
+                  fill="#556065"
+                />
+              </Svg>
+            }
+            title="Join our Facebook Group"
+            onPress={() => {
+              const facebookUrl = 'https://www.facebook.com/groups/24709878341953177/?ref=share&mibextid=wwXIfr&rdid=DkK7v1uAmOkANB1L&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fg%2F1D6z1WPJ6b%2F%3Fmibextid%3DwwXIfr#';
+              Linking.openURL(facebookUrl).catch(err => {
+                console.error('Failed to open Facebook:', err);
+                Alert.alert(
+                  'Unable to Open',
+                  'Could not open Facebook. Please check if the Facebook app is installed or try again later.',
+                  [{ text: 'OK' }]
+                );
+              });
+            }}
+          />
+
+          <MenuItem
+            icon={
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 2.163C13.813 2.163 14.069 2.175 14.94 2.211C15.809 2.247 16.402 2.413 16.899 2.625C17.448 2.859 17.882 3.145 18.316 3.579C18.75 4.013 19.036 4.447 19.27 4.996C19.482 5.493 19.648 6.086 19.684 6.956C19.72 7.826 19.732 8.082 19.732 9.895C19.732 11.708 19.72 11.964 19.684 12.834C19.648 13.704 19.482 14.297 19.27 14.794C19.036 15.343 18.75 15.777 18.316 16.211C17.882 16.645 17.448 16.931 16.899 17.165C16.402 17.377 15.809 17.543 14.94 17.579C14.07 17.615 13.814 17.627 12 17.627C10.187 17.627 9.931 17.615 9.061 17.579C8.191 17.543 7.598 17.377 7.101 17.165C6.552 16.931 6.118 16.645 5.684 16.211C5.25 15.777 4.964 15.343 4.73 14.794C4.518 14.297 4.352 13.704 4.316 12.834C4.28 11.964 4.268 11.708 4.268 9.895C4.268 8.082 4.28 7.826 4.316 6.956C4.352 6.086 4.518 5.493 4.73 4.996C4.964 4.447 5.25 4.013 5.684 3.579C6.118 3.145 6.552 2.859 7.101 2.625C7.598 2.413 8.191 2.247 9.061 2.211C9.931 2.175 10.187 2.163 12 2.163ZM12 0C10.136 0 9.829 0.012 8.948 0.048C8.073 0.084 7.415 0.254 6.841 0.485C6.231 0.732 5.704 1.039 5.177 1.566C4.65 2.093 4.343 2.62 4.096 3.23C3.865 3.804 3.695 4.462 3.659 5.337C3.623 6.218 3.611 6.525 3.611 8.389C3.611 10.253 3.623 10.56 3.659 11.441C3.695 12.316 3.865 12.974 4.096 13.548C4.343 14.158 4.65 14.685 5.177 15.212C5.704 15.739 6.231 16.046 6.841 16.293C7.415 16.524 8.073 16.694 8.948 16.73C9.829 16.766 10.136 16.778 12 16.778C13.864 16.778 14.171 16.766 15.052 16.73C15.927 16.694 16.585 16.524 17.159 16.293C17.769 16.046 18.296 15.739 18.823 15.212C19.35 14.685 19.657 14.158 19.904 13.548C20.135 12.974 20.305 12.316 20.341 11.441C20.377 10.56 20.389 10.253 20.389 8.389C20.389 6.525 20.377 6.218 20.341 5.337C20.305 4.462 20.135 3.804 19.904 3.23C19.657 2.62 19.35 2.093 18.823 1.566C18.296 1.039 17.769 0.732 17.159 0.485C16.585 0.254 15.927 0.084 15.052 0.048C14.171 0.012 13.864 0 12 0ZM12 5.838C9.44 5.838 7.359 7.919 7.359 10.479C7.359 13.039 9.44 15.12 12 15.12C14.56 15.12 16.641 13.039 16.641 10.479C16.641 7.919 14.56 5.838 12 5.838ZM12 13.12C10.586 13.12 9.439 11.973 9.439 10.559C9.439 9.145 10.586 8 12 8C13.414 8 14.561 9.147 14.561 10.561C14.561 11.975 13.414 13.12 12 13.12ZM15.989 5.166C15.292 5.166 14.73 4.604 14.73 3.907C14.73 3.21 15.292 2.648 15.989 2.648C16.686 2.648 17.248 3.21 17.248 3.907C17.248 4.604 16.686 5.166 15.989 5.166Z"
+                  fill="#556065"
+                />
+              </Svg>
+            }
+            title="Follow us on Instagram"
+            onPress={() => {
+              const instagramUrl = 'https://www.instagram.com/ileafusa/?fbclid=IwZXh0bgNhZW0CMTAAYnJpZBExWVNiaXp5cWljbnBtV3BYSgEeZ-qfl3K8gbzw5EMlM4oK8iG4iWJt7qJR2XZETEadFqdCM6LE6mSUVwN1gqU_aem_naY9bAZZLXfjJtiYCixrRw#';
+              Linking.openURL(instagramUrl).catch(err => {
+                console.error('Failed to open Instagram:', err);
+                Alert.alert(
+                  'Unable to Open',
+                  'Could not open Instagram. Please check if the Instagram app is installed or try again later.',
+                  [{ text: 'OK' }]
+                );
+              });
+            }}
+          />
+        </View>
+
+        <Divider />
+
         {/* Support Section */}
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Support</Text>

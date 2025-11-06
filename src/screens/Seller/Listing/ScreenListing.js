@@ -221,12 +221,26 @@ const ScreenListing = ({navigation}) => {
     
     console.log('📊 Sort mapping:', { originalSort: sortBy, normalizedSort: normalizedSortBy });
     
+    // Extract values from filter objects (genus, variegation, listingType may be arrays of objects)
+    const extractValues = (filterArray) => {
+      if (!filterArray || !Array.isArray(filterArray)) return [];
+      return filterArray.map(item => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.value || item.label || item.name || '';
+        return String(item);
+      }).filter(Boolean);
+    };
+
+    const genusValues = extractValues(genus);
+    const variegationValues = extractValues(variegation);
+    const listingTypeValues = extractValues(listingType);
+
     console.log('🔍 API Call Parameters:', {
       filterMine,
       sortBy: normalizedSortBy,
-      genus,
-      variegation,
-      listingType,
+      genus: genusValues,
+      variegation: variegationValues,
+      listingType: listingTypeValues,
       status: apiStatus,
       discount: discountParam,
       limit,
@@ -238,9 +252,9 @@ const ScreenListing = ({navigation}) => {
     const getManageListingApiData = await getManageListingApi(
       filterMine,
       normalizedSortBy, // Use normalized sort value
-      genus,
-      variegation,
-      listingType,
+      genusValues, // Pass extracted values
+      variegationValues, // Pass extracted values
+      listingTypeValues, // Pass extracted values
       apiStatus,
       discountParam,
       limit,
@@ -310,6 +324,7 @@ const ScreenListing = ({navigation}) => {
       Alert.alert('Listing', error.message);
     } finally {
       setRefreshing(false);
+      setLoading(false); // Set loading to false after fetch completes (success or error)
     }
   };
 
@@ -320,19 +335,17 @@ const ScreenListing = ({navigation}) => {
   useEffect(() => {
     if (isFocused) {
       setLoading(true);
-      fetchData();
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
+      fetchData(); // fetchData will set loading to false in finally block
     }
   }, [isInitialFetchRefresh, isFocused]);
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
+    setLoading(true); // Show skeleton while refreshing
     setNextToken('');
     setNextTokenParam('');
-    fetchData();
+    fetchData(); // fetchData will set loading to false in finally block
   };
   // List table
 
@@ -354,7 +367,7 @@ const ScreenListing = ({navigation}) => {
     setSearch(searchText);
     console.log('🔍 Plant Search:', searchText);
     // trigger your search logic here
-
+    setLoading(true); // Show skeleton while searching
     setNextToken('');
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -373,6 +386,7 @@ const ScreenListing = ({navigation}) => {
       console.log('🔍 Sort value before normalization:', reusableSort);
     }
     
+    setLoading(true); // Show skeleton while applying filters
     setNextToken('');
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -566,6 +580,7 @@ const ScreenListing = ({navigation}) => {
     setIsDiscounted(false);
     setNextToken('');
     setNextTokenParam('');
+    setLoading(true); // Show skeleton while fetching with new tab filter
     
     // Handle Discounted tab - set discount flag and reset status
     if (pressTab === 'Discounted') {
@@ -617,6 +632,7 @@ const ScreenListing = ({navigation}) => {
         return;
     }
     // Refresh listings after clearing filter
+    setLoading(true); // Show skeleton while clearing filter and refetching
     setNextToken('');
     setNextTokenParam('');
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -1068,20 +1084,16 @@ const ScreenListing = ({navigation}) => {
         scrollEventThrottle={400}
         // stickyHeaderIndices={[0]}
       >
-        {loading && (
-          <Modal transparent animationType="fade">
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#699E73" />
-            </View>
-          </Modal>
-        )}
-
         <View
           style={{
             backgroundColor: '#fff',
             minHeight: dataTable.length != 0 && screenHeight * 0.9,
           }}>
-          {dataTable && dataTable.length > 0 ? (
+          {loading && dataTable.length === 0 ? (
+            <View style={styles.contents}>
+              <ListingTableSkeleton rowCount={8} />
+            </View>
+          ) : dataTable && dataTable.length > 0 ? (
             <>
               <View style={styles.contents}>
                 <ListingTable
@@ -1116,14 +1128,14 @@ const ScreenListing = ({navigation}) => {
                 )}
               </View>
             </>
-          ) : (
+          ) : !loading ? (
             <View style={{alignItems: 'center', paddingTop: 80, flex: 1}}>
               <Image
                 source={imageMap[normalizeKey(activeTab)]}
                 style={{width: 300, height: 300, resizeMode: 'contain'}}
               />
             </View>
-          )}
+          ) : null}
         </View>
       </ScrollView>
 

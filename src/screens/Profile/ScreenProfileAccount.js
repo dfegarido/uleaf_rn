@@ -343,8 +343,14 @@ const ScreenProfileAccount = ({navigation, route}) => {
         setImages([imageUrl]);
       } catch (uploadError) {
         console.error('❌ Auto-upload failed:', uploadError);
-        // Don't show alert here - let the user try again when they click Update
-        // Just keep the local image for now
+        // Show error to user but don't prevent them from saving
+        Alert.alert(
+          'Upload Warning',
+          `Image upload failed: ${uploadError.message}. The image will be uploaded when you click "Update".`,
+          [{ text: 'OK' }]
+        );
+        // Keep the local image so Update button can upload it
+        setIsImageChange(true); // Mark as changed so Update will try to upload
       } finally {
         setUploadingImage(false);
       }

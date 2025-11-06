@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { ActivityIndicator } from 'react-native';
 import { IMAGE_CELL_WIDTH, IMAGE_CONTENT_GAP, COLUMN_INNER_PADDING } from './constants';
 import CountryFlagIcon from '../../../components/CountryFlagIcon';
-import TrashIcon from '../../../assets/icons/greydark/trash-regular.svg';
 
 const getStatusColor = (status) => {
   switch ((status || '').toLowerCase()) {
@@ -89,7 +88,7 @@ const getPrimaryImage = (listing) => {
   return null;
 };
 
-const renderCell = (key, listing, onDelete, isDeleting) => {
+const renderCell = (key, listing) => {
   // pick representative values, variations fallback to first variation
   const v0 = listing.variations && listing.variations.length ? listing.variations[0] : {};
   switch (key) {
@@ -214,7 +213,7 @@ const renderCell = (key, listing, onDelete, isDeleting) => {
 // lightweight in-memory cache for image availability checks
 const imageAvailabilityCache = new Map(); // url -> boolean
 
-const ListingRow = ({ listing, onPress = () => {}, columns = [], onDelete = () => {}, isDeleting = false }) => {
+const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus = () => {}, isProcessing = false }) => {
   const [selectedUri, setSelectedUri] = useState(null);
   const [loadingImage, setLoadingImage] = useState(true);
   const mountedRef = useRef(true);
@@ -296,23 +295,35 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [], onDelete = () =
             <View key={col.key} style={[styles.columnCell, { width: col.width || 120 }]}>
               {col.key === 'action' ? (
                   <TouchableOpacity
-                    onPress={() => !isDeleting && onDelete && onDelete(listing)}
-                    style={[styles.deleteButton, isDeleting && styles.deleteButtonDisabled]}
-                    disabled={!!isDeleting}
+                    onPress={() => !isProcessing && onToggleStatus && onToggleStatus(listing)}
+                    disabled={!!isProcessing}
                   >
-                    {isDeleting ? <ActivityIndicator size="small" color="#6B4EFF" /> : <TrashIcon width={18} height={18} />}
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#E74C3C" />
+                    ) : (
+                      <Text 
+                        numberOfLines={1}
+                        style={[
+                          listing.status && listing.status.toLowerCase() === 'inactive' 
+                            ? styles.reactivateText 
+                            : styles.deactivateText
+                        ]}
+                      >
+                        {listing.status && listing.status.toLowerCase() === 'inactive' ? 'Reactivate' : 'Deactivate'}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 ) : (
-                  renderCell(col.key, listing, onDelete, isDeleting)
+                  renderCell(col.key, listing)
                 )}
             </View>
           ))
         ) : (
           /* fallback small set */
           <>
-            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('code', listing, onDelete)}</View>
-            <View style={[styles.columnCell, { width: 320 }]}>{renderCell('name', listing, onDelete)}</View>
-            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('listingType', listing, onDelete)}</View>
+            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('code', listing)}</View>
+            <View style={[styles.columnCell, { width: 320 }]}>{renderCell('name', listing)}</View>
+            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('listingType', listing)}</View>
           </>
         )}
       </View>
@@ -343,8 +354,8 @@ const styles = StyleSheet.create({
   sellerNameText: { color: '#647276', fontSize: 12, marginTop: 4 },
   countryText: { color: '#556065', fontWeight: '600' },
   countryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  deleteButton: { padding: 8, borderRadius: 6, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE', alignItems: 'center', justifyContent: 'center' },
-  deleteButtonDisabled: { opacity: 0.6, backgroundColor: '#F7F7FB', borderColor: '#E6E6F0' },
+  deactivateText: { color: '#E74C3C', fontWeight: '600', fontSize: 14, flexShrink: 0 },
+  reactivateText: { color: '#27AE60', fontWeight: '600', fontSize: 14, flexShrink: 0 },
 });
 
 export default ListingRow;
