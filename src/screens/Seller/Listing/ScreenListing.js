@@ -925,7 +925,7 @@ const ScreenListing = ({navigation}) => {
           </View>
 
           <View style={styles.headerIcons}>
-            {userInfo.liveFlag != 'No' && (
+            {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
                 onPress={() => {}}
                 style={styles.iconButton}>

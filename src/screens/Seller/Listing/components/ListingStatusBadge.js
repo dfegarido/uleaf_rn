@@ -19,6 +19,10 @@ const StatusBadge = ({statusCode}) => {
       badgeStyle = styles.scheduled;
       text = 'Scheduled';
       break;
+    case 'SoldOut':
+      badgeStyle = styles.scheduled;
+      text = 'Sold Out';
+      break;
     case 'Expired':
       badgeStyle = styles.expired;
       text = 'Scheduled';

@@ -1,17 +1,13 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { Alert, Linking } from 'react-native';
-import { Animated, Easing } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Animated, Easing, Linking } from 'react-native';
 import { paymentPaypalVenmoUrl } from '../../../../../config';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from '../../../../firebase';
 import { getAddressBookEntriesApi } from '../../../../components/Api';
-import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileApi';
 import { checkoutApi } from '../../../../components/Api/checkoutApi';
-import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
 import { calculateCheckoutShippingApi } from '../../../../components/Api/checkoutShippingApi';
 import { validateDiscountCodeApi } from '../../../../components/Api/discountApi';
-import { formatCurrencyFull } from '../../../../utils/formatCurrency';
+import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileApi';
+import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
 import { roundToCents } from '../../../../utils/money';
 
 /**
@@ -39,6 +35,7 @@ export const useCheckoutController = () => {
     quantity = 1,
     plantCode = null,
     totalAmount = 0,
+    isLive = false,
   } = routeParams;
 
   console.log('📥 [CheckoutController] Extracted params:', {
@@ -2125,7 +2122,7 @@ export const useCheckoutController = () => {
             Alert.alert(
               'Payment Error',
               'Unable to open payment page. Please try again or contact support.',
-              [{ text: 'OK', onPress: () => navigation.navigate('Orders') }]
+              [{ text: 'OK', onPress: () => isLive ? navigation.goBack() : navigation.navigate('Orders') }]
             );
           });
           
@@ -2172,6 +2169,7 @@ export const useCheckoutController = () => {
     plantCreditsEnabled,
     shippingCreditsEnabled,
     shimmerAnim,
+    isLive,
     isCalculatingShipping, // Export shipping calculation loading state
     
     // Computed values

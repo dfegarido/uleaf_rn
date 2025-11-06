@@ -276,18 +276,19 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   }, [comments]); // This effect runs whenever 'messages' array changes
 
   const handleSendComment = async () => {
-    if (newComment.trim() === '' || !sessionId || !currentUserInfo) return;
+    const commentToSend = newComment;
+    if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
+    setNewComment(''); // Clear input after sending
 
     try {
       const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
       await addDoc(commentsCollectionRef, {
-        message: newComment,
+        message: commentToSend,
         name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
         avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
         uid: currentUserInfo.uid,
         createdAt: serverTimestamp(),
       });
-      setNewComment(''); // Clear input after sending
     } catch (error) {
       console.error('Error sending comment:', error);
     }
@@ -614,7 +615,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 16,
     width: 260,
-    height: 253,
+    height: 453,
+    paddingBottom: 163
   },
   commentRow: {
     flexDirection: 'row',

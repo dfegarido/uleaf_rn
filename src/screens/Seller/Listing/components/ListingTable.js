@@ -187,8 +187,8 @@ const ListingTable = ({
                 onPress={() =>
                   onPressSetToActive(listing.plantCode)
                 }>
-                  {!(listing?.isActiveLiveListing) && <StatusBadge statusCode={'SetToActive'} />}
-                  
+                  {(!(listing?.isActiveLiveListing) && listing.availableQty > 0) && <StatusBadge statusCode={'SetToActive'} />}
+                  {(listing.availableQty === 0) && <StatusBadge statusCode={'SoldOut'} />}
               </TouchableOpacity>
             ) : 
             (
