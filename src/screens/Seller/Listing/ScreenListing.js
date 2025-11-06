@@ -1,58 +1,55 @@
-import React, {useState, useEffect, useContext} from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import React, { useContext, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  RefreshControl,
-  Modal,
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
+  Modal,
   Platform,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useFocusEffect, useIsFocused} from '@react-navigation/native';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
-import {globalStyles} from '../../../assets/styles/styles';
-import TabFilter from '../../../components/TabFilter/TabFilter';
-import ListingTable from './components/ListingTable';
-import {ReusableActionSheet} from '../../../components/ReusableActionSheet';
-import ListingActionSheet from './components/ListingActionSheetEdit';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { globalStyles } from '../../../assets/styles/styles';
+import { AuthContext } from '../../../auth/AuthProvider';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
-import {InputBox} from '../../../components/Input';
-import {InputGroupAddon} from '../../../components/InputGroupAddon';
 import {
-  getManageListingApi,
-  postListingPinActionApi,
-  getSortApi,
   getAllPlantGenusApi,
-  getVariegationApi,
   getListingTypeApi,
-  postListingUpdateStockActionApi,
+  getManageListingApi,
+  getSortApi,
+  getVariegationApi,
   postListingApplyDiscountActionApi,
-  postListingRemoveDiscountActionApi,
   postListingDeleteApi,
+  postListingPinActionApi,
+  postListingRemoveDiscountActionApi,
+  postListingUpdateStockActionApi,
 } from '../../../components/Api';
-import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
-import {InputSearch} from '../../../components/InputGroup/Left';
-import {AuthContext} from '../../../auth/AuthProvider';
+import { setLiveListingActiveApi } from '../../../components/Api/agoraLiveApi';
+import { InputBox } from '../../../components/Input';
+import { InputSearch } from '../../../components/InputGroup/Left';
+import { InputGroupAddon } from '../../../components/InputGroupAddon';
+import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
+import TabFilter from '../../../components/TabFilter/TabFilter';
+import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
+import ListingActionSheet from './components/ListingActionSheetEdit';
+import ListingTable from './components/ListingTable';
 
-import LiveIcon from '../../../assets/images/live.svg';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
-import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
-import PinIcon from '../../../assets/icons/greylight/pin.svg';
-import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
-import DollarIcon from '../../../assets/icons/greylight/dollar.svg';
-import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
+import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import PinIcon from '../../../assets/icons/greylight/pin.svg';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
+import LiveIcon from '../../../assets/images/live.svg';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -64,6 +61,10 @@ const FilterTabs = [
   },
   {
     filterKey: 'Active',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Live',
     badgeCount: '',
   },
   {
@@ -276,7 +277,6 @@ const ScreenListing = ({navigation}) => {
           ? [...prev, ...listings] // append
           : listings, // replace
     );
-    // console.log(JSON.stringify(dataTable));
   };
 
   // ✅ Error-handling wrapper
@@ -819,6 +819,29 @@ const ScreenListing = ({navigation}) => {
     });
   };
 
+  const onPressSetToActive = async (plantCode) => {
+    setLoading(true);
+    try {
+      const response = await setLiveListingActiveApi({
+        plantCode: plantCode,
+      });
+      
+      if (response.success) {
+        Alert.alert('Success', 'Active listing has been updated.');
+        setNextToken('');
+        setNextTokenParam('');
+        fetchData();
+      } else {
+        throw new Error(response.message || 'Failed to set active listing.');
+      }
+    } catch (error) {
+      console.log('Error action:', error.message);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onPressTableListPin = async (plantCode, pinTag) => {
     setLoading(true);
     try {
@@ -1073,6 +1096,8 @@ const ScreenListing = ({navigation}) => {
                   onPressTableListPin={onPressTableListPin}
                   onPressRemoveDiscountPost={onPressRemoveDiscountPost}
                   onNavigateToDetail={onNavigateToDetail}
+                  activeTab={activeTab}
+                  onPressSetToActive={onPressSetToActive}
                 />
                 {/* Show loading indicator when fetching more data */}
                 {isLoadingMore && nextToken && (

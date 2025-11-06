@@ -1,23 +1,23 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   Image,
+  ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
+import { globalStyles } from '../../../../assets/styles/styles';
+import { BadgeWithTransparentNotch } from '../../../../components/DiscountBadge';
+import { InputCheckBox } from '../../../../components/Input';
 import StatusBadge from './ListingStatusBadge';
-import {globalStyles} from '../../../../assets/styles/styles';
-import {BadgeWithTransparentNotch} from '../../../../components/DiscountBadge';
-import {InputCheckBox} from '../../../../components/Input';
 
-import IconPin from '../../../../assets/icons/greylight/pin-light.svg';
+import IconDiscountList from '../../../../assets/icons/accent/discount-list.svg';
 import IconAccentPin from '../../../../assets/icons/accent/pin.svg';
 import IconMenu from '../../../../assets/icons/greylight/dots-three-vertical-regular.svg';
-import IconDiscountList from '../../../../assets/icons/accent/discount-list.svg';
-import {numberToCurrency} from '../../../../utils/numberToCurrency';
-import {formatDateMonthDayYear} from '../../../../utils/formatDateMonthDayYear';
+import IconPin from '../../../../assets/icons/greylight/pin-light.svg';
+import { formatDateMonthDayYear } from '../../../../utils/formatDateMonthDayYear';
+import { numberToCurrency } from '../../../../utils/numberToCurrency';
 
 const COLUMN_WIDTH = 150;
 
@@ -74,6 +74,8 @@ const ListingTable = ({
   onPressTableListPin,
   onPressRemoveDiscountPost,
   onNavigateToDetail,
+  activeTab,
+  onPressSetToActive
 }) => {
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -104,7 +106,7 @@ const ListingTable = ({
                   globalStyles.textSMGreyDark,
                   index === 0 ? globalStyles.textBold : {},
                 ]}>
-                {header}
+                {header === 'Pin' && activeTab === 'Live' ? 'Set Active' : header}
               </Text>
             </View>
           ))}
@@ -165,26 +167,50 @@ const ListingTable = ({
               <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 5}]}>
                 {listing.variegation}
               </Text>
-              <StatusBadge statusCode={listing.status} />
+              {(activeTab === 'Live' && listing?.isActiveLiveListing) && 
+                <StatusBadge statusCode={'Active'} />
+              }
+              {activeTab !== 'Live' && 
+                <StatusBadge statusCode={listing.status} />
+              }
             </View>
 
             {/* Pin Tag */}
-            <TouchableOpacity
-              style={{
-                width: 70,
-                padding: 10,
-                borderColor: '#ccc',
-                borderBottomWidth: 1,
-              }}
-              onPress={() =>
-                onPressTableListPin(listing.plantCode, listing.pinTag)
-              }>
-              {listing.pinTag ? (
-                <IconAccentPin width={20} height={20} />
-              ) : (
-                <IconPin width={20} height={20} />
-              )}
-            </TouchableOpacity>
+            {activeTab === 'Live' ? (
+              <TouchableOpacity
+                style={{
+                  width: 120,
+                  padding: 10,
+                  borderColor: '#ccc',
+                  borderBottomWidth: 1,
+                }}
+                onPress={() =>
+                  onPressSetToActive(listing.plantCode)
+                }>
+                  {!(listing?.isActiveLiveListing) && <StatusBadge statusCode={'SetToActive'} />}
+                  
+              </TouchableOpacity>
+            ) : 
+            (
+              <TouchableOpacity
+                style={{
+                  width: 70,
+                  padding: 10,
+                  borderColor: '#ccc',
+                  borderBottomWidth: 1,
+                }}
+                onPress={() =>
+                  onPressTableListPin(listing.plantCode, listing.pinTag)
+                }>
+                {listing.pinTag ? (
+                  <IconAccentPin width={20} height={20} />
+                ) : (
+                  <IconPin width={20} height={20} />
+                )}
+              </TouchableOpacity>
+            )
+          }
+            
 
             {/* Listing Type */}
             {listing.listingType != 'Single Plant' ? (

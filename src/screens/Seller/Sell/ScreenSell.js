@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,11 +28,13 @@ import WholeSalePlantIcon from '../../../assets/sellicon/wholesale.svg';
 import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
+import { AuthContext } from '../../../auth/AuthProvider';
 const screenWidth = Dimensions.get('window').width;
 
 const ScreenSell = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const {userInfo} = useContext(AuthContext);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -208,7 +210,7 @@ const ScreenSell = ({navigation}) => {
               </Text>
             </TouchableOpacity>
           </View>
-          <View
+          {userInfo?.liveFlag === 'Yes' && (<View
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
@@ -228,7 +230,7 @@ const ScreenSell = ({navigation}) => {
                     globalStyles.textMDAccentDark,
                     {paddingTop: 10, fontWeight: '800'},
                   ]}>
-                  Live Plant
+                  Live Sale
                 </Text>
               </TouchableOpacity>
             </View>
@@ -252,7 +254,7 @@ const ScreenSell = ({navigation}) => {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </View>)}
         </View>
 
         <View style={{paddingTop: 30}}>
