@@ -11,6 +11,7 @@ import {
   Alert,
   TextInput,
   Image,
+  FlatList,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -155,6 +156,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   
+  // Search pagination state
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
+  
   // Profile photo state
   const [profilePhotoUri, setProfilePhotoUri] = useState(null);
   
@@ -181,19 +187,28 @@ const ScreenGenusPlants = ({navigation, route}) => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm.trim().length >= 2) {
-        performSearch(searchTerm.trim());
+        // Reset pagination when search term changes
+        setSearchOffset(0);
+        setSearchHasMore(false);
+        performSearch(searchTerm.trim(), 0, true);
       } else if (searchTerm.trim().length === 0) {
         setSearchResults([]);
         setLoadingSearch(false);
+        setSearchOffset(0);
+        setSearchHasMore(false);
       }
     }, 800); // 800ms delay for "finished typing" detection
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  const performSearch = async (searchTerm) => {
+  const performSearch = async (searchTerm, offset = 0, resetResults = false) => {
     try {
-      setLoadingSearch(true);
+      if (resetResults) {
+        setLoadingSearch(true);
+      } else {
+        setLoadingMoreSearch(true);
+      }
 
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
@@ -202,7 +217,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       const searchParams = {
         query: searchTerm,
-        limit: 20,
+        limit: 10,
+        offset: offset,
         sortBy: 'relevance',
         sortOrder: 'desc'
       };
@@ -214,19 +230,38 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }
 
       const plants = res.data?.plants || [];
-      setSearchResults(plants);
+      const pagination = res.data?.pagination || {};
+      
+      if (resetResults) {
+        setSearchResults(plants);
+      } else {
+        // Append new results to existing ones
+        setSearchResults(prev => [...prev, ...plants]);
+      }
+      
+      // Update pagination state
+      setSearchHasMore(pagination.hasMore || false);
+      setSearchOffset(offset + plants.length);
       
     } catch (error) {
       console.error('❌ Error performing genus screen search:', error);
-      setSearchResults([]);
-      
-      Alert.alert(
-        'Search Error',
-        'Could not search for plants. Please check your connection and try again.',
-        [{text: 'OK'}]
-      );
+      if (resetResults) {
+        setSearchResults([]);
+        Alert.alert(
+          'Search Error',
+          'Could not search for plants. Please check your connection and try again.',
+          [{text: 'OK'}]
+        );
+      }
     } finally {
       setLoadingSearch(false);
+      setLoadingMoreSearch(false);
+    }
+  };
+
+  const loadMoreSearchResults = () => {
+    if (!loadingMoreSearch && searchHasMore && searchTerm.trim().length >= 2) {
+      performSearch(searchTerm.trim(), searchOffset, false);
     }
   };
 
@@ -1224,18 +1259,20 @@ const ScreenGenusPlants = ({navigation, route}) => {
               <Text style={styles.loadingText}>Searching plants...</Text>
             </View>
           ) : searchResults.length > 0 ? (
-            <View style={styles.searchResultsList}>
-              {searchResults.map((plant, index) => (
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item, index) => `${item.id || item.plantCode || index}_${index}`}
+              renderItem={({item, index}) => (
                 <TouchableOpacity
-                  key={`${plant.id}_${index}`}
                   style={styles.searchResultItem}
                   onPress={() => {
-                    if (plant.plantCode) {
+                    if (item.plantCode) {
+                      setIsSearchFocused(false);
                       navigation.navigate('ScreenPlantDetail', {
-                        plantCode: plant.plantCode,
+                        plantCode: item.plantCode,
                       });
                     } else {
-                      console.error('❌ Missing plantCode for plant:', plant);
+                      console.error('❌ Missing plantCode for plant:', item);
                       Alert.alert(
                         'Error',
                         'Unable to view plant details. Missing plant code.',
@@ -1243,13 +1280,32 @@ const ScreenGenusPlants = ({navigation, route}) => {
                     }
                   }}>
                   <Text style={styles.searchResultName} numberOfLines={2}>
-                    {plant.title && !plant.title.includes('Choose the most suitable variegation') 
-                      ? plant.title 
-                      : `${plant.genus} ${plant.species}${plant.variegation && plant.variegation !== 'Choose the most suitable variegation.' ? ' ' + plant.variegation : ''}`}
+                    {item.title && !item.title.includes('Choose the most suitable variegation') 
+                      ? item.title 
+                      : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+              )}
+              onEndReached={loadMoreSearchResults}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={() => {
+                if (loadingMoreSearch) {
+                  return (
+                    <View style={styles.loadingMoreContainer}>
+                      <ActivityIndicator size="small" color="#10b981" />
+                      <Text style={styles.loadingMoreText}>Loading more...</Text>
+                    </View>
+                  );
+                }
+                return null;
+              }}
+              style={styles.searchResultsList}
+              contentContainerStyle={styles.searchResultsListContent}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              scrollEnabled={true}
+              bounces={true}
+            />
           ) : (
             <View style={styles.noResultsContainer}>
               <Text style={styles.noResultsText}>
@@ -1708,7 +1764,8 @@ const styles = StyleSheet.create({
     borderWidth: 2, // Thicker border for better definition
     borderColor: '#d1d5db', // Slightly darker border
     borderRadius: 12,
-    maxHeight: 200,
+    height: 400, // Fixed height for scrollable results
+    maxHeight: 400, // Maximum height constraint
     zIndex: 9999, // Ensure it appears on top of everything
     elevation: 15, // Higher elevation for Android shadow
     shadowColor: '#000', // For iOS shadow
@@ -1738,8 +1795,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   searchResultsList: {
-    paddingVertical: 8,
+    flex: 1,
     backgroundColor: '#FFFFFF', // Ensure solid background
+  },
+  searchResultsListContent: {
+    paddingVertical: 8,
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  loadingMoreText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: '#666',
+    fontFamily: 'Inter',
   },
   searchResultItem: {
     paddingHorizontal: 16,
