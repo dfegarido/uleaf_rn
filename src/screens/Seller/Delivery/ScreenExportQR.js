@@ -264,21 +264,58 @@ const ScreenExportQR = ({navigation}) => {
         // Use QR code generatedAt if available, otherwise use order createdAt
         const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
         
+        // Format flight date
+        const formatFlightDate = (flightDate) => {
+          if (!flightDate) return null;
+          try {
+            const date = parseDate(flightDate);
+            return date.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+          } catch (e) {
+            return flightDate;
+          }
+        };
+        
+        // Extract genus/species from products array if not at root level
+        let genus = order.genus || '';
+        let species = order.species || '';
+        let plantCode = order.plantCode || qrContent.plantCode || '';
+        let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
+        
+        if ((!genus || !plantCode) && order.products && Array.isArray(order.products) && order.products.length > 0) {
+          const firstProduct = order.products[0];
+          genus = genus || firstProduct.genus || '';
+          species = species || firstProduct.species || '';
+          plantCode = plantCode || firstProduct.plantCode || '';
+          flightDate = flightDate || firstProduct.flightDate || firstProduct.flightDateFormatted || null;
+        }
+        
         groupedByDate[date].push({
           id: order.qrCode.id || order.qrCode.qrCodeId || qrContent.orderId,
-          plantCode: qrContent.plantCode,
-          trxNumber: qrContent.trxNumber,
-          orderId: qrContent.orderId,
-          genus: qrContent.genus,
-          species: qrContent.species,
-          variegation: qrContent.variegation,
-          gardenOrCompanyName: qrContent.gardenOrCompanyName,
-          sellerName: qrContent.sellerName,
-          orderQty: qrContent.orderQty,
-          localPrice: qrContent.localPrice,
-          localPriceCurrency: qrContent.localPriceCurrency,
-          deliveryStatus: qrContent.deliveryStatus,
-          generatedAt: qrContent.generatedAt,
+          plantCode: plantCode,
+          trxNumber: order.trxNumber || qrContent.trxNumber,
+          orderId: order.id || qrContent.orderId,
+          genus: genus,
+          species: species,
+          variegation: order.variegation || qrContent.variegation || '',
+          flightDate: flightDate,
+          flightDateFormatted: formatFlightDate(flightDate),
+          receiverInfo: order.receiverInfo || null,
+          joinerInfo: order.joinerInfo || (order.isJoinerOrder ? {
+            firstName: order.joinerInfo?.firstName || order.joinerInfo?.joinerFirstName || '',
+            lastName: order.joinerInfo?.lastName || order.joinerInfo?.joinerLastName || '',
+            username: order.joinerInfo?.username || order.joinerInfo?.joinerUsername || '',
+          } : null),
+          gardenOrCompanyName: order.gardenOrCompanyName || qrContent.gardenOrCompanyName,
+          sellerName: order.sellerName || qrContent.sellerName,
+          orderQty: order.orderQty || qrContent.orderQty,
+          localPrice: order.localPrice || qrContent.localPrice,
+          localPriceCurrency: order.localPriceCurrency || qrContent.localPriceCurrency,
+          deliveryStatus: order.deliveryStatus || qrContent.deliveryStatus,
+          generatedAt: order.qrCode.generatedAt || qrContent.generatedAt,
           dataUrl: order.qrCode.dataUrl, // QR code image data URL
           orderStatus: order.status,
           createdAt: displayDate, // Use the properly parsed date
@@ -287,12 +324,52 @@ const ScreenExportQR = ({navigation}) => {
         // Fallback for older format without content wrapper
         const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
         
+        // Format flight date
+        const formatFlightDate = (flightDate) => {
+          if (!flightDate) return null;
+          try {
+            const date = parseDate(flightDate);
+            return date.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+          } catch (e) {
+            return flightDate;
+          }
+        };
+        
+        // Extract genus/species from products array if not at root level
+        let genus = order.genus || '';
+        let species = order.species || '';
+        let plantCode = order.plantCode || order.qrCode.plantCode || order.qrCode.code || order.qrCode.qrCodeId;
+        let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
+        
+        if ((!genus || !plantCode) && order.products && Array.isArray(order.products) && order.products.length > 0) {
+          const firstProduct = order.products[0];
+          genus = genus || firstProduct.genus || '';
+          species = species || firstProduct.species || '';
+          plantCode = plantCode || firstProduct.plantCode || '';
+          flightDate = flightDate || firstProduct.flightDate || firstProduct.flightDateFormatted || null;
+        }
+        
         groupedByDate[date].push({
           id: order.qrCode.id || order.qrCode.qrCodeId,
-          plantCode: order.qrCode.plantCode || order.qrCode.code || order.qrCode.qrCodeId,
+          plantCode: plantCode,
           trxNumber: order.trxNumber || order.transactionNumber || order.orderId,
+          genus: genus,
+          species: species,
+          variegation: order.variegation || '',
+          flightDate: flightDate,
+          flightDateFormatted: formatFlightDate(flightDate),
+          receiverInfo: order.receiverInfo || null,
+          joinerInfo: order.joinerInfo || (order.isJoinerOrder ? {
+            firstName: order.joinerInfo?.firstName || order.joinerInfo?.joinerFirstName || '',
+            lastName: order.joinerInfo?.lastName || order.joinerInfo?.joinerLastName || '',
+            username: order.joinerInfo?.username || order.joinerInfo?.joinerUsername || '',
+          } : null),
           dataUrl: order.qrCode.dataUrl,
-          orderId: order.orderId,
+          orderId: order.id || order.orderId,
           orderStatus: order.status,
           createdAt: displayDate, // Use the properly parsed date
         });
@@ -544,16 +621,17 @@ const ScreenExportQR = ({navigation}) => {
                     const itemWidth = 80;
                     const spacing = (containerWidth - (itemWidth * 4)) / 3; // Space between items
                     const left = col * (itemWidth + spacing);
-                    const top = row * itemWidth; // No vertical spacing between rows
+                    const top = row * (itemWidth + 90); // Reduced spacing to match reduced height
                     
                     return (
                       <View 
                         key={item.id}
-                        style={[
+                          style={[
                           styles.qrItemContainer,
                           {
                             left: left,
                             top: top,
+                            height: 170, // Further reduced height to minimize bottom gap
                           }
                         ]}
                       >
@@ -567,7 +645,29 @@ const ScreenExportQR = ({navigation}) => {
                               }
                               style={styles.qrCodeImage}
                             />
-                            <Text style={styles.plantCode}>{item.plantCode}</Text>
+                            <Text style={styles.plantCode} numberOfLines={2}>
+                              {item.plantCode || 'N/A'}
+                            </Text>
+                            {(item.genus || item.species) && (
+                              <Text style={styles.genusSpecies} numberOfLines={3}>
+                                {item.genus || ''} {item.species || ''}
+                              </Text>
+                            )}
+                            {item.receiverInfo && (
+                              <Text style={styles.receiver} numberOfLines={1}>
+                                {item.receiverInfo.firstName || ''} {item.receiverInfo.lastName || ''}
+                              </Text>
+                            )}
+                            {item.joinerInfo && (
+                              <Text style={styles.joiner} numberOfLines={1}>
+                                {item.joinerInfo.firstName || ''} {item.joinerInfo.lastName || ''}
+                              </Text>
+                            )}
+                            {item.flightDateFormatted && (
+                              <Text style={styles.flightDate} numberOfLines={2}>
+                                Flight Date: {item.flightDateFormatted}
+                              </Text>
+                            )}
                           </View>
                         </View>
                       </View>
@@ -791,48 +891,102 @@ const styles = StyleSheet.create({
   qrListContainer: {
     position: 'relative',
     width: '100%',
-    minHeight: 400,
+    minHeight: 700, // Increased to accommodate taller items
   },
   qrItemContainer: {
     position: 'absolute',
     width: 80, // Scaled for mobile
-    height: 80, // Scaled for mobile
+    height: 170, // Further reduced height to minimize bottom gap
   },
   qrItemContent: {
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8, // Scaled for mobile
-    gap: 4, // Scaled for mobile
+    justifyContent: 'flex-start',
+    paddingTop: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 0, // Minimal bottom padding
+    gap: 1, // Reduced gap between elements
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#CDD3D4',
     width: '100%',
-    height: '100%',
+    height: '65%',
   },
   qrContentInner: {
     flexDirection: 'column',
     alignItems: 'center',
     paddingHorizontal: 0,
-    paddingVertical: 0,
-    gap: 4, // Scaled for mobile
+    paddingTop: 0,
+    paddingBottom: 0, // No bottom padding
+    gap: 1, // Reduced gap
     width: '100%',
-    flex: 1,
+    flexShrink: 0, // Don't shrink, just fit content
   },
   qrCodeImage: {
-    width: 50, // Slightly smaller to fit both text lines
-    height: 50, // Slightly smaller to fit both text lines
+    width: 50, // QR code size
+    height: 50, // QR code size
     flex: 0,
   },
   plantCode: {
     fontFamily: 'Inter',
     fontWeight: '700',
-    fontSize: 8, // Scaled for mobile
-    lineHeight: 10, // Scaled for mobile
+    fontSize: 6.5, // Slightly smaller to fit better
+    lineHeight: 8,
     textAlign: 'center',
     color: '#202325',
     alignSelf: 'stretch',
     flex: 0,
+    marginTop: 1, // Reduced top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  genusSpecies: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5, // Smaller font to fit more text
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#666666',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  flightDate: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#666666',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    marginBottom: 0, // No bottom margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  receiver: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#4CAF50',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  joiner: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#FF9800',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
   },
   trxNumber: {
     fontFamily: 'Inter',
