@@ -371,24 +371,41 @@ const ScreenOrder = ({navigation}) => {
           </View>
         </View>
       </View>
-      <View style={styles.containerTab}>
-        <TouchableOpacity
-          style={
-            isActive('For Delivery')
-              ? styles.buttonActive
-              : styles.buttonInactive
-          }
-          onPress={() => onPressFilterTabs('For Delivery')}>
-          <Text style={globalStyles.textSMGreyDark}>For Delivery</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={
-            isActive('Delivered') ? styles.buttonActive : styles.buttonInactive
-          }
-          onPress={() => onPressFilterTabs('Delivered')}>
-          <Text style={globalStyles.textSMGreyDark}>Delivered</Text>
-        </TouchableOpacity>
+      <View style={styles.tabContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{flexGrow: 0}}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 20,
+            alignItems: 'flex-start',
+            paddingHorizontal: 16,
+          }}>
+          {[
+            {filterKey: 'For Delivery'},
+            {filterKey: 'Delivered'},
+          ].map((tab, index) => (
+            <TouchableOpacity
+              key={index}
+              onPress={() => onPressFilterTabs(tab.filterKey)}
+              style={[
+                styles.tabButton,
+                isActive(tab.filterKey) && styles.activeTabButton,
+              ]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  isActive(tab.filterKey) && styles.activeTabText,
+                ]}>
+                {tab.filterKey}
+              </Text>
+              {isActive(tab.filterKey) && (
+                <View style={styles.activeIndicator} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Filter Cards */}
@@ -598,26 +615,37 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
 
-  containerTab: {
+  tabContainer: {
     backgroundColor: '#fff',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
     borderBottomColor: '#eee',
     borderBottomWidth: 1,
-    // marginTop: 20,
+    paddingVertical: 8,
   },
-  buttonActive: {
+  tabButton: {
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: '#000',
+    paddingHorizontal: 16,
+    position: 'relative',
   },
-  buttonInactive: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+  activeTabButton: {
+    // Active state styling handled by indicator
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '400',
+  },
+  activeTabText: {
+    color: '#202325',
+    fontWeight: '600',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 16,
+    right: 16,
+    height: 2,
+    backgroundColor: '#202325',
+    borderRadius: 1,
   },
   loadingOverlay: {
     flex: 1,

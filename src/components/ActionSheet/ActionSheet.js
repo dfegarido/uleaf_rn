@@ -42,8 +42,6 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
     }
   }, [visible, slideAnim]);
 
-  console.log('ActionSheet render - visible:', visible, 'height:', sheetHeight);
-
   return (
     <Modal
       visible={visible}
