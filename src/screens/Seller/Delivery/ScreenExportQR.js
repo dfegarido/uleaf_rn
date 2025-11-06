@@ -199,12 +199,55 @@ const ScreenExportQR = ({navigation}) => {
       return [];
     }
 
+    // Helper function to parse date from various formats (Firestore Timestamp, ISO string, etc.)
+    const parseDate = (dateInput) => {
+      if (!dateInput) return new Date();
+      
+      try {
+        // Handle Firestore Timestamp objects
+        if (dateInput && typeof dateInput === 'object') {
+          // Check if it's a Firestore Timestamp (has toDate method)
+          if (dateInput.toDate && typeof dateInput.toDate === 'function') {
+            return dateInput.toDate();
+          }
+          // Check if it has seconds property (Firestore Timestamp format)
+          else if (dateInput.seconds) {
+            return new Date(dateInput.seconds * 1000);
+          }
+          // Check if it has _seconds property
+          else if (dateInput._seconds) {
+            return new Date(dateInput._seconds * 1000);
+          }
+        }
+        // Handle ISO strings or other date strings
+        else if (typeof dateInput === 'string') {
+          return new Date(dateInput);
+        }
+        // Handle numeric timestamps
+        else if (typeof dateInput === 'number') {
+          // If it's in seconds (less than year 2100 in milliseconds)
+          if (dateInput < 4102444800000) {
+            return new Date(dateInput * 1000);
+          } else {
+            return new Date(dateInput);
+          }
+        }
+        
+        return new Date(dateInput);
+      } catch (error) {
+        console.warn('Date parsing error:', error, dateInput);
+        return new Date();
+      }
+    };
+
     // Group orders by date and organize into pages
     const groupedByDate = {};
     
     ordersArray.forEach((order, orderIndex) => {
+      // Parse createdAt date from various formats
+      const createdAtDate = parseDate(order.createdAt || order.orderDate);
       
-      const date = new Date(order.createdAt).toLocaleDateString('en-US', {
+      const date = createdAtDate.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: '2-digit'
@@ -217,6 +260,9 @@ const ScreenExportQR = ({navigation}) => {
       // Add QR code from the order (note: it's qrCode, not qrCodes)
       if (order.qrCode && order.qrCode.content) {
         const qrContent = order.qrCode.content;
+        
+        // Use QR code generatedAt if available, otherwise use order createdAt
+        const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
         
         groupedByDate[date].push({
           id: order.qrCode.id || order.qrCode.qrCodeId || qrContent.orderId,
@@ -235,10 +281,12 @@ const ScreenExportQR = ({navigation}) => {
           generatedAt: qrContent.generatedAt,
           dataUrl: order.qrCode.dataUrl, // QR code image data URL
           orderStatus: order.status,
-          createdAt: order.createdAt,
+          createdAt: displayDate, // Use the properly parsed date
         });
       } else if (order.qrCode) {
         // Fallback for older format without content wrapper
+        const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
+        
         groupedByDate[date].push({
           id: order.qrCode.id || order.qrCode.qrCodeId,
           plantCode: order.qrCode.plantCode || order.qrCode.code || order.qrCode.qrCodeId,
@@ -246,7 +294,7 @@ const ScreenExportQR = ({navigation}) => {
           dataUrl: order.qrCode.dataUrl,
           orderId: order.orderId,
           orderStatus: order.status,
-          createdAt: order.createdAt,
+          createdAt: displayDate, // Use the properly parsed date
         });
       } else {
         // No QR codes found in this order
@@ -264,11 +312,30 @@ const ScreenExportQR = ({navigation}) => {
         const pageNumber = Math.floor(i / itemsPerPage) + 1;
         const totalPages = Math.ceil(items.length / itemsPerPage);
         
+        // Use the QR code's generatedAt if available, otherwise use the first item's createdAt
+        const firstItem = chunk[0];
+        let pageDate = new Date().toISOString(); // Default fallback
+        
+        if (firstItem) {
+          // Prefer generatedAt from QR code, then createdAt
+          const dateSource = firstItem.generatedAt || firstItem.createdAt;
+          if (dateSource) {
+            try {
+              const parsedDate = parseDate(dateSource);
+              if (!isNaN(parsedDate.getTime())) {
+                pageDate = parsedDate.toISOString();
+              }
+            } catch (e) {
+              console.warn('Error parsing page date:', e);
+            }
+          }
+        }
+        
         pages.push({
           date: date,
           page: `${pageNumber} of ${totalPages}`,
           qrcodes: chunk,
-          createdAt: chunk[0]?.createdAt || new Date().toISOString(),
+          createdAt: pageDate,
         });
       }
     });
@@ -288,11 +355,52 @@ const ScreenExportQR = ({navigation}) => {
     }, [])
   );
 
-  const formatGeneratedDate = (dateString) => {
-    if (!dateString) return 'Unknown';
+  const formatGeneratedDate = (dateInput) => {
+    if (!dateInput) return 'Unknown';
     
     try {
-      const date = new Date(dateString);
+      let date;
+      
+      // Handle Firestore Timestamp objects
+      if (dateInput && typeof dateInput === 'object') {
+        // Check if it's a Firestore Timestamp (has toDate method)
+        if (dateInput.toDate && typeof dateInput.toDate === 'function') {
+          date = dateInput.toDate();
+        }
+        // Check if it has seconds property (Firestore Timestamp format)
+        else if (dateInput.seconds) {
+          date = new Date(dateInput.seconds * 1000);
+        }
+        // Check if it has _seconds property
+        else if (dateInput._seconds) {
+          date = new Date(dateInput._seconds * 1000);
+        }
+        else {
+          date = new Date(dateInput);
+        }
+      }
+      // Handle ISO strings or other date strings
+      else if (typeof dateInput === 'string') {
+        date = new Date(dateInput);
+      }
+      // Handle numeric timestamps
+      else if (typeof dateInput === 'number') {
+        // If it's in seconds (less than year 2100 in milliseconds)
+        if (dateInput < 4102444800000) {
+          date = new Date(dateInput * 1000);
+        } else {
+          date = new Date(dateInput);
+        }
+      }
+      else {
+        date = new Date(dateInput);
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Unknown';
+      }
+      
       return date.toLocaleDateString('en-US', {
         month: 'short',
         day: '2-digit',
@@ -303,6 +411,7 @@ const ScreenExportQR = ({navigation}) => {
         hour12: true
       });
     } catch (error) {
+      console.error('Date formatting error:', error, dateInput);
       return 'Unknown';
     }
   };

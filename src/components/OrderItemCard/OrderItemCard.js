@@ -31,6 +31,7 @@ const OrderItemCard = ({
   showCreditStatus = false, // Show credit status section
   issueType = 'Unknown Issue', // Type of issue (Missing, Dead on Arrival, Damaged)
   creditStatus = 'pending', // Credit request status
+  optimisticCreditRequest = false, // Optimistic state for credit requests (from Plants are Home)
 }) => {
   const navigation = useNavigation();
 
@@ -72,8 +73,9 @@ const OrderItemCard = ({
   };
 
   // Check if a credit request has been submitted for this specific plant
-  // Use the new creditRequestStatus prop if available, otherwise fallback to checking fullOrderData
-  const hasCreditRequest = creditRequestStatus?.hasRequest || 
+  // Include optimistic state for immediate UI feedback
+  const hasCreditRequest = optimisticCreditRequest ||
+    creditRequestStatus?.hasRequest || 
     fullOrderData?.creditRequests?.some((req) => req.plantCode === plantCode);
 
   const handleRequestCredit = () => {
@@ -135,12 +137,33 @@ const OrderItemCard = ({
       }
     };
 
+    // Extract the correct plantCode from the order data itself (most reliable source)
+    // Priority: fullOrderData.plantCode > fullOrderData.products[0].plantCode > prop plantCode
+    const actualPlantCode = fullOrderData?.plantCode || 
+                            fullOrderData?.products?.[0]?.plantCode || 
+                            fullOrderData?.products?.[0]?.plant?.plantCode ||
+                            plantCode;
+
+    console.log('🔍 OrderItemCard - Extracting plantCode:', {
+      propPlantCode: plantCode,
+      fullOrderDataPlantCode: fullOrderData?.plantCode,
+      productsPlantCode: fullOrderData?.products?.[0]?.plantCode,
+      actualPlantCode: actualPlantCode,
+      transactionNumber: fullOrderData?.transactionNumber
+    });
+
+    // Ensure fullOrderData has plantCode at root level for single-plant order processing
+    const enrichedFullOrderData = {
+      ...fullOrderData,
+      plantCode: actualPlantCode, // Use the actual plantCode from order data
+    };
+
     // Navigate immediately with available data (shows skeleton/loading state)
     const orderDataToPass = {
-      id: fullOrderData?.id,
-      transactionNumber: fullOrderData?.transactionNumber,
-      plantCode: plantCode,
-      fullOrderData: fullOrderData,
+      id: enrichedFullOrderData?.id,
+      transactionNumber: enrichedFullOrderData?.transactionNumber,
+      plantCode: actualPlantCode, // Use the actual plantCode extracted from order data
+      fullOrderData: enrichedFullOrderData,
       invoiceNumber: fullOrderData?.transactionNumber || plantCode,
       plantFlight: airCargoDate,
       trackingNumber: fullOrderData?.trackingNumber || '1Z999AA1234567890',

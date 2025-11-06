@@ -20,6 +20,8 @@ import {
   getBuyerProfileApi,
   getAddressBookEntriesApi,
   deactivateBuyerApi,
+  getBuddyRequestsApi,
+  getMyReceiverRequestApi,
 } from '../../../components/Api';
 import {deleteUserApi} from '../../../components/Api';
 
@@ -285,16 +287,55 @@ const BuyerProfileScreen = (props) => {
 
   const loadProfileStats = async () => {
     try {
-      // For now, using mock data since we don't have specific APIs for these
-      // In a real app, these would come from separate API endpoints
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        return;
+      }
+
+      // Fetch buddy count - check if user is receiver or joiner
+      let buddyCount = 0;
+      try {
+        // First, check if user is a receiver (has joiners)
+        const buddyRequestsResult = await retryAsync(() => getBuddyRequestsApi(), 2, 1000);
+        console.log('[BuyerProfileScreen] getBuddyRequestsApi result:', JSON.stringify(buddyRequestsResult, null, 2));
+        
+        if (buddyRequestsResult?.success && buddyRequestsResult?.data?.joiners && buddyRequestsResult.data.joiners.length > 0) {
+          // User is a receiver - count all joiners (pending, approved, pending_cancel)
+          buddyCount = buddyRequestsResult.data.joiners.length;
+          console.log('[BuyerProfileScreen] User is receiver, buddyCount:', buddyCount);
+        } else {
+          // If no joiners, check if user is a joiner (has a receiver)
+          const myReceiverRequestResult = await retryAsync(() => getMyReceiverRequestApi(), 2, 1000);
+          console.log('[BuyerProfileScreen] getMyReceiverRequestApi result:', JSON.stringify(myReceiverRequestResult, null, 2));
+          
+          if (myReceiverRequestResult?.success && myReceiverRequestResult?.data?.isJoiner) {
+            // User is a joiner - show 1 to indicate they have a receiver
+            buddyCount = 1;
+            console.log('[BuyerProfileScreen] User is joiner, buddyCount:', buddyCount);
+          }
+        }
+      } catch (error) {
+        console.log('[BuyerProfileScreen] Error fetching buddy count:', error);
+        // Don't throw error, just use 0 as fallback
+      }
+      
+      console.log('[BuyerProfileScreen] Final buddyCount:', buddyCount);
+
+      setProfileStats({
+        leafPoints: 0,
+        plantCredits: 0,
+        shippingCredits: 0,
+        buddyRequests: buddyCount,
+      });
+    } catch (error) {
+      console.log('Error loading profile stats:', error);
+      // Set default values on error
       setProfileStats({
         leafPoints: 0,
         plantCredits: 0,
         shippingCredits: 0,
         buddyRequests: 0,
       });
-  } catch (error) {
-      
     }
   };
 
@@ -476,20 +517,27 @@ const BuyerProfileScreen = (props) => {
 
         {/* Shipping Buddies */}
         <View style={styles.shippingBuddiesContainer}>
-          <View style={styles.shippingBuddiesCard}>
+          <TouchableOpacity
+            style={styles.shippingBuddiesCard}
+            onPress={() => navigation.navigate('MyShippingBuddiesScreen')}
+            activeOpacity={0.7}>
             <View style={styles.buddiesContent}>
               <Text style={styles.buddiesTitle}>My Shipping Buddies</Text>
               <View style={styles.requestsRow}>
                 <Text style={styles.requestsText}>Joiner request(s)</Text>
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.badgeText}>{profileStats.buddyRequests}</Text>
-                </View>
+                {profileStats.buddyRequests > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.badgeText}>{profileStats.buddyRequests}</Text>
+                  </View>
+                )}
               </View>
             </View>
-            <View style={styles.highFiveIcon}>
-              <ShippingBuddiesIcon width={80} height={80} />
+            <View style={styles.highFiveIconContainer}>
+              <View style={styles.highFiveIcon}>
+                <ShippingBuddiesIcon width={80} height={80} />
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Profile Section */}
@@ -813,7 +861,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 16,
-    height: 112,
+    minHeight: 112,
+    position: 'relative',
   },
   buddiesContent: {
     flex: 1,
@@ -852,6 +901,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#FFFFFF',
     fontFamily: 'Inter',
+  },
+  highFiveIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 80,
   },
   highFiveIcon: {
     width: 80,

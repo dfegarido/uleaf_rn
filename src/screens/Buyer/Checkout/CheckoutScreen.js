@@ -212,6 +212,11 @@ const CheckoutScreen = () => {
     setDiscountCode,
     handleApplyDiscount,
     
+    // Joiner state
+    disableAddressSelection,
+    disableFlightSelection,
+    receiverFlightDate,
+    
     // Helpers
     normalizeFlightKey,
     formatFlightDateToISO,
@@ -252,6 +257,7 @@ const CheckoutScreen = () => {
         <AddressSection
           deliveryDetails={deliveryDetails}
           onUpdateDeliveryDetails={handleUpdateDeliveryDetails}
+          disabled={disableAddressSelection}
         />
         
         <FlightSelector
@@ -273,6 +279,8 @@ const CheckoutScreen = () => {
           }}
           normalizeFlightKey={normalizeFlightKey}
           formatFlightDateToISO={formatFlightDateToISO}
+          disableFlightSelection={disableFlightSelection}
+          receiverFlightDate={receiverFlightDate}
         />
         
         <PlantList
