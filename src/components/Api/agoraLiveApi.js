@@ -85,7 +85,7 @@ export const getLiveListingsBySessionApi = async (sessionId) => {
   }
 };
 
-export const setLiveListingActiveApi = async ({ sessionId, plantCode }) => {
+export const setLiveListingActiveApi = async ({ plantCode }) => {
   try {
     const token = await getStoredAuthToken();
     const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/setActiveLiveListing', {
@@ -94,7 +94,7 @@ export const setLiveListingActiveApi = async ({ sessionId, plantCode }) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ sessionId, plantCode }),
+      body: JSON.stringify({ plantCode }),
     });
 
     return await response.json();
@@ -104,11 +104,11 @@ export const setLiveListingActiveApi = async ({ sessionId, plantCode }) => {
   }
 };
 
-export const getActiveLiveListingApi = async (sessionId) => {
+export const getActiveLiveListingApi = async () => {
   try {
     const token = await getStoredAuthToken();
     // Use the local development URL for now.
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getActiveLiveListing?sessionId=${sessionId}`;
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getActiveLiveListing`;
 
     const response = await fetch(url, {
       method: 'GET',

@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
@@ -66,6 +65,7 @@ import {
   ScreenGrowersSell,
   ScreenSell,
   ScreenSingleSell,
+  ScreenSingleSellLive,
   ScreenWholesaleSell,
 } from '../../screens/Seller/Sell';
 import {
@@ -470,6 +470,32 @@ const MainStack = () => {
           headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
         })}
       />
+
+      <Stack.Screen
+        name="ScreenSingleSellLive"
+        component={ScreenSingleSellLive}
+        options={({navigation}) => ({
+          headerShown: false, // Ensure the header is shown
+          title: 'Live Plant', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+
       <Stack.Screen
         name="ScreenWholesaleSell"
         component={ScreenWholesaleSell}

@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import {
   addDoc,
   collection,
@@ -44,6 +45,8 @@ import {
   toggleLoveLiveSession,
   updateLiveSessionStatusApi,
 } from '../../../components/Api/agoraLiveApi';
+import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
+import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import GuideModal from './GuideModal'; // Import the new modal
 
@@ -71,6 +74,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
   const [isGuideModalVisible, setIsGuideModalVisible] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null);
+  const [brodcasterId, setBrodcasterId] = useState(route.params?.broadcasterId);
+  const [plantData, setPlantData] = useState(null);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -114,7 +119,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     setUnitPrice(unitPrice);
 
     // Ensure plantData has a country code
-    const plantDataWithCountry = { ...activeListing };
+    const plantDataWithCountry = { ...plantData };
     // If country is missing, try to determine it from currency
 
     if (!plantDataWithCountry.country) {
@@ -157,10 +162,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       return () => unsubscribe();
     }, [sessionId]);
 
-  const handleSendComment = async (initialComment) => {
-      const commentToSend = initialComment !== undefined ? initialComment : newComment;
-      if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
-  
+  const handleSendComment = async () => {
+      const commentToSend = newComment;
+      
+      if (commentToSend.trim() === '' || !sessionId || !currentUserInfo.uid) return;
+      setNewComment(''); // Clear input after sending
       try {
         const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
         await addDoc(commentsCollectionRef, {
@@ -170,7 +176,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           uid: currentUserInfo.uid,
           createdAt: serverTimestamp(),
         });
-        setNewComment(''); // Clear input after sending
+        
       } catch (error) {
         console.error('Error sending comment:', error);
       }
@@ -220,17 +226,17 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
  useEffect(() => {
   if (!activeListing) return;
-  getDiscountedPrice();
- }, [activeListing]);
+   loadPlantDetails();
+  }, [activeListing]);
 
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !brodcasterId) return;
 
     const listingsCollectionRef = collection(db, 'listing');
     const q = query(
       listingsCollectionRef,
-      where('sessionId', '==', sessionId),
+      where('sellerCode', '==', brodcasterId),
       where('isActiveLiveListing', '==', true)
     );
 
@@ -246,7 +252,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     });
 
     return () => unsubscribe();
-  }, [sessionId]);
+  }, [sessionId, brodcasterId]);
 
    useEffect(() => {
      if (!sessionId) return;
@@ -306,13 +312,16 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         profile: 0, // Standard
         scenario: 1 // Game Streaming
       });
-  
+      setNewComment('Joined 👋');
       rtc.registerEventHandler({
         onJoinChannelSuccess: (connection, elapsed) => {
           console.log('✅ Joined Channel as viewer:', connection, 'Elapsed:', elapsed);
           setJoined(true);
           addViewers();
-          handleSendComment('Joined 👋');
+          if (comments.filter(a => a.message === 'Joined 👋' && a.uid === currentUserInfo.uid).length === 0) {
+            handleSendComment();
+            setNewComment('');
+          }
         },
         onUserJoined: (connection, remoteUid) => {
           console.log('👤 Remote user joined:', connection, 'uid:', remoteUid);
@@ -440,6 +449,45 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }
   }, [comments]); // This effect runs whenever 'messages' array changes
+
+  const loadPlantDetails = async () => {
+      try {
+  
+        let netState = await NetInfo.fetch();
+        if (!netState.isConnected || !netState.isInternetReachable) {
+          throw new Error('No internet connection.');
+        }
+  
+        const res = await retryAsync(() => getPlantDetailApi(activeListing.plantCode), 3, 1000);
+  
+        if (!res?.success) {
+          throw new Error(res?.error || 'Failed to load plant details');
+        }
+        // Extract the nested data object from the response
+        
+        setPlantData(res.data);
+         getDiscountedPrice();
+      } catch (error) {
+        Alert.alert('Error', error.message);
+      }
+  };
+
+  const buyNow = async () => {
+    removeViewers();
+    navigation.navigate('CheckoutScreen', {
+            fromBuyNow: true,
+            plantData: {
+              ...plantDataCountry,
+              flightDate: plantData.flightDate || plantData.cargoDate || null,
+              cargoDate: plantData ? plantData.cargoDate : null,
+            },
+            selectedPotSize: plantData ? plantData.potSize : null,
+            quantity: 1,
+            plantCode: plantData ? plantData.plantCode : null,
+            totalAmount: unitPrice * 1,
+            isLive: true,
+          });
+  }
 
   return (
      <SafeAreaView style={styles.container}>
@@ -588,7 +636,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
               {!orderStatus && (
                <TouchableOpacity onPress={() => {
-                  setPlantDetailLiveModalVisible(true);
+                  buyNow();
                 }} style={styles.actionButtonTouch}>
                   <Text style={styles.actionText}>Buy Now</Text>
                 </TouchableOpacity>
@@ -724,7 +772,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 16,
     width: 260,
-    height: 253,
+    height: 453,
+    paddingBottom: 213
   },
   commentRow: {
     flexDirection: 'row',

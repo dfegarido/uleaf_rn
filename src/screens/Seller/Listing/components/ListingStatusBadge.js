@@ -1,6 +1,6 @@
 import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
-import {globalStyles} from '../../../../assets/styles/styles';
+import { StyleSheet, Text, View } from 'react-native';
+import { globalStyles } from '../../../../assets/styles/styles';
 
 const StatusBadge = ({statusCode}) => {
   let badgeStyle = {};
@@ -19,9 +19,21 @@ const StatusBadge = ({statusCode}) => {
       badgeStyle = styles.scheduled;
       text = 'Scheduled';
       break;
+    case 'SoldOut':
+      badgeStyle = styles.scheduled;
+      text = 'Sold Out';
+      break;
     case 'Expired':
       badgeStyle = styles.expired;
       text = 'Scheduled';
+      break;
+    case 'Live':
+      badgeStyle = styles.expired;
+      text = 'Live';
+      break;
+    case 'SetToActive':
+      badgeStyle = styles.scheduled;
+      text = 'ToActive';
       break;
     default:
       badgeStyle = styles.expired;

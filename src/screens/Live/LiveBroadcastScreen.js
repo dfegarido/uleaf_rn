@@ -5,7 +5,8 @@ import {
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp
+  serverTimestamp,
+  where
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
@@ -33,12 +34,10 @@ import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
-import ShareIcon from '../../assets/live-icon/share.svg';
-import ShopIcon from '../../assets/live-icon/shop.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../auth/AuthProvider';
-import { generateAgoraToken, getActiveLiveListingApi, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
+import { generateAgoraToken, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen'; // Import the modal component
 import LiveListingsModal from './LiveListingsModal'; // Import the new modal
 
@@ -277,35 +276,61 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   }, [comments]); // This effect runs whenever 'messages' array changes
 
   const handleSendComment = async () => {
-    if (newComment.trim() === '' || !sessionId || !currentUserInfo) return;
+    const commentToSend = newComment;
+    if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
+    setNewComment(''); // Clear input after sending
 
     try {
       const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
       await addDoc(commentsCollectionRef, {
-        message: newComment,
+        message: commentToSend,
         name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
         avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
         uid: currentUserInfo.uid,
         createdAt: serverTimestamp(),
       });
-      setNewComment(''); // Clear input after sending
     } catch (error) {
       console.error('Error sending comment:', error);
     }
   };
 
   // When a new active listing is set from the modal, update the UI
-  const handleActiveListingSet = async (listing) => {
-    if (sessionId) {
-        const activeListingRes = await getActiveLiveListingApi(sessionId);
+  // const handleActiveListingSet = async () => {
+  //   if (sessionId) {
+  //       const activeListingRes = await getActiveLiveListingApi();
             
-      if (activeListingRes?.success) {
-        setActiveListing(activeListingRes.data);
-        setLoading(false);
-      }
-    }
+  //     if (activeListingRes?.success) {
+  //       setActiveListing(activeListingRes.data);
+  //       setLoading(false);
+  //     }
+  //   }
     
-  };
+  // };
+
+ //get active listing
+  useEffect(() => {
+      if (!sessionId) return;
+  
+      const listingsCollectionRef = collection(db, 'listing');
+      const q = query(
+        listingsCollectionRef,
+        where('isActiveLiveListing', '==', true),
+        where('sellerCode', '==', currentUserInfo.uid)
+      );
+  
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        if (!querySnapshot.empty) {
+          const activeDoc = querySnapshot.docs[0];
+          console.log('Active listing found:', activeDoc.id, activeDoc.data());
+          
+          setActiveListing({ id: activeDoc.id, ...activeDoc.data() });
+        } else {
+          setActiveListing(null);
+        }
+      });
+  
+      return () => unsubscribe();
+  }, [sessionId]);
 
   return (
        <SafeAreaView style={styles.container}>
@@ -357,7 +382,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               </View>
             </View>
             
-            <View style={styles.actionBar}>
+        <View style={styles.actionBar}>
           <View style={styles.social}>
             <View style={styles.comments}>
               <FlatList
@@ -389,7 +414,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <LoveIcon />
                   <Text style={styles.sideActionText}>{liveStats.likeCount}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setCreateListingModalVisible(true)}  style={styles.sideAction}>
+                {/* <TouchableOpacity onPress={() => setCreateListingModalVisible(true)}  style={styles.sideAction}>
                   <ShareIcon />
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -397,7 +422,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   onPress={() => setLiveListingModalVisible(true)} // Open the listings modal
                 >
                   <ShopIcon width={40} height={40} />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
             </View>
           </View>
           {activeListing && (
@@ -449,7 +474,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         <CreateLiveListingScreen
           isVisible={isCreateListingModalVisible}
           onClose={() => setCreateListingModalVisible(false)}
-          onListingCreated={handleActiveListingSet}
+          onListingCreated={() => {}}
           sessionId={sessionId}
           navigation={navigation}
         />
@@ -458,7 +483,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           isVisible={isLiveListingModalVisible}
           onClose={() => setLiveListingModalVisible(false)}
           sessionId={sessionId}
-          onActiveListingSet={handleActiveListingSet}
+          onActiveListingSet={() => {}}
         />
       </SafeAreaView>
     );
@@ -573,7 +598,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     gap: 12,
     width: 375,
-    height: 447,
+    height: 547,
     alignSelf: 'center',
   },
   social: {
@@ -582,7 +607,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     width: 359,
-    height: 253,
+    height: 353,
   },
   comments: {
     flexDirection: 'column',
@@ -590,7 +615,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 16,
     width: 260,
-    height: 253,
+    height: 453,
+    paddingBottom: 163
   },
   commentRow: {
     flexDirection: 'row',

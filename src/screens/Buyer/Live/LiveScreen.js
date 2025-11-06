@@ -85,6 +85,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
     <TouchableOpacity 
       onPress={stream.isLive ? () => navigation.navigate(stream.liveType === 'purge' ? 'BuyerLivePurgeScreen' : 'BuyerLiveStreamScreen', {
           sessionId: stream.sessionId,
+          broadcasterId: stream.createdBy,
         }) : () => {}} 
       style={[styles.videoCard, cardStyle]}
     >
@@ -221,6 +222,7 @@ const LiveScreen = ({navigation}) => {
       const fetchedLiveStreams = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
+        
         const mutatedData = {
           title: data.title || 'Untitled Stream',
           thumbnail: data.coverPhotoUrl || require('../../../assets/images/plant1.png'),
@@ -230,10 +232,10 @@ const LiveScreen = ({navigation}) => {
           id: doc.id,
           isLive: data.status === 'live',
           viewers: formatViewers(data.totalViewers || 0),
+          createdBy: data.createdBy || '',
         };
         fetchedLiveStreams.push(mutatedData);
       });
-      console.log('Live Stream Data:', fetchedLiveStreams);
       setLiveStreams(fetchedLiveStreams);
     });
 

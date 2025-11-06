@@ -1,20 +1,20 @@
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View, Modal, ActivityIndicator, Image } from 'react-native';
+import { ActivityIndicator, Image, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from 'react-native-url-polyfill';
-import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import CheckoutBar from './components/CheckoutBar';
-import OrderSummary from './components/OrderSummary';
+import { formatCurrencyFull } from '../../../utils/formatCurrency';
 import AddressSection from './components/AddressSection';
+import CheckoutBar from './components/CheckoutBar';
 import FlightSelector from './components/FlightSelector';
+import OrderSummary from './components/OrderSummary';
 import PlantList from './components/PlantList';
 import styles from './components/styles/CheckoutScreenStyles';
 import { useCheckoutController } from './controllers/CheckoutController';
-import { formatCurrencyFull } from '../../../utils/formatCurrency';
 
 // Helper function to determine country from currency
 const getCountryFromCurrency = currency => {
@@ -189,6 +189,7 @@ const CheckoutScreen = () => {
     shippingCreditsEnabled,
     shimmerAnim,
     isCalculatingShipping,
+    isLive,
     
     // Computed values
     plantItems,
@@ -317,12 +318,13 @@ const CheckoutScreen = () => {
         />
         
         {/* Browse More Plants Component */}
-        <BrowseMorePlants
+        {!isLive && (<BrowseMorePlants
           title="More from our Jungle"
           initialLimit={4}
           loadMoreLimit={4}
           showLoadMore={true}
-        />
+        />)}
+        {isLive && (<View style={{height: 60}}></View>)}
       </ScrollView>
       
       <CheckoutBar
