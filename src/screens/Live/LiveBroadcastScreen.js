@@ -5,7 +5,8 @@ import {
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp
+  serverTimestamp,
+  where
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
@@ -312,8 +313,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       const listingsCollectionRef = collection(db, 'listing');
       const q = query(
         listingsCollectionRef,
-        where('docId', '==', currentUserInfo.uid),
-        where('isActiveLiveListing', '==', true)
+        where('isActiveLiveListing', '==', true),
+        where('sellerCode', '==', currentUserInfo.uid)
       );
   
       const unsubscribe = onSnapshot(q, (querySnapshot) => {

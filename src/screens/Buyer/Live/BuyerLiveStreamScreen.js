@@ -71,6 +71,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
   const [isGuideModalVisible, setIsGuideModalVisible] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null);
+  const [brodcasterId, setBrodcasterId] = useState(route.params?.broadcasterId);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -225,12 +226,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !brodcasterId) return;
 
     const listingsCollectionRef = collection(db, 'listing');
     const q = query(
       listingsCollectionRef,
-      where('sessionId', '==', sessionId),
+      where('sellerCode', '==', brodcasterId),
       where('isActiveLiveListing', '==', true)
     );
 
@@ -246,7 +247,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     });
 
     return () => unsubscribe();
-  }, [sessionId]);
+  }, [sessionId, brodcasterId]);
 
    useEffect(() => {
      if (!sessionId) return;
