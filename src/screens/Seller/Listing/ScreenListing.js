@@ -43,6 +43,7 @@ import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ListingTable from './components/ListingTable';
+import ListingTableSkeleton from './components/ListingTableSkeleton';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';

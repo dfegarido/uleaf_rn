@@ -158,6 +158,7 @@ const ScreenShop = ({navigation}) => {
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
   
   // Search pagination state
   const [searchOffset, setSearchOffset] = useState(0);
@@ -977,10 +978,17 @@ const ScreenShop = ({navigation}) => {
                   onChangeText={setSearchTerm}
                   onFocus={() => setIsSearchFocused(true)}
                   onBlur={() => {
-                    // Close search results when input loses focus
+                    // Close search results when input loses focus, but not if navigating
                     setTimeout(() => {
-                      setIsSearchFocused(false);
-                    }, 150); // Small delay to allow for result tap
+                      if (!isNavigatingFromSearch) {
+                        setIsSearchFocused(false);
+                      } else {
+                        // Reset flag after a delay if navigation didn't happen
+                        setTimeout(() => {
+                          setIsNavigatingFromSearch(false);
+                        }, 500);
+                      }
+                    }, 300); // Increased delay to allow for result tap
                   }}
                   multiline={false}
                   numberOfLines={1}
@@ -1106,7 +1114,14 @@ const ScreenShop = ({navigation}) => {
 
         {/* Search Results Dropdown */}
         {isSearchFocused && searchTerm.trim().length >= 2 && (
-          <View style={[styles.searchResultsContainer, {top: insets.top + 52}]}>
+          <View 
+            style={[styles.searchResultsContainer, {top: insets.top + 52}]}
+            onTouchStart={() => {
+              // Prevent blur when touching the dropdown
+              setIsNavigatingFromSearch(true);
+            }}
+            onStartShouldSetResponder={() => true}
+          >
             {loadingSearch ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#10b981" />
@@ -1116,18 +1131,28 @@ const ScreenShop = ({navigation}) => {
               <FlatList
                 data={searchResults}
                 keyExtractor={(item, index) => `${item.id || item.plantCode || index}_${index}`}
+                keyboardShouldPersistTaps="handled"
                 renderItem={({item, index}) => (
                   <TouchableOpacity
                     style={styles.searchResultItem}
+                    activeOpacity={0.7}
                     onPress={() => {
                       if (item.plantCode) {
-                        setIsSearchFocused(false);
+                        // Set flag to prevent blur from closing dropdown
+                        setIsNavigatingFromSearch(true);
+                        // Navigate immediately
                         navigation.navigate('ScreenPlantDetail', {
                           plantCode: item.plantCode
                         });
+                        // Close dropdown and reset flag after navigation
+                        setIsSearchFocused(false);
+                        setTimeout(() => {
+                          setIsNavigatingFromSearch(false);
+                        }, 100);
                       } else {
                         console.error('❌ Missing plantCode for plant:', item);
                         Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+                        setIsNavigatingFromSearch(false);
                       }
                     }}
                   >
