@@ -366,10 +366,14 @@ const ScreenSingleSellLive = ({navigation, route}) => {
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status: 'Live',
+        status: isPurge ? 'Purge' : 'Live',
         publishType: 'Publish Now',
         isActiveLiveListing: !withActiveLiveListing,
       };
+
+      if (isPurge) {
+        data.sessionId = sessionId;
+      }
 
       const response = await postSellSinglePlantApi(data);
 
@@ -407,6 +411,8 @@ const ScreenSingleSellLive = ({navigation, route}) => {
     availableQty,
     status,
     publishType,
+    isPurge = false,
+    sessionId = ''
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -621,7 +627,7 @@ const ScreenSingleSellLive = ({navigation, route}) => {
           <LeftIcon width={20} height={20} />
         </TouchableOpacity>
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
-          Live Single Plant
+          {isPurge ? 'Purge Single Plant': 'Live Single Plant'}
         </Text>
         {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>

@@ -72,7 +72,7 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
       // Assuming the API returns a channelName or other session details
       // For now, we just navigate on success.
       if (response.success) {
-        navigation.navigate(liveType === 'purge' ? 'LivePurgeScreen' : 'LiveBroadcastScreen', {
+        navigation.navigate(liveType === 'purge' ? 'SetUpListingsPurgeScreen' : 'LiveBroadcastScreen', {
           sessionId: response.sessionId,
         });
       } else {

@@ -53,7 +53,7 @@ export const createLiveSession = async ({ title, coverPhoto, filename, mimeType,
   }
 };
 
-export const getLiveListingsBySessionApi = async (sessionId) => {
+export const getLiveListingsBySessionApi = async (sessionId, status='Live') => {
   try {
     if (!sessionId) {
       throw new Error('Session ID is required');
@@ -62,7 +62,7 @@ export const getLiveListingsBySessionApi = async (sessionId) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getLiveListingsBySession?sessionId=${sessionId}`,
+      `https://us-central1-i-leaf-u.cloudfunctions.net/getLiveListingsBySession?sessionId=${sessionId}&status=${status}`,
       {
         method: 'GET',
         headers: {

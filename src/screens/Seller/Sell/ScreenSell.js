@@ -251,7 +251,7 @@ const ScreenSell = ({navigation}) => {
                       fontWeight: '800',
                     },
                   ]}>
-                  Purge (soon)
+                  Purge
                 </Text>
               </TouchableOpacity>
             </View>
