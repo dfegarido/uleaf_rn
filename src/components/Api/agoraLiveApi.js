@@ -20,7 +20,7 @@ export const generateAgoraToken = async (channelName, agoraUid=null) => {
   }
 };
 
-export const createLiveSession = async ({ title, coverPhoto, filename, mimeType }) => {
+export const createLiveSession = async ({ title, coverPhoto, filename, mimeType, liveType }) => {
   try {
     const token = await getStoredAuthToken();
     // Use the local development URL for now.
@@ -37,6 +37,7 @@ export const createLiveSession = async ({ title, coverPhoto, filename, mimeType 
         coverPhoto,
         filename,
         mimeType,
+        liveType,
       }),
     });
 

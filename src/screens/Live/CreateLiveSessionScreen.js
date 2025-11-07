@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,11 +16,12 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import UploadIcon from '../../assets/live-icon/upload.svg';
 import { createLiveSession } from '../../components/Api/agoraLiveApi';
 
-const CreateLiveSessionScreen = () => {
-  const navigation = useNavigation();
+const CreateLiveSessionScreen = ({navigation, route}) => {
   const [title, setTitle] = useState('');
   const [coverPhoto, setCoverPhoto] = useState(null); // { uri, base64, fileName, type }
   const [isLoading, setIsLoading] = useState(false);
+  const { isPurge=false } = route.params;
+
 
   const handleChoosePhoto = () => {
     launchImageLibrary(
@@ -127,9 +127,13 @@ const CreateLiveSessionScreen = () => {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.goLiveButton} onPress={() => handleGoLive('live')}>
+        {!isPurge && (<TouchableOpacity style={styles.goLiveButton} onPress={() => handleGoLive('live')}>
           <Text style={styles.goLiveButtonText}>Setup Live</Text>
-        </TouchableOpacity>
+        </TouchableOpacity>)}
+
+        {isPurge && (<TouchableOpacity style={styles.goLiveButton} onPress={() => handleGoLive('purge')}>
+          <Text style={styles.goLiveButtonText}>Setup Live Purge</Text>
+        </TouchableOpacity>)}
       </View>
     </SafeAreaView>
   );

@@ -236,6 +236,7 @@ const ScreenSell = ({navigation}) => {
             </View>
             <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
               <TouchableOpacity
+                onPress={ () => navigation.navigate('CreateLiveSession', {isPurge: true})}
                 style={{
                   marginTop: 10,
                   justifyContent: 'center',
