@@ -64,6 +64,37 @@ const FilterTabs = [
     badgeCount: '',
   },
   {
+    filterKey: 'Inactive',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Discounted',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Scheduled',
+    badgeCount: '20',
+  },
+  {
+    filterKey: 'Expired',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Out of Stock',
+    badgeCount: '',
+  },
+];
+
+const FilterLiveTabs = [
+  {
+    filterKey: 'All',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Active',
+    badgeCount: '',
+  },
+  {
     filterKey: 'Live',
     badgeCount: '',
   },
@@ -927,7 +958,7 @@ const ScreenListing = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => {}}
+                onPress={() => navigation.navigate('ScreenMyPurges')}
                 style={styles.iconButton}>
                 {/* <LiveIcon width={40} height={40} />
                 <Text style={styles.liveTag}>LIVE</Text> */}
@@ -956,7 +987,7 @@ const ScreenListing = ({navigation}) => {
         </View>
         {/* Filter Tabs */}
         <TabFilter
-          tabFilters={FilterTabs}
+          tabFilters={userInfo?.liveFlag != 'No' ? FilterLiveTabs : FilterTabs}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onPressTab={onTabPressItem}
