@@ -73,6 +73,7 @@ const ScreenMyPurges = ({ navigation }) => {
 
   const renderItem = ({ item }) => {
     const scheduledDate = item.scheduledAt ? moment(item.scheduledAt).format('MMM DD, YYYY hh:mmA') : 'Not scheduled';
+    const durationText = item.duration ? `${item.duration} mins` : 'No duration set';
 
     return (
       <TouchableOpacity style={styles.card} onPress={() => handleCardPress(item)}>
@@ -92,6 +93,7 @@ const ScreenMyPurges = ({ navigation }) => {
             {item.title}
           </Text>
           <Text style={styles.cardDate}>Scheduled for: {scheduledDate}</Text>
+          <Text style={styles.cardDate}>Duration: {durationText}</Text>
         </View>
       </TouchableOpacity>
     );

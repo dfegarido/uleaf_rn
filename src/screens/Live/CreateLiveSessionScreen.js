@@ -19,6 +19,7 @@ import { createLiveSession } from '../../components/Api/agoraLiveApi';
 
 const CreateLiveSessionScreen = ({navigation, route}) => {
   const [title, setTitle] = useState('');
+  const [duration, setDuration] = useState('');
   const [coverPhoto, setCoverPhoto] = useState(null); // { uri, base64, fileName, type }
   const [isLoading, setIsLoading] = useState(false);
   const { isPurge=false } = route.params;
@@ -90,7 +91,8 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
         coverPhoto: coverPhoto.base64,
         filename: coverPhoto.fileName,
         mimeType: coverPhoto.type,
-        liveType
+        liveType,
+        duration: parseInt(duration, 10) || 0, // Add duration in minutes
       };
 
       if (isPurge) {
@@ -139,6 +141,16 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
           placeholderTextColor="#000"
           value={title}
           onChangeText={setTitle}
+        />
+
+        <Text style={styles.label}>Duration (in minutes)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g., 60"
+          placeholderTextColor="#888"
+          value={duration}
+          onChangeText={setDuration}
+          keyboardType="numeric"
         />
 
       {isPurge && (

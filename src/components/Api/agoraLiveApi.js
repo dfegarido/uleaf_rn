@@ -47,6 +47,32 @@ export const createLiveSession = async (data) => {
   }
 };
 
+export const updateLiveSession = async (sessionId, data) => {
+  try {
+    const token = await getStoredAuthToken();
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/updateLiveSession`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ sessionId, ...data }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('updateLiveSession error:', error.message);
+    return error;
+  }
+};
+
 export const getLiveListingsBySessionApi = async (sessionId, status='Live') => {
   try {
     if (!sessionId) {
