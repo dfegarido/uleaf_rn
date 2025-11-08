@@ -301,7 +301,7 @@ const ScreenHome = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag === 'Yes'  && (
               <TouchableOpacity
-                onPress={ () => navigation.navigate('CreateLiveSession')}
+                onPress={ () => navigation.navigate('CreateLiveSession', {isPurge: false})}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}

@@ -60,7 +60,7 @@ const ScreenMyPurges = ({ navigation }) => {
   const handleCardPress = (item) => {
     // Navigate based on purge status
     if (item.status === 'draft' || item.status === 'live') {
-      navigation.navigate('SetUpListingsPurgeScreen', { sessionId: item.sessionId });
+      navigation.navigate('SetUpListingsPurgeScreen', { sessionId: item.sessionId, live: item.status === 'live'});
     } 
     // else if (item.status === 'live') {
     //   navigation.navigate('LivePurgeScreen', { sessionId: item.sessionId });
@@ -72,7 +72,7 @@ const ScreenMyPurges = ({ navigation }) => {
   };
 
   const renderItem = ({ item }) => {
-    const scheduledDate = item.scheduledAt ? moment(item.scheduledAt).format('MMM DD, YYYY hh:mmA') : 'Not scheduled';
+    const scheduledDate = item.scheduledAt ? moment(item.scheduledAt.seconds * 1000).format('MMM DD, YYYY hh:mmA') : 'Not scheduled';
     const durationText = item.duration ? `${item.duration} mins` : 'No duration set';
 
     return (

@@ -960,6 +960,7 @@ const ScreenListing = ({navigation}) => {
               <TouchableOpacity
                 onPress={() => navigation.navigate('ScreenMyPurges')}
                 style={styles.iconButton}>
+                  
                 {/* <LiveIcon width={40} height={40} />
                 <Text style={styles.liveTag}>LIVE</Text> */}
                 <Purge />

@@ -24,12 +24,12 @@ import { getLiveListingsBySessionApi, updateLiveSession, updateLiveSessionStatus
 import { InputBox } from '../../components/Input';
 
 const SetUpListingsPurgeScreen = ({navigation, route}) => {
-  const {sessionId} = route.params;
+  const {sessionId, live=false} = route.params;
   const { userInfo } = useContext(AuthContext);
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const isFocused = useIsFocused();
-  const [isLive, setIsLive] = useState(false);
+  const [isLive, setIsLive] = useState(live);
   const [sessionDetails, setSessionDetails] = useState(null);
 
   // Edit Modal State

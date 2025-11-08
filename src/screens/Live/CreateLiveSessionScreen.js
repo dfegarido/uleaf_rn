@@ -79,6 +79,11 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
       return;
     }
 
+    if (isPurge && !duration) {
+      Alert.alert('Missing Duration', 'Please enter a duration for your live stream.');
+      return;
+    }
+
     if (isPurge && purgeDateTime <= new Date()) {
       Alert.alert('Invalid Date', 'Please select a future date and time for the purge.');
       return;
@@ -98,6 +103,8 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
       if (isPurge) {
         sessionData.scheduledAt = purgeDateTime.toISOString();
       }
+      console.log('purgeDateTime.toISOString()', purgeDateTime.toISOString());
+      
       const response = await createLiveSession(sessionData);
 
       // Assuming the API returns a channelName or other session details
@@ -143,16 +150,19 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
           onChangeText={setTitle}
         />
 
-        <Text style={styles.label}>Duration (in minutes)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., 60"
-          placeholderTextColor="#888"
-          value={duration}
-          onChangeText={setDuration}
-          keyboardType="numeric"
-        />
 
+        {isPurge && (<>
+          <Text style={styles.label}>Duration (in minutes)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., 60"
+            placeholderTextColor="#888"
+            value={duration}
+            onChangeText={setDuration}
+            keyboardType="numeric"
+          />
+        </>)}
+        
       {isPurge && (
        <>
           <Text style={styles.label}>Purge Date & Time</Text>
