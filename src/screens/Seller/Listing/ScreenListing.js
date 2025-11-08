@@ -49,7 +49,7 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
-import LiveIcon from '../../../assets/images/live.svg';
+import Purge from '../../../assets/live-icon/purge.svg';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -929,8 +929,10 @@ const ScreenListing = ({navigation}) => {
               <TouchableOpacity
                 onPress={() => {}}
                 style={styles.iconButton}>
-                <LiveIcon width={40} height={40} />
-                {/* <Text style={styles.liveTag}>LIVE</Text> */}
+                {/* <LiveIcon width={40} height={40} />
+                <Text style={styles.liveTag}>LIVE</Text> */}
+                <Purge />
+                {/* <Image source={require('../../../assets/live-icon/purge.png')} style={{width: 40, height: 40}} /> */}
               </TouchableOpacity>
             )}
             <TouchableOpacity

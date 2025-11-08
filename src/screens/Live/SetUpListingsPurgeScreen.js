@@ -13,13 +13,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
-import { getLiveListingsBySessionApi } from '../../components/Api/agoraLiveApi';
+import { getLiveListingsBySessionApi, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
 
 const SetUpListingsPurgeScreen = ({navigation, route}) => {
   const {sessionId} = route.params;
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const isFocused = useIsFocused();
+  const [isLive, setIsLive] = useState(false);
+
+  const updateLiveStatus = async (newStatus) => {
+    setLoading(true);
+    const response = await updateLiveSessionStatusApi(sessionId, newStatus);
+      if (response?.success && response?.newStatus === 'live') {
+        setIsLive(true);
+        setLoading(false);
+      } else {
+        setIsLive(false);
+        setLoading(false);
+      }
+  }
 
   const fetchListings = async () => {
     if (!sessionId) return;
@@ -43,6 +56,31 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
       fetchListings();
     }
   }, [isFocused, sessionId]);
+
+
+  const updateLiveSessionStatus = async (newStatus) => {
+    try {
+      if (newStatus === 'ended') {
+        Alert.alert(
+          "End Live Session",
+          "Are you sure you want to end the live session?",
+          [
+            { 
+              text: "Yes",
+              onPress: () => updateLiveStatus(newStatus)
+            },
+            { 
+              text: "Cancel",
+            }
+          ]
+        );
+      } else {
+        await updateLiveStatus(newStatus);
+      }
+    } catch (error) {
+      console.error('Error updating live session status:', error);
+    }
+  }
 
   const renderItem = ({item}) => (
     <View style={styles.card}>
@@ -105,11 +143,12 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.goLiveButton}
-          onPress={() => navigation.replace('LivePurgeScreen', {sessionId})}>
+        {!isLive && (<TouchableOpacity onPress={() => updateLiveSessionStatus('live')} style={styles.goLiveButton}>
           <Text style={styles.goLiveButtonText}>Go Live</Text>
-        </TouchableOpacity>
+        </TouchableOpacity>)}
+        {isLive && (<TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.goLiveButton}>
+          <Text style={styles.goLiveButtonText}>End Live</Text>
+        </TouchableOpacity>)}
       </View>
     </SafeAreaView>
   );

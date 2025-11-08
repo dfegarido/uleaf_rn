@@ -1,50 +1,39 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState, useRef, useEffect} from 'react'; // keep hook imports grouped
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useEffect, useRef, useState } from 'react'; // keep hook imports grouped
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Linking,
-  TextInput,
   ActivityIndicator,
   Alert,
-  RefreshControl,
   FlatList,
+  Image,
+  Linking,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useFocusEffect} from '@react-navigation/native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import {useAuth} from '../../../auth/AuthProvider';
-import {useFilters} from '../../../context/FilterContext';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
-import AvatarIcon from '../../../assets/images/avatar.svg';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
-import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
-import PromoBadgeList from '../../../components/PromoBadgeList';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
-import WholesaleIcon from '../../../assets/buyer-icons/wholesale-plants-icon.svg';
-import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
-import ThailandIcon from '../../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
-import DropDownIcon from '../../../assets/buyer-icons/drop-down.svg';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
 import {
   genus1,
-  genus2,
-  genus3,
-  genus4,
-  genus5,
-  genus6,
-  genus7,
-  genus8,
-  event1,
-  event2,
+  genus2
 } from '../../../assets/buyer-icons/png';
+import ThailandIcon from '../../../assets/buyer-icons/thailand-flag.svg';
+import WholesaleIcon from '../../../assets/buyer-icons/wholesale-plants-icon.svg';
+import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
+import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import { useAuth } from '../../../auth/AuthProvider';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import PromoBadgeList from '../../../components/PromoBadgeList';
+import { useFilters } from '../../../context/FilterContext';
 
 // Import genus images from assets/buyer-icons/png
 import alocasiaImage from '../../../assets/buyer-icons/png/alocasia.jpg';
@@ -52,39 +41,39 @@ import anthuriumImage from '../../../assets/buyer-icons/png/anthurium.jpg';
 import begoniaImage from '../../../assets/buyer-icons/png/begonia.jpg';
 import hoyaImage from '../../../assets/buyer-icons/png/hoya.jpg';
 import monsteraImage from '../../../assets/buyer-icons/png/monstera.jpg';
+import othersImage from '../../../assets/buyer-icons/png/others.jpg';
+import philodendronImage from '../../../assets/buyer-icons/png/philodendron.jpg';
 import scindapsusImage from '../../../assets/buyer-icons/png/scindapsus.jpg';
 import syngoniumImage from '../../../assets/buyer-icons/png/syngonium.jpg';
-import philodendronImage from '../../../assets/buyer-icons/png/philodendron.jpg';
-import othersImage from '../../../assets/buyer-icons/png/others.jpg';
 
-import {InfoCard} from '../../../components/InfoCards';
-import {ReusableActionSheet} from '../../../components/ReusableActionSheet';
+import NetInfo from '@react-native-community/netinfo';
 import {
+  addToCartApi,
+  getBuyerEventsApi,
+  getBuyerListingsApi,
   getGenusApi,
   getVariegationApi,
-  getBuyerEventsApi,
   searchPlantsApi,
-  getBuyerListingsApi,
-  addToCartApi,
 } from '../../../components/Api';
 import {
+  getAcclimationIndexApi,
   getCountryApi,
   getListingTypeApi,
   getShippingIndexApi,
-  getAcclimationIndexApi,
 } from '../../../components/Api/dropdownApi';
-import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
+import { InfoCard } from '../../../components/InfoCards';
+import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
 import {
-  setCacheData,
-  getCacheData,
   CACHE_KEYS,
+  getCacheData,
+  setCacheData,
 } from '../../../utils/dropdownCache';
 import {
+  CACHE_CONFIGS,
   getCachedImageUri,
-  setCachedImageUri,
-  CACHE_CONFIGS
+  setCachedImageUri
 } from '../../../utils/imageCache';
+import { retryAsync } from '../../../utils/utils';
 
 const countryData = [
   {

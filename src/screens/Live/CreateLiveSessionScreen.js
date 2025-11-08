@@ -11,6 +11,7 @@ import {
   View
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import UploadIcon from '../../assets/live-icon/upload.svg';
@@ -21,6 +22,10 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   const [coverPhoto, setCoverPhoto] = useState(null); // { uri, base64, fileName, type }
   const [isLoading, setIsLoading] = useState(false);
   const { isPurge=false } = route.params;
+
+  // State for date and time picker
+  const [purgeDateTime, setPurgeDateTime] = useState(new Date());
+  const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
 
 
   const handleChoosePhoto = () => {
@@ -49,6 +54,20 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
     );
   };
 
+  const showDatePicker = () => {
+    setDatePickerVisibility(true);
+  };
+
+  const hideDatePicker = () => {
+    setDatePickerVisibility(false);
+  };
+
+  const handleConfirmDate = (date) => {
+    console.log("A date has been picked: ", date);
+    setPurgeDateTime(date);
+    hideDatePicker();
+  };
+
   const handleGoLive = async (liveType) => {
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a title for your live stream.');
@@ -59,20 +78,30 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
       return;
     }
 
+    if (isPurge && purgeDateTime <= new Date()) {
+      Alert.alert('Invalid Date', 'Please select a future date and time for the purge.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const response = await createLiveSession({
+      const sessionData = {
         title: title.trim(),
         coverPhoto: coverPhoto.base64,
         filename: coverPhoto.fileName,
         mimeType: coverPhoto.type,
         liveType
-      });
+      };
+
+      if (isPurge) {
+        sessionData.scheduledAt = purgeDateTime.toISOString();
+      }
+      const response = await createLiveSession(sessionData);
 
       // Assuming the API returns a channelName or other session details
       // For now, we just navigate on success.
       if (response.success) {
-        navigation.navigate(liveType === 'purge' ? 'SetUpListingsPurgeScreen' : 'LiveBroadcastScreen', {
+        navigation.replace(liveType === 'purge' ? 'SetUpListingsPurgeScreen' : 'LiveBroadcastScreen', {
           sessionId: response.sessionId,
         });
       } else {
@@ -112,6 +141,24 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
           onChangeText={setTitle}
         />
 
+      {isPurge && (
+       <>
+          <Text style={styles.label}>Purge Date & Time</Text>
+          <TouchableOpacity onPress={showDatePicker} style={styles.input}>
+              <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()}</Text>
+          </TouchableOpacity>
+       </>
+      )}
+
+      <DateTimePickerModal
+        isVisible={isDatePickerVisible}
+        mode="datetime"
+        onConfirm={handleConfirmDate}
+        onCancel={hideDatePicker}
+        date={purgeDateTime}
+        minimumDate={new Date()}
+      />
+
         <Text style={styles.label}>Cover Photo</Text>
         <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
           {coverPhoto ? (
@@ -125,6 +172,8 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
           )}
         </TouchableOpacity>
       </View>
+
+      <View style={{flex: 1}} />
 
       <View style={styles.footer}>
         {!isPurge && (<TouchableOpacity style={styles.goLiveButton} onPress={() => handleGoLive('live')}>

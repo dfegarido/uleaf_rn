@@ -20,7 +20,7 @@ export const generateAgoraToken = async (channelName, agoraUid=null) => {
   }
 };
 
-export const createLiveSession = async ({ title, coverPhoto, filename, mimeType, liveType }) => {
+export const createLiveSession = async (data) => {
   try {
     const token = await getStoredAuthToken();
     // Use the local development URL for now.
@@ -32,13 +32,7 @@ export const createLiveSession = async ({ title, coverPhoto, filename, mimeType,
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        title,
-        coverPhoto,
-        filename,
-        mimeType,
-        liveType,
-      }),
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
