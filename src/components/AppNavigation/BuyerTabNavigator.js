@@ -28,6 +28,7 @@ import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
+import ScreenPlantDetailPurge from '../../screens/Buyer/Shop/ScreenPlantDetailPurge';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
@@ -103,6 +104,11 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="ScreenPlantDetail"
         component={ScreenPlantDetail}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenPlantDetailPurge"
+        component={ScreenPlantDetailPurge}
         options={{headerShown: false}}
       />
       <Stack.Screen

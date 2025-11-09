@@ -120,22 +120,30 @@ const LivePurgeScreen = ({navigation, route}) => {
     return `${hours}:${minutes}:${seconds}`;
   };
 
+  const goToPlantDetails = (plantCode) => {
+     navigation.navigate('ScreenPlantDetailPurge', {
+                        plantCode: plantCode
+                      });
+  };
+
   const renderItem = ({ item }) => (
-    <View style={styles.card}>
-      <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {item.genus} {item.species}
-        </Text>
-        <Text style={styles.cardDetails}>
-          {item.variegation} · {item.potSize}
-        </Text>
+    <TouchableOpacity style={styles.card} onPress={() => goToPlantDetails(item.plantCode)} >
+      <View >
+        <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.genus} {item.species}
+          </Text>
+          <Text style={styles.cardDetails}>
+            {item.variegation} · {item.potSize}
+          </Text>
+        </View>
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardPrice}>${item.usdPrice}</Text>
+          <Text style={styles.cardStock}>{item.availableQty} pcs</Text>
+        </View>
       </View>
-      <View style={styles.cardFooter}>
-        <Text style={styles.cardPrice}>${item.usdPrice}</Text>
-        <Text style={styles.cardStock}>{item.availableQty} pcs</Text>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
