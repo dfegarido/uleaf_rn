@@ -130,9 +130,16 @@ const LivePurgeScreen = ({navigation, route}) => {
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card} onPress={() => goToPlantDetails(item.plantCode)} >
-      <View >
-        <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
+    <TouchableOpacity style={styles.card} onPress={() => item.availableQty === 0 ? null : goToPlantDetails(item.plantCode)} >
+      <View>
+        <View>
+          <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
+          {item.availableQty === 0 && (
+            <View style={styles.soldBadge}>
+              <Text style={styles.soldBadgeText}>SOLD</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.genus} {item.species}
@@ -252,5 +259,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  soldBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  soldBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    textTransform: 'uppercase',
   },
 });
