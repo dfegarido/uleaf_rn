@@ -1,5 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,7 +17,6 @@ import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import {
   addViewerToLiveSession,
-  getLiveListingsBySessionApi,
   removeViewerFromLiveSession
 } from '../../components/Api/agoraLiveApi';
 
@@ -89,26 +88,30 @@ const LivePurgeScreen = ({navigation, route}) => {
   }, [sessionDetails, navigation]);
 
   useEffect(() => {
-    const fetchListings = async () => {
-      if (!sessionId) return;
-      setLoading(true);
-      try {
-        const response = await getLiveListingsBySessionApi(sessionId, 'Purge');
-        if (response.success) {
-          setListings(response.data);
-        } else {
-          Alert.alert('Error', response.error || 'Failed to fetch listings.');
-        }
-      } catch (error) {
-        Alert.alert('Error', error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!isFocused || !sessionId) return;
 
-    if (isFocused) {
-      fetchListings();
-    }
+    setLoading(true);
+    const listingsCollectionRef = collection(db, 'listing');
+    const q = query(
+      listingsCollectionRef,
+      where('sessionId', '==', sessionId),
+      where('status', '==', 'Purge'),
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedListings = [];
+      querySnapshot.forEach((doc) => {
+        fetchedListings.push({ id: doc.id, ...doc.data() });
+      });
+      setListings(fetchedListings);
+      setLoading(false);
+    }, (error) => {
+        console.error("Error fetching listings snapshot: ", error);
+        Alert.alert('Error', 'Failed to fetch listings in real-time.');
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [isFocused, sessionId]);
 
   const formatTime = (milliseconds) => {
