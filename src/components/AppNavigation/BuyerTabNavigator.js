@@ -6,7 +6,6 @@ import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import buyer screens
 import { ScreenCart } from '../../screens/Buyer/Cart';
@@ -20,9 +19,9 @@ import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
-import MyShippingBuddiesRouter from '../../screens/Buyer/Profile/ShippingBuddies/MyShippingBuddiesRouter';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
+import MyShippingBuddiesRouter from '../../screens/Buyer/Profile/ShippingBuddies/MyShippingBuddiesRouter';
 import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
@@ -33,6 +32,7 @@ import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
 import ChatScreen from '../../screens/ChatScreen/ChatScreen';
 import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
+import LivePurgeScreen from '../../screens/Live/LivePurgeScreen';
 
 import { LiveBroadcastScreen } from '../../screens/Live';
 
@@ -149,6 +149,12 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="BuyerLiveStreamScreen"
         component={BuyerLiveStreamScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="LivePurgeScreen"
+        component={LivePurgeScreen}
         options={{headerShown: false}}
       />
 
