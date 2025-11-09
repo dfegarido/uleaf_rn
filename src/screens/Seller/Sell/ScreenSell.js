@@ -236,6 +236,7 @@ const ScreenSell = ({navigation}) => {
             </View>
             <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
               <TouchableOpacity
+                onPress={ () => navigation.navigate('CreateLiveSession', {isPurge: true})}
                 style={{
                   marginTop: 10,
                   justifyContent: 'center',
@@ -250,7 +251,7 @@ const ScreenSell = ({navigation}) => {
                       fontWeight: '800',
                     },
                   ]}>
-                  Purge (soon)
+                  Purge
                 </Text>
               </TouchableOpacity>
             </View>

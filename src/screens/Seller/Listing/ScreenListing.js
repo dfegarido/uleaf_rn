@@ -50,12 +50,43 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
-import LiveIcon from '../../../assets/images/live.svg';
+import Purge from '../../../assets/live-icon/purge.svg';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
 
 const FilterTabs = [
+  {
+    filterKey: 'All',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Active',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Inactive',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Discounted',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Scheduled',
+    badgeCount: '20',
+  },
+  {
+    filterKey: 'Expired',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Out of Stock',
+    badgeCount: '',
+  },
+];
+
+const FilterLiveTabs = [
   {
     filterKey: 'All',
     badgeCount: '',
@@ -944,10 +975,13 @@ const ScreenListing = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => {}}
+                onPress={() => navigation.navigate('ScreenMyPurges')}
                 style={styles.iconButton}>
-                <LiveIcon width={40} height={40} />
-                {/* <Text style={styles.liveTag}>LIVE</Text> */}
+                  
+                {/* <LiveIcon width={40} height={40} />
+                <Text style={styles.liveTag}>LIVE</Text> */}
+                <Purge />
+                {/* <Image source={require('../../../assets/live-icon/purge.png')} style={{width: 40, height: 40}} /> */}
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -971,7 +1005,7 @@ const ScreenListing = ({navigation}) => {
         </View>
         {/* Filter Tabs */}
         <TabFilter
-          tabFilters={FilterTabs}
+          tabFilters={userInfo?.liveFlag != 'No' ? FilterLiveTabs : FilterTabs}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onPressTab={onTabPressItem}

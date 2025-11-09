@@ -9,16 +9,16 @@
 import React, { useEffect, useState } from 'react';
 // Ensure Firebase is initialized before providers mount
 import './firebase';
-import {AuthProvider} from './src/auth/AuthProvider';
-import {FilterProvider} from './src/context/FilterContext';
-import {LovedListingsProvider} from './src/context/LovedListingsContext';
-import { preloadAllDropdownData, clearSpecificDropdownCache, CACHE_KEYS } from './src/utils/dropdownCache';
-import { getGenusApi, getVariegationApi, getCountryApi, getListingTypeApi, getShippingIndexApi, getAcclimationIndexApi } from './src/components/Api/dropdownApi';
-import { clearExpiredImageCache } from './src/utils/imageCache';
+import { version as appVersion } from './package.json';
+import { AuthProvider } from './src/auth/AuthProvider';
+import { getAppVersionApi } from './src/components/Api/appVersionApi';
+import { getGenusApi, getVariegationApi } from './src/components/Api/dropdownApi';
 import AppNavigation from './src/components/AppNavigation';
+import { FilterProvider } from './src/context/FilterContext';
+import { LovedListingsProvider } from './src/context/LovedListingsContext';
 import UpdateRequiredScreen from './src/screens/UpdateRequired/UpdateRequiredScreen';
-import {getAppVersionApi} from './src/components/Api/appVersionApi';
-import {version as appVersion} from './package.json';
+import { CACHE_KEYS, clearSpecificDropdownCache, preloadAllDropdownData } from './src/utils/dropdownCache';
+import { clearExpiredImageCache } from './src/utils/imageCache';
 
 const App = () => {
   const [showUpdateScreen, setShowUpdateScreen] = useState(false);
@@ -45,7 +45,7 @@ const App = () => {
           
           // If force update is enabled, show the screen
           if (forceUpdate) {
-            setShowUpdateScreen(true);
+            setShowUpdateScreen(false);
           } else {
             // Optional update - store info for later
             console.log('Update available:', currentVersion);

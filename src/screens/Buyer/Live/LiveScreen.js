@@ -83,7 +83,7 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
 
   return (
     <TouchableOpacity 
-      onPress={stream.isLive ? () => navigation.navigate(stream.liveType === 'purge' ? 'BuyerLivePurgeScreen' : 'BuyerLiveStreamScreen', {
+      onPress={stream.isLive ? () => navigation.navigate(stream.liveType === 'purge' ? 'LivePurgeScreen' : 'BuyerLiveStreamScreen', {
           sessionId: stream.sessionId,
           broadcasterId: stream.createdBy,
         }) : () => {}} 
@@ -113,6 +113,15 @@ const LiveVideoCard = ({navigation, stream, cardWidth, index, totalItems}) => {
                   {formatViewers(stream.viewers)}
                 </Text>
               </View>
+            </View>
+            <View style={styles.topOverlayPurge}>
+              {stream.isLive && stream.liveType === 'purge' ? (
+                <View style={styles.liveStatusPurgeLeft}>
+                  <Text style={styles.livePurgeLabel}>Purge</Text>
+                </View>
+              ) : (
+                <View style={styles.emptySpace} />
+              )}
             </View>
 
             {/* Date Time overlay at bottom - only for non-live streams */}
@@ -233,6 +242,7 @@ const LiveScreen = ({navigation}) => {
           isLive: data.status === 'live',
           viewers: formatViewers(data.totalViewers || 0),
           createdBy: data.createdBy || '',
+          liveType: data.liveType || 'live',
         };
         fetchedLiveStreams.push(mutatedData);
       });
@@ -364,6 +374,19 @@ const styles = StyleSheet.create({
     top: 0,
     zIndex: 1,
   },
+  topOverlayPurge: {
+    position: 'absolute',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 8,
+    gap: 8,
+    width: 166,
+    height: 40,
+    left: 0,
+    top: 30,
+    zIndex: 1,
+  },
   bottomOverlay: {
     position: 'absolute',
     flexDirection: 'row',
@@ -387,6 +410,19 @@ const styles = StyleSheet.create({
     height: 24,
     minHeight: 22,
     backgroundColor: '#539461',
+    borderRadius: 8,
+  },
+  liveStatusPurgeLeft: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    gap: 4,
+    width: 64,
+    height: 24,
+    minHeight: 22,
+    backgroundColor: '#a23514ff',
     borderRadius: 8,
   },
   emptySpace: {
@@ -416,6 +452,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     width: 31,
     height: 20,
+  },
+  livePurgeLabel: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#FFFFFF',
+    width: 45,
+    height: 25,
   },
   viewersContainer: {
     flexDirection: 'row',

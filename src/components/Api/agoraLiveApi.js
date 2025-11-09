@@ -20,7 +20,7 @@ export const generateAgoraToken = async (channelName, agoraUid=null) => {
   }
 };
 
-export const createLiveSession = async ({ title, coverPhoto, filename, mimeType }) => {
+export const createLiveSession = async (data) => {
   try {
     const token = await getStoredAuthToken();
     // Use the local development URL for now.
@@ -32,12 +32,7 @@ export const createLiveSession = async ({ title, coverPhoto, filename, mimeType 
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        title,
-        coverPhoto,
-        filename,
-        mimeType,
-      }),
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -52,7 +47,33 @@ export const createLiveSession = async ({ title, coverPhoto, filename, mimeType 
   }
 };
 
-export const getLiveListingsBySessionApi = async (sessionId) => {
+export const updateLiveSession = async (sessionId, data) => {
+  try {
+    const token = await getStoredAuthToken();
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/updateLiveSession`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ sessionId, ...data }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('updateLiveSession error:', error.message);
+    return error;
+  }
+};
+
+export const getLiveListingsBySessionApi = async (sessionId, status='Live') => {
   try {
     if (!sessionId) {
       throw new Error('Session ID is required');
@@ -61,7 +82,7 @@ export const getLiveListingsBySessionApi = async (sessionId) => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getLiveListingsBySession?sessionId=${sessionId}`,
+      `https://us-central1-i-leaf-u.cloudfunctions.net/getLiveListingsBySession?sessionId=${sessionId}&status=${status}`,
       {
         method: 'GET',
         headers: {
