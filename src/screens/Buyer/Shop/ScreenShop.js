@@ -5,28 +5,22 @@ import React, { useEffect, useRef, useState } from 'react'; // keep hook imports
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Image,
   Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
 import SearchHeader from '../../../components/Header/SearchHeader';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
-import AvatarIcon from '../../../assets/images/avatar.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 import PromoBadgeList from '../../../components/PromoBadgeList';
 import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
 import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
@@ -37,14 +31,7 @@ import {
 } from '../../../assets/buyer-icons/png';
 import ThailandIcon from '../../../assets/buyer-icons/thailand-flag.svg';
 import WholesaleIcon from '../../../assets/buyer-icons/wholesale-plants-icon.svg';
-import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
-import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
-import { useAuth } from '../../../auth/AuthProvider';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import PromoBadgeList from '../../../components/PromoBadgeList';
-import { useFilters } from '../../../context/FilterContext';
 
 // Import genus images from assets/buyer-icons/png
 import alocasiaImage from '../../../assets/buyer-icons/png/alocasia.jpg';

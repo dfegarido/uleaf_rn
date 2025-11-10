@@ -328,11 +328,6 @@ const SearchHeader = ({
             e.stopPropagation();
             setIsNavigatingFromSearch(true);
           }}
-          onStartShouldSetResponder={() => true}
-          onResponderGrant={() => {
-            // Keep dropdown open when interacting with it
-            setIsNavigatingFromSearch(true);
-          }}
         >
           {loadingSearch ? (
             <View style={styles.loadingContainer}>
@@ -354,6 +349,14 @@ const SearchHeader = ({
               bounces={true}
               onEndReached={loadMoreSearchResults}
               onEndReachedThreshold={0.5}
+              onScrollBeginDrag={() => {
+                // Prevent blur when scrolling starts
+                setIsNavigatingFromSearch(true);
+              }}
+              onMomentumScrollBegin={() => {
+                // Prevent blur during momentum scrolling
+                setIsNavigatingFromSearch(true);
+              }}
               ListFooterComponent={() => {
                 if (loadingMoreSearch) {
                   return (
