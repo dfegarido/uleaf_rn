@@ -136,6 +136,25 @@ const OrderSummary = ({navigation}) => {
     });
   };
 
+  // Helper function to safely convert error to string
+  const errorToString = (err) => {
+    if (!err) return null;
+    if (typeof err === 'string') return err;
+    if (err?.message) return String(err.message);
+    if (typeof err?.toString === 'function') {
+      try {
+        return err.toString();
+      } catch (e) {
+        return 'An error occurred';
+      }
+    }
+    try {
+      return String(err);
+    } catch (e) {
+      return 'An error occurred';
+    }
+  };
+
   // Map order data to table row format
   const mapOrderToTableRow = (order) => {
 
@@ -446,7 +465,9 @@ const OrderSummary = ({navigation}) => {
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError(err.message || 'Failed to fetch orders');
+      // Ensure error is always a string, never an object
+      const errorMessage = errorToString(err) || 'Failed to fetch orders';
+      setError(errorMessage);
       setOrders([]);
     } finally {
       setLoading(false);
@@ -1090,7 +1111,9 @@ const OrderSummary = ({navigation}) => {
               <OrderTableSkeleton rowCount={5} />
             ) : error ? (
               <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>
+                  {errorToString(error) || 'An error occurred'}
+                </Text>
                 <TouchableOpacity onPress={fetchOrders} style={styles.retryButton}>
                   <Text style={styles.retryButtonText}>Retry</Text>
                 </TouchableOpacity>
