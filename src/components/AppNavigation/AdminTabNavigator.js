@@ -2,7 +2,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
 import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
@@ -64,16 +63,11 @@ const Stack = createNativeStackNavigator();
 
 function AdminTabs() {
     const navigation = useNavigation();
-    const insets = useSafeAreaInsets();
     return (
-      <SafeAreaView style={{flex: 1}} edges={["bottom"]}>
-        <Tab.Navigator
-          initialRouteName="Home"
-          screenOptions={({route}) => ({
-            tabBarStyle: [styles.tabBar, {
-              paddingBottom: Math.max(insets.bottom, 10),
-              height: 60 + Math.max(insets.bottom, 10)
-            }],
+      <Tab.Navigator
+        initialRouteName="Home"
+        screenOptions={({route}) => ({
+          tabBarStyle: [styles.tabBar],
             tabBarActiveTintColor: '#539461',
             tabBarLabel: ({focused, color}) => {
               let labelStyle = focused
@@ -162,7 +156,6 @@ function AdminTabs() {
           })}
         />
       </Tab.Navigator>
-      </SafeAreaView>
     );
   }
 
@@ -238,7 +231,8 @@ const styles = StyleSheet.create({
       marginTop: -4,
     },
     tabBar: {
-      paddingBottom: 10,
+      paddingBottom: 30,
+      height: 80,
     },
   });
 

@@ -162,6 +162,25 @@ const ScreenLoginOtp = ({navigation}) => {
           setUserInfo(profile);
           await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
 
+          // Extract and store profile photo
+          const profilePhotoUrl = profile?.data?.profilePhotoUrl || 
+                                 profile?.data?.profileImage ||
+                                 profile?.user?.profilePhotoUrl ||
+                                 profile?.user?.profileImage ||
+                                 profile?.profilePhotoUrl ||
+                                 profile?.profileImage ||
+                                 null;
+          
+          if (profilePhotoUrl) {
+            const timestamp = Date.now();
+            const cacheBustedUrl = `${profilePhotoUrl}${profilePhotoUrl.includes('?') ? '&' : '?'}cb=${timestamp}`;
+            await AsyncStorage.setItem('profilePhotoUrl', profilePhotoUrl);
+            await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', cacheBustedUrl);
+            console.log('✅ Profile photo stored in AsyncStorage:', profilePhotoUrl);
+          } else {
+            console.log('ℹ️ No profile photo found in profile response');
+          }
+
           // Log user type for debugging
           console.log('User type detected:', profile?.user?.userType);
         } else {

@@ -14,19 +14,6 @@ const MessageInput = ({onSend}) => {
     }
   };
 
-  const handleKeyPress = (event) => {
-    if (event.nativeEvent.key === 'Enter') {
-      if (event.nativeEvent.shiftKey) {
-        // Shift+Enter: Allow line break (default behavior)
-        return;
-      } else {
-        // Enter alone: Send message
-        event.preventDefault();
-        handleSend();
-      }
-    }
-  };
-
   const handleContentSizeChange = (event) => {
     const newHeight = Math.min(Math.max(40, event.nativeEvent.contentSize.height), 120); // Min 40px, Max 120px
     setInputHeight(newHeight);
@@ -40,11 +27,11 @@ const MessageInput = ({onSend}) => {
           placeholder="Message..."
           value={message}
           onChangeText={setMessage}
-          onKeyPress={handleKeyPress}
           onContentSizeChange={handleContentSizeChange}
           multiline={true}
           textAlignVertical="top"
           returnKeyType="default"
+          blurOnSubmit={false}
           placeholderTextColor="#999"
         />
         <TouchableOpacity

@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,17 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../../auth/AuthProvider';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
-import {getAdminInfoApi, updateAdminInfoApi} from '../../../components/Api';
+import {getAdminInfoApi, updateAdminInfoApi, uploadProfilePhotoApi} from '../../../components/Api';
+import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
+import Avatar from '../../../components/Avatar/Avatar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 
 // Import icons
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -23,7 +29,7 @@ import EditIcon from '../../../assets/EditIcon';
 
 const AdminAccountInformationScreen = () => {
   const navigation = useNavigation();
-  const {userInfo} = useContext(AuthContext);
+  const {userInfo, updateProfileImage} = useContext(AuthContext);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   
@@ -36,10 +42,30 @@ const AdminAccountInformationScreen = () => {
   const [originalData, setOriginalData] = useState({});
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Profile photo states
+  const [profilePhotoUri, setProfilePhotoUri] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  
+  // Ref for Avatar component
+  const avatarRef = useRef(null);
+
   // Fetch admin info from API
   const fetchAdminInfo = async () => {
     try {
       setInitialLoading(true);
+      
+      // Try to load the profile photo from AsyncStorage first
+      try {
+        const storedPhotoUrl = await AsyncStorage.getItem('profilePhotoUrlWithTimestamp') || 
+                               await AsyncStorage.getItem('profilePhotoUrl');
+        if (storedPhotoUrl) {
+          setProfilePhotoUri(storedPhotoUrl);
+        }
+      } catch (e) {
+        console.warn('Failed to get profile photo from AsyncStorage:', e);
+      }
+      
       const adminData = await getAdminInfoApi();
       
       if (adminData && adminData.success && adminData.data) {
@@ -49,6 +75,12 @@ const AdminAccountInformationScreen = () => {
         const newLastName = userData.lastName || '';
         const newEmail = userData.email || '';
         const newAdminId = userData.uid || userData.adminId || userData.id || userData._id || '';
+        
+        // Set profile photo from API response if available
+        if (userData.profilePhotoUrl || userData.profileImage) {
+          const photoUrl = userData.profilePhotoUrl || userData.profileImage;
+          setProfilePhotoUri(photoUrl);
+        }
         
         console.log('Extracted adminId:', newAdminId); // Debug log
         setFirstName(newFirstName);
@@ -117,6 +149,159 @@ const AdminAccountInformationScreen = () => {
     if (!lastName.trim()) errors.push('Last name is required.');
 
     return errors;
+  };
+
+  // Request permissions for camera and photo library
+  const requestPermissions = async () => {
+    if (Platform.OS !== 'android') return true;
+
+    const sdkInt = parseInt(Platform.Version, 10);
+    const permissions = [PermissionsAndroid.PERMISSIONS.CAMERA];
+
+    if (sdkInt < 33) {
+      permissions.push(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
+    }
+
+    const granted = await PermissionsAndroid.requestMultiple(permissions);
+
+    const allGranted = Object.values(granted).every(
+      result => result === PermissionsAndroid.RESULTS.GRANTED,
+    );
+
+    return allGranted;
+  };
+
+  // Handle camera selection
+  const handleCamera = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      Alert.alert(
+        'Permission Denied',
+        'Camera or media access was not granted.',
+      );
+      setShowImagePicker(false);
+      return;
+    }
+
+    launchCamera({mediaType: 'photo', quality: 1}, response => {
+      setShowImagePicker(false);
+      if (response.didCancel || response.errorCode) return;
+      const uri = response.assets?.[0]?.uri;
+      if (uri) {
+        handlePhotoUpload(uri);
+      }
+    });
+  };
+
+  // Handle gallery selection
+  const handleGallery = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Media access was not granted.');
+      setShowImagePicker(false);
+      return;
+    }
+
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        selectionLimit: 1,
+      },
+      response => {
+        setShowImagePicker(false);
+        if (response.didCancel || response.errorCode) return;
+        const uri = response.assets?.[0]?.uri;
+        if (uri) {
+          handlePhotoUpload(uri);
+        }
+      },
+    );
+  };
+
+  // Handle photo selection and upload via server multipart/form-data endpoint
+  const handlePhotoUpload = async (imageUri) => {
+    if (!imageUri) return;
+
+    setUploadingPhoto(true);
+
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        Alert.alert('Error', 'No internet connection.');
+        setUploadingPhoto(false);
+        return;
+      }
+
+      console.log('Starting profile photo upload with URI:', imageUri);
+      
+      // Upload via server endpoint which expects form-data field 'profilePhoto'
+      const result = await uploadProfilePhotoApi(imageUri);
+      console.log('Upload API response:', result);
+
+      // Check if the server response indicates an error
+      if (!result.success) {
+        throw new Error(result.error || result.message || 'Server reported an error during upload');
+      }
+
+      // Server returns profilePhotoUrl on success
+      const newUrl = result?.profilePhotoUrl || result?.profileImage || null;
+      if (!newUrl) throw new Error('Upload succeeded but server did not return a URL.');
+
+      console.log('New profile photo URL:', newUrl);
+
+      // Update local UI with a cache-busted URL for immediate refresh
+      const timestamp = Date.now();
+      const localCacheBusted = `${newUrl}${newUrl.includes('?') ? '&' : '?'}cb=${timestamp}`;
+      setProfilePhotoUri(localCacheBusted);
+
+      // Store the URL in AsyncStorage for other screens to access
+      try {
+        await AsyncStorage.setItem('profilePhotoUrl', newUrl);
+        await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', localCacheBusted);
+      } catch (e) {
+        console.warn('Failed to update AsyncStorage:', e);
+      }
+
+      // Persist canonical URL into AuthContext
+      if (typeof updateProfileImage === 'function') {
+        await updateProfileImage(newUrl);
+        
+        // Also update userInfo in AsyncStorage directly
+        try {
+          const userInfoStr = await AsyncStorage.getItem('userInfo');
+          if (userInfoStr) {
+            const userInfoObj = JSON.parse(userInfoStr);
+            userInfoObj.profileImage = newUrl;
+            userInfoObj.profileImageTimestamp = timestamp;
+            userInfoObj.profileImageWithTimestamp = localCacheBusted;
+            await AsyncStorage.setItem('userInfo', JSON.stringify(userInfoObj));
+          }
+        } catch (e) {
+          console.warn('Failed to update userInfo in AsyncStorage:', e);
+        }
+        
+        // Force Avatar components to refresh
+        setTimeout(() => {
+          setProfilePhotoUri(`${newUrl}${newUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`);
+          if (avatarRef.current) {
+            avatarRef.current.refresh();
+          }
+        }, 100);
+      }
+
+      Alert.alert('Success', 'Profile photo updated successfully!');
+      setUploadingPhoto(false);
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      let errorMessage = 'Failed to upload photo. Please try again.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
+      setUploadingPhoto(false);
+    }
   };
 
   const handleRefresh = () => {
@@ -208,7 +393,7 @@ const AdminAccountInformationScreen = () => {
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
-      <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
+      <View style={[styles.header]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -232,9 +417,24 @@ const AdminAccountInformationScreen = () => {
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              <AvatarIcon width={96} height={96} />
+              {/* Use the shared Avatar component with imageUri to force refresh */}
+              <Avatar 
+                ref={avatarRef}
+                size={96}
+                imageUri={profilePhotoUri}
+                style={styles.avatarImage}
+                onPress={null} // Disable default navigation
+              />
+              {uploadingPhoto && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="large" color="#539461" />
+                </View>
+              )}
             </View>
-            <TouchableOpacity style={styles.editButton} disabled>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => setShowImagePicker(true)}
+            >
               <EditIcon />
             </TouchableOpacity>
           </View>
@@ -303,6 +503,34 @@ const AdminAccountInformationScreen = () => {
         </View>
       </ScrollView>
       )}
+
+      {/* Image Picker Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={showImagePicker}
+        onRequestClose={() => setShowImagePicker(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPressOut={() => setShowImagePicker(false)}>
+          <View style={styles.modalContainer}>
+            <TouchableOpacity style={styles.modalOption} onPress={handleCamera}>
+              <Text style={styles.modalOptionText}>
+                📷 Take Photo
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalOption} onPress={handleGallery}>
+              <Text style={styles.modalOptionText}>
+                🖼️ Choose from Library
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowImagePicker(false)}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -372,7 +600,54 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    opacity: 0.5,
+  },
+  avatarImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  modalOption: {
+    width: '100%',
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalOptionText: {
+    fontSize: 18,
+    color: '#202325',
+    fontWeight: '500',
+  },
+  modalCancelText: {
+    fontSize: 18,
+    color: '#FF6B6B',
+    fontWeight: '600',
+    marginTop: 16,
   },
   emailSection: {
     flexDirection: 'row',

@@ -6,7 +6,8 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList,
@@ -19,7 +20,9 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  Platform,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import TrashcanIcon from '../../assets/iconchat/trashcan.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -32,6 +35,8 @@ const AvatarImage = require('../../assets/images/AvatarBig.png');
 const ChatSettingsScreen = ({navigation, route}) => {
   const { participants: initialParticipants, chatId, type, name } = route.params || {};
   const {userInfo} = useContext(AuthContext);
+  const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [addMemberModalVisible, setAddMemberModalVisible] = useState(false);
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -39,6 +44,9 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const [searchText, setSearchText] = useState('');
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [participants, setParticipants] = useState(initialParticipants || []);
+  // Map of uid -> { name, avatarUrl } for participants (fetched from Firestore)
+  const [participantDataMap, setParticipantDataMap] = useState({});
+  const fetchingRef = useRef(new Set());
   
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
@@ -53,14 +61,36 @@ const ChatSettingsScreen = ({navigation, route}) => {
     ? participants.find(p => p.uid !== currentUserUid) || participants[0]
     : null;
 
-  // Helper function to get safe avatar source
-  const getAvatarSource = (avatarUrl) => {
-    // Check if avatarUrl is a valid string URL
-    if (typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
+  // Helper function to get safe avatar source - prioritizes participantDataMap (from Firestore)
+  const getAvatarSource = (avatarUrl, uid = null) => {
+    // Priority 1: Use participantDataMap if available (fetched from Firestore)
+    if (uid && participantDataMap[uid]?.avatarUrl) {
+      return { uri: participantDataMap[uid].avatarUrl };
+    }
+    
+    // Priority 2: Check if avatarUrl is a valid string URL
+    if (typeof avatarUrl === 'string' && avatarUrl.trim() !== '' && avatarUrl.startsWith('http')) {
       return { uri: avatarUrl };
     }
+    
+    // Priority 3: Check if avatarUrl is an object with uri
+    if (typeof avatarUrl === 'object' && avatarUrl !== null && avatarUrl.uri) {
+      return { uri: avatarUrl.uri };
+    }
+    
     // Fallback to default avatar
     return AvatarImage;
+  };
+
+  // Helper function to get participant name - prioritizes participantDataMap (from Firestore)
+  const getParticipantName = (participant) => {
+    // Priority 1: Use participantDataMap if available (fetched from Firestore)
+    if (participant?.uid && participantDataMap[participant.uid]?.name) {
+      return participantDataMap[participant.uid].name;
+    }
+    
+    // Priority 2: Use participant name from route params
+    return participant?.name || 'Unknown';
   };
 
   useEffect(() => {
@@ -80,6 +110,138 @@ const ChatSettingsScreen = ({navigation, route}) => {
     
     return () => clearTimeout(debounceTimeout);
   }, [searchText, addMemberModalVisible]);
+
+  // Fetch latest chat document and update participants when screen is focused
+  useEffect(() => {
+    const fetchLatestChatData = async () => {
+      if (!chatId || !isFocused) return;
+
+      try {
+        console.log('🔄 [ChatSettingsScreen] Fetching latest chat data...');
+        const chatDocRef = doc(db, 'chats', chatId);
+        const chatDocSnap = await getDoc(chatDocRef);
+        
+        if (chatDocSnap.exists()) {
+          const chatData = chatDocSnap.data();
+          const latestParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
+          console.log('✅ [ChatSettingsScreen] Updated participants from Firestore:', latestParticipants.length);
+          setParticipants(latestParticipants);
+        }
+      } catch (err) {
+        console.warn('❌ [ChatSettingsScreen] Error fetching latest chat data:', err);
+      }
+    };
+
+    if (isFocused) {
+      fetchLatestChatData();
+    }
+  }, [chatId, isFocused]);
+
+  // Fetch latest names and avatars for all participants from Firestore
+  useEffect(() => {
+    const fetchParticipantData = async () => {
+      if (!participants || participants.length === 0) {
+        console.log('🖼️ [ChatSettingsScreen] No participants to fetch data for');
+        return;
+      }
+
+      try {
+        const uidsToFetch = participants
+          .map(p => p?.uid)
+          .filter(uid => uid);
+
+        console.log('🖼️ [ChatSettingsScreen] Fetching latest names and avatars for participants:', uidsToFetch);
+
+        // Get current participantDataMap state
+        setParticipantDataMap(prevMap => {
+          for (const uid of uidsToFetch) {
+            // Skip if currently fetching
+            if (fetchingRef.current.has(uid)) {
+              console.log(`⏭️ [ChatSettingsScreen] Skipping ${uid} - currently fetching`);
+              continue;
+            }
+
+            // Mark as fetching
+            fetchingRef.current.add(uid);
+            
+            // Fetch participant data asynchronously
+            (async () => {
+              try {
+                console.log(`🔍 [ChatSettingsScreen] Fetching latest data for ${uid}...`);
+
+                // Try buyer collection first
+                let userDocRef = doc(db, 'buyer', uid);
+                let userSnap = await getDoc(userDocRef);
+                
+                // If not found in buyer, try admin collection
+                if (!userSnap.exists()) {
+                  console.log(`🔍 [ChatSettingsScreen] ${uid} not in buyer, trying admin...`);
+                  userDocRef = doc(db, 'admin', uid);
+                  userSnap = await getDoc(userDocRef);
+                }
+                
+                // If not found in admin, try supplier collection
+                if (!userSnap.exists()) {
+                  console.log(`🔍 [ChatSettingsScreen] ${uid} not in admin, trying supplier...`);
+                  userDocRef = doc(db, 'supplier', uid);
+                  userSnap = await getDoc(userDocRef);
+                }
+
+                if (userSnap.exists()) {
+                  const data = userSnap.data();
+                  
+                  // Get latest name
+                  const firstName = data?.firstName || '';
+                  const lastName = data?.lastName || '';
+                  const latestName = `${firstName} ${lastName}`.trim() || data?.gardenOrCompanyName || data?.name || '';
+                  
+                  // Get latest avatar URL
+                  const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;
+                  
+                  setParticipantDataMap(prevMap => {
+                    // Double-check it's not already there (in case of race condition)
+                    if (prevMap[uid] && prevMap[uid].name === latestName && prevMap[uid].avatarUrl === avatarUrl) {
+                      console.log(`⏭️ [ChatSettingsScreen] ${uid} data unchanged, skipping update`);
+                      return prevMap;
+                    }
+                    
+                    const updateData = {};
+                    if (latestName) updateData.name = latestName;
+                    if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
+                      updateData.avatarUrl = avatarUrl;
+                    }
+                    
+                    if (Object.keys(updateData).length > 0) {
+                      console.log(`✅ [ChatSettingsScreen] Found latest data for ${uid}:`, updateData);
+                      return {...prevMap, [uid]: {...prevMap[uid], ...updateData}};
+                    }
+                    
+                    return prevMap;
+                  });
+                } else {
+                  console.log(`⚠️ [ChatSettingsScreen] User ${uid} not found in buyer, admin, or supplier collections`);
+                }
+              } catch (err) {
+                console.warn(`❌ [ChatSettingsScreen] Error fetching data for ${uid}:`, err);
+              } finally {
+                // Remove from fetching set
+                fetchingRef.current.delete(uid);
+              }
+            })();
+          }
+          
+          return prevMap;
+        });
+      } catch (err) {
+        console.warn('❌ [ChatSettingsScreen] Error in fetchParticipantData:', err);
+      }
+    };
+
+    if (isFocused) {
+      fetchParticipantData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants?.length, currentUserUid, isFocused]);
 
   const fetchUsers = async (query = '') => {
     try {
@@ -355,11 +517,11 @@ const ChatSettingsScreen = ({navigation, route}) => {
           </View>
         </Modal>
       )}
-      <View style={styles.header}>
+      <View style={[styles.header, Platform.OS === 'android' && {paddingTop: Math.min(insets.top, 40), height: 80}]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <BackSolidIcon size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, Platform.OS === 'android' && styles.headerTitleAndroid]}>
           {isGroupChat ? (name || 'Group Settings') : (otherUserInfo?.name || 'Chat Settings')}
         </Text>
         <View style={{width: 24}} />
@@ -367,41 +529,43 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
       {isGroupChat ? (
         <>
-          {/* Group Info */}
-          <View style={styles.groupInfoSection}>
-            <Text style={styles.sectionTitle}>{name || 'Group Chat'}</Text>
-            <Text style={styles.memberCount}>{participants?.length || 0} members</Text>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.divider} />
-
           {/* Members Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Members</Text>
+            <View style={styles.sectionHeaderContainer}>
+              <Text style={styles.sectionHeader}>Members</Text>
+              <Text style={styles.memberCount}>{participants?.length || 0} {participants?.length === 1 ? 'member' : 'members'}</Text>
+            </View>
             <FlatList
               data={participants || []}
               keyExtractor={(item, index) => item.uid || `member-${index}`}
-              renderItem={({item}) => (
-                <View style={styles.memberItem}>
-                  <Image
-                    source={getAvatarSource(item.avatarUrl)}
-                    style={styles.memberAvatar}
-                  />
-                  <Text style={styles.memberName}>{item.name || 'Unknown'}</Text>
-                  {item.uid === currentUserUid && (
-                    <Text style={styles.youLabel}>You</Text>
-                  )}
-                  {item.uid !== currentUserUid && isAdmin && (
-                    <TouchableOpacity
-                      onPress={() => handleRemoveMember(item)}
-                      style={styles.removeButton}>
-                      <TrashcanIcon width={20} height={20} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-              scrollEnabled={false}
+              renderItem={({item}) => {
+                // Get latest name from Firestore or fallback to participant name
+                const displayName = getParticipantName(item);
+                
+                return (
+                  <View style={styles.memberItem}>
+                    <Image
+                      source={getAvatarSource(item.avatarUrl, item.uid)}
+                      style={styles.memberAvatar}
+                      defaultSource={AvatarImage}
+                    />
+                    <Text style={styles.memberName}>{displayName}</Text>
+                    {item.uid === currentUserUid && (
+                      <Text style={styles.youLabel}>You</Text>
+                    )}
+                    {item.uid !== currentUserUid && isAdmin && (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveMember(item)}
+                        style={styles.removeButton}>
+                        <TrashcanIcon width={20} height={20} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              }}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+              style={styles.membersList}
             />
           </View>
 
@@ -552,6 +716,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#202325',
   },
+  headerTitleAndroid: {
+    paddingTop: 0,
+  },
   groupInfoSection: {
     padding: 24,
     alignItems: 'center',
@@ -574,11 +741,23 @@ const styles = StyleSheet.create({
   section: {
     padding: 16,
   },
+  membersList: {
+    maxHeight: 300,
+  },
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   sectionHeader: {
     fontSize: 16,
     fontWeight: '700',
     color: '#202325',
-    marginBottom: 12,
+  },
+  memberCount: {
+    fontSize: 14,
+    color: '#647276',
   },
   memberItem: {
     flexDirection: 'row',
@@ -655,18 +834,21 @@ const styles = StyleSheet.create({
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
     paddingVertical: 12,
-    paddingHorizontal: 125,
+    paddingHorizontal: 24,
     backgroundColor: '#FFFFFF',
+    minWidth: 200,
   },
   deleteText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#393D40',
     marginLeft: 8,
+    flexShrink: 0,
   },
   loadingOverlay: {
     flex: 1,
