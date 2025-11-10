@@ -16,7 +16,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useFocusEffect} from '@react-navigation/native';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import {useAuth} from '../../../auth/AuthProvider';
+import {useFilters} from '../../../context/FilterContext';
+import SearchHeader from '../../../components/Header/SearchHeader';
+import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
+import AvatarIcon from '../../../assets/images/avatar.svg';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
+import PromoBadgeList from '../../../components/PromoBadgeList';
 import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
 import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
@@ -143,19 +154,10 @@ const ScreenShop = ({navigation}) => {
   
   // (Removed) genus image cache state – no longer needed with static local images
   
-  // Search results state
-  const [searchResults, setSearchResults] = useState([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
-  
-  // Search pagination state
-  const [searchOffset, setSearchOffset] = useState(0);
-  const [searchHasMore, setSearchHasMore] = useState(false);
-  const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
-  
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   
   // Refresh state
@@ -187,24 +189,6 @@ const ScreenShop = ({navigation}) => {
     }, [user, globalFilters]),
   );
 
-  // Debounced search effect - triggers after user stops typing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim().length >= 2) {
-        // Reset pagination when search term changes
-        setSearchOffset(0);
-        setSearchHasMore(false);
-        performSearch(searchTerm.trim(), 0, true);
-      } else if (searchTerm.trim().length === 0) {
-        setSearchResults([]);
-        setLoadingSearch(false);
-        setSearchOffset(0);
-        setSearchHasMore(false);
-      }
-    }, 800); // Increased delay to 800ms for better "finished typing" detection
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
 
   // Initial data load effect
   useEffect(() => {
@@ -600,67 +584,50 @@ const ScreenShop = ({navigation}) => {
 
   // (Removed) genus image caching helpers – static local images render instantly
 
-  const performSearch = async (searchTerm, offset = 0, resetResults = false) => {
-    try {
-      if (resetResults) {
-        setLoadingSearch(true);
-      } else {
-        setLoadingMoreSearch(true);
-      }
+  // Custom render function for search results (simpler text display)
+  const renderSearchResult = ({ item }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      activeOpacity={0.7}
+      onPress={() => {
+        if (item.plantCode) {
+          // Set flag to prevent blur from closing dropdown
+          setIsNavigatingFromSearch(true);
+          // Navigate immediately
+          navigation.navigate('ScreenPlantDetail', {
+            plantCode: item.plantCode
+          });
+          // Close dropdown and reset flag after navigation
+          setIsSearchFocused(false);
+          setTimeout(() => {
+            setIsNavigatingFromSearch(false);
+          }, 100);
+        } else {
+          console.error('❌ Missing plantCode for plant:', item);
+          Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+          setIsNavigatingFromSearch(false);
+        }
+      }}
+    >
+      <Text style={styles.searchResultName} numberOfLines={2}>
+        {item.title && !item.title.includes('Choose the most suitable variegation') 
+          ? item.title 
+          : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
+      </Text>
+    </TouchableOpacity>
+  );
 
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const searchParams = {
-        query: searchTerm,
-        limit: 10,
-        offset: offset,
-        sortBy: 'relevance',
-        sortOrder: 'desc'
-      };
-
-      const res = await retryAsync(() => searchPlantsApi(searchParams), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to search plants.');
-      }
-
-      const plants = res.data?.plants || [];
-      const pagination = res.data?.pagination || {};
-      
-      if (resetResults) {
-        setSearchResults(plants);
-      } else {
-        // Append new results to existing ones
-        setSearchResults(prev => [...prev, ...plants]);
-      }
-      
-      // Update pagination state
-      setSearchHasMore(pagination.hasMore || false);
-      setSearchOffset(offset + plants.length);
-      
-    } catch (error) {
-      console.error('❌ Error performing search:', error);
-      if (resetResults) {
-        setSearchResults([]);
-        // Optionally show user-friendly error message
-        Alert.alert(
-          'Search Error',
-          'Could not search for plants. Please check your connection and try again.',
-          [{text: 'OK'}]
-        );
-      }
-    } finally {
-      setLoadingSearch(false);
-      setLoadingMoreSearch(false);
-    }
-  };
-
-  const loadMoreSearchResults = () => {
-    if (!loadingMoreSearch && searchHasMore && searchTerm.trim().length >= 2) {
-      performSearch(searchTerm.trim(), searchOffset, false);
+  // Handle plant selection from search
+  const handlePlantSelect = (plant) => {
+    if (plant.plantCode) {
+      setIsNavigatingFromSearch(true);
+      navigation.navigate('ScreenPlantDetail', {
+        plantCode: plant.plantCode
+      });
+      setIsSearchFocused(false);
+      setTimeout(() => {
+        setIsNavigatingFromSearch(false);
+      }, 100);
     }
   };
 
@@ -956,45 +923,20 @@ const ScreenShop = ({navigation}) => {
       <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
         <View style={styles.header}>
           <View style={styles.searchContainer}>
-            <View style={styles.searchField}>
-              <View style={styles.textField}>
-                <SearchIcon width={24} height={24} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search ileafU "
-                  placeholderTextColor="#647276"
-                  value={searchTerm}
-                  onChangeText={setSearchTerm}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => {
-                    // Close search results when input loses focus, but not if navigating
-                    setTimeout(() => {
-                      if (!isNavigatingFromSearch) {
-                        setIsSearchFocused(false);
-                      } else {
-                        // Reset flag after a delay if navigation didn't happen
-                        setTimeout(() => {
-                          setIsNavigatingFromSearch(false);
-                        }, 500);
-                      }
-                    }, 300); // Increased delay to allow for result tap
-                  }}
-                  multiline={false}
-                  numberOfLines={1}
-                  // Disable native autocomplete and suggestions
-                  autoComplete="off"
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  textContentType="none"
-                  dataDetectorTypes="none"
-                  keyboardType="default"
-                />
-                {loadingSearch && (
-                  <ActivityIndicator size="small" color="#647276" style={{marginLeft: 8}} />
-                )}
-              </View>
-            </View>
+            <SearchHeader
+              searchText={searchTerm}
+              onSearchTextChange={setSearchTerm}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => {
+                // Handled by SearchHeader component
+              }}
+              isNavigatingFromSearch={isNavigatingFromSearch}
+              setIsNavigatingFromSearch={setIsNavigatingFromSearch}
+              onPlantSelect={handlePlantSelect}
+              renderResultItem={renderSearchResult}
+              searchApiWrapper={retryAsync}
+              navigation={navigation}
+            />
           </View>
 
           <View style={styles.headerIcons}>
@@ -1101,86 +1043,6 @@ const ScreenShop = ({navigation}) => {
           ))}
         </ScrollView>
 
-        {/* Search Results Dropdown */}
-        {isSearchFocused && searchTerm.trim().length >= 2 && (
-          <View 
-            style={[styles.searchResultsContainer, {top: insets.top + 52}]}
-            onTouchStart={() => {
-              // Prevent blur when touching the dropdown
-              setIsNavigatingFromSearch(true);
-            }}
-            onStartShouldSetResponder={() => true}
-          >
-            {loadingSearch ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#10b981" />
-                <Text style={styles.loadingText}>Searching plants...</Text>
-              </View>
-            ) : searchResults.length > 0 ? (
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item, index) => `${item.id || item.plantCode || index}_${index}`}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({item, index}) => (
-                  <TouchableOpacity
-                    style={styles.searchResultItem}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      if (item.plantCode) {
-                        // Set flag to prevent blur from closing dropdown
-                        setIsNavigatingFromSearch(true);
-                        // Navigate immediately
-                        navigation.navigate('ScreenPlantDetail', {
-                          plantCode: item.plantCode
-                        });
-                        // Close dropdown and reset flag after navigation
-                        setIsSearchFocused(false);
-                        setTimeout(() => {
-                          setIsNavigatingFromSearch(false);
-                        }, 100);
-                      } else {
-                        console.error('❌ Missing plantCode for plant:', item);
-                        Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
-                        setIsNavigatingFromSearch(false);
-                      }
-                    }}
-                  >
-                    <Text style={styles.searchResultName} numberOfLines={2}>
-                      {item.title && !item.title.includes('Choose the most suitable variegation') 
-                        ? item.title 
-                        : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                onEndReached={loadMoreSearchResults}
-                onEndReachedThreshold={0.5}
-                ListFooterComponent={() => {
-                  if (loadingMoreSearch) {
-                    return (
-                      <View style={styles.loadingMoreContainer}>
-                        <ActivityIndicator size="small" color="#10b981" />
-                        <Text style={styles.loadingMoreText}>Loading more...</Text>
-                      </View>
-                    );
-                  }
-                  return null;
-                }}
-                style={styles.searchResultsList}
-                contentContainerStyle={styles.searchResultsListContent}
-                showsVerticalScrollIndicator={true}
-                nestedScrollEnabled={true}
-                scrollEnabled={true}
-                bounces={true}
-              />
-            ) : (
-              <View style={styles.noResultsContainer}>
-                <Text style={styles.noResultsText}>
-                  No plants found for "{searchTerm}"
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
       </View>
       <ScrollView
         ref={mainScrollRef}
@@ -1610,6 +1472,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-evenly',
     alignItems: 'center',
     paddingHorizontal: 13,
+    zIndex: 10001,
+    elevation: 10001,
   },
   search: {
     flex: 1,
@@ -1684,6 +1548,8 @@ const styles = StyleSheet.create({
     width: 209,
     height: 40,
     flex: 1,
+    zIndex: 10000,
+    elevation: 10000,
   },
   searchField: {
     width: '100%',
@@ -1776,6 +1642,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     backgroundColor: '#fff',
+    elevation: 10,
   },
   filterButton: {
     backgroundColor: '#fff',

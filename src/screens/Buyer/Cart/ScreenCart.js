@@ -15,7 +15,6 @@ import {
   FlatList,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
@@ -25,7 +24,8 @@ import PlusDisabledIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
 import {getCartItemsApi, removeFromCartApi, updateCartItemApi} from '../../../components/Api/cartApi';
-import {getBuyerListingsApi, searchPlantsApi} from '../../../components/Api/listingBrowseApi';
+import {getBuyerListingsApi} from '../../../components/Api/listingBrowseApi';
+import SearchHeader from '../../../components/Header/SearchHeader';
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
@@ -86,103 +86,57 @@ const HEADER_HEIGHT = 110;
 const CartHeader = ({insets}) => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
-  
-  // Search pagination state
-  const [searchOffset, setSearchOffset] = useState(0);
-  const [searchHasMore, setSearchHasMore] = useState(false);
-  const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
   
   const navigation = useNavigation();
   // Local import of reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
 
-  // Debounced search effect - triggers after user stops typing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim().length >= 2) {
-        console.log('🔍 Cart search triggered for:', searchTerm);
-        // Reset pagination when search term changes
-        setSearchOffset(0);
-        setSearchHasMore(false);
-        performSearch(searchTerm.trim(), 0, true);
-      } else if (searchTerm.trim().length === 0) {
-        setSearchResults([]);
-        setLoadingSearch(false);
-        setSearchOffset(0);
-        setSearchHasMore(false);
-      }
-    }, 800); // 800ms delay for "finished typing" detection
+  // Custom render function for search results (simpler text display)
+  const renderSearchResult = ({ item }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      activeOpacity={0.7}
+      onPress={() => {
+        if (item.plantCode) {
+          // Set flag to prevent blur from closing dropdown
+          setIsNavigatingFromSearch(true);
+          // Navigate immediately
+          navigation.navigate('ScreenPlantDetail', {
+            plantCode: item.plantCode
+          });
+          // Close dropdown and reset flag after navigation
+          setIsSearchFocused(false);
+          setTimeout(() => {
+            setIsNavigatingFromSearch(false);
+          }, 100);
+        } else {
+          console.error('❌ Missing plantCode for plant:', item);
+          Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+          setIsNavigatingFromSearch(false);
+        }
+      }}
+    >
+      <Text style={styles.searchResultName} numberOfLines={2}>
+        {item.title && !item.title.includes('Choose the most suitable variegation') 
+          ? item.title 
+          : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
+      </Text>
+    </TouchableOpacity>
+  );
 
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
-
-  const performSearch = async (searchTerm, offset = 0, resetResults = false) => {
-    try {
-      if (resetResults) {
-        setLoadingSearch(true);
-      } else {
-        setLoadingMoreSearch(true);
-      }
-      console.log('🔍 Starting cart search for:', searchTerm, 'offset:', offset);
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const searchParams = {
-        query: searchTerm,
-        limit: 10,
-        offset: offset,
-        sortBy: 'relevance',
-        sortOrder: 'desc'
-      };
-
-      const res = await searchPlantsApi(searchParams);
-
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to search plants.');
-      }
-
-      const plants = res.data?.plants || [];
-      const pagination = res.data?.pagination || {};
-      
-      if (resetResults) {
-        setSearchResults(plants);
-      } else {
-        // Append new results to existing ones
-        setSearchResults(prev => [...prev, ...plants]);
-      }
-      
-      // Update pagination state
-      setSearchHasMore(pagination.hasMore || false);
-      setSearchOffset(offset + plants.length);
-      
-      console.log(`✅ Cart search completed: found ${plants.length} plants for "${searchTerm}", hasMore: ${pagination.hasMore}`);
-      
-    } catch (error) {
-      console.error('❌ Error performing cart search:', error);
-      if (resetResults) {
-        setSearchResults([]);
-        Alert.alert(
-          'Search Error',
-          'Could not search for plants. Please check your connection and try again.',
-          [{text: 'OK'}]
-        );
-      }
-    } finally {
-      setLoadingSearch(false);
-      setLoadingMoreSearch(false);
-    }
-  };
-
-  const loadMoreSearchResults = () => {
-    if (!loadingMoreSearch && searchHasMore && searchTerm.trim().length >= 2) {
-      performSearch(searchTerm.trim(), searchOffset, false);
+  // Handle plant selection from search
+  const handlePlantSelect = (plant) => {
+    if (plant.plantCode) {
+      setIsNavigatingFromSearch(true);
+      navigation.navigate('ScreenPlantDetail', {
+        plantCode: plant.plantCode
+      });
+      setIsSearchFocused(false);
+      setTimeout(() => {
+        setIsNavigatingFromSearch(false);
+      }, 100);
     }
   };
   
@@ -197,45 +151,19 @@ const CartHeader = ({insets}) => {
         </TouchableOpacity>
 
         <View style={styles.searchContainer}>
-          <View style={styles.searchField}>
-            <View style={styles.textField}>
-              <SearchIcon width={24} height={24} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search ileafU "
-                placeholderTextColor="#647276"
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => {
-                  // Close search results when input loses focus, but not if navigating
-                  setTimeout(() => {
-                    if (!isNavigatingFromSearch) {
-                      setIsSearchFocused(false);
-                    } else {
-                      // Reset flag after a delay if navigation didn't happen
-                      setTimeout(() => {
-                        setIsNavigatingFromSearch(false);
-                      }, 500);
-                    }
-                  }, 300); // Increased delay to allow for result tap
-                }}
-                multiline={false}
-                numberOfLines={1}
-                // Disable native autocomplete and suggestions
-                autoComplete="off"
-                autoCorrect={false}
-                autoCapitalize="none"
-                spellCheck={false}
-                textContentType="none"
-                dataDetectorTypes="none"
-                keyboardType="default"
-              />
-              {loadingSearch && (
-                <ActivityIndicator size="small" color="#647276" style={{marginLeft: 8}} />
-              )}
-            </View>
-          </View>
+          <SearchHeader
+            searchText={searchTerm}
+            onSearchTextChange={setSearchTerm}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => {
+              // Handled by SearchHeader component
+            }}
+            isNavigatingFromSearch={isNavigatingFromSearch}
+            setIsNavigatingFromSearch={setIsNavigatingFromSearch}
+            onPlantSelect={handlePlantSelect}
+            renderResultItem={renderSearchResult}
+            navigation={navigation}
+          />
         </View>
 
         <View style={styles.headerIcons}>
@@ -258,86 +186,6 @@ const CartHeader = ({insets}) => {
       
       <PromoBadgeList navigation={navigation} />
 
-      {/* Search Results Dropdown */}
-      {isSearchFocused && searchTerm.trim().length >= 2 && (
-        <View 
-          style={[styles.searchResultsContainer, {top: insets.top + 12 + 40 + 8}]}
-          onTouchStart={() => {
-            // Prevent blur when touching the dropdown
-            setIsNavigatingFromSearch(true);
-          }}
-          onStartShouldSetResponder={() => true}
-        >
-          {loadingSearch ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#10b981" />
-              <Text style={styles.loadingText}>Searching plants...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item, index) => `${item.id || item.plantCode || index}_${index}`}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({item, index}) => (
-                <TouchableOpacity
-                  style={styles.searchResultItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    if (item.plantCode) {
-                      // Set flag to prevent blur from closing dropdown
-                      setIsNavigatingFromSearch(true);
-                      // Navigate immediately
-                      navigation.navigate('ScreenPlantDetail', {
-                        plantCode: item.plantCode
-                      });
-                      // Close dropdown and reset flag after navigation
-                      setIsSearchFocused(false);
-                      setTimeout(() => {
-                        setIsNavigatingFromSearch(false);
-                      }, 100);
-                    } else {
-                      console.error('❌ Missing plantCode for plant:', item);
-                      Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
-                      setIsNavigatingFromSearch(false);
-                    }
-                  }}
-                >
-                  <Text style={styles.searchResultName} numberOfLines={2}>
-                    {item.title && !item.title.includes('Choose the most suitable variegation') 
-                      ? item.title 
-                      : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              onEndReached={loadMoreSearchResults}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={() => {
-                if (loadingMoreSearch) {
-                  return (
-                    <View style={styles.loadingMoreContainer}>
-                      <ActivityIndicator size="small" color="#10b981" />
-                      <Text style={styles.loadingMoreText}>Loading more...</Text>
-                    </View>
-                  );
-                }
-                return null;
-              }}
-              style={styles.searchResultsList}
-              contentContainerStyle={styles.searchResultsListContent}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              scrollEnabled={true}
-              bounces={true}
-            />
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <Text style={styles.noResultsText}>
-                No plants found for "{searchTerm}"
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
     </View>
   );
 };
@@ -1365,6 +1213,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     backgroundColor: '#fff',
+    elevation: 10,
   },
   header: {
     flexDirection: 'row',
@@ -1372,6 +1221,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 13,
     paddingBottom: 12,
+    zIndex: 10001,
+    elevation: 10001,
   },
   controls: {
     flexDirection: 'row',
@@ -1395,6 +1246,8 @@ const styles = StyleSheet.create({
     width: 209,
     height: 40,
     flex: 1,
+    zIndex: 10000,
+    elevation: 10000,
   },
   searchField: {
     width: '100%',
