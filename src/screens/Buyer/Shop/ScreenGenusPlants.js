@@ -748,16 +748,15 @@ const ScreenGenusPlants = ({navigation, route}) => {
       const newPlants = rawPlants.filter(plant => {
         // Ensure plant has required fields and they are strings
         const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
+        const hasTitle =
+          (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+
+        const isValid = hasPlantCode && hasTitle;
+
         if (!isValid) {
         }
-        
+
         return isValid;
       });
       
@@ -1471,14 +1470,24 @@ const ScreenGenusPlants = ({navigation, route}) => {
                 return null;
               }
               
-              // Ensure title and subtitle are safe
-              const hasValidTitle = (plant.genus && typeof plant.genus === 'string') || 
-                                   (plant.plantName && typeof plant.plantName === 'string');
-              const hasValidSubtitle = (plant.species && typeof plant.species === 'string') || 
-                                      (plant.variegation && typeof plant.variegation === 'string');
-              
-              if (!hasValidTitle || !hasValidSubtitle) {
+              // Ensure title is safe
+              const hasValidTitle =
+                (plant.genus && typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+                (plant.plantName && typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+
+              if (!hasValidTitle) {
                 return null;
+              }
+
+              const transformedPlant = {
+                ...plant,
+              };
+
+              if (
+                (!plant.species || typeof plant.species !== 'string' || plant.species.trim() === '') &&
+                (!plant.variegation || typeof plant.variegation !== 'string' || plant.variegation.trim() === '')
+              ) {
+                transformedPlant.variegation = 'Plant Details';
               }
               
               return (
@@ -1491,7 +1500,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
                   ]}
                 >
                   <PlantItemCard
-                    data={plant}
+                    data={transformedPlant}
                     cardStyle={{ height: 220, margin: 8}}
                     onPress={() => {
                       // TODO: Navigate to plant detail screen

@@ -13,6 +13,7 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useIsFocused} from '@react-navigation/native';
@@ -39,8 +40,10 @@ import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular
 import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
 import OrderTableList from './components/OrderTableList';
+import OrderTableSkeleton from './components/OrderTableSkeleton';
 
 const screenHeight = Dimensions.get('window').height;
+const SELLER_ORDERS_PAGE_SIZE = 20;
 
 const headers = [
   'Orders',
@@ -72,83 +75,219 @@ const ScreenOrder = ({navigation}) => {
   const [dataTable, setDataTable] = useState([]);
   const {userInfo} = useContext(AuthContext);
 
+  // Pagination state (similar to Listings)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageTokens, setPageTokens] = useState(['']);
+  const [hasMorePages, setHasMorePages] = useState(false);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // ✅ Fetch on mount
   const [refreshing, setRefreshing] = useState(false);
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
   const isFocused = useIsFocused();
-  const [dataCount, setDataCount] = useState(0);
   const [search, setSearch] = useState('');
-  const [loadingMore, setLoadingMore] = useState(false);
 
-  // ✅ Pull-to-refresh
-  const onRefresh = () => {
-    setRefreshing(true);
-    setNextOffset(null);
-    setNextOffsetParam(null);
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+  const resetPaginationState = () => {
+    setPageTokens(['']);
+    setCurrentPage(1);
+    setHasMorePages(false);
+    setTotalOrders(0);
+    setTotalPages(1);
   };
 
-  useEffect(() => {
-    setLoading(true);
-    const fetchData = async () => {
-      try {
-        await loadListingData();
-      } catch (error) {
-        console.log('Fetching details:', error);
-      } finally {
-        setRefreshing(false);
-        setTimeout(() => {
-          setLoading(false);
-        }, 1000);
-      }
-    };
-
-    fetchData();
-  }, [isFocused, isInitialFetchRefresh]);
-
-  const loadListingData = async () => {
-    let netState = await NetInfo.fetch();
+  const loadData = async (
+    sortBy,
+    date,
+    deliveryStatus,
+    listingType,
+    startDate,
+    endDate,
+    search,
+    nextPageToken,
+  ) => {
+    const netState = await NetInfo.fetch();
     if (!netState.isConnected || !netState.isInternetReachable) {
       throw new Error('No internet connection.');
     }
 
-    const res = await retryAsync(
+    const effectiveLimit = SELLER_ORDERS_PAGE_SIZE;
+    const effectiveToken = nextPageToken || '';
+
+    const response = await retryAsync(
       () =>
         getOrderListingApi(
-          0,
-          reusableSort,
-          reusableDate,
-          active,
-          reusableListingType,
-          nextOffsetParam ?? 0,
-          reusableStartDate,
-          reusableEndDate,
+          effectiveLimit,
+          sortBy,
+          date,
+          deliveryStatus,
+          listingType,
+          effectiveToken,
+          startDate,
+          endDate,
           search,
         ),
       3,
       1000,
     );
 
-    if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load sort api');
+    if (!response?.success) {
+      throw new Error(response?.message || 'Failed to load orders');
     }
 
-    console.log('📦 Orders API Response:', {
-      ordersCount: res?.orders?.length || 0,
-      totalCount: res.count,
-      nextOffset: res.nextOffset
-    });
-    setNextOffset(res.nextOffset);
-    setDataCount(res.count);
-    setDataTable(prev => nextOffsetParam != null ? [...prev, ...(res?.orders || [])] : res?.orders || []);
-    // If we were loading more (pagination), clear the flag
-    if (nextOffsetParam != null) setLoadingMore(false);
+    return response;
   };
-  // ✅ Fetch on mount
 
-  // Filters Action Sheet
-  const [nextOffset, setNextOffset] = useState(null);
-  const [nextOffsetParam, setNextOffsetParam] = useState(null);
+  const fetchOrdersPage = async (targetPage = 1) => {
+    try {
+      setLoading(true);
+      let desiredPage = Math.max(1, targetPage);
+
+      const tokensCopy = [...pageTokens];
+      let response = null;
+
+      const fetchPageWithToken = async (pageToken = '') => {
+        return loadData(
+          reusableSort,
+          reusableDate,
+          active,
+          reusableListingType,
+          reusableStartDate,
+          reusableEndDate,
+          search,
+          pageToken,
+        );
+      };
+
+      if (tokensCopy[desiredPage - 1] === undefined) {
+        let currentIndex = tokensCopy.length - 1;
+        let lastToken = tokensCopy[currentIndex] || '';
+        while (currentIndex < desiredPage - 1) {
+          const interimResponse = await fetchPageWithToken(lastToken);
+          const nextToken = interimResponse?.nextPageToken || null;
+          tokensCopy[currentIndex + 1] = nextToken;
+          lastToken = nextToken || '';
+          currentIndex += 1;
+
+          if (currentIndex === desiredPage - 1) {
+            response = interimResponse;
+            break;
+          }
+
+          if (!nextToken) {
+            desiredPage = currentIndex;
+            response = interimResponse;
+            break;
+          }
+        }
+
+        if (tokensCopy[desiredPage - 1] === undefined) {
+          desiredPage = Math.max(1, tokensCopy.length - 1);
+        }
+      }
+
+      if (!response) {
+        const tokenForPage = tokensCopy[desiredPage - 1] || '';
+        response = await fetchPageWithToken(tokenForPage);
+      }
+
+      const orders = response?.orders || [];
+      const nextToken = response?.nextPageToken || null;
+
+      // Only calculate total count on first page or if totalOrders is 0 (initial load or filter change)
+      let computedTotal = totalOrders; // Keep existing total by default
+      
+      if (desiredPage === 1 || totalOrders === 0) {
+        // Check if we should use backend total or fetch all pages to count
+        const hasFilters = search && search.trim() !== '' || 
+                          reusableListingType && reusableListingType.length > 0 ||
+                          reusableDate && reusableDate !== 'All' ||
+                          (reusableStartDate && reusableEndDate);
+
+        if (!hasFilters && typeof response?.count === 'number') {
+          // Use backend count when no filters are applied
+          computedTotal = response.count;
+        } else {
+          // For filtered results, fetch all pages to get accurate count
+          // Use a separate token chain for counting to avoid affecting pagination
+          let totalFilteredCount = orders.length;
+          let countToken = nextToken;
+          let countSafety = 0;
+          const MAX_TOTAL_FETCHES = 50;
+
+          // Continue fetching and counting filtered results until no more pages
+          while (countToken && countSafety < MAX_TOTAL_FETCHES) {
+            try {
+              const additionalResponse = await fetchPageWithToken(countToken);
+              const additionalOrders = additionalResponse?.orders || [];
+              totalFilteredCount += additionalOrders.length;
+
+              console.log(`🔍 Orders counting: Fetched page ${countSafety + 2}, got ${additionalOrders.length} orders, total so far: ${totalFilteredCount}`);
+
+              if (additionalResponse?.nextPageToken) {
+                countToken = additionalResponse.nextPageToken;
+              } else {
+                countToken = null;
+                console.log(`✅ Orders counting: Reached end, final count: ${totalFilteredCount}`);
+                break; // No more pages, we have the accurate total
+              }
+
+              countSafety += 1;
+            } catch (error) {
+              console.error('Error fetching page for total count:', error);
+              break; // Stop on error
+            }
+          }
+
+          computedTotal = totalFilteredCount;
+        }
+      }
+
+      tokensCopy[desiredPage] = nextToken;
+      const updatedTokens = tokensCopy.slice(0, desiredPage + 1);
+
+      setPageTokens(updatedTokens);
+      setDataTable(orders);
+      setTotalOrders(computedTotal);
+      setTotalPages(Math.max(1, Math.ceil(computedTotal / SELLER_ORDERS_PAGE_SIZE)));
+      setHasMorePages(Boolean(nextToken));
+      setCurrentPage(desiredPage);
+    } catch (error) {
+      console.log('Error in fetchOrdersPage:', error.message);
+      Alert.alert('Orders', error.message);
+    } finally {
+      setRefreshing(false);
+      setLoading(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1 && !loading) {
+      fetchOrdersPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if ((currentPage < totalPages || hasMorePages) && !loading) {
+      fetchOrdersPage(currentPage + 1);
+    }
+  };
+
+
+  // ✅ Fetch on mount
+  useEffect(() => {
+    if (isFocused) {
+      resetPaginationState();
+      fetchOrdersPage(1);
+    }
+  }, [isFocused, isInitialFetchRefresh, active]);
+
+  // ✅ Pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    resetPaginationState();
+    fetchOrdersPage(1);
+  };
   const [sortOptions, setSortOptions] = useState([]);
   const [listingTypeOptions, setListingTypeOptions] = useState([]);
 
@@ -167,8 +306,7 @@ const ScreenOrder = ({navigation}) => {
       setReusableStartDate('');
       setReusableEndDate('');
     }
-    setNextOffset(null);
-    setNextOffsetParam(null);
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -189,8 +327,7 @@ const ScreenOrder = ({navigation}) => {
     });
     setReusableStartDate(formattedStart);
     setReusableEndDate(formattedEnd);
-    setNextOffset(null);
-    setNextOffsetParam(null);
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -208,8 +345,7 @@ const ScreenOrder = ({navigation}) => {
       }
     });
 
-    setNextOffset(null);
-    setNextOffsetParam(null);
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -225,35 +361,10 @@ const ScreenOrder = ({navigation}) => {
       availableOptions: ['For Delivery', 'Delivered']
     });
     setActive(pressCode);
-    setNextOffset(null);
-    setNextOffsetParam(null);
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
   // Filters Action Sheet
-
-  // Load more
-  useEffect(() => {
-    if (nextOffsetParam !== null && nextOffsetParam !== undefined) {
-      setLoading(true);
-      loadListingData();
-      setTimeout(() => {
-        setLoading(false);
-      }, 500);
-    }
-  }, [nextOffsetParam]);
-
-  const onPressLoadMore = () => {
-    if (nextOffset != nextOffsetParam && (nextOffset !== null && nextOffset !== undefined)) {
-      console.log('📦 Orders Load More Triggered:', {
-        currentItemsCount: dataTable.length,
-        nextOffset: nextOffset,
-        totalAvailableCount: dataCount
-      });
-      setLoadingMore(true);
-      setNextOffsetParam(nextOffset);
-    }
-  };
-  // Load more
 
   // For dropdown
   useEffect(() => {
@@ -481,7 +592,24 @@ const ScreenOrder = ({navigation}) => {
             backgroundColor: '#fff',
             minHeight: dataTable.length != 0 && screenHeight * 0.9,
           }}>
-          {dataTable.length == 0 ? (
+          {loading ? (
+            <View style={styles.contents}>
+              <OrderTableSkeleton rowCount={SELLER_ORDERS_PAGE_SIZE} />
+            </View>
+          ) : dataTable && dataTable.length > 0 ? (
+            <>
+              <View>
+                <OrderTableList
+                  headers={headers}
+                  orders={dataTable}
+                  // keep header fixed; rows scroll within this height
+                  rowsHeight={Math.floor(screenHeight * 0.55)}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                />
+              </View>
+            </>
+          ) : !loading ? (
             <View
               style={{
                 flex: 1,
@@ -493,23 +621,57 @@ const ScreenOrder = ({navigation}) => {
                 style={{width: 300, height: 300, resizeMode: 'contain'}}
               />
             </View>
-          ) : (
-            <>
-              <View>
-                <OrderTableList
-                  headers={headers}
-                  orders={dataTable}
-                  // keep header fixed; rows scroll within this height
-                  rowsHeight={Math.floor(screenHeight * 0.55)}
-                  onLoadMore={onPressLoadMore}
-                  hasMore={dataCount > dataTable.length}
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  loadingMore={loadingMore}
-                />
+          ) : null}
+        </View>
+      </View>
+
+      {/* Pagination Controls */}
+      <View style={styles.paginationWrapper}>
+        <View style={styles.paginationContainer}>
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              (currentPage <= 1 || loading) && styles.paginationButtonDisabled,
+            ]}
+            onPress={handlePreviousPage}
+            disabled={currentPage <= 1 || loading}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                (currentPage <= 1 || loading) && styles.paginationButtonTextDisabled,
+              ]}>
+              Previous
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.paginationInfo}>
+            <Text style={styles.paginationText}>
+              Page {currentPage} of {totalPages}
+            </Text>
+            <Text style={styles.paginationSubtext}>
+              {loading ? 'Loading...' : `${totalOrders} total orders`}
+            </Text>
               </View>
-            </>
-          )}
+
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              ((currentPage >= totalPages && !hasMorePages) || loading) &&
+                styles.paginationButtonDisabled,
+            ]}
+            onPress={handleNextPage}
+            disabled={(currentPage >= totalPages && !hasMorePages) || loading}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                ((currentPage >= totalPages && !hasMorePages) || loading) &&
+                  styles.paginationButtonTextDisabled,
+              ]}>
+              Next
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -539,6 +701,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     // padding: 16,
+    backgroundColor: '#fff',
+  },
+  contents: {
+    paddingHorizontal: 20,
     backgroundColor: '#fff',
   },
   header: {
@@ -660,5 +826,60 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: '#C0DAC2',
     borderColor: '#539461',
+  },
+  paginationWrapper: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E4E7E9',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  paginationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#23C16B',
+    borderRadius: 8,
+    minWidth: 90,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    marginVertical: 4,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: '#E4E7E9',
+  },
+  paginationButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  paginationButtonTextDisabled: {
+    color: '#9CA3A6',
+  },
+  paginationInfo: {
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  paginationText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#202325',
+    marginBottom: 4,
+  },
+  paginationSubtext: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 12,
+    color: '#647276',
   },
 });

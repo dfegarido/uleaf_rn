@@ -214,32 +214,48 @@ const OrderSummary = ({navigation}) => {
       usdPrices = [];
     }
 
+    // Helper to safely format dates - use formatted dates from backend if available
+    const safeFormatDate = (dateValue, formattedValue) => {
+      if (formattedValue && typeof formattedValue === 'string') {
+        return formattedValue;
+      }
+      if (!dateValue) return '—';
+      // If it's already a string, return it
+      if (typeof dateValue === 'string') return dateValue;
+      // Otherwise, try to format it
+      try {
+        return formatDate(dateValue);
+      } catch (e) {
+        return '—';
+      }
+    };
+
     return {
       id: order.id,
       imageUrl: imageUrl,
-      transactionNumber: order.transactionNumber || '—',
-      orderDate: formatDate(order.orderDate || order.createdAt),
-      deliveredDate: formatDate(order.deliveredDate),
-      receivedDate: formatDate(order.receivedDate),
-      plantCode: order.plantCode || '—',
-      genus: order.genus || '—',
-      species: order.species || '',
-      variegation: order.variegation || order.variations || '',
-      listingType: order.listingType || '—',
+      transactionNumber: (order.transactionNumber || '—').toString(),
+      orderDate: safeFormatDate(order.orderDate || order.createdAt, order.orderDateFormatted || order.createdAtFormatted),
+      deliveredDate: safeFormatDate(order.deliveredDate, order.deliveredDateFormatted),
+      receivedDate: safeFormatDate(order.receivedDate, order.receivedDateFormatted),
+      plantCode: (order.plantCode || '—').toString(),
+      genus: (order.genus || '—').toString(),
+      species: (order.species || '').toString(),
+      variegation: ((order.variegation || order.variations || '')).toString(),
+      listingType: (order.listingType || '—').toString(),
       potSizes: order.potSizeVariations || [order.potSizeVariation || '—'],
       quantities: order.quantities || [order.orderQty || '—'],
       localPrices: localPrices,
       usdPrices: usdPrices,
       localCurrency: order.localPriceCurrency || 'USD',
       localCurrencySymbol: order.localPriceCurrencySymbol || '$',
-      gardenName: order.gardenOrCompanyName || '—',
-      sellerName: order.sellerName || '—',
-      buyerFirstName: order.buyerInfo?.firstName || '—',
-      buyerLastName: order.buyerInfo?.lastName || '',
-      buyerUsername: order.buyerInfo?.username || '',
-      receiverName: order.deliveryDetails?.receiverName || '—',
-      receiverUsername: order.deliveryDetails?.receiverUsername || '',
-      plantFlight: formatDate(order.flightDate) || '—',
+      gardenName: (order.gardenOrCompanyName || '—').toString(),
+      sellerName: (order.sellerName || '—').toString(),
+      buyerFirstName: (order.buyerInfo?.firstName || '').toString() || '—',
+      buyerLastName: (order.buyerInfo?.lastName || '').toString() || '',
+      buyerUsername: (order.buyerInfo?.username || '').toString() || '',
+      receiverName: (order.deliveryDetails?.receiverName || '').toString() || '—',
+      receiverUsername: (order.deliveryDetails?.receiverUsername || '').toString() || '',
+      plantFlight: safeFormatDate(order.flightDate, order.flightDateFormatted) || '—',
     };
   };
 

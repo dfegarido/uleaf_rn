@@ -211,6 +211,62 @@ const PlantItemCard = ({
     }
   }
 
+  // Determine sold-out status (supporting new backend metadata and legacy fields)
+  const quantityCandidates = [
+    plantData?.totalAvailableQty,
+    plantData?.availableQty,
+    plantData?.quantity,
+    plantData?.stock,
+  ].filter(value => value !== undefined && value !== null);
+
+  const resolvedQuantityRaw = quantityCandidates.length > 0 ? quantityCandidates[0] : undefined;
+  const normalizedQuantity = resolvedQuantityRaw !== undefined ? Number(resolvedQuantityRaw) : Number.NaN;
+  const soldOutFromQuantity = Number.isFinite(normalizedQuantity) ? normalizedQuantity <= 0 : false;
+
+  const listingStatusLower = (plantData?.status || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ');
+
+  const soldStatusDetected =
+    listingStatusLower.includes('sold') && !listingStatusLower.includes('unsold');
+
+  const outOfStockStatusDetected =
+    listingStatusLower.includes('out') && listingStatusLower.includes('stock') ||
+    listingStatusLower.includes('unavailable');
+
+  const soldOutFromStatus = soldStatusDetected || outOfStockStatusDetected;
+
+  const soldOutFromVariations = Array.isArray(plantData?.variations) && plantData.variations.length > 0
+    ? plantData.variations.every(variation => {
+        const variationQtyCandidate =
+          variation?.availableQty ??
+          variation?.availableQuantity ??
+          variation?.quantity ??
+          variation?.stock ??
+          variation?.maxQuantity ??
+          variation?.totalAvailableQty;
+        const variationQty = Number(variationQtyCandidate);
+        return !Number.isFinite(variationQty) || variationQty <= 0;
+      })
+    : false;
+
+  const isSoldOut = Boolean(
+    plantData?.isSoldOut === true ||
+    plantData?.variationsSoldOut === true ||
+    soldOutFromStatus ||
+    soldOutFromQuantity ||
+    soldOutFromVariations
+  );
+  const listingTypeLower = (plantData?.listingType || '').toLowerCase();
+  const soldBadgeText =
+    listingTypeLower.includes('grower') ||
+    listingTypeLower.includes('choice') ||
+    listingTypeLower.includes('wholesale')
+      ? 'Out of Stock'
+      : 'SOLD';
+
   return (
     <View style={[{flexDirection: 'column'}, style]}>
       <TouchableOpacity
@@ -271,32 +327,23 @@ const PlantItemCard = ({
           )}
           
           {/* SOLD Badge - Show when quantity is 0 */}
-          {(() => {
-            const availableQty = plantData?.availableQty ?? plantData?.quantity ?? plantData?.stock ?? null;
-            const quantityValue = availableQty !== null ? parseInt(availableQty) : null;
-            const isSold = quantityValue !== null && quantityValue === 0;
-            
-            // For listings with variations, check if all variations are sold out
-            if (!isSold && Array.isArray(plantData?.variations) && plantData.variations.length > 0) {
-              const allVariationsSold = plantData.variations.every(v => {
-                const vQty = parseInt(v.availableQty ?? v.quantity ?? v.stock ?? 0) || 0;
-                return vQty === 0;
-              });
-              if (allVariationsSold) {
-                return (
-                  <View style={styles.soldBadge}>
-                    <Text style={styles.soldText}>SOLD</Text>
-                  </View>
-                );
-              }
-            }
-            
-            return isSold ? (
-              <View style={styles.soldBadge}>
-                <Text style={styles.soldText}>SOLD</Text>
-              </View>
-            ) : null;
-          })()}
+          {isSoldOut && (
+            <View
+              style={
+                soldBadgeText === 'Out of Stock'
+                  ? styles.outOfStockBadge
+                  : styles.soldBadge
+              }>
+              <Text
+                style={
+                  soldBadgeText === 'Out of Stock'
+                    ? styles.outOfStockText
+                    : styles.soldText
+                }>
+                {soldBadgeText}
+              </Text>
+            </View>
+          )}
           
           {/* Love Count Badge - Now Interactive */}
           <TouchableOpacity 
@@ -449,16 +496,32 @@ const styles = StyleSheet.create({
   },
   soldBadge: {
     position: 'absolute',
-    top: 8,
+    top: 12,
     left: 8,
-    backgroundColor: '#E7522F',
+    backgroundColor: '#FFE7E2',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
     zIndex: 3,
   },
   soldText: {
-    color: '#FFFFFF',
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  outOfStockBadge: {
+    position: 'absolute',
+    top: 36,
+    left: 8,
+    backgroundColor: '#FFE7E2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    zIndex: 3,
+  },
+  outOfStockText: {
+    color: '#000000',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,

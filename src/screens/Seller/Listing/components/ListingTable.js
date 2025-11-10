@@ -171,9 +171,44 @@ const ListingTable = ({
               {activeTab === 'Live' && listing?.isActiveLiveListing ? (
                 <StatusBadge statusCode={'Active'} />
               ) : (
-                <StatusBadge statusCode={
-                  (parseInt(listing.availableQty) || 0) === 0 ? 'Out of Stock' : listing.status
-                } />
+                <StatusBadge
+                  statusCode={(function getStatus() {
+                    const derivedStatus = (listing._displayStatus || listing.status || '').trim().toLowerCase();
+                    if (derivedStatus === 'sold') {
+                      return 'Sold';
+                    }
+                    if (derivedStatus === 'out of stock') {
+                      return 'Out of Stock';
+                    }
+
+                    const normalizedType = (listing.listingType || '').trim().toLowerCase();
+                    const qty = parseInt(listing.availableQty, 10) || 0;
+                    const variations = Array.isArray(listing.variations) ? listing.variations : [];
+                    const isAllVariationsZero =
+                      variations.length > 0 &&
+                      variations.every(variation => (parseInt(variation.availableQty, 10) || 0) === 0);
+                    const isOutOfStock = qty === 0 && (variations.length === 0 || isAllVariationsZero);
+
+                    if (isOutOfStock && normalizedType.includes('single')) {
+                      return 'Sold';
+                    }
+
+                    if (
+                      isOutOfStock &&
+                      (normalizedType.includes('grower') ||
+                        normalizedType.includes('choice') ||
+                        normalizedType.includes('wholesale'))
+                    ) {
+                      return 'Out of Stock';
+                    }
+
+                    if (isOutOfStock) {
+                      return 'Out of Stock';
+                    }
+
+                    return listing.status || 'Active';
+                  })()}
+                />
               )}
             </View>
 
@@ -215,23 +250,22 @@ const ListingTable = ({
             
 
             {/* Listing Type */}
-            {listing.listingType != 'Single Plant' ? (
-              <View style={styles.cell}>
-                <View
-                  style={[
-                    styles.badge,
-                    {
-                      backgroundColor: '#000',
-                      alignSelf: 'flex-start',
-                      paddingHorizontal: 10,
-                    },
-                  ]}>
-                  <Text style={{color: '#fff'}}>{listing.listingType}</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.cell}></View>
-            )}
+            <View style={[styles.cell, styles.listingTypeCell]}>
+              {(() => {
+                const rawType = listing.listingType || '';
+                const normalizedType = rawType.trim() || 'Single Plant';
+
+                return (
+                  <View
+                    style={styles.listingTypeBadge}>
+                    <Text
+                      style={styles.listingTypeText}>
+                      {normalizedType}
+                    </Text>
+                  </View>
+                );
+              })()}
+            </View>
 
             {/* Pot Size Variation - show all variations in one cell */}
             <View style={styles.cell}>
@@ -373,68 +407,39 @@ const ListingTable = ({
                     <>
                       {listing.variations.map((variation, varIndex) => {
                         const qty = parseInt(variation.availableQty) || 0;
-                        return qty === 0 ? (
-                          <View 
-                            key={`qty-${varIndex}`} 
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              marginBottom: 4,
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <View style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 12,
-                              backgroundColor: '#E7522F',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              marginRight: 4,
-                              flexShrink: 0,
-                            }}>
-                              <Text style={{
-                                color: '#FFFFFF',
-                                fontSize: 14,
-                                fontWeight: 'bold',
-                              }}>i</Text>
-                            </View>
-                            <Text style={{
-                              fontFamily: 'Inter',
-                              fontStyle: 'normal',
-                              fontWeight: '600',
-                              fontSize: 16,
-                              lineHeight: 22,
-                              color: '#E7522F',
-                              flex: 1,
-                              flexShrink: 1,
-                            }}>
-                              This plant has been sold.
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text 
-                            key={`qty-${varIndex}`} 
+                        if (qty === 0) {
+                          return (
+                            <TouchableOpacity
+                              key={`qty-${varIndex}`}
+                              onPress={() =>
+                                onPressUpdateStock({
+                                  pressCode: listing.listingType,
+                                  id: listing.id,
+                                })
+                              }>
+                              <Text
+                                style={{
+                                  color: 'red',
+                                  marginTop: 4,
+                                  marginBottom: 4,
+                                }}>
+                                Add Stock
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        }
+
+                        return (
+                          <Text
+                            key={`qty-${varIndex}`}
                             style={[
-                              globalStyles.textSMGreyDark, 
-                              {marginBottom: 4}
-                            ]}
-                          >
+                              globalStyles.textSMGreyDark,
+                              {marginBottom: 4},
+                            ]}>
                             {qty}
                           </Text>
                         );
                       })}
-                      {listing.listingType !== 'Single Plant' && (
-                        <TouchableOpacity
-                          onPress={() =>
-                            onPressUpdateStock({
-                              pressCode: listing.listingType,
-                              id: listing.id,
-                            })
-                          }>
-                          <Text style={{color: 'red', marginTop: 10}}>Add Stock</Text>
-                        </TouchableOpacity>
-                      )}
                     </>
                   );
                 }
@@ -445,56 +450,48 @@ const ListingTable = ({
                 return (
                   <>
                     {qty === 0 ? (
-                      <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                      }}>
-                        <View style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: 12,
-                          backgroundColor: '#E7522F',
-                          justifyContent: 'center',
+                      <View
+                        style={{
+                          flexDirection: 'row',
                           alignItems: 'center',
-                          marginRight: 4,
-                          flexShrink: 0,
+                          flexWrap: 'wrap',
                         }}>
-                          <Text style={{
-                            color: '#FFFFFF',
-                            fontSize: 14,
-                            fontWeight: 'bold',
-                          }}>i</Text>
+                        <View
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 12,
+                            backgroundColor: '#E7522F',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            marginRight: 4,
+                            flexShrink: 0,
+                          }}>
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 14,
+                              fontWeight: 'bold',
+                            }}>
+                            i
+                          </Text>
                         </View>
-                        <Text style={{
-                          fontFamily: 'Inter',
-                          fontStyle: 'normal',
-                          fontWeight: '600',
-                          fontSize: 16,
-                          lineHeight: 22,
-                          color: '#E7522F',
-                          flex: 1,
-                          flexShrink: 1,
-                        }}>
+                        <Text
+                          style={{
+                            fontFamily: 'Inter',
+                            fontStyle: 'normal',
+                            fontWeight: '600',
+                            fontSize: 16,
+                            lineHeight: 22,
+                            color: '#E7522F',
+                            flex: 1,
+                            flexShrink: 1,
+                          }}>
                           This plant has been sold.
                         </Text>
                       </View>
-                    ) : (
-                      <Text style={globalStyles.textSMGreyDark}>
-                        {qty}
-                    </Text>
-                    )}
-                    {listing.listingType !== 'Single Plant' && (
-                      <TouchableOpacity
-                        onPress={() =>
-                          onPressUpdateStock({
-                            pressCode: listing.listingType,
-                            id: listing.id,
-                          })
-                        }>
-                        <Text style={{color: 'red', marginTop: 10}}>Add Stock</Text>
-                      </TouchableOpacity>
-                    )}
+                    ) : null}
+                    <Text style={globalStyles.textSMGreyDark}>{qty}</Text>
                   </>
                 );
               })()}
@@ -639,6 +636,26 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     borderRadius: 10,
     borderWidth: 1,
+  },
+  listingTypeCell: {
+    alignItems: 'flex-start',
+  },
+  listingTypeBadge: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingBottom: 1,
+    minHeight: 28,
+    backgroundColor: '#202325',
+    borderRadius: 8,
+  },
+  listingTypeText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#FFFFFF',
   },
   strikeText: {
     textDecorationLine: 'line-through',
