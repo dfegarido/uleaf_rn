@@ -27,23 +27,31 @@ const DeliverActionSheetEdit = ({
 }) => {
   return (
     <>
-      <ActionSheet visible={visible} onClose={onClose} heightPercent={'20%'}>
+      <ActionSheet visible={visible} onClose={onClose} heightPercent={'35%'}>
         <View
           style={{
-            marginHorizontal: 20,
-            marginVertical: 20,
+            paddingHorizontal: 20,
+            paddingTop: 20,
+            paddingBottom: 10,
             flexDirection: 'column',
           }}>
           <TouchableOpacity
-            onPress={onPressDeliverToHub}
+            onPress={() => {
+              onPressDeliverToHub();
+            }}
+            activeOpacity={0.7}
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
-              paddingBottom: 20,
+              alignItems: 'center',
+              paddingVertical: 16,
+              paddingHorizontal: 4,
+              borderBottomWidth: 1,
+              borderBottomColor: '#E4E7E9',
             }}>
-            <View style={{flexDirection: 'row'}}>
-              <BoxIcon />
-              <Text style={{paddingLeft: 10, color: '#393D40'}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+              <BoxIcon width={20} height={20} />
+              <Text style={{paddingLeft: 12, color: '#393D40', fontSize: 16}}>
                 Deliver to Hub
               </Text>
             </View>
@@ -53,15 +61,22 @@ const DeliverActionSheetEdit = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={onPressMissing}
+            onPress={() => {
+              onPressMissing();
+            }}
+            activeOpacity={0.7}
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
-              paddingBottom: 20,
+              alignItems: 'center',
+              paddingVertical: 16,
+              paddingHorizontal: 4,
+              borderBottomWidth: 1,
+              borderBottomColor: '#E4E7E9',
             }}>
-            <View style={{flexDirection: 'row'}}>
-              <ExCircleIcon />
-              <Text style={{paddingLeft: 10, color: '#393D40'}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+              <ExCircleIcon width={20} height={20} />
+              <Text style={{paddingLeft: 12, color: '#393D40', fontSize: 16}}>
                 Tag as missing
               </Text>
             </View>
@@ -71,15 +86,20 @@ const DeliverActionSheetEdit = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={onPressCasualty}
+            onPress={() => {
+              onPressCasualty();
+            }}
+            activeOpacity={0.7}
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
-              paddingBottom: 20,
+              alignItems: 'center',
+              paddingVertical: 16,
+              paddingHorizontal: 4,
             }}>
-            <View style={{flexDirection: 'row'}}>
-              <ExCircleIcon />
-              <Text style={{paddingLeft: 10, color: '#393D40'}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+              <ExCircleIcon width={20} height={20} />
+              <Text style={{paddingLeft: 12, color: '#393D40', fontSize: 16}}>
                 Tag as casualty
               </Text>
             </View>

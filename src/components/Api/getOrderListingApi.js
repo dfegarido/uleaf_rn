@@ -115,10 +115,11 @@ export const getOrderListingApi = async (
   date,
   deliveryStatus,
   listingType = [],
-  offset = 0,
+  nextPageToken = '', // Changed from offset to nextPageToken
   startDate,
   endDate,
   search,
+  screen = '', // Optional: 'delivery' to distinguish Delivery screen from Orders screen
 ) => {
   try {
     const token = await getStoredAuthToken();
@@ -128,7 +129,7 @@ export const getOrderListingApi = async (
   // keep existing param name for callers, but also append 'sort' so backend
   // which expects `sort` (values: 'Oldest'|'Newest') will receive it.
   params.append('sortBy', sortBy ?? '');
-  params.append('sort', sortBy ?? '');
+    params.append('sort', sortBy ?? '');
     params.append('date', date ?? '');
     params.append('deliveryStatus', deliveryStatus ?? '');
     params.append('listingType',
@@ -136,7 +137,14 @@ export const getOrderListingApi = async (
     params.append('startDate', startDate ?? '');
     params.append('endDate', endDate ?? '');
     params.append('plant', search ?? '');
-    params.append('offset', offset ?? 0);
+    // Use nextPageToken for pagination
+    if (nextPageToken) {
+      params.append('nextPageToken', nextPageToken);
+    }
+    // Add screen parameter to distinguish between Orders and Delivery screens
+    if (screen) {
+      params.append('screen', screen);
+    }
 
     // console.log(params.toString());
 
