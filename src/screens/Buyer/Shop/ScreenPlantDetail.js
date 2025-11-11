@@ -1546,15 +1546,15 @@ const ScreenPlantDetail = ({navigation, route}) => {
   backgroundSoldBadge: {
     position: 'absolute',
     top: 48,
-    left: 16,
-    backgroundColor: '#E7522F',
+    left: 56,
+    backgroundColor: '#FFE7E2',
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 12,
     zIndex: 2,
   },
   backgroundSoldText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.6,
