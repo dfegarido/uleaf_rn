@@ -7,6 +7,7 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -882,7 +883,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header Navigation */}
-        <View style={styles.header}>
+        <View style={[styles.header, Platform.OS === 'android' && { paddingTop: Math.min(insets.top + 12, 50) }]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}>
@@ -1627,6 +1628,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    ...(Platform.OS === 'android' && {
+      minHeight: 40,
+      minWidth: 40,
+      padding: 4,
+    }),
   },
   shareButton: {
     flexDirection: 'row',
