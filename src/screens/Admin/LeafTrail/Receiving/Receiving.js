@@ -1,3 +1,4 @@
+import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -29,7 +30,7 @@ const PlantListItem = ({ item, type }) => (
         )}
         <View style={styles.flightDetailsRow}>
              <AirplaneIcon width={20} height={20} color="#556065"/>
-             <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
+             <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{moment(item.flightDate).isValid() ? moment(item.flightDate).format('MMM-DD-YYYY') : item.flightDate}</Text></Text>
         </View>
         {item.receivedDate && (
              <View style={styles.flightDetailsRow}>
@@ -127,6 +128,7 @@ const ReceivingScreen = ({navigation}) => {
             try {
                 setIsLoading(true);
                 const response = await getAdminLeafTrailReceiving(filters);
+                
                 setReceivingData(response);
 
                 const adminFilter = await getAdminLeafTrailFilters();
