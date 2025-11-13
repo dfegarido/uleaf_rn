@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../config/apiConfig';
+import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
+import { AuthContext } from '../../auth/AuthProvider';
+import { listAdminsApi } from '../Api/listAdminsApi';
 
 // Pre-load and cache the avatar image to prevent RCTImageView errors
 const AvatarImage = require('../../assets/images/AvatarBig.png');
 const CheckIcon = require('../../assets/icons/check-circle-solid.svg');
 
 const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
+  const { userInfo } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -17,6 +21,51 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   const scrollViewRef = useRef(null);
   const searchInputRef = useRef(null);
   const groupNameInputRef = useRef(null);
+  
+  // Check explicit userType first (most reliable)
+  const explicitBuyer = 
+    userInfo?.user?.userType === 'buyer' || 
+    userInfo?.data?.userType === 'buyer' ||
+    userInfo?.userType === 'buyer';
+  
+  const explicitSeller = 
+    userInfo?.user?.userType === 'supplier' || 
+    userInfo?.data?.userType === 'supplier' ||
+    userInfo?.userType === 'supplier';
+  
+  // Check if current user is a seller (supplier) - check multiple possible structures
+  // BUT: If explicit userType is 'buyer', don't treat as seller even if seller fields exist
+  const isSeller = explicitSeller || (!explicitBuyer && (
+    userInfo?.user?.gardenOrCompanyName !== undefined ||
+    userInfo?.user?.liveFlag !== undefined ||
+    userInfo?.user?.currency !== undefined ||
+    userInfo?.data?.gardenOrCompanyName !== undefined ||
+    userInfo?.data?.liveFlag !== undefined ||
+    userInfo?.data?.currency !== undefined ||
+    userInfo?.gardenOrCompanyName !== undefined ||
+    userInfo?.liveFlag !== undefined ||
+    userInfo?.currency !== undefined ||
+    (userInfo?.user?.status && typeof userInfo.user.status === 'string' && 
+     ['active', 'Active', 'De-activated', 'De-activated'].includes(userInfo.user.status)) ||
+    (userInfo?.data?.status && typeof userInfo.data.status === 'string' && 
+     ['active', 'Active', 'De-activated', 'De-activated'].includes(userInfo.data.status)) ||
+    (userInfo?.status && typeof userInfo.status === 'string' && 
+     ['active', 'Active', 'De-activated', 'De-activated'].includes(userInfo.status))
+  ));
+  
+  // Check if current user is a buyer
+  // Prioritize explicit userType field over inferred fields
+  // If userType is explicitly 'buyer', then it's a buyer (even if seller fields exist)
+  const isBuyer = explicitBuyer || (!explicitSeller && !isSeller && (userInfo?.user?.userType || userInfo?.data?.userType || userInfo?.userType));
+  
+  // Check if current user is an admin (admin or sub_admin)
+  const isAdmin = 
+    userInfo?.data?.role === 'admin' || 
+    userInfo?.data?.role === 'sub_admin' || 
+    userInfo?.role === 'admin' || 
+    userInfo?.role === 'sub_admin' ||
+    userInfo?.user?.role === 'admin' ||
+    userInfo?.user?.role === 'sub_admin';
   
   // Fetch users when modal becomes visible
   useEffect(() => {
@@ -47,27 +96,206 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
     try {
       setLoading(true);
       
-      // Build URL with query parameter using apiConfig
-      // Show up to 50 users (both online and offline)
-      const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${query}&userType=buyer&limit=50&offset=0`;
-      
-      // Make API request
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      // Determine which user type to search based on current user's role
+      // RULE: Sellers can only search for suppliers and admins
+      // RULE: Buyers can only search for buyers and admins
+      // RULE: Admins can search for all user types (buyers, suppliers, and admins)
+      console.log('GroupChatModal: Fetching users', {
+        isSeller,
+        isBuyer,
+        isAdmin,
+        query
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch users: ${response.status}`);
+      const allResults = [];
+      const searchQuery = query && query.trim().length >= 2 ? query.trim() : '';
+      const encodedQuery = encodeURIComponent(searchQuery);
+      const authToken = await getStoredAuthToken();
+      
+      // IMPORTANT: Check isAdmin FIRST before isSeller/isBuyer
+      // Admins might have fields that make them appear as sellers or buyers,
+      // but they should be treated as admins with full access
+      if (isAdmin) {
+        // Fetch buyers
+        try {
+          const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=50&offset=0`;
+          const buyerResponse = await fetch(buyerUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            }
+          });
+          
+          if (buyerResponse.ok) {
+            const buyerData = await buyerResponse.json();
+            if (buyerData && buyerData.success && buyerData.results) {
+              const buyerResults = buyerData.results.map(user => ({
+                id: user.id,
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                email: user.email || '',
+                profileImage: user.profileImage || '',
+                userType: user.userType || 'buyer'
+              }));
+              allResults.push(...buyerResults);
+              console.log(`✅ Added ${buyerResults.length} buyers to admin results`);
+            }
+          }
+        } catch (buyerError) {
+          console.log('Error fetching buyers for admin:', buyerError);
+        }
+        
+        // Fetch suppliers
+        try {
+          const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=50&offset=0`;
+          const supplierResponse = await fetch(supplierUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            }
+          });
+          
+          if (supplierResponse.ok) {
+            const supplierData = await supplierResponse.json();
+            if (supplierData && supplierData.success && supplierData.results) {
+              const supplierResults = supplierData.results.map(user => ({
+                id: user.id,
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                email: user.email || '',
+                profileImage: user.profileImage || '',
+                userType: user.userType || 'supplier'
+              }));
+              allResults.push(...supplierResults);
+              console.log(`✅ Added ${supplierResults.length} suppliers to admin results`);
+            }
+          }
+        } catch (supplierError) {
+          console.log('Error fetching suppliers for admin:', supplierError);
+        }
+      } else if (isSeller) {
+        // ============================================
+        // RULE: SELLER ACCOUNT USERS CAN MESSAGE FOR ADMIN AND SELLER OTHER USERS
+        // Sellers can ONLY message:
+        // 1. Admin users
+        // 2. Other seller users (suppliers)
+        // Sellers CANNOT message buyer users
+        // ============================================
+        console.log('✅ Seller detected: Fetching suppliers and admins ONLY (buyers excluded)');
+        const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=50&offset=0`;
+        
+        const supplierResponse = await fetch(supplierUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        if (!supplierResponse.ok) {
+          throw new Error(`Failed to fetch suppliers: ${supplierResponse.status}`);
+        }
+        
+        const supplierData = await supplierResponse.json();
+        
+        // Process supplier results if available
+        if (supplierData && supplierData.success && supplierData.results) {
+          const supplierResults = supplierData.results.map(user => ({
+            id: user.id,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '',
+            profileImage: user.profileImage || '',
+            userType: user.userType || 'supplier'
+          }));
+          allResults.push(...supplierResults);
+          console.log(`✅ Added ${supplierResults.length} suppliers to results`);
+        }
+      } else if (isBuyer) {
+        // ============================================
+        // RULE: FOR BUYER ACCOUNT USERS CAN MESSAGE OTHER BUYER USERS AND ADMIN ONLY
+        // Buyers can ONLY message:
+        // 1. Admin users (both admin and sub_admin roles)
+        // 2. Other buyer users
+        // Buyers CANNOT message seller users (suppliers)
+        // ============================================
+        console.log('✅ Buyer detected: Fetching buyers and admins ONLY (suppliers excluded)');
+        const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=50&offset=0`;
+        
+        const buyerResponse = await fetch(buyerUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        if (!buyerResponse.ok) {
+          throw new Error(`Failed to fetch buyers: ${buyerResponse.status}`);
+        }
+        
+        const buyerData = await buyerResponse.json();
+        
+        // Process buyer results if available
+        if (buyerData && buyerData.success && buyerData.results) {
+          const buyerResults = buyerData.results.map(user => ({
+            id: user.id,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '',
+            profileImage: user.profileImage || '',
+            userType: user.userType || 'buyer'
+          }));
+          allResults.push(...buyerResults);
+          console.log(`✅ Added ${buyerResults.length} buyers to results`);
+        }
+      } else {
+        // Fallback: if user type is not detected
+        console.log('⚠️ WARNING: User type not detected. Cannot fetch users.');
+        // Don't fetch anything - let the final security filter handle it
       }
       
-      const data = await response.json();
+      // Also fetch admins (both admin and sub_admin roles)
+      try {
+        const adminFilters = {
+          status: 'active',
+          limit: 50
+        };
+        const adminData = await listAdminsApi(adminFilters);
+        
+        if (adminData && adminData.success && Array.isArray(adminData.data)) {
+          // Apply client-side search filter for admins
+          let admins = adminData.data.map(admin => ({
+            id: admin.adminId || admin.id || admin.uid,
+            firstName: admin.firstName || '',
+            lastName: admin.lastName || '',
+            email: admin.email || '',
+            profileImage: admin.profileImage || admin.profilePhotoUrl || '',
+            userType: admin.role || 'admin'
+          }));
+          
+          // Filter admins by search query if provided
+          if (searchQuery) {
+            const searchTerm = searchQuery.toLowerCase();
+            admins = admins.filter(admin => {
+              const fullName = `${admin.firstName} ${admin.lastName}`.trim().toLowerCase();
+              const email = (admin.email || '').toLowerCase();
+              return fullName.includes(searchTerm) || email.includes(searchTerm);
+            });
+          }
+          
+          allResults.push(...admins);
+        }
+      } catch (adminError) {
+        console.log('Error fetching admins in GroupChatModal:', adminError);
+        // Continue without admins if fetch fails
+      }
       
-      if (data && data.success && data.results) {
-        // Map API response to the expected format
-        const formattedUsers = data.results.map(async user => {
+      // Format all results (search results + admins)
+      if (allResults.length > 0) {
+        const formattedUsers = await Promise.all(allResults.map(async user => {
           let avatarUrl = AvatarImage; // Default avatar image
           
           if (user.profileImage) {
@@ -85,22 +313,23 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
           
           return {
             id: user.id,
-            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
             avatarUrl: avatarUrl,
             uid: user.id,
-            email: user.email,
+            email: user.email || '',
             createdAt: user.createdAt
           };
-        });
+        }));
         
-        const resolvedUsers = await Promise.all(formattedUsers);
-        setUsers(resolvedUsers);
-        setFilteredUsers(resolvedUsers);
+        setUsers(formattedUsers);
+        setFilteredUsers(formattedUsers);
       } else {
-        throw new Error('Invalid response format');
+        // No results found (neither search results nor admins)
+        setUsers([]);
+        setFilteredUsers([]);
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.log('Error fetching users:', error);
       Alert.alert('Error', 'Failed to load users. Please try again later.');
       setUsers([]);
       setFilteredUsers([]);

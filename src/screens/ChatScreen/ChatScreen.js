@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -41,6 +42,12 @@ const ChatScreen = ({navigation, route}) => {
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
   
+  // Check if current user is a buyer (only buyers can request to join public groups)
+  const isBuyer = 
+    userInfo?.user?.userType === 'buyer' || 
+    userInfo?.data?.userType === 'buyer' ||
+    userInfo?.userType === 'buyer';
+  
   // Make sure participants is an array and has at least one element
   // For group chats, we want to show the group name
   let displayName;
@@ -74,6 +81,12 @@ const ChatScreen = ({navigation, route}) => {
   const [avatarMap, setAvatarMap] = useState({});
   // Ref to track which UIDs we're currently fetching to avoid duplicate requests
   const fetchingRef = useRef(new Set());
+  // Join request state
+  const [isPublicGroup, setIsPublicGroup] = useState(false);
+  const [isMember, setIsMember] = useState(true);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [hasRejectedRequest, setHasRejectedRequest] = useState(false);
+  const [requestingJoin, setRequestingJoin] = useState(false);
   
   // Default avatar for fallback
   const DefaultAvatar = require('../../assets/images/AvatarBig.png');
@@ -172,6 +185,64 @@ const ChatScreen = ({navigation, route}) => {
     );
   };
 
+  // Submit join request for public group
+  const handleJoinRequest = async () => {
+    if (!id || !currentUserUid || !isPublicGroup || isMember) return;
+
+    try {
+      setRequestingJoin(true);
+      
+      // Get user info for the request
+      const userName = userInfo?.data?.fullName || 
+                      userInfo?.user?.fullName || 
+                      `${userInfo?.data?.firstName || ''} ${userInfo?.data?.lastName || ''}`.trim() ||
+                      `${userInfo?.user?.firstName || ''} ${userInfo?.user?.lastName || ''}`.trim() ||
+                      userInfo?.data?.email ||
+                      userInfo?.user?.email ||
+                      'Unknown User';
+      
+      const userAvatar = userInfo?.data?.profileImage || 
+                        userInfo?.data?.profilePhotoUrl || 
+                        userInfo?.user?.profileImage || 
+                        userInfo?.user?.profilePhotoUrl || 
+                        '';
+      
+      // Check if request already exists
+      const joinRequestsRef = collection(db, 'chats', id, 'joinRequests');
+      const existingRequestQuery = query(
+        joinRequestsRef,
+        where('userId', '==', currentUserUid),
+        where('status', '==', 'pending')
+      );
+      const existingSnapshot = await getDocs(existingRequestQuery);
+      
+      if (!existingSnapshot.empty) {
+        Alert.alert('Info', 'You already have a pending join request for this group.');
+        setHasPendingRequest(true);
+        setRequestingJoin(false);
+        return;
+      }
+      
+      // Create join request
+      const joinRequest = {
+        userId: currentUserUid,
+        userName: userName,
+        userAvatar: userAvatar,
+        status: 'pending',
+        requestedAt: Timestamp.now(),
+      };
+      
+      await addDoc(joinRequestsRef, joinRequest);
+      setHasPendingRequest(true);
+      Alert.alert('Success', 'Your join request has been submitted. An admin will review it.');
+    } catch (error) {
+      console.log('Error submitting join request:', error);
+      Alert.alert('Error', 'Failed to submit join request. Please try again.');
+    } finally {
+      setRequestingJoin(false);
+    }
+  };
+
   // Send a message: create message doc and update chat metadata
   const sendMessage = async (text) => {
     if (!id) {
@@ -179,6 +250,12 @@ const ChatScreen = ({navigation, route}) => {
     }
 
     if (!text || !text.trim()) return;
+    
+    // Block sending messages if user is not a member
+    if (chatType === 'group' && !isMember) {
+      Alert.alert('Access Denied', 'You must be a member of this group to send messages.');
+      return;
+    }
 
     try {
       const newMsg = {
@@ -245,6 +322,97 @@ const ChatScreen = ({navigation, route}) => {
     // Explicit, deterministic fallback to default avatar
     return require('../../assets/images/AvatarBig.png');
   };
+
+  // Check if user is member and if group is public
+  // Redirect buyers to settings if they're not members of a public group
+  useEffect(() => {
+    const checkMembershipAndPublicStatus = async () => {
+      if (!id || chatType !== 'group' || !currentUserUid) {
+        setIsMember(true); // Default to member for private chats
+        setIsPublicGroup(false);
+        return;
+      }
+
+      try {
+        const chatDocRef = doc(db, 'chats', id);
+        const chatDocSnap = await getDoc(chatDocRef);
+        
+        if (chatDocSnap.exists()) {
+          const chatData = chatDocSnap.data();
+          const isPublic = chatData.isPublic === true;
+          setIsPublicGroup(isPublic);
+          
+          // Check if current user is a member
+          const memberIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
+          const userIsMember = memberIds.includes(currentUserUid);
+          setIsMember(userIsMember);
+          
+          // If buyer is not a member of a public group, redirect to settings
+          if (!userIsMember && isPublic && isBuyer) {
+            // Redirect to settings screen where they can request to join
+            navigation.replace('ChatSettingsScreen', { 
+              chatId: id, 
+              participants: Array.isArray(chatData.participants) ? chatData.participants : [],
+              type: chatType,
+              name: name
+            });
+            return;
+          }
+          
+          // If seller is invited but not a member, redirect to settings
+          const isSeller = 
+            userInfo?.user?.userType === 'supplier' || 
+            userInfo?.data?.userType === 'supplier' ||
+            userInfo?.userType === 'supplier';
+          
+          if (!userIsMember && isPublic && isSeller) {
+            const invitedUsers = Array.isArray(chatData.invitedUsers) ? chatData.invitedUsers : [];
+            if (invitedUsers.includes(currentUserUid)) {
+              // Redirect to settings screen where they can accept/decline invitation
+              navigation.replace('ChatSettingsScreen', { 
+                chatId: id, 
+                participants: Array.isArray(chatData.participants) ? chatData.participants : [],
+                type: chatType,
+                name: name
+              });
+              return;
+            }
+          }
+          
+          // Check if user has pending or rejected request (for non-buyers or members)
+          if (!userIsMember && isPublic) {
+            const joinRequestsRef = collection(db, 'chats', id, 'joinRequests');
+            
+            // Check for pending request
+            const pendingQuery = query(
+              joinRequestsRef,
+              where('userId', '==', currentUserUid),
+              where('status', '==', 'pending')
+            );
+            const pendingSnapshot = await getDocs(pendingQuery);
+            setHasPendingRequest(!pendingSnapshot.empty);
+            
+            // Check for rejected request
+            const rejectedQuery = query(
+              joinRequestsRef,
+              where('userId', '==', currentUserUid),
+              where('status', '==', 'rejected')
+            );
+            const rejectedSnapshot = await getDocs(rejectedQuery);
+            setHasRejectedRequest(!rejectedSnapshot.empty);
+          } else {
+            setHasPendingRequest(false);
+            setHasRejectedRequest(false);
+          }
+        }
+      } catch (error) {
+        console.log('Error checking membership:', error);
+        setIsMember(true); // Default to member on error
+      }
+    };
+
+    checkMembershipAndPublicStatus();
+  }, [id, chatType, currentUserUid, isBuyer, navigation, name]);
 
   useEffect(() => {
     if (!id) {
@@ -514,6 +682,12 @@ const ChatScreen = ({navigation, route}) => {
             <SkeletonMessage key={`sk-${idx}`} isMe={idx % 3 === 0} index={idx} />
           ))}
         </View>
+      ) : (chatType === 'group' && !isMember && hasRejectedRequest) ? (
+        <View style={styles.restrictedContainer}>
+          <Text style={styles.restrictedText}>
+            You cannot view messages in this group. Your join request was rejected.
+          </Text>
+        </View>
       ) : (
         <FlatList
           ref={flatListRef}
@@ -653,8 +827,11 @@ const ChatScreen = ({navigation, route}) => {
         </View>
       )}
 
-      {/* Input */}
-      <MessageInput onSend={sendMessage} />
+      {/* Input - Disabled for non-members */}
+      <MessageInput 
+        onSend={sendMessage} 
+        disabled={chatType === 'group' && !isMember}
+      />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -701,6 +878,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#539461',
     backgroundColor: '#f5f5f5',
+  },
+  restrictedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: '#f5f5f5',
+  },
+  restrictedText: {
+    fontSize: 16,
+    color: '#647276',
+    textAlign: 'center',
+    lineHeight: 24,
   },
   plantRecommendationsContainer: {
     backgroundColor: '#f8f9fa',

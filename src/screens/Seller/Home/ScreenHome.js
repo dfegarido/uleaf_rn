@@ -368,10 +368,8 @@ const ScreenHome = ({navigation}) => {
           <TouchableOpacity
             style={styles.topNavItem}
             onPress={() => {
-              // Disable navigation for suppliers
-              if (userInfo?.user?.userType !== 'supplier') {
-                navigation.navigate('MessagesScreen');
-              }
+              // Allow navigation for all users including suppliers (sellers)
+              navigation.navigate('MessagesScreen');
             }}>
             <View style={styles.msgIcon}>
               <MessageIcon width={40} height={40} />
