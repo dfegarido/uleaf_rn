@@ -119,7 +119,7 @@ export const getOrderListingApi = async (
   startDate,
   endDate,
   search,
-  screen = '', // Optional: 'delivery' to distinguish Delivery screen from Orders screen
+  screen = '', // 'orders' for Orders screen, 'delivery' for Delivery screen
 ) => {
   try {
     const token = await getStoredAuthToken();

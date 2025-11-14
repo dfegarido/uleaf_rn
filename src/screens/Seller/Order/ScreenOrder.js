@@ -126,6 +126,7 @@ const ScreenOrder = ({navigation}) => {
           startDate,
           endDate,
           search,
+          'orders', // Pass 'orders' to distinguish from Delivery screen
         ),
       3,
       1000,
@@ -194,53 +195,64 @@ const ScreenOrder = ({navigation}) => {
       const orders = response?.orders || [];
       const nextToken = response?.nextPageToken || null;
 
-      // Only calculate total count on first page or if totalOrders is 0 (initial load or filter change)
+      // For Orders screen, backend now returns accurate total count
+      // Use backend total if available, otherwise calculate from pages
       let computedTotal = totalOrders; // Keep existing total by default
       
       if (desiredPage === 1 || totalOrders === 0) {
-        // Check if we should use backend total or fetch all pages to count
-        const hasFilters = search && search.trim() !== '' || 
-                          reusableListingType && reusableListingType.length > 0 ||
-                          reusableDate && reusableDate !== 'All' ||
-                          (reusableStartDate && reusableEndDate);
-
-        if (!hasFilters && typeof response?.count === 'number') {
-          // Use backend count when no filters are applied
-          computedTotal = response.count;
+        // Check if backend provided a total count (for Orders screen)
+        if (typeof response?.total === 'number' && response.total > 0) {
+          // Use backend total if available (for Orders screen with sellerName/gardenOrCompanyName filters)
+          computedTotal = response.total;
+          console.log(`✅ Using backend total count: ${computedTotal}`);
         } else {
-          // For filtered results, fetch all pages to get accurate count
-          // Use a separate token chain for counting to avoid affecting pagination
-          let totalFilteredCount = orders.length;
-          let countToken = nextToken;
-          let countSafety = 0;
-          const MAX_TOTAL_FETCHES = 50;
+          // Check if we should use backend count or fetch all pages to count
+          const hasFilters = search && search.trim() !== '' || 
+                            reusableListingType && reusableListingType.length > 0 ||
+                            reusableDate && reusableDate !== 'All' ||
+                            (reusableStartDate && reusableEndDate);
 
-          // Continue fetching and counting filtered results until no more pages
-          while (countToken && countSafety < MAX_TOTAL_FETCHES) {
-            try {
-              const additionalResponse = await fetchPageWithToken(countToken);
-              const additionalOrders = additionalResponse?.orders || [];
-              totalFilteredCount += additionalOrders.length;
+          if (!hasFilters && typeof response?.count === 'number') {
+            // Use backend count when no filters are applied
+            computedTotal = response.count;
+          } else {
+            // For filtered results, fetch all pages to get accurate count
+            // Use a separate token chain for counting to avoid affecting pagination
+            let totalFilteredCount = orders.length;
+            let countToken = nextToken;
+            let countSafety = 0;
+            const MAX_TOTAL_FETCHES = 50;
 
-              console.log(`🔍 Orders counting: Fetched page ${countSafety + 2}, got ${additionalOrders.length} orders, total so far: ${totalFilteredCount}`);
+            // Continue fetching and counting filtered results until no more pages
+            while (countToken && countSafety < MAX_TOTAL_FETCHES) {
+              try {
+                const additionalResponse = await fetchPageWithToken(countToken);
+                const additionalOrders = additionalResponse?.orders || [];
+                totalFilteredCount += additionalOrders.length;
 
-              if (additionalResponse?.nextPageToken) {
-                countToken = additionalResponse.nextPageToken;
-              } else {
-                countToken = null;
-                console.log(`✅ Orders counting: Reached end, final count: ${totalFilteredCount}`);
-                break; // No more pages, we have the accurate total
+                console.log(`🔍 Orders counting: Fetched page ${countSafety + 2}, got ${additionalOrders.length} orders, total so far: ${totalFilteredCount}`);
+
+                if (additionalResponse?.nextPageToken) {
+                  countToken = additionalResponse.nextPageToken;
+                } else {
+                  countToken = null;
+                  console.log(`✅ Orders counting: Reached end, final count: ${totalFilteredCount}`);
+                  break; // No more pages, we have the accurate total
+                }
+
+                countSafety += 1;
+              } catch (error) {
+                console.error('Error fetching page for total count:', error);
+                break; // Stop on error
               }
-
-              countSafety += 1;
-            } catch (error) {
-              console.error('Error fetching page for total count:', error);
-              break; // Stop on error
             }
-          }
 
-          computedTotal = totalFilteredCount;
+            computedTotal = totalFilteredCount;
+          }
         }
+      } else if (typeof response?.total === 'number' && response.total > 0) {
+        // For subsequent pages, use backend total if available
+        computedTotal = response.total;
       }
 
       tokensCopy[desiredPage] = nextToken;
