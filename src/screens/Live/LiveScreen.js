@@ -4,9 +4,8 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
-  Alert,
   Dimensions,
   ImageBackground,
   ScrollView,
@@ -17,12 +16,12 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../../firebase';
+import { db } from '../../../firebase';
+import { AuthContext } from '../../auth/AuthProvider';
 
 // Import SVG icons
-import { useNavigation } from '@react-navigation/native';
-import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import { globalStyles } from '../../../assets/styles/styles';
+import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import { globalStyles } from '../../assets/styles/styles';
 
 // Get screen dimensions with proper 2-column layout calculation
 const getScreenDimensions = () => {
@@ -54,27 +53,12 @@ const getScreenDimensions = () => {
 let {screenWidth, HORIZONTAL_PADDING, GAP, CARD_WIDTH, availableWidth} =
   getScreenDimensions();
 
-const LiveHeader = ({navigation}) => {
-  const [searchText, setSearchText] = useState('');
-
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <BackSolidIcon />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Live</Text>
-      {/* This empty view is for centering the title */}
-      <View style={{ width: 24 }} />
-    </View>
-  );
-};
-
-const LiveScreen = () => {
+const LiveSellerScreen = ({navigation}) => {
   const [dimensions, setDimensions] = useState(getScreenDimensions());
   const [ongoingCount, setOngoingCount] = useState(0);
   const [upcomingCount, setUpcomingCount] = useState(0);
-  const navigation = useNavigation();
-
+  const { userInfo } = useContext(AuthContext);
+  
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({window}) => {
       const newDimensions = getScreenDimensions();
@@ -88,17 +72,17 @@ const LiveScreen = () => {
     const liveCollectionRef = collection(db, 'live');
     
     // Listener for ongoing sessions
-    const ongoingQuery = query(liveCollectionRef, where('status', 'in', ['live', 'waiting']));
+    const ongoingQuery = query(liveCollectionRef, where('createdBy', '==', userInfo?.uid), where('liveType', '==', 'live'));
     const unsubscribeOngoing = onSnapshot(ongoingQuery, (snapshot) => {
       setOngoingCount(snapshot.size);
     });
 
     // Listener for upcoming (scheduled) sessions
-    const upcomingQuery = query(liveCollectionRef, where('status', 'in', ['draft']));
+    const upcomingQuery = query(liveCollectionRef, where('createdBy', '==', userInfo?.uid), where('liveType', '==', 'purge'));
     const unsubscribeUpcoming = onSnapshot(upcomingQuery, (snapshot) => {
       setUpcomingCount(snapshot.size);
     });
-
+userInfo?.uid
     // Cleanup listeners on component unmount
     return () => {
       unsubscribeOngoing();
@@ -106,46 +90,27 @@ const LiveScreen = () => {
     };
   }, []);
 
-  const goTo = (liveType) => {
-    if (liveType === 'ongoing') {
-      if (ongoingCount > 0) {
-        navigation.navigate('OngoingLiveListScreen');
-      } else {
-        Alert.alert('There is no ongoing live sale or live purge at this time.');
-      }
-      
-    } else if (liveType === 'upcoming') {
-      if (upcomingCount > 0) {
-        navigation.navigate('UpcomingLiveListScreen');
-      } else {
-        Alert.alert('There are no upcoming live sales or purges at this time.');
-      }
-    }
-  }
-
-  const goBack = () => {
-    navigation.goBack();
-  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <BackSolidIcon />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Live</Text>
+        <Text style={styles.headerTitle}>Live Management</Text>
         {/* This empty view is for centering the title */}
         <View style={{ width: 24 }} />
       </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
         <View style={styles.cardContainer}>
-          <TouchableOpacity style={styles.card} onPress={() => goTo('ongoing')}>
+          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('MyLiveSessionsScreen')}>
             <ImageBackground
-              source={require('../../../assets/live-icon/ongoing-live.png')}
+              source={require('../../assets/live-icon/listLive.png')}
               style={styles.cardBackground}
               imageStyle={styles.cardImage}>
               {/* <Text style={styles.cardTitle}>Ongoing Live Sale/Purge</Text> */}
@@ -153,13 +118,13 @@ const LiveScreen = () => {
             </ImageBackground>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.card} onPress={() => goTo('upcoming')}>
+          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ScreenMyPurges')}>
             <ImageBackground
-              source={require('../../../assets/live-icon/upcoming-live.png')}
+              source={require('../../assets/live-icon/listPurge.png')}
               style={styles.cardBackground}
               imageStyle={styles.cardImage}>
               {/* <Text style={styles.cardTitle}>Upcoming Live Sales and Purges</Text> */}
-              <Text style={styles.cardCount}>{upcomingCount} Upcoming</Text>
+              <Text style={styles.cardCount}>{upcomingCount} Purge</Text>
             </ImageBackground>
           </TouchableOpacity>
         </View>
@@ -241,4 +206,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LiveScreen;
+export default LiveSellerScreen;

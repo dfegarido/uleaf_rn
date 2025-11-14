@@ -234,7 +234,7 @@ const ScreenSell = ({navigation}) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
+            {/* <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
               <TouchableOpacity
                 onPress={ () => navigation.navigate('CreateLiveSession', {isPurge: true})}
                 style={{
@@ -254,7 +254,7 @@ const ScreenSell = ({navigation}) => {
                   Purge
                 </Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </View>)}
         </View>
 

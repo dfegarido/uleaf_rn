@@ -20,6 +20,8 @@ import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 import { LiveBroadcastScreen } from '../../screens/Live';
 import CreateLiveSessionScreen from '../../screens/Live/CreateLiveSessionScreen';
+import LiveSellerScreen from '../../screens/Live/LiveScreen';
+import MyLiveSessionsScreen from '../../screens/Live/MyLiveSessionsScreen';
 import ScreenMyPurges from '../../screens/Live/ScreenMyPurges';
 import SetUpListingsPurgeScreen from '../../screens/Live/SetUpListingsPurgeScreen';
 
@@ -734,6 +736,18 @@ const MainStack = () => {
       <Stack.Screen
         name="ScreenMyPurges"
         component={ScreenMyPurges}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="MyLiveSessionsScreen"
+        component={MyLiveSessionsScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="LiveSellerScreen"
+        component={LiveSellerScreen}
         options={{headerShown: false}}
       />
 

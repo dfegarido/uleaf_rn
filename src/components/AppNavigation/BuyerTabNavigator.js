@@ -327,15 +327,14 @@ function BuyerTabs() {
         headerShown: false,
       })}>
       <Tab.Screen
-        name="Live"
-        component={LiveScreen}
         listeners={({navigation}) => ({
           tabPress: e => {
-            // Don't prevent default - let it navigate to placeholder
-            // Just log the press
-            console.log('Live tab pressed - feature coming soon!');
+            e.preventDefault();
+            navigation.navigate('LiveScreen');
           },
         })}
+        name="Live"
+        component={LiveScreen}
       />
       <Tab.Screen
         name="Cart"

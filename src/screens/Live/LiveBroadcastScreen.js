@@ -89,6 +89,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               onPress: () => updateLiveStatus(newStatus)
             },
             { 
+              text: "No",
+              onPress: () => navigation.goBack()
+            },
+            { 
               text: "Cancel",
             }
           ]

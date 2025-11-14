@@ -49,7 +49,7 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
-import Purge from '../../../assets/live-icon/purge.svg';
+import LiveIcon from '../../../assets/images/live.svg';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -958,12 +958,12 @@ const ScreenListing = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => navigation.navigate('ScreenMyPurges')}
+                onPress={() => navigation.navigate('LiveSellerScreen')}
                 style={styles.iconButton}>
-                  
+                <LiveIcon width={40} height={40} />  
                 {/* <LiveIcon width={40} height={40} />
                 <Text style={styles.liveTag}>LIVE</Text> */}
-                <Purge />
+                {/* <Purge /> */}
                 {/* <Image source={require('../../../assets/live-icon/purge.png')} style={{width: 40, height: 40}} /> */}
               </TouchableOpacity>
             )}
