@@ -17,6 +17,7 @@ import {
   Image,
   PermissionsAndroid,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -552,6 +553,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               </TouchableOpacity>
             </View>
           </View>
+
+          {liveStats?.stickyNote && (
+            <View style={styles.stickyNoteContainer}>
+              <ScrollView showsVerticalScrollIndicator={true}>
+                <Text style={styles.stickyNoteText}>{liveStats.stickyNote}</Text>
+              </ScrollView>
+            </View>
+          )}
           
           <View style={styles.actionBar}>
         <View style={styles.social}>
@@ -969,5 +978,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     lineHeight: 16,
+  },
+  stickyNoteContainer: {
+    position: 'absolute',
+    top: 140,
+    right: 10,
+    maxHeight: 150,
+    width: '45%', // Occupy a portion of the right side
+    backgroundColor: 'rgba(255, 249, 196, 0.9)', // Yellowish sticky note color
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E9D5A1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    transform: [{ rotate: '2deg' }], // Slight rotation for effect
+  },
+  stickyNoteText: {
+    color: '#333',
+    fontSize: 14,
+    fontFamily: 'Inter',
   },
 });

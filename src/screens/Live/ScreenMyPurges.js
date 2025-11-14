@@ -1,9 +1,10 @@
 import { useIsFocused } from '@react-navigation/native';
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   ImageBackground,
   Modal,
@@ -15,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 
 const ScreenMyPurges = ({ navigation }) => {
@@ -71,6 +73,30 @@ const ScreenMyPurges = ({ navigation }) => {
     }
   };
 
+  const handleDeletePress = (item) => {
+    Alert.alert(
+      'Delete Purge',
+      `Are you sure you want to delete the purge "${item.title}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await deleteDoc(doc(db, 'live', item.id));
+            } catch (error) {
+              console.error('Error deleting purge:', error);
+              Alert.alert('Error', 'Could not delete the purge. Please try again.');
+            }
+            setLoading(false); // setLoading(false) should be inside the onPress
+          },
+        },
+      ],
+    );
+  };
+
   const renderItem = ({ item }) => {
     const scheduledDate = item.scheduledAt ? moment(item.scheduledAt.seconds * 1000).format('MMM DD, YYYY hh:mmA') : 'Not scheduled';
     const durationText = item.duration ? `${item.duration} mins` : 'No duration set';
@@ -94,6 +120,11 @@ const ScreenMyPurges = ({ navigation }) => {
           </Text>
           <Text style={styles.cardDate}>Scheduled for: {scheduledDate}</Text>
           <Text style={styles.cardDate}>Duration: {durationText}</Text>
+          <View style={styles.deleteButtonContainer}>
+            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeletePress(item)}>
+              <TrashIcon width={16} height={16} />
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -113,7 +144,9 @@ const ScreenMyPurges = ({ navigation }) => {
           <BackSolidIcon />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Purges</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => navigation.navigate('CreateLiveSession', { isPurge: true })}>
+          <Text style={styles.createButtonText}>Create</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -145,6 +178,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#000' },
+  createButtonText: { fontSize: 16, color: '#539461', fontWeight: '600' },
   loadingOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -189,6 +223,18 @@ const styles = StyleSheet.create({
   cardInfo: { padding: 12 },
   cardTitle: { fontWeight: '600', fontSize: 14, color: '#333', marginBottom: 4 },
   cardDate: { color: '#555', fontSize: 12 },
+  deleteButtonContainer: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+  },
+  deleteButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    padding: 6,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',

@@ -84,7 +84,7 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
       return;
     }
 
-    if (isPurge && purgeDateTime <= new Date()) {
+    if (purgeDateTime <= new Date()) {
       Alert.alert('Invalid Date', 'Please select a future date and time for the purge.');
       return;
     }
@@ -98,13 +98,9 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
         mimeType: coverPhoto.type,
         liveType,
         duration: parseInt(duration, 10) || 0, // Add duration in minutes
+        scheduledAt: purgeDateTime.toISOString(),
       };
 
-      if (isPurge) {
-        sessionData.scheduledAt = purgeDateTime.toISOString();
-      }
-      console.log('purgeDateTime.toISOString()', purgeDateTime.toISOString());
-      
       const response = await createLiveSession(sessionData);
 
       // Assuming the API returns a channelName or other session details
@@ -162,15 +158,11 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
             keyboardType="numeric"
           />
         </>)}
-        
-      {isPurge && (
-       <>
-          <Text style={styles.label}>Purge Date & Time</Text>
+
+      <Text style={styles.label}>{isPurge ? 'Purge' : 'Live'} Date & Time</Text>
           <TouchableOpacity onPress={showDatePicker} style={styles.input}>
-              <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()}</Text>
-          </TouchableOpacity>
-       </>
-      )}
+          <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()}</Text>
+      </TouchableOpacity>
 
       <DateTimePickerModal
         isVisible={isDatePickerVisible}

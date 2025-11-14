@@ -12,6 +12,8 @@ import { ScreenCart } from '../../screens/Buyer/Cart';
 import CheckoutScreen from '../../screens/Buyer/Checkout/CheckoutScreen';
 import { BuyerLiveStreamScreen } from '../../screens/Buyer/Live';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen'; // Disabled for now
+import OngoingLiveListScreen from '../../screens/Buyer/Live/OngoingLiveListScreen';
+import UpcomingLiveListScreen from '../../screens/Buyer/Live/UpcomingLiveListScreen';
 import { OrderDetailsScreen } from '../../screens/Buyer/Orders';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
@@ -165,6 +167,18 @@ function BuyerTabNavigator() {
       />
 
       <Stack.Screen
+        name="OngoingLiveListScreen"
+        component={OngoingLiveListScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="UpcomingLiveListScreen"
+        component={UpcomingLiveListScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
         name="LiveScreen"
         component={LiveScreen}
         options={{headerShown: false}}
@@ -313,15 +327,14 @@ function BuyerTabs() {
         headerShown: false,
       })}>
       <Tab.Screen
-        name="Live"
-        component={LiveScreen}
         listeners={({navigation}) => ({
           tabPress: e => {
-            // Don't prevent default - let it navigate to placeholder
-            // Just log the press
-            console.log('Live tab pressed - feature coming soon!');
+            e.preventDefault();
+            navigation.navigate('LiveScreen');
           },
         })}
+        name="Live"
+        component={LiveScreen}
       />
       <Tab.Screen
         name="Cart"
