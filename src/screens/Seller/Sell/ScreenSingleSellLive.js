@@ -312,7 +312,7 @@ const ScreenSingleSellLive = ({navigation, route}) => {
 
     if (!selectedGenus) errors.push('Genus is required.');
     if (!selectedSpecies) errors.push('Species is required.');
-    if (!selectedVariegation) errors.push('Variegation is required.');
+    // if (!selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
     if (images.length === 0) errors.push('At least one image is required.');
@@ -682,7 +682,7 @@ const ScreenSingleSellLive = ({navigation, route}) => {
           </View>
           <View style={[{paddingBottom: 20}]}>
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-              Variegation <Text style={globalStyles.textXSRed}>*</Text>
+              Variegation <Text style={globalStyles.textXSRed}></Text>
             </Text>
             <InputDropdownSearch
               options={dropdownOptionVariegation}
