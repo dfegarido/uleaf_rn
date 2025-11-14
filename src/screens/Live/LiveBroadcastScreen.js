@@ -2,10 +2,12 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   where
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
@@ -36,6 +38,7 @@ import LoveIcon from '../../assets/live-icon/love.svg';
 import MicOffIcon from '../../assets/live-icon/muted.svg';
 import MicOnIcon from '../../assets/live-icon/unmuted.svg';
 
+import NoteIcon from '../../assets/live-icon/notes.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
@@ -53,6 +56,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [uid, setUid] = useState(null);
   const [error, setError] = useState(null);
   const [liveStats, setLiveStats] = useState({ viewerCount: 0, likeCount: 0 });
+  const [sessionDetails, setSessionDetails] = useState(null);
   const [isCreateListingModalVisible, setCreateListingModalVisible] = useState(false); // New state for modal visibility
   const [isLiveListingModalVisible, setLiveListingModalVisible] = useState(false); // State for the listings modal
   const [activeListing, setActiveListing] = useState(null); // State for the currently displayed listing
@@ -60,6 +64,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   
+  const [isStickyNoteModalVisible, setStickyNoteModalVisible] = useState(false);
+  const [stickyNoteText, setStickyNoteText] = useState('');
+
   const currentUserInfo = userInfo || asyncUserInfo;
   const [isMuted, setIsMuted] = useState(false);
   const [channelName, setChannelName] = useState(null);
@@ -254,11 +261,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
+        setSessionDetails(data);
         console.log('Live session data updated:', data);
         setLiveStats({
           viewerCount: data.viewerCount || 0,
           likeCount: data.likeCount || 0,
         });
+        setStickyNoteText(data.stickyNote || '');
       } else {
         console.log('Live session document does not exist.');
       }
@@ -311,6 +320,30 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
+  const handleOpenStickyNote = async () => {
+    if (!sessionId) return;
+    const sessionDocRef = doc(db, 'live', sessionId);
+    const docSnap = await getDoc(sessionDocRef);
+    if (docSnap.exists()) {
+      setStickyNoteText(docSnap.data().stickyNote || '');
+    }
+    setStickyNoteModalVisible(true);
+  };
+
+  const handleSaveStickyNote = async () => {
+    if (!sessionId) return;
+    setIsLoading(true);
+    try {
+      const sessionDocRef = doc(db, 'live', sessionId);
+      await updateDoc(sessionDocRef, { stickyNote: stickyNoteText });
+      setStickyNoteModalVisible(false);
+    } catch (err) {
+      console.log('zxcv',  err);
+      Alert.alert('Error', 'Could not save sticky note.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   // When a new active listing is set from the modal, update the UI
   // const handleActiveListingSet = async () => {
   //   if (sessionId) {
@@ -434,15 +467,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <LoveIcon />
                   <Text style={styles.sideActionText}>{liveStats.likeCount}</Text>
                 </TouchableOpacity>
-                {/* <TouchableOpacity onPress={() => setCreateListingModalVisible(true)}  style={styles.sideAction}>
-                  <ShareIcon />
+                <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
+                  <NoteIcon width={32} height={32} />
+                  <Text style={styles.sideActionNotesText}>Note</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.sideAction}
-                  onPress={() => setLiveListingModalVisible(true)} // Open the listings modal
-                >
-                  <ShopIcon width={40} height={40} />
-                </TouchableOpacity> */}
             </View>
           </View>
           {activeListing && (
@@ -505,6 +533,32 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           sessionId={sessionId}
           onActiveListingSet={() => {}}
         />
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isStickyNoteModalVisible}
+          onRequestClose={() => setStickyNoteModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.stickyNoteModalContainer}>
+              <Text style={styles.modalTitle}>Note</Text>
+              <TextInput
+                style={styles.stickyNoteInput}
+                placeholder="Write a note for your viewers..."
+                placeholderTextColor="#666"
+                multiline
+                value={stickyNoteText}
+                onChangeText={setStickyNoteText}
+              />
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveStickyNote}>
+                <Text style={styles.saveButtonText}>Save Note</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setStickyNoteModalVisible(false)}>
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
 };
@@ -524,6 +578,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   container: { 
     flex: 1,
     justifyContent: 'space-between',
@@ -705,6 +766,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
+  sideActionNotesText: {
+    ...baseFont,
+    fontWeight: '600',
+    fontSize: 10,
+    marginTop: 4,
+  },
   shop: {
     flexDirection: 'column',
     alignItems: 'center',
@@ -842,5 +909,82 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     lineHeight: 16,
+  },
+  stickyNoteContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 15,
+    right: 15,
+    backgroundColor: 'rgba(255, 249, 196, 0.9)', // Yellowish sticky note color
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E9D5A1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  stickyNoteText: {
+    color: '#333',
+    fontSize: 14,
+    fontFamily: 'Inter',
+  },
+  stickyNoteModalContainer: {
+    width: '90%',
+    backgroundColor: 'white',
+    backgroundColor: '#FFF9C4', // Yellowish sticky note color
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+    transform: [{ rotate: '-2deg' }], // Slight rotation for effect
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#424242',
+    fontFamily: 'Inter-Bold', // A more fitting font if available
+  },
+  stickyNoteInput: {
+    width: '100%',
+    height: 200,
+    borderWidth: 0, // Remove border
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+    color: '#333',
+    backgroundColor: 'transparent', // Make input background transparent
+    fontFamily: 'Inter', // A slightly more handwritten-style font would be great here
+  },
+  saveButton: {
+    backgroundColor: '#4CAF50', // A slightly different green
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 4,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: { marginTop: 16 },
+  closeButtonText: {
+    color: '#616161',
+    fontSize: 16,
   },
 });
