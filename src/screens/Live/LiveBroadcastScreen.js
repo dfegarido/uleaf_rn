@@ -33,6 +33,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
+import MicOffIcon from '../../assets/live-icon/muted.svg';
+import MicOnIcon from '../../assets/live-icon/unmuted.svg';
+
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
@@ -58,6 +61,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [newComment, setNewComment] = useState('');
   
   const currentUserInfo = userInfo || asyncUserInfo;
+  const [isMuted, setIsMuted] = useState(false);
   const [channelName, setChannelName] = useState(null);
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
   const [isLive, setIsLive] = useState(false);
@@ -148,6 +152,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     if (rtcEngineRef.current) {
       console.log('🔄 Switching camera...');
       rtcEngineRef.current.switchCamera();
+    }
+  };
+
+  const handleMuteToggle = () => {
+    if (rtcEngineRef.current) {
+      const newMutedState = !isMuted;
+      rtcEngineRef.current.muteLocalAudioStream(newMutedState);
+      setIsMuted(newMutedState);
+      console.log(`🎤 Audio muted: ${newMutedState}`);
     }
   };
 
@@ -376,6 +389,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                       <BackSolidIcon width={24} height={24} color="#333" />
               </TouchableOpacity>
               <View style={styles.topAction}>
+                <TouchableOpacity style={styles.guide} onPress={handleMuteToggle}>
+                  {isMuted ? <MicOffIcon width={24} height={24} /> : <MicOnIcon width={24} height={24} />}
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.guide} onPress={handleSwitchCamera}>
                       <ReverseCameraIcon width={19} height={19} />
                 </TouchableOpacity>
