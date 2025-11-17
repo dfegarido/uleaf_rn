@@ -529,11 +529,11 @@ export const getCreditRequestDetailApi = async (params = {}) => {
 };
 
 /**
- * Generate and send invoice PDF via email for a Ready to Fly order
+ * Generate and download invoice PDF for a Ready to Fly order
  * @param {Object} params - Query parameters
  * @param {string} params.transactionNumber - Transaction number (required)
  * @param {string} params.plantCode - Plant code (required)
- * @returns {Promise<Object>} Invoice email response
+ * @returns {Promise<Object>} Invoice download response
  */
 export const generateInvoiceApi = async (params = {}) => {
   try {
@@ -548,7 +548,7 @@ export const generateInvoiceApi = async (params = {}) => {
     queryParams.append('plantCode', params.plantCode);
     
     const url = `${API_ENDPOINTS.GENERATE_INVOICE}?${queryParams.toString()}`;
-    console.log('📧 Sending invoice via email:', url);
+    console.log('📄 Generating invoice:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -564,20 +564,132 @@ export const generateInvoiceApi = async (params = {}) => {
       );
     }
 
-    // Parse JSON response
-    const data = await response.json();
+    // Get the PDF as array buffer for React Native compatibility
+    const arrayBuffer = await response.arrayBuffer();
+    // Convert array buffer to base64 (React Native compatible)
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    // Use btoa if available (browser/RN), otherwise use Buffer (Node.js)
+    let base64;
+    if (typeof btoa !== 'undefined') {
+      base64 = btoa(binary);
+    } else if (typeof Buffer !== 'undefined') {
+      base64 = Buffer.from(binary, 'binary').toString('base64');
+    } else {
+      // Fallback: simple base64 encoding
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      let result = '';
+      let i = 0;
+      while (i < binary.length) {
+        const a = binary.charCodeAt(i++);
+        const b = i < binary.length ? binary.charCodeAt(i++) : 0;
+        const c = i < binary.length ? binary.charCodeAt(i++) : 0;
+        const bitmap = (a << 16) | (b << 8) | c;
+        result += chars.charAt((bitmap >> 18) & 63) + chars.charAt((bitmap >> 12) & 63) +
+                  (i - 2 < binary.length ? chars.charAt((bitmap >> 6) & 63) : '=') +
+                  (i - 1 < binary.length ? chars.charAt(bitmap & 63) : '=');
+      }
+      base64 = result;
+    }
     
     return {
-      success: data.success || true,
-      message: data.message || 'Invoice sent successfully',
-      details: data.details || {},
-      sentTo: data.details?.sentTo || '',
+      success: true,
+      base64,
+      contentType: response.headers.get('content-type') || 'application/pdf',
+      fileName: response.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 
+                `Invoice_${params.transactionNumber}_${params.plantCode}.pdf`
     };
   } catch (error) {
     console.error('❌ Generate invoice API error:', error);
     return {
       success: false,
-      error: error.message || 'An error occurred while sending invoice',
+      error: error.message || 'An error occurred while generating invoice',
+    };
+  }
+};
+
+/**
+ * Generate and download invoice PDF for a Ready to Fly order
+ * @param {Object} params - Query parameters
+ * @param {string} params.transactionNumber - Transaction number (required)
+ * @param {string} params.plantCode - Plant code (required)
+ * @returns {Promise<Object>} Invoice download response
+ */
+export const generateInvoiceApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    if (!params.transactionNumber || !params.plantCode) {
+      throw new Error('transactionNumber and plantCode are required');
+    }
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('transactionNumber', params.transactionNumber);
+    queryParams.append('plantCode', params.plantCode);
+    
+    const url = `${API_ENDPOINTS.GENERATE_INVOICE}?${queryParams.toString()}`;
+    console.log('📄 Generating invoice:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    // Get the PDF as array buffer for React Native compatibility
+    const arrayBuffer = await response.arrayBuffer();
+    // Convert array buffer to base64 (React Native compatible)
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    // Use btoa if available (browser/RN), otherwise use Buffer (Node.js)
+    let base64;
+    if (typeof btoa !== 'undefined') {
+      base64 = btoa(binary);
+    } else if (typeof Buffer !== 'undefined') {
+      base64 = Buffer.from(binary, 'binary').toString('base64');
+    } else {
+      // Fallback: simple base64 encoding
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      let result = '';
+      let i = 0;
+      while (i < binary.length) {
+        const a = binary.charCodeAt(i++);
+        const b = i < binary.length ? binary.charCodeAt(i++) : 0;
+        const c = i < binary.length ? binary.charCodeAt(i++) : 0;
+        const bitmap = (a << 16) | (b << 8) | c;
+        result += chars.charAt((bitmap >> 18) & 63) + chars.charAt((bitmap >> 12) & 63) +
+                  (i - 2 < binary.length ? chars.charAt((bitmap >> 6) & 63) : '=') +
+                  (i - 1 < binary.length ? chars.charAt(bitmap & 63) : '=');
+      }
+      base64 = result;
+    }
+    
+    return {
+      success: true,
+      base64,
+      contentType: response.headers.get('content-type') || 'application/pdf',
+      fileName: response.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 
+                `Invoice_${params.transactionNumber}_${params.plantCode}.pdf`
+    };
+  } catch (error) {
+    console.error('❌ Generate invoice API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while generating invoice',
     };
   }
 };
