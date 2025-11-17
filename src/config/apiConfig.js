@@ -206,6 +206,7 @@ const generateEndpoints = () => ({
   GET_BUYER_ORDERS_GROUPED: `${getBaseUrl()}/getBuyerOrdersGrouped`,
   GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,
   GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
+  GENERATE_INVOICE: `${getBaseUrl()}/generateInvoice`,
   
   // System APIs
   CHECK_MAINTENANCE: `${getBaseUrl()}/checkMaintenance`,
