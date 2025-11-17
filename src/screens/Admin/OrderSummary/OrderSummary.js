@@ -76,7 +76,7 @@ const OrderSummary = ({navigation}) => {
     buyer: null,
     receiver: null,
     dateRange: null,
-    plantFlight: null,
+    plantFlight: [],
   });
   
   // Modal states
@@ -110,10 +110,11 @@ const OrderSummary = ({navigation}) => {
 
   const [flightModalVisible, setFlightModalVisible] = useState(false);
   const [flightDatesState, setFlightDatesState] = useState([]);
+  const [flightDatesDraft, setFlightDatesDraft] = useState([]);
 
   const TABS = [
     {id: 'readyToFly', label: 'Ready To Fly', active: true, tabWidth: 103, contentWidth: 103, indicatorWidth: 103},
-    {id: 'completed', label: 'Completed', active: false, tabWidth: 105, contentWidth: 105, indicatorWidth: 105},
+    {id: 'completed', label: 'Plants are Home', active: false, tabWidth: 130, contentWidth: 130, indicatorWidth: 130},
     {id: 'wildgone', label: 'Wildgone', active: false, tabWidth: 100, contentWidth: 93, indicatorWidth: 100, badge: true},
   ];
 
@@ -235,13 +236,30 @@ const OrderSummary = ({navigation}) => {
 
     // Helper to safely format dates - use formatted dates from backend if available
     const safeFormatDate = (dateValue, formattedValue) => {
-      if (formattedValue && typeof formattedValue === 'string') {
+      // Prefer formatted value from backend if available
+      if (formattedValue && typeof formattedValue === 'string' && formattedValue !== '—') {
         return formattedValue;
       }
       if (!dateValue) return '—';
-      // If it's already a string, return it
-      if (typeof dateValue === 'string') return dateValue;
-      // Otherwise, try to format it
+      // If it's already a formatted string (not ISO), return it
+      if (typeof dateValue === 'string') {
+        // Check if it's an ISO string that needs formatting
+        if (dateValue.includes('T') && dateValue.includes('Z')) {
+          // It's an ISO string, try to format it
+          try {
+            const date = new Date(dateValue);
+            if (!isNaN(date.getTime())) {
+              return formatDate(date);
+            }
+          } catch (e) {
+            // If formatting fails, return the string as-is
+            return dateValue;
+          }
+        }
+        // If it's not an ISO string, return it as-is (might already be formatted)
+        return dateValue;
+      }
+      // Otherwise, try to format it (handles Firestore timestamps, Date objects, etc.)
       try {
         return formatDate(dateValue);
       } catch (e) {
@@ -249,11 +267,28 @@ const OrderSummary = ({navigation}) => {
       }
     };
 
+    // Debug: Log hub received/packed data for first order only
+    if (order.transactionNumber && !order._hubDebugLogged) {
+      console.log('Mapping order hub data:', {
+        transactionNumber: order.transactionNumber,
+        hubReceiver: order.hubReceiver,
+        hubReceiverDateScanned: order.hubReceiver?.dateScanned,
+        hubReceivedDateFormatted: order.hubReceivedDateFormatted,
+        hubPacker: order.hubPacker,
+        hubPackerDateScanned: order.hubPacker?.dateScanned,
+        hubPackedDateFormatted: order.hubPackedDateFormatted,
+      });
+      order._hubDebugLogged = true; // Prevent multiple logs
+    }
+
     return {
       id: order.id,
       imageUrl: imageUrl,
       transactionNumber: (order.transactionNumber || '—').toString(),
       orderDate: safeFormatDate(order.orderDate || order.createdAt, order.orderDateFormatted || order.createdAtFormatted),
+      createdAt: safeFormatDate(order.createdAt, order.createdAtFormatted),
+      hubReceivedDate: safeFormatDate(order.hubReceiver?.dateScanned, order.hubReceivedDateFormatted),
+      hubPackedDate: safeFormatDate(order.hubPacker?.dateScanned, order.hubPackedDateFormatted),
       deliveredDate: safeFormatDate(order.deliveredDate, order.deliveredDateFormatted),
       receivedDate: safeFormatDate(order.receivedDate, order.receivedDateFormatted),
       plantCode: (order.plantCode || '—').toString(),
@@ -285,8 +320,8 @@ const OrderSummary = ({navigation}) => {
       setError(null);
       
       // Debug plant flight filter
-      if (selectedFilters.plantFlight) {
-        console.log('Plant Flight Filter Active:', selectedFilters.plantFlight);
+      if (selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0) {
+        console.log('Plant Flight Filter Active:', JSON.stringify(selectedFilters.plantFlight));
       }
 
       const response = await getAdminOrdersApi({
@@ -302,7 +337,9 @@ const OrderSummary = ({navigation}) => {
         buyer: selectedFilters.buyer || undefined,
         receiver: selectedFilters.receiver || undefined,
         dateRange: selectedFilters.dateRange || undefined,
-        plantFlight: selectedFilters.plantFlight || undefined,
+        plantFlight: selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0 
+          ? (Array.isArray(selectedFilters.plantFlight) ? selectedFilters.plantFlight.join(',') : selectedFilters.plantFlight)
+          : undefined,
       });
 
       if (response.success && response.orders) {
@@ -317,6 +354,20 @@ const OrderSummary = ({navigation}) => {
           console.log('Full order data from API (first order):', JSON.stringify(response.orders[0], null, 2));
         } else {
           console.log('No orders returned from API. This might be due to filtering or no orders in the database.');
+        }
+        
+        // Debug: Log hub received and packed data from first few orders
+        if (response.orders.length > 0) {
+          console.log('Hub Received/Packed data in orders:', response.orders.slice(0, 5).map((o, i) => ({
+            index: i,
+            transactionNumber: o.transactionNumber,
+            hubReceiver: o.hubReceiver,
+            hubReceiverDateScanned: o.hubReceiver?.dateScanned,
+            hubReceivedDateFormatted: o.hubReceivedDateFormatted,
+            hubPacker: o.hubPacker,
+            hubPackerDateScanned: o.hubPacker?.dateScanned,
+            hubPackedDateFormatted: o.hubPackedDateFormatted,
+          })));
         }
         
         // Debug: Log price fields from first few orders
@@ -458,6 +509,58 @@ const OrderSummary = ({navigation}) => {
           setReceiverOptionsState(uniqueReceivers);
         } catch (e) {
           console.warn('Failed to derive receiver options from orders', e?.message || e);
+        }
+
+        // Use flightDates from backend response (includes all flightDates from filtered orders, not just current page)
+        // Fallback to deriving from current page if backend doesn't provide flightDates
+        try {
+          if (response.flightDates && Array.isArray(response.flightDates)) {
+            // Use complete flightDates list from backend, filtering out "Nov 8, 2001" (2001-11-08)
+            const filteredFlightDates = response.flightDates.filter(date => date !== '2001-11-08');
+            setFlightDatesState(filteredFlightDates);
+            console.log('Using flightDates from backend response:', {
+              count: filteredFlightDates.length,
+              sample: filteredFlightDates.slice(0, 10)
+            });
+          } else {
+            // Fallback: derive from current page orders (backward compatibility)
+            const flightDates = Array.isArray(response.orders) ? response.orders
+              .map(order => {
+                if (!order.flightDate) return null;
+                // Normalize flightDate to ISO format (YYYY-MM-DD)
+                try {
+                  let date = null;
+                  if (order.flightDate?.toDate && typeof order.flightDate.toDate === 'function') {
+                    date = order.flightDate.toDate();
+                  } else if (order.flightDate?._seconds) {
+                    date = new Date(order.flightDate._seconds * 1000);
+                  } else if (order.flightDate instanceof Date) {
+                    date = order.flightDate;
+                  } else if (typeof order.flightDate === 'string') {
+                    date = new Date(order.flightDate);
+                  }
+                  if (date && !isNaN(date.getTime())) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                  }
+                } catch (e) {
+                  console.warn('Failed to parse flightDate:', e);
+                }
+                return null;
+              })
+              .filter(Boolean) : [];
+            
+            // Filter out "Nov 8, 2001" (2001-11-08) from the flight dates
+            const uniqueFlightDates = Array.from(new Set(flightDates))
+              .filter(date => date !== '2001-11-08')
+              .sort((a, b) => b.localeCompare(a));
+            setFlightDatesState(uniqueFlightDates);
+            console.warn('Backend did not provide flightDates, falling back to current page extraction');
+          }
+        } catch (e) {
+          console.warn('Failed to set flightDates options', e?.message || e);
         }
       } else {
         setError('Failed to fetch orders');
@@ -630,7 +733,7 @@ const OrderSummary = ({navigation}) => {
         setSelectedFilters((prev) => ({ ...prev, dateRange: null }));
         break;
       case 'Plant Flight':
-        setSelectedFilters((prev) => ({ ...prev, plantFlight: null }));
+        setSelectedFilters((prev) => ({ ...prev, plantFlight: [] }));
         break;
       default:
         break;
@@ -718,6 +821,12 @@ const OrderSummary = ({navigation}) => {
     setSelectedFilters((prev) => ({ ...prev, dateRange }));
     setDateRangeModalVisible(false);
     setCurrentPage(1);
+  };
+
+  // Plant Flight handlers
+  const handlePlantFlightChange = (values) => {
+    const arr = Array.isArray(values) ? values : [];
+    setFlightDatesDraft(arr);
   };
 
   // Initialize drafts when modals open
@@ -825,7 +934,7 @@ const OrderSummary = ({navigation}) => {
       case 'Date Range':
         return selectedFilters.dateRange !== null;
       case 'Plant Flight':
-        return selectedFilters.plantFlight !== null;
+        return selectedFilters.plantFlight !== null && selectedFilters.plantFlight.length > 0;
       default:
         return false;
     }
@@ -1071,13 +1180,19 @@ const OrderSummary = ({navigation}) => {
           isVisible={flightModalVisible}
           onClose={() => setFlightModalVisible(false)}
           flightDates={flightDatesState}
-          onSelectFlight={(isoDate) => {
-            setSelectedFilters(prev => ({ ...prev, plantFlight: isoDate }));
+          selectedValues={flightModalVisible ? flightDatesDraft : (selectedFilters.plantFlight || [])}
+          onSelectFlight={(values) => {
+            // Safely extract array of date strings, filter out any non-string values
+            const arr = Array.isArray(values) 
+              ? values.filter(v => typeof v === 'string' && v.trim().length > 0)
+              : [];
+            // Commit to filters when View is pressed
+            setSelectedFilters((prev) => ({ ...prev, plantFlight: arr }));
             setFlightModalVisible(false);
             setCurrentPage(1);
           }}
           onReset={() => {
-            setSelectedFilters((prev) => ({ ...prev, plantFlight: null }));
+            setSelectedFilters((prev) => ({ ...prev, plantFlight: [] }));
             setFlightModalVisible(false);
             setCurrentPage(1);
           }}
@@ -1168,9 +1283,9 @@ const OrderSummary = ({navigation}) => {
                     <View style={[styles.tableCell, {width: 240}]}>
                       <View style={styles.orderInfoContainer}>
                         <Text style={styles.transactionNumber}>{order.transactionNumber}</Text>
-                        <Text style={styles.orderDate}>Order: {order.orderDate}</Text>
-                        <Text style={styles.orderDate}>Delivered: {order.deliveredDate}</Text>
-                        <Text style={styles.orderDate}>Received: {order.receivedDate}</Text>
+                        <Text style={styles.orderDate}>Order: {order.createdAt}</Text>
+                        <Text style={styles.orderDate}>Hub Received: {order.hubReceivedDate}</Text>
+                        <Text style={styles.orderDate}>Hub Packed: {order.hubPackedDate}</Text>
                       </View>
                     </View>
 

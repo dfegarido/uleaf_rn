@@ -165,6 +165,8 @@ const EditDiscount = () => {
   const buyerSearchDebounceRef = React.useRef(null);
   const [eligibility, setEligibility] = useState('All customers');
   const [minRequirement, setMinRequirement] = useState('No minimum order requirements');
+  const [minPurchaseAmount, setMinPurchaseAmount] = useState('');
+  const [minPurchaseQuantity, setMinPurchaseQuantity] = useState('');
   const [limitTotalEnabled, setLimitTotalEnabled] = useState(true);
   const [limitPerCustomerEnabled, setLimitPerCustomerEnabled] = useState(false);
   const [maxUsesTotal, setMaxUsesTotal] = useState('');
@@ -339,6 +341,30 @@ const EditDiscount = () => {
         // Minimum requirement
         if (discountData.minRequirement) {
           setMinRequirement(discountData.minRequirement);
+          
+          // Extract values from minRequirement if it contains them
+          // Check if minRequirement contains an amount (e.g., "Minimum purchase amount of $50.00")
+          if (discountData.minRequirement.includes('Minimum purchase amount')) {
+            const amountMatch = discountData.minRequirement.match(/\$([\d.]+)/);
+            if (amountMatch && amountMatch[1]) {
+              setMinPurchaseAmount(amountMatch[1]);
+            }
+          }
+          // Check if minRequirement contains a quantity (e.g., "Minimum quantity of 10 plants")
+          if (discountData.minRequirement.includes('Minimum quantity of plants')) {
+            const quantityMatch = discountData.minRequirement.match(/(\d+)\s*plants?/i);
+            if (quantityMatch && quantityMatch[1]) {
+              setMinPurchaseQuantity(quantityMatch[1]);
+            }
+          }
+        }
+        
+        // Also check for separate fields if they exist in the future
+        if (discountData.minPurchaseAmount !== null && discountData.minPurchaseAmount !== undefined) {
+          setMinPurchaseAmount(discountData.minPurchaseAmount.toString());
+        }
+        if (discountData.minPurchaseQuantity !== null && discountData.minPurchaseQuantity !== undefined) {
+          setMinPurchaseQuantity(discountData.minPurchaseQuantity.toString());
         }
 
         // Usage limits
@@ -1386,6 +1412,37 @@ const EditDiscount = () => {
               </TouchableOpacity>
             );
           })}
+          {(minRequirement === 'Minimum purchase amount ($)' || (minRequirement && minRequirement.includes('Minimum purchase amount'))) && (
+            <View style={{marginTop: 8}}>
+              <View style={{flexDirection: 'row'}}>
+                <View style={styles.prefixBox}><Text style={styles.suffixText}>$</Text></View>
+                <View style={[styles.inputRow, {flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0}]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    placeholderTextColor="#647276"
+                    keyboardType="numeric"
+                    value={minPurchaseAmount}
+                    onChangeText={setMinPurchaseAmount}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+          {(minRequirement === 'Minimum quantity of plants' || (minRequirement && minRequirement.includes('Minimum quantity of plants'))) && (
+            <View style={{marginTop: 8}}>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  placeholderTextColor="#647276"
+                  keyboardType="numeric"
+                  value={minPurchaseQuantity}
+                  onChangeText={setMinPurchaseQuantity}
+                />
+              </View>
+            </View>
+          )}
         </View>
         <View style={styles.dividerStrip} />
 
@@ -1638,7 +1695,11 @@ const EditDiscount = () => {
                     selectedGardens,
                     selectedListings: selectedListings.map(l => typeof l === 'object' ? l.id : l),
                     eligibility,
-                    minRequirement,
+                    minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
+                      ? `Minimum purchase amount of $${minPurchaseAmount}` 
+                      : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                      ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                      : minRequirement,
                     limitTotalEnabled,
                     limitPerCustomerEnabled,
                     maxUsesTotal: maxUsesTotal && limitTotalEnabled ? parseInt(maxUsesTotal, 10) : undefined,
@@ -1662,7 +1723,11 @@ const EditDiscount = () => {
                     selectedGardens,
                     selectedListings: selectedListings.map(l => typeof l === 'object' ? l.id : l),
                     eligibility,
-                    minRequirement,
+                    minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
+                      ? `Minimum purchase amount of $${minPurchaseAmount}` 
+                      : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                      ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                      : minRequirement,
                     limitTotalEnabled,
                     limitPerCustomerEnabled,
                     maxUsesTotal: maxUsesTotal && limitTotalEnabled ? parseInt(maxUsesTotal, 10) : undefined,
@@ -1685,7 +1750,11 @@ const EditDiscount = () => {
                     selectedGardens,
                     selectedListings: selectedListings.map(l => typeof l === 'object' ? l.id : l),
                     eligibility,
-                    minRequirement,
+                    minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
+                      ? `Minimum purchase amount of $${minPurchaseAmount}` 
+                      : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                      ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                      : minRequirement,
                     limitTotalEnabled,
                     limitPerCustomerEnabled,
                     maxUsesTotal: maxUsesTotal && limitTotalEnabled ? parseInt(maxUsesTotal, 10) : undefined,
