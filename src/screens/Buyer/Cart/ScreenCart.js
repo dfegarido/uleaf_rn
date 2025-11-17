@@ -15,7 +15,6 @@ import {
   FlatList,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
@@ -25,7 +24,8 @@ import PlusDisabledIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
 import {getCartItemsApi, removeFromCartApi, updateCartItemApi} from '../../../components/Api/cartApi';
-import {getBuyerListingsApi, searchPlantsApi} from '../../../components/Api/listingBrowseApi';
+import {getBuyerListingsApi} from '../../../components/Api/listingBrowseApi';
+import SearchHeader from '../../../components/Header/SearchHeader';
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
@@ -86,102 +86,57 @@ const HEADER_HEIGHT = 110;
 const CartHeader = ({insets}) => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  
-  // Search pagination state
-  const [searchOffset, setSearchOffset] = useState(0);
-  const [searchHasMore, setSearchHasMore] = useState(false);
-  const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
+  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
   
   const navigation = useNavigation();
   // Local import of reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
 
-  // Debounced search effect - triggers after user stops typing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim().length >= 2) {
-        console.log('🔍 Cart search triggered for:', searchTerm);
-        // Reset pagination when search term changes
-        setSearchOffset(0);
-        setSearchHasMore(false);
-        performSearch(searchTerm.trim(), 0, true);
-      } else if (searchTerm.trim().length === 0) {
-        setSearchResults([]);
-        setLoadingSearch(false);
-        setSearchOffset(0);
-        setSearchHasMore(false);
-      }
-    }, 800); // 800ms delay for "finished typing" detection
+  // Custom render function for search results (simpler text display)
+  const renderSearchResult = ({ item }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      activeOpacity={0.7}
+      onPress={() => {
+        if (item.plantCode) {
+          // Set flag to prevent blur from closing dropdown
+          setIsNavigatingFromSearch(true);
+          // Navigate immediately
+          navigation.navigate('ScreenPlantDetail', {
+            plantCode: item.plantCode
+          });
+          // Close dropdown and reset flag after navigation
+          setIsSearchFocused(false);
+          setTimeout(() => {
+            setIsNavigatingFromSearch(false);
+          }, 100);
+        } else {
+          console.error('❌ Missing plantCode for plant:', item);
+          Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
+          setIsNavigatingFromSearch(false);
+        }
+      }}
+    >
+      <Text style={styles.searchResultName} numberOfLines={2}>
+        {item.title && !item.title.includes('Choose the most suitable variegation') 
+          ? item.title 
+          : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
+      </Text>
+    </TouchableOpacity>
+  );
 
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
-
-  const performSearch = async (searchTerm, offset = 0, resetResults = false) => {
-    try {
-      if (resetResults) {
-        setLoadingSearch(true);
-      } else {
-        setLoadingMoreSearch(true);
-      }
-      console.log('🔍 Starting cart search for:', searchTerm, 'offset:', offset);
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const searchParams = {
-        query: searchTerm,
-        limit: 10,
-        offset: offset,
-        sortBy: 'relevance',
-        sortOrder: 'desc'
-      };
-
-      const res = await searchPlantsApi(searchParams);
-
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to search plants.');
-      }
-
-      const plants = res.data?.plants || [];
-      const pagination = res.data?.pagination || {};
-      
-      if (resetResults) {
-        setSearchResults(plants);
-      } else {
-        // Append new results to existing ones
-        setSearchResults(prev => [...prev, ...plants]);
-      }
-      
-      // Update pagination state
-      setSearchHasMore(pagination.hasMore || false);
-      setSearchOffset(offset + plants.length);
-      
-      console.log(`✅ Cart search completed: found ${plants.length} plants for "${searchTerm}", hasMore: ${pagination.hasMore}`);
-      
-    } catch (error) {
-      console.error('❌ Error performing cart search:', error);
-      if (resetResults) {
-        setSearchResults([]);
-        Alert.alert(
-          'Search Error',
-          'Could not search for plants. Please check your connection and try again.',
-          [{text: 'OK'}]
-        );
-      }
-    } finally {
-      setLoadingSearch(false);
-      setLoadingMoreSearch(false);
-    }
-  };
-
-  const loadMoreSearchResults = () => {
-    if (!loadingMoreSearch && searchHasMore && searchTerm.trim().length >= 2) {
-      performSearch(searchTerm.trim(), searchOffset, false);
+  // Handle plant selection from search
+  const handlePlantSelect = (plant) => {
+    if (plant.plantCode) {
+      setIsNavigatingFromSearch(true);
+      navigation.navigate('ScreenPlantDetail', {
+        plantCode: plant.plantCode
+      });
+      setIsSearchFocused(false);
+      setTimeout(() => {
+        setIsNavigatingFromSearch(false);
+      }, 100);
     }
   };
   
@@ -196,38 +151,19 @@ const CartHeader = ({insets}) => {
         </TouchableOpacity>
 
         <View style={styles.searchContainer}>
-          <View style={styles.searchField}>
-            <View style={styles.textField}>
-              <SearchIcon width={24} height={24} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search ileafU "
-                placeholderTextColor="#647276"
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => {
-                  // Close search results when input loses focus
-                  setTimeout(() => {
-                    setIsSearchFocused(false);
-                  }, 150); // Small delay to allow for result tap
-                }}
-                multiline={false}
-                numberOfLines={1}
-                // Disable native autocomplete and suggestions
-                autoComplete="off"
-                autoCorrect={false}
-                autoCapitalize="none"
-                spellCheck={false}
-                textContentType="none"
-                dataDetectorTypes="none"
-                keyboardType="default"
-              />
-              {loadingSearch && (
-                <ActivityIndicator size="small" color="#647276" style={{marginLeft: 8}} />
-              )}
-            </View>
-          </View>
+          <SearchHeader
+            searchText={searchTerm}
+            onSearchTextChange={setSearchTerm}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => {
+              // Handled by SearchHeader component
+            }}
+            isNavigatingFromSearch={isNavigatingFromSearch}
+            setIsNavigatingFromSearch={setIsNavigatingFromSearch}
+            onPlantSelect={handlePlantSelect}
+            renderResultItem={renderSearchResult}
+            navigation={navigation}
+          />
         </View>
 
         <View style={styles.headerIcons}>
@@ -250,69 +186,6 @@ const CartHeader = ({insets}) => {
       
       <PromoBadgeList navigation={navigation} />
 
-      {/* Search Results Dropdown */}
-      {isSearchFocused && searchTerm.trim().length >= 2 && (
-        <View style={[styles.searchResultsContainer, {top: insets.top + 12 + 40 + 8}]}>
-          {loadingSearch ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#10b981" />
-              <Text style={styles.loadingText}>Searching plants...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item, index) => `${item.id || item.plantCode || index}_${index}`}
-              renderItem={({item, index}) => (
-                <TouchableOpacity
-                  style={styles.searchResultItem}
-                  onPress={() => {
-                    if (item.plantCode) {
-                      setIsSearchFocused(false);
-                      navigation.navigate('ScreenPlantDetail', {
-                        plantCode: item.plantCode
-                      });
-                    } else {
-                      console.error('❌ Missing plantCode for plant:', item);
-                      Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
-                    }
-                  }}
-                >
-                  <Text style={styles.searchResultName} numberOfLines={2}>
-                    {item.title && !item.title.includes('Choose the most suitable variegation') 
-                      ? item.title 
-                      : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              onEndReached={loadMoreSearchResults}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={() => {
-                if (loadingMoreSearch) {
-                  return (
-                    <View style={styles.loadingMoreContainer}>
-                      <ActivityIndicator size="small" color="#10b981" />
-                      <Text style={styles.loadingMoreText}>Loading more...</Text>
-                    </View>
-                  );
-                }
-                return null;
-              }}
-              style={styles.searchResultsList}
-              contentContainerStyle={styles.searchResultsListContent}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              scrollEnabled={true}
-              bounces={true}
-            />
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <Text style={styles.noResultsText}>
-                No plants found for "{searchTerm}"
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
     </View>
   );
 };
@@ -340,29 +213,85 @@ const CartComponent = ({
   
   return (
   <View style={styles.cartCard}>
-    <TouchableOpacity
-      style={[styles.cartTopCard, isUnavailable && styles.unavailableCard]}
-      onPress={onPress}
-      disabled={isUnavailable}
-      activeOpacity={isUnavailable ? 1 : 0.7}
-      accessibilityState={{ disabled: isUnavailable }}
-    >
+    <View style={[styles.cartTopCard, isUnavailable && styles.unavailableCard]}>
+      {/* Wrapper to allow remove button to work while preventing selection */}
+      <TouchableOpacity
+        style={{flex: 1, flexDirection: 'row', position: 'relative'}}
+        onPress={() => {
+          // Completely prevent any interaction for unavailable items
+          if (isUnavailable) {
+            console.log('⚠️ Item is SOLD (quantity: 0) and cannot be selected:', {
+              plantCode: name,
+              availableQuantity: availableQuantity,
+              isUnavailable: isUnavailable,
+              checked: checked
+            });
+            // Force deselect if somehow checked
+            if (checked) {
+              console.log('⚠️ Force deselecting unavailable item - calling toggleItemSelection');
+              // Call the parent's toggle function to deselect
+              setTimeout(() => {
+                onPress(); // This will call toggleItemSelection which will deselect it
+              }, 0);
+            }
+            return; // Early return to prevent any action
+          }
+          onPress();
+        }}
+        disabled={isUnavailable}
+        activeOpacity={isUnavailable ? 1 : 0.7}
+        accessibilityState={{ disabled: isUnavailable }}
+        pointerEvents={isUnavailable ? 'none' : 'auto'}
+      >
+      {/* Blocking overlay for unavailable items - prevents all touches */}
+      {isUnavailable && (
+        <View 
+          style={styles.blockingOverlay}
+          pointerEvents="auto"
+          onStartShouldSetResponder={() => true}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            console.log('🚫 Blocked touch on unavailable item');
+          }}
+        />
+      )}
       <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
         <View
           style={[
             styles.cartImageContainer,
-            {borderColor: checked ? '#539461' : 'transparent'},
+            {borderColor: (checked && !isUnavailable) ? '#539461' : 'transparent'},
           ]}>
-          <Image source={image} style={styles.cartImage} />
-          {!isUnavailable && (
-            <View style={styles.cartCheckOverlay}>
-              {checked ? (
-                <View style={styles.checkedBox}>
-                  <Text style={styles.checkmark}>✓</Text>
-                </View>
-              ) : (
-                <View style={styles.uncheckedBox} />
-              )}
+          <Image 
+            source={image} 
+            style={[
+              styles.cartImage,
+              isUnavailable && styles.unavailableImage
+            ]} 
+          />
+          {/* Checkbox - Show disabled state for unavailable items, normal state for available */}
+          <View 
+            style={styles.cartCheckOverlay}
+            pointerEvents={isUnavailable ? 'none' : 'auto'}
+          >
+            {isUnavailable ? (
+              // Disabled checkbox for unavailable items - visible but non-interactive
+              <View style={[styles.uncheckedBox, styles.disabledCheckbox]}>
+                <View style={styles.disabledCheckboxInner} />
+              </View>
+            ) : checked ? (
+              <View style={styles.checkedBox}>
+                <Text style={styles.checkmark}>✓</Text>
+              </View>
+            ) : (
+              <View style={styles.uncheckedBox} />
+            )}
+          </View>
+          {/* Show "SOLD" indicator for unavailable items */}
+          {isUnavailable && (
+            <View style={styles.soldOverlay}>
+              <View style={styles.soldBadge}>
+                <Text style={styles.soldText}>SOLD</Text>
+              </View>
             </View>
           )}
           {/* Discount Badge */}
@@ -382,9 +311,7 @@ const CartComponent = ({
               alignItems: 'flex-start',
             }}>
             <Text style={[styles.cartName, isUnavailable && styles.unavailableText]}>{name}</Text>
-            <TouchableOpacity onPress={onRemove}>
-              <CloseIcon style={{marginTop: 5}} width={16} height={16} />
-            </TouchableOpacity>
+            {/* Remove button moved outside to allow removal even when unavailable */}
           </View>
           <Text style={styles.cartSubtitle}>{subtitle}</Text>
           
@@ -442,7 +369,33 @@ const CartComponent = ({
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {/* Remove button - separate to allow removal even when unavailable */}
+      <TouchableOpacity 
+        onPress={onRemove}
+        style={{paddingLeft: 8, justifyContent: 'flex-start', paddingTop: 5}}
+      >
+        <CloseIcon width={16} height={16} />
+      </TouchableOpacity>
+    </View>
+    
+    {/* Warning Message for Out of Stock Items - Matching Figma Design */}
+    {isUnavailable && (
+      <View style={styles.warningContainer}>
+        <View style={styles.warningContent}>
+          <View style={styles.infoIcon}>
+            <View style={styles.infoIconInner}>
+              <Text style={styles.infoIconText}>i</Text>
+            </View>
+          </View>
+          <Text style={styles.warningText}>
+            {availableQuantity === 0 
+              ? 'Snap, This plant has been sold.'
+              : 'This item is no longer available and cannot be selected for checkout.'}
+          </Text>
+        </View>
+      </View>
+    )}
     
     {/* Details Section */}
     <View style={styles.cartDetailsSection}>
@@ -510,6 +463,23 @@ const ScreenCart = () => {
         // Check if listing is no longer available
         const isListingUnavailable = item.listingDetails?.title === "Listing no longer available";
         
+        // Check if item has 0 quantity - mark as unavailable
+        // Handle both number and string types, ensure we get 0 if null/undefined
+        const rawQty = item.listingDetails?.availableQty;
+        let availableQty = 0;
+        if (rawQty === null || rawQty === undefined) {
+          availableQty = 0;
+        } else if (typeof rawQty === 'number') {
+          availableQty = Math.max(0, Math.floor(rawQty)); // Ensure non-negative integer
+        } else if (typeof rawQty === 'string') {
+          availableQty = Math.max(0, parseInt(rawQty) || 0);
+        } else {
+          availableQty = 0;
+        }
+        
+        const isOutOfStock = availableQty === 0;
+        const isItemUnavailable = isListingUnavailable || isOutOfStock;
+        
         // Debug image mapping
         console.log('🖼️ Image mapping for item:', item.plantCode);
         console.log('🖼️ Image field:', item.listingDetails?.image);
@@ -523,7 +493,30 @@ const ScreenCart = () => {
         console.log('📦 Stock info for item:', item.plantCode);
         console.log('📦 availableQty field:', item.listingDetails?.availableQty);
         console.log('📦 availableQuantity field:', item.listingDetails?.availableQuantity);
-        console.log('📦 Final mapped value:', item.listingDetails?.availableQty || 999);
+        console.log('📦 Parsed availableQty:', availableQty);
+        console.log('📦 Is out of stock:', isOutOfStock);
+        console.log('📦 Is unavailable:', isItemUnavailable);
+        
+        // Additional debug for 0 quantity items
+        if (availableQty === 0) {
+          console.log('⚠️ ITEM WITH 0 QUANTITY DETECTED:', {
+            plantCode: item.plantCode,
+            availableQty: availableQty,
+            rawAvailableQty: item.listingDetails?.availableQty,
+            isOutOfStock: isOutOfStock,
+            isItemUnavailable: isItemUnavailable,
+            listingType: item.listingDetails?.listingType,
+            listingTitle: item.listingDetails?.title
+          });
+        }
+        
+        // Log all items for debugging
+        console.log('📦 Cart item availability check:', {
+          plantCode: item.plantCode,
+          availableQty: availableQty,
+          isUnavailable: isItemUnavailable,
+          listingType: item.listingDetails?.listingType
+        });
         
         // Calculate current price and determine if there's a discount
         let currentPrice = 0;
@@ -712,10 +705,10 @@ const ScreenCart = () => {
           originalPrice: originalPrice,
           quantity: item.quantity || 1,
           flightInfo: `Plant Flight ${plantData.plantFlightDate}`,
-          shippingInfo: isListingUnavailable ? 'Item no longer available' : `${shippingCost.displayText}${shippingCost.mainPrice}${shippingCost.addOnText}${shippingCost.addOnPrice}`,
+          shippingInfo: isItemUnavailable ? 'Item no longer available' : `${shippingCost.displayText}${shippingCost.mainPrice}${shippingCost.addOnText}${shippingCost.addOnPrice}`,
           flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
-          availableQuantity: item.listingDetails?.availableQty || 999, // Fixed: use availableQty instead of availableQuantity
-          isUnavailable: isListingUnavailable,
+          availableQuantity: availableQty, // Use the parsed available quantity
+          isUnavailable: isItemUnavailable, // Mark as unavailable if listing is gone OR quantity is 0
           listingType: item.listingDetails?.listingType || 'Single Plant', // Add the listing type
           plantSourceCountry: item.listingDetails?.country || 'TH', // Add plantSourceCountry for backend
           potSize: item.selectedVariation?.potSize || item.potSize,
@@ -736,10 +729,37 @@ const ScreenCart = () => {
       // contribute to totals or checkout even if previously selected.
       setSelectedItems(prev => {
         const availableIds = new Set(transformedItems.filter(it => !it.isUnavailable).map(it => it.id));
-        return new Set([...prev].filter(id => availableIds.has(id)));
+        const filtered = new Set([...prev].filter(id => availableIds.has(id)));
+        
+        // Log if any unavailable items were removed from selection
+        const removedIds = [...prev].filter(id => !availableIds.has(id));
+        if (removedIds.length > 0) {
+          console.log('⚠️ Removed unavailable items from selection:', removedIds);
+          const removedItems = transformedItems.filter(it => removedIds.includes(it.id));
+          removedItems.forEach(item => {
+            console.log('  - Removed:', item.plantCode, 'availableQty:', item.availableQuantity, 'isUnavailable:', item.isUnavailable);
+          });
+        }
+        
+        // Also explicitly check and remove any unavailable items that might still be in selection
+        const unavailableItems = transformedItems.filter(it => it.isUnavailable);
+        if (unavailableItems.length > 0) {
+          unavailableItems.forEach(item => {
+            if (filtered.has(item.id)) {
+              console.log('🚨 FORCE REMOVING unavailable item from selection:', item.plantCode, item.id);
+              filtered.delete(item.id);
+            }
+          });
+        }
+        
+        return filtered;
       });
       console.log('Cart items loaded:', transformedItems.length);
-      console.log('First cart item:', transformedItems[0]); // Debug log to see the actual data
+      console.log('Cart items with availability:', transformedItems.map(it => ({
+        plantCode: it.plantCode,
+        availableQty: it.availableQuantity,
+        isUnavailable: it.isUnavailable
+      })));
 
     } catch (error) {
       console.error('Error loading cart items:', error);
@@ -860,6 +880,28 @@ const ScreenCart = () => {
     const item = cartItems.find(c => c.id === itemId);
     if (item?.isUnavailable) {
       // Ignore selection toggles for unavailable items
+      console.log('⚠️ Attempted to select unavailable item:', {
+        itemId: itemId,
+        plantCode: item?.plantCode,
+        availableQty: item?.availableQuantity,
+        isUnavailable: item?.isUnavailable,
+        listingType: item?.listingType
+      });
+      // Also remove from selection if it was somehow selected
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(itemId)) {
+          console.log('🚨 FORCE REMOVING unavailable item from selection in toggleItemSelection:', item?.plantCode);
+          newSet.delete(itemId);
+        }
+        return newSet;
+      });
+      // Show alert to user
+      Alert.alert(
+        'Item Unavailable',
+        'This item is out of stock and cannot be selected for checkout.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -1109,7 +1151,7 @@ const ScreenCart = () => {
               flightInfo={item.flightInfo}
               shippingInfo={item.shippingInfo}
               flagIcon={item.flagIcon}
-              checked={selectedItems.has(item.id)}
+              checked={!item.isUnavailable && selectedItems.has(item.id)} // Never show as checked if unavailable
               onRemove={() => removeItem(item.id)}
               onPress={() => toggleItemSelection(item.id)}
               onQuantityChange={(newQuantity) => updateItemQuantity(item.id, newQuantity)}
@@ -1171,6 +1213,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     backgroundColor: '#fff',
+    elevation: 10,
   },
   header: {
     flexDirection: 'row',
@@ -1178,6 +1221,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 13,
     paddingBottom: 12,
+    zIndex: 10001,
+    elevation: 10001,
   },
   controls: {
     flexDirection: 'row',
@@ -1201,6 +1246,8 @@ const styles = StyleSheet.create({
     width: 209,
     height: 40,
     flex: 1,
+    zIndex: 10000,
+    elevation: 10000,
   },
   searchField: {
     width: '100%',
@@ -1314,22 +1361,22 @@ const styles = StyleSheet.create({
   cartCard: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    // paddingTop: 12,
-    // paddingBottom: 12,
-    // gap: 12,
+    paddingTop: 12, // Matching Figma: 12px top padding
+    paddingHorizontal: 12, // Matching Figma: 12px horizontal padding
+    paddingBottom: 16, // Matching Figma: 16px bottom padding
+    gap: 12, // Matching Figma: 12px gap between elements
     backgroundColor: '#F5F6F6',
-    // marginBottom: 12,
-    // marginHorizontal: 12,
+    width: '100%',
   },
   cartTopCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    margin: 12,
-    padding: 12,
-    gap: 12,
+    padding: 12, // Matching Figma: 12px padding
+    gap: 12, // Matching Figma: 12px gap
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     alignSelf: 'stretch',
+    width: '100%',
   },
   unavailableCard: {
     opacity: 0.6,
@@ -1350,6 +1397,42 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#539461',
     borderRadius: 8,
+  },
+  unavailableImage: {
+    opacity: 0.5,
+  },
+  blockingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  soldOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+  },
+  soldBadge: {
+    backgroundColor: '#E7522F',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  soldText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Inter',
+    letterSpacing: 1,
   },
   cartCheckOverlay: {
     position: 'absolute',
@@ -1377,6 +1460,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#539461',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  disabledCheckbox: {
+    borderColor: '#E0E0E0',
+    backgroundColor: '#F5F5F5',
+    opacity: 0.5,
+  },
+  disabledCheckboxInner: {
+    width: checkboxSize - 8,
+    height: checkboxSize - 8,
+    borderRadius: 2,
+    backgroundColor: '#CCCCCC',
   },
   checkmark: {
     color: '#FFFFFF',
@@ -1724,6 +1818,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontFamily: 'Inter',
+  },
+  // Warning message styles - Matching Figma Design
+  warningContainer: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+    gap: 8,
+    width: '100%', // Will match parent width (same as cartTopCard)
+    height: 40, // Matching Figma: 40px fixed height
+    backgroundColor: '#FFE7E2',
+    borderWidth: 1,
+    borderColor: '#FBC4B7',
+    borderRadius: 12,
+    alignSelf: 'stretch',
+  },
+  warningContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 0,
+    gap: 4, // Matching Figma: gap: 4px
+    width: '100%', // Will be calculated: container width - 16px padding
+    minHeight: 24, // Matching Figma: 24px
+  },
+  infoIcon: {
+    width: 24, // Matching Figma: 24px
+    height: 24, // Matching Figma: 24px
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  infoIconInner: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E7522F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoIconText: {
+    color: '#FFFFFF', // White text on red background for visibility
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'Inter',
+    lineHeight: 24,
+    textAlign: 'center',
+    width: '100%',
+    height: '100%',
+    textAlignVertical: 'center',
+  },
+  warningText: {
+    flex: 1, // Takes remaining space after icon and gap
+    minHeight: 22, // Matching Figma: 22px
+    fontSize: 16, // Matching Figma: 16px
+    lineHeight: 22, // Matching Figma: 140% of 16px = 22.4px, rounded to 22px
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600', // Matching Figma: medium weight
+    color: '#E7522F',
   },
 });
 export default ScreenCart;

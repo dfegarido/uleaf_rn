@@ -1,15 +1,13 @@
-import React, {useCallback, useRef} from 'react';
+import React from 'react';
 import {View, Text, StyleSheet, ScrollView, Image, Dimensions, TouchableOpacity, FlatList, ActivityIndicator} from 'react-native';
 import {globalStyles} from '../../../../assets/styles/styles';
 
 const COLUMN_WIDTH = 120;
 const WINDOW_HEIGHT = Dimensions.get('window').height;
 
-const OrderTableList = ({headers = [], orders = [], rowsHeight, onLoadMore, hasMore, loadingMore, refreshing, onRefresh}) => {
+const OrderTableList = ({headers = [], orders = [], rowsHeight, refreshing, onRefresh}) => {
   // Default rows container max height (can be overridden via rowsHeight prop)
   const maxRowsHeight = rowsHeight || Math.max(300, Math.floor(WINDOW_HEIGHT * 0.5));
-  // Guard to avoid multiple onEndReached calls during momentum scroll
-  const onEndReachedCalledDuringMomentum = useRef(false);
 
   return (
     // Horizontal scroll for columns only. Header stays outside the vertical scroll so it remains visible
@@ -212,43 +210,8 @@ const OrderTableList = ({headers = [], orders = [], rowsHeight, onLoadMore, hasM
               </TouchableOpacity>
             );
           }}
-          // Prevent multiple onEndReached calls during momentum scrolling on some devices
-          onMomentumScrollBegin={() => {
-            if (typeof onLoadMore === 'function') {
-              // reset the momentum guard so onEndReached can fire again
-              try { onEndReachedCalledDuringMomentum.current = false; } catch (e) {}
-            }
-          }}
-          onEndReached={({distanceFromEnd}) => {
-            // Trigger load more when user scrolls near the bottom.
-            // Use a momentum guard to avoid repeated calls while scrolling.
-            try {
-              if (!onEndReachedCalledDuringMomentum.current && hasMore && typeof onLoadMore === 'function' && !loadingMore) {
-                onEndReachedCalledDuringMomentum.current = true;
-                onLoadMore();
-              }
-            } catch (e) {
-              // fallback: call onLoadMore if guard not available
-              if (hasMore && typeof onLoadMore === 'function' && !loadingMore) onLoadMore();
-            }
-          }}
-          onEndReachedThreshold={0.1}
-          scrollEventThrottle={16}
           refreshing={!!refreshing}
           onRefresh={typeof onRefresh === 'function' ? onRefresh : undefined}
-          ListFooterComponent={hasMore ? (
-            <View style={{paddingVertical: 12, alignItems: 'center', width: '100%'}}>
-              {loadingMore ? (
-                <ActivityIndicator size="small" color="#539461" />
-              ) : (
-                typeof onLoadMore === 'function' && (
-                  <TouchableOpacity onPress={onLoadMore} style={styles.loadMoreButton}>
-                    <Text style={globalStyles.textLGAccent}>Load More</Text>
-                  </TouchableOpacity>
-                )
-              )}
-            </View>
-          ) : null}
           />
         </View>
       </View>

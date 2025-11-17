@@ -20,6 +20,8 @@ const AmountOffPlants = () => {
 
   const [eligibility, setEligibility] = useState('All customers');
   const [minRequirement, setMinRequirement] = useState('No minimum requirements');
+  const [minPurchaseAmount, setMinPurchaseAmount] = useState('');
+  const [minPurchaseQuantity, setMinPurchaseQuantity] = useState('');
   // Copy of details from Percentage screen
   const [limitTotalEnabled, setLimitTotalEnabled] = useState(true);
   const [limitPerCustomerEnabled, setLimitPerCustomerEnabled] = useState(false);
@@ -212,6 +214,39 @@ const AmountOffPlants = () => {
               </TouchableOpacity>
             );
           })}
+          {minRequirement === 'Minimum purchase amount ($)' && discountType && (
+            <View style={{marginTop: 8, opacity: !discountType ? 0.5 : 1}}>
+              <View style={{flexDirection: 'row'}}>
+                <View style={styles.prefixBox}><Text style={styles.suffixText}>$</Text></View>
+                <View style={[styles.inputRow, {flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0}]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    placeholderTextColor="#647276"
+                    keyboardType="numeric"
+                    value={minPurchaseAmount}
+                    onChangeText={setMinPurchaseAmount}
+                    editable={!!discountType}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+          {minRequirement === 'Minimum quantity of plants' && discountType && (
+            <View style={{marginTop: 8, opacity: !discountType ? 0.5 : 1}}>
+              <View style={[styles.inputRow, !discountType && {borderColor: '#CDD3D4'}]}>
+                <TextInput
+                  style={[styles.input, !discountType && styles.disabledText]}
+                  placeholder="0"
+                  placeholderTextColor={!discountType ? '#CDD3D4' : '#647276'}
+                  keyboardType="numeric"
+                  value={minPurchaseQuantity}
+                  onChangeText={setMinPurchaseQuantity}
+                  editable={!!discountType}
+                />
+              </View>
+            </View>
+          )}
         </View>
         <View style={styles.dividerStrip} />
 
@@ -375,7 +410,7 @@ const AmountOffPlants = () => {
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={{paddingTop: 4}}>
             <Text style={styles.boxPolicy}>{'\u2022'} For {eligibility.toLowerCase()}</Text>
-            <Text style={styles.boxPolicy}>{'\u2022'} {minRequirement}</Text>
+            <Text style={styles.boxPolicy}>{'\u2022'} {minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount ? `Minimum purchase amount of $${minPurchaseAmount}` : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity ? `Minimum quantity of ${minPurchaseQuantity} plants` : minRequirement}</Text>
             <Text style={styles.boxPolicy}>{'\u2022'} Limited to {maxUsesTotal || '100'} total of use</Text>
           </View>
         </View>
@@ -879,6 +914,17 @@ const styles = StyleSheet.create({
   typeDivider: { width: 340, height: 1, backgroundColor: '#E4E7E9' },
   fullscreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   appliesSheetContainer: { width: 340, height: 268, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
+  prefixBox: {
+    minHeight: 48, height: 48, borderWidth: 1, borderColor: '#CDD3D4', borderRadius: 12,
+    borderTopRightRadius: 0, borderBottomRightRadius: 0, paddingHorizontal: 16,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F6F6'
+  },
+  suffixBox: {
+    minHeight: 48, height: 48, borderWidth: 1, borderColor: '#CDD3D4', borderRadius: 12,
+    borderTopLeftRadius: 0, borderBottomLeftRadius: 0, paddingHorizontal: 16,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F6F6'
+  },
+  suffixText: { fontFamily: 'Inter', fontWeight: '500', fontSize: 16, color: '#647276' },
 });
 
 

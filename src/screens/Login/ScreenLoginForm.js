@@ -150,6 +150,26 @@ const ScreenLoginForm = ({navigation}) => {
           console.log('Token:', localIdToken);
           const userData = await loadData(localIdToken);
           await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
+          
+          // Extract and store profile photo from userData
+          const profilePhotoUrl = userData?.data?.profilePhotoUrl || 
+                                 userData?.data?.profileImage ||
+                                 userData?.user?.profilePhotoUrl ||
+                                 userData?.user?.profileImage ||
+                                 userData?.profilePhotoUrl ||
+                                 userData?.profileImage ||
+                                 null;
+          
+          if (profilePhotoUrl) {
+            const timestamp = Date.now();
+            const cacheBustedUrl = `${profilePhotoUrl}${profilePhotoUrl.includes('?') ? '&' : '?'}cb=${timestamp}`;
+            await AsyncStorage.setItem('profilePhotoUrl', profilePhotoUrl);
+            await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', cacheBustedUrl);
+            console.log('✅ Profile photo stored in AsyncStorage:', profilePhotoUrl);
+          } else {
+            console.log('ℹ️ No profile photo found in userData response');
+          }
+          
           navigation.navigate('LoginOtp');
         }
       } catch (error) {

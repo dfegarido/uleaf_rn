@@ -76,7 +76,7 @@ const SortingScreen = ({navigation}) => {
       };
   
       fetchData();
-  }, []); // The empty array ensures this effect runs only once
+  }, [navigation]); // The empty array ensures this effect runs only once
 
   return (
     // SafeAreaView ensures content is within the screen's safe boundaries, avoiding notches and the status bar.

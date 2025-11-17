@@ -240,23 +240,11 @@ const ScreenExportQR = ({navigation}) => {
       }
     };
 
-    // Group orders by date and organize into pages
-    const groupedByDate = {};
+    // Collect all QR codes into a single flat array (no grouping by date)
+    const allQRCodes = [];
+    let earliestDate = null; // Track earliest date for "Date generated" display
     
     ordersArray.forEach((order, orderIndex) => {
-      // Parse createdAt date from various formats
-      const createdAtDate = parseDate(order.createdAt || order.orderDate);
-      
-      const date = createdAtDate.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: '2-digit'
-      });
-      
-      if (!groupedByDate[date]) {
-        groupedByDate[date] = [];
-      }
-
       // Add QR code from the order (note: it's qrCode, not qrCodes)
       if (order.qrCode && order.qrCode.content) {
         const qrContent = order.qrCode.content;
@@ -264,21 +252,140 @@ const ScreenExportQR = ({navigation}) => {
         // Use QR code generatedAt if available, otherwise use order createdAt
         const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
         
-        groupedByDate[date].push({
+        // Track earliest date for "Date generated" display
+        if (displayDate) {
+          try {
+            const parsedDate = parseDate(displayDate);
+            if (!earliestDate || parsedDate < earliestDate) {
+              earliestDate = parsedDate;
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        }
+        
+        // Format flight date with validation
+        const formatFlightDate = (flightDate) => {
+          if (!flightDate) return null;
+          try {
+            let date = parseDate(flightDate);
+            
+            // Handle partial dates like "Nov 15", "Dec 6" - add year if missing
+            if (date && !isNaN(date.getTime())) {
+              const year = date.getFullYear();
+              // If year is 1900 or 2001 (common defaults for partial dates), try to infer correct year
+              if (year < 2000 || year === 2001) {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth(); // 0-11
+                
+                // Try parsing as "Month Day" format
+                const monthDayMatch = String(flightDate).match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+)$/i);
+                if (monthDayMatch) {
+                  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                  const monthIndex = monthNames.findIndex(m => m.toLowerCase() === monthDayMatch[1].toLowerCase());
+                  const day = parseInt(monthDayMatch[2], 10);
+                  
+                  if (monthIndex !== -1 && day >= 1 && day <= 31) {
+                    // Assume current year, or next year if month has passed
+                    let inferredYear = currentYear;
+                    if (monthIndex < currentMonth) {
+                      inferredYear = currentYear + 1; // Next year if month has passed
+                    }
+                    
+                    date = new Date(inferredYear, monthIndex, day);
+                    console.log(`📅 [QR Export] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
+                  }
+                }
+              }
+            }
+            
+            // Validate that the date is actually valid
+            if (!date || isNaN(date.getTime())) {
+              return null; // Invalid date, return null instead of original value
+            }
+            
+            // Check if date is reasonable (not too far in past or future)
+            const year = date.getFullYear();
+            // Reject dates before 2000 or after 2100
+            if (year < 2000 || year > 2100) {
+              return null;
+            }
+            
+            return date.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+          } catch (e) {
+            console.warn('Error formatting flight date:', e, flightDate);
+            return null; // Return null for invalid dates instead of original value
+          }
+        };
+        
+        // Extract genus/species from products array if not at root level
+        let genus = order.genus || '';
+        let species = order.species || '';
+        let plantCode = order.plantCode || qrContent.plantCode || '';
+        let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
+        
+        // Log initial flight date extraction
+        console.log('🔍 [QR Export] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
+          order_flightDate: order.flightDate,
+          order_flightDateFormatted: order.flightDateFormatted,
+          order_cargoDate: order.cargoDate,
+          extracted: flightDate
+        });
+        
+        if ((!genus || !plantCode) && order.products && Array.isArray(order.products) && order.products.length > 0) {
+          const firstProduct = order.products[0];
+          genus = genus || firstProduct.genus || '';
+          species = species || firstProduct.species || '';
+          plantCode = plantCode || firstProduct.plantCode || '';
+          const productFlightDate = firstProduct.flightDate || firstProduct.flightDateFormatted || null;
+          
+          if (productFlightDate && !flightDate) {
+            console.log('🔍 [QR Export] Using product flightDate:', productFlightDate);
+            flightDate = productFlightDate;
+          }
+        }
+        
+        // Validate and format flight date - only store if valid
+        const formattedFlightDate = formatFlightDate(flightDate);
+        // Only store flightDate if it's valid, otherwise set to null
+        const validFlightDate = formattedFlightDate ? flightDate : null;
+        
+        // Log flight date processing result
+        console.log('📅 [QR Export] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
+          rawFlightDate: flightDate,
+          formattedFlightDate: formattedFlightDate,
+          validFlightDate: validFlightDate,
+          hasValidDate: !!formattedFlightDate
+        });
+        
+        allQRCodes.push({
           id: order.qrCode.id || order.qrCode.qrCodeId || qrContent.orderId,
-          plantCode: qrContent.plantCode,
-          trxNumber: qrContent.trxNumber,
-          orderId: qrContent.orderId,
-          genus: qrContent.genus,
-          species: qrContent.species,
-          variegation: qrContent.variegation,
-          gardenOrCompanyName: qrContent.gardenOrCompanyName,
-          sellerName: qrContent.sellerName,
-          orderQty: qrContent.orderQty,
-          localPrice: qrContent.localPrice,
-          localPriceCurrency: qrContent.localPriceCurrency,
-          deliveryStatus: qrContent.deliveryStatus,
-          generatedAt: qrContent.generatedAt,
+          plantCode: plantCode,
+          trxNumber: order.trxNumber || qrContent.trxNumber,
+          orderId: order.id || qrContent.orderId,
+          genus: genus,
+          species: species,
+          variegation: order.variegation || qrContent.variegation || '',
+          flightDate: validFlightDate,
+          flightDateFormatted: formattedFlightDate,
+          receiverInfo: order.receiverInfo || null,
+          joinerInfo: order.joinerInfo || (order.isJoinerOrder ? {
+            firstName: order.joinerInfo?.firstName || order.joinerInfo?.joinerFirstName || '',
+            lastName: order.joinerInfo?.lastName || order.joinerInfo?.joinerLastName || '',
+            username: order.joinerInfo?.username || order.joinerInfo?.joinerUsername || '',
+          } : null),
+          gardenOrCompanyName: order.gardenOrCompanyName || qrContent.gardenOrCompanyName,
+          sellerName: order.sellerName || qrContent.sellerName,
+          orderQty: order.orderQty || qrContent.orderQty,
+          localPrice: order.localPrice || qrContent.localPrice,
+          localPriceCurrency: order.localPriceCurrency || qrContent.localPriceCurrency,
+          deliveryStatus: order.deliveryStatus || qrContent.deliveryStatus,
+          generatedAt: order.qrCode.generatedAt || qrContent.generatedAt,
           dataUrl: order.qrCode.dataUrl, // QR code image data URL
           orderStatus: order.status,
           createdAt: displayDate, // Use the properly parsed date
@@ -287,12 +394,134 @@ const ScreenExportQR = ({navigation}) => {
         // Fallback for older format without content wrapper
         const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
         
-        groupedByDate[date].push({
+        // Track earliest date for "Date generated" display
+        if (displayDate) {
+          try {
+            const parsedDate = parseDate(displayDate);
+            if (!earliestDate || parsedDate < earliestDate) {
+              earliestDate = parsedDate;
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        }
+        
+        // Format flight date with validation
+        const formatFlightDate = (flightDate) => {
+          if (!flightDate) return null;
+          try {
+            let date = parseDate(flightDate);
+            
+            // Handle partial dates like "Nov 15", "Dec 6" - add year if missing
+            if (date && !isNaN(date.getTime())) {
+              const year = date.getFullYear();
+              // If year is 1900 or 2001 (common defaults for partial dates), try to infer correct year
+              if (year < 2000 || year === 2001) {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth(); // 0-11
+                
+                // Try parsing as "Month Day" format
+                const monthDayMatch = String(flightDate).match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+)$/i);
+                if (monthDayMatch) {
+                  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                  const monthIndex = monthNames.findIndex(m => m.toLowerCase() === monthDayMatch[1].toLowerCase());
+                  const day = parseInt(monthDayMatch[2], 10);
+                  
+                  if (monthIndex !== -1 && day >= 1 && day <= 31) {
+                    // Assume current year, or next year if month has passed
+                    let inferredYear = currentYear;
+                    if (monthIndex < currentMonth) {
+                      inferredYear = currentYear + 1; // Next year if month has passed
+                    }
+                    
+                    date = new Date(inferredYear, monthIndex, day);
+                    console.log(`📅 [QR Export - Fallback] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
+                  }
+                }
+              }
+            }
+            
+            // Validate that the date is actually valid
+            if (!date || isNaN(date.getTime())) {
+              return null; // Invalid date, return null instead of original value
+            }
+            
+            // Check if date is reasonable (not too far in past or future)
+            const year = date.getFullYear();
+            // Reject dates before 2000 or after 2100
+            if (year < 2000 || year > 2100) {
+              return null;
+            }
+            
+            return date.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+          } catch (e) {
+            console.warn('Error formatting flight date:', e, flightDate);
+            return null; // Return null for invalid dates instead of original value
+          }
+        };
+        
+        // Extract genus/species from products array if not at root level
+        let genus = order.genus || '';
+        let species = order.species || '';
+        let plantCode = order.plantCode || order.qrCode.plantCode || order.qrCode.code || order.qrCode.qrCodeId;
+        let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
+        
+        // Log initial flight date extraction (fallback format)
+        console.log('🔍 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
+          order_flightDate: order.flightDate,
+          order_flightDateFormatted: order.flightDateFormatted,
+          order_cargoDate: order.cargoDate,
+          extracted: flightDate
+        });
+        
+        if ((!genus || !plantCode) && order.products && Array.isArray(order.products) && order.products.length > 0) {
+          const firstProduct = order.products[0];
+          genus = genus || firstProduct.genus || '';
+          species = species || firstProduct.species || '';
+          plantCode = plantCode || firstProduct.plantCode || '';
+          const productFlightDate = firstProduct.flightDate || firstProduct.flightDateFormatted || null;
+          
+          if (productFlightDate && !flightDate) {
+            console.log('🔍 [QR Export - Fallback] Using product flightDate:', productFlightDate);
+            flightDate = productFlightDate;
+          }
+        }
+        
+        // Validate and format flight date - only store if valid
+        const formattedFlightDate = formatFlightDate(flightDate);
+        // Only store flightDate if it's valid, otherwise set to null
+        const validFlightDate = formattedFlightDate ? flightDate : null;
+        
+        // Log flight date processing result (fallback format)
+        console.log('📅 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
+          rawFlightDate: flightDate,
+          formattedFlightDate: formattedFlightDate,
+          validFlightDate: validFlightDate,
+          hasValidDate: !!formattedFlightDate
+        });
+        
+        allQRCodes.push({
           id: order.qrCode.id || order.qrCode.qrCodeId,
-          plantCode: order.qrCode.plantCode || order.qrCode.code || order.qrCode.qrCodeId,
+          plantCode: plantCode,
           trxNumber: order.trxNumber || order.transactionNumber || order.orderId,
+          genus: genus,
+          species: species,
+          variegation: order.variegation || '',
+          flightDate: validFlightDate,
+          flightDateFormatted: formattedFlightDate,
+          receiverInfo: order.receiverInfo || null,
+          joinerInfo: order.joinerInfo || (order.isJoinerOrder ? {
+            firstName: order.joinerInfo?.firstName || order.joinerInfo?.joinerFirstName || '',
+            lastName: order.joinerInfo?.lastName || order.joinerInfo?.joinerLastName || '',
+            username: order.joinerInfo?.username || order.joinerInfo?.joinerUsername || '',
+          } : null),
           dataUrl: order.qrCode.dataUrl,
-          orderId: order.orderId,
+          orderId: order.id || order.orderId,
           orderStatus: order.status,
           createdAt: displayDate, // Use the properly parsed date
         });
@@ -301,44 +530,77 @@ const ScreenExportQR = ({navigation}) => {
       }
     });
 
-    // Convert to pages with pagination (20 items per page)
-    const pages = [];
-    const itemsPerPage = 20;
+    // Log summary of all QR codes
+    console.log('📊 [QR Export] Total QR codes collected:', allQRCodes.length);
+    const qrCodesWithFlightDate = allQRCodes.filter(qr => qr.flightDateFormatted).length;
+    const qrCodesWithoutFlightDate = allQRCodes.filter(qr => !qr.flightDateFormatted).length;
+    console.log('📊 [QR Export] QR codes with flight date:', qrCodesWithFlightDate);
+    console.log('📊 [QR Export] QR codes without flight date:', qrCodesWithoutFlightDate);
     
-    Object.entries(groupedByDate).forEach(([date, items], pageIndex) => {
-      // Split items into chunks of 20
-      for (let i = 0; i < items.length; i += itemsPerPage) {
-        const chunk = items.slice(i, i + itemsPerPage);
-        const pageNumber = Math.floor(i / itemsPerPage) + 1;
-        const totalPages = Math.ceil(items.length / itemsPerPage);
-        
-        // Use the QR code's generatedAt if available, otherwise use the first item's createdAt
-        const firstItem = chunk[0];
-        let pageDate = new Date().toISOString(); // Default fallback
-        
-        if (firstItem) {
-          // Prefer generatedAt from QR code, then createdAt
-          const dateSource = firstItem.generatedAt || firstItem.createdAt;
-          if (dateSource) {
-            try {
-              const parsedDate = parseDate(dateSource);
-              if (!isNaN(parsedDate.getTime())) {
-                pageDate = parsedDate.toISOString();
-              }
-            } catch (e) {
-              console.warn('Error parsing page date:', e);
-            }
-          }
+    // If there are QR codes without flight date, use the most common flight date from others
+    if (qrCodesWithoutFlightDate > 0 && qrCodesWithFlightDate > 0) {
+      // Find the most common flight date
+      const flightDateCounts = {};
+      allQRCodes.forEach(qr => {
+        if (qr.flightDateFormatted) {
+          flightDateCounts[qr.flightDateFormatted] = (flightDateCounts[qr.flightDateFormatted] || 0) + 1;
         }
-        
-        pages.push({
-          date: date,
-          page: `${pageNumber} of ${totalPages}`,
-          qrcodes: chunk,
-          createdAt: pageDate,
-        });
-      }
-    });
+      });
+      
+      // Get the most common flight date
+      const mostCommonFlightDate = Object.keys(flightDateCounts).reduce((a, b) => 
+        flightDateCounts[a] > flightDateCounts[b] ? a : b
+      );
+      
+      // Also get the raw flight date for the most common one
+      const mostCommonRawFlightDate = allQRCodes.find(qr => qr.flightDateFormatted === mostCommonFlightDate)?.flightDate;
+      
+      console.log('📅 [QR Export] Most common flight date:', mostCommonFlightDate, '| Raw:', mostCommonRawFlightDate);
+      console.log('📅 [QR Export] Applying to', qrCodesWithoutFlightDate, 'QR codes without flight date');
+      
+      // Apply the most common flight date to QR codes without flight date
+      allQRCodes.forEach(qr => {
+        if (!qr.flightDateFormatted) {
+          qr.flightDateFormatted = mostCommonFlightDate;
+          qr.flightDate = mostCommonRawFlightDate || null;
+          console.log(`📅 [QR Export] Applied flight date "${mostCommonFlightDate}" to QR code:`, qr.plantCode, qr.id);
+        }
+      });
+    }
+    
+    // Log details of QR codes without flight date (after applying common date)
+    const finalQRCodesWithoutFlightDate = allQRCodes.filter(qr => !qr.flightDateFormatted).length;
+    if (finalQRCodesWithoutFlightDate > 0) {
+      console.log('⚠️ [QR Export] QR codes still missing flight date:', 
+        allQRCodes
+          .filter(qr => !qr.flightDateFormatted)
+          .map(qr => ({
+            id: qr.id,
+            plantCode: qr.plantCode,
+            orderId: qr.orderId,
+            rawFlightDate: qr.flightDate
+          }))
+      );
+    }
+    
+    // Convert to pages with pagination (16 items per page for 4x4 grid)
+    const pages = [];
+    const itemsPerPage = 16; // 4x4 grid = 16 items per page
+    
+    // Split all QR codes into chunks of 16 (no grouping by date)
+    for (let i = 0; i < allQRCodes.length; i += itemsPerPage) {
+      const chunk = allQRCodes.slice(i, i + itemsPerPage);
+      const pageNumber = Math.floor(i / itemsPerPage) + 1;
+      const totalPages = Math.ceil(allQRCodes.length / itemsPerPage);
+      
+      // Use earliest date for all pages, or current date as fallback
+      const pageDate = earliestDate ? earliestDate.toISOString() : new Date().toISOString();
+      
+      pages.push({
+        qrcodes: chunk,
+        createdAt: pageDate,
+      });
+    }
 
     return pages;
   };
@@ -464,96 +726,52 @@ const ScreenExportQR = ({navigation}) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.content}>
-        <View style={styles.controls}>
-          {/* Back Button */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}>
-            <BackIcon width={24} height={24} />
-          </TouchableOpacity>
-
-          {/* Navbar Right */}
-          <View style={styles.navbarRight}>
-            {/* Search - Hidden by default */}
-            <View style={[styles.searchButton, {display: 'none'}]}>
-              {/* Search icon would go here */}
-            </View>
-
-            {/* Action Button */}
-            <TouchableOpacity 
-              style={[
-                styles.actionButton,
-                downloading && styles.actionButtonDisabled
-              ]}
-              onPress={handleSendEmail}
-              disabled={downloading}
-            >
-              {downloading ? (
-                <ActivityIndicator size="small" color="#666" />
-              ) : (
-                <DownloadIcon width={24} height={24} />
-              )}
-            </TouchableOpacity>
-
-            {/* Profile - Hidden by default */}
-            <View style={[styles.profileButton, {display: 'none'}]}>
-              {/* Profile content would go here */}
-            </View>
-
-            {/* Page - Hidden by default */}
-            <View style={[styles.pageButton, {display: 'none'}]}>
-              {/* Page content would go here */}
-            </View>
-
-            {/* Link - Hidden by default */}
-            <View style={[styles.linkButton, {display: 'none'}]}>
-              {/* Link content would go here */}
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={styles.title}>Export QR Code</Text>
+      {/* Date Generated - Single display at top */}
+      {qrCodeData.length > 0 && qrCodeData[0] && (
+        <View style={styles.topDateContainer}>
+          <Text style={styles.dateLabel}>Date generated:</Text>
+          <Text style={styles.dateText}>
+            {formatGeneratedDate(qrCodeData[0].createdAt)}
+          </Text>
         </View>
-      </View>
+      )}
 
       {/* Main Content Area */}
       <View style={styles.mainContent}>
         <FlatList
           data={qrCodeData}
           keyExtractor={(item, index) => `page-${index}`}
-          renderItem={({item: pageData}) => (
-            <View style={styles.pageContainer}>
+          contentContainerStyle={styles.flatListContent}
+          renderItem={({item: pageData}) => {
+            // Calculate dynamic container height based on actual number of items
+            const itemWidth = 80;
+            const itemHeight = 170;
+            const rowSpacing = 10; // Reduced spacing between rows
+            const numRows = Math.ceil(pageData.qrcodes.length / 4);
+            const containerHeight = (numRows * itemHeight) + ((numRows - 1) * rowSpacing) + 10; // Add small padding at bottom
+            
+            return (
+              <View style={styles.pageContainer}>
               <View style={styles.contentWrapper}>
-                <View style={styles.detailsContainer}>
-                  <View style={styles.dateContainer}>
-                    <Text style={styles.dateLabel}>Date generated:</Text>
-                    <Text style={styles.dateText}>{formatGeneratedDate(pageData.createdAt)}</Text>
-                  </View>
-                  <View style={styles.pageInfoContainer}>
-                    <Text style={styles.pageText}>Page {pageData.page}</Text>
-                  </View>
-                </View>
-                <View style={styles.qrListContainer}>
+                <View style={[styles.qrListContainer, { height: containerHeight }]}>
                   {pageData.qrcodes.map((item, index) => {
                     const row = Math.floor(index / 4);
                     const col = index % 4;
                     // Calculate positions based on available width
                     const containerWidth = Dimensions.get('window').width - 48; // Account for padding
-                    const itemWidth = 80;
                     const spacing = (containerWidth - (itemWidth * 4)) / 3; // Space between items
                     const left = col * (itemWidth + spacing);
-                    const top = row * itemWidth; // No vertical spacing between rows
+                    const top = row * (itemHeight + rowSpacing); // Use itemHeight + rowSpacing for consistent spacing
                     
                     return (
                       <View 
                         key={item.id}
-                        style={[
+                          style={[
                           styles.qrItemContainer,
                           {
                             left: left,
                             top: top,
+                            height: 170, // Further reduced height to minimize bottom gap
                           }
                         ]}
                       >
@@ -567,7 +785,29 @@ const ScreenExportQR = ({navigation}) => {
                               }
                               style={styles.qrCodeImage}
                             />
-                            <Text style={styles.plantCode}>{item.plantCode}</Text>
+                            <Text style={styles.plantCode} numberOfLines={2}>
+                              {item.plantCode || 'N/A'}
+                            </Text>
+                            {(item.genus || item.species) && (
+                              <Text style={styles.genusSpecies} numberOfLines={3}>
+                                {item.genus || ''} {item.species || ''}
+                              </Text>
+                            )}
+                            {item.receiverInfo && (
+                              <Text style={styles.receiver} numberOfLines={1}>
+                                {item.receiverInfo.firstName || ''} {item.receiverInfo.lastName || ''}
+                              </Text>
+                            )}
+                            {item.joinerInfo && (
+                              <Text style={styles.joiner} numberOfLines={1}>
+                                {item.joinerInfo.firstName || ''} {item.joinerInfo.lastName || ''}
+                              </Text>
+                            )}
+                            {item.flightDateFormatted && (
+                              <Text style={styles.flightDate} numberOfLines={2}>
+                                Flight Date: {item.flightDateFormatted}
+                              </Text>
+                            )}
                           </View>
                         </View>
                       </View>
@@ -576,7 +816,8 @@ const ScreenExportQR = ({navigation}) => {
                 </View>
               </View>
             </View>
-          )}
+            );
+          }}
         />
       </View>
     </SafeAreaView>
@@ -692,9 +933,7 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 0,
-    paddingHorizontal: 16,
+    width: '100%',
   },
   pageContainer: {
     flexDirection: 'column',
@@ -783,6 +1022,21 @@ const styles = StyleSheet.create({
     flex: 0,
     order: 0,
   },
+  topDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  mainContent: {
+    flex: 1,
+    width: '100%',
+  },
+  flatListContent: {
+    paddingBottom: 20, // Ensure last page has space at bottom
+  },
   qrList: {
     width: '100%',
     alignSelf: 'stretch',
@@ -791,48 +1045,102 @@ const styles = StyleSheet.create({
   qrListContainer: {
     position: 'relative',
     width: '100%',
-    minHeight: 400,
+    // Height will be set dynamically based on number of items
   },
   qrItemContainer: {
     position: 'absolute',
     width: 80, // Scaled for mobile
-    height: 80, // Scaled for mobile
+    height: 170, // Further reduced height to minimize bottom gap
   },
   qrItemContent: {
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8, // Scaled for mobile
-    gap: 4, // Scaled for mobile
+    justifyContent: 'flex-start',
+    paddingTop: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 0, // Minimal bottom padding
+    gap: 1, // Reduced gap between elements
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#CDD3D4',
     width: '100%',
-    height: '100%',
+    height: '65%',
   },
   qrContentInner: {
     flexDirection: 'column',
     alignItems: 'center',
     paddingHorizontal: 0,
-    paddingVertical: 0,
-    gap: 4, // Scaled for mobile
+    paddingTop: 0,
+    paddingBottom: 0, // No bottom padding
+    gap: 1, // Reduced gap
     width: '100%',
-    flex: 1,
+    flexShrink: 0, // Don't shrink, just fit content
   },
   qrCodeImage: {
-    width: 50, // Slightly smaller to fit both text lines
-    height: 50, // Slightly smaller to fit both text lines
+    width: 50, // QR code size
+    height: 50, // QR code size
     flex: 0,
   },
   plantCode: {
     fontFamily: 'Inter',
     fontWeight: '700',
-    fontSize: 8, // Scaled for mobile
-    lineHeight: 10, // Scaled for mobile
+    fontSize: 6.5, // Slightly smaller to fit better
+    lineHeight: 8,
     textAlign: 'center',
     color: '#202325',
     alignSelf: 'stretch',
     flex: 0,
+    marginTop: 1, // Reduced top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  genusSpecies: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5, // Smaller font to fit more text
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#666666',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  flightDate: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#666666',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    marginBottom: 0, // No bottom margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  receiver: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#4CAF50',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  joiner: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#FF9800',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0, // No top margin
+    paddingHorizontal: 1, // Small padding to prevent edge cutoff
   },
   trxNumber: {
     fontFamily: 'Inter',

@@ -1,247 +1,465 @@
-import React, {useState, useEffect} from 'react';
-import {Modal, SafeAreaView, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback} from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
-import RightArrowIcon from '../../assets/admin-icons/rigth-arrow.svg';
 
-// Lightweight calendar-style Plant Flight picker matching Figma
+// Format date from ISO (YYYY-MM-DD) to readable format (MMM DD, YYYY)
+const formatFlightDate = (isoDate) => {
+  if (!isoDate) return '';
+  try {
+    const date = new Date(isoDate + 'T00:00:00'); // Add time to avoid timezone issues
+    if (isNaN(date.getTime())) return isoDate;
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  } catch (e) {
+    return isoDate;
+  }
+};
 
-const DayButton = ({label, onPress, isSelected, isToday, isAvailable, disabled}) => (
+const FlightDateItem = ({ date, formattedDate, onToggle, isSelected }) => (
   <TouchableOpacity 
-    onPress={onPress} 
-    disabled={disabled}
-    style={[
-      styles.dayButton, 
-      isSelected && styles.dayButtonSelected,
-      isAvailable && !isSelected && styles.dayButtonAvailable,
-      disabled && styles.dayButtonDisabled
-    ]}
+    style={[styles.flightDateItemContainer, isSelected && styles.flightDateItemActive]}
+    onPress={onToggle}
+    activeOpacity={0.7}
   >
-    <Text style={[
-      styles.dayText, 
-      isSelected && styles.dayTextSelected, 
-      isToday && !isSelected && styles.dayTextToday,
-      disabled && styles.dayTextDisabled
-    ]}>
-      {label}
+    <Text style={[styles.flightDateText, isSelected && styles.flightDateTextActive]}>
+      {formattedDate}
     </Text>
+    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+      {isSelected && (
+        <View style={styles.checkboxInner}>
+          <Text style={styles.checkmark}>✓</Text>
+        </View>
+      )}
+    </View>
   </TouchableOpacity>
 );
 
-const SimpleMonthView = ({year, month, selectedDate, onSelect, availableDates = [], restrictToAvailable = false}) => {
-  const firstDay = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const startWeekday = firstDay.getDay();
+const PlantFlightFilter = ({ 
+  isVisible, 
+  onClose, 
+  onSelectFlight, 
+  onReset, 
+  flightDates = [], 
+  selectedValues = [] 
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [draftSelection, setDraftSelection] = useState([]);
+  const scrollRef = React.useRef(null);
 
-  const weeks = [];
-  let dayCounter = 1 - startWeekday;
-  while (dayCounter <= daysInMonth) {
-    const week = [];
-    for (let i = 0; i < 7; i++) {
-      if (dayCounter >= 1 && dayCounter <= daysInMonth) {
-        week.push(dayCounter);
-      } else {
-        week.push(null);
-      }
-      dayCounter++;
-    }
-    weeks.push(week);
-  }
+  // Memoize selectedValues to prevent unnecessary effect runs
+  const memoizedSelectedValues = useMemo(() => {
+    return Array.isArray(selectedValues)
+      ? selectedValues.filter(v => typeof v === 'string' && v.trim().length > 0)
+      : [];
+  }, [Array.isArray(selectedValues) ? selectedValues.join(',') : '']); // Only recompute if the actual values change
 
-  const today = new Date();
-
-  // Helper to check if a date is available
-  const isDateAvailable = (year, month, day) => {
-    if (availableDates.length === 0) return true; // If no available dates specified, allow all
-    return availableDates.some(availDate => 
-      availDate.getFullYear() === year && 
-      availDate.getMonth() === month && 
-      availDate.getDate() === day
-    );
-  };
-
-  return (
-    <View style={styles.calendarGrid}>
-      <View style={styles.weekHeader}>
-        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
-          <Text key={d} style={styles.weekHeaderText}>{d}</Text>
-        ))}
-      </View>
-      {weeks.map((week, idx) => (
-        <View key={idx} style={styles.weekRow}>
-          {week.map((d, i) => {
-            const isAvailable = d ? isDateAvailable(year, month, d) : false;
-            const shouldDisable = restrictToAvailable && d && !isAvailable;
-            
-            return (
-              <View key={i} style={styles.dayCell}>
-                {d ? (
-                  <DayButton
-                    label={String(d)}
-                    onPress={() => !shouldDisable && onSelect(new Date(year, month, d))}
-                    isSelected={selectedDate && selectedDate.getFullYear() === year && selectedDate.getMonth() === month && selectedDate.getDate() === d}
-                    isToday={today.getFullYear() === year && today.getMonth() === month && today.getDate() === d}
-                    isAvailable={isAvailable}
-                    disabled={shouldDisable}
-                  />
-                ) : (
-                  <View style={styles.emptyDay} />
-                )}
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-};
-
-const PlantFlightFilter = ({isVisible, onClose, onSelectFlight, onReset, flightDates = [], selectedValue = null}) => {
-  const now = new Date();
-  const [viewYear, setViewYear] = useState(now.getFullYear());
-  const [viewMonth, setViewMonth] = useState(now.getMonth());
-  const [selectedDate, setSelectedDate] = useState(null);
-
-  // Parse flightDates into Date objects for comparison
-  const availableDates = React.useMemo(() => {
-    return flightDates.map(dateStr => {
-      const d = new Date(dateStr);
-      return !isNaN(d) ? d : null;
-    }).filter(Boolean);
-  }, [flightDates]);
-
-  // Initialize selected date from selectedValue prop
+  // Initialize draft selection when modal opens
   useEffect(() => {
     if (isVisible) {
-      if (selectedValue) {
-        const parsed = new Date(selectedValue);
-        if (!isNaN(parsed)) {
-          setSelectedDate(parsed);
-          setViewYear(parsed.getFullYear());
-          setViewMonth(parsed.getMonth());
-        }
+      // Safely initialize draft - only include string values (dates)
+      setDraftSelection(memoizedSelectedValues);
+    }
+  }, [isVisible, memoizedSelectedValues]);
+
+  // Filter flightDates based on the search query
+  const filteredFlightDates = flightDates.filter(date => {
+    if (!date) return false;
+    const formatted = formatFlightDate(date);
+    return formatted.toLowerCase().includes(searchQuery.toLowerCase()) || 
+           date.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const handleToggle = (date) => {
+    // Ensure date is a valid string before toggling
+    if (!date || typeof date !== 'string' || !date.trim()) {
+      console.warn('Invalid date value in handleToggle:', date);
+      return;
+    }
+    setDraftSelection(prev => {
+      // Ensure prev only contains strings
+      const safePrev = prev.filter(d => typeof d === 'string' && d.trim().length > 0);
+      if (safePrev.includes(date)) {
+        return safePrev.filter(d => d !== date);
       } else {
-        setSelectedDate(null);
+        return [...safePrev, date];
       }
-    }
-  }, [isVisible, selectedValue]);
-
-  const prevMonth = () => {
-    if (viewMonth === 0) {
-      setViewYear(viewYear - 1);
-      setViewMonth(11);
-    } else {
-      setViewMonth(viewMonth - 1);
-    }
-  };
-  const nextMonth = () => {
-    if (viewMonth === 11) {
-      setViewYear(viewYear + 1);
-      setViewMonth(0);
-    } else {
-      setViewMonth(viewMonth + 1);
-    }
+    });
   };
 
-  const handleApply = () => {
-    if (selectedDate) {
-      // Format date without timezone conversion to avoid date shift
-      const year = selectedDate.getFullYear();
-      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(selectedDate.getDate()).padStart(2, '0');
-      const iso = `${year}-${month}-${day}`;
-      onSelectFlight(iso);
-    } else {
-      onSelectFlight(null);
+  const handleView = () => {
+    // Commit draft selections - parent will handle the actual filter update
+    if (onSelectFlight && typeof onSelectFlight === 'function') {
+      const values = Array.isArray(draftSelection) ? draftSelection : [];
+      // Ensure we only pass strings (dates), not objects or events
+      const safeValues = values.filter(v => typeof v === 'string' && v.trim().length > 0);
+      onSelectFlight(safeValues);
     }
     onClose();
   };
 
   const handleReset = () => {
-    setSelectedDate(null);
+    setDraftSelection([]);
     if (onReset && typeof onReset === 'function') {
       onReset();
     }
     onClose();
   };
 
-  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
   return (
-    <Modal animationType="slide" transparent visible={isVisible} onRequestClose={onClose}>
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay} />
-      </TouchableWithoutFeedback>
-      <SafeAreaView style={styles.sheetContainer}>
-        <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>Select Date</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <CloseIcon width={20} height={20} />
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.actionSheetContainer}>
+              <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={80}
+                style={{flex: 1}}
+              >
+                <SafeAreaView style={{flex: 1}}>
+                {/* Title */}
+                <View style={styles.titleContainer}>
+                  <Text style={styles.titleText}>Plant Flight</Text>
+                  
+                  {/* Close */}
+                  <TouchableOpacity 
+                    style={styles.closeButton}
+                    onPress={onClose}
+                    activeOpacity={0.7}
+                  >
+                    <CloseIcon width={24} height={24} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.monthRow}>
-            <TouchableOpacity onPress={prevMonth} style={styles.navButton}>
-              <RightArrowIcon width={18} height={18} style={{ transform: [{ rotate: '180deg' }] }} />
+                {/* Content */}
+                <View style={styles.contentContainer}>
+                  {/* Search Field */}
+                  <View style={styles.searchFieldContainer}>
+                    <SearchIcon width={24} height={24} />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Search"
+                      placeholderTextColor="#647276"
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          try {
+                            if (scrollRef && scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
+                              scrollRef.current.scrollTo({ y: 0, animated: true });
+                            }
+                          } catch (e) {
+                            // ignore
+                          }
+                        }, 120);
+                      }}
+                      caretColor="#539461"
+                      selectionColor="#539461"
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                      allowFontScaling={false}
+                      editable={true}
+                    />
+          </View>
+
+                  {/* Lists */}
+                  <ScrollView 
+                    ref={scrollRef}
+                    style={styles.listsContainer} 
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={[
+                      styles.listsContentContainer,
+                      (flightDates.length === 0 || filteredFlightDates.length === 0) && styles.listsContentContainerEmpty
+                    ]}
+                  >
+                    {flightDates.length === 0 ? (
+                      <View style={styles.emptyStateContainer}>
+                        <Text style={styles.emptyStateText}>No flight dates available</Text>
+                        <Text style={styles.emptyStateSubtext}>
+                          No flight date data found in the order collection. Please ensure orders have flight dates.
+                        </Text>
+                      </View>
+                    ) : filteredFlightDates.length === 0 ? (
+                      <View style={styles.emptyStateContainer}>
+                        <Text style={styles.emptyStateText}>No flight dates found</Text>
+                        <Text style={styles.emptyStateSubtext}>
+                          Try adjusting your search query
+                        </Text>
+                      </View>
+                    ) : (
+                      filteredFlightDates.map((date, index) => {
+                        const formattedDate = formatFlightDate(date);
+                        const isSelected = draftSelection.includes(date);
+                        return (
+                          <View key={date}>
+                            <FlightDateItem
+                              date={date}
+                              formattedDate={formattedDate}
+                              onToggle={() => handleToggle(date)}
+                              isSelected={isSelected}
+                            />
+                            {/* Divider */}
+                            {index < filteredFlightDates.length - 1 && (
+                              <View style={styles.dividerWrapper}>
+                                <View style={styles.divider} />
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })
+                    )}
+                  </ScrollView>
+                </View>
+
+                {/* Action */}
+                <View style={styles.actionContainer}>
+                  {/* Reset Button */}
+                  <TouchableOpacity 
+                    style={styles.resetButton} 
+                    onPress={handleReset}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.resetButtonText}>Reset</Text>
             </TouchableOpacity>
-            <Text style={styles.monthTitle}>{monthNames[viewMonth]}, {viewYear}</Text>
-            <TouchableOpacity onPress={nextMonth} style={styles.navButton}>
-              <RightArrowIcon width={18} height={18} />
+                  {/* Button View */}
+                  <TouchableOpacity 
+                    style={styles.buttonView} 
+                    onPress={handleView}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.buttonText}>View</Text>
             </TouchableOpacity>
           </View>
 
-          <SimpleMonthView 
-            year={viewYear} 
-            month={viewMonth} 
-            selectedDate={selectedDate} 
-            onSelect={setSelectedDate}
-            availableDates={availableDates}
-            restrictToAvailable={false}
-          />
-
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-              <Text style={styles.resetText}>Reset</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.viewButton} onPress={handleApply}>
-              <Text style={styles.viewText}>View</Text>
-            </TouchableOpacity>
-          </View>
+                </SafeAreaView>
+              </KeyboardAvoidingView>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </SafeAreaView>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
 
+// --- Styles ---
 const styles = StyleSheet.create({
-  overlay: {flex:1, backgroundColor:'rgba(0,0,0,0.5)'},
-  sheetContainer: {position:'absolute', bottom:0, left:0, right:0, backgroundColor:'#FFFFFF', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight: 582},
-  sheetHeader: {flexDirection:'row', paddingHorizontal:24, paddingTop:20, paddingBottom:12, alignItems:'center', justifyContent:'space-between', borderBottomWidth:StyleSheet.hairlineWidth, borderBottomColor:'#E4E7E9'},
-  sheetTitle: {fontSize:18, fontWeight:'700', color:'#202325'},
-  closeButton: {padding:6},
-  content: {paddingHorizontal:24, paddingTop:8, paddingBottom:20, backgroundColor:'#FFFFFF'},
-  monthRow: {flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingVertical:16},
-  monthTitle: {fontSize:20, fontWeight:'600', color:'#202325', textAlign:'center', flex:1},
-  navButton: {width:48, height:48, borderRadius:12, borderWidth:1, borderColor:'#CDD3D4', alignItems:'center', justifyContent:'center', backgroundColor:'#FFFFFF'},
-  calendarGrid: {width:327, alignSelf:'center', backgroundColor:'#FFFFFF'},
-  weekHeader: {flexDirection:'row', justifyContent:'space-between', marginBottom:8},
-  weekHeaderText: {width:46, textAlign:'center', color:'#647276', fontWeight:'500', fontSize:14},
-  weekRow: {flexDirection:'row', justifyContent:'space-between', marginBottom:8},
-  dayCell: {width:46, alignItems:'center'},
-  dayButton: {width:42, height:42, borderRadius:12, alignItems:'center', justifyContent:'center'},
-  dayButtonSelected: {backgroundColor:'#23C16B'},
-  dayButtonAvailable: {},
-  dayButtonDisabled: {opacity:0.3},
-  dayText: {color:'#393D40', fontSize:16, fontWeight:'600'},
-  dayTextSelected: {color:'#FFFFFF', fontWeight:'600'},
-  dayTextToday: {color:'#23C16B', fontWeight:'600'},
-  dayTextDisabled: {color:'#9BA5A8'},
-  emptyDay: {width:42, height:42},
-  actionRow: {flexDirection:'row', gap:8, justifyContent:'center', marginTop:12},
-  resetButton: {flex:1, backgroundColor:'#F2F7F3', borderRadius:12, height:48, alignItems:'center', justifyContent:'center'},
-  resetText: {color:'#23C16B', fontWeight:'600', fontSize:16},
-  viewButton: {flex:1, backgroundColor:'#23C16B', borderRadius:12, height:48, alignItems:'center', justifyContent:'center'},
-  viewText: {color:'#FFFFFF', fontWeight:'600', fontSize:16}
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  actionSheetContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: 620,
+    height: '80%',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 24,
+    paddingBottom: 12,
+    paddingHorizontal: 24,
+    height: 60,
+    backgroundColor: '#FFFFFF',
+    flex: 0,
+  },
+  titleText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 18,
+    color: '#202325',
+    flex: 1,
+  },
+  closeButton: {
+    padding: 6,
+    width: 24,
+    height: 24,
+    flex: 0,
+  },
+  closeIcon: {
+    width: 24,
+    height: 24,
+  },
+  contentContainer: {
+    flexDirection: 'column',
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    width: '100%',
+    flex: 1,
+    alignSelf: 'stretch',
+  },
+  searchFieldContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+    gap: 8,
+  },
+  textInput: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    color: '#202325',
+    height: '100%',
+  },
+  listsContainer: {
+    width: '100%',
+    marginTop: 16,
+    flex: 1,
+  },
+  listsContentContainer: {
+    paddingBottom: 8,
+  },
+  listsContentContainerEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyStateText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#393D40',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 14,
+    color: '#647276',
+    textAlign: 'center',
+  },
+  flightDateItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    minHeight: 48,
+  },
+  flightDateItemActive: {
+    backgroundColor: '#EFF9F0',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+  },
+  flightDateText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#202325',
+    flex: 1,
+  },
+  flightDateTextActive: {
+    color: '#14632A',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  checkboxSelected: {
+    borderColor: '#23C16B',
+    backgroundColor: '#23C16B',
+  },
+  checkboxInner: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  dividerWrapper: {
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E4E7E9',
+  },
+  actionContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 24,
+    gap: 8,
+    width: '100%',
+    height: 60,
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  resetButton: {
+    flex: 1,
+    backgroundColor: '#F2F7F3',
+    borderRadius: 12,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#23C16B',
+  },
+  buttonView: {
+    flex: 1,
+    backgroundColor: '#23C16B',
+    borderRadius: 12,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
 });
 
 export default PlantFlightFilter;

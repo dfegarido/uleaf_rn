@@ -2,28 +2,15 @@ import React, { useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View, Text } from 'react-native';
 import AttachIcon from '../../assets/iconchat/attach.svg';
 
-const MessageInput = ({onSend}) => {
+const MessageInput = ({onSend, disabled = false}) => {
   const [message, setMessage] = useState('');
   const [inputHeight, setInputHeight] = useState(40); // Initial height
 
   const handleSend = () => {
-    if (message.trim()) {
+    if (message.trim() && !disabled) {
       onSend(message);
       setMessage('');
       setInputHeight(40); // Reset height after sending
-    }
-  };
-
-  const handleKeyPress = (event) => {
-    if (event.nativeEvent.key === 'Enter') {
-      if (event.nativeEvent.shiftKey) {
-        // Shift+Enter: Allow line break (default behavior)
-        return;
-      } else {
-        // Enter alone: Send message
-        event.preventDefault();
-        handleSend();
-      }
     }
   };
 
@@ -36,21 +23,23 @@ const MessageInput = ({onSend}) => {
     <View style={styles.container}>
       <View style={styles.inputWrapper}>
         <TextInput
-          style={[styles.input, { height: inputHeight }]}
-          placeholder="Message..."
+          style={[styles.input, { height: inputHeight }, disabled && styles.inputDisabled]}
+          placeholder={disabled ? "Join the group to send messages..." : "Message..."}
           value={message}
           onChangeText={setMessage}
-          onKeyPress={handleKeyPress}
           onContentSizeChange={handleContentSizeChange}
           multiline={true}
           textAlignVertical="top"
           returnKeyType="default"
+          blurOnSubmit={false}
           placeholderTextColor="#999"
+          editable={!disabled}
         />
         <TouchableOpacity
           onPress={handleSend}
-          style={styles.sendButton}>
-          <Text style={styles.sendText}>Send</Text>
+          style={[styles.sendButton, disabled && styles.sendButtonDisabled]}
+          disabled={disabled}>
+          <Text style={[styles.sendText, disabled && styles.sendTextDisabled]}>Send</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -96,6 +85,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  inputDisabled: {
+    backgroundColor: '#f5f5f5',
+    color: '#999',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  sendTextDisabled: {
+    color: '#999',
   }
 });
 

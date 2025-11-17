@@ -5,6 +5,7 @@ import { globalStyles } from '../../../../assets/styles/styles';
 const StatusBadge = ({statusCode}) => {
   let badgeStyle = {};
   let text = '';
+  const textStyle = [globalStyles.textSMWhite];
 
   switch (statusCode) {
     case 'Active':
@@ -25,7 +26,17 @@ const StatusBadge = ({statusCode}) => {
       break;
     case 'Expired':
       badgeStyle = styles.expired;
-      text = 'Scheduled';
+      text = 'Expired';
+      break;
+    case 'Out of Stock':
+      badgeStyle = styles.outOfStock;
+      text = 'Out of Stock';
+      textStyle.push(styles.textDark);
+      break;
+    case 'Sold':
+      badgeStyle = styles.sold;
+      text = 'SOLD';
+      textStyle.push(styles.textDark);
       break;
     case 'Live':
       badgeStyle = styles.expired;
@@ -36,13 +47,14 @@ const StatusBadge = ({statusCode}) => {
       text = 'ToActive';
       break;
     default:
-      badgeStyle = styles.expired;
+      badgeStyle = styles.outOfStock;
       text = 'Out of Stock';
+      textStyle.push(styles.textDark);
   }
 
   return (
     <View style={[styles.badge, badgeStyle]}>
-      <Text style={globalStyles.textSMWhite}>{text}</Text>
+      <Text style={textStyle}>{text}</Text>
     </View>
   );
 };
@@ -58,7 +70,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#23C16B',
   },
   inactive: {
-    backgroundColor: '#E7522F',
+    backgroundColor: '#FACC15',
   },
   scheduled: {
     backgroundColor: '#48A7F8',
@@ -66,8 +78,17 @@ const styles = StyleSheet.create({
   expired: {
     backgroundColor: '#6B4EFF',
   },
+  outOfStock: {
+    backgroundColor: '#FFE7E2',
+  },
+  sold: {
+    backgroundColor: '#FFE7E2',
+  },
   unknown: {
     backgroundColor: '#E7522F',
+  },
+  textDark: {
+    color: '#000000',
   },
 });
 

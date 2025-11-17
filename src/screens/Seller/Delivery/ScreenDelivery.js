@@ -11,7 +11,6 @@ import {
   Image,
   Modal,
   Platform,
-  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -35,7 +34,6 @@ import {
   postDeliverToHubApi,
 } from '../../../components/Api';
 
-import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import ShareIcon from '../../../assets/icons/accent/share-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import RightIcon from '../../../assets/icons/greylight/caret-right-regular.svg';
@@ -45,12 +43,14 @@ import LiveIcon from '../../../assets/images/live.svg';
 
 import DeliverActionSheetEdit from './components/DeliverActionSheetEdit';
 import DeliverTableList from './components/DeliverTableList';
+import DeliverTableSkeleton from './components/DeliverTableSkeleton';
 
 // Export modal icons
 import ExportPdfIcon from '../../../assets/export/export-pdf.svg';
 import ExportXlsIcon from '../../../assets/export/export-xls.svg';
 
 const screenHeight = Dimensions.get('window').height;
+const SELLER_DELIVERY_PAGE_SIZE = 20;
 
 const headers = [
   'For Delivery',
@@ -84,16 +84,220 @@ const ScreenDelivery = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const [dataTable, setDataTable] = useState([]);
 
+  // Pagination state (similar to Orders)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageTokens, setPageTokens] = useState(['']);
+  const [hasMorePages, setHasMorePages] = useState(false);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   const [refreshing, setRefreshing] = useState(false);
+
+  const resetPaginationState = () => {
+    setPageTokens(['']);
+    setCurrentPage(1);
+    setHasMorePages(false);
+    setTotalOrders(0);
+    setTotalPages(1);
+  };
+
+  const loadData = async (
+    sortBy,
+    date,
+    deliveryStatus,
+    listingType,
+    startDate,
+    endDate,
+    search,
+    nextPageToken,
+  ) => {
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      throw new Error('No internet connection.');
+    }
+
+    const effectiveLimit = SELLER_DELIVERY_PAGE_SIZE;
+    const effectiveToken = nextPageToken || '';
+
+    const response = await retryAsync(
+      () =>
+        getOrderListingApi(
+          effectiveLimit,
+          sortBy,
+          date,
+          deliveryStatus,
+          listingType,
+          effectiveToken,
+          startDate,
+          endDate,
+          search,
+          'delivery', // Pass 'delivery' to distinguish from Orders screen
+        ),
+      3,
+      1000,
+    );
+
+    if (!response?.success) {
+      throw new Error(response?.message || 'Failed to load orders');
+    }
+
+    return response;
+  };
+
+  const fetchOrdersPage = async (targetPage = 1) => {
+    try {
+      setLoading(true);
+      let desiredPage = Math.max(1, targetPage);
+
+      const tokensCopy = [...pageTokens];
+      let response = null;
+
+      const fetchPageWithToken = async (pageToken = '') => {
+        return loadData(
+          reusableSort,
+          reusableDate,
+          'For Delivery',
+          reusableListingType,
+          reusableStartDate,
+          reusableEndDate,
+          search,
+          pageToken,
+        );
+      };
+
+      if (tokensCopy[desiredPage - 1] === undefined) {
+        let currentIndex = tokensCopy.length - 1;
+        let lastToken = tokensCopy[currentIndex] || '';
+        while (currentIndex < desiredPage - 1) {
+          const interimResponse = await fetchPageWithToken(lastToken);
+          const nextToken = interimResponse?.nextPageToken || null;
+          tokensCopy[currentIndex + 1] = nextToken;
+          lastToken = nextToken || '';
+          currentIndex += 1;
+
+          if (currentIndex === desiredPage - 1) {
+            response = interimResponse;
+            break;
+          }
+
+          if (!nextToken) {
+            desiredPage = currentIndex;
+            response = interimResponse;
+            break;
+          }
+        }
+
+        if (tokensCopy[desiredPage - 1] === undefined) {
+          desiredPage = Math.max(1, tokensCopy.length - 1);
+        }
+      }
+
+      if (!response) {
+        const tokenForPage = tokensCopy[desiredPage - 1] || '';
+        response = await fetchPageWithToken(tokenForPage);
+      }
+
+      const orders = response?.orders || [];
+      const nextToken = response?.nextPageToken || null;
+
+      // For Delivery screen, backend now returns accurate total count
+      // Use backend total if available, otherwise calculate from pages
+      let computedTotal = totalOrders; // Keep existing total by default
+      
+      if (desiredPage === 1 || totalOrders === 0) {
+        // Check if backend provided a total count (for Delivery screen)
+        if (typeof response?.total === 'number' && response.total > 0) {
+          // Use backend total if available (for Delivery screen with sellerName/gardenOrCompanyName filters)
+          computedTotal = response.total;
+          console.log(`✅ Using backend total count: ${computedTotal}`);
+        } else {
+          // Check if we should use backend count or fetch all pages to count
+          const hasFilters = search && search.trim() !== '' || 
+                            reusableListingType && reusableListingType.length > 0 ||
+                            reusableDate && reusableDate !== 'All' ||
+                            (reusableStartDate && reusableEndDate);
+
+          if (!hasFilters && typeof response?.count === 'number') {
+            // Use backend count when no filters are applied
+            computedTotal = response.count;
+          } else {
+            // For filtered results, fetch all pages to get accurate count
+            // Use a separate token chain for counting to avoid affecting pagination
+            let totalFilteredCount = orders.length;
+            let countToken = nextToken;
+            let countSafety = 0;
+            const MAX_TOTAL_FETCHES = 50;
+
+            // Continue fetching and counting filtered results until no more pages
+            while (countToken && countSafety < MAX_TOTAL_FETCHES) {
+              try {
+                const additionalResponse = await fetchPageWithToken(countToken);
+                const additionalOrders = additionalResponse?.orders || [];
+                totalFilteredCount += additionalOrders.length;
+
+                console.log(`🔍 Delivery counting: Fetched page ${countSafety + 2}, got ${additionalOrders.length} orders, total so far: ${totalFilteredCount}`);
+
+                if (additionalResponse?.nextPageToken) {
+                  countToken = additionalResponse.nextPageToken;
+                } else {
+                  countToken = null;
+                  console.log(`✅ Delivery counting: Reached end, final count: ${totalFilteredCount}`);
+                  break; // No more pages, we have the accurate total
+                }
+
+                countSafety += 1;
+              } catch (error) {
+                console.error('Error fetching page for total count:', error);
+                break; // Stop on error
+              }
+            }
+
+            computedTotal = totalFilteredCount;
+          }
+        }
+      } else if (typeof response?.total === 'number' && response.total > 0) {
+        // For subsequent pages, use backend total if available
+        computedTotal = response.total;
+      }
+
+      tokensCopy[desiredPage] = nextToken;
+      const updatedTokens = tokensCopy.slice(0, desiredPage + 1);
+
+      setPageTokens(updatedTokens);
+      setDataTable(orders);
+      setSummaryCount(response?.deliveryStatusSummary || summaryCount);
+      setTotalOrders(computedTotal);
+      setTotalPages(Math.max(1, Math.ceil(computedTotal / SELLER_DELIVERY_PAGE_SIZE)));
+      setHasMorePages(Boolean(nextToken));
+      setCurrentPage(desiredPage);
+    } catch (error) {
+      console.log('Error in fetchOrdersPage:', error.message);
+      Alert.alert('Delivery Listing', error.message);
+    } finally {
+      setRefreshing(false);
+      setLoading(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1 && !loading) {
+      fetchOrdersPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if ((currentPage < totalPages || hasMorePages) && !loading) {
+      fetchOrdersPage(currentPage + 1);
+    }
+  };
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
-    setNextToken('');
-    setNextTokenParam('');
+    resetPaginationState();
     const fetchData = async () => {
       try {
-        await loadListingData();
+        await fetchOrdersPage(1);
       } catch (error) {
         console.log('Fetching details:', error);
       } finally {
@@ -176,68 +380,17 @@ const ScreenDelivery = ({navigation}) => {
   });
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
   const isFocused = useIsFocused();
-  const [dataCount, setDataCount] = useState(0);
   const [search, setSearch] = useState('');
 
+  // ✅ Fetch on mount
   useEffect(() => {
-    setLoading(true);
-    const fetchData = async () => {
-      try {
-        await loadListingData();
-      } catch (error) {
-        Alert.alert('Delivery Listing:', error.message);
-        console.log('Fetching details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    if (isFocused) {
+      resetPaginationState();
+      fetchOrdersPage(1);
+    }
   }, [isFocused, isInitialFetchRefresh]);
 
-  const loadListingData = async () => {
-    let netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
-    const res = await retryAsync(
-      () =>
-        getOrderListingApi(
-          10,
-          reusableSort,
-          reusableDate,
-          'For Delivery',
-          reusableListingType,
-          nextTokenParam,
-          reusableStartDate,
-          reusableEndDate,
-          search,
-        ),
-      3,
-      1000,
-    );
-
-    if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load sort api');
-    }
-
-    // console.log(res);
-    setSummaryCount(res?.deliveryStatusSummary);
-    setNextToken(res.nextPageToken);
-    setDataCount(res.count);
-    setDataTable(
-      prev =>
-        nextTokenParam
-          ? [...prev, ...(res?.orders || [])] // append
-          : res?.orders || [], // replace
-    );
-  };
-  // ✅ Fetch on mount
-
   // Filters Action Sheet
-  const [nextToken, setNextToken] = useState('');
-  const [nextTokenParam, setNextTokenParam] = useState('');
   const [sortOptions, setSortOptions] = useState([]);
   const [listingTypeOptions, setListingTypeOptions] = useState([]);
 
@@ -251,8 +404,7 @@ const ScreenDelivery = ({navigation}) => {
   const [showSheet, setShowSheet] = useState(false);
 
   const handleFilterView = () => {
-    setNextToken('');
-    setNextTokenParam('');
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -267,8 +419,7 @@ const ScreenDelivery = ({navigation}) => {
     console.log(formattedStart, formattedEnd);
     setReusableStartDate(formattedStart);
     setReusableEndDate(formattedEnd);
-    setNextToken('');
-    setNextTokenParam('');
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -278,8 +429,7 @@ const ScreenDelivery = ({navigation}) => {
     console.log('Searching for:', searchText);
     // trigger your search logic here
 
-    setNextToken('');
-    setNextTokenParam('');
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -289,23 +439,7 @@ const ScreenDelivery = ({navigation}) => {
   };
   // Filters Action Sheet
 
-  // Load more
-  useEffect(() => {
-    if (nextTokenParam) {
-      setLoading(true);
-      loadListingData();
-      setTimeout(() => {
-        setLoading(false); // or setLoading(false)
-      }, 500);
-    }
-  }, [nextTokenParam]);
-
-  const onPressLoadMore = () => {
-    if (nextToken != nextTokenParam) {
-      setNextTokenParam(nextToken);
-    }
-  };
-  // Load more
+  // Load more - REMOVED (replaced with pagination)
 
   // For dropdown
   useEffect(() => {
@@ -408,8 +542,7 @@ const ScreenDelivery = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post deliver to hub failed.');
       }
-      setNextToken('');
-      setNextTokenParam('');
+      resetPaginationState();
       setIsInitialFetchRefresh(!isInitialFetchRefresh);
       setActionShowSheet(false);
       setSelectedItemToUpdate({});
@@ -442,8 +575,7 @@ const ScreenDelivery = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post missing failed.');
       }
-      setNextToken('');
-      setNextTokenParam('');
+      resetPaginationState();
       setIsInitialFetchRefresh(!isInitialFetchRefresh);
       setActionShowSheet(false);
       setSelectedItemToUpdate({});
@@ -476,8 +608,7 @@ const ScreenDelivery = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post casualty failed.');
       }
-      setNextToken('');
-      setNextTokenParam('');
+      resetPaginationState();
       setIsInitialFetchRefresh(!isInitialFetchRefresh);
       setActionShowSheet(false);
       setSelectedItemToUpdate({});
@@ -626,7 +757,7 @@ const ScreenDelivery = ({navigation}) => {
 
       <ScrollView
         contentContainerStyle={{
-          paddingBottom: insets.bottom + 30,
+          paddingBottom: 0, // Remove padding since pagination footer is outside
         }}
         style={[styles.container]}>
         <View
@@ -657,7 +788,7 @@ const ScreenDelivery = ({navigation}) => {
                   For Delivery
                 </Text>
                 <Text style={{color: '#202325', fontSize: 28}}>
-                  {summaryCount['For Delivery']}
+                  {totalOrders}
                 </Text>
               </View>
               <TouchableOpacity
@@ -781,7 +912,11 @@ const ScreenDelivery = ({navigation}) => {
             </View>
           </View>
 
-          {dataTable.length == 0 ? (
+          {loading && dataTable.length === 0 ? (
+            <View>
+              <DeliverTableSkeleton rowCount={5} />
+            </View>
+          ) : dataTable.length == 0 ? (
             <View
               style={{
                 flex: 1,
@@ -795,41 +930,72 @@ const ScreenDelivery = ({navigation}) => {
             </View>
           ) : (
             <>
-              <ScrollView
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                  />
-                }>
+              <View>
                 <DeliverTableList
                   headers={headers}
                   orders={dataTable}
                   module={'MAIN'}
                   navigateToListAction={onPressCheck}
                   onEditPressFilter={onEditPressFilter}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
                   style={{}}
                 />
-              </ScrollView>
-              {dataCount >= 10 && (
-                <TouchableOpacity
-                  onPress={() => onPressLoadMore()}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%',
-                    marginTop: 300,
-                    marginBottom: 50,
-                  }}>
-                  <Text style={globalStyles.textLGAccent}>Load More</Text>
-                  <ArrowDownIcon width={25} height={20} />
-                </TouchableOpacity>
-              )}
+              </View>
             </>
           )}
         </View>
       </ScrollView>
+
+      {/* Pagination Controls */}
+      <View style={styles.paginationWrapper}>
+        <View style={styles.paginationContainer}>
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              (currentPage <= 1 || loading) && styles.paginationButtonDisabled,
+            ]}
+            onPress={handlePreviousPage}
+            disabled={currentPage <= 1 || loading}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                (currentPage <= 1 || loading) && styles.paginationButtonTextDisabled,
+              ]}>
+              Previous
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.paginationInfo}>
+            <Text style={styles.paginationText}>
+              Page {currentPage} of {totalPages}
+            </Text>
+            <Text style={styles.paginationSubtext}>
+              {loading ? 'Loading...' : `${totalOrders} total orders`}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              ((currentPage >= totalPages && !hasMorePages) || loading) &&
+                styles.paginationButtonDisabled,
+            ]}
+            onPress={handleNextPage}
+            disabled={(currentPage >= totalPages && !hasMorePages) || loading}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                ((currentPage >= totalPages && !hasMorePages) || loading) &&
+                  styles.paginationButtonTextDisabled,
+              ]}>
+              Next
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Export Modal */}
       <Modal
@@ -1137,5 +1303,62 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: '#C0DAC2',
     borderColor: '#539461',
+  },
+  paginationWrapper: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E4E7E9',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingBottom: 12,
+    marginTop: 8,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  paginationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#23C16B',
+    borderRadius: 8,
+    minWidth: 90,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    marginVertical: 4,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: '#E4E7E9',
+  },
+  paginationButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  paginationButtonTextDisabled: {
+    color: '#9CA3A6',
+  },
+  paginationInfo: {
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  paginationText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#202325',
+    marginBottom: 4,
+  },
+  paginationSubtext: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 12,
+    color: '#647276',
   },
 });

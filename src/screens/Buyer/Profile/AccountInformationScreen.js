@@ -291,21 +291,16 @@ const AccountInformationScreen = () => {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
         Alert.alert('Error', 'No internet connection.');
+        setUploadingPhoto(false);
         return;
       }
 
-      // Get and display current user ID for debugging purposes
+      // Get current user ID for logging
       let currentUserId = null;
       try {
         const { auth } = require('../../../../firebase');
         currentUserId = auth.currentUser?.uid;
         console.log('Current user ID for upload:', currentUserId);
-        
-        // Check if user ID matches hardcoded server ID
-        const hardcodedTestId = "IxsO07FVxxYE5pw944YTEkBt0QJ3";
-        if (currentUserId && currentUserId !== hardcodedTestId) {
-          console.warn(`Warning: Your user ID (${currentUserId}) doesn't match the hardcoded server ID (${hardcodedTestId})`);
-        }
       } catch (e) {
         console.log('Could not get current user ID:', e.message);
       }
@@ -346,16 +341,15 @@ const AccountInformationScreen = () => {
             profile.profilePhotoUrl = newUrl;
             await AsyncStorage.setItem('buyerProfile', JSON.stringify(profile));
           } catch (e) {
-            
+            console.warn('Failed to update buyerProfile in AsyncStorage:', e);
           }
         }
-  } catch (e) {
-        
-  }
+      } catch (e) {
+        console.warn('Failed to update AsyncStorage:', e);
+      }
 
       // Persist canonical URL into AuthContext with the same timestamp for consistency
-  if (typeof updateProfileImage === 'function') {
-        
+      if (typeof updateProfileImage === 'function') {
         // Force the timestamp in AuthContext to match our local one for consistent updates
         await updateProfileImage(newUrl);
         
@@ -368,10 +362,9 @@ const AccountInformationScreen = () => {
             userInfoObj.profileImageTimestamp = timestamp;
             userInfoObj.profileImageWithTimestamp = localCacheBusted;
             await AsyncStorage.setItem('userInfo', JSON.stringify(userInfoObj));
-            
           }
         } catch (e) {
-          
+          console.warn('Failed to update userInfo in AsyncStorage:', e);
         }
         
         // Force Avatar components to refresh by triggering a state update
@@ -387,6 +380,7 @@ const AccountInformationScreen = () => {
       }
 
       Alert.alert('Success', 'Profile photo updated successfully!');
+      setUploadingPhoto(false);
     } catch (error) {
       console.error('Photo upload error:', error);
       // Provide more specific error message based on the type of error
@@ -395,17 +389,6 @@ const AccountInformationScreen = () => {
       if (error.serverResponse) {
         // This is a server response error with details
         errorMessage = error.message || 'Server error during photo upload';
-        
-        // Check for typical test/development errors
-        if (error.message && error.message.toLowerCase().includes('testing')) {
-          const { auth } = require('../../../../firebase');
-          const currentUserId = auth.currentUser?.uid;
-          const hardcodedTestId = "IxsO07FVxxYE5pw944YTEkBt0QJ3";
-          
-          if (currentUserId && currentUserId !== hardcodedTestId) {
-            errorMessage += `\n\nServer using test ID: ${hardcodedTestId}\nYour ID: ${currentUserId}\n\nThe server is currently in test mode using a hardcoded user ID.`;
-          }
-        }
       } else if (error.message) {
         // Use the error message if available
         errorMessage = error.message;
@@ -435,7 +418,6 @@ const AccountInformationScreen = () => {
           }
         ]
       );
-    } finally {
       setUploadingPhoto(false);
     }
   };
@@ -974,29 +956,36 @@ const styles = StyleSheet.create({
   countryCode: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: 4,
-    width: 67,
+    minWidth: 67,
     height: 20,
+    paddingRight: 4,
   },
   countrySection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
+    justifyContent: 'center',
     width: 24,
     height: 20,
   },
   codeText: {
-    width: 19,
-    height: 16,
+    minWidth: 24,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 16,
+    lineHeight: 20,
     color: '#202325',
+    flexShrink: 0,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   flagEmoji: {
     fontSize: 20,
+    lineHeight: 20,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   phoneInput: {
     width: 216,

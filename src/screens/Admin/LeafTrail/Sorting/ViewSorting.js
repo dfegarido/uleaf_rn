@@ -43,8 +43,6 @@ const UserProfile = ({ user }) => (
 );
 
 const GreenhouseInputs = ({addTrayNumber, itemDetails}) => { 
-  console.log('itemDetails', itemDetails);
-  
   const [trayNumber, setTrayNumber] = useState(itemDetails?.sortingTrayNumber || '');
   
   const addTray = () => {

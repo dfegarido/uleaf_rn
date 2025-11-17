@@ -7,6 +7,7 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -76,6 +77,147 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [quantity, setQuantity] = useState(1);
   const [modalAction, setModalAction] = useState('add-to-cart'); // 'add-to-cart' or 'buy-now'
   const insets = useSafeAreaInsets();
+
+  const normalizeQuantity = (value) => {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+
+    return Math.max(0, numeric);
+  };
+
+  const selectedVariationStock = React.useMemo(() => {
+    if (!plantData) return null;
+    const listingType = plantData.listingType ? plantData.listingType.toLowerCase() : '';
+    const isGrowerOrWholesale =
+      listingType.includes("grower's choice") ||
+      listingType.includes('growers choice') ||
+      listingType.includes('grower choice') ||
+      listingType.includes('wholesale');
+
+    if (!isGrowerOrWholesale) return null;
+
+    const targetPotSize = selectedPotSize || (Array.isArray(plantData?.availablePotSizes) ? plantData.availablePotSizes[0] : '');
+    if (!targetPotSize) return null;
+
+    if (potSizeGroups && potSizeGroups[targetPotSize] && potSizeGroups[targetPotSize].length > 0) {
+      const firstVariation = potSizeGroups[targetPotSize][0];
+      if (firstVariation) {
+        const quantities = [
+          firstVariation.availableQty,
+          firstVariation.quantity,
+          firstVariation.stock,
+          firstVariation.maxQuantity,
+          firstVariation.totalAvailableQty,
+        ]
+          .map(normalizeQuantity)
+          .filter((qty) => qty !== null);
+
+        if (quantities.length > 0) {
+          return Math.max(...quantities);
+        }
+      }
+    }
+
+    if (Array.isArray(plantData.variations) && plantData.variations.length > 0) {
+      const matchingVariation = plantData.variations.find(variation => {
+        const variationPotSize = variation.potSize || variation.potSizeLabel || variation.label || '';
+        return variationPotSize.toLowerCase() === targetPotSize.toLowerCase();
+      });
+
+      if (matchingVariation) {
+        const quantities = [
+          matchingVariation.availableQty,
+          matchingVariation.quantity,
+          matchingVariation.stock,
+          matchingVariation.maxQuantity,
+          matchingVariation.totalAvailableQty,
+        ]
+          .map(normalizeQuantity)
+          .filter((qty) => qty !== null);
+
+        if (quantities.length > 0) {
+          return Math.max(...quantities);
+        }
+      }
+    }
+
+    return null;
+  }, [plantData, potSizeGroups, selectedPotSize]);
+
+  const plantSoldOut = React.useMemo(() => {
+    if (!plantData) {
+      return false;
+    }
+
+    if (plantData.isSoldOut === true || plantData.variationsSoldOut === true) {
+      return true;
+    }
+
+    if (typeof plantData.status === 'string' && plantData.status.trim().toLowerCase() === 'out of stock') {
+      return true;
+    }
+
+    if (selectedVariationStock !== null) {
+      return selectedVariationStock <= 0;
+    }
+
+    const directQuantitiesRaw = [
+      plantData.totalAvailableQty,
+      plantData.availableQty,
+      plantData.availableQuantity,
+      plantData.quantity,
+      plantData.stock,
+      plantData.stockQuantity,
+      plantData.maxQuantity,
+    ];
+
+    const directQuantities = directQuantitiesRaw
+      .map(normalizeQuantity)
+      .filter((qty) => qty !== null);
+
+    if (directQuantities.length > 0) {
+      const hasPositive = directQuantities.some((qty) => qty > 0);
+      if (hasPositive) {
+        return false;
+      }
+      return true;
+    }
+
+    if (Array.isArray(plantData.variations) && plantData.variations.length > 0) {
+      let hasNumericVariation = false;
+
+      for (const variation of plantData.variations) {
+        const variationQuantities = [
+          variation?.availableQty,
+          variation?.quantity,
+          variation?.stock,
+          variation?.maxQuantity,
+          variation?.totalAvailableQty,
+        ]
+          .map(normalizeQuantity)
+          .filter((qty) => qty !== null);
+
+        if (variationQuantities.length > 0) {
+          hasNumericVariation = true;
+          if (variationQuantities.some((qty) => qty > 0)) {
+            return false;
+          }
+        }
+      }
+
+      if (hasNumericVariation) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [plantData, selectedVariationStock]);
 
   // Load plant details when screen comes into focus
   useFocusEffect(
@@ -175,26 +317,42 @@ const ScreenPlantDetail = ({navigation, route}) => {
     }
   };
 
+  const showSoldOutAlert = () => {
+    Alert.alert('Sold Out', 'This plant is currently sold out and not available for purchase.');
+  };
+
   const handleAddToCart = () => {
+    if (plantSoldOut) {
+      showSoldOutAlert();
+      return;
+    }
     setModalAction('add-to-cart');
     setShowAddToCartModal(true);
   };
 
   const handleBuyNow = () => {
+    if (plantSoldOut) {
+      showSoldOutAlert();
+      return;
+    }
     setModalAction('buy-now');
     setShowAddToCartModal(true);
   };
 
   const handleConfirmAddToCart = async () => {
+    if (plantSoldOut) {
+      showSoldOutAlert();
+      return;
+    }
     if (quantity < 1) {
       Alert.alert('Invalid Quantity', 'Please select a quantity of at least 1');
       return;
     }
 
     // Check stock limits
-    const availableStock = getAvailableStock();
-    if (quantity > availableStock) {
-      Alert.alert('Stock Limit', `Only ${availableStock} items available in stock. Please reduce your quantity.`);
+    const currentAvailableStock = getAvailableStock();
+    if (quantity > currentAvailableStock) {
+      Alert.alert('Stock Limit', `Only ${currentAvailableStock} items available in stock. Please reduce your quantity.`);
       return;
     }
 
@@ -348,21 +506,74 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   // Get available stock quantity
   const getAvailableStock = () => {
-    
+    if (!plantData) {
+      return 0;
+    }
+
+    if (plantSoldOut) {
+      return 0;
+    }
+
     // For Grower's Choice and Wholesale with variations, get stock from selected variation
     if (selectedPotSize && potSizeGroups[selectedPotSize] && potSizeGroups[selectedPotSize].length > 0) {
       const selectedVariation = potSizeGroups[selectedPotSize][0];
-      const variationStock = selectedVariation.availableQty || selectedVariation.stock || 999;
-      return variationStock;
+      if (selectedVariation) {
+        const variationQuantities = [
+          selectedVariation.availableQty,
+          selectedVariation.quantity,
+          selectedVariation.stock,
+          selectedVariation.maxQuantity,
+          selectedVariation.totalAvailableQty,
+        ]
+          .map(normalizeQuantity)
+          .filter((qty) => qty !== null);
+
+        if (variationQuantities.length > 0) {
+          return Math.max(...variationQuantities);
+        }
+      }
     }
-    
-    // Fallback to parent plant data for single listing types
-    const stock = plantData?.availableQty || plantData?.stock || plantData?.quantity || plantData?.maxQuantity || 999;
-    return stock;
+
+    const directQuantities = [
+      plantData.totalAvailableQty,
+      plantData.availableQty,
+      plantData.availableQuantity,
+      plantData.quantity,
+      plantData.stock,
+      plantData.stockQuantity,
+      plantData.maxQuantity,
+    ]
+      .map(normalizeQuantity)
+      .filter((qty) => qty !== null);
+
+    if (directQuantities.length > 0) {
+      return Math.max(...directQuantities);
+    }
+
+    if (Array.isArray(plantData.variations) && plantData.variations.length > 0) {
+      const variationQuantities = plantData.variations.flatMap((variation) =>
+        [
+          variation?.availableQty,
+          variation?.quantity,
+          variation?.stock,
+          variation?.maxQuantity,
+          variation?.totalAvailableQty,
+        ]
+          .map(normalizeQuantity)
+          .filter((qty) => qty !== null)
+      );
+
+      if (variationQuantities.length > 0) {
+        return Math.max(...variationQuantities);
+      }
+    }
+
+    return plantSoldOut ? 0 : 999;
   };
 
   // Check if increase button should be disabled
   const isIncreaseDisabled = () => {
+    if (plantSoldOut) return true;
     if (isSinglePlant()) return true;
     const availableStock = getAvailableStock();
     return quantity >= availableStock;
@@ -371,6 +582,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const increaseQuantity = () => {
     // Early return for single plants - absolutely no quantity changes allowed
     if (isSinglePlant()) {
+      return;
+    }
+    if (plantSoldOut) {
       return;
     }
     
@@ -389,6 +603,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const decreaseQuantity = () => {
     // Early return for single plants - absolutely no quantity changes allowed
     if (isSinglePlant()) {
+      return;
+    }
+    if (plantSoldOut) {
       return;
     }
     if (quantity > 1) {
@@ -635,23 +852,38 @@ const ScreenPlantDetail = ({navigation, route}) => {
     );
   }
 
+  const availableStock = getAvailableStock();
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Background Plant Image */}
-      <Image
-        source={imageSource}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-        onError={(error) => {
-          setImageSource(require('../../../assets/buyer-icons/png/ficus-lyrata.png'));
-        }}
-      />
+      <View style={styles.backgroundImageWrapper}>
+        <Image
+          source={imageSource}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+          onError={() => {
+            setImageSource(require('../../../assets/buyer-icons/png/ficus-lyrata.png'));
+          }}
+        />
+        {plantSoldOut && (
+        <View style={styles.backgroundSoldBadge}>
+            <Text style={styles.backgroundSoldText}>
+              {(plantData.listingType || '').toLowerCase().includes('grower') ||
+              (plantData.listingType || '').toLowerCase().includes('choice') ||
+              (plantData.listingType || '').toLowerCase().includes('wholesale')
+                ? 'Out of Stock'
+                : 'SOLD'}
+            </Text>
+          </View>
+        )}
+      </View>
       
 
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header Navigation */}
-        <View style={styles.header}>
+        <View style={[styles.header, Platform.OS === 'android' && { paddingTop: Math.min(insets.top + 12, 50) }]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}>
@@ -1175,15 +1407,25 @@ const ScreenPlantDetail = ({navigation, route}) => {
             <View style={styles.quantitySection}>
               <View style={styles.quantityLabelContainer}>
                 <Text style={styles.quantityLabel}>Quantity</Text>
-                {isSinglePlant() ? (
-                  <Text style={styles.singlePlantNote}>Single plant only</Text>
-                ) : (
+                {plantSoldOut ? (
                   <Text style={[
                     styles.stockAvailabilityNote,
-                    getAvailableStock() === 0 && {color: '#E7522F', fontWeight: '600'}
+                    {color: '#E7522F', fontWeight: '600'}
                   ]}>
-                    {getAvailableStock() === 0 ? 'SOLD' : `${getAvailableStock()} available`}
+                    {(plantData?.listingType || '').toLowerCase().includes('grower') ||
+                    (plantData?.listingType || '').toLowerCase().includes('choice') ||
+                    (plantData?.listingType || '').toLowerCase().includes('wholesale')
+                      ? 'OUT OF STOCK'
+                      : 'SOLD'}
                   </Text>
+                ) : (
+                  isSinglePlant() ? (
+                    <Text style={styles.singlePlantNote}>Single plant only</Text>
+                  ) : (
+                    <Text style={styles.stockAvailabilityNote}>
+                      {`${availableStock} available`}
+                    </Text>
+                  )
                 )}
               </View>
               <View style={styles.stepper}>
@@ -1219,15 +1461,15 @@ const ScreenPlantDetail = ({navigation, route}) => {
                       }
                       const num = parseInt(text) || 1;
                       const validatedNum = Math.max(1, num);
-                      const availableStock = getAvailableStock();
+                      const currentAvailableStock = getAvailableStock();
                       
-                      if (validatedNum > availableStock) {
+                      if (validatedNum > currentAvailableStock) {
                         Alert.alert(
                           'Stock Limit Exceeded',
-                          `Only ${availableStock} items available in stock. Please reduce your quantity.`,
+                          `Only ${currentAvailableStock} items available in stock. Please reduce your quantity.`,
                           [{ text: 'OK' }]
                         );
-                        setQuantity(availableStock);
+                        setQuantity(currentAvailableStock);
                       } else {
                         setQuantity(validatedNum);
                       }
@@ -1286,7 +1528,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     position: 'relative',
     backgroundColor: '#fff',
   },
-  backgroundImage: {
+  backgroundImageWrapper: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1294,6 +1536,28 @@ const ScreenPlantDetail = ({navigation, route}) => {
     width: '100%',
     height: 440,
     zIndex: 0,
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  backgroundSoldBadge: {
+    position: 'absolute',
+    top: 48,
+    left: 56,
+    backgroundColor: '#FFE7E2',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    zIndex: 2,
+  },
+  backgroundSoldText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.6,
   },
   backgroundOverlay: {
     position: 'absolute',
@@ -1364,6 +1628,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    ...(Platform.OS === 'android' && {
+      minHeight: 40,
+      minWidth: 40,
+      padding: 4,
+    }),
   },
   shareButton: {
     flexDirection: 'row',

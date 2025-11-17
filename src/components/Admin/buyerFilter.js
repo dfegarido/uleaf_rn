@@ -169,10 +169,7 @@ const BuyerFilter = ({ isVisible, onClose, onSelectBuyer, onReset, buyers = [] }
                 </SafeAreaView>
               </KeyboardAvoidingView>
 
-              {/* System / Home Indicator */}
-              <View style={styles.homeIndicator}>
-                <View style={styles.gestureBar} />
-              </View>
+           
             </View>
           </TouchableWithoutFeedback>
         </View>

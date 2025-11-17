@@ -19,7 +19,7 @@ import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Avatar from '../../../components/Avatar/Avatar';
-import SearchIcon from '../../../assets/iconnav/search.svg';
+import SearchHeader from '../../../components/Header/SearchHeader';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
@@ -40,10 +40,15 @@ const GenusHeader = ({
   searchTerm,
   setSearchTerm,
   setIsSearchFocused,
+  isNavigatingFromSearch,
+  setIsNavigatingFromSearch,
+  onPlantSelect,
+  renderSearchResult,
   insets,
   onBadgePress, // handler passed from parent to handle badge clicks in-place
   profilePhotoUri,
   activeBadge, // active badge for visual state
+  onSearchIconPress, // handler for search icon press
 }) => {
   return (
     <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
@@ -56,35 +61,20 @@ const GenusHeader = ({
       </TouchableOpacity>
 
       <View style={styles.searchContainer}>
-        <View style={styles.searchField}>
-          <View style={styles.textField}>
-            <SearchIcon width={24} height={24} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search ileafU "
-              placeholderTextColor="#647276"
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => {
-                // Close search results when input loses focus
-                setTimeout(() => {
-                  setIsSearchFocused(false);
-                }, 150); // Small delay to allow for result tap
-              }}
-              multiline={false}
-              numberOfLines={1}
-              // Disable native autocomplete and suggestions
-              autoComplete="off"
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              textContentType="none"
-              dataDetectorTypes="none"
-              keyboardType="default"
-            />
-          </View>
-        </View>
+        <SearchHeader
+          searchText={searchTerm}
+          onSearchTextChange={setSearchTerm}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => {
+            // Handled by SearchHeader component
+          }}
+          isNavigatingFromSearch={isNavigatingFromSearch}
+          setIsNavigatingFromSearch={setIsNavigatingFromSearch}
+          onPlantSelect={onPlantSelect}
+          renderResultItem={renderSearchResult}
+          navigation={navigation}
+          onSearchIconPress={onSearchIconPress}
+        />
       </View>
 
       <View style={styles.headerIcons}>
@@ -125,7 +115,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
-  const {genus, filterType, filterValue, fromFilter, filter, fromBadge} = route.params || {};
+  const {genus, filterType, filterValue, fromFilter, filter, fromBadge, searchQuery, fromSearch} = route.params || {};
   const {
     globalFilters,
     appliedFilters,
@@ -150,16 +140,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
   // Track active badge for pagination
   const [activeBadge, setActiveBadge] = useState(null);
 
-  // Search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
+  // Search state - initialize with searchQuery if provided
+  const [searchTerm, setSearchTerm] = useState(searchQuery || '');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  
-  // Search pagination state
-  const [searchOffset, setSearchOffset] = useState(0);
-  const [searchHasMore, setSearchHasMore] = useState(false);
-  const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
+  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
+  // Track if we're currently in search mode (have an active search query)
+  const [isSearchMode, setIsSearchMode] = useState(false);
   
   // Profile photo state
   const [profilePhotoUri, setProfilePhotoUri] = useState(null);
@@ -183,31 +169,65 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }, [])
   );
 
-  // Debounced search effect - triggers after user stops typing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim().length >= 2) {
-        // Reset pagination when search term changes
-        setSearchOffset(0);
-        setSearchHasMore(false);
-        performSearch(searchTerm.trim(), 0, true);
-      } else if (searchTerm.trim().length === 0) {
-        setSearchResults([]);
-        setLoadingSearch(false);
-        setSearchOffset(0);
-        setSearchHasMore(false);
-      }
-    }, 800); // 800ms delay for "finished typing" detection
+  // Custom render function for search results (simpler text display)
+  const renderSearchResult = ({ item }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      activeOpacity={0.7}
+      onPress={() => {
+        if (item.plantCode) {
+          // Set flag to prevent blur from closing dropdown
+          setIsNavigatingFromSearch(true);
+          // Navigate immediately
+          navigation.navigate('ScreenPlantDetail', {
+            plantCode: item.plantCode,
+          });
+          // Close dropdown and reset flag after navigation
+          setIsSearchFocused(false);
+          setTimeout(() => {
+            setIsNavigatingFromSearch(false);
+          }, 100);
+        } else {
+          console.error('❌ Missing plantCode for plant:', item);
+          Alert.alert(
+            'Error',
+            'Unable to view plant details. Missing plant code.',
+          );
+          setIsNavigatingFromSearch(false);
+        }
+      }}
+    >
+      <Text style={styles.searchResultName} numberOfLines={2}>
+        {item.title && !item.title.includes('Choose the most suitable variegation') 
+          ? item.title 
+          : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
+      </Text>
+    </TouchableOpacity>
+  );
 
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  // Handle plant selection from search
+  const handlePlantSelect = (plant) => {
+    if (plant.plantCode) {
+      setIsNavigatingFromSearch(true);
+      navigation.navigate('ScreenPlantDetail', {
+        plantCode: plant.plantCode,
+      });
+      setIsSearchFocused(false);
+      setTimeout(() => {
+        setIsNavigatingFromSearch(false);
+      }, 100);
+    }
+  };
 
-  const performSearch = async (searchTerm, offset = 0, resetResults = false) => {
+  // Helper function to load plants with explicit search query
+  const loadPlantsWithSearch = async (searchQueryParam, refresh = false) => {
     try {
-      if (resetResults) {
-        setLoadingSearch(true);
+      if (refresh) {
+        setRefreshing(true);
+        setOffset(0);
+        setHasMore(true);
       } else {
-        setLoadingMoreSearch(true);
+        setLoadingMore(true);
       }
 
       let netState = await NetInfo.fetch();
@@ -215,53 +235,155 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      const searchParams = {
-        query: searchTerm,
-        limit: 10,
-        offset: offset,
-        sortBy: 'relevance',
-        sortOrder: 'desc'
+      const currentOffset = refresh ? 0 : offset;
+      const baseParams = {
+        limit,
+        offset: currentOffset,
       };
 
-      const res = await searchPlantsApi(searchParams);
+      // Use searchPlants API for faster search results when there's a search query
+      if (searchQueryParam && searchQueryParam.trim()) {
+        setIsSearchMode(true); // Mark that we're in search mode
+        console.log('🔍 [ScreenGenusPlants] Loading plants with search query:', searchQueryParam.trim());
+        console.log('🔍 [ScreenGenusPlants] Refresh:', refresh, 'Current offset:', currentOffset);
 
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to search plants.');
-      }
+        // Use searchPlants API for faster search results
+        const searchParams = {
+          query: searchQueryParam.trim(),
+          limit: limit,
+          offset: currentOffset,
+          sortBy: 'relevance',
+          sortOrder: 'desc',
+        };
 
-      const plants = res.data?.plants || [];
-      const pagination = res.data?.pagination || {};
+        // Apply additional filters if available
+        const filterParams = buildFilterParams({});
+        if (filterParams.genus) searchParams.genus = filterParams.genus;
+        if (filterParams.variegation) searchParams.variegation = filterParams.variegation;
+        if (filterParams.listingType) searchParams.listingType = filterParams.listingType;
+        if (filterParams.minPrice) searchParams.minPrice = filterParams.minPrice;
+        if (filterParams.maxPrice) searchParams.maxPrice = filterParams.maxPrice;
+        if (filterParams.country) searchParams.country = filterParams.country;
+
+        console.log('🔍 [ScreenGenusPlants] Using searchPlants API with params:', JSON.stringify(searchParams));
+        const res = await retryAsync(() => searchPlantsApi(searchParams), 3, 1000);
+
+        if (!res?.success) {
+          throw new Error(res?.error || 'Failed to load plants');
+        }
+
+        // Transform searchPlants API response to match expected format
+        // The searchPlants API returns plants with: id, plantCode, genus, species, variegation, title, price, finalPrice, etc.
+        const rawPlants = (res.data?.plants || []).map(p => ({
+        id: p.id,
+        plantCode: p.plantCode,
+        genus: p.genus || '',
+        species: p.species || '',
+        variegation: p.variegation || '',
+        plantName: p.title || `${p.genus} ${p.species}${p.variegation ? ' ' + p.variegation : ''}`,
+        imagePrimary: p.image || null,
+        imagePrimaryWebp: p.image || null,
+        imageCollection: p.images || [],
+        imageCollectionWebp: p.images || [],
+        usdPrice: p.price || 0,
+        localPrice: p.localPrice || 0,
+        finalPrice: p.finalPrice || p.price || 0,
+        originalPrice: p.price || 0,
+        discountPrice: p.discountPrice || null,
+        hasDiscount: p.discountPercentage ? true : false,
+        discountAmount: p.discountPercentage ? ((p.price - p.finalPrice) || 0) : 0,
+        listingType: p.listingType || 'Single Plant',
+        availableQty: p.availableQuantity || 0,
+        country: p.country || '',
+        shippingIndex: p.shippingIndex || null,
+        acclimationIndex: p.acclimationIndex || null,
+        sellerName: p.supplierName || '',
+        localCurrency: p.currency || 'USD',
+        plantFlightDate: p.plantFlightDate || null,
+        createdAt: p.createdAt || null,
+        updatedAt: p.updatedAt || null,
+        description: p.description || '',
+        potSize: p.potSizes && p.potSizes.length > 0 ? p.potSizes[0] : null,
+      }));
       
-      if (resetResults) {
-        setSearchResults(plants);
+      const newPlants = rawPlants.filter(plant => {
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        return hasPlantCode && hasTitle && hasSubtitle;
+      });
+      
+      if (refresh) {
+        setPlants(newPlants);
+        setOffset(newPlants.length);
       } else {
-        // Append new results to existing ones
-        setSearchResults(prev => [...prev, ...plants]);
+        setPlants(prev => {
+          const existingPlantCodes = new Set(prev.map(p => p.plantCode));
+          const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
+          return [...prev, ...uniqueNewPlants];
+        });
+        setOffset(prev => prev + newPlants.length);
       }
-      
-      // Update pagination state
-      setSearchHasMore(pagination.hasMore || false);
-      setSearchOffset(offset + plants.length);
-      
-    } catch (error) {
-      console.error('❌ Error performing genus screen search:', error);
-      if (resetResults) {
-        setSearchResults([]);
-        Alert.alert(
-          'Search Error',
-          'Could not search for plants. Please check your connection and try again.',
-          [{text: 'OK'}]
-        );
-      }
-    } finally {
-      setLoadingSearch(false);
-      setLoadingMoreSearch(false);
-    }
-  };
 
-  const loadMoreSearchResults = () => {
-    if (!loadingMoreSearch && searchHasMore && searchTerm.trim().length >= 2) {
-      performSearch(searchTerm.trim(), searchOffset, false);
+        // Use pagination from searchPlants API response
+        const pagination = res.data?.pagination || {};
+        const hasMore = pagination.hasMore || false;
+        setHasMore(hasMore);
+        console.log('✅ [ScreenGenusPlants] Loaded', newPlants.length, 'plants from search (using searchPlants API)');
+        console.log('✅ [ScreenGenusPlants] hasMore:', hasMore, 'New offset:', refresh ? newPlants.length : offset + newPlants.length);
+        console.log('✅ [ScreenGenusPlants] Total results:', pagination.total || newPlants.length);
+      } else {
+        // No search query - use getBuyerListings API (fallback to original behavior)
+        setIsSearchMode(false);
+        baseParams.plant = null;
+        const params = buildFilterParams(baseParams);
+        const res = await retryAsync(() => getBuyerListingsApi(params), 3, 1000);
+
+        if (!res?.success) {
+          throw new Error(res?.error || 'Failed to load plants');
+        }
+
+        const rawPlants = (res.data?.listings || []).map(p => ({
+          ...p,
+          imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+          imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+        }));
+        
+        const newPlants = rawPlants.filter(plant => {
+          const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+          const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+          const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                             (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+          return hasPlantCode && hasTitle && hasSubtitle;
+        });
+        
+        if (refresh) {
+          setPlants(newPlants);
+          setOffset(newPlants.length);
+        } else {
+          setPlants(prev => {
+            const existingPlantCodes = new Set(prev.map(p => p.plantCode));
+            const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
+            return [...prev, ...uniqueNewPlants];
+          });
+          setOffset(prev => prev + newPlants.length);
+        }
+
+        setHasMore(res.data?.hasNextPage || false);
+        console.log('✅ [ScreenGenusPlants] Loaded', newPlants.length, 'plants from getBuyerListings');
+        console.log('✅ [ScreenGenusPlants] hasMore:', res.data?.hasNextPage || false, 'New offset:', refresh ? newPlants.length : offset + newPlants.length);
+      }
+
+    } catch (error) {
+      console.error('❌ [ScreenGenusPlants] Error loading plants with search:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
     }
   };
 
@@ -269,8 +391,15 @@ const ScreenGenusPlants = ({navigation, route}) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Check if this is a special badge navigation (from ScreenShop)
-        if (fromBadge && filter) {
+        // If coming from search, set search term and load plants immediately
+        if (fromSearch && searchQuery) {
+          console.log('🔍 [ScreenGenusPlants] Loading from search:', searchQuery);
+          setSearchTerm(searchQuery);
+          setIsSearchMode(true); // Mark that we're in search mode
+          // Load plants with search query immediately
+          await loadPlantsWithSearch(searchQuery, true);
+        } else if (fromBadge && filter) {
+          // Check if this is a special badge navigation (from ScreenShop)
           setActiveBadge(filter);
           justFiltered.current = true;
           
@@ -310,9 +439,53 @@ const ScreenGenusPlants = ({navigation, route}) => {
     fetchData();
   }, []); // Only run on mount
 
-  // Load plants when screen comes into focus - but only if filters were applied from another screen
+  // Reload plants when search term changes (for search within genus plants screen)
+  useEffect(() => {
+    // Only reload if search term is 2+ characters and we're not coming from initial search navigation
+    if (searchTerm.trim().length >= 2 && !(fromSearch && searchQuery)) {
+      console.log('🔍 [ScreenGenusPlants] Search term changed, reloading:', searchTerm);
+      setIsSearchMode(true); // Mark that we're in search mode
+      const timeoutId = setTimeout(() => {
+        loadPlantsWithSearch(searchTerm.trim(), true);
+      }, 800); // Debounce search
+      return () => clearTimeout(timeoutId);
+    } else if (searchTerm.trim().length === 0) {
+      // Clear results when search is cleared
+      console.log('🔍 [ScreenGenusPlants] Search cleared, reloading all plants');
+      setIsSearchMode(false); // Clear search mode
+      loadPlants(true);
+    }
+  }, [searchTerm]);
+
+  // Track last loaded search query to prevent duplicate loads
+  const lastSearchQueryRef = React.useRef(null);
+
+  // Load plants when screen comes into focus - handle search query from navigation
   useFocusEffect(
     React.useCallback(() => {
+      // Check for search query from navigation
+      const currentSearchQuery = route.params?.searchQuery;
+      const currentFromSearch = route.params?.fromSearch;
+      
+      // If we have a search query and it's different from the last one, load it
+      if (currentFromSearch && currentSearchQuery) {
+        const searchQueryTrimmed = currentSearchQuery.trim();
+        if (searchQueryTrimmed && lastSearchQueryRef.current !== searchQueryTrimmed) {
+          console.log('🔍 [ScreenGenusPlants] Focus effect - loading search:', searchQueryTrimmed);
+          setSearchTerm(searchQueryTrimmed);
+          setIsSearchMode(true); // Mark that we're in search mode
+          loadPlantsWithSearch(searchQueryTrimmed, true);
+          lastSearchQueryRef.current = searchQueryTrimmed;
+          return;
+        }
+      }
+      
+      // Reset last search query if not from search
+      if (!currentFromSearch) {
+        lastSearchQueryRef.current = null;
+        setIsSearchMode(false); // Clear search mode
+      }
+      
       if (justFiltered.current) {
         // Don't reload if we just applied filters
         justFiltered.current = false;
@@ -321,7 +494,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         loadPlants(true);
       }
       // If no applied filters, don't auto-reload to prevent unnecessary API calls
-    }, [appliedFilters]),
+    }, [appliedFilters, route.params]),
   );
 
   // Handle route parameters (like wholesale filter from shop screen)
@@ -376,9 +549,10 @@ const ScreenGenusPlants = ({navigation, route}) => {
         offset: refresh ? 0 : offset,
       };
 
-      // Add search term if provided
-      if (searchTerm.trim()) {
-        baseParams.plant = searchTerm.trim();
+      // Add search term if provided (prioritize route param if from search, otherwise use state)
+      const activeSearchTerm = (fromSearch && searchQuery) ? searchQuery.trim() : searchTerm.trim();
+      if (activeSearchTerm) {
+        baseParams.plant = activeSearchTerm;
       }
 
       // Handle genus parameter with proper priority:
@@ -574,16 +748,15 @@ const ScreenGenusPlants = ({navigation, route}) => {
       const newPlants = rawPlants.filter(plant => {
         // Ensure plant has required fields and they are strings
         const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
+        const hasTitle =
+          (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+
+        const isValid = hasPlantCode && hasTitle;
+
         if (!isValid) {
         }
-        
+
         return isValid;
       });
       
@@ -1230,6 +1403,10 @@ const ScreenGenusPlants = ({navigation, route}) => {
       // Use specific load more function based on active badge
       if (activeBadge === 'Unicorn') {
         loadMoreUnicornPlants();
+      } else if (isSearchMode && searchTerm.trim()) {
+        // If we're in search mode, use loadPlantsWithSearch
+        console.log('🔍 [ScreenGenusPlants] Loading more search results for:', searchTerm.trim());
+        loadPlantsWithSearch(searchTerm.trim(), false);
       } else {
         loadPlants(false);
       }
@@ -1244,77 +1421,26 @@ const ScreenGenusPlants = ({navigation, route}) => {
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         setIsSearchFocused={setIsSearchFocused}
+        isNavigatingFromSearch={isNavigatingFromSearch}
+        setIsNavigatingFromSearch={setIsNavigatingFromSearch}
+        onPlantSelect={handlePlantSelect}
+        renderSearchResult={renderSearchResult}
         insets={insets}
         onBadgePress={handleBadgePress}
         profilePhotoUri={profilePhotoUri}
         activeBadge={activeBadge}
+        onSearchIconPress={(searchQuery) => {
+          // When on ScreenGenusPlants, clicking search icon should trigger search on current screen
+          if (searchQuery && searchQuery.trim().length > 0) {
+            console.log('🔍 [ScreenGenusPlants] Search icon pressed, triggering search:', searchQuery);
+            // Trigger search on current screen
+            loadPlantsWithSearch(searchQuery.trim(), true);
+          } else {
+            // If no search text, just focus the input
+            // This is handled by SearchHeader's default behavior
+          }
+        }}
       />
-
-      {/* Search Results - Positioned outside header to appear above content */}
-      {isSearchFocused && searchTerm.trim().length >= 2 && (
-        <View style={[styles.searchResultsContainer, {top: insets.top + 58}]}>
-          {loadingSearch ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#10b981" />
-              <Text style={styles.loadingText}>Searching plants...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item, index) => `${item.id || item.plantCode || index}_${index}`}
-              renderItem={({item, index}) => (
-                <TouchableOpacity
-                  style={styles.searchResultItem}
-                  onPress={() => {
-                    if (item.plantCode) {
-                      setIsSearchFocused(false);
-                      navigation.navigate('ScreenPlantDetail', {
-                        plantCode: item.plantCode,
-                      });
-                    } else {
-                      console.error('❌ Missing plantCode for plant:', item);
-                      Alert.alert(
-                        'Error',
-                        'Unable to view plant details. Missing plant code.',
-                      );
-                    }
-                  }}>
-                  <Text style={styles.searchResultName} numberOfLines={2}>
-                    {item.title && !item.title.includes('Choose the most suitable variegation') 
-                      ? item.title 
-                      : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              onEndReached={loadMoreSearchResults}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={() => {
-                if (loadingMoreSearch) {
-                  return (
-                    <View style={styles.loadingMoreContainer}>
-                      <ActivityIndicator size="small" color="#10b981" />
-                      <Text style={styles.loadingMoreText}>Loading more...</Text>
-                    </View>
-                  );
-                }
-                return null;
-              }}
-              style={styles.searchResultsList}
-              contentContainerStyle={styles.searchResultsListContent}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              scrollEnabled={true}
-              bounces={true}
-            />
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <Text style={styles.noResultsText}>
-                No plants found for "{searchTerm}"
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
 
       {/* Plants Grid */}
       <ScrollView
@@ -1344,14 +1470,24 @@ const ScreenGenusPlants = ({navigation, route}) => {
                 return null;
               }
               
-              // Ensure title and subtitle are safe
-              const hasValidTitle = (plant.genus && typeof plant.genus === 'string') || 
-                                   (plant.plantName && typeof plant.plantName === 'string');
-              const hasValidSubtitle = (plant.species && typeof plant.species === 'string') || 
-                                      (plant.variegation && typeof plant.variegation === 'string');
-              
-              if (!hasValidTitle || !hasValidSubtitle) {
+              // Ensure title is safe
+              const hasValidTitle =
+                (plant.genus && typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+                (plant.plantName && typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+
+              if (!hasValidTitle) {
                 return null;
+              }
+
+              const transformedPlant = {
+                ...plant,
+              };
+
+              if (
+                (!plant.species || typeof plant.species !== 'string' || plant.species.trim() === '') &&
+                (!plant.variegation || typeof plant.variegation !== 'string' || plant.variegation.trim() === '')
+              ) {
+                transformedPlant.variegation = 'Plant Details';
               }
               
               return (
@@ -1364,7 +1500,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
                   ]}
                 >
                   <PlantItemCard
-                    data={plant}
+                    data={transformedPlant}
                     cardStyle={{ height: 220, margin: 8}}
                     onPress={() => {
                       // TODO: Navigate to plant detail screen
@@ -1457,6 +1593,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 13,
     paddingBottom: 12,
+    zIndex: 10001,
+    elevation: 10001,
   },
   controls: {
     flexDirection: 'row',
@@ -1479,6 +1617,8 @@ const styles = StyleSheet.create({
     width: 209,
     height: 40,
     flex: 1,
+    zIndex: 10000,
+    elevation: 10000,
   },
   searchField: {
     width: '100%',
@@ -1590,6 +1730,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     backgroundColor: '#fff',
+    elevation: 10,
   },
   plantsContainer: {
     flex: 1,

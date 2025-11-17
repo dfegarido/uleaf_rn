@@ -117,6 +117,8 @@ const AmountOffPlantsPercentage = () => {
   };
   const [eligibility, setEligibility] = useState('All customers');
   const [minRequirement, setMinRequirement] = useState('No minimum requirements');
+  const [minPurchaseAmount, setMinPurchaseAmount] = useState('');
+  const [minPurchaseQuantity, setMinPurchaseQuantity] = useState('');
   const [discountType, setDiscountType] = useState(isFixed ? 'Fixed amount' : 'Percentage');
   // Starts date controls
   const [startDate, setStartDate] = useState('');
@@ -1107,6 +1109,37 @@ const AmountOffPlantsPercentage = () => {
               </TouchableOpacity>
             );
           })}
+          {minRequirement === 'Minimum purchase amount ($)' && (
+            <View style={{marginTop: 8}}>
+              <View style={{flexDirection: 'row'}}>
+                <View style={styles.prefixBox}><Text style={styles.suffixText}>$</Text></View>
+                <View style={[styles.inputRow, {flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0}]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    placeholderTextColor="#647276"
+                    keyboardType="numeric"
+                    value={minPurchaseAmount}
+                    onChangeText={setMinPurchaseAmount}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+          {minRequirement === 'Minimum quantity of plants' && (
+            <View style={{marginTop: 8}}>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  placeholderTextColor="#647276"
+                  keyboardType="numeric"
+                  value={minPurchaseQuantity}
+                  onChangeText={setMinPurchaseQuantity}
+                />
+              </View>
+            </View>
+          )}
         </View>
         <View style={styles.dividerStrip} />
 
@@ -1275,7 +1308,7 @@ const AmountOffPlantsPercentage = () => {
           ) : (
             <View style={styles.boxList}>
               <Text style={styles.boxListItem}>{'\u2022'} For {eligibility.toLowerCase()}</Text>
-              <Text style={styles.boxListItem}>{'\u2022'} {minRequirement}</Text>
+              <Text style={styles.boxListItem}>{'\u2022'} {minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount ? `Minimum purchase amount of $${minPurchaseAmount}` : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity ? `Minimum quantity of ${minPurchaseQuantity} plants` : minRequirement}</Text>
               <Text style={styles.boxListItem}>{'\u2022'} Limited to {maxUsesTotal || '100'} total of use</Text>
             </View>
           )}

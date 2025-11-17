@@ -1,255 +1,178 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  FlatList,
-  ActivityIndicator,
 } from 'react-native';
 import SearchIcon from '../../assets/icons/greylight/magnifying-glass-regular';
-import { searchPlantsApi } from '../Api/listingBrowseApi';
-import PlantItemCard from '../PlantItemCard';
 
 /**
  * Reusable Search Header Component
- * Provides plant search functionality with dropdown results
+ * Provides plant search functionality
  */
 const SearchHeader = ({
-  placeholder = "Search plants...",
-  onSearchResults = () => {},
-  onPlantSelect = () => {},
-  showResults = true,
-  maxResults = 5,
+  placeholder = "Search ileafU ",
   style,
+  // Controlled search text (optional)
+  searchText: controlledSearchText,
+  onSearchTextChange,
+  // Navigation handling
+  onFocus,
+  onBlur,
+  isNavigatingFromSearch: externalIsNavigatingFromSearch,
+  setIsNavigatingFromSearch: externalSetIsNavigatingFromSearch,
+  // Navigation prop for search icon click
+  navigation,
+  // Custom handler for search icon press (overrides default navigation behavior)
+  onSearchIconPress,
+  // Container style override
+  containerStyle,
+  searchContainerStyle,
 }) => {
-  const [searchText, setSearchText] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
+  // Internal state (used if not controlled)
+  const [internalSearchText, setInternalSearchText] = useState('');
+  const [internalIsNavigatingFromSearch, setInternalIsNavigatingFromSearch] = useState(false);
+  
+  // Ref for TextInput to programmatically focus
+  const textInputRef = useRef(null);
 
-  // Debounced search effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchText.trim().length >= 2) {
-        performSearch(searchText.trim());
-      } else {
-        setSearchResults([]);
-        setShowDropdown(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchText]);
-
-  const performSearch = async (searchTerm) => {
-    try {
-      setLoadingSearch(true);
-      console.log('Searching for plants:', searchTerm);
-
-      const searchParams = {
-        query: searchTerm,
-        limit: maxResults,
-        sortBy: 'relevance',
-        sortOrder: 'desc'
-      };
-
-      const res = await searchPlantsApi(searchParams);
-
-      if (res.success) {
-        const plants = res.data?.plants || [];
-        setSearchResults(plants);
-        setShowDropdown(plants.length > 0);
-        onSearchResults(plants);
-        console.log(`Found ${plants.length} plants for "${searchTerm}"`);
-      } else {
-        console.error('Search failed:', res.error);
-        setSearchResults([]);
-        setShowDropdown(false);
-        onSearchResults([]);
-      }
-    } catch (error) {
-      console.error('Error performing plant search:', error);
-      setSearchResults([]);
-      setShowDropdown(false);
-      onSearchResults([]);
-    } finally {
-      setLoadingSearch(false);
-    }
-  };
-
-  const handlePlantPress = (plant) => {
-    console.log('Plant selected:', plant);
-    setShowDropdown(false);
-    setSearchText('');
-    onPlantSelect(plant);
-  };
+  // Use controlled or internal state
+  const searchText = controlledSearchText !== undefined ? controlledSearchText : internalSearchText;
+  const isNavigatingFromSearch = externalIsNavigatingFromSearch !== undefined 
+    ? externalIsNavigatingFromSearch 
+    : internalIsNavigatingFromSearch;
+  const setIsNavigatingFromSearch = externalSetIsNavigatingFromSearch || setInternalIsNavigatingFromSearch;
 
   const handleTextChange = (text) => {
-    setSearchText(text);
-    if (text.trim().length === 0) {
-      setShowDropdown(false);
+    if (onSearchTextChange) {
+      onSearchTextChange(text);
+    } else {
+      setInternalSearchText(text);
     }
   };
 
-  const renderSearchResult = ({ item }) => (
-    <TouchableOpacity
-      style={styles.searchResultItem}
-      onPress={() => handlePlantPress(item)}
-    >
-      <View style={styles.searchResultContent}>
-        <Text style={styles.searchResultTitle}>
-          {item.genus} {item.species}
-          {item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ` ${item.variegation}` : ''}
-        </Text>
-        <Text style={styles.searchResultSubtitle}>
-          {item.listingType} • ${item.finalPrice}
-          {item.currency !== 'USD' ? ` ${item.currency}` : ''}
-        </Text>
-        {item.supplierName && (
-          <Text style={styles.searchResultSupplier}>
-            by {item.supplierName}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+  const handleFocus = () => {
+    if (onFocus) {
+      onFocus();
+    }
+  };
+
+  const handleSearchIconPress = () => {
+    // If custom handler is provided, use it
+    if (onSearchIconPress) {
+      onSearchIconPress(searchText.trim());
+      return;
+    }
+    
+    // If navigation is provided and there's any search text, navigate to genus plants screen
+    if (navigation && searchText.trim().length > 0) {
+      console.log('🔍 [SearchHeader] Navigating to ScreenGenusPlants with search:', searchText.trim());
+      navigation.navigate('ScreenGenusPlants', {
+        searchQuery: searchText.trim(),
+        fromSearch: true,
+      });
+    } else if (textInputRef.current) {
+      // Otherwise, just focus the TextInput
+      textInputRef.current.focus();
+    }
+  };
+
+  const handleBlur = () => {
+    // Use a short delay only if navigating, otherwise close immediately
+    if (isNavigatingFromSearch) {
+      // If navigating, wait a bit then reset
+      setTimeout(() => {
+        setIsNavigatingFromSearch(false);
+      }, 500);
+    }
+    if (onBlur) {
+      onBlur();
+    }
+  };
 
   return (
-    <View style={[styles.container, style]}>
-      <View style={styles.searchContainer}>
+    <View style={[styles.container, containerStyle, style]}>
+      <View style={[styles.searchContainer, searchContainerStyle]}>
         <View style={styles.searchField}>
           <View style={styles.textField}>
-            <SearchIcon width={24} height={24} />
+            <TouchableOpacity onPress={handleSearchIconPress} activeOpacity={0.7}>
+              <SearchIcon width={24} height={24} />
+            </TouchableOpacity>
             <TextInput
+              ref={textInputRef}
               style={styles.searchInput}
               placeholder={placeholder}
               placeholderTextColor="#647276"
               value={searchText}
               onChangeText={handleTextChange}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               multiline={false}
               numberOfLines={1}
+              // Disable native autocomplete and suggestions
+              autoComplete="off"
+              autoCorrect={false}
+              autoCapitalize="none"
+              spellCheck={false}
+              textContentType="none"
+              dataDetectorTypes="none"
+              keyboardType="default"
             />
-            {loadingSearch && (
-              <ActivityIndicator
-                size="small"
-                color="#647276"
-                style={styles.loadingIndicator}
-              />
-            )}
           </View>
         </View>
       </View>
-
-      {/* Search Results Dropdown */}
-      {showResults && showDropdown && searchResults.length > 0 && (
-        <View style={styles.dropdown}>
-          <FlatList
-            data={searchResults}
-            renderItem={renderSearchResult}
-            keyExtractor={(item) => item.id}
-            style={styles.dropdownList}
-            contentContainerStyle={styles.dropdownContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}
-            scrollEnabled={true}
-            removeClippedSubviews={false}
-            bounces={true}
-          />
-        </View>
-      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     position: 'relative',
-    zIndex: 1000,
+    zIndex: 9999,
+    elevation: 9999,
   },
   searchContainer: {
     flex: 1,
-    marginRight: 10,
+    width: '100%',
   },
   searchField: {
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 0,
+    gap: 8,
   },
   textField: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    width: '100%',
+    height: 40,
+    minHeight: 34,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    flex: 0,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 10,
+    height: 22,
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
     fontSize: 16,
-    color: '#333',
-    paddingVertical: 5,
-  },
-  loadingIndicator: {
-    marginLeft: 10,
-  },
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 10,
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    height: 400,
-    zIndex: 1001,
-    overflow: 'hidden',
-  },
-  dropdownList: {
-    flex: 1,
-    borderRadius: 15,
-  },
-  dropdownContent: {
-    paddingBottom: 0,
-  },
-  searchResultItem: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  searchResultContent: {
-    flex: 1,
-  },
-  searchResultTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  searchResultSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  searchResultSupplier: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
+    lineHeight: 22,
+    color: '#647276',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    paddingVertical: 0,
+    marginLeft: 8,
   },
 });
 

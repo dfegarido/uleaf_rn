@@ -42,8 +42,6 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
     }
   }, [visible, slideAnim]);
 
-  console.log('ActionSheet render - visible:', visible, 'height:', sheetHeight);
-
   return (
     <Modal
       visible={visible}
@@ -53,29 +51,28 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}>
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={styles.overlay}>
-            <TouchableWithoutFeedback>
-              <Animated.View
-                style={[
-                  styles.sheet,
-                  {height: sheetHeight},
+        <View style={styles.container}>
+          <TouchableWithoutFeedback onPress={onClose}>
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+          <Animated.View
+            style={[
+              styles.sheet,
+              {height: sheetHeight},
+              {
+                transform: [
                   {
-                    transform: [
-                      {
-                        translateY: slideAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [sheetHeight, 0], // Start below screen, slide to position
-                        }),
-                      },
-                    ],
+                    translateY: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [sheetHeight, 0], // Start below screen, slide to position
+                    }),
                   },
-                ]}>
-                {children}
-              </Animated.View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
+                ],
+              },
+            ]}>
+            {children}
+          </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -85,12 +82,19 @@ const styles = StyleSheet.create({
   keyboardAvoidingView: {
     flex: 1,
   },
-  overlay: {
+  container: {
     flex: 1,
+    position: 'relative',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
   },
   sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

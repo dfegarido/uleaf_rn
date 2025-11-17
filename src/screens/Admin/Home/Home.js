@@ -41,7 +41,7 @@ const AdminHeader = ({onPressProfile = () => {}, insets}) => {
   const profileImage = userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
 
   return (
-    <View style={[styles.headerContainer, {paddingTop: insets.top}]}>
+    <View style={[styles.headerContainer]}>
       <Text style={styles.headerTitle}>{`Welcome ${firstName}`}</Text>
 
       <View style={styles.headerActions}>

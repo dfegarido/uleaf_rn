@@ -2,31 +2,8 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 
 /**
- * Read local file as base64 using XMLHttpRequest
- * This works in React Native without requiring additional native modules
- */
-const readFileAsBase64 = (uri) => {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.onload = function() {
-      const reader = new FileReader();
-      reader.onloadend = function() {
-        // Remove the data:image/...;base64, prefix
-        const base64 = reader.result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(xhr.response);
-    };
-    xhr.onerror = reject;
-    xhr.responseType = 'blob';
-    xhr.open('GET', uri, true);
-    xhr.send();
-  });
-};
-
-/**
- * Upload profile photo using JSON/base64 approach (React Native friendly)
+ * Upload profile photo using multipart/form-data (direct file upload)
+ * This is more efficient than base64 encoding and reduces payload size
  * 
  * @param {string} imageUri - Local file URI
  * @param {string|null} overrideToken - Optional auth token override
@@ -52,40 +29,82 @@ export const uploadProfilePhotoApi = async (imageUri, overrideToken = null) => {
 
     console.log('📤 Uploading profile photo:', filename);
     console.log('🌐 API Endpoint:', API_ENDPOINTS.UPLOAD_PROFILE_PHOTO);
+    console.log('📁 Using multipart/form-data (direct file upload)');
 
-    // Read file as base64 using XMLHttpRequest
-    const base64 = await readFileAsBase64(imageUri);
-
-    console.log('📦 Converted to base64, size:', Math.round(base64.length / 1024), 'KB');
-
-    // Send as JSON with base64 data
-    const response = await fetch(API_ENDPOINTS.UPLOAD_PROFILE_PHOTO, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        image: base64,
-        filename: filename,
-        mimeType: mimeType,
-      }),
+    // Create FormData with the image file
+    const formData = new FormData();
+    
+    // For React Native, we need to append the file with proper format
+    formData.append('profilePhoto', {
+      uri: imageUri,
+      type: mimeType,
+      name: filename,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Server error:', errorText);
-      throw new Error(`Upload failed: ${response.status} - ${errorText}`);
-    }
+    console.log('📦 FormData created, sending request...');
+    console.log('📋 FormData details:', {
+      fieldName: 'profilePhoto',
+      uri: imageUri,
+      type: mimeType,
+      name: filename
+    });
 
-    const result = await response.json();
-    console.log('✅ Upload response:', result);
+    // Use XMLHttpRequest instead of fetch for better React Native FormData support
+    // fetch() can have issues with FormData in React Native, especially on iOS
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let timeoutId = null;
 
-    if (!result.success) {
-      throw new Error(result.error || result.message || 'Upload failed');
-    }
+      // Set up timeout
+      timeoutId = setTimeout(() => {
+        xhr.abort();
+        reject(new Error('Upload request timed out. Please try again.'));
+      }, 120000); // 120 second timeout
 
-    return result;
+      xhr.onload = function() {
+        clearTimeout(timeoutId);
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const result = JSON.parse(xhr.responseText);
+            console.log('✅ Upload response:', result);
+
+            if (!result.success) {
+              reject(new Error(result.error || result.message || 'Upload failed'));
+              return;
+            }
+
+            resolve(result);
+          } catch (parseError) {
+            console.error('❌ Failed to parse response:', parseError);
+            reject(new Error('Invalid response from server'));
+          }
+        } else {
+          console.error('❌ Server error:', xhr.status, xhr.responseText);
+          reject(new Error(`Upload failed: ${xhr.status} - ${xhr.responseText || 'Unknown error'}`));
+        }
+      };
+
+      xhr.onerror = function() {
+        clearTimeout(timeoutId);
+        console.error('❌ Network error during upload');
+        reject(new Error('Network error during upload. Please check your connection.'));
+      };
+
+      xhr.ontimeout = function() {
+        clearTimeout(timeoutId);
+        console.error('❌ Request timeout');
+        reject(new Error('Upload request timed out. Please try again.'));
+      };
+
+      // Open and send request
+      xhr.open('POST', API_ENDPOINTS.UPLOAD_PROFILE_PHOTO);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      // Don't set Content-Type - let XMLHttpRequest set it with boundary for multipart/form-data
+      
+      console.log('🚀 Sending XMLHttpRequest...');
+      xhr.send(formData);
+    });
 
   } catch (error) {
     console.error('❌ uploadProfilePhotoApi error:', error.message || error);

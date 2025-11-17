@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import {useIsFocused} from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import {getAdminInfoApi} from '../../../components/Api';
 import {checkMaintenanceApi, setMaintenanceApi} from '../../../components/Api/maintenanceApi';
+import Avatar from '../../../components/Avatar/Avatar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import icons
 import ProfileIcon from '../../../assets/icons/greydark/profile.svg';
@@ -32,7 +34,7 @@ const ProfileHeader = ({insets}) => {
   const navigation = useNavigation();
   
   return (
-    <View style={[styles.headerContainer, {paddingTop: insets.top}]}>
+    <View style={[styles.headerContainer]}>
       <View style={styles.headerControls}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <LeftIcon width={24} height={24} fill="#393D40" />
@@ -99,7 +101,7 @@ const SkeletonLoader = () => {
 };
 
 // Profile Info Component
-const ProfileInfo = ({adminData, userInfo}) => {
+const ProfileInfo = ({adminData, userInfo, profilePhotoUri, avatarRef}) => {
   // Use API data if available, fallback to userInfo
   const data = adminData || userInfo;
   const firstName = data?.user?.firstName || data?.firstName || 'Admin';
@@ -109,7 +111,13 @@ const ProfileInfo = ({adminData, userInfo}) => {
   return (
     <View style={styles.profileSection}>
       <View style={styles.avatarContainer}>
-        <AvatarIcon width={80} height={80} />
+        <Avatar 
+          ref={avatarRef}
+          size={80}
+          imageUri={profilePhotoUri}
+          style={styles.avatarImage}
+          onPress={null} // Disable default navigation
+        />
       </View>
       <View style={styles.profileInfo}>
         <Text style={styles.profileName}>{`${firstName} ${lastName}`}</Text>
@@ -133,6 +141,10 @@ const AdminProfileScreen = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [isMaintenanceLoading, setIsMaintenanceLoading] = useState(false);
+  const [profilePhotoUri, setProfilePhotoUri] = useState(null);
+  
+  // Ref for Avatar component
+  const avatarRef = useRef(null);
 
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60; // Standard admin tab bar height
@@ -144,11 +156,29 @@ const AdminProfileScreen = () => {
     try {
       if (showInitialLoading) {
         setInitialLoading(true);
+        
+        // Try to load the profile photo from AsyncStorage first
+        try {
+          const storedPhotoUrl = await AsyncStorage.getItem('profilePhotoUrlWithTimestamp') || 
+                                 await AsyncStorage.getItem('profilePhotoUrl');
+          if (storedPhotoUrl) {
+            setProfilePhotoUri(storedPhotoUrl);
+          }
+        } catch (e) {
+          console.warn('Failed to get profile photo from AsyncStorage:', e);
+        }
       }
       
       const response = await getAdminInfoApi();
       if (response && response.success && response.data) {
         setAdminData(response.data);
+        
+        // Set profile photo from API response if available
+        const userData = response.data;
+        if (userData.profilePhotoUrl || userData.profileImage) {
+          const photoUrl = userData.profilePhotoUrl || userData.profileImage;
+          setProfilePhotoUri(photoUrl);
+        }
       }
     } catch (error) {
       console.error('Error fetching admin info:', error);
@@ -166,6 +196,31 @@ const AdminProfileScreen = () => {
       fetchMaintenanceStatus();
     }
   }, [isFocused]);
+
+  // Listen for profile photo updates from AsyncStorage (when updated from Account Information screen)
+  useEffect(() => {
+    const checkProfilePhoto = async () => {
+      try {
+        const storedPhotoUrl = await AsyncStorage.getItem('profilePhotoUrlWithTimestamp') || 
+                               await AsyncStorage.getItem('profilePhotoUrl');
+        if (storedPhotoUrl && storedPhotoUrl !== profilePhotoUri) {
+          setProfilePhotoUri(storedPhotoUrl);
+          // Refresh avatar component
+          if (avatarRef.current) {
+            avatarRef.current.refresh();
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to check profile photo from AsyncStorage:', e);
+      }
+    };
+
+    // Check periodically when screen is focused
+    if (isFocused) {
+      const interval = setInterval(checkProfilePhoto, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isFocused, profilePhotoUri]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -272,7 +327,12 @@ const AdminProfileScreen = () => {
         {initialLoading ? (
           <SkeletonLoader />
         ) : (
-          <ProfileInfo adminData={adminData} userInfo={userInfo} />
+          <ProfileInfo 
+            adminData={adminData} 
+            userInfo={userInfo} 
+            profilePhotoUri={profilePhotoUri}
+            avatarRef={avatarRef}
+          />
         )}
 
         <Divider />
@@ -431,6 +491,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   profileInfo: {
     alignItems: 'center',

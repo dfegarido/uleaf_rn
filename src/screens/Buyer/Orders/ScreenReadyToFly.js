@@ -15,6 +15,8 @@ import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
 import {useAuth} from '../../../auth/AuthProvider';
 
+const READY_TO_FLY_LIMIT = 200;
+
 const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
@@ -45,10 +47,12 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
         throw new Error('No internet connection');
       }
 
-      // Fetch all orders with status "Ready to Fly" (no limit)
+      // Fetch Ready to Fly orders with an elevated limit so all plants are returned
       const params = {
         status: "Ready to Fly",
         includeDetails: true,
+        limit: READY_TO_FLY_LIMIT,
+        offset: 0,
       };
 
       console.log('🔍 Loading Ready to Fly orders');

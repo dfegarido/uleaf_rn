@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -56,12 +56,24 @@ const ScreenHome = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const {userInfo} = useContext(AuthContext);
 
-  useFocusEffect(() => {
-    if (Platform.OS === 'android') {
-      StatusBar.setBarStyle('dark-content');
-      StatusBar.setBackgroundColor('#DFECDF');
-    }
-  });
+  // Add state to force image refresh
+  const [profileImageKey, setProfileImageKey] = useState(0);
+  const [cacheBustTimestamp, setCacheBustTimestamp] = useState(Date.now());
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'android') {
+        StatusBar.setBarStyle('dark-content');
+        StatusBar.setBackgroundColor('#DFECDF');
+      }
+      
+      // Refresh profile image when screen is focused
+      // This ensures the image updates after profile photo upload
+      const newTimestamp = Date.now();
+      setCacheBustTimestamp(newTimestamp);
+      setProfileImageKey(prev => prev + 1);
+    }, [])
+  );
 
   const handlePressMyStore = () => {
     navigation.navigate('ScreenMyStore');
@@ -313,7 +325,10 @@ const ScreenHome = ({navigation}) => {
               {userInfo?.profileImage != '' &&
               userInfo?.profileImage != null ? (
                 <Image
-                  source={{uri: userInfo?.profileImage}}
+                  key={profileImageKey}
+                  source={{
+                    uri: `${userInfo?.profileImage}${userInfo?.profileImage?.includes('?') ? '&' : '?'}t=${cacheBustTimestamp}`
+                  }}
                   style={styles.image}
                   resizeMode="cover"
                 />
@@ -353,10 +368,8 @@ const ScreenHome = ({navigation}) => {
           <TouchableOpacity
             style={styles.topNavItem}
             onPress={() => {
-              // Disable navigation for suppliers
-              if (userInfo?.user?.userType !== 'supplier') {
-                navigation.navigate('MessagesScreen');
-              }
+              // Allow navigation for all users including suppliers (sellers)
+              navigation.navigate('MessagesScreen');
             }}>
             <View style={styles.msgIcon}>
               <MessageIcon width={40} height={40} />

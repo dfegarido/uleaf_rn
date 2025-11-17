@@ -52,6 +52,21 @@ const MessagesScreen = ({navigation}) => {
   
   // Check if user is an admin
   const isAdmin = userInfo?.data?.role === 'admin' || userInfo?.data?.role === 'sub_admin' || userInfo?.role === 'admin' || userInfo?.role === 'sub_admin';
+  
+  // Check if user is a buyer (buyers can see public groups)
+  const isBuyer = 
+    userInfo?.user?.userType === 'buyer' || 
+    userInfo?.data?.userType === 'buyer' ||
+    userInfo?.userType === 'buyer';
+  
+  // Check if user is a seller (supplier) - sellers cannot see public groups unless invited
+  const isSeller = 
+    userInfo?.user?.userType === 'supplier' || 
+    userInfo?.data?.userType === 'supplier' ||
+    userInfo?.userType === 'supplier' ||
+    userInfo?.user?.gardenOrCompanyName !== undefined ||
+    userInfo?.data?.gardenOrCompanyName !== undefined ||
+    userInfo?.gardenOrCompanyName !== undefined;
 
   const [messages, setMessages] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -60,7 +75,7 @@ const MessagesScreen = ({navigation}) => {
   // Map of uid -> image source (either {uri: ...} or local numeric require)
   const [avatarMap, setAvatarMap] = useState({});
 
-  // Fetch avatars from buyers collection for given chats' participant UIDs
+  // Fetch avatars from buyer, admin, and supplier collections for given chats' participant UIDs
   async function fetchAvatarsForChats(chats = []) {
     try {
       if (!Array.isArray(chats) || chats.length === 0) return;
@@ -82,19 +97,36 @@ const MessagesScreen = ({navigation}) => {
         });
       });
 
+      if (uidsToFetch.size === 0) return;
 
-  if (uidsToFetch.size === 0) return;
-
-      // Fetch each buyer doc and update avatarMap
+      // Fetch each user doc from buyer, admin, or supplier collections and update avatarMap
       const updates = {};
       for (const uid of uidsToFetch) {
         try {
-          const buyerDocRef = doc(db, 'buyer', uid);
-          const buyerSnap = await getDoc(buyerDocRef);
-          if (buyerSnap) {
-            const data = buyerSnap.data();
+          // Skip if we already have this avatar in the map
+          if (avatarMap[uid]) {
+            continue;
+          }
 
-            const url = data?.profilePhotoUrl || null;
+          // Try buyer collection first
+          let userDocRef = doc(db, 'buyer', uid);
+          let userSnap = await getDoc(userDocRef);
+          
+          // If not found in buyer, try admin collection
+          if (!userSnap.exists()) {
+            userDocRef = doc(db, 'admin', uid);
+            userSnap = await getDoc(userDocRef);
+          }
+          
+          // If not found in admin, try supplier collection
+          if (!userSnap.exists()) {
+            userDocRef = doc(db, 'supplier', uid);
+            userSnap = await getDoc(userDocRef);
+          }
+
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            const url = data?.profilePhotoUrl || data?.profileImage || null;
             if (url && typeof url === 'string') {
               updates[uid] = { uri: url };
             } else {
@@ -105,16 +137,16 @@ const MessagesScreen = ({navigation}) => {
             updates[uid] = DefaultAvatar;
           }
         } catch (err) {
+          console.warn(`Error fetching avatar for ${uid}:`, err);
           updates[uid] = DefaultAvatar;
         }
       }
-
-
 
       if (Object.keys(updates).length > 0) {
         setAvatarMap(prev => ({...prev, ...updates}));
       }
     } catch (err) {
+      console.warn('Error in fetchAvatarsForChats:', err);
       // silent failure
     }
   }
@@ -131,30 +163,93 @@ const MessagesScreen = ({navigation}) => {
     }
 
     try {
-      // Create a query with cache-first approach
-      const q = query(
+      // Fetch chats where user is a participant
+      const memberChatsQuery = query(
         collection(db, 'chats'),
         where('participantIds', 'array-contains', currentUserUid),
         orderBy('timestamp', 'desc'),
       );
 
-  // Use onSnapshot with includeMetadataChanges to handle both cache and server data
-  const unsubscribe = onSnapshot(
-        q,
-        {includeMetadataChanges: true},
-        snapshot => {
-          try {
-            // Check if data is from cache or server (no logging)
-            const source = snapshot.metadata.fromCache ? 'cache' : 'server';
+      // For buyers, also fetch public groups where they're not members
+      let publicGroupsQuery = null;
+      if (isBuyer) {
+        try {
+          publicGroupsQuery = query(
+            collection(db, 'chats'),
+            where('type', '==', 'group'),
+            where('isPublic', '==', true),
+            orderBy('timestamp', 'desc'),
+          );
+        } catch (error) {
+          // If query fails (e.g., missing index), we'll just show member chats
+          console.log('Could not fetch public groups (index may be missing):', error);
+        }
+      }
 
-            const chats = snapshot.docs.map(doc => ({
+      // Subscribe to member chats
+      const unsubscribeMemberChats = onSnapshot(
+        memberChatsQuery,
+        {includeMetadataChanges: true},
+        async (memberSnapshot) => {
+          try {
+            const memberChats = memberSnapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
             }));
 
-            setMessages(chats);
+            // If buyer and public groups query exists, fetch public groups
+            // Sellers can only see public groups if they are invited
+            let publicGroups = [];
+            if (publicGroupsQuery && (isBuyer || isSeller)) {
+              try {
+                const publicSnapshot = await getDocs(publicGroupsQuery);
+                publicGroups = publicSnapshot.docs
+                  .map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                  }))
+                  .filter(chat => {
+                    const participantIds = Array.isArray(chat.participantIds) ? chat.participantIds : [];
+                    const invitedUsers = Array.isArray(chat.invitedUsers) ? chat.invitedUsers : [];
+                    
+                    // Filter out groups where user is already a member
+                    if (participantIds.includes(currentUserUid)) {
+                      return false;
+                    }
+                    
+                    // For sellers: only show if they are invited
+                    if (isSeller && !invitedUsers.includes(currentUserUid)) {
+                      return false;
+                    }
+                    
+                    // For buyers: show all public groups (they can request to join)
+                    return true;
+                  });
+              } catch (error) {
+                console.log('Error fetching public groups:', error);
+              }
+            }
+
+            // Combine member chats and public groups (deduplicate by id)
+            const allChatsMap = new Map();
+            memberChats.forEach(chat => allChatsMap.set(chat.id, chat));
+            publicGroups.forEach(chat => {
+              if (!allChatsMap.has(chat.id)) {
+                allChatsMap.set(chat.id, chat);
+              }
+            });
+
+            const allChats = Array.from(allChatsMap.values());
+            // Sort by timestamp (most recent first)
+            allChats.sort((a, b) => {
+              const aTime = a.timestamp?.toDate?.() || new Date(0);
+              const bTime = b.timestamp?.toDate?.() || new Date(0);
+              return bTime - aTime;
+            });
+
+            setMessages(allChats);
             // Fire-and-forget: populate avatarMap for participant UIDs we don't yet have
-            fetchAvatarsForChats(chats).catch(() => {});
+            fetchAvatarsForChats(allChats).catch(() => {});
           } catch (error) {
             console.error('Error processing chat data:', error);
           } finally {
@@ -166,11 +261,11 @@ const MessagesScreen = ({navigation}) => {
         },
       );
 
-      return unsubscribe;
+      return unsubscribeMemberChats;
     } catch (error) {
       setLoading(false);
     }
-  }, [userInfo]);
+  }, [userInfo, isBuyer, isSeller]);
 
   
 
@@ -184,11 +279,6 @@ const MessagesScreen = ({navigation}) => {
       // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
       const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
       
-      // Await update to ensure chat doc is updated before navigating
-      await updateDoc(doc(db, 'chats', item.id), {
-        unreadBy: arrayRemove(currentUserUid),
-      });
-
       // Sanitize navigation params to ensure ChatScreen receives expected fields
       const safeParams = {
         id: item.id,
@@ -199,9 +289,18 @@ const MessagesScreen = ({navigation}) => {
         type: item.type || 'private', // Include chat type for ChatScreen
       };
 
-  navigation.navigate('ChatScreen', safeParams);
+      // Navigate immediately for instant response
+      navigation.navigate('ChatScreen', safeParams);
+
+      // Mark as read in the background (fire-and-forget)
+      updateDoc(doc(db, 'chats', item.id), {
+        unreadBy: arrayRemove(currentUserUid),
+      }).catch(error => {
+        console.error('Error marking chat as read:', error);
+        // Silently fail - navigation already happened
+      });
     } catch (error) {
-      console.error('Error marking chat as read or navigating:', error);
+      console.error('Error navigating to chat:', error);
       // Fallback: still attempt to navigate with minimal params
       navigation.navigate('ChatScreen', { id: item?.id });
     }
@@ -224,10 +323,12 @@ const MessagesScreen = ({navigation}) => {
         throw new Error('Your user profile is not available');
       }
       
-      // First check if a chat already exists with this user
+      // First check if a private chat already exists with this user
+      // Only check for private chats with exactly 2 participants
       const existingChatQuery = query(
         collection(db, 'chats'),
         where('participantIds', 'array-contains', currentUserUid),
+        where('type', '==', 'private'),
       );
 
       const existingChatsSnapshot = await getDocs(existingChatQuery);
@@ -235,7 +336,11 @@ const MessagesScreen = ({navigation}) => {
 
       existingChatsSnapshot.forEach(doc => {
         const chatData = doc.data();
-        if (chatData.participantIds.includes(user.uid)) {
+        // Ensure it's a private chat with exactly 2 participants
+        if (chatData.type === 'private' && 
+            chatData.participantIds && 
+            chatData.participantIds.length === 2 &&
+            chatData.participantIds.includes(user.uid)) {
           existingChat = {id: doc.id, ...chatData};
         }
       });
@@ -339,6 +444,7 @@ const MessagesScreen = ({navigation}) => {
         timestamp: new Date(),
         name: name,
         type: 'group',
+        isPublic: false, // Default to private - only admins can change this in settings
       };
 
       // Create the group chat
@@ -367,6 +473,100 @@ const MessagesScreen = ({navigation}) => {
     }
   };
 
+  // Helper function to check if an avatar source is valid (not default)
+  const isValidAvatar = (source) => {
+    if (!source) return false;
+    // If it's the default avatar (numeric require), it's not valid
+    if (typeof source === 'number') return false;
+    // If it's an object with uri, check if it's a valid URL
+    if (typeof source === 'object' && source.uri) {
+      return typeof source.uri === 'string' && source.uri.trim() !== '' && source.uri.startsWith('http');
+    }
+    // If it's a string, check if it's a valid URL
+    if (typeof source === 'string') {
+      return source.trim() !== '' && source.startsWith('http');
+    }
+    return false;
+  };
+
+  // Helper to normalize avatar source format
+  const normalizeAvatarSource = (source) => {
+    if (!source) return DefaultAvatar;
+    if (typeof source === 'string' && source.startsWith('http')) {
+      return { uri: source };
+    }
+    if (typeof source === 'object' && source.uri) {
+      return source;
+    }
+    return DefaultAvatar;
+  };
+
+  // Component to render two overlapping avatar circles for group chats
+  // Requirements: 
+  // - Container: 48×48 (same size as single avatar)
+  // - Each avatar: 24×24 (half size)
+  // - One avatar at bottom-left corner
+  // - One avatar at top-right corner
+  // - They overlap diagonally in the center
+  const GroupAvatar = ({avatarSources, size = 48}) => {
+    // Filter to get valid avatars first
+    const validAvatars = avatarSources.filter(isValidAvatar);
+    
+    // Get first 2 avatars (valid ones first, then fill with defaults if needed)
+    const avatarsToShow = [];
+    for (let i = 0; i < 2; i++) {
+      if (i < validAvatars.length) {
+        avatarsToShow.push(normalizeAvatarSource(validAvatars[i]));
+      } else {
+        // Fill with default avatar if we don't have enough valid ones
+        avatarsToShow.push(DefaultAvatar);
+      }
+    }
+    
+    const containerSize = size; // 48×48 (same as single avatar)
+    const avatarSize = size / 1.3; // 24×24 (half size for each avatar in group)
+    const radius = avatarSize / 2; // 12px radius for 24×24 avatar
+    
+    return (
+      <View style={[styles.groupAvatarOverlapContainer, {width: containerSize, height: containerSize}]}>
+        {/* First avatar (bottom left corner) */}
+        <Image 
+          source={avatarsToShow[0]} 
+          style={[
+            styles.groupAvatarOverlap,
+            {
+              width: avatarSize,
+              height: avatarSize,
+              borderRadius: radius,
+              position: 'absolute',
+              left: 0,
+              bottom: 0,
+              zIndex: 1,
+            }
+          ]}
+          resizeMode="cover"
+        />
+        {/* Second avatar (top right corner, overlapping diagonally) */}
+        <Image 
+          source={avatarsToShow[1]} 
+          style={[
+            styles.groupAvatarOverlap,
+            {
+              width: avatarSize,
+              height: avatarSize,
+              borderRadius: radius,
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              zIndex: 2,
+            }
+          ]}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  };
+
   const renderItem = ({item}) => {
   // Add null check to handle potential undefined participants
   const participants = item.participants || [];
@@ -380,23 +580,63 @@ const MessagesScreen = ({navigation}) => {
     ? item.name 
     : (participants.find(p => p.uid !== currentUserUid) || participants[0])?.name;
   
-  const otherUserInfo = chatType === 'group' 
-    ? participants[0] // Use first participant for avatar in group chats
-    : participants.find(p => p.uid !== currentUserUid) || {};
+  // For private chats: get the other participant's avatar
+  // For group chats: get up to 4 participants' avatars (excluding current user)
+  let avatarElement;
+  
+  if (chatType === 'group') {
+    // Get all participants (excluding current user) - we'll take first 2 for display
+    const otherParticipants = participants
+      .filter(p => p && p.uid && p.uid !== currentUserUid);
     
-  // Determine avatar source: prefer participant-provided avatar, then avatarMap, then default
-  let avatarSource = DefaultAvatar;
-  if (otherUserInfo && otherUserInfo.avatarUrl) {
-    if (Object.prototype.toString.call(otherUserInfo.avatarUrl) === '[object Object]' && otherUserInfo.avatarUrl.uri) {
-      avatarSource = { uri: otherUserInfo.avatarUrl?.uri };
+    // Get avatar sources for first 2 participants (based on order in array)
+    const avatarSources = otherParticipants.slice(0, 2).map(p => {
+      const uid = p?.uid;
+      // Priority 1: avatarMap (from Firestore)
+      if (uid && avatarMap[uid]) {
+        return avatarMap[uid];
+      }
+      // Priority 2: participant's avatarUrl
+      if (p?.avatarUrl) {
+        if (typeof p.avatarUrl === 'string' && p.avatarUrl.trim() !== '') {
+          return { uri: p.avatarUrl };
+        } else if (typeof p.avatarUrl === 'object' && p.avatarUrl?.uri) {
+          return { uri: p.avatarUrl.uri };
+        }
+      }
+      // Return null if no valid avatar (will be replaced with default in GroupAvatar)
+      return null;
+    });
+    
+    avatarElement = <GroupAvatar avatarSources={avatarSources} size={48} />;
+  } else {
+    // Private chat: show single avatar
+    const otherUserInfo = participants.find(p => p.uid !== currentUserUid) || {};
+    const participantUid = otherUserInfo?.uid;
+    
+    let avatarSource = DefaultAvatar;
+    
+    // Priority 1: avatarMap (from Firestore)
+    if (participantUid && avatarMap[participantUid]) {
+      avatarSource = avatarMap[participantUid];
+    } 
+    // Priority 2: participant's avatarUrl
+    else if (otherUserInfo && otherUserInfo.avatarUrl) {
+      if (typeof otherUserInfo.avatarUrl === 'string' && otherUserInfo.avatarUrl.trim() !== '') {
+        avatarSource = { uri: otherUserInfo.avatarUrl };
+      } else if (Object.prototype.toString.call(otherUserInfo.avatarUrl) === '[object Object]' && otherUserInfo.avatarUrl.uri) {
+        avatarSource = { uri: otherUserInfo.avatarUrl.uri };
+      }
     }
+    
+    avatarElement = <Image source={avatarSource} style={styles.avatar} />;
   }
 
     return (
       <TouchableOpacity
         style={styles.chatItem}
         onPress={() => markChatAsRead(item)}>
-        <Image source={avatarSource} style={styles.avatar} />
+        {avatarElement}
         <View style={styles.chatContent}>
           <View style={styles.chatHeader}>
             <View style={styles.chatSubHeader}>
@@ -518,6 +758,7 @@ const MessagesScreen = ({navigation}) => {
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSelect={user => createChat(user)}
+          userInfo={userInfo}
         />
         
         <GroupChatModal
@@ -594,6 +835,16 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     marginRight: 12,
+  },
+  groupAvatarOverlapContainer: {
+    position: 'relative',
+    marginRight: 12,
+    overflow: 'hidden', // Changed to hidden to ensure proper clipping, but container size allows overlap
+  },
+  groupAvatarOverlap: {
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
   },
   chatContent: {
     flex: 1,

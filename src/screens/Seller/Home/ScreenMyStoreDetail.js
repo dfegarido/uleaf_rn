@@ -513,6 +513,18 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                   Approximate Height
                 </Text>
                 {listingData.variations.map((item, index) => {
+                  // Automatically determine approximate height based on pot size for display
+                  // 2"-4" pot size → "Below 12 inches"
+                  // 5"-8" pot size → "12 inches & above"
+                  let displayHeight = item?.approximateHeight || 'Below 12 inches';
+                  const potSize = item?.potSize || '';
+                  
+                  if (potSize.includes('5"') || potSize.includes('5"-8"')) {
+                    displayHeight = '12 inches & above';
+                  } else if (potSize.includes('2"') || potSize.includes('2"-4"')) {
+                    displayHeight = 'Below 12 inches';
+                  }
+                  
                   return (
                     <View
                       key={index}
@@ -530,7 +542,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                             globalStyles.textMDGreyDark,
                             {paddingLeft: 10},
                           ]}>
-                          {item?.approximateHeight}
+                          {displayHeight}
                         </Text>
                         <Text
                           style={[

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import {getOrderDetailApi, generateInvoiceApi} from '../../../components/Api/orderManagementApi';
+import {getOrderDetailApi} from '../../../components/Api/orderManagementApi';
 
 // Import icons
 import BackIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -684,46 +684,8 @@ const OrderDetailsScreen = () => {
     Alert.alert('Copied', `${label} copied to clipboard: ${text}`);
   };
 
-  const handleDownloadInvoice = async () => {
-    try {
-      if (!order) {
-        Alert.alert('Error', 'Order information not available');
-        return;
-      }
-
-      const transactionNumber = order.invoiceNumber || orderData?.transactionNumber || orderData?.fullOrderData?.transactionNumber;
-      const plantCode = order.plant?.code || orderData?.plantCode || orderData?.product?.plantCode;
-
-      if (!transactionNumber || !plantCode) {
-        Alert.alert('Error', 'Missing order information. Cannot generate invoice.');
-        return;
-      }
-
-      Alert.alert('Sending Invoice', 'Please wait while the invoice is being sent to your email...', [], { cancelable: false });
-
-      // Generate and send invoice via email
-      const invoiceResponse = await generateInvoiceApi({
-        transactionNumber,
-        plantCode
-      });
-
-      if (!invoiceResponse.success) {
-        Alert.alert('Error', invoiceResponse.error || 'Failed to send invoice');
-        return;
-      }
-
-      // Success message
-      const emailAddress = invoiceResponse.sentTo || invoiceResponse.details?.sentTo || 'your email';
-      Alert.alert(
-        'Invoice Sent',
-        `Invoice has been sent successfully to:\n\n${emailAddress}\n\nPlease check your email inbox.`,
-        [{ text: 'OK' }]
-      );
-      
-    } catch (error) {
-      console.error('Error sending invoice:', error);
-      Alert.alert('Error', error.message || 'Failed to send invoice');
-    }
+  const handleDownloadInvoice = () => {
+    Alert.alert('Download', 'Invoice download functionality to be implemented');
   };
 
   const renderCountryFlag = (countryCode) => {
@@ -1131,12 +1093,12 @@ const OrderDetailsScreen = () => {
             </TouchableOpacity>
           )}
           
-          {/* Hide Send Invoice button for Pay to Board */}
+          {/* Hide Download Invoice button for Pay to Board */}
           {activeTab !== 'Pay to Board' && (
             <TouchableOpacity style={styles.invoiceButton} onPress={handleDownloadInvoice}>
               <DownloadIcon width={24} height={24} />
               <View style={styles.buttonTextContainer}>
-                <Text style={styles.buttonText}>Send Invoice</Text>
+                <Text style={styles.buttonText}>Download Invoice</Text>
               </View>
             </TouchableOpacity>
           )}

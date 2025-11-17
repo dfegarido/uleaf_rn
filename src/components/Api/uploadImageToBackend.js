@@ -2,41 +2,19 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
- * Read local file as base64 using XMLHttpRequest
- * This works in React Native without requiring additional native modules
- */
-const readFileAsBase64 = (uri) => {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.onload = function() {
-      const reader = new FileReader();
-      reader.onloadend = function() {
-        // Remove the data:image/...;base64, prefix
-        const base64 = reader.result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(xhr.response);
-    };
-    xhr.onerror = reject;
-    xhr.responseType = 'blob';
-    xhr.open('GET', uri, true);
-    xhr.send();
-  });
-};
-
-/**
- * Upload image to backend API (instead of direct Firebase upload)
+ * Upload image to backend API using multipart/form-data (direct file upload)
  * 
  * The backend will:
- * 1. Receive the image file (as base64 in JSON)
+ * 1. Receive the image file (as multipart/form-data)
  * 2. Upload to Firebase Storage
  * 3. Trigger Cloud Function for WebP conversion
  * 4. Return the public URL
  * 
+ * This is more efficient than base64 encoding and reduces payload size by ~33%
+ * 
  * This function respects the USE_LOCAL_API setting in apiConfig.js:
- * - When USE_LOCAL_API = true: Uses local emulator (http://10.0.2.2:5001/...)
- * - When USE_LOCAL_API = false: Uses production (https://uploadlistingimage-nstilwgvua-uc.a.run.app)
+ * - When USE_LOCAL_API = true: Uses local emulator (http://localhost:5001/...)
+ * - When USE_LOCAL_API = false: Uses production endpoint
  * 
  * @param {string} uri - Local file URI (file:// path)
  * @returns {Promise<string>} Public URL of uploaded image
@@ -48,46 +26,94 @@ export const uploadImageToBackend = async (uri) => {
     // Extract filename from URI
     const filename = uri.split('/').pop();
     const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    const ext = match ? match[1].toLowerCase() : 'jpg';
+    const mimeMap = { 
+      jpg: 'image/jpeg', 
+      jpeg: 'image/jpeg', 
+      png: 'image/png', 
+      gif: 'image/gif', 
+      webp: 'image/webp' 
+    };
+    const mimeType = mimeMap[ext] || 'image/jpeg';
 
     console.log('📤 Uploading image to backend:', filename);
     console.log('🌐 API Endpoint:', API_ENDPOINTS.UPLOAD_LISTING_IMAGE);
+    console.log('📁 Using multipart/form-data (direct file upload)');
 
-    // Read file as base64 using XMLHttpRequest
-    const base64 = await readFileAsBase64(uri);
-
-    console.log('📦 Converted to base64, size:', Math.round(base64.length / 1024), 'KB');
-
-    // Send as JSON with base64 data
-    const response = await fetch(
-      API_ENDPOINTS.UPLOAD_LISTING_IMAGE,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: base64,
-          filename: filename,
-          mimeType: type,
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
-    }
-
-    const json = await response.json();
+    // Create FormData with the image file
+    const formData = new FormData();
     
-    if (!json.success) {
-      throw new Error(json.error || 'Upload failed');
-    }
+    // For React Native, we need to append the file with proper format
+    formData.append('image', {
+      uri: uri,
+      type: mimeType,
+      name: filename,
+    });
 
-    console.log('✅ Upload successful:', json.url);
-    return json.url;
+    console.log('📦 FormData created, sending request...');
+    console.log('📋 FormData details:', {
+      fieldName: 'image',
+      uri: uri,
+      type: mimeType,
+      name: filename
+    });
+
+    // Use XMLHttpRequest instead of fetch for better React Native FormData support
+    // fetch() can have issues with FormData in React Native, especially on iOS
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let timeoutId = null;
+
+      // Set up timeout
+      timeoutId = setTimeout(() => {
+        xhr.abort();
+        reject(new Error('Upload request timed out. Please try again.'));
+      }, 120000); // 120 second timeout
+
+      xhr.onload = function() {
+        clearTimeout(timeoutId);
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            
+            if (!json.success) {
+              reject(new Error(json.error || 'Upload failed'));
+              return;
+            }
+
+            console.log('✅ Upload successful:', json.url);
+            resolve(json.url);
+          } catch (parseError) {
+            console.error('❌ Failed to parse response:', parseError);
+            reject(new Error('Invalid response from server'));
+          }
+        } else {
+          console.error('❌ Server error:', xhr.status, xhr.responseText);
+          reject(new Error(`Error ${xhr.status}: ${xhr.responseText || 'Unknown error'}`));
+        }
+      };
+
+      xhr.onerror = function() {
+        clearTimeout(timeoutId);
+        console.error('❌ Network error during upload');
+        reject(new Error('Network error during upload. Please check your connection.'));
+      };
+
+      xhr.ontimeout = function() {
+        clearTimeout(timeoutId);
+        console.error('❌ Request timeout');
+        reject(new Error('Upload request timed out. Please try again.'));
+      };
+
+      // Open and send request
+      xhr.open('POST', API_ENDPOINTS.UPLOAD_LISTING_IMAGE);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      // Don't set Content-Type - let XMLHttpRequest set it with boundary for multipart/form-data
+      
+      console.log('🚀 Sending XMLHttpRequest...');
+      xhr.send(formData);
+    });
 
   } catch (error) {
     console.error('❌ uploadImageToBackend error:', error.message);

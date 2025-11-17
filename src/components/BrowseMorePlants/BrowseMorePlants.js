@@ -56,20 +56,30 @@ const BrowseMorePlants = React.forwardRef(({
       if (response.success && apiData && apiData.recommendations) {
         const validPlants = apiData.recommendations.filter(plant => {
           const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-          const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
-                          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-          const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') ||
-                            (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-          return hasPlantCode && hasTitle && hasSubtitle;
+          const hasTitle =
+            (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+            (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+          return hasPlantCode && hasTitle;
         });
 
         if (validPlants.length > 0) {
           // Normalize webp fields if present
-          const normalized = validPlants.map(p => ({
-            ...p,
-            imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimary,
-            imageCollectionWebp: p.imageCollectionWebp || p.imageCollection,
-          }));
+          const normalized = validPlants.map(p => {
+            const transformed = {
+              ...p,
+              imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimary,
+              imageCollectionWebp: p.imageCollectionWebp || p.imageCollection,
+            };
+
+            if (
+              (!transformed.species || typeof transformed.species !== 'string' || transformed.species.trim() === '') &&
+              (!transformed.variegation || typeof transformed.variegation !== 'string' || transformed.variegation.trim() === '')
+            ) {
+              transformed.variegation = 'Plant Details';
+            }
+
+            return transformed;
+          });
 
           if (isLoadMore) {
             // Filter out duplicates when loading more

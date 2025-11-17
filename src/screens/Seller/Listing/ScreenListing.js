@@ -2,7 +2,6 @@ import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import React, { useContext, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -43,6 +42,7 @@ import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ListingTable from './components/ListingTable';
+import ListingTableSkeleton from './components/ListingTableSkeleton';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -53,6 +53,8 @@ import LiveIcon from '../../../assets/images/live.svg';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
+
+const SELLER_LISTINGS_PAGE_SIZE = 20;
 
 const FilterTabs = [
   {
@@ -107,8 +109,8 @@ const FilterLiveTabs = [
     badgeCount: '',
   },
   {
-    filterKey: 'Scheduled',
-    badgeCount: '20',
+    filterKey: 'Sold',
+    badgeCount: '',
   },
   {
     filterKey: 'Expired',
@@ -137,7 +139,7 @@ const imageMap = {
   active: require('../../../assets/images/manage-active.png'),
   inactive: require('../../../assets/images/manage-inactive.png'),
   discounted: require('../../../assets/images/manage-discounted.png'),
-  scheduled: require('../../../assets/images/manage-scheduled.png'),
+  sold: require('../../../assets/images/manage-scheduled.png'),
   expired: require('../../../assets/images/manage-expired.png'),
   outofstock: require('../../../assets/images/manage-out_of_stock.png'),
 };
@@ -155,8 +157,20 @@ const ScreenListing = ({navigation}) => {
   const [refreshing, setRefreshing] = useState(false);
 
   // ✅ Your loadData (unchanged)
-  const [nextToken, setNextToken] = useState('');
-  const [nextTokenParam, setNextTokenParam] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageTokens, setPageTokens] = useState(['']);
+  const [hasMorePages, setHasMorePages] = useState(false);
+  const [totalListings, setTotalListings] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const resetPaginationState = () => {
+    setPageTokens(['']);
+    setCurrentPage(1);
+    setHasMorePages(false);
+    setTotalListings(0);
+    setTotalPages(1);
+  };
+
   const loadData = async (
     filterMine,
     sortBy,
@@ -188,11 +202,13 @@ const ScreenListing = ({navigation}) => {
     } else if (status === 'Discounted') {
       apiStatus = 'All'; // Discounted uses 'All' status with discount=true
     } else if (status === 'Out of Stock') {
-      apiStatus = 'Out of Stock'; // Ensure exact match with space
+      apiStatus = 'All'; // Handle out of stock client-side
     } else if (status === 'Active') {
       apiStatus = 'Active'; // Explicitly set Active status
     } else if (status === 'Inactive') {
       apiStatus = 'Inactive';
+    } else if (status === 'Sold') {
+      apiStatus = 'All'; // Handle sold client-side
     } else if (status === 'Scheduled') {
       apiStatus = 'Scheduled';
     } else if (status === 'Expired') {
@@ -252,95 +268,513 @@ const ScreenListing = ({navigation}) => {
     
     console.log('📊 Sort mapping:', { originalSort: sortBy, normalizedSort: normalizedSortBy });
     
+    // Extract values from filter objects (genus, variegation, listingType may be arrays of objects)
+    const extractValues = (filterArray) => {
+      if (!filterArray || !Array.isArray(filterArray)) return [];
+      return filterArray.map(item => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.value || item.label || item.name || '';
+        return String(item);
+      }).filter(Boolean);
+    };
+
+    const genusValues = extractValues(genus);
+    const variegationValues = extractValues(variegation);
+    const listingTypeValues = extractValues(listingType);
+
+    const effectiveLimit = limit || SELLER_LISTINGS_PAGE_SIZE;
+    const effectiveToken = nextPageToken || '';
+
     console.log('🔍 API Call Parameters:', {
       filterMine,
       sortBy: normalizedSortBy,
-      genus,
-      variegation,
-      listingType,
+      genus: genusValues,
+      variegation: variegationValues,
+      listingType: listingTypeValues,
       status: apiStatus,
       discount: discountParam,
-      limit,
+      limit: effectiveLimit,
       plant,
       pinTag,
-      nextPageToken,
+      nextPageToken: effectiveToken,
     });
     
-    const getManageListingApiData = await getManageListingApi(
+    const response = await getManageListingApi(
       filterMine,
-      normalizedSortBy, // Use normalized sort value
-      genus,
-      variegation,
-      listingType,
+      normalizedSortBy,
+      genusValues,
+      variegationValues,
+      listingTypeValues,
       apiStatus,
       discountParam,
-      limit,
+      effectiveLimit,
       plant,
       pinTag,
-      nextPageToken,
+      effectiveToken,
     );
 
     console.log('📦 API Response:', {
-      success: getManageListingApiData?.success,
-      listingsCount: getManageListingApiData?.listings?.length || 0,
-      hasListings: !!getManageListingApiData?.listings,
-      message: getManageListingApiData?.message,
-      nextPageToken: getManageListingApiData?.nextPageToken,
+      success: response?.success,
+      listingsCount: response?.listings?.length || 0,
+      hasListings: !!response?.listings,
+      message: response?.message,
+      nextPageToken: response?.nextPageToken,
     });
 
-    if (!getManageListingApiData?.success) {
-      throw new Error(
-        getManageListingApiData?.message || 'Login verification failed.',
-      );
+    if (!response?.success) {
+      throw new Error(response?.message || 'Login verification failed.');
     }
 
-    // Ensure we have a valid listings array
-    const listings = Array.isArray(getManageListingApiData?.listings) 
-      ? getManageListingApiData.listings 
-      : [];
-    
-    console.log('📋 Setting dataTable with', listings.length, 'listings');
-    
-    setNextToken(getManageListingApiData?.nextPageToken || '');
-    setDataTable(
-      prev =>
-        nextTokenParam
-          ? [...prev, ...listings] // append
-          : listings, // replace
-    );
+    return response;
   };
 
-  // ✅ Error-handling wrapper
-  const fetchData = async () => {
+  const fetchListingsPage = async (targetPage = 1) => {
     try {
-      // setErrorMessage('');
-      console.log('🔄 fetchData called with:', {
-        activeTab,
-        isDiscounted,
-        reusableSort,
-        reusableGenus,
-        reusableVariegation,
-        reusableListingType,
-      });
-      await loadData(
+      setLoading(true);
+      let desiredPage = Math.max(1, targetPage);
+
+      const tokensCopy = [...pageTokens];
+      let response = null;
+
+      const fetchPageWithToken = async (pageToken = '') => {
+        return loadData(
         true,
         reusableSort,
         reusableGenus,
         reusableVariegation,
         reusableListingType,
-        activeTab, // This should be 'Active', 'Inactive', 'Scheduled', 'Expired', 'Out of Stock', 'Discounted', or 'All'
+          activeTab,
         isDiscounted,
-        10,
+          SELLER_LISTINGS_PAGE_SIZE,
         search,
         pinSearch,
-        nextTokenParam,
-      );
-    } catch (error) {
-      console.log('Error in fetchData:', error.message);
+          pageToken,
+        );
+      };
 
+      if (tokensCopy[desiredPage - 1] === undefined) {
+        let currentIndex = tokensCopy.length - 1;
+        let lastToken = tokensCopy[currentIndex] || '';
+        while (currentIndex < desiredPage - 1) {
+          const interimResponse = await fetchPageWithToken(lastToken);
+          const nextToken = interimResponse?.nextPageToken || null;
+          tokensCopy[currentIndex + 1] = nextToken;
+          lastToken = nextToken || '';
+          currentIndex += 1;
+
+          if (currentIndex === desiredPage - 1) {
+            response = interimResponse;
+            break;
+          }
+
+          if (!nextToken) {
+            desiredPage = currentIndex;
+            response = interimResponse;
+            break;
+          }
+        }
+
+        if (tokensCopy[desiredPage - 1] === undefined) {
+          desiredPage = Math.max(1, tokensCopy.length - 1);
+        }
+      }
+
+      if (!response) {
+        const tokenForPage = tokensCopy[desiredPage - 1] || '';
+        response = await fetchPageWithToken(tokenForPage);
+      }
+
+      const normalizeFilterValues = (filterArray) => {
+        if (!Array.isArray(filterArray) || filterArray.length === 0) {
+          return [];
+        }
+        return filterArray
+          .map(item => {
+            if (typeof item === 'string') return item.trim();
+            if (item && typeof item === 'object') {
+              return (item.value || item.label || '').toString().trim();
+            }
+            return '';
+          })
+          .filter(Boolean);
+      };
+
+      const computeDisplayStatus = (listing) => {
+        const normalizedType = (listing.listingType || '').trim().toLowerCase();
+        const qty = parseInt(listing.availableQty, 10) || 0;
+        const variations = Array.isArray(listing.variations) ? listing.variations : [];
+        const isAllVariationsZero =
+          variations.length > 0 &&
+          variations.every(variation => (parseInt(variation.availableQty, 10) || 0) === 0);
+        const isZero =
+          qty === 0 && (variations.length === 0 || isAllVariationsZero);
+
+        if (isZero && normalizedType.includes('single')) {
+          return 'sold';
+        }
+
+        if (
+          isZero &&
+          (normalizedType.includes('grower') ||
+            normalizedType.includes('choice') ||
+            normalizedType.includes('wholesale'))
+        ) {
+          return 'out of stock';
+        }
+
+        if (isZero) {
+          return 'out of stock';
+        }
+
+        return (listing.status || '').trim().toLowerCase();
+      };
+
+      const listingTypeFilters = normalizeFilterValues(reusableListingType).map(value =>
+        value.toLowerCase(),
+      );
+      const genusFilters = normalizeFilterValues(reusableGenus).map(value =>
+        value.toLowerCase(),
+      );
+      const variegationFilters = normalizeFilterValues(reusableVariegation).map(value =>
+        value.toLowerCase(),
+      );
+      const hasListingTypeFilter = listingTypeFilters.length > 0;
+      const hasGenusFilter = genusFilters.length > 0;
+      const hasVariegationFilter = variegationFilters.length > 0;
+      const hasSearchFilter = typeof search === 'string' && search.trim() !== '';
+      const hasPinFilter = pinSearch === true;
+      const hasDiscountFilter = isDiscounted === true;
+      const isSoldTab = activeTab === 'Sold';
+      const isOutOfStockTab = activeTab === 'Out of Stock';
+      const isActiveTab = activeTab === 'Active';
+      const isLiveTab = activeTab === 'Live';
+
+      const normalizedSortValue = (() => {
+        if (!reusableSort) return '';
+        const value = reusableSort.trim();
+        switch (value) {
+          case 'Price Low To High':
+          case 'Price Low to High':
+            return 'Price Low To High';
+          case 'Price High To Low':
+          case 'Price High to Low':
+            return 'Price High To Low';
+          case 'Most Loved':
+            return 'Most Loved';
+          case 'Newest to Oldest':
+          case 'Newest To Oldest':
+            return 'Newest to Oldest';
+          case 'Oldest to Newest':
+          case 'Oldest To Newest':
+            return 'Oldest to Newest';
+          default:
+            return value;
+        }
+      })();
+
+      const normalizeListingsFromResponse = rawListings => {
+        return (Array.isArray(rawListings) ? rawListings : []).map(listing => {
+          const rawType =
+            listing.listingType ||
+            listing.listingData?.listingType ||
+            listing.listing?.listingType ||
+            listing.variationType ||
+            listing.type;
+
+          if (rawType) {
+            return {...listing, listingType: rawType};
+          }
+          if (listing.listingType) return listing;
+
+          const inferredType = (() => {
+            if (listing.variations && Array.isArray(listing.variations) && listing.variations.length > 0) {
+              return "Grower's Choice";
+            }
+            if (Array.isArray(listing.availableQty) || listing.bulkDetails) {
+              return 'Wholesale';
+            }
+            if (listing.potSize || listing.singlePlantDetails || listing.availableQty !== undefined) {
+              return 'Single Plant';
+            }
+            return 'Single Plant';
+          })();
+
+          return {...listing, listingType: inferredType};
+        });
+      };
+
+      const matchesActiveFilters = listing => {
+        const listingTypeNormalized = (listing.listingType || '').trim().toLowerCase();
+        if (
+          listingTypeFilters.length > 0 &&
+          !listingTypeFilters.some(filter => listingTypeNormalized === filter)
+        ) {
+          return false;
+        }
+
+        const genusNormalized = (listing.genus || '').trim().toLowerCase();
+        if (genusFilters.length > 0 && !genusFilters.includes(genusNormalized)) {
+          return false;
+        }
+
+        const variegationNormalized = (listing.variegation || '').trim().toLowerCase();
+        if (variegationFilters.length > 0 && !variegationFilters.includes(variegationNormalized)) {
+          return false;
+        }
+
+        if (activeTab === 'Active') {
+          // Active tab should only show listings with status "Active" AND availableQty > 0
+          const isActiveStatus = (listing.status || '').trim().toLowerCase() === 'active';
+          
+          // Check direct quantity
+          const qty = parseInt(listing.availableQty, 10) || 0;
+          
+          // Check variations quantity (for Grower's Choice and Wholesale)
+          const variations = Array.isArray(listing.variations) ? listing.variations : [];
+          const hasVariationQuantity = variations.length > 0 
+            ? variations.some(variation => (parseInt(variation.availableQty, 10) || 0) > 0)
+            : true; // If no variations, don't exclude based on variations
+          
+          // Listing must have status "Active" AND (direct quantity > 0 OR has variation with quantity > 0)
+          const hasQuantity = qty > 0 || (variations.length > 0 && hasVariationQuantity);
+          
+          return isActiveStatus && hasQuantity;
+        }
+
+        if (activeTab === 'Sold') {
+          return listing._displayStatus === 'sold';
+        }
+
+        if (activeTab === 'Out of Stock') {
+          return listing._displayStatus === 'out of stock';
+        }
+
+        if (activeTab === 'Live') {
+          // Live tab should only show listings with status "Live" AND isActiveLiveListing === true
+          const isLiveStatus = (listing.status || '').trim() === 'Live';
+          const isActiveLive = listing.isActiveLiveListing === true;
+          return isLiveStatus && isActiveLive;
+        }
+
+        return true;
+      };
+
+      const sortListingsBySelection = listingsToSort => {
+        const sorted = [...listingsToSort];
+        switch (normalizedSortValue) {
+          case 'Price Low To High':
+            sorted.sort((a, b) => {
+              const priceA = parseFloat(a.localPrice || a.usdPrice || 0);
+              const priceB = parseFloat(b.localPrice || b.usdPrice || 0);
+              return priceA - priceB;
+            });
+            break;
+          case 'Price High To Low':
+            sorted.sort((a, b) => {
+              const priceA = parseFloat(a.localPrice || a.usdPrice || 0);
+              const priceB = parseFloat(b.localPrice || b.usdPrice || 0);
+              return priceB - priceA;
+            });
+            break;
+          case 'Most Loved':
+            sorted.sort((a, b) => (b.loveCount || 0) - (a.loveCount || 0));
+            break;
+          case 'Newest to Oldest':
+            sorted.sort((a, b) => {
+              const createdA = new Date(a.createdAt || a.orderDate || 0).getTime();
+              const createdB = new Date(b.createdAt || b.orderDate || 0).getTime();
+              return createdB - createdA;
+            });
+            break;
+          case 'Oldest to Newest':
+            sorted.sort((a, b) => {
+              const createdA = new Date(a.createdAt || a.orderDate || 0).getTime();
+              const createdB = new Date(b.createdAt || b.orderDate || 0).getTime();
+              return createdA - createdB;
+            });
+            break;
+          default:
+            break;
+        }
+        return sorted;
+      };
+
+      const processResponseListings = rawListings => {
+        const normalizedListings = normalizeListingsFromResponse(rawListings);
+        return normalizedListings
+          .map(listing => {
+            const displayStatus = computeDisplayStatus(listing);
+            return {
+              ...listing,
+              _displayStatus: displayStatus,
+            };
+          })
+          .filter(matchesActiveFilters);
+      };
+
+      let aggregatedListings = processResponseListings(response?.listings);
+      let nextToken = response?.nextPageToken || null;
+
+      let safetyCounter = 0;
+      const MAX_ADDITIONAL_FETCHES = 5;
+
+      while (
+        aggregatedListings.length < SELLER_LISTINGS_PAGE_SIZE &&
+        nextToken &&
+        safetyCounter < MAX_ADDITIONAL_FETCHES
+      ) {
+        const previousToken = nextToken;
+        const additionalResponse = await fetchPageWithToken(nextToken);
+        const additionalListings = processResponseListings(additionalResponse?.listings);
+        aggregatedListings = aggregatedListings.concat(additionalListings);
+        nextToken = additionalResponse?.nextPageToken || null;
+        safetyCounter += 1;
+
+        if (nextToken === previousToken) {
+          nextToken = null;
+          break;
+        }
+      }
+
+      const sortedAggregated = sortListingsBySelection(aggregatedListings);
+      const pageListings = sortedAggregated.slice(0, SELLER_LISTINGS_PAGE_SIZE);
+
+      const displayedCount = pageListings.length;
+      // Never use backend total for Active tab since we filter out zero-quantity listings client-side
+      const shouldUseBackendTotal =
+        !hasListingTypeFilter &&
+        !hasGenusFilter &&
+        !hasVariegationFilter &&
+        !hasSearchFilter &&
+        !hasPinFilter &&
+        !hasDiscountFilter &&
+        !isSoldTab &&
+        !isOutOfStockTab &&
+        !isActiveTab &&
+        !isLiveTab &&
+        typeof response?.total === 'number';
+
+      let computedTotal;
+      let totalFilteredCount = aggregatedListings.length; // Declare outside to use in safeguard
+
+      if (shouldUseBackendTotal) {
+        computedTotal =
+          response.total ??
+          response.count ??
+          (displayedCount + (currentPage - 1) * SELLER_LISTINGS_PAGE_SIZE);
+      } else {
+        // For filtered tabs (Active, Sold, Out of Stock, etc.), we need to count all filtered results
+        // Start counting from the aggregated listings we already have
+        totalFilteredCount = aggregatedListings.length;
+        let countToken = nextToken;
+        let countSafety = 0;
+        const MAX_TOTAL_FETCHES = 50; // Increased significantly to ensure we count all pages (142 listings / 20 per page = ~7 pages, but we need buffer)
+
+        // For Active tab, we MUST fetch all pages to get accurate count
+        // Continue fetching and counting filtered results until no more pages
+        while (countToken && countSafety < MAX_TOTAL_FETCHES) {
+          try {
+            const additionalResponse = await fetchPageWithToken(countToken);
+            const additionalListings = processResponseListings(additionalResponse?.listings);
+            totalFilteredCount += additionalListings.length;
+
+            console.log(`🔍 Active tab counting: Fetched page ${countSafety + 2}, got ${additionalListings.length} filtered listings, total so far: ${totalFilteredCount}`);
+
+            if (additionalResponse?.nextPageToken) {
+              countToken = additionalResponse.nextPageToken;
+            } else {
+              countToken = null;
+              console.log(`✅ Active tab counting: Reached end, final count: ${totalFilteredCount}`);
+              break; // No more pages, we have the accurate total
+            }
+
+            countSafety += 1;
+          } catch (error) {
+            console.error('Error fetching page for total count:', error);
+            break; // Stop on error
+          }
+        }
+
+        // If we hit the safety limit but still have more pages, we need to continue
+        // For Active tab, we should never estimate - we need the exact count
+        if (isActiveTab && countToken && countSafety >= MAX_TOTAL_FETCHES) {
+          console.warn(`⚠️ Active tab: Hit safety limit (${MAX_TOTAL_FETCHES}) but more pages exist. Current count: ${totalFilteredCount}`);
+          // For Active tab, we can't estimate - we need exact count
+          // Continue fetching with a warning
+          let extraSafety = 0;
+          while (countToken && extraSafety < 20) {
+            try {
+              const additionalResponse = await fetchPageWithToken(countToken);
+              const additionalListings = processResponseListings(additionalResponse?.listings);
+              totalFilteredCount += additionalListings.length;
+              
+              if (additionalResponse?.nextPageToken) {
+                countToken = additionalResponse.nextPageToken;
+              } else {
+                countToken = null;
+                break;
+              }
+              extraSafety += 1;
+            } catch (error) {
+              console.error('Error in extra fetch:', error);
+              break;
+            }
+          }
+        }
+
+        computedTotal = totalFilteredCount;
+        
+        // For Active tab, never use backend total - always use filtered count
+        if (isActiveTab) {
+          // Ensure we're using the filtered count, not backend total
+          computedTotal = totalFilteredCount;
+          console.log(`🔍 Active tab: Final computed total from filtered results: ${computedTotal}`);
+        }
+      }
+
+      // Final safeguard: For Active tab, never use backend total even if computedTotal is somehow wrong
+      if (isActiveTab) {
+        // Ignore backend total completely for Active tab
+        // Always use the filtered count, which excludes zero-quantity listings
+        // If we somehow got the backend total (140), force recalculation
+        if (computedTotal === response?.total || computedTotal >= 140) {
+          console.warn('⚠️ Active tab: Detected backend total being used, forcing recalculation from filtered results');
+          // Use the filtered count we calculated
+          computedTotal = totalFilteredCount;
+        } else {
+          // Make sure we're using the filtered count, not any estimate
+          computedTotal = totalFilteredCount;
+        }
+        console.log('🔍 Active tab: Final count', computedTotal, 'from', totalFilteredCount, 'filtered results (backend total was', response?.total, ')');
+      }
+
+      tokensCopy[desiredPage] = nextToken;
+      const updatedTokens = tokensCopy.slice(0, desiredPage + 1);
+
+      setPageTokens(updatedTokens);
+      setDataTable(pageListings);
+      setTotalListings(computedTotal);
+      setTotalPages(Math.max(1, Math.ceil(computedTotal / SELLER_LISTINGS_PAGE_SIZE)));
+      setHasMorePages(Boolean(nextToken));
+      setCurrentPage(desiredPage);
+    } catch (error) {
+      console.log('Error in fetchListingsPage:', error.message);
       Alert.alert('Listing', error.message);
     } finally {
       setRefreshing(false);
+      setLoading(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      fetchListingsPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages || hasMorePages) {
+      fetchListingsPage(currentPage + 1);
     }
   };
 
@@ -350,20 +784,16 @@ const ScreenListing = ({navigation}) => {
 
   useEffect(() => {
     if (isFocused) {
-      setLoading(true);
-      fetchData();
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
+      resetPaginationState();
+      fetchListingsPage(1);
     }
-  }, [isInitialFetchRefresh, isFocused]);
+  }, [isFocused, isInitialFetchRefresh, activeTab]);
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
-    setNextToken('');
-    setNextTokenParam('');
-    fetchData();
+    resetPaginationState();
+    fetchListingsPage(1);
   };
   // List table
 
@@ -373,8 +803,7 @@ const ScreenListing = ({navigation}) => {
   const onPressPinSearch = paramPinSearch => {
     console.log('🔵 Pin Search Toggle:', paramPinSearch);
     setPinSearch(paramPinSearch);
-    setNextToken('');
-    setNextTokenParam('');
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
   // Pin search
@@ -385,9 +814,7 @@ const ScreenListing = ({navigation}) => {
     setSearch(searchText);
     console.log('🔍 Plant Search:', searchText);
     // trigger your search logic here
-
-    setNextToken('');
-    setNextTokenParam('');
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -404,46 +831,13 @@ const ScreenListing = ({navigation}) => {
       console.log('🔍 Sort value before normalization:', reusableSort);
     }
     
-    setNextToken('');
-    setNextTokenParam('');
+    setLoading(true); // Show skeleton while applying filters
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
     // Close the modal after applying filters
     setShowSheet(false);
   };
   // Search
-
-  // Load more
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  
-  useEffect(() => {
-    if (nextTokenParam) {
-      setIsLoadingMore(true);
-      fetchData();
-      setTimeout(() => {
-        setIsLoadingMore(false);
-      }, 500);
-    }
-  }, [nextTokenParam]);
-
-  const onPressLoadMore = () => {
-    if (nextToken && nextToken != nextTokenParam && !isLoadingMore) {
-      setNextTokenParam(nextToken);
-    }
-  };
-
-  // Infinite scroll handler
-  const handleScroll = (event) => {
-    const {layoutMeasurement, contentOffset, contentSize} = event.nativeEvent;
-    const paddingToBottom = 100; // Trigger when 100px from bottom
-    
-    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-      // User has scrolled near the bottom
-      if (nextToken && nextToken != nextTokenParam && !isLoadingMore && !loading) {
-        onPressLoadMore();
-      }
-    }
-  };
-  // Load more
 
   // For dropdown
   const [sortOptions, setSortOptions] = useState([]);
@@ -595,8 +989,8 @@ const ScreenListing = ({navigation}) => {
     console.log('📋 Status Tab Changed:', pressTab);
     setActiveTab(pressTab);
     setIsDiscounted(false);
-    setNextToken('');
-    setNextTokenParam('');
+    resetPaginationState();
+    setLoading(true); // Show skeleton while fetching with new tab filter
     
     // Handle Discounted tab - set discount flag and reset status
     if (pressTab === 'Discounted') {
@@ -648,8 +1042,8 @@ const ScreenListing = ({navigation}) => {
         return;
     }
     // Refresh listings after clearing filter
-    setNextToken('');
-    setNextTokenParam('');
+    setLoading(true); // Show skeleton while clearing filter and refetching
+    resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
@@ -736,9 +1130,8 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post stock update failed.');
       }
-      setNextToken('');
-      setNextTokenParam('');
-      fetchData();
+      resetPaginationState();
+      await fetchListingsPage(1);
       Alert.alert('Update Listing', 'Listing stocks updated successfully!');
     } catch (error) {
       console.log('Error updating stock:', error.message);
@@ -799,9 +1192,8 @@ const ScreenListing = ({navigation}) => {
       setDiscountPercentageSheet('');
       setDiscountPriceSheet('');
       setShowSheetDiscount(!showSheetDiscount);
-      setNextToken('');
-      setNextTokenParam('');
-      fetchData();
+      resetPaginationState();
+      await fetchListingsPage(1);
     } catch (error) {
       console.log('Error updating discount:', error.message);
       Alert.alert('Update Discount', error.message);
@@ -818,9 +1210,8 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post stock update failed.');
       }
-      setNextToken('');
-      setNextTokenParam('');
-      fetchData();
+      resetPaginationState();
+      await fetchListingsPage(1);
     } catch (error) {
       console.log('Error remove discount:', error.message);
       Alert.alert('Remove discount', error.message);
@@ -859,9 +1250,8 @@ const ScreenListing = ({navigation}) => {
       
       if (response.success) {
         Alert.alert('Success', 'Active listing has been updated.');
-        setNextToken('');
-        setNextTokenParam('');
-        fetchData();
+        resetPaginationState();
+        await fetchListingsPage(1);
       } else {
         throw new Error(response.message || 'Failed to set active listing.');
       }
@@ -883,17 +1273,8 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post pin failed.');
       }
-
-      // setDataTable(prev =>
-      //   prev.map(item =>
-      //     item.plantCode === plantCode
-      //       ? {...item, pinTag: updatedPinTag}
-      //       : item,
-      //   ),
-      // );
-      setNextToken('');
-      setNextTokenParam('');
-      fetchData();
+      resetPaginationState();
+      await fetchListingsPage(1);
     } catch (error) {
       console.log('Error pin table action:', error.message);
       Alert.alert('Pin item', error.message);
@@ -914,10 +1295,8 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post pin failed.');
       }
-
-      setNextToken('');
-      setNextTokenParam('');
-      fetchData();
+      resetPaginationState();
+      await fetchListingsPage(1);
       setActionShowSheet(false);
       setDeleteModalVisible(false);
       Alert.alert('Delete Listing', 'Listing deleted successfully!');
@@ -1098,24 +1477,18 @@ const ScreenListing = ({navigation}) => {
         contentContainerStyle={{
           paddingBottom: insets.bottom,
         }}
-        onScroll={handleScroll}
-        scrollEventThrottle={400}
         // stickyHeaderIndices={[0]}
       >
-        {loading && (
-          <Modal transparent animationType="fade">
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#699E73" />
-            </View>
-          </Modal>
-        )}
-
         <View
           style={{
             backgroundColor: '#fff',
             minHeight: dataTable.length != 0 && screenHeight * 0.9,
           }}>
-          {dataTable && dataTable.length > 0 ? (
+          {loading ? (
+            <View style={styles.contents}>
+              <ListingTableSkeleton rowCount={SELLER_LISTINGS_PAGE_SIZE} />
+            </View>
+          ) : dataTable && dataTable.length > 0 ? (
             <>
               <View style={styles.contents}>
                 <ListingTable
@@ -1133,33 +1506,68 @@ const ScreenListing = ({navigation}) => {
                   activeTab={activeTab}
                   onPressSetToActive={onPressSetToActive}
                 />
-                {/* Show loading indicator when fetching more data */}
-                {isLoadingMore && nextToken && (
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingVertical: 20,
-                    marginBottom: 30,
-                  }}>
-                    <ActivityIndicator size="small" color="#699E73" />
-                    <Text style={[globalStyles.textMDGreyLight, {marginLeft: 10}]}>
-                      Loading more...
-                    </Text>
-                  </View>
-                )}
               </View>
             </>
-          ) : (
+          ) : !loading ? (
             <View style={{alignItems: 'center', paddingTop: 80, flex: 1}}>
               <Image
                 source={imageMap[normalizeKey(activeTab)]}
                 style={{width: 300, height: 300, resizeMode: 'contain'}}
               />
             </View>
-          )}
+          ) : null}
         </View>
       </ScrollView>
+
+      {/* Pagination Controls */}
+      <View style={styles.paginationWrapper}>
+        <View style={styles.paginationContainer}>
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              (currentPage <= 1 || loading) && styles.paginationButtonDisabled,
+            ]}
+            onPress={handlePreviousPage}
+            disabled={currentPage <= 1 || loading}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                (currentPage <= 1 || loading) && styles.paginationButtonTextDisabled,
+              ]}>
+              Previous
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.paginationInfo}>
+            <Text style={styles.paginationText}>
+              Page {currentPage} of {totalPages}
+            </Text>
+            <Text style={styles.paginationSubtext}>
+              {loading ? 'Loading...' : `${totalListings} total listings`}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              ((currentPage >= totalPages && !hasMorePages) || loading) &&
+                styles.paginationButtonDisabled,
+            ]}
+            onPress={handleNextPage}
+            disabled={(currentPage >= totalPages && !hasMorePages) || loading}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                ((currentPage >= totalPages && !hasMorePages) || loading) &&
+                  styles.paginationButtonTextDisabled,
+              ]}>
+              Next
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <ReusableActionSheet
         code={code}
@@ -1426,5 +1834,60 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: '#C0DAC2',
     borderColor: '#539461',
+  },
+  paginationWrapper: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E4E7E9',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  paginationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#23C16B',
+    borderRadius: 8,
+    minWidth: 90,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    marginVertical: 4,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: '#E4E7E9',
+  },
+  paginationButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  paginationButtonTextDisabled: {
+    color: '#9CA3A6',
+  },
+  paginationInfo: {
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  paginationText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#202325',
+    marginBottom: 4,
+  },
+  paginationSubtext: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 12,
+    color: '#647276',
   },
 });

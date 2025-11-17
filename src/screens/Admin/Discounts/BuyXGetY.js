@@ -90,6 +90,8 @@ const BuyXGetY = () => {
   const [timeKeyboardOffset, setTimeKeyboardOffset] = useState(0);
   const [eligibility, setEligibility] = useState('All customers');
   const [minRequirement, setMinRequirement] = useState('No minimum order requirements');
+  const [minPurchaseAmount, setMinPurchaseAmount] = useState('');
+  const [minPurchaseQuantity, setMinPurchaseQuantity] = useState('');
   // Starts date controls
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('00:00 AM');
@@ -1031,6 +1033,37 @@ const BuyXGetY = () => {
               </TouchableOpacity>
             );
           })}
+          {minRequirement === 'Minimum purchase amount ($)' && (
+            <View style={{marginTop: 8}}>
+              <View style={{flexDirection: 'row'}}>
+                <View style={styles.prefixBox}><Text style={styles.suffixText}>$</Text></View>
+                <View style={[styles.inputRow, {flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0}]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    placeholderTextColor="#647276"
+                    keyboardType="numeric"
+                    value={minPurchaseAmount}
+                    onChangeText={setMinPurchaseAmount}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+          {minRequirement === 'Minimum quantity of plants' && (
+            <View style={{marginTop: 8}}>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  placeholderTextColor="#647276"
+                  keyboardType="numeric"
+                  value={minPurchaseQuantity}
+                  onChangeText={setMinPurchaseQuantity}
+                />
+              </View>
+            </View>
+          )}
         </View>
         <View style={styles.dividerStrip} />
 
@@ -1194,7 +1227,7 @@ const BuyXGetY = () => {
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.boxList}>
             <Text style={styles.boxListItem}>{'\u2022'} For {eligibility.toLowerCase()}</Text>
-            <Text style={styles.boxListItem}>{'\u2022'} {minRequirement}</Text>
+            <Text style={styles.boxListItem}>{'\u2022'} {minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount ? `Minimum purchase amount of $${minPurchaseAmount}` : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity ? `Minimum quantity of ${minPurchaseQuantity} plants` : minRequirement}</Text>
             {limitTotalEnabled && maxUsesTotal ? (
               <Text style={styles.boxListItem}>{'\u2022'} Limited to {maxUsesTotal} total of use</Text>
             ) : limitPerCustomerEnabled ? (
