@@ -15,6 +15,8 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import EyeIcon from '../../../assets/icons/greydark/eye-regular.svg';
+import EyeSlashIcon from '../../../assets/icons/greydark/eye-closed-regular.svg';
 import {createAdminApi} from '../../../components/Api';
 
 const roleOptions = [
@@ -26,6 +28,7 @@ const AddAdmin = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -247,16 +250,29 @@ const AddAdmin = () => {
               <Text style={styles.label}>
                 Password <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
-              <TextInput
-                style={[styles.textField, errors.password && styles.textFieldError]}
-                placeholder="Enter password (min 8 characters)"
-                placeholderTextColor="#647276"
-                value={formData.password}
-                onChangeText={value => handleChange('password', value)}
-                secureTextEntry
-                autoCapitalize="none"
-                editable={!loading}
-              />
+              <View style={[styles.passwordField, errors.password && styles.textFieldError]}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Enter password (min 8 characters)"
+                  placeholderTextColor="#647276"
+                  value={formData.password}
+                  onChangeText={value => handleChange('password', value)}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                  disabled={loading}>
+                  {showPassword ? (
+                    <EyeSlashIcon width={20} height={20} fill="#647276" />
+                  ) : (
+                    <EyeIcon width={20} height={20} fill="#647276" />
+                  )}
+                </TouchableOpacity>
+              </View>
               {errors.password && (
                 <Text style={styles.errorText}>{errors.password}</Text>
               )}
@@ -447,6 +463,33 @@ const styles = StyleSheet.create({
   },
   textFieldError: {
     borderColor: '#E53935',
+  },
+  passwordField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    height: 48,
+    minHeight: 48,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#647276',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#202325',
+    paddingVertical: 12,
+    paddingRight: 8,
+  },
+  eyeButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
     fontFamily: 'Inter',
