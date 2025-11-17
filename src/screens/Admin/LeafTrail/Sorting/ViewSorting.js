@@ -1,3 +1,4 @@
+import moment from 'moment';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +19,7 @@ import Options from '../../../../assets/admin-icons/options.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
+import { addSortingTrayNumber, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 
@@ -41,7 +42,16 @@ const UserProfile = ({ user }) => (
   </View>
 );
 
-const GreenhouseInputs = () => (
+const GreenhouseInputs = ({addTrayNumber, itemDetails}) => { 
+  console.log('itemDetails', itemDetails);
+  
+  const [trayNumber, setTrayNumber] = useState(itemDetails?.sortingTrayNumber || '');
+  
+  const addTray = () => {
+    addTrayNumber(trayNumber)
+  }
+  
+  return (
     <View style={styles.inputsContainer}>
         <View style={styles.inputWrapper}>
             <TrayIcon />
@@ -49,13 +59,15 @@ const GreenhouseInputs = () => (
                 placeholder="Tray Number"
                 placeholderTextColor="#647276"
                 style={styles.input}
+                value={trayNumber}
+                onChangeText={setTrayNumber}
             />
         </View>
-        <TouchableOpacity style={styles.button}>
-            <Text style={styles.buttonText}>Add</Text>
+        <TouchableOpacity style={styles.button} onPress={() => addTray()}>
+            <Text style={styles.buttonText}>{trayNumber ? 'Update' : 'Add'}</Text>
         </TouchableOpacity>
     </View>
-);
+)};
 
 const DeliveryDetails = ({ details }) => (
     <View style={styles.deliveryContainer}>
@@ -67,7 +79,9 @@ const DeliveryDetails = ({ details }) => (
             </View>
             <View style={styles.infoRow}>
                 <Text style={styles.label}>Plant Flight</Text>
-                <Text style={styles.value}>{details.flightDate}</Text>
+                <Text style={styles.value}>{ details.flightDate
+                                      ? moment(details.flightDate).format('MMM DD, YYYY')
+                                      : 'Date TBD' }</Text>
             </View>
         </View>
     </View>
@@ -211,6 +225,7 @@ const MissingPlantsTab = ({itemDetails, openTagAs}) => (
 // --- Main Screen Component ---
 const SortingDetailsScreen = ({ navigation, route }) => {
   // const itemDetails = route?.params?.item || {};
+  console.log('route?.params?.item', route?.params?.item);
   
   const [index, setIndex] = useState(0);
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
@@ -269,6 +284,29 @@ const SortingDetailsScreen = ({ navigation, route }) => {
     }
   };
 
+  const addTrayNumber = async (trayNumber) => {
+    console.log('trayNumber:', trayNumber);
+
+    try {
+      setIsLoading(true);
+      const addTrayNumber = await addSortingTrayNumber({
+        orderIds: receivedPlantsData.map(i => i.id),
+        sortingTrayNumber: trayNumber,
+      });
+
+      if (addTrayNumber.success) {
+        setIsLoading(false);
+        Alert.alert('Success', 'Tray number added successfully!');
+      } else {
+        setIsLoading(false);
+        Alert.alert('Error', addTrayNumber.message || '');
+      }
+    } catch (error) {
+      setIsLoading(false);
+      Alert.alert('Error', error.message || '');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <Header title="Receiver's Details" navigation={navigation} />
@@ -279,7 +317,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
           username: itemDetails?.username || '',
           avatar: itemDetails?.avatar || '',
         }} />
-        <GreenhouseInputs />
+        <GreenhouseInputs itemDetails={itemDetails} addTrayNumber={addTrayNumber}/>
         <DeliveryDetails details={{upsFlight: itemDetails?.upsShippingDate || '', flightDate: itemDetails?.flightDate || '' }} />
       </ScrollView>
 

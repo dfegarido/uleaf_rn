@@ -135,11 +135,9 @@ export const getAdminLeafTrailFilters = async (filters = {sort: 'desc'}) => {
   }
 };
 
-
 export const getAdminLeafTrailSorting = async () => {
   try {
     const token = await getStoredAuthToken();
-
     const response = await fetch(
       'https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailSorting',
       {
@@ -160,6 +158,36 @@ export const getAdminLeafTrailSorting = async () => {
     return json;
   } catch (error) {
     console.error('getAdminLeafTrailSorting error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const addSortingTrayNumber = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+console.log('token', token);
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafSortTray',
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('addSortingTrayNumber error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };

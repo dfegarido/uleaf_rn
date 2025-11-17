@@ -1,5 +1,5 @@
-import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import { API_ENDPOINTS } from '../../config/apiConfig';
+import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 
 // Helpers: normalize timestamps, prices, and image urls so the UI can rely on a
 // stable shape.
@@ -138,7 +138,6 @@ export const getOrderListingApi = async (
     params.append('plant', search ?? '');
     params.append('offset', offset ?? 0);
 
-    // console.log(params.toString());
 
     const url = `${API_ENDPOINTS.GET_ORDERS}?${params.toString()}`;
     const response = await fetch(url, {
