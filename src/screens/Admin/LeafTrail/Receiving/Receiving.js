@@ -2,30 +2,52 @@ import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
     Modal,
     StatusBar,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { TabBar, TabView } from 'react-native-tab-view';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
+import Options from '../../../../assets/admin-icons/options.svg';
 import QuestionMarkIcon from '../../../../assets/admin-icons/question-mark.svg';
 import ReceivedIcon from '../../../../assets/admin-icons/received.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import TagAsOptions from './TagAs';
 
 // A single card in the list
-const PlantListItem = ({ item, type }) => (
+const PlantListItem = ({ item, type, openTagAs }) => {
+    const setTags = () => {
+        console.log('item', item);
+        
+        let status = {isMissing: true, isDamaged: true};
+        if (item.leafTrailStatus === "missing") {
+        status = {isDamaged: true, forShipping: true}
+        } else if (item.leafTrailStatus === "damaged") {
+        status = {isMissing: true, forShipping: true}
+        }
+        openTagAs(status, item.id)
+    }
+
+    return (
     <View style={styles.listItemOuterContainer}>
         {type === 'missing' && (
              <View style={styles.missingStatusContainer}>
                 <Text style={styles.missingStatusText}>Missing</Text>
+            </View>
+        )}
+        {type === 'damaged' && (
+             <View style={styles.missingStatusContainer}>
+                <Text style={styles.missingStatusText}>Damaged</Text>
             </View>
         )}
         <View style={styles.flightDetailsRow}>
@@ -58,6 +80,9 @@ const PlantListItem = ({ item, type }) => (
                         <View style={{flex: 1}} />
                         <Text style={styles.countryText}>{item.country}</Text>
                         <CountryFlagIcon code={item.country} width={24} height={16} />
+                        <TouchableOpacity onPress={setTags}>
+                           <Options style={{paddingRight: 10}} />
+                        </TouchableOpacity>
                     </View>
                     <Text style={styles.plantGenus}>{item.genus} {item.species}</Text>
                     <Text style={styles.plantVariegation}>{item.variegation} • {item.size}</Text>
@@ -70,16 +95,16 @@ const PlantListItem = ({ item, type }) => (
             </View>
         </View>
     </View>
-);
+)};
 
 
 // --- TAB SCREENS ---
 
-const ForReceivingTab = ({data, onFilterChange, adminFilters}) => (
+const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
             <FlatList
                 data={data.data}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => <PlantListItem item={item} type="forReceiving" />}
+                renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="forReceiving" />}
                 ListHeaderComponent={
                 <>
                     <FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters}/>
@@ -90,22 +115,33 @@ const ForReceivingTab = ({data, onFilterChange, adminFilters}) => (
             />
 );
 
-const ReceivedTab = ({data, onFilterChange, adminFilters}) => (
+const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <PlantListItem item={item} type="received" />}
+        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="received" />}
         ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 );
 
-const MissingTab = ({data, onFilterChange, adminFilters}) => (
+const MissingTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <PlantListItem item={item} type="missing" />}
+        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="missing" />}
+        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+        contentContainerStyle={styles.listContentContainer}
+    />
+);
+
+const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
+    <FlatList
+        data={data.data}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="damaged" />}
         ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
@@ -118,11 +154,27 @@ const ReceivingScreen = ({navigation}) => {
         { key: 'forReceiving', title: 'For Receiving' },
         { key: 'received', title: 'Received' },
         { key: 'missing', title: 'Missing' },
+        { key: 'damaged', title: 'Damaged' },
     ]);
     const [receivingData, setReceivingData] = useState(null);
     const [adminFilters, setAdminFilters] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isTagAsVisible, setTagAsVisible] = useState(false);
+    const [isMissing, setIsMissing] = useState(false);
+    const [isDamaged, setIsDamaged] = useState(false);
+    const [forShipping, setForShipping] = useState(false);
+    const [orderId, setOrderId] = useState(false);
+
+    const openTagAs = (status, id) => {
+        console.log('status', status);
+        
+        setIsMissing(status.isMissing);
+        setIsDamaged(status.isDamaged);
+        setForShipping(status.forShipping);
+        setTagAsVisible(!isTagAsVisible);
+        setOrderId(id)
+    }
 
     const fetchData = async (filters) => {
             try {
@@ -153,15 +205,33 @@ const ReceivingScreen = ({navigation}) => {
     const renderScene = ({ route }) => {
         switch (route.key) {
             case 'forReceiving':
-                return <ForReceivingTab onFilterChange={onFilterChange} data={receivingData?.forReceiving || {}} adminFilters={adminFilters}  />;
+                return <ForReceivingTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.forReceiving || {}} adminFilters={adminFilters}  />;
             case 'received':
-                return <ReceivedTab onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFilters} />;
+                return <ReceivedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFilters} />;
             case 'missing':
-                return <MissingTab onFilterChange={onFilterChange} data={receivingData?.missing || {}} adminFilters={adminFilters} />;
+                return <MissingTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.missing || {}} adminFilters={adminFilters} />;
+            case 'damaged':
+                return <DamagedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.damaged || {}} adminFilters={adminFilters} />;
             default:
                 return null;
         }
     };
+
+    const setTagAs = async (status) => {
+        console.log('asdfsadf');
+        
+        setIsLoading(true);
+        setTagAsVisible(!isTagAsVisible);
+        const response = await updateLeafTrailStatus(orderId, status);
+        if (response.success) {
+          await fetchData();
+          setIsLoading(false)
+          Alert.alert('Success', 'Order status updated successfully!');
+        } else {
+          setIsLoading(false)
+          Alert.alert('Error', error.message);
+        }
+    }
 
     const renderTabBar = props => (
         <TabBar
@@ -170,6 +240,7 @@ const ReceivingScreen = ({navigation}) => {
             indicatorStyle={styles.tabIndicator}
             activeColor="#202325"
             inactiveColor="#647276"
+            scrollEnabled={true}
         />
     );
 
@@ -192,6 +263,13 @@ const ReceivingScreen = ({navigation}) => {
                     renderTabBar={renderTabBar}
                 />
             </SafeAreaView>
+
+            <TagAsOptions visible={isTagAsVisible}
+                setTagAs={setTagAs}
+                isMissing={isMissing}
+                isDamaged={isDamaged}
+                forShipping={forShipping}
+                onClose={() => setTagAsVisible(false)}/>
         </SafeAreaProvider>
     );
 }
@@ -263,10 +341,10 @@ const styles = StyleSheet.create({
     codeRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        // gap: 6,
     },
     plantCode: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#647276',
     },
     countryText: {

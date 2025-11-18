@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { TabView } from 'react-native-tab-view';
 import Options from '../../../../assets/admin-icons/options.svg';
+import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
@@ -29,6 +30,9 @@ const Header = ({ title, navigation }) => (
       <BackSolidIcon />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>{title}</Text>
+    <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen', {leafTrailStatus: 'sorted'})}>
+         <ScanQrIcon />
+    </TouchableOpacity>
   </View>
 );
 
@@ -233,6 +237,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'Received Plants', count: receivedPlantsCount },
     { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
+    { key: 'sorted', title: 'Sorted Plants', count: journeyMishapCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
   const [missingPlantsData, setMissingPlantsData] = useState(itemDetails?.missingPlantsData || [])
@@ -260,6 +265,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setRoutes([
          { key: 'received', title: 'Received Plants', count: response.receivedPlantsCount },
          { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
+         { key: 'sorted', title: 'Sorted Plants', count: journeyMishapCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
       setMissingPlantsData(response?.missingPlantsData || []);
@@ -276,6 +282,8 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       case 'received':
         return <ReceivedPlantsTab itemDetails={receivedPlantsData || []} openTagAs={openTagAs} />;
       case 'missing':
+        return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
+      case 'sorted':
         return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
       default:
         return null;

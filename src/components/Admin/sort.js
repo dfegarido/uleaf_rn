@@ -73,7 +73,7 @@ const SortOptions = ({ isVisible, onClose, onApplySort }) => {
               {/* Action Button */}
               <View style={styles.actionContainer}>
                 <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-                  <Text style={styles.applyButtonText}>Update Schedule</Text>
+                  <Text style={styles.applyButtonText}>View</Text>
                 </TouchableOpacity>
               </View>
             </SafeAreaView>

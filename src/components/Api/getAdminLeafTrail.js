@@ -65,14 +65,17 @@ export const updateLeafTrailStatus = async (orderId, status) => {
   }
 };
 
-export const getAdminScanQr = async (filters) => {
+export const getAdminScanQr = async (filters, leafTrailStatus) => {
   try {
     const token = await getStoredAuthToken();
 
-    if ((typeof filters) === 'string') {
+    if ((typeof filters) === 'string') {      
       filters = JSON.parse(filters)
     }
-    
+
+    if (leafTrailStatus) {
+      filters.leafTrailStatus = leafTrailStatus
+    }
     const urlParam = new URLSearchParams(filters).toString()
     const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminScanQr?${urlParam}`
     

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  Vibration,
   View
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -44,13 +45,15 @@ const UserCard = ({ user }) => (
   </View>
 );
 
-const ScanQRScreen = ({ navigation }) => {
+const ScanQRScreen = ({ navigation, route }) => {
+  
   const {hasPermission, requestPermission} = useCameraPermission();
   const device = useCameraDevice('back');
   const [latestScannedData, setLatestScannedData] = useState(null);
   const [buttomData, setButtomData] = useState("scan");
   const [isScanning, setIsScanning] = useState(true);
   const [plantData, setPlantData] = useState({});
+  const { leafTrailStatus=null } = route.params || {};
 
   // --- Side Effect: Request Camera Permission ---
   useEffect(() => {
@@ -69,10 +72,10 @@ const ScanQRScreen = ({ navigation }) => {
       try {
         if (codes.length > 0 && codes[0]?.value) {
           setLatestScannedData(codes[0].value);
-          
-          const response = await getAdminScanQr(latestScannedData);
+          const response = await getAdminScanQr(latestScannedData, leafTrailStatus);
           setPlantData(response);
           setButtomData('success');
+          Vibration.vibrate();
         }
       } catch (error) {
         setButtomData('invalid');
@@ -81,7 +84,7 @@ const ScanQRScreen = ({ navigation }) => {
           setIsScanning(true);
         }, 5000);
       }
-    }, [isScanning]),
+    }),
   });
 
   if (device == null) {
