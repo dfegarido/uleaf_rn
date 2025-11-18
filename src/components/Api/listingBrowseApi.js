@@ -74,20 +74,31 @@ export const getPlantRecommendationsApi = async (params = {}) => {
     console.log('🌱 Final query string:', qs);
 
   // Memory cache key per-user token + endpoint + query
-    const cacheKey = `recs:${authToken?.slice?.(-12) || 'anon'}:${qs}`;
+  // CRITICAL: Include offset in cache key to prevent returning wrong page from cache
+  // Don't cache recommendations with different offsets - they should be fresh
+  // Only cache if offset is 0 (first page) to speed up initial load
+  const userKey = authToken?.slice?.(-12) || 'anon'; // Define userKey early for use in cache operations
+  const shouldCache = params.offset === 0 || params.offset === '0';
+  const cacheKey = shouldCache ? `recs:${userKey}:${qs}` : null;
+  
+  if (shouldCache && cacheKey) {
     const cached = __memCache.get(cacheKey);
     if (cached) {
-      console.log('🌱 Returning cached recommendations');
+      console.log('🌱 Returning cached recommendations (offset=0 only)');
       return cached;
     }
+  } else {
+    console.log(`🌱 Skipping cache for offset=${params.offset} (only caching offset=0)`);
+  }
 
-    // Try persistent cache (short TTL) as a fallback
-    const userKey = authToken?.slice?.(-12) || 'anon';
+  // Try persistent cache (short TTL) as a fallback - only for offset=0
+  if (shouldCache) {
     const persistent = await getCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey);
     if (persistent) {
-      console.log('🌱 Returning persistent cached recommendations');
+      console.log('🌱 Returning persistent cached recommendations (offset=0 only)');
       return persistent;
     }
+  }
 
     console.log('🌱 Making API request to:', `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${qs}`);
     console.log('🌱 Request headers:', {
@@ -147,8 +158,11 @@ export const getPlantRecommendationsApi = async (params = {}) => {
       data,
   };
   // Cache for a bit longer (2 minutes) as recommendations do not need to be real-time
-  __memCache.set(cacheKey, result, 2 * 60 * 1000);
-  await setCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey, result, 2 * 60 * 1000);
+  // Only cache if offset is 0 (first page) - don't cache paginated results
+  if (shouldCache && cacheKey) {
+    __memCache.set(cacheKey, result, 2 * 60 * 1000);
+    await setCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey, result, 2 * 60 * 1000);
+  }
   return result;
   } catch (error) {
     console.error('🌱 Get plant recommendations API error:', error);
