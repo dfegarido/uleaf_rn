@@ -82,7 +82,7 @@ const CountryFilter = ({ isVisible, onClose, onApply }) => {
                   <Text style={styles.clearButtonText}>Reset</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-                  <Text style={styles.applyButtonText}>Update Schedule</Text>
+                  <Text style={styles.applyButtonText}>View</Text>
                 </TouchableOpacity>
               </View>
             </SafeAreaView>

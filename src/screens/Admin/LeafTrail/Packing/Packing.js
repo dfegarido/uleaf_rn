@@ -24,8 +24,8 @@ const PackingListItem = ({ item }) => (
         <TrayIcon />
       </View>
       <View style={styles.cardContent}>
-        <Text style={styles.boxNumber}>{item.boxNumber}</Text>
-        <Text style={styles.plantCount}>{item.plantCount}<Text style={{ color: '#556065' }}> plant(s)</Text></Text>
+        <Text style={styles.boxNumber}>{item.sortingTrayNumber}</Text>
+        <Text style={styles.plantCount}>{item.sortedPlantsCount}<Text style={{ color: '#556065' }}> plant(s)</Text></Text>
       </View>
     </View>
 
@@ -36,11 +36,11 @@ const PackingListItem = ({ item }) => (
             <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
         </View>
         <View style={styles.userRow}>
-            <Image source={{ uri: item.user.avatar }} style={styles.userAvatar} />
+            <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
             <View>
                 <View style={styles.userNameRow}>
-                    <Text style={styles.userName}>{item.user.name}</Text>
-                    <Text style={styles.userHandle}>{item.user.username}</Text>
+                    <Text style={styles.userName}>{item.name}</Text>
+                    <Text style={styles.userHandle}>{item.username}</Text>
                 </View>
                 <Text style={styles.userRole}>Receiver</Text>
             </View>
@@ -88,7 +88,7 @@ const PackingScreen = ({navigation}) => {
         <ScreenHeader navigation={navigation} title={'Packing'} search={true}/>
         <FlatList
           data={packingData?.data || {}}
-          keyExtractor={item => item.key}
+          keyExtractor={item => item.id}
           renderItem={({ item }) => <PackingListItem item={item} />}
           ListHeaderComponent={
             <>

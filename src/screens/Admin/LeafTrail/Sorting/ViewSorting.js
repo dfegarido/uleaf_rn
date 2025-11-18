@@ -214,6 +214,16 @@ const ReceivedPlantsTab = ({itemDetails, openTagAs}) => (
   />
 );
 
+const SortedPlantsTab = ({itemDetails, openTagAs}) => (
+  <FlatList
+    data={itemDetails}
+    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} />}
+    keyExtractor={item => item.hubReceiverId}
+    style={styles.listContainer}
+    contentContainerStyle={styles.listContent}
+  />
+);
+
 const MissingPlantsTab = ({itemDetails, openTagAs}) => (
   <FlatList
     data={itemDetails}
@@ -233,13 +243,15 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
   const [journeyMishapCount, setJourneyMishapCount] = useState(itemDetails?.journeyMishapCount || 0);
   const [receivedPlantsCount, setReceivedPlantsCount] = useState(itemDetails?.receivedPlantsCount || 0);
+  const [sortedPlantsCount, setsortedPlantsCount] = useState(itemDetails?.sortedPlantsCount || 0);
 
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'Received Plants', count: receivedPlantsCount },
     { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
-    { key: 'sorted', title: 'Sorted Plants', count: journeyMishapCount },
+    { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
+  const [sortedPlantsData, setsortedPlantsData] = useState(itemDetails?.sortedPlantsData || [])
   const [missingPlantsData, setMissingPlantsData] = useState(itemDetails?.missingPlantsData || [])
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
@@ -265,7 +277,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setRoutes([
          { key: 'received', title: 'Received Plants', count: response.receivedPlantsCount },
          { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
-         { key: 'sorted', title: 'Sorted Plants', count: journeyMishapCount },
+         { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
       setMissingPlantsData(response?.missingPlantsData || []);
@@ -284,7 +296,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       case 'missing':
         return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
       case 'sorted':
-        return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
+        return <SortedPlantsTab itemDetails={sortedPlantsData || []} openTagAs={openTagAs} />;
       default:
         return null;
     }
@@ -296,7 +308,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
     try {
       setIsLoading(true);
       const addTrayNumber = await addSortingTrayNumber({
-        orderIds: receivedPlantsData.map(i => i.id),
+        orderIds: sortedPlantsData.map(i => i.id),
         sortingTrayNumber: trayNumber,
       });
 
@@ -424,13 +436,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1,
     borderColor: '#CDD3D4', paddingHorizontal: 15, justifyContent: 'flex-start',
   },
-  tabItem: { alignItems: 'center', paddingTop: 8, marginRight: 24, minWidth: 100 },
+  tabItem: { alignItems: 'center', paddingTop: 8, marginRight: 10, minWidth: 100 },
   tabContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 24, marginBottom: 12 },
-  tabText: { fontFamily: 'Inter', fontSize: 18, color: '#647276' },
-  tabTextFocused: { fontFamily: 'Inter', fontSize: 18, fontWeight: '600', color: '#202325' },
+  tabText: { fontFamily: 'Inter', fontSize: 11, color: '#647276' },
+  tabTextFocused: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#202325' },
   badgeContainer: {
-    backgroundColor: '#E7522F', borderRadius: 10, paddingHorizontal: 6,
-    marginLeft: 8, minWidth: 22, height: 18, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#E7522F', borderRadius: 10, paddingHorizontal: 2,
+    marginLeft: 2, minWidth: 22, height: 18, justifyContent: 'center', alignItems: 'center',
   },
   badgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   indicator: { height: 3, width: '100%', backgroundColor: '#202325' },
