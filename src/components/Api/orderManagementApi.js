@@ -166,9 +166,9 @@ export const getBuyerOrdersGroupedApi = async (params = {}) => {
 /**
  * Get detailed information for a specific order
  * @param {Object} params - Query parameters
- * @param {string} params.orderId - Order ID (backend may still require transactionNumber+plantCode)
- * @param {string} params.transactionNumber - Transaction number (required with plantCode)
- * @param {string} params.plantCode - Plant code (required with transactionNumber)
+ * @param {string} params.orderId - Order ID (legacy mode)
+ * @param {string} params.transactionNumber - Transaction number (required)
+ * @param {string} params.plantCode - Plant code (optional - if not provided, backend returns first product)
  * @returns {Promise<Object>} Order detail response with comprehensive information and images
  */
 export const getOrderDetailApi = async (params = {}) => {
@@ -176,10 +176,10 @@ export const getOrderDetailApi = async (params = {}) => {
     const authToken = await getStoredAuthToken();
 
     // Check if we have required parameters for one of the valid modes:
-    // Mode 1: transactionNumber + plantCode for specific plant lookup
+    // Mode 1: transactionNumber (plantCode is optional - backend returns first product if not provided)
     // Mode 2: orderId for legacy order lookup
-    if (!(params.transactionNumber && params.plantCode) && !params.orderId) {
-      throw new Error('Either both transactionNumber+plantCode OR orderId is required');
+    if (!params.transactionNumber && !params.orderId) {
+      throw new Error('Either transactionNumber OR orderId is required');
     }
     
     const queryParams = new URLSearchParams();
@@ -213,9 +213,22 @@ export const getOrderDetailApi = async (params = {}) => {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.log('getOrderDetailApi - Error response:', errorData);
-      throw new Error(
-        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
-      );
+      
+      // Preserve availablePlantCodes in the error response for retry logic
+      const errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      const errorResponse = {
+        success: false,
+        error: errorMessage,
+        availablePlantCodes: errorData.availablePlantCodes || [],
+        data: errorData // Include full error data for debugging
+      };
+      
+      // If we have availablePlantCodes, return them for retry logic
+      if (errorData.availablePlantCodes && errorData.availablePlantCodes.length > 0) {
+        console.log('⚠️ Error includes availablePlantCodes:', errorData.availablePlantCodes);
+      }
+      
+      return errorResponse;
     }
 
     const data = await response.json();
@@ -229,6 +242,7 @@ export const getOrderDetailApi = async (params = {}) => {
     return {
       success: false,
       error: error.message || 'An error occurred while fetching order details',
+      availablePlantCodes: [],
     };
   }
 };
@@ -529,23 +543,85 @@ export const getCreditRequestDetailApi = async (params = {}) => {
 };
 
 /**
+ * Get invoice PDF as base64 for viewing (without sending email)
+ * @param {Object} params - Query parameters
+ * @param {string} params.transactionNumber - Transaction number (required)
+ * @param {string} params.plantCode - Plant code (optional - if not provided, shows all products in order)
+ * @returns {Promise<Object>} Invoice PDF response with base64 data
+ */
+export const getInvoicePdfApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    if (!params.transactionNumber) {
+      throw new Error('transactionNumber is required');
+    }
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('transactionNumber', params.transactionNumber);
+    if (params.plantCode) {
+      queryParams.append('plantCode', params.plantCode);
+    }
+    queryParams.append('view', 'true'); // Request view mode (base64 PDF)
+    
+    const url = `${API_ENDPOINTS.GENERATE_INVOICE}?${queryParams.toString()}`;
+    console.log('📄 Fetching invoice PDF for viewing:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    // Parse JSON response
+    const data = await response.json();
+    
+    return {
+      success: data.success || true,
+      message: data.message || 'Invoice generated successfully',
+      pdfBase64: data.pdfBase64 || '',
+      filename: data.filename || '',
+      transactionNumber: data.transactionNumber || params.transactionNumber,
+      plantCode: data.plantCode || params.plantCode,
+    };
+  } catch (error) {
+    console.error('❌ Get invoice PDF API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching invoice',
+    };
+  }
+};
+
+/**
  * Generate and send invoice PDF via email for a Ready to Fly order
  * @param {Object} params - Query parameters
  * @param {string} params.transactionNumber - Transaction number (required)
- * @param {string} params.plantCode - Plant code (required)
+ * @param {string} params.plantCode - Plant code (optional - if not provided, sends invoice for all products)
  * @returns {Promise<Object>} Invoice email response
  */
 export const generateInvoiceApi = async (params = {}) => {
   try {
     const authToken = await getStoredAuthToken();
     
-    if (!params.transactionNumber || !params.plantCode) {
-      throw new Error('transactionNumber and plantCode are required');
+    if (!params.transactionNumber) {
+      throw new Error('transactionNumber is required');
     }
     
     const queryParams = new URLSearchParams();
     queryParams.append('transactionNumber', params.transactionNumber);
-    queryParams.append('plantCode', params.plantCode);
+    if (params.plantCode) {
+      queryParams.append('plantCode', params.plantCode);
+    }
+    // Note: view parameter is not included, so backend will send email
     
     const url = `${API_ENDPOINTS.GENERATE_INVOICE}?${queryParams.toString()}`;
     console.log('📧 Sending invoice via email:', url);

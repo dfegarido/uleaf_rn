@@ -15,6 +15,7 @@ import LiveScreen from '../../screens/Buyer/Live/LiveScreen'; // Disabled for no
 import OngoingLiveListScreen from '../../screens/Buyer/Live/OngoingLiveListScreen';
 import UpcomingLiveListScreen from '../../screens/Buyer/Live/UpcomingLiveListScreen';
 import { OrderDetailsScreen } from '../../screens/Buyer/Orders';
+import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
@@ -251,6 +252,11 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="OrderDetailsScreen"
         component={OrderDetailsScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="InvoiceViewScreen"
+        component={InvoiceViewScreen}
         options={{headerShown: false}}
       />
       <Stack.Screen

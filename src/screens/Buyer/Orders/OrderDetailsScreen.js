@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import {getOrderDetailApi, generateInvoiceApi} from '../../../components/Api/orderManagementApi';
+import {getOrderDetailApi} from '../../../components/Api/orderManagementApi';
 
 // Import icons
 import BackIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -132,18 +132,17 @@ const OrderDetailsScreen = () => {
 
   // Always try to fetch detailed data first if we have valid parameters for the API
   // The API supports two modes:
-  // 1. transactionNumber + plantCode for specific plant lookup
+  // 1. transactionNumber (plantCode is optional - backend will return first product if not provided)
   // 2. orderId for legacy order lookup
-  const hasTransactionAndPlant = !!(orderData && 
-    (orderData.transactionNumber || orderData?.fullOrderData?.transactionNumber) && 
-    (orderData.plant?.code || orderData.plantCode || orderData?.product?.plantCode || orderData?.fullOrderData?.products?.[0]?.plantCode));
+  const hasTransactionNumber = !!(orderData && 
+    (orderData.transactionNumber || orderData?.fullOrderData?.transactionNumber));
   
   const hasOrderId = !!(orderData && (orderData.id || orderData?.fullOrderData?.id));
-  const canFetchDetail = hasTransactionAndPlant || hasOrderId;
+  const canFetchDetail = hasTransactionNumber || hasOrderId;
   
   console.log('OrderDetailsScreen - Can fetch details:', {
     canFetchDetail,
-    hasTransactionAndPlant,
+    hasTransactionNumber,
     hasOrderId,
     orderDataKeys: orderData ? Object.keys(orderData) : 'none'
   });
@@ -155,15 +154,18 @@ const OrderDetailsScreen = () => {
 
           // Determine the best identifier to use with proper null checks
           apiParams.transactionNumber = orderData?.fullOrderData?.transactionNumber || orderData?.transactionNumber;
-          // Prefer passing the plantCode so backend returns the per-plant record
-          apiParams.plantCode = orderData?.plant?.code || orderData?.plantCode || orderData?.product?.plantCode || orderData?.fullOrderData?.products?.[0]?.plantCode;
+          // Try to get plantCode, but it's optional now (backend will return first product if not provided)
+          const extractedPlantCode = orderData?.plant?.code || orderData?.plantCode || orderData?.product?.plantCode || orderData?.fullOrderData?.products?.[0]?.plantCode;
+          if (extractedPlantCode) {
+            apiParams.plantCode = extractedPlantCode;
+          }
 
           console.log('Fetching order details with params:', apiParams);
 
-          // Validate that we have the required parameters
-          if (!apiParams.transactionNumber || !apiParams.plantCode) {
+          // Validate that we have transactionNumber (plantCode is optional)
+          if (!apiParams.transactionNumber) {
             console.log('Missing required API parameters:', apiParams);
-            throw new Error('Missing required transactionNumber or plantCode for API call');
+            throw new Error('Missing required transactionNumber for API call');
           }
 
           // Use same API for all tabs - getOrderDetailApi handles all order types
@@ -171,9 +173,16 @@ const OrderDetailsScreen = () => {
           response = await getOrderDetailApi(apiParams);
           
           // If API returns error with availablePlantCodes, try with the first available plantCode
-          if (!response.success && response.data?.availablePlantCodes && response.data.availablePlantCodes.length > 0) {
-            console.log('⚠️ PlantCode mismatch detected. Retrying with available plantCode:', response.data.availablePlantCodes[0]);
-            apiParams.plantCode = response.data.availablePlantCodes[0];
+          if (!response.success && response.availablePlantCodes && response.availablePlantCodes.length > 0) {
+            console.log('⚠️ PlantCode mismatch detected. Retrying with available plantCode:', response.availablePlantCodes[0]);
+            apiParams.plantCode = response.availablePlantCodes[0];
+            response = await getOrderDetailApi(apiParams);
+          }
+          
+          // If still no success and we have availablePlantCodes, try without plantCode (backend will return first product)
+          if (!response.success && response.availablePlantCodes && response.availablePlantCodes.length > 0) {
+            console.log('⚠️ Retrying without plantCode (backend will return first product)');
+            delete apiParams.plantCode;
             response = await getOrderDetailApi(apiParams);
           }
           
@@ -684,46 +693,26 @@ const OrderDetailsScreen = () => {
     Alert.alert('Copied', `${label} copied to clipboard: ${text}`);
   };
 
-  const handleDownloadInvoice = async () => {
-    try {
-      if (!order) {
-        Alert.alert('Error', 'Order information not available');
-        return;
-      }
-
-      const transactionNumber = order.invoiceNumber || orderData?.transactionNumber || orderData?.fullOrderData?.transactionNumber;
-      const plantCode = order.plant?.code || orderData?.plantCode || orderData?.product?.plantCode;
-
-      if (!transactionNumber || !plantCode) {
-        Alert.alert('Error', 'Missing order information. Cannot generate invoice.');
-        return;
-      }
-
-      Alert.alert('Sending Invoice', 'Please wait while the invoice is being sent to your email...', [], { cancelable: false });
-
-      // Generate and send invoice via email
-      const invoiceResponse = await generateInvoiceApi({
-        transactionNumber,
-        plantCode
-      });
-
-      if (!invoiceResponse.success) {
-        Alert.alert('Error', invoiceResponse.error || 'Failed to send invoice');
-        return;
-      }
-
-      // Success message
-      const emailAddress = invoiceResponse.sentTo || invoiceResponse.details?.sentTo || 'your email';
-      Alert.alert(
-        'Invoice Sent',
-        `Invoice has been sent successfully to:\n\n${emailAddress}\n\nPlease check your email inbox.`,
-        [{ text: 'OK' }]
-      );
-      
-    } catch (error) {
-      console.error('Error sending invoice:', error);
-      Alert.alert('Error', error.message || 'Failed to send invoice');
+  const handleViewInvoice = () => {
+    if (!order) {
+      Alert.alert('Error', 'Order information not available');
+      return;
     }
+
+    const transactionNumber = order.invoiceNumber || orderData?.transactionNumber || orderData?.fullOrderData?.transactionNumber;
+
+    if (!transactionNumber) {
+      Alert.alert('Error', 'Missing transaction number. Cannot view invoice.');
+      return;
+    }
+
+    // Navigate to Invoice View Screen
+    // Invoice now shows ALL products from the transaction (grouped by transaction number)
+    // plantCode is no longer needed - backend will show all products
+    navigation.navigate('InvoiceViewScreen', {
+      transactionNumber
+      // plantCode is intentionally omitted - invoice shows all products
+    });
   };
 
   const renderCountryFlag = (countryCode) => {
@@ -1131,12 +1120,12 @@ const OrderDetailsScreen = () => {
             </TouchableOpacity>
           )}
           
-          {/* Hide Send Invoice button for Pay to Board */}
+          {/* Hide View Invoice button for Pay to Board */}
           {activeTab !== 'Pay to Board' && (
-            <TouchableOpacity style={styles.invoiceButton} onPress={handleDownloadInvoice}>
+            <TouchableOpacity style={styles.invoiceButton} onPress={handleViewInvoice}>
               <DownloadIcon width={24} height={24} />
               <View style={styles.buttonTextContainer}>
-                <Text style={styles.buttonText}>Send Invoice</Text>
+                <Text style={styles.buttonText}>View Invoice</Text>
               </View>
             </TouchableOpacity>
           )}
