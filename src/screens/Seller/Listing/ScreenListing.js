@@ -5,7 +5,6 @@ import {
   Alert,
   Dimensions,
   Image,
-  Modal,
   Platform,
   RefreshControl,
   SafeAreaView,
@@ -14,7 +13,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
@@ -552,8 +551,8 @@ const ScreenListing = ({navigation}) => {
         if (activeTab === 'Live') {
           // Live tab should only show listings with status "Live" AND isActiveLiveListing === true
           const isLiveStatus = (listing.status || '').trim() === 'Live';
-          const isActiveLive = listing.isActiveLiveListing === true;
-          return isLiveStatus && isActiveLive;
+          // const isActiveLive = listing.isActiveLiveListing === true;
+          return isLiveStatus;
         }
 
         return true;
