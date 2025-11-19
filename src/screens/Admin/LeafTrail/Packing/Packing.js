@@ -7,6 +7,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -16,37 +17,39 @@ import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
 import { getAdminLeafTrailPacking } from '../../../../components/Api/getAdminLeafTrail';
 
-const PackingListItem = ({ item }) => (
-  <View style={styles.listItemContainer}>
-    {/* Top card with tray info */}
-    <View style={styles.card}>
-      <View style={styles.trayIconCircle}>
-        <TrayIcon />
+const PackingListItem = ({ item, navigation }) => (
+  <TouchableOpacity onPress={() => navigation.navigate('ViewPackingScreen', { item })}>
+    <View style={styles.listItemContainer}>
+      {/* Top card with tray info */}
+      <View style={styles.card}>
+        <View style={styles.trayIconCircle}>
+          <TrayIcon />
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={styles.boxNumber}>{item.sortingTrayNumber}</Text>
+          <Text style={styles.plantCount}>{item.sortedPlantsCount}<Text style={{ color: '#556065' }}> plant(s)</Text></Text>
+        </View>
       </View>
-      <View style={styles.cardContent}>
-        <Text style={styles.boxNumber}>{item.sortingTrayNumber}</Text>
-        <Text style={styles.plantCount}>{item.sortedPlantsCount}<Text style={{ color: '#556065' }}> plant(s)</Text></Text>
-      </View>
-    </View>
 
-    {/* Details section with user info */}
-    <View style={styles.detailsContainer}>
-        <View style={styles.flightDetailsRow}>
-            <AirplaneIcon />
-            <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
-        </View>
-        <View style={styles.userRow}>
-            <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
-            <View>
-                <View style={styles.userNameRow}>
-                    <Text style={styles.userName}>{item.name}</Text>
-                    <Text style={styles.userHandle}>{item.username}</Text>
-                </View>
-                <Text style={styles.userRole}>Receiver</Text>
-            </View>
-        </View>
+      {/* Details section with user info */}
+      <View style={styles.detailsContainer}>
+          <View style={styles.flightDetailsRow}>
+              <AirplaneIcon />
+              <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
+          </View>
+          <View style={styles.userRow}>
+              <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+              <View>
+                  <View style={styles.userNameRow}>
+                      <Text style={styles.userName}>{item.name}</Text>
+                      <Text style={styles.userHandle}>{item.username}</Text>
+                  </View>
+                  <Text style={styles.userRole}>Receiver</Text>
+              </View>
+          </View>
+      </View>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 
@@ -89,7 +92,7 @@ const PackingScreen = ({navigation}) => {
         <FlatList
           data={packingData?.data || {}}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => <PackingListItem item={item} />}
+          renderItem={({ item }) => <PackingListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
               <FilterBar />

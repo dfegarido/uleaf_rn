@@ -223,6 +223,34 @@ export const getAdminLeafTrailPacking = async () => {
   }
 };
 
+export const getOrdersBySortingTray = async (trayNumber) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersBySortingTray?sortingTrayNumber=' + trayNumber,
+      {
+        method: 'GET', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('getOrdersBySortingTray error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
 export const getAdminLeafTrailShipping = async () => {
   try {
     const token = await getStoredAuthToken();

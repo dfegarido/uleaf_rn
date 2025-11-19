@@ -22,6 +22,7 @@ import UserManagement from '../../screens/Admin/Home/UserManagement';
 import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
 import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
+import ViewPackingScreen from '../../screens/Admin/LeafTrail/Packing/ViewPacking';
 import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
 import ScanQRScreen from '../../screens/Admin/LeafTrail/ScanQR/ScanQR';
 import ShippingScreen from '../../screens/Admin/LeafTrail/Shipping/Shipping';
@@ -38,6 +39,15 @@ import {
 // import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 // import SimpleTaxonomy from '../../screens/Admin/Taxonomy/SimpleTaxonomy';
 // import TaxonomySimple from '../../screens/Admin/Taxonomy/TaxonomySimple';
+import AmountOffPlants from '../../screens/Admin/Discounts/AmountOffPlants';
+import AmountOffPlantsPercentage from '../../screens/Admin/Discounts/AmountOffPlantsPercentage';
+import BuyXGetY from '../../screens/Admin/Discounts/BuyXGetY';
+import Discounts from '../../screens/Admin/Discounts/Discounts';
+import EditDiscount from '../../screens/Admin/Discounts/EditDiscount';
+import EventGift from '../../screens/Admin/Discounts/EventGift';
+import EventGiftFixed from '../../screens/Admin/Discounts/EventGiftFixed';
+import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
+import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
 import AddTaxonomy from '../../screens/Admin/Taxonomy/AddTaxonomy';
 import AddToTaxonomyScreen from '../../screens/Admin/Taxonomy/AddToTaxonomyScreen';
@@ -45,18 +55,9 @@ import EditSpecieScreen from '../../screens/Admin/Taxonomy/EditSpecieScreen';
 import EditTaxonomy from '../../screens/Admin/Taxonomy/EditTaxonomy';
 import ImportTaxonomyScreen from '../../screens/Admin/Taxonomy/ImportTaxonomyScreen';
 import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
-import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
-import Discounts from '../../screens/Admin/Discounts/Discounts';
-import AmountOffPlants from '../../screens/Admin/Discounts/AmountOffPlants';
-import AmountOffPlantsPercentage from '../../screens/Admin/Discounts/AmountOffPlantsPercentage';
-import BuyXGetY from '../../screens/Admin/Discounts/BuyXGetY';
-import EventGift from '../../screens/Admin/Discounts/EventGift';
-import EventGiftFixed from '../../screens/Admin/Discounts/EventGiftFixed';
-import EditDiscount from '../../screens/Admin/Discounts/EditDiscount';
-import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
-import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 import { ChatScreen } from '../../screens/ChatScreen';
 import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
+import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -175,6 +176,7 @@ function AdminTabs() {
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
      <Stack.Screen name="LeafTrailSortingAdminScreen" options={{headerShown: false}} component={SortingScreen} />
      <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
+     <Stack.Screen name="ViewPackingScreen" options={{headerShown: false}} component={ViewPackingScreen} />
      <Stack.Screen name="LeafTrailShippingAdminScreen" options={{headerShown: false}} component={ShippingScreen} />
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
      <Stack.Screen name="LeafTrailScanQRAdminScreen" options={{headerShown: false}} component={ScanQRScreen} />
