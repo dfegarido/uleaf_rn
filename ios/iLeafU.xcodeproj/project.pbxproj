@@ -511,7 +511,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = P99A352WVG;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = iLeafU/Info.plist;
@@ -521,7 +521,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.22;
+				MARKETING_VERSION = 1.0.23;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -542,7 +542,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = P99A352WVG;
 				INFOPLIST_FILE = iLeafU/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "I Leaf U";
@@ -551,8 +551,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.22;
-				"MARKETING_VERSION[sdk=iphoneos*]" = 1.0.22;
+				MARKETING_VERSION = 1.0.23;
+				"MARKETING_VERSION[sdk=iphoneos*]" = 1.0.23;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

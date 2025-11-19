@@ -1,7 +1,33 @@
 // API Configuration for local and production environments
 
-// Set this to true for local development, false for production
-const USE_LOCAL_API = false;
+// Automatically detect environment based on __DEV__ flag and NODE_ENV
+// This prevents accidentally using local API in production builds
+// __DEV__ is automatically false in production builds (release mode)
+// NODE_ENV can be set via environment variable for additional control
+const isDevelopment = __DEV__ === true || process.env.NODE_ENV === 'development';
+const isProduction = __DEV__ === false || process.env.NODE_ENV === 'production';
+
+// Use local API only in development mode
+// In production builds, __DEV__ is always false, so this will always be false
+// Note: This is a const, but can be overridden via setApiEnvironment for runtime switching (dev only)
+let USE_LOCAL_API = isDevelopment && !isProduction;
+
+// Safety check: If somehow USE_LOCAL_API is true in a production build, force it to false
+// This prevents the issue where local API is accidentally used in production
+if (!__DEV__ && USE_LOCAL_API) {
+  console.error('⚠️ CRITICAL: USE_LOCAL_API was true in production build! Forcing to false.');
+  USE_LOCAL_API = false; // Force to false in production builds
+}
+
+// Log the API configuration (only in development)
+if (__DEV__) {
+  console.log('🔧 API Configuration:', {
+    __DEV__,
+    NODE_ENV: process.env.NODE_ENV,
+    USE_LOCAL_API,
+    environment: USE_LOCAL_API ? 'LOCAL DEVELOPMENT' : 'PRODUCTION',
+  });
+}
 
 // Local development endpoints (Firebase Functions Emulator)
 // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
@@ -101,7 +127,14 @@ const getBaseUrl = () => {
 };
 
 // Helper function to dynamically switch API environment
+// WARNING: This only works in development mode. In production, it will be ignored.
 export const setApiEnvironment = (useLocal) => {
+  // Prevent switching to local API in production builds
+  if (!__DEV__ && useLocal) {
+    console.error('⚠️ Cannot switch to LOCAL API in production build! Ignoring request.');
+    return;
+  }
+  
   USE_LOCAL_API = useLocal;
   // Environment switch - minimal logging
   console.info(`API environment switched to: ${useLocal ? 'LOCAL' : 'PROD'}`);
