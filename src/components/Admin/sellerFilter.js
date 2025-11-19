@@ -90,7 +90,7 @@ const SellerFilter = ({ isVisible, onClose, onSelectSeller, sellers }) => {
                 {/* Action Button */}
                 <View style={styles.actionContainer}>
                   <TouchableOpacity style={styles.viewAllButton} onPress={onClose}>
-                    <Text style={styles.viewAllButtonText}>Update Schedule</Text>
+                    <Text style={styles.viewAllButtonText}>View</Text>
                   </TouchableOpacity>
                 </View>
 

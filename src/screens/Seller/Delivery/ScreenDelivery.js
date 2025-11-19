@@ -1,55 +1,48 @@
 /* eslint-disable react/self-closing-comp */
 /* eslint-disable react-native/no-inline-styles */
-import React, {useState, useRef, useEffect, useContext} from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Image,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  Platform,
-  Modal,
-  Animated,
-  Alert,
-  RefreshControl,
-  ActivityIndicator,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useFocusEffect} from '@react-navigation/native';
-import {useIsFocused} from '@react-navigation/native';
-import FileViewer from 'react-native-file-viewer';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
-import {globalStyles} from '../../../assets/styles/styles';
-import OrderActionSheet from '../Order/components/OrderActionSheet';
 import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
-import {InputSearch} from '../../../components/InputGroup/Left';
-import {AuthContext} from '../../../auth/AuthProvider';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import React, { useContext, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { globalStyles } from '../../../assets/styles/styles';
+import { AuthContext } from '../../../auth/AuthProvider';
+import { InputSearch } from '../../../components/InputGroup/Left';
+import { retryAsync } from '../../../utils/utils';
+import OrderActionSheet from '../Order/components/OrderActionSheet';
 
 import {
+  getDeliveryExportApi,
+  getListingTypeApi,
   getOrderListingApi,
   getSortApi,
-  getListingTypeApi,
-  getDeliveryExportApi,
   postDeliverToHubApi,
 } from '../../../components/Api';
 
-import LiveIcon from '../../../assets/images/live.svg';
-import AvatarIcon from '../../../assets/images/avatar.svg';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
-import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import ShareIcon from '../../../assets/icons/accent/share-regular.svg';
+import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import RightIcon from '../../../assets/icons/greylight/caret-right-regular.svg';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import AvatarIcon from '../../../assets/images/avatar.svg';
+import LiveIcon from '../../../assets/images/live.svg';
 
-import DeliverTableList from './components/DeliverTableList';
 import DeliverActionSheetEdit from './components/DeliverActionSheetEdit';
+import DeliverTableList from './components/DeliverTableList';
 import DeliverTableSkeleton from './components/DeliverTableSkeleton';
 
 // Export modal icons
@@ -671,7 +664,7 @@ const ScreenDelivery = ({navigation}) => {
             />
           </View>
           <View style={styles.headerIcons}>
-            {userInfo.liveFlag != 'No' && (
+            {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
                 onPress={() => {}}
                 style={styles.iconButton}>

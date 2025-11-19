@@ -1,3 +1,4 @@
+import moment from 'moment';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,10 +16,11 @@ import {
 } from 'react-native';
 import { TabView } from 'react-native-tab-view';
 import Options from '../../../../assets/admin-icons/options.svg';
+import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
+import { addSortingTrayNumber, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 
@@ -28,6 +30,9 @@ const Header = ({ title, navigation }) => (
       <BackSolidIcon />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>{title}</Text>
+    <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen', {leafTrailStatus: 'sorted'})}>
+         <ScanQrIcon />
+    </TouchableOpacity>
   </View>
 );
 
@@ -41,7 +46,14 @@ const UserProfile = ({ user }) => (
   </View>
 );
 
-const GreenhouseInputs = () => (
+const GreenhouseInputs = ({addTrayNumber, itemDetails}) => { 
+  const [trayNumber, setTrayNumber] = useState(itemDetails?.sortingTrayNumber || '');
+  
+  const addTray = () => {
+    addTrayNumber(trayNumber)
+  }
+  
+  return (
     <View style={styles.inputsContainer}>
         <View style={styles.inputWrapper}>
             <TrayIcon />
@@ -49,13 +61,15 @@ const GreenhouseInputs = () => (
                 placeholder="Tray Number"
                 placeholderTextColor="#647276"
                 style={styles.input}
+                value={trayNumber}
+                onChangeText={setTrayNumber}
             />
         </View>
-        <TouchableOpacity style={styles.button}>
-            <Text style={styles.buttonText}>Add</Text>
+        <TouchableOpacity style={styles.button} onPress={() => addTray()}>
+            <Text style={styles.buttonText}>{trayNumber ? 'Update' : 'Add'}</Text>
         </TouchableOpacity>
     </View>
-);
+)};
 
 const DeliveryDetails = ({ details }) => (
     <View style={styles.deliveryContainer}>
@@ -67,7 +81,9 @@ const DeliveryDetails = ({ details }) => (
             </View>
             <View style={styles.infoRow}>
                 <Text style={styles.label}>Plant Flight</Text>
-                <Text style={styles.value}>{details.flightDate}</Text>
+                <Text style={styles.value}>{ details.flightDate
+                                      ? moment(details.flightDate).format('MMM DD, YYYY')
+                                      : 'Date TBD' }</Text>
             </View>
         </View>
     </View>
@@ -198,6 +214,16 @@ const ReceivedPlantsTab = ({itemDetails, openTagAs}) => (
   />
 );
 
+const SortedPlantsTab = ({itemDetails, openTagAs}) => (
+  <FlatList
+    data={itemDetails}
+    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} />}
+    keyExtractor={item => item.hubReceiverId}
+    style={styles.listContainer}
+    contentContainerStyle={styles.listContent}
+  />
+);
+
 const MissingPlantsTab = ({itemDetails, openTagAs}) => (
   <FlatList
     data={itemDetails}
@@ -211,17 +237,21 @@ const MissingPlantsTab = ({itemDetails, openTagAs}) => (
 // --- Main Screen Component ---
 const SortingDetailsScreen = ({ navigation, route }) => {
   // const itemDetails = route?.params?.item || {};
+  console.log('route?.params?.item', route?.params?.item);
   
   const [index, setIndex] = useState(0);
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
   const [journeyMishapCount, setJourneyMishapCount] = useState(itemDetails?.journeyMishapCount || 0);
   const [receivedPlantsCount, setReceivedPlantsCount] = useState(itemDetails?.receivedPlantsCount || 0);
+  const [sortedPlantsCount, setsortedPlantsCount] = useState(itemDetails?.sortedPlantsCount || 0);
 
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'Received Plants', count: receivedPlantsCount },
     { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
+    { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
+  const [sortedPlantsData, setsortedPlantsData] = useState(itemDetails?.sortedPlantsData || [])
   const [missingPlantsData, setMissingPlantsData] = useState(itemDetails?.missingPlantsData || [])
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
@@ -247,6 +277,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setRoutes([
          { key: 'received', title: 'Received Plants', count: response.receivedPlantsCount },
          { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
+         { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
       setMissingPlantsData(response?.missingPlantsData || []);
@@ -264,10 +295,35 @@ const SortingDetailsScreen = ({ navigation, route }) => {
         return <ReceivedPlantsTab itemDetails={receivedPlantsData || []} openTagAs={openTagAs} />;
       case 'missing':
         return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
+      case 'sorted':
+        return <SortedPlantsTab itemDetails={sortedPlantsData || []} openTagAs={openTagAs} />;
       default:
         return null;
     }
   };
+
+  const addTrayNumber = async (trayNumber) => {
+    console.log('trayNumber:', trayNumber);
+
+    try {
+      setIsLoading(true);
+      const addTrayNumber = await addSortingTrayNumber({
+        orderIds: sortedPlantsData.map(i => i.id),
+        sortingTrayNumber: trayNumber,
+      });
+
+      if (addTrayNumber.success) {
+        setIsLoading(false);
+        Alert.alert('Success', 'Tray number added successfully!');
+      } else {
+        setIsLoading(false);
+        Alert.alert('Error', addTrayNumber.message || '');
+      }
+    } catch (error) {
+      setIsLoading(false);
+      Alert.alert('Error', error.message || '');
+    }
+  }
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -279,7 +335,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
           username: itemDetails?.username || '',
           avatar: itemDetails?.avatar || '',
         }} />
-        <GreenhouseInputs />
+        <GreenhouseInputs itemDetails={itemDetails} addTrayNumber={addTrayNumber}/>
         <DeliveryDetails details={{upsFlight: itemDetails?.upsShippingDate || '', flightDate: itemDetails?.flightDate || '' }} />
       </ScrollView>
 
@@ -380,13 +436,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1,
     borderColor: '#CDD3D4', paddingHorizontal: 15, justifyContent: 'flex-start',
   },
-  tabItem: { alignItems: 'center', paddingTop: 8, marginRight: 24, minWidth: 100 },
+  tabItem: { alignItems: 'center', paddingTop: 8, marginRight: 10, minWidth: 100 },
   tabContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 24, marginBottom: 12 },
-  tabText: { fontFamily: 'Inter', fontSize: 18, color: '#647276' },
-  tabTextFocused: { fontFamily: 'Inter', fontSize: 18, fontWeight: '600', color: '#202325' },
+  tabText: { fontFamily: 'Inter', fontSize: 11, color: '#647276' },
+  tabTextFocused: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#202325' },
   badgeContainer: {
-    backgroundColor: '#E7522F', borderRadius: 10, paddingHorizontal: 6,
-    marginLeft: 8, minWidth: 22, height: 18, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#E7522F', borderRadius: 10, paddingHorizontal: 2,
+    marginLeft: 2, minWidth: 22, height: 18, justifyContent: 'center', alignItems: 'center',
   },
   badgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   indicator: { height: 3, width: '100%', backgroundColor: '#202325' },

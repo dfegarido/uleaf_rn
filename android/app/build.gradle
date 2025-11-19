@@ -26,7 +26,7 @@ react {
 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
-    nodeExecutableAndArgs = ["/Users/darwinfegarido/.nvm/versions/node/v22.15.0/bin/node"]
+    // nodeExecutableAndArgs = ["node"]
     //
     //   The command to run when bundling. By default is 'bundle'
     // bundleCommand = "ram-bundle"
@@ -89,8 +89,8 @@ android {
         applicationId "com.ileafu"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 30
-    versionName "1.0.25"
+    versionCode 25
+    versionName "1.0.21"
     }
     signingConfigs {
         debug {
@@ -120,10 +120,10 @@ android {
         }
     }
 
-    // Enable APK splitting for smaller installation size (disabled for debug to avoid packaging issues)
+    // Enable APK splitting for smaller installation size
     splits {
         abi {
-            enable false  // Disabled to fix packaging errors - can be enabled for release if needed
+            enable true
             reset()
             include "armeabi-v7a", "arm64-v8a"
             universalApk false

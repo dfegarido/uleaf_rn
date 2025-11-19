@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import moment from 'moment';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -44,7 +46,9 @@ const ListItem = ({ item, navigation}) => (
         <View style={styles.detailsContent}>
           {/* <Icon name="sprout-outline" size={24} color="#556065" /> */}
           <AirplaneIcon width={20} height={20} color="#556065"/>
-          <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
+          <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{ item.flightDate
+                      ? moment(item.flightDate).format('MMM DD, YYYY')
+                      : 'Date TBD' }</Text></Text>
         </View>
       </View>
     </View>
@@ -57,23 +61,26 @@ const SortingScreen = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // useEffect hook to fetch data when the component mounts
-  useEffect(() => {
+  // useFocusEffect hook to fetch data when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
       const fetchData = async () => {
-      try {
+        setIsLoading(true);
+        try {
           const response = await getAdminLeafTrailSorting();
-              
           setSortingData(response);
-      } catch (e) {
+        } catch (e) {
           setError(e);
           console.error("Failed to fetch plant data:", e);
-      } finally {
+        } finally {
           setIsLoading(false);
-      }
+        }
       };
   
       fetchData();
-  }, []); // The empty array ensures this effect runs only once
+
+    }, [])
+  );
 
   return (
     // SafeAreaView ensures content is within the screen's safe boundaries, avoiding notches and the status bar.
