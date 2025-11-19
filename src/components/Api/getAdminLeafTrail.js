@@ -165,10 +165,38 @@ export const getAdminLeafTrailSorting = async () => {
   }
 };
 
+export const addLeafTrailBoxNumber = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailBoxNumber',
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('addLeafTrailBoxNumber error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
 export const addSortingTrayNumber = async (data) => {
   try {
     const token = await getStoredAuthToken();
-console.log('token', token);
 
     const response = await fetch(
       'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafSortTray',

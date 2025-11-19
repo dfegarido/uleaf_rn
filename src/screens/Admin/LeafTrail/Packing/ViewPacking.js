@@ -2,6 +2,7 @@ import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -14,12 +15,14 @@ import {
 } from 'react-native';
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
+import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { getOrdersBySortingTray, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
+import { addLeafTrailBoxNumber, getOrdersBySortingTray, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import AssignBoxModal from './AssignBoxModal';
 import TagAsOptions from './TagAs';
 
 const Header = ({ title, navigation }) => (
@@ -28,7 +31,9 @@ const Header = ({ title, navigation }) => (
       <BackSolidIcon />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>{title}</Text>
-    <View style={{ width: 24 }} />
+    <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen', {leafTrailStatus: 'packed'})}>
+             <ScanQrIcon />
+    </TouchableOpacity>
   </View>
 );
 
@@ -77,7 +82,7 @@ const ShippingInfo = ({ upsShipping, plantFlight }) => (
 
 const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
   const setTags = () => {
-    openTagAs(plant.boxNumber || null, plant.id)
+    openTagAs(plant?.packingData?.boxNumber || null, plant.id)
   }
   
   return (
@@ -135,7 +140,6 @@ const ViewPackingScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAssignBoxVisible, setIsAssignBoxVisible] = useState(false);
    
-
   const openTagAs = (hasBox, id) => {
     setHasBoxNumber(!!hasBox);
     setTagAsVisible(!isTagAsVisible);
@@ -146,7 +150,8 @@ const ViewPackingScreen = ({ navigation, route }) => {
     console.log('status:', status);
 
     if (status === 'packing') {
-        console.log('status:', status);
+        setIsAssignBoxVisible(true);
+        setTagAsVisible(!isTagAsVisible);
     } else {
       setIsLoading(true);
       setTagAsVisible(!isTagAsVisible);
@@ -161,6 +166,21 @@ const ViewPackingScreen = ({ navigation, route }) => {
       }  
     }
   }
+
+  const handleSaveBox = async (boxDetails) => {
+    setIsLoading(true);
+    setIsAssignBoxVisible(false);
+    
+    const response = await addLeafTrailBoxNumber({orderIds: [orderId], boxDetails})
+    if (response.success) {
+      await fetchData();
+      setIsLoading(false)
+      Alert.alert('Success');
+    } else {
+      setIsLoading(false)
+      Alert.alert('Error', error.message);
+    }  
+  };
 
   const handleSelectPlant = (plantId) => {
     setSelectedPlants(prevSelected =>
@@ -248,6 +268,11 @@ const ViewPackingScreen = ({ navigation, route }) => {
                   </View>
                 </Modal>
               )}
+      <AssignBoxModal
+        visible={isAssignBoxVisible}
+        onClose={() => setIsAssignBoxVisible(false)}
+        onSave={handleSaveBox}
+      />
     </SafeAreaView>
   );
 };
