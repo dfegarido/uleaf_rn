@@ -1,4 +1,5 @@
 // API Configuration for local and production environments
+import {LOCAL_BASE_URL as ENV_LOCAL_BASE_URL} from '@env';
 
 // Automatically detect environment based on __DEV__ flag and NODE_ENV
 // This prevents accidentally using local API in production builds
@@ -30,9 +31,9 @@ if (__DEV__) {
 }
 
 // Local development endpoints (Firebase Functions Emulator)
-// Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
-// Using actual IP address (192.168.1.6) instead of 10.0.2.2 for better Android emulator connectivity
-const LOCAL_BASE_URL = 'http://localhost:5001/i-leaf-u/us-central1';
+// Loaded from .env file - each team member can configure their own IP address
+// Default fallback if .env is not configured
+const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL;
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
