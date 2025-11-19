@@ -391,7 +391,8 @@ const OrderSummary = ({navigation}) => {
         // Update pagination info
         setTotalOrders(response.total || response.orders.length);
         setTotalPages(response.totalPages || Math.ceil((response.total || response.orders.length) / 50));
-        setCurrentPage(page);
+        // Use backend's currentPage if available, otherwise use the page we requested
+        setCurrentPage(response.currentPage || page);
 
         // Use garden options from backend response (includes all gardens from filtered orders, not just current page)
         // Fallback to deriving from current page if backend doesn't provide gardens
