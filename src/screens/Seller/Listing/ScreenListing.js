@@ -611,7 +611,24 @@ const ScreenListing = ({navigation}) => {
           .filter(matchesActiveFilters);
       };
 
-      let aggregatedListings = processResponseListings(response?.listings);
+      // Helper function to deduplicate listings by plantCode (or id as fallback)
+      const deduplicateListings = (listings) => {
+        const seen = new Set();
+        return listings.filter(listing => {
+          const uniqueKey = listing.plantCode || listing.id || listing._id;
+          if (!uniqueKey) {
+            // If no unique identifier, include it (shouldn't happen, but handle gracefully)
+            return true;
+          }
+          if (seen.has(uniqueKey)) {
+            return false; // Duplicate, exclude it
+          }
+          seen.add(uniqueKey);
+          return true; // First occurrence, include it
+        });
+      };
+
+      let aggregatedListings = deduplicateListings(processResponseListings(response?.listings));
       let nextToken = response?.nextPageToken || null;
 
       let safetyCounter = 0;
@@ -625,7 +642,8 @@ const ScreenListing = ({navigation}) => {
         const previousToken = nextToken;
         const additionalResponse = await fetchPageWithToken(nextToken);
         const additionalListings = processResponseListings(additionalResponse?.listings);
-        aggregatedListings = aggregatedListings.concat(additionalListings);
+        // Deduplicate when concatenating to prevent duplicates
+        aggregatedListings = deduplicateListings(aggregatedListings.concat(additionalListings));
         nextToken = additionalResponse?.nextPageToken || null;
         safetyCounter += 1;
 
@@ -663,8 +681,15 @@ const ScreenListing = ({navigation}) => {
           (displayedCount + (currentPage - 1) * SELLER_LISTINGS_PAGE_SIZE);
       } else {
         // For filtered tabs (Active, Sold, Out of Stock, etc.), we need to count all filtered results
-        // Start counting from the aggregated listings we already have
-        totalFilteredCount = aggregatedListings.length;
+        // Track unique listings to prevent duplicate counting
+        const uniqueListingKeys = new Set();
+        aggregatedListings.forEach(listing => {
+          const uniqueKey = listing.plantCode || listing.id || listing._id;
+          if (uniqueKey) {
+            uniqueListingKeys.add(uniqueKey);
+          }
+        });
+        totalFilteredCount = uniqueListingKeys.size;
         let countToken = nextToken;
         let countSafety = 0;
         const MAX_TOTAL_FETCHES = 50; // Increased significantly to ensure we count all pages (142 listings / 20 per page = ~7 pages, but we need buffer)
@@ -675,9 +700,18 @@ const ScreenListing = ({navigation}) => {
           try {
             const additionalResponse = await fetchPageWithToken(countToken);
             const additionalListings = processResponseListings(additionalResponse?.listings);
-            totalFilteredCount += additionalListings.length;
+            // Count only unique listings
+            let newUniqueCount = 0;
+            additionalListings.forEach(listing => {
+              const uniqueKey = listing.plantCode || listing.id || listing._id;
+              if (uniqueKey && !uniqueListingKeys.has(uniqueKey)) {
+                uniqueListingKeys.add(uniqueKey);
+                newUniqueCount += 1;
+              }
+            });
+            totalFilteredCount = uniqueListingKeys.size;
 
-            console.log(`🔍 Active tab counting: Fetched page ${countSafety + 2}, got ${additionalListings.length} filtered listings, total so far: ${totalFilteredCount}`);
+            console.log(`🔍 Active tab counting: Fetched page ${countSafety + 2}, got ${additionalListings.length} filtered listings (${newUniqueCount} unique), total so far: ${totalFilteredCount}`);
 
             if (additionalResponse?.nextPageToken) {
               countToken = additionalResponse.nextPageToken;
@@ -705,7 +739,14 @@ const ScreenListing = ({navigation}) => {
             try {
               const additionalResponse = await fetchPageWithToken(countToken);
               const additionalListings = processResponseListings(additionalResponse?.listings);
-              totalFilteredCount += additionalListings.length;
+              // Count only unique listings
+              additionalListings.forEach(listing => {
+                const uniqueKey = listing.plantCode || listing.id || listing._id;
+                if (uniqueKey && !uniqueListingKeys.has(uniqueKey)) {
+                  uniqueListingKeys.add(uniqueKey);
+                }
+              });
+              totalFilteredCount = uniqueListingKeys.size;
               
               if (additionalResponse?.nextPageToken) {
                 countToken = additionalResponse.nextPageToken;
