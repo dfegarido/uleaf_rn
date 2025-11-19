@@ -125,7 +125,7 @@ const ShippingBuddiesIcon = ({width = 96, height = 96}) => (
 const MyShippingBuddiesScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const {userInfo} = useContext(AuthContext);
+  const {userInfo, isLoggedIn} = useContext(AuthContext);
   const [receiverUsername, setReceiverUsername] = useState('');
   const [selectedReceiverId, setSelectedReceiverId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -166,9 +166,13 @@ const MyShippingBuddiesScreen = () => {
   // Fetch joiners and my receiver request on mount and when screen is focused
   useFocusEffect(
     React.useCallback(() => {
-      loadJoiners();
-      loadMyReceiverRequest();
-    }, [])
+      // Only load data if user is logged in
+      // This prevents API calls during/after logout
+      if (isLoggedIn) {
+        loadJoiners();
+        loadMyReceiverRequest();
+      }
+    }, [isLoggedIn])
   );
 
   // Fetch users when modal opens

@@ -1709,8 +1709,16 @@ export const useCheckoutController = () => {
   // Check if user is a joiner with approved receiver
   useEffect(() => {
     const checkJoinerStatus = async () => {
+      // Check if API returned a graceful failure (no token during logout)
+      // If so, skip processing to avoid errors
       try {
         const receiverRequestResult = await getMyReceiverRequestApi();
+        
+        // If API returned gracefully (no token), skip processing
+        if (!receiverRequestResult || receiverRequestResult.success === false && receiverRequestResult.message?.includes('token')) {
+          console.log('[CheckoutController] Skipping joiner check - no token (likely during logout)');
+          return;
+        }
         console.log('[CheckoutController] Receiver request result:', receiverRequestResult);
         
         if (receiverRequestResult?.success && receiverRequestResult?.data?.isJoiner) {

@@ -23,6 +23,7 @@ import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCur
 import { getCurrencySymbol } from '../../../utils/getCurrencySymbol';
 import { roundNumber } from '../../../utils/roundNumber';
 import { retryAsync } from '../../../utils/utils';
+import { useUnreadMessageCount } from '../../../hooks/useUnreadMessageCount';
 import BusinessPerformance from './components/BusinessPerformance';
 import HomeDurationDropdown from './components/HomeDurationDropdown';
 
@@ -55,6 +56,7 @@ const ScreenHome = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const {userInfo} = useContext(AuthContext);
+  const { unreadCount } = useUnreadMessageCount();
 
   // Add state to force image refresh
   const [profileImageKey, setProfileImageKey] = useState(0);
@@ -373,9 +375,13 @@ const ScreenHome = ({navigation}) => {
             }}>
             <View style={styles.msgIcon}>
               <MessageIcon width={40} height={40} />
-              <View style={styles.msgBadge}>
-                {/* <Text style={styles.msgBadgeText}>23</Text> */}
-              </View>
+              {unreadCount > 0 && (
+                <View style={styles.msgBadge}>
+                  <Text style={styles.msgBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text
               style={[globalStyles.textSMGreyLight, globalStyles.textSemiBold]}>
@@ -685,15 +691,24 @@ const styles = StyleSheet.create({
   },
   msgBadge: {
     position: 'absolute',
-    top: -4,
+    top: -6,
     right: -8,
-    backgroundColor: 'red',
+    backgroundColor: '#E7522F',
     borderRadius: 10,
-    paddingHorizontal: 4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   msgBadgeText: {
     fontSize: 10,
-    color: '#fff',
+    fontWeight: '700',
+    fontFamily: 'Inter',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   cardBlack: {
     height: 135,

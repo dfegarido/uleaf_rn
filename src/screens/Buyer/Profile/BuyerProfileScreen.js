@@ -198,7 +198,7 @@ const BuyerProfileScreen = (props) => {
   
   // Local require for reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
-  const {logout, userInfo} = useContext(AuthContext);
+  const {logout, userInfo, isLoggedIn} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState({});
@@ -214,10 +214,12 @@ const BuyerProfileScreen = (props) => {
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (isFocused) {
+    // Only load data if screen is focused AND user is logged in
+    // This prevents API calls during/after logout
+    if (isFocused && isLoggedIn) {
       loadAllProfileData();
     }
-  }, [isFocused]);
+  }, [isFocused, isLoggedIn]);
 
   const loadAllProfileData = async () => {
     setLoading(true);

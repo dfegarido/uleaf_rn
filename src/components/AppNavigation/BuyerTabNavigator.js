@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useUnreadMessageCount } from '../../hooks/useUnreadMessageCount';
 
 // Import buyer screens
 import { ScreenCart } from '../../screens/Buyer/Cart';
@@ -268,8 +269,23 @@ function BuyerTabNavigator() {
   );
 }
 
+// Badge component for displaying unread message count
+const UnreadBadge = ({ count }) => {
+  if (count <= 0) return null;
+  
+  return (
+    <View style={styles.badgeContainer}>
+      <Text style={styles.badgeText}>
+        {count > 99 ? '99+' : count.toString()}
+      </Text>
+    </View>
+  );
+};
+
 function BuyerTabs() {
   const navigation = useNavigation();
+  const { unreadCount } = useUnreadMessageCount();
+  
   return (
     <Tab.Navigator
       initialRouteName="Shop"
@@ -323,10 +339,15 @@ function BuyerTabs() {
                 <OrderIcon width={size} height={size} />
               );
             case 'Chat':
-              return focused ? (
-                <ChatIconSelected width={size} height={size} />
-              ) : (
-                <ChatIcon width={size} height={size} />
+              return (
+                <View style={styles.chatIconContainer}>
+                  {focused ? (
+                    <ChatIconSelected width={size} height={size} />
+                  ) : (
+                    <ChatIcon width={size} height={size} />
+                  )}
+                  <UnreadBadge count={unreadCount} />
+                </View>
               );
           }
         },
@@ -388,6 +409,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#E5E5E5',
+  },
+  chatIconContainer: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    backgroundColor: '#E7522F',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'Inter',
+    textAlign: 'center',
   },
 });
 

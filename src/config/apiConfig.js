@@ -11,7 +11,8 @@ const isProduction = __DEV__ === false || process.env.NODE_ENV === 'production';
 // Use local API only in development mode
 // In production builds, __DEV__ is always false, so this will always be false
 // Note: This is a const, but can be overridden via setApiEnvironment for runtime switching (dev only)
-let USE_LOCAL_API = isDevelopment && !isProduction;
+// FORCE local API in development mo de (__DEV__ === true)
+let USE_LOCAL_API = __DEV__ === true;
 
 // Safety check: If somehow USE_LOCAL_API is true in a production build, force it to false
 // This prevents the issue where local API is accidentally used in production
@@ -20,20 +21,15 @@ if (!__DEV__ && USE_LOCAL_API) {
   USE_LOCAL_API = false; // Force to false in production builds
 }
 
-// Log the API configuration (only in development)
-if (__DEV__) {
-  console.log('🔧 API Configuration:', {
-    __DEV__,
-    NODE_ENV: process.env.NODE_ENV,
-    USE_LOCAL_API,
-    environment: USE_LOCAL_API ? 'LOCAL DEVELOPMENT' : 'PRODUCTION',
-  });
-}
-
 // Local development endpoints (Firebase Functions Emulator)
 // Loaded from .env file - each team member can configure their own IP address
 // Default fallback if .env is not configured
-const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL;
+const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL || 'http://localhost:5001/i-leaf-u/us-central1';
+
+// If LOCAL_BASE_URL is not set, log a warning
+if (__DEV__ && !ENV_LOCAL_BASE_URL) {
+  console.warn('⚠️ LOCAL_BASE_URL not found in .env, using default: http://localhost:5001/i-leaf-u/us-central1');
+}
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -124,7 +120,21 @@ export const GEODATABASE_CONFIG = {
 
 // Get the base URL based on current environment setting
 const getBaseUrl = () => {
-  return USE_LOCAL_API ? LOCAL_BASE_URL : PROD_BASE_URL;
+  const baseUrl = USE_LOCAL_API ? LOCAL_BASE_URL : PROD_BASE_URL;
+  
+  // Log the actual URL being used (only in development, and only once per session)
+  if (__DEV__ && !getBaseUrl._logged) {
+    console.log('🔧 API Base URL:', {
+      USE_LOCAL_API,
+      LOCAL_BASE_URL: LOCAL_BASE_URL || 'NOT SET',
+      PROD_BASE_URL,
+      selectedBaseUrl: baseUrl,
+      environment: USE_LOCAL_API ? 'LOCAL DEVELOPMENT' : 'PRODUCTION',
+    });
+    getBaseUrl._logged = true;
+  }
+  
+  return baseUrl;
 };
 
 // Helper function to dynamically switch API environment
