@@ -26,6 +26,7 @@ import ReceivingIcon from '../../../assets/admin-icons/receiving.svg';
 import SalesReportIcon from '../../../assets/admin-icons/sales-report.svg';
 import ScanQrIcon from '../../../assets/admin-icons/scan-qr.svg';
 import ScheduleIcon from '../../../assets/admin-icons/schedule.svg';
+import FlightDateIcon from '../../../assets/admin-icons/flight-date.svg';
 import ShippedIcon from '../../../assets/admin-icons/shipped.svg';
 import SortingIcon from '../../../assets/admin-icons/sorting.svg';
 import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
@@ -154,6 +155,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
           </IconTile>
           <IconTile title="Schedule">
             <ScheduleIcon width={48} height={48} />
+          </IconTile>
+          <IconTile title="Flight Date" onPress={() => navigation.navigate('FlightDate')}>
+            <FlightDateIcon width={48} height={48} />
           </IconTile>
           <IconTile title="Jungle Acces..." onPress={() => navigation.navigate('JungleAccess')}>
             <JungleAccessIcon width={48} height={48} />

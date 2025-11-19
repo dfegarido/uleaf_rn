@@ -199,6 +199,11 @@ function AdminTabs() {
       {/* Order Summary */}
       <Stack.Screen name="OrderSummary" options={{headerShown: false}} component={require('../../screens/Admin/OrderSummary/OrderSummary').default} />
       
+      {/* Flight Date */}
+      <Stack.Screen name="FlightDate" options={{headerShown: false}} component={require('../../screens/Admin/FlightDate/FlightDate').default} />
+      {/* Flight Date Orders */}
+      <Stack.Screen name="FlightDateOrders" options={{headerShown: false}} component={require('../../screens/Admin/FlightDate/FlightDateOrders').default} />
+      
       {/* Taxonomy Screens */}
       <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />
       <Stack.Screen name="EditTaxonomy" options={{headerShown: false}} component={EditTaxonomy} />
