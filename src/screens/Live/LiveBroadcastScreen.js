@@ -338,8 +338,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       await updateDoc(sessionDocRef, { stickyNote: stickyNoteText });
       setStickyNoteModalVisible(false);
     } catch (err) {
-      console.log('zxcv',  err);
-      Alert.alert('Error', 'Could not save sticky note.');
+      Alert.alert('Error', 'Could not save sticky notes.');
     } finally {
       setIsLoading(false);
     }
@@ -469,7 +468,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
                   <NoteIcon width={32} height={32} />
-                  <Text style={styles.sideActionNotesText}>Note</Text>
+                  <Text style={styles.sideActionNotesText}>Notes</Text>
                 </TouchableOpacity>
             </View>
           </View>
@@ -479,7 +478,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <View style={styles.plantDetails}>
                     <View style={styles.plantName}>
                       <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
-                      <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text>
+                      {/* <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text> */}
+                      <Text style={styles.variegation}></Text>
                     </View>
                     <View style={styles.price}>
                       <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
@@ -497,7 +497,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                       <View style={styles.shipDays}>
                         <TruckIcon width={24} height={24} />
                         {/* Shipping info can be added if available */}
-                        <Text style={styles.shipText}>UPS 2nd Day $50</Text>
+                        <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
                       </View>
                     </View>
                 </View>
@@ -544,14 +544,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               <Text style={styles.modalTitle}>Note</Text>
               <TextInput
                 style={styles.stickyNoteInput}
-                placeholder="Write a note for your viewers..."
+                placeholder="Write a notes for your viewers..."
                 placeholderTextColor="#666"
                 multiline
                 value={stickyNoteText}
                 onChangeText={setStickyNoteText}
               />
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveStickyNote}>
-                <Text style={styles.saveButtonText}>Save Note</Text>
+                <Text style={styles.saveButtonText}>Save Notes</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.closeButton} onPress={() => setStickyNoteModalVisible(false)}>
                 <Text style={styles.closeButtonText}>Close</Text>

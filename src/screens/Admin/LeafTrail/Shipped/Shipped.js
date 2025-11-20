@@ -1,3 +1,4 @@
+import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,71 +13,88 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
-import TrayIcon from '../../../../assets/admin-icons/tray.svg';
+import BarcodeIcon from '../../../../assets/admin-icons/barcode.svg';
+import DimensionIcon from '../../../../assets/admin-icons/dimension.svg';
+import ScaleIcon from '../../../../assets/admin-icons/scale.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailPacking } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailShipped } from '../../../../components/Api/getAdminLeafTrail';
 
-const PackingListItem = ({ item, navigation }) => (
-  <TouchableOpacity onPress={() => navigation.navigate('ViewPackingScreen', { item })}>
+const ShippedListItem = ({ item, navigation }) => (
+  <TouchableOpacity onPress={() => navigation.navigate('ViewShippedScreen', { item })}>
     <View style={styles.listItemContainer}>
-      {/* Top card with tray info */}
+      {/* Top card with tracking info */}
       <View style={styles.card}>
-        <View style={styles.trayIconCircle}>
-          <TrayIcon />
+        <View style={styles.iconCircle}>
+          <BarcodeIcon />
         </View>
         <View style={styles.cardContent}>
-          <Text style={styles.boxNumber}>{item.sortingTrayNumber}</Text>
-          <Text style={styles.plantCount}>{item.sortedPlantsCount}<Text style={{ color: '#556065' }}> plant(s)</Text></Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.trackingNumber}>{item.trackingNumber}</Text>
+            <Text style={styles.plantCount}>{item.shippedPlantsCount} <Text style={{ color: '#556065' }}> plant(s)</Text></Text>
+          </View>
+          <View style={styles.specsRow}>
+            <View style={styles.specItem}>
+              <DimensionIcon />
+              <Text style={styles.specText}>
+                {item?.packingData?.dimensions?.length || 0}x{item?.packingData?.dimensions?.width || 0}x{item?.packingData?.dimensions?.height || 0} in
+              </Text>
+            </View>
+            <View style={styles.specItem}>
+              <ScaleIcon />
+              <Text style={styles.specText}>{item?.packingData?.weight?.value || 0} {item?.packingData?.weight?.unit || ''}</Text>
+            </View>
+          </View>
         </View>
       </View>
 
       {/* Details section with user info */}
       <View style={styles.detailsContainer}>
-          <View style={styles.flightDetailsRow}>
-              <AirplaneIcon />
-              <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
+        <View style={styles.flightDetailsRow}>
+          <AirplaneIcon />
+          <Text style={styles.detailsText}>
+            Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate ? moment(item.flightDate).format('MMM DD, YYYY') : 'Date TBD'}</Text>
+          </Text>
+        </View>
+        <View style={styles.userRow}>
+          <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+          <View>
+            <View style={styles.userNameRow}>
+              <Text style={styles.userName}>{item.name}</Text>
+              <Text style={styles.userHandle}>{item.username}</Text>
+            </View>
+            <Text style={styles.userRole}>Receiver</Text>
           </View>
-          <View style={styles.userRow}>
-              <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
-              <View>
-                  <View style={styles.userNameRow}>
-                      <Text style={styles.userName}>{item.name}</Text>
-                      <Text style={styles.userHandle}>{item.username}</Text>
-                  </View>
-                  <Text style={styles.userRole}>Receiver</Text>
-              </View>
-          </View>
+        </View>
       </View>
     </View>
   </TouchableOpacity>
 );
 
-
 // --- MAIN SCREEN ---
-const PackingScreen = ({navigation}) => {
-  const [packingData, setPackingData] = useState(null);
+const ShippedScreen = ({navigation}) => {
+  const [shippedData, setShippedData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-    
-    // useEffect hook to fetch data when the component mounts
+
   useEffect(() => {
       const fetchData = async () => {
       try {
-           const response = await getAdminLeafTrailPacking();
-                
-          setPackingData(response);
+           const response = await getAdminLeafTrailShipped();
+           
+          setShippedData(response);
       } catch (e) {
           setError(e);
-          console.error("Failed to fetch plant data:", e);
+          console.error("Failed to fetch shipped data:", e);
       } finally {
           setIsLoading(false);
       }
       };
     
       fetchData();
-    }, []); // The empty array ensures this effect runs only once
+    }, []);
 
+  
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.screenContainer} edges={['top']}>
@@ -88,15 +106,15 @@ const PackingScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader navigation={navigation} title={'Packing'} search={true}/>
+        <ScreenHeader navigation={navigation} title={'Shipped'} search={true}/>
         <FlatList
-          data={packingData?.data || {}}
+          data={shippedData?.data || []}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => <PackingListItem item={item} navigation={navigation} />}
+          renderItem={({ item }) => <ShippedListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
               <FilterBar />
-              <Text style={styles.countText}>{packingData?.total || 0} tray(es)</Text>
+              <Text style={styles.countText}>{shippedData?.total || 0} tracking number(s)</Text>
             </>
           }
           ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
@@ -107,7 +125,7 @@ const PackingScreen = ({navigation}) => {
   );
 }
 
-export default PackingScreen;
+export default ShippedScreen;
 
 // --- STYLES ---
 const styles = StyleSheet.create({
@@ -121,7 +139,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  // List
   listContentContainer: {
     paddingBottom: 40,
   },
@@ -132,7 +149,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 15,
   },
-  // List Item
   listItemContainer: {
     backgroundColor: '#F5F6F6',
     padding: 12,
@@ -140,27 +156,30 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
     gap: 12,
   },
-  trayIconCircle: {
+  iconCircle: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFB323',
+    backgroundColor: '#6B4EFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardContent: {
     flex: 1,
+    gap: 8,
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  boxNumber: {
+  trackingNumber: {
     fontSize: 18,
     fontWeight: '700',
     color: '#202325',
@@ -169,6 +188,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#202325',
+  },
+  specsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 24,
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  specText: {
+    fontSize: 16,
+    color: '#647276',
   },
   detailsContainer: {
     paddingHorizontal: 6,
@@ -179,7 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  flightDateText: {
+  detailsText: {
     fontSize: 16,
     color: '#556065',
   },

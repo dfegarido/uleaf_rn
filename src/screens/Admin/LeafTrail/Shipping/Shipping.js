@@ -1,3 +1,4 @@
+import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -7,6 +8,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -18,51 +20,55 @@ import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
 import { getAdminLeafTrailShipping } from '../../../../components/Api/getAdminLeafTrail';
 
-const ShippingListItem = ({ item }) => (
-  <View style={styles.listItemContainer}>
-    {/* Top card with box info */}
-    <View style={styles.card}>
-      <View style={styles.boxIconCircle}>
-        <CubeIcon />
-      </View>
-      <View style={styles.cardContent}>
-        <View style={styles.infoRow}>
-          <Text style={styles.fulfillmentNumber}>{item.fulfillmentNumber}</Text>
-          <Text style={styles.plantCount}>{item.plantCount} <Text style={{ color: '#556065' }}> plant(s)</Text></Text>
+const ShippingListItem = ({ item, navigation }) => (
+  <TouchableOpacity onPress={() => navigation.navigate('ViewShippingScreen', { item })}>
+    <View style={styles.listItemContainer}>
+      {/* Top card with box info */}
+      <View style={styles.card}>
+        <View style={styles.boxIconCircle}>
+          <CubeIcon />
         </View>
-        <View style={styles.specsRow}>
-          <View style={styles.specItem}>
-            <DimensionIcon />
-            <Text style={styles.specText}>{item.dimensions}</Text>
+        <View style={styles.cardContent}>
+          <View style={styles.infoRow}>
+            <Text style={styles.fulfillmentNumber}>{item.boxNumber}</Text>
+            <Text style={styles.plantCount}>{item.packedPlantsCount} <Text style={{ color: '#556065' }}> plant(s)</Text></Text>
           </View>
-          <View style={styles.specItem}>
-            <ScaleIcon />
-            <Text style={styles.specText}>{item.weight}</Text>
+          <View style={styles.specsRow}>
+            <View style={styles.specItem}>
+              <DimensionIcon />
+              <Text style={styles.specText}>
+                {item?.packingData?.dimensions?.length || 0}x{item?.packingData?.dimensions?.width || 0}x{item?.packingData?.dimensions?.height || 0} in
+              </Text>
+            </View>
+            <View style={styles.specItem}>
+              <ScaleIcon />
+              <Text style={styles.specText}>{item?.packingData?.weight?.value || 0} {item?.packingData?.weight?.unit || ''}</Text>
+            </View>
           </View>
         </View>
       </View>
-    </View>
 
-    {/* Details section with user info */}
-    <View style={styles.detailsContainer}>
-      <View style={styles.flightDetailsRow}>
-        <AirplaneIcon />
-        <Text style={styles.detailsText}>
-          Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text>
-        </Text>
-      </View>
-      <View style={styles.userRow}>
-        <Image source={{ uri: item.user.avatar }} style={styles.userAvatar} />
-        <View>
-          <View style={styles.userNameRow}>
-            <Text style={styles.userName}>{item.user.name}</Text>
-            <Text style={styles.userHandle}>{item.user.username}</Text>
+      {/* Details section with user info */}
+      <View style={styles.detailsContainer}>
+        <View style={styles.flightDetailsRow}>
+          <AirplaneIcon />
+          <Text style={styles.detailsText}>
+            Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate ? moment(item.flightDate).format('MMM DD, YYYY') : 'Date TBD'}</Text>
+          </Text>
+        </View>
+        <View style={styles.userRow}>
+          <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+          <View>
+            <View style={styles.userNameRow}>
+              <Text style={styles.userName}>{item.name}</Text>
+              <Text style={styles.userHandle}>{item.username}</Text>
+            </View>
+            <Text style={styles.userRole}>Receiver</Text>
           </View>
-          <Text style={styles.userRole}>Receiver</Text>
         </View>
       </View>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 // --- MAIN SCREEN ---
@@ -75,7 +81,7 @@ const ShippingScreen = ({navigation}) => {
       const fetchData = async () => {
       try {
            const response = await getAdminLeafTrailShipping();
-                
+            
           setShippingData(response);
       } catch (e) {
           setError(e);
@@ -103,8 +109,8 @@ const ShippingScreen = ({navigation}) => {
         <ScreenHeader navigation={navigation} title={'For Shipping'} search={true}/>
         <FlatList
           data={shippingData?.data || {}}
-          keyExtractor={item => item.key}
-          renderItem={({ item }) => <ShippingListItem item={item} />}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <ShippingListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
               {/* 👇 Corrected: Added the FilterBar here */}

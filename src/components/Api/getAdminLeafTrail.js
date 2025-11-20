@@ -165,10 +165,38 @@ export const getAdminLeafTrailSorting = async () => {
   }
 };
 
+export const addLeafTrailBoxNumber = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailBoxNumber',
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('addLeafTrailBoxNumber error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
 export const addSortingTrayNumber = async (data) => {
   try {
     const token = await getStoredAuthToken();
-console.log('token', token);
 
     const response = await fetch(
       'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafSortTray',
@@ -223,6 +251,119 @@ export const getAdminLeafTrailPacking = async () => {
   }
 };
 
+export const getOrdersBySortingTray = async (trayNumber) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersBySortingTray?sortingTrayNumber=' + trayNumber,
+      {
+        method: 'GET', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('getOrdersBySortingTray error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const getOrdersByBoxNumber = async (boxNumber) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersByBoxNumber?boxNumber=' + boxNumber,
+      {
+        method: 'GET', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('getOrdersByBoxNumber error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const getOrdersByTrackingNumber = async (trackingNumber) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersByTrackingNumber?trackingNumber=' + trackingNumber,
+      {
+        method: 'GET', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('getOrdersByTrackingNumber error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const addLeafTrailTrackingNumber = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailTrackingNumber',
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('addLeafTrailTrackingNumber error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
 export const getAdminLeafTrailShipping = async () => {
   try {
     const token = await getStoredAuthToken();
@@ -247,6 +388,63 @@ export const getAdminLeafTrailShipping = async () => {
     return json;
   } catch (error) {
     console.error('getAdminLeafTrailShipping error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const getAdminLeafTrailShipped = async () => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailShipped',
+      {
+        method: 'GET', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('getAdminLeafTrailShipped error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const addLeafTrailShippingDetails = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailShippingDetails',
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('addLeafTrailShippingDetails error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
