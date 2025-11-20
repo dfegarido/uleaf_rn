@@ -469,7 +469,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
                   <NoteIcon width={32} height={32} />
-                  <Text style={styles.sideActionNotesText}>Note</Text>
+                  <Text style={styles.sideActionNotesText}>Notes</Text>
                 </TouchableOpacity>
             </View>
           </View>
@@ -479,7 +479,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <View style={styles.plantDetails}>
                     <View style={styles.plantName}>
                       <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
-                      <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text>
+                      {/* <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text> */}
+                      <Text style={styles.variegation}></Text>
                     </View>
                     <View style={styles.price}>
                       <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
@@ -497,7 +498,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                       <View style={styles.shipDays}>
                         <TruckIcon width={24} height={24} />
                         {/* Shipping info can be added if available */}
-                        <Text style={styles.shipText}>UPS 2nd Day $50</Text>
+                        <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
                       </View>
                     </View>
                 </View>
