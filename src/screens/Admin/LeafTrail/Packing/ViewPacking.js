@@ -23,6 +23,7 @@ import { addLeafTrailBoxNumber, getOrdersBySortingTray, updateLeafTrailStatus } 
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import AssignBoxModal from './AssignBoxModal';
+import SelectionModal from './SelectionModal';
 import TagAsOptions from './TagAs';
 
 const Header = ({ title, navigation }) => (
@@ -84,20 +85,24 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
   const setTags = () => {
     openTagAs(plant?.packingData?.boxNumber || null, plant.id)
   }
+
+  const onCheckPress = () => {
+    onSelect(plant.id);
+  }
   
   return (
   <View style={styles.plantCardContainer}>
     <View style={styles.plantCard}>
       <View>
         <Image source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
-        <View style={styles.checkboxContainer}>
-            <CheckBox
+        {!(plant?.packingData?.boxNumber) && <View style={styles.checkboxContainer}>
+             <CheckBox
                 checked={isSelected}
-                onPress={() => onSelect(plant.id)}
+                onToggle={onCheckPress}
                 containerStyle={{padding: 0, margin: 0}}
                 checkedColor="#539461"
             />
-        </View>
+        </View>}
       </View>
       <View style={styles.plantDetails}>
         <View>
@@ -139,6 +144,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
   const [orderId, setOrderId] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isAssignBoxVisible, setIsAssignBoxVisible] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
    
   const openTagAs = (hasBox, id) => {
     setHasBoxNumber(!!hasBox);
@@ -147,8 +153,6 @@ const ViewPackingScreen = ({ navigation, route }) => {
   }
 
   const setTagAs = async (status) => {
-    console.log('status:', status);
-
     if (status === 'packing') {
         setIsAssignBoxVisible(true);
         setTagAsVisible(!isTagAsVisible);
@@ -170,25 +174,47 @@ const ViewPackingScreen = ({ navigation, route }) => {
   const handleSaveBox = async (boxDetails) => {
     setIsLoading(true);
     setIsAssignBoxVisible(false);
-    
-    const response = await addLeafTrailBoxNumber({orderIds: [orderId], boxDetails})
+    setIsSelectionMode(false)
+
+    const ids = selectedPlants.length === 0 ? [orderId] : selectedPlants;
+    const response = await addLeafTrailBoxNumber({orderIds: ids, boxDetails})
     if (response.success) {
       await fetchData();
       setIsLoading(false)
+      setOrderId(false);
+      setSelectedPlants([]);
       Alert.alert('Success');
     } else {
       setIsLoading(false)
+      setOrderId(false);
+      setSelectedPlants([]);
       Alert.alert('Error', error.message);
     }  
   };
 
   const handleSelectPlant = (plantId) => {
-    setSelectedPlants(prevSelected =>
-      prevSelected.includes(plantId)
-        ? prevSelected.filter(id => id !== plantId)
-        : [...prevSelected, plantId]
-    );
+    const newSelection = selectedPlants.includes(plantId)
+        ? selectedPlants.filter(id => id !== plantId)
+        : [...selectedPlants, plantId];
+
+    setSelectedPlants(newSelection);
+    
+    if (newSelection.length > 0 && !isSelectionMode) {
+        setIsSelectionMode(true);
+    } else if (newSelection.length === 0 && isSelectionMode) {
+        setIsSelectionMode(false);
+    }
   };
+
+  const handleSelectAll = () => {
+    if (selectedPlants.length === plantList.length) {
+      setSelectedPlants([]);
+    } else {
+      // Select all
+      setSelectedPlants(plantList.map(p => p.id));
+    }
+    
+  }
 
   const fetchData = async () => {
           setIsLoading(true)
@@ -207,10 +233,14 @@ const ViewPackingScreen = ({ navigation, route }) => {
         fetchData();
   }, [item]); // The empty array ensures this effect runs only once
 
-  // Dummy data for demonstration, replace with actual data from `item`
   const packingDetails = {
     ...item,
     plants: item.sortedPlantsData || [],
+  };
+
+  const assignBox = () => {
+    setIsAssignBoxVisible(true);
+    
   };
 
   return (
@@ -272,6 +302,16 @@ const ViewPackingScreen = ({ navigation, route }) => {
         visible={isAssignBoxVisible}
         onClose={() => setIsAssignBoxVisible(false)}
         onSave={handleSaveBox}
+      />
+      <SelectionModal
+        visible={isSelectionMode}
+        onClose={() => { setIsSelectionMode(false); setSelectedPlants([]); }}
+        plants={plantList.filter(plant => !(plant?.packingData?.boxNumber))}
+        selectedPlants={selectedPlants}
+        onSelectPlant={handleSelectPlant}
+        onSelectAll={handleSelectAll}
+        openTagAs={openTagAs}
+        assignBox={assignBox}
       />
     </SafeAreaView>
   );
