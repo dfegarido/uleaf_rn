@@ -21,7 +21,7 @@ import ScreenHeader from '../../../../components/Admin/header';
 import { getAdminLeafTrailShipped } from '../../../../components/Api/getAdminLeafTrail';
 
 const ShippedListItem = ({ item, navigation }) => (
-  <TouchableOpacity onPress={() => navigation.navigate('ViewShippingScreen', { item })}>
+  <TouchableOpacity onPress={() => navigation.navigate('ViewShippedScreen', { item })}>
     <View style={styles.listItemContainer}>
       {/* Top card with tracking info */}
       <View style={styles.card}>
@@ -81,7 +81,6 @@ const ShippedScreen = ({navigation}) => {
       const fetchData = async () => {
       try {
            const response = await getAdminLeafTrailShipped();
-           console.log('response', response);
            
           setShippedData(response);
       } catch (e) {

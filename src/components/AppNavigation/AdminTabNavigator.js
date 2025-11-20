@@ -26,6 +26,7 @@ import ViewPackingScreen from '../../screens/Admin/LeafTrail/Packing/ViewPacking
 import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
 import ScanQRScreen from '../../screens/Admin/LeafTrail/ScanQR/ScanQR';
 import ShippedScreen from '../../screens/Admin/LeafTrail/Shipped/Shipped';
+import ViewShippedScreen from '../../screens/Admin/LeafTrail/Shipped/ViewShipped';
 import ShippingScreen from '../../screens/Admin/LeafTrail/Shipping/Shipping';
 import ViewShippingScreen from '../../screens/Admin/LeafTrail/Shipping/ViewShipping';
 import SortingScreen from '../../screens/Admin/LeafTrail/Sorting/Sorting';
@@ -182,6 +183,7 @@ function AdminTabs() {
      <Stack.Screen name="LeafTrailShippingAdminScreen" options={{headerShown: false}} component={ShippingScreen} />
      <Stack.Screen name="ViewShippingScreen" options={{headerShown: false}} component={ViewShippingScreen} />
      <Stack.Screen name="LeafTrailShippedAdminScreen" options={{headerShown: false}} component={ShippedScreen} />
+     <Stack.Screen name="ViewShippedScreen" options={{headerShown: false}} component={ViewShippedScreen} />
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
      <Stack.Screen name="LeafTrailScanQRAdminScreen" options={{headerShown: false}} component={ScanQRScreen} />
      <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />

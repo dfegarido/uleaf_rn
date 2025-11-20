@@ -338,8 +338,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       await updateDoc(sessionDocRef, { stickyNote: stickyNoteText });
       setStickyNoteModalVisible(false);
     } catch (err) {
-      console.log('zxcv',  err);
-      Alert.alert('Error', 'Could not save sticky note.');
+      Alert.alert('Error', 'Could not save sticky notes.');
     } finally {
       setIsLoading(false);
     }
@@ -545,14 +544,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               <Text style={styles.modalTitle}>Note</Text>
               <TextInput
                 style={styles.stickyNoteInput}
-                placeholder="Write a note for your viewers..."
+                placeholder="Write a notes for your viewers..."
                 placeholderTextColor="#666"
                 multiline
                 value={stickyNoteText}
                 onChangeText={setStickyNoteText}
               />
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveStickyNote}>
-                <Text style={styles.saveButtonText}>Save Note</Text>
+                <Text style={styles.saveButtonText}>Save Notes</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.closeButton} onPress={() => setStickyNoteModalVisible(false)}>
                 <Text style={styles.closeButtonText}>Close</Text>

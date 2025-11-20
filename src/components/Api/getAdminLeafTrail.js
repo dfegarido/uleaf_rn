@@ -307,6 +307,34 @@ export const getOrdersByBoxNumber = async (boxNumber) => {
   }
 };
 
+export const getOrdersByTrackingNumber = async (trackingNumber) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersByTrackingNumber?trackingNumber=' + trackingNumber,
+      {
+        method: 'GET', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('getOrdersByTrackingNumber error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
 export const addLeafTrailTrackingNumber = async (data) => {
   try {
     const token = await getStoredAuthToken();
@@ -388,6 +416,35 @@ export const getAdminLeafTrailShipped = async () => {
     return json;
   } catch (error) {
     console.error('getAdminLeafTrailShipped error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const addLeafTrailShippingDetails = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailShippingDetails',
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('addLeafTrailShippingDetails error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
