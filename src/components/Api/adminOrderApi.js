@@ -112,3 +112,97 @@ export const getAdminOrdersApi = async (filters = {}) => {
     throw error;
   }
 };
+
+/**
+ * Get flight change requests for admin panel
+ * @param {Object} params - Query parameters
+ * @param {string} params.currentFlightDate - Filter by current flight date (formatted string)
+ * @param {string} params.status - Filter by status (pending, approved, rejected)
+ * @param {string} params.buyerUid - Filter by buyer UID
+ * @param {number} params.limit - Number of requests to fetch
+ * @param {number} params.offset - Pagination offset
+ * @returns {Promise<Object>} Flight change requests response
+ */
+export const getAdminFlightChangeRequestsApi = async (params = {}) => {
+  try {
+    const token = await getStoredAuthToken();
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
+    
+    const url = `${API_ENDPOINTS.GET_ADMIN_FLIGHT_CHANGE_REQUESTS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get admin flight change requests API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching flight change requests',
+    };
+  }
+};
+
+/**
+ * Approve or reject a flight change request (admin only)
+ * @param {Object} requestData - Request data
+ * @param {string} requestData.requestId - Flight change request ID
+ * @param {string} requestData.status - New status ('approved' or 'rejected')
+ * @param {string} requestData.reviewNotes - Optional review notes
+ * @returns {Promise<Object>} Update response
+ */
+export const updateFlightChangeRequestApi = async (requestData) => {
+  try {
+    const token = await getStoredAuthToken();
+    
+    const response = await fetch(API_ENDPOINTS.UPDATE_FLIGHT_CHANGE_REQUEST, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Update flight change request API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while updating the flight change request',
+    };
+  }
+};

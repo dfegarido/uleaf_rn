@@ -30,6 +30,8 @@ import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPolicies
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
+import RequestChangePlantFlightScreen from '../../screens/Buyer/Profile/RequestChangePlantFlightScreen';
+import AddRequestChangePlantFlightScreen from '../../screens/Buyer/Profile/AddRequestChangePlantFlightScreen';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 import ScreenPlantDetailPurge from '../../screens/Buyer/Shop/ScreenPlantDetailPurge';
@@ -153,6 +155,18 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="UpdatePasswordScreen"
         component={UpdatePasswordScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="RequestChangePlantFlightScreen"
+        component={RequestChangePlantFlightScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="AddRequestChangePlantFlightScreen"
+        component={AddRequestChangePlantFlightScreen}
         options={{headerShown: false}}
       />
 

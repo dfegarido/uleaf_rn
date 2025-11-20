@@ -13,10 +13,9 @@ import Svg, { Path } from 'react-native-svg';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
+import { getAdminFlightChangeRequestsApi, updateFlightChangeRequestApi } from '../../../components/Api/adminOrderApi';
+import NetInfo from '@react-native-community/netinfo';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 
 // White Chat Icon Component
 const WhiteChatIcon = ({ width = 20, height = 20 }) => (
@@ -95,144 +94,150 @@ const RequestStatusBadge = ({ status }) => {
   );
 };
 
+// Helper function to format date to match API format (YYYY-MM-DD)
+const formatDateForAPI = (date) => {
+  if (!date) return '';
+  try {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    return '';
+  }
+};
+
 // User Card Component with Flight Change Request
-const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation }) => {
+const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation, flightChangeRequest }) => {
   const { userInfo } = useContext(AuthContext);
+  const [updating, setUpdating] = useState(false);
   
-  // Get all unique transaction numbers for this user
-  const getTransactionNumbers = () => {
-    if (!orders || orders.length === 0) return [];
-    const transactions = new Set();
-    orders.forEach((order) => {
-      const txNumber = order.transactionNumber || order.trxNumber;
-      if (txNumber) {
-        transactions.add(txNumber);
+  // Get order count for this user
+  const getOrderCount = () => {
+    // First try to get from orders array
+    if (orders && orders.length > 0) {
+      return orders.length;
+    }
+    // If no orders, get count from flight change request
+    if (flightChangeRequest) {
+      // Count from orderIds if available
+      if (flightChangeRequest.orderIds && Array.isArray(flightChangeRequest.orderIds)) {
+        return flightChangeRequest.orderIds.length;
       }
-    });
-    return Array.from(transactions).sort();
+      // Or count from transactionNumbers if available
+      if (flightChangeRequest.transactionNumbers && Array.isArray(flightChangeRequest.transactionNumbers)) {
+        return flightChangeRequest.transactionNumbers.length;
+      }
+    }
+    return 0;
   };
 
-  const transactionNumbers = getTransactionNumbers();
+  const orderCount = getOrderCount();
   
-  // Mock state for flight change request (per transaction)
-  const [requestStatuses, setRequestStatuses] = useState({});
-  
-  // Mock data: Buyer's requested date and reason (this will come from API later)
-  // For now, simulate buyer request data for each transaction
-  const getBuyerRequest = (txNumber) => {
-    // Mock: Buyer requested date (7 days after current date)
-    const requestedDate = new Date(currentFlightDate);
-    requestedDate.setDate(requestedDate.getDate() + 7);
+  // Get buyer request data from the flight change request
+  const getBuyerRequest = () => {
+    if (!flightChangeRequest) return null;
     return {
-      requestedDate: requestedDate,
-      reason: 'Need to change flight date due to personal schedule conflict. Please approve if possible.',
+      requestedDate: flightChangeRequest.newFlightDateObj ? new Date(flightChangeRequest.newFlightDateObj) : null,
+      reason: flightChangeRequest.reason || '',
+      requestId: flightChangeRequest.id,
+      status: flightChangeRequest.status || 'pending',
     };
   };
 
-  // Helper function to validate country code
-  const validateCountryCode = (code) => {
-    if (!code) return null;
-    const validCodes = ['PH', 'TH', 'ID'];
-    const upperCode = String(code).toUpperCase().trim();
-    return validCodes.includes(upperCode) ? upperCode : null;
-  };
+  const buyerRequest = getBuyerRequest();
 
-  // Get origin country from orders - check multiple locations
-  const getOriginCountry = (orders) => {
-    if (!orders || orders.length === 0) return 'TH';
-    
-    for (const order of orders) {
-      // Check direct order fields first
-      let country = order.plantSourceCountry || 
-                    order.originCountry || 
-                    order.country;
-      
-      if (country) {
-        const validated = validateCountryCode(country);
-        if (validated) return validated;
-      }
-      
-      // Check in products array
-      if (order.products && Array.isArray(order.products) && order.products.length > 0) {
-        country = order.products[0]?.plantSourceCountry || 
-                  order.products[0]?.originCountry ||
-                  order.products[0]?.country;
-        if (country) {
-          const validated = validateCountryCode(country);
-          if (validated) return validated;
-        }
-      }
-      
-      // Check in plantDetails if available
-      if (order.plantDetails?.plantSourceCountry) {
-        const validated = validateCountryCode(order.plantDetails.plantSourceCountry);
-        if (validated) return validated;
-      }
-      
-      // Check nested order object
-      if (order.order?.plantSourceCountry) {
-        const validated = validateCountryCode(order.order.plantSourceCountry);
-        if (validated) return validated;
-      }
+  const handleApprove = async () => {
+    if (!buyerRequest || !buyerRequest.requestId) {
+      Alert.alert('Error', 'Flight change request not found');
+      return;
     }
-    
-    return 'TH'; // Default to Thailand
-  };
 
-  // Helper function to get flag component based on country code
-  const getFlagComponent = (countryCode) => {
-    const code = countryCode?.toUpperCase();
-    switch (code) {
-      case 'PH':
-        return PhilippinesFlag;
-      case 'TH':
-        return ThailandFlag;
-      case 'ID':
-        return IndonesiaFlag;
-      default:
-        return ThailandFlag; // Default to Thailand
-    }
-  };
-
-  // Get order status helper
-  const getOrderStatus = (orderList) => {
-    if (!orderList || orderList.length === 0) {
-      return { color: '#23C16B', text: 'Active' };
-    }
-    const statuses = [...new Set(orderList.map(o => o.status))];
-    const hasCancelled = statuses.some(s => s === 'cancelled' || s === 'Cancelled');
-    return hasCancelled ? { color: '#E7522F', text: 'Canceled' } : { color: '#23C16B', text: 'Active' };
-  };
-
-  const handleApprove = (txNumber) => {
     Alert.alert(
       'Approve Flight Change',
-      `Approve flight change request for transaction ${txNumber}?`,
+      `Approve flight change request for ${orderCount > 0 ? `${orderCount} request${orderCount > 1 ? 's' : ''}` : 'this request'}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Approve',
-          onPress: () => {
-            setRequestStatuses(prev => ({ ...prev, [txNumber]: 'approved' }));
-            Alert.alert('Success', 'Flight change request has been approved.');
+          onPress: async () => {
+            setUpdating(true);
+            try {
+              const netState = await NetInfo.fetch();
+              if (!netState.isConnected || !netState.isInternetReachable) {
+                Alert.alert('Error', 'No internet connection. Please check your connection and try again.');
+                setUpdating(false);
+                return;
+              }
+
+              const response = await updateFlightChangeRequestApi({
+                requestId: buyerRequest.requestId,
+                status: 'approved',
+              });
+
+              if (!response.success) {
+                throw new Error(response.error || 'Failed to approve request');
+              }
+
+              Alert.alert('Success', 'Flight change request has been approved.', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
+            } catch (error) {
+              console.error('Error approving request:', error);
+              Alert.alert('Error', error.message || 'Failed to approve request. Please try again.');
+            } finally {
+              setUpdating(false);
+            }
           },
         },
       ]
     );
   };
 
-  const handleReject = (txNumber) => {
+  const handleReject = async () => {
+    if (!buyerRequest || !buyerRequest.requestId) {
+      Alert.alert('Error', 'Flight change request not found');
+      return;
+    }
+
     Alert.alert(
       'Reject Flight Change',
-      `Reject flight change request for transaction ${txNumber}?`,
+      `Reject flight change request for ${orderCount > 0 ? `${orderCount} request${orderCount > 1 ? 's' : ''}` : 'this request'}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reject',
           style: 'destructive',
-          onPress: () => {
-            setRequestStatuses(prev => ({ ...prev, [txNumber]: 'rejected' }));
-            Alert.alert('Rejected', 'Flight change request has been rejected.');
+          onPress: async () => {
+            setUpdating(true);
+            try {
+              const netState = await NetInfo.fetch();
+              if (!netState.isConnected || !netState.isInternetReachable) {
+                Alert.alert('Error', 'No internet connection. Please check your connection and try again.');
+                setUpdating(false);
+                return;
+              }
+
+              const response = await updateFlightChangeRequestApi({
+                requestId: buyerRequest.requestId,
+                status: 'rejected',
+              });
+
+              if (!response.success) {
+                throw new Error(response.error || 'Failed to reject request');
+              }
+
+              Alert.alert('Rejected', 'Flight change request has been rejected.', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
+            } catch (error) {
+              console.error('Error rejecting request:', error);
+              Alert.alert('Error', error.message || 'Failed to reject request. Please try again.');
+            } finally {
+              setUpdating(false);
+            }
           },
         },
       ]
@@ -373,168 +378,180 @@ const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation }) => {
         </View>
       )}
 
-      {/* Transaction Numbers List */}
-      <View style={styles.transactionsSection}>
-        <Text style={styles.sectionLabel}>Transaction Numbers</Text>
-        {transactionNumbers.map((txNumber) => {
-          const requestStatus = requestStatuses[txNumber] || 'pending';
-          const buyerRequest = getBuyerRequest(txNumber);
-          const txOrders = orders.filter(o => (o.transactionNumber || o.trxNumber) === txNumber);
-          const txOriginCountry = getOriginCountry(txOrders);
-          const FlagComponent = getFlagComponent(txOriginCountry);
-          const txOrderStatus = getOrderStatus(txOrders);
-          
-          return (
-            <View key={txNumber} style={styles.transactionItem}>
-              {/* Transaction Header */}
-              <View style={styles.transactionHeader}>
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionLabel}>Transaction Number</Text>
-                  <Text style={styles.transactionNumber}>{txNumber}</Text>
-                </View>
-                <View style={styles.transactionMeta}>
-                  <View style={styles.countryContainer}>
-                    <Text style={styles.countryText}>{txOriginCountry}</Text>
-                    <FlagComponent width={16} height={16} />
-                  </View>
-                  <View style={styles.statusContainer}>
-                    <View style={[styles.statusDot, { backgroundColor: txOrderStatus.color }]} />
-                    <Text style={[styles.statusText, { color: txOrderStatus.color }]}>
-                      {txOrderStatus.text}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Current Flight Date */}
-              <View style={styles.currentFlightSection}>
-                <Text style={styles.sectionLabel}>Current Flight Date</Text>
-                <Text style={styles.currentFlightDate}>{formatDate(currentFlightDate)}</Text>
-              </View>
-
-              {/* Flight Change Request Section */}
-              <View style={styles.requestSection}>
-                <View style={styles.requestHeader}>
-                  <Text style={styles.sectionLabel}>Flight Change Request</Text>
-                  <RequestStatusBadge status={requestStatus} />
-                </View>
-
-                {requestStatus === 'pending' && (
-                  <>
-                    {/* Buyer's Requested New Date (Read-only) */}
-                    <View style={styles.requestField}>
-                      <Text style={styles.fieldLabel}>Requested New Flight Date</Text>
-                      <View style={styles.readOnlyDateContainer}>
-                        <Text style={styles.readOnlyDate}>
-                          {formatDate(buyerRequest.requestedDate)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Buyer's Reason for Change (Read-only) */}
-                    <View style={styles.requestField}>
-                      <Text style={styles.fieldLabel}>Reason for Change</Text>
-                      <View style={styles.readOnlyReasonContainer}>
-                        <Text style={styles.readOnlyReason}>
-                          {buyerRequest.reason}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Action Buttons */}
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.rejectButton]}
-                        onPress={() => handleReject(txNumber)}
-                        activeOpacity={0.7}>
-                        <Text style={styles.rejectButtonText}>Reject</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.approveButton]}
-                        onPress={() => handleApprove(txNumber)}
-                        activeOpacity={0.7}>
-                        <Text style={styles.approveButtonText}>Approve</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-
-                {requestStatus === 'approved' && (
-                  <View style={styles.approvedSection}>
-                    <Text style={styles.approvedText}>
-                      ✓ Flight change approved. New flight date: {formatDate(buyerRequest.requestedDate)}
-                    </Text>
-                  </View>
-                )}
-
-                {requestStatus === 'rejected' && (
-                  <View style={styles.rejectedSection}>
-                    <Text style={styles.rejectedText}>
-                      ✗ Flight change request has been rejected.
-                    </Text>
-                  </View>
-                )}
-
-                {requestStatus === 'none' && (
-                  <View style={styles.noRequestSection}>
-                    <Text style={styles.noRequestText}>
-                      No flight change request for this transaction.
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        })}
+      {/* Request Count Section */}
+      <View style={styles.ordersSection}>
+        <Text style={styles.sectionLabel}>Requests</Text>
+        <View style={styles.orderCountContainer}>
+          <Text style={styles.orderCountText}>
+            {orderCount} {orderCount === 1 ? 'request' : 'requests'}
+          </Text>
+        </View>
       </View>
+
+      {/* Current Flight Date Section */}
+      <View style={styles.currentFlightSection}>
+        <Text style={styles.sectionLabel}>Current Flight Date</Text>
+        <Text style={styles.currentFlightDate}>{formatDate(currentFlightDate)}</Text>
+      </View>
+
+      {/* Flight Change Request Section */}
+      {buyerRequest ? (
+        <View style={styles.requestSection}>
+          <View style={styles.requestHeader}>
+            <Text style={styles.sectionLabel}>Flight Change Request</Text>
+            <RequestStatusBadge status={buyerRequest.status} />
+          </View>
+
+          {buyerRequest.status === 'pending' && (
+            <>
+              {/* Buyer's Requested New Date (Read-only) */}
+              <View style={styles.requestField}>
+                <Text style={styles.fieldLabel}>Requested New Flight Date</Text>
+                <View style={styles.readOnlyDateContainer}>
+                  <Text style={styles.readOnlyDate}>
+                    {buyerRequest.requestedDate ? formatDate(buyerRequest.requestedDate) : 'N/A'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Buyer's Reason for Change (Read-only) */}
+              <View style={styles.requestField}>
+                <Text style={styles.fieldLabel}>Reason for Change</Text>
+                <View style={styles.readOnlyReasonContainer}>
+                  <Text style={styles.readOnlyReason}>
+                    {buyerRequest.reason}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.rejectButton, updating && styles.actionButtonDisabled]}
+                  onPress={handleReject}
+                  disabled={updating}
+                  activeOpacity={0.7}>
+                  <Text style={styles.rejectButtonText}>{updating ? 'Processing...' : 'Reject'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.approveButton, updating && styles.actionButtonDisabled]}
+                  onPress={handleApprove}
+                  disabled={updating}
+                  activeOpacity={0.7}>
+                  <Text style={styles.approveButtonText}>{updating ? 'Processing...' : 'Approve'}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {buyerRequest.status === 'approved' && (
+            <View style={styles.approvedSection}>
+              <Text style={styles.approvedText}>
+                ✓ Flight change approved. New flight date: {buyerRequest.requestedDate ? formatDate(buyerRequest.requestedDate) : 'N/A'}
+              </Text>
+            </View>
+          )}
+
+          {buyerRequest.status === 'rejected' && (
+            <View style={styles.rejectedSection}>
+              <Text style={styles.rejectedText}>
+                ✗ Flight change request has been rejected.
+              </Text>
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={styles.requestSection}>
+          <View style={styles.requestHeader}>
+            <Text style={styles.sectionLabel}>Flight Change Request</Text>
+            <RequestStatusBadge status="none" />
+          </View>
+          <View style={styles.noRequestSection}>
+            <Text style={styles.noRequestText}>
+              No flight change request for this flight date.
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
 
 const FlightDateOrders = ({ navigation, route }) => {
-  const { date, orders: routeOrders } = route.params || {};
-  const [ordersByUser, setOrdersByUser] = useState({});
+  const { date } = route.params || {};
+  const [flightChangeRequests, setFlightChangeRequests] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (routeOrders && Array.isArray(routeOrders)) {
-      // Group orders by buyer/user
-      const grouped = {};
-      routeOrders.forEach((order) => {
-        const buyerUid = order.buyerUid || order.buyerInfo?.uid || 'Unknown';
-        if (!grouped[buyerUid]) {
-          // Extract buyer info for this user
-          const buyerInfo = order.buyerInfo || {};
-          const firstName = buyerInfo.firstName || '';
-          const lastName = buyerInfo.lastName || '';
-          const fullName = `${firstName} ${lastName}`.trim() || buyerInfo.name || 'Unknown Buyer';
-          const email = buyerInfo.email || '';
-          const avatar = buyerInfo.profilePhotoUrl || 
-                         buyerInfo.profileImage || 
-                         buyerInfo.avatar || 
-                         null;
-          
-          grouped[buyerUid] = {
-            buyerInfo: {
-              uid: buyerUid,
-              firstName,
-              lastName,
-              fullName,
-              email,
-              avatar,
-            },
-            orders: [],
-          };
-        }
-        grouped[buyerUid].orders.push(order);
+  // Format date to match the format stored in currentFlightDate field
+  // The format is like "Jan 3, 2024" (from toLocaleDateString)
+  const formatDateForAPI = (date) => {
+    if (!date) return '';
+    try {
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
       });
-      setOrdersByUser(grouped);
+    } catch (e) {
+      return '';
     }
-  }, [routeOrders]);
+  };
 
-  const users = Object.keys(ordersByUser).sort((a, b) => {
-    // Sort by buyer name
-    const nameA = ordersByUser[a].buyerInfo.fullName.toLowerCase();
-    const nameB = ordersByUser[b].buyerInfo.fullName.toLowerCase();
+  // Fetch flight change requests for this flight date
+  useEffect(() => {
+    const loadFlightChangeRequests = async () => {
+      if (!date) return;
+      
+      setLoading(true);
+      try {
+        const netState = await NetInfo.fetch();
+        if (!netState.isConnected || !netState.isInternetReachable) {
+          setLoading(false);
+          return;
+        }
+
+        const currentFlightDateFormatted = formatDateForAPI(date);
+        const response = await getAdminFlightChangeRequestsApi({
+          currentFlightDate: currentFlightDateFormatted,
+          limit: 100,
+          offset: 0
+        });
+
+        if (response.success && response.data?.data?.requests) {
+          setFlightChangeRequests(response.data.data.requests);
+        }
+      } catch (error) {
+        console.error('Error loading flight change requests:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFlightChangeRequests();
+  }, [date]);
+
+  // Group requests by buyer
+  const requestsByBuyer = {};
+  flightChangeRequests.forEach((request) => {
+    const buyerUid = request.buyerUid;
+    if (!requestsByBuyer[buyerUid]) {
+      requestsByBuyer[buyerUid] = {
+        buyerInfo: {
+          uid: buyerUid,
+          fullName: request.buyerName || 'Unknown Buyer',
+          email: request.buyerEmail || '',
+          avatar: null, // Avatar not stored in request, would need to fetch from buyer collection
+        },
+        request: request,
+      };
+    }
+  });
+
+  const buyers = Object.keys(requestsByBuyer).sort((a, b) => {
+    const nameA = requestsByBuyer[a].buyerInfo.fullName.toLowerCase();
+    const nameB = requestsByBuyer[b].buyerInfo.fullName.toLowerCase();
     return nameA.localeCompare(nameB);
   });
 
@@ -546,20 +563,28 @@ const FlightDateOrders = ({ navigation, route }) => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {users.length === 0 ? (
+        {loading ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No orders found for this date</Text>
+            <Text style={styles.emptyText}>Loading...</Text>
+          </View>
+        ) : buyers.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No flight change requests for this date</Text>
           </View>
         ) : (
-          users.map((buyerUid) => (
-            <UserCard
-              key={buyerUid}
-              buyerInfo={ordersByUser[buyerUid].buyerInfo}
-              currentFlightDate={date}
-              orders={ordersByUser[buyerUid].orders}
-              navigation={navigation}
-            />
-          ))
+          buyers.map((buyerUid) => {
+            const buyerData = requestsByBuyer[buyerUid];
+            return (
+              <UserCard
+                key={buyerUid}
+                buyerInfo={buyerData.buyerInfo}
+                currentFlightDate={date}
+                orders={[]} // No orders data, just showing requests
+                navigation={navigation}
+                flightChangeRequest={buyerData.request}
+              />
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
@@ -620,68 +645,23 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 16,
   },
-  transactionsSection: {
+  ordersSection: {
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E4E7E9',
-    gap: 16,
+    gap: 8,
   },
-  transactionItem: {
+  orderCountContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
     borderColor: '#E4E7E9',
   },
-  transactionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#7F8D91',
-    fontFamily: 'Inter',
-    marginBottom: 4,
-  },
-  transactionNumber: {
+  orderCountText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#202325',
-    fontFamily: 'Inter',
-  },
-  transactionMeta: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  countryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  countryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#556065',
-    fontFamily: 'Inter',
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '700',
     fontFamily: 'Inter',
   },
   buyerSection: {
@@ -834,6 +814,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
   rejectButton: {
     backgroundColor: '#FFFFFF',

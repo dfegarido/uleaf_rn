@@ -295,6 +295,12 @@ const generateEndpoints = () => ({
   APPROVE_REJECT_BUDDY_REQUEST: `${getBaseUrl()}/approveRejectBuddyRequest`,
   GET_MY_RECEIVER_REQUEST: `${getBaseUrl()}/getMyReceiverRequest`,
   CANCEL_RECEIVER_REQUEST: `${getBaseUrl()}/cancelReceiverRequest`,
+  
+  // Flight Change Request endpoints
+  SUBMIT_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/submitFlightChangeRequest`,
+  GET_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getFlightChangeRequests`,
+  GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getAdminFlightChangeRequests`,
+  UPDATE_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/updateFlightChangeRequest`,
 });
 
 // API Endpoints - Initially generated with default environment

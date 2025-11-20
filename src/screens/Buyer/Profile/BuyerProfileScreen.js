@@ -35,6 +35,7 @@ import RightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import TrashIcon from '../../../assets/icons/red/trash.svg';
+import PlantIcon from '../../../assets/icons/greydark/plant-regular.svg';
 import { useNavigation } from '@react-navigation/native';
 
 // Custom Shipping Credits Icon Component (from Figma SVG)
@@ -479,7 +480,7 @@ const BuyerProfileScreen = (props) => {
               {loading ? (
                 <View style={styles.skeletonSubtitle} />
               ) : (
-                <Text style={styles.usernameText}>
+                <Text style={styles.userrnameText}>
                   @{data?.username || data?.email?.split('@')[0] }
                 </Text>
               )}
@@ -571,6 +572,12 @@ const BuyerProfileScreen = (props) => {
             icon={<PasswordIcon width={24} height={24} fill="#556065" />}
             title="Password"
             onPress={() => navigation.navigate('UpdatePasswordScreen')}
+          />
+
+          <MenuItem
+            icon={<PlantIcon width={24} height={24} fill="#556065" />}
+            title="Request to Change Plant Flight"
+            onPress={() => navigation.navigate('RequestChangePlantFlightScreen')}
           />
         </View>
 

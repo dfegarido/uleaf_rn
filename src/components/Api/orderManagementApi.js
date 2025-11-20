@@ -2,6 +2,101 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
+ * Submit a flight change request
+ * @param {Object} requestData - Flight change request data
+ * @param {Array<string>} requestData.transactionNumbers - Array of transaction numbers
+ * @param {Array<string>} requestData.orderIds - Array of order IDs
+ * @param {string} requestData.currentFlightDate - Current flight date (formatted string)
+ * @param {Date|string} requestData.currentFlightDateObj - Current flight date object
+ * @param {string} requestData.newFlightDate - New flight date (formatted string)
+ * @param {string} requestData.reason - Reason for the change
+ * @returns {Promise<Object>} Flight change request response
+ */
+export const submitFlightChangeRequestApi = async (requestData) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const response = await fetch(API_ENDPOINTS.SUBMIT_FLIGHT_CHANGE_REQUEST, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(requestData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Submit flight change request API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while submitting flight change request',
+    };
+  }
+};
+
+/**
+ * Get flight change requests for the current buyer
+ * @param {Object} params - Query parameters
+ * @param {string} params.status - Filter by status (pending, approved, rejected)
+ * @param {number} params.limit - Number of requests to fetch
+ * @param {number} params.offset - Pagination offset
+ * @returns {Promise<Object>} Flight change requests response
+ */
+export const getFlightChangeRequestsApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
+    
+    const url = `${API_ENDPOINTS.GET_FLIGHT_CHANGE_REQUESTS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Get flight change requests API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching flight change requests',
+    };
+  }
+};
+
+/**
  * Get orders with filters
  * @param {Object} params - Query parameters
  * @param {string} params.supplierId - Supplier ID filter

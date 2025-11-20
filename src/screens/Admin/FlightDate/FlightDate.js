@@ -9,10 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import { getAdminOrdersApi } from '../../../components/Api/adminOrderApi';
+import { getAdminFlightChangeRequestsApi } from '../../../components/Api/adminOrderApi';
+import NetInfo from '@react-native-community/netinfo';
 
 // Helper function to parse flight date from order
 const parseFlightDate = (flightDate) => {
@@ -101,63 +99,6 @@ const countUniqueTransactions = (orders) => {
   return uniqueTransactions.size;
 };
 
-// Helper function to validate country code
-const validateCountryCode = (code) => {
-  if (!code) return null;
-  
-  // Valid country codes we support
-  const validCodes = ['PH', 'TH', 'ID'];
-  const upperCode = String(code).toUpperCase().trim();
-  
-  if (validCodes.includes(upperCode)) {
-    return upperCode;
-  }
-  
-  return null;
-};
-
-// Helper function to get origin country from orders
-const getOriginCountry = (orders) => {
-  if (!orders || orders.length === 0) return 'TH';
-  
-  // Try to get plantSourceCountry from orders - check multiple locations
-  for (const order of orders) {
-    // Check direct order fields first
-    let country = order.plantSourceCountry || 
-                  order.originCountry || 
-                  order.country;
-    
-    if (country) {
-      const validated = validateCountryCode(country);
-      if (validated) return validated;
-    }
-    
-    // Check in products array
-    if (order.products && Array.isArray(order.products) && order.products.length > 0) {
-      country = order.products[0]?.plantSourceCountry || 
-                order.products[0]?.originCountry ||
-                order.products[0]?.country;
-      if (country) {
-        const validated = validateCountryCode(country);
-        if (validated) return validated;
-      }
-    }
-    
-    // Check in plantDetails if available
-    if (order.plantDetails?.plantSourceCountry) {
-      const validated = validateCountryCode(order.plantDetails.plantSourceCountry);
-      if (validated) return validated;
-    }
-    
-    // Check nested order object
-    if (order.order?.plantSourceCountry) {
-      const validated = validateCountryCode(order.order.plantSourceCountry);
-      if (validated) return validated;
-    }
-  }
-  
-  return 'TH'; // Default to Thailand
-};
 
 // Helper function to determine event styling based on order data
 const getEventStyling = (orders, dateKey, orderCount) => {
@@ -177,7 +118,6 @@ const getEventStyling = (orders, dateKey, orderCount) => {
       statusColor: '#E7522F',
       backgroundColor: '#FFFFFF',
       textColor: '#202325',
-      countryTextColor: '#556065',
     };
   }
   
@@ -195,7 +135,6 @@ const getEventStyling = (orders, dateKey, orderCount) => {
     statusColor: '#FFFFFF',
     backgroundColor: bgColor,
     textColor: '#FFFFFF',
-    countryTextColor: '#FFFFFF',
     isHighlighted: isToday,
     highlightColor: isToday ? '#DFECDF' : undefined,
     borderColor: isToday ? '#539461' : undefined,
@@ -211,12 +150,10 @@ const mockScheduleData = [
       {
         id: 1,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#23C16B',
         backgroundColor: '#FFFFFF',
         textColor: '#202325',
-        countryTextColor: '#556065',
       },
     ],
   },
@@ -227,12 +164,10 @@ const mockScheduleData = [
       {
         id: 2,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#23C16B',
         backgroundColor: '#FFFFFF',
         textColor: '#202325',
-        countryTextColor: '#556065',
       },
     ],
   },
@@ -243,12 +178,10 @@ const mockScheduleData = [
       {
         id: 3,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Canceled',
         statusColor: '#E7522F',
         backgroundColor: '#FFFFFF',
         textColor: '#202325',
-        countryTextColor: '#556065',
       },
     ],
   },
@@ -259,12 +192,10 @@ const mockScheduleData = [
       {
         id: 4,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#FFFFFF',
         backgroundColor: '#6B4EFF',
         textColor: '#FFFFFF',
-        countryTextColor: '#FFFFFF',
         isHighlighted: true,
         highlightColor: '#DFECDF',
         borderColor: '#539461',
@@ -278,12 +209,10 @@ const mockScheduleData = [
       {
         id: 5,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#FFFFFF',
         backgroundColor: '#48A7F8',
         textColor: '#FFFFFF',
-        countryTextColor: '#FFFFFF',
       },
     ],
   },
@@ -294,12 +223,10 @@ const mockScheduleData = [
       {
         id: 6,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#FFFFFF',
         backgroundColor: '#539461',
         textColor: '#FFFFFF',
-        countryTextColor: '#FFFFFF',
       },
     ],
   },
@@ -310,12 +237,10 @@ const mockScheduleData = [
       {
         id: 7,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#FFFFFF',
         backgroundColor: '#6B4EFF',
         textColor: '#FFFFFF',
-        countryTextColor: '#FFFFFF',
       },
     ],
   },
@@ -326,12 +251,10 @@ const mockScheduleData = [
       {
         id: 8,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#FFFFFF',
         backgroundColor: '#539461',
         textColor: '#FFFFFF',
-        countryTextColor: '#FFFFFF',
       },
     ],
   },
@@ -342,12 +265,10 @@ const mockScheduleData = [
       {
         id: 9,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Canceled',
         statusColor: '#E7522F',
         backgroundColor: '#FFFFFF',
         textColor: '#202325',
-        countryTextColor: '#556065',
       },
     ],
   },
@@ -358,12 +279,10 @@ const mockScheduleData = [
       {
         id: 10,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Active',
         statusColor: '#FFFFFF',
         backgroundColor: '#6B4EFF',
         textColor: '#FFFFFF',
-        countryTextColor: '#FFFFFF',
       },
     ],
   },
@@ -374,41 +293,15 @@ const mockScheduleData = [
       {
         id: 11,
         eventType: 'Plant Flight',
-        country: 'TH',
         status: 'Canceled',
         statusColor: '#E7522F',
         backgroundColor: '#FFFFFF',
         textColor: '#202325',
-        countryTextColor: '#556065',
       },
     ],
   },
 ];
 
-// Helper function to get flag component based on country code
-const getFlagComponent = (countryCode) => {
-  const code = countryCode?.toUpperCase();
-  switch (code) {
-    case 'PH':
-      return PhilippinesFlag;
-    case 'TH':
-      return ThailandFlag;
-    case 'ID':
-      return IndonesiaFlag;
-    default:
-      return ThailandFlag; // Default to Thailand
-  }
-};
-
-// Country flag component using actual SVG flags
-const CountryFlag = ({ countryCode }) => {
-  const FlagComponent = getFlagComponent(countryCode);
-  return (
-    <View style={styles.flagContainer}>
-      <FlagComponent width={24} height={16} />
-    </View>
-  );
-};
 
 // Schedule Event Card Component
 const ScheduleEventCard = ({ event }) => {
@@ -439,12 +332,6 @@ const ScheduleEventCard = ({ event }) => {
               {event.transactionCount} {event.transactionCount === 1 ? 'order' : 'orders'}
             </Text>
           )}
-        </View>
-        <View style={styles.countryContainer}>
-          <Text style={[styles.countryText, { color: event.countryTextColor }]}>
-            {event.country}
-          </Text>
-          <CountryFlag countryCode={event.country} />
         </View>
       </View>
 
@@ -533,10 +420,6 @@ const FlightDateSkeleton = () => {
               {/* Event Type Row Skeleton */}
               <View style={styles.eventTypeRow}>
                 <SkeletonItem width={120} height={24} />
-                <View style={styles.countryContainer}>
-                  <SkeletonItem width={23} height={22} />
-                  <SkeletonItem width={24} height={16} style={{ borderRadius: 2 }} />
-                </View>
               </View>
               
               {/* Status Row Skeleton */}
@@ -568,10 +451,6 @@ const FlightDateSkeleton = () => {
             <View style={[styles.eventCard, { backgroundColor: '#FFFFFF' }]}>
               <View style={styles.eventTypeRow}>
                 <SkeletonItem width={120} height={24} />
-                <View style={styles.countryContainer}>
-                  <SkeletonItem width={23} height={22} />
-                  <SkeletonItem width={24} height={16} style={{ borderRadius: 2 }} />
-                </View>
               </View>
               
               <View style={styles.statusRow}>
@@ -664,83 +543,188 @@ const FlightDate = ({ navigation }) => {
     fetchFlightDates();
   }, []);
 
+  // Helper function to parse formatted date string (e.g., "Dec 3, 2024")
+  const parseFormattedDate = (dateString) => {
+    if (!dateString) return null;
+    try {
+      // Try using Date object first (for ISO strings)
+      let date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+      
+      // If that fails, try parsing the formatted string manually
+      // Format: "Dec 3, 2024" or "December 3, 2024"
+      const months = {
+        'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+        'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+      };
+      
+      const parts = dateString.trim().split(/[\s,]+/).filter(p => p.length > 0);
+      if (parts.length >= 3) {
+        const monthName = parts[0].toLowerCase().substring(0, 3);
+        const day = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+        
+        if (months[monthName] !== undefined && !isNaN(day) && !isNaN(year) && year > 0) {
+          date = new Date(year, months[monthName], day);
+          if (!isNaN(date.getTime())) {
+            // Verify the parsed date matches the input
+            const parsedMonth = date.getMonth();
+            const parsedDay = date.getDate();
+            const parsedYear = date.getFullYear();
+            if (parsedMonth === months[monthName] && parsedDay === day && parsedYear === year) {
+              return date;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse formatted date:', dateString, e);
+    }
+    return null;
+  };
+
   const fetchFlightDates = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all orders to get flight dates
-      const response = await getAdminOrdersApi({
-        limit: 1000, // Fetch a large number to get all flight dates
-        page: 1,
+      // Get today's date for filtering (set at the very beginning)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      console.log('📅 Today date for filtering:', today.toISOString(), formatDateKey(today));
+
+      // Fetch flight change requests to get dates with pending requests
+      let flightChangeRequestsByDate = {};
+      try {
+        const netState = await NetInfo.fetch();
+        if (netState.isConnected && netState.isInternetReachable) {
+          const requestsResponse = await getAdminFlightChangeRequestsApi({
+            limit: 1000,
+            offset: 0
+          });
+
+          console.log(`📦 Fetched ${requestsResponse.data?.data?.requests?.length || 0} flight change requests from API`);
+
+          if (requestsResponse.success && requestsResponse.data?.data?.requests) {
+            // Group requests by currentFlightDate
+            requestsResponse.data.data.requests.forEach((request) => {
+              if (request.currentFlightDate) {
+                // Try to use currentFlightDateObj first (more reliable)
+                let date = null;
+                if (request.currentFlightDateObj) {
+                  try {
+                    date = new Date(request.currentFlightDateObj);
+                    if (isNaN(date.getTime())) {
+                      date = null;
+                    } else {
+                      // Ensure it's a valid date
+                      date.setHours(0, 0, 0, 0);
+                    }
+                  } catch (e) {
+                    console.warn('Error parsing currentFlightDateObj:', request.currentFlightDateObj, e);
+                    date = null;
+                  }
+                }
+                
+                // If currentFlightDateObj didn't work, parse the formatted string
+                if (!date) {
+                  date = parseFormattedDate(request.currentFlightDate);
+                  if (date) {
+                    date.setHours(0, 0, 0, 0);
+                  }
+                }
+                
+                if (date && !isNaN(date.getTime())) {
+                  // Only include dates that are today or in the future
+                  const isFutureOrToday = date.getTime() >= today.getTime();
+                  if (isFutureOrToday) {
+                    const dateKey = formatDateKey(date);
+                    if (!flightChangeRequestsByDate[dateKey]) {
+                      flightChangeRequestsByDate[dateKey] = [];
+                    }
+                    flightChangeRequestsByDate[dateKey].push(request);
+                    console.log(`✅ Added flight change request for date: ${dateKey} (${request.currentFlightDate})`);
+                  } else {
+                    console.log(`⏭️ Skipped past date: ${formatDateKey(date)} (${request.currentFlightDate})`);
+                  }
+                } else {
+                  console.warn('⚠️ Failed to parse date from request:', {
+                    currentFlightDate: request.currentFlightDate,
+                    currentFlightDateObj: request.currentFlightDateObj
+                  });
+                }
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching flight change requests:', err);
+        // Continue even if requests fail
+      }
+
+      // Only use flight change requests data
+      const validDateKeys = new Set(); // Track which dates actually have data
+      const ordersByDateMap = {}; // Empty since we're not using orders
+
+      // Add dates from flight change requests (only future dates or today)
+      Object.keys(flightChangeRequestsByDate).forEach((dateKey) => {
+        try {
+          const [year, month, day] = dateKey.split('-').map(Number);
+          const date = new Date(year, month - 1, day);
+          date.setHours(0, 0, 0, 0);
+          if (!isNaN(date.getTime()) && date >= today) {
+            validDateKeys.add(dateKey); // Mark this date as having requests
+          }
+        } catch (e) {
+          console.warn('Failed to parse dateKey:', dateKey);
+        }
       });
 
-      if (response.success && response.orders) {
-        // Extract flight dates from orders
-        const flightDates = [];
-        const ordersByDateMap = {};
+      // Store empty orders by date (not using orders anymore)
+      setOrdersByDate(ordersByDateMap);
 
-        response.orders.forEach((order) => {
-          const flightDate = parseFlightDate(order.flightDate);
-          if (flightDate) {
-            const dateKey = formatDateKey(flightDate);
-            if (!ordersByDateMap[dateKey]) {
-              ordersByDateMap[dateKey] = [];
-              flightDates.push(flightDate);
+      // Build schedule data ONLY from flight change requests
+      const scheduleByMonth = {};
+      
+      // Only process dates that are in validDateKeys (have requests)
+      const sortedDateKeys = Array.from(validDateKeys).sort();
+      console.log(`📋 Processing ${sortedDateKeys.length} valid date keys from flight change requests:`, sortedDateKeys);
+      console.log(`📅 Today is: ${today.toISOString()} (${formatDateKey(today)})`);
+      
+      if (sortedDateKeys.length > 0) {
+        sortedDateKeys.forEach((dateKey) => {
+          try {
+            const [year, month, day] = dateKey.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            date.setHours(0, 0, 0, 0);
+            
+            // Double check: ensure date is today or future
+            if (date < today) {
+              console.log(`❌ Final check: Skipping past date ${dateKey} (${date.toISOString()} < ${today.toISOString()})`);
+              return; // Skip past dates
             }
-            ordersByDateMap[dateKey].push(order);
-          }
-        });
-
-        // Store orders by date in state for navigation
-        setOrdersByDate(ordersByDateMap);
-
-        // Find max flight date
-        let maxFlightDate = null;
-        if (flightDates.length > 0) {
-          maxFlightDate = new Date(Math.max(...flightDates.map(d => d.getTime())));
-        }
-
-        // Start from current date
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // If no max date found, use 30 days from today as default
-        if (!maxFlightDate) {
-          maxFlightDate = new Date(today);
-          maxFlightDate.setDate(maxFlightDate.getDate() + 30);
-        }
-
-        // Generate date range from today to max flight date
-        const dateRange = generateDateRange(today, maxFlightDate);
-
-        // Build schedule data and group by month
-        const scheduleByMonth = {};
-        
-        dateRange.forEach((date) => {
-          const dateKey = formatDateKey(date);
-          const monthKey = getMonthKey(date);
-          const day = date.getDate();
-          const dayName = getDayName(date);
-          const dateOrders = ordersByDateMap[dateKey] || [];
-          
-          // Count unique transaction numbers
-          const transactionCount = countUniqueTransactions(dateOrders);
-          
-          // Only create event if there are orders for this date
-          if (transactionCount === 0) {
-            return; // Skip dates with no orders
-          }
-          
-          // Get origin country from orders (for flag)
-          const country = getOriginCountry(dateOrders);
-
-          const styling = getEventStyling(ordersByDateMap, dateKey, transactionCount);
-          
-          // Safety check: if styling is null, skip this date
-          if (!styling) {
-            return;
-          }
+            
+            console.log(`✅ Processing date: ${dateKey} (${date.toISOString()})`);
+            
+            const monthKey = getMonthKey(date);
+            const dayNum = date.getDate();
+            const dayName = getDayName(date);
+            const dateOrders = []; // No orders, only using flight change requests
+            const dateRequests = flightChangeRequestsByDate[dateKey] || [];
+            
+            // Only show dates that have requests
+            if (dateRequests.length === 0) {
+              return; // Skip dates without requests
+            }
+            
+            // Style for dates with requests
+            const styling = {
+              backgroundColor: '#FEF3C7', // Light yellow/orange for pending requests
+              borderColor: '#F59E0B',
+              borderWidth: 2,
+            };
 
           if (!scheduleByMonth[monthKey]) {
             scheduleByMonth[monthKey] = {
@@ -750,32 +734,36 @@ const FlightDate = ({ navigation }) => {
             };
           }
 
-          scheduleByMonth[monthKey].dates.push({
-            day,
-            dayName,
-            date: new Date(date),
-            dateKey: dateKey, // Store dateKey for navigation
-            orders: dateOrders, // Store orders for navigation
-            events: [
-              {
-                id: dateKey,
-                eventType: 'Plant Flight',
-                country: country,
-                transactionCount: transactionCount,
-                ...styling,
-              },
-            ],
-          });
-        });
+            scheduleByMonth[monthKey].dates.push({
+              day: dayNum,
+              dayName,
+              date: new Date(date),
+              dateKey: dateKey, // Store dateKey for navigation
+              orders: [], // No orders, only using flight change requests
+              hasRequests: true, // All dates shown have requests
+              requests: dateRequests, // Store requests for navigation
+              events: [
+                {
+                  id: dateKey,
+                  eventType: 'Flight Change Request',
+                  transactionCount: dateRequests.length,
+                  ...styling,
+                },
+              ],
+            });
+        } catch (e) {
+          console.warn('Error processing date:', dateKey, e);
+        }
+      });
 
-        // Convert to array format for rendering
-        const schedule = Object.keys(scheduleByMonth)
-          .sort()
-          .map(monthKey => scheduleByMonth[monthKey]);
+      // Convert to array format for rendering
+      const schedule = Object.keys(scheduleByMonth)
+        .sort()
+        .map(monthKey => scheduleByMonth[monthKey]);
 
-        setScheduleData(schedule);
+      setScheduleData(schedule);
       } else {
-        // If no orders found, return empty schedule (don't show dates without orders)
+        // No flight change requests found, show empty schedule
         setScheduleData([]);
       }
     } catch (err) {
@@ -826,6 +814,7 @@ const FlightDate = ({ navigation }) => {
                       navigation.navigate('FlightDateOrders', {
                         date: schedule.date,
                         orders: schedule.orders || [],
+                        requests: schedule.requests || [],
                       });
                     }}
                   />
@@ -958,27 +947,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: 2,
-  },
-  countryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 22,
-  },
-  countryText: {
-    width: 23,
-    height: 22,
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#556065',
-  },
-  flagContainer: {
-    width: 24,
-    height: 16,
-    borderRadius: 2,
-    overflow: 'hidden',
   },
   statusRow: {
     flexDirection: 'row',
