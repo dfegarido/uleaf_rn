@@ -88,12 +88,13 @@ const getPrimaryImage = (listing) => {
   return null;
 };
 
-const renderCell = (key, listing) => {
+const renderCell = (key, listing, activeStatusFilter = null) => {
   // pick representative values, variations fallback to first variation
   const v0 = listing.variations && listing.variations.length ? listing.variations[0] : {};
   switch (key) {
       case 'code':
         // Determine display status: priority order is Sold > Discounted > actual status
+        // However, if filtering by a specific status (like "Active"), respect that filter
         // Check if listing is sold (quantity = 0)
         const qty = listing.quantity ?? v0.availableQty ?? 0;
         const quantityValue = parseInt(qty) || 0;
@@ -112,8 +113,38 @@ const renderCell = (key, listing) => {
           }
         }
         
-        // Priority: Sold > Discounted > actual status
-        const displayStatus = isSold ? 'Sold' : (listing.hasDiscount ? 'Discounted' : (listing.status || ''));
+        // Check if we're filtering by a specific status
+        const statusFilter = activeStatusFilter;
+        const isFilteringByStatus = statusFilter && (
+          (Array.isArray(statusFilter) && statusFilter.length > 0) ||
+          (typeof statusFilter === 'string' && statusFilter.trim() !== '')
+        );
+        
+        // Normalize status filter to check if it's "Active" or "Inactive"
+        let isFilteringActive = false;
+        let isFilteringInactive = false;
+        if (isFilteringByStatus) {
+          const filterArray = Array.isArray(statusFilter) ? statusFilter : [statusFilter];
+          isFilteringActive = filterArray.some(f => 
+            String(f).toLowerCase().trim() === 'active'
+          );
+          isFilteringInactive = filterArray.some(f => 
+            String(f).toLowerCase().trim() === 'inactive'
+          );
+        }
+        
+        // If filtering by "Active" status, show "Active" badge regardless of discount/sold
+        // If filtering by "Inactive" status, show "Inactive" badge only (no Sold/Discounted badges)
+        // Otherwise, use priority: Sold > Discounted > actual status
+        let displayStatus;
+        if (isFilteringActive) {
+          displayStatus = listing.status || 'Active';
+        } else if (isFilteringInactive) {
+          displayStatus = listing.status || 'Inactive';
+        } else {
+          displayStatus = isSold ? 'Sold' : (listing.hasDiscount ? 'Discounted' : (listing.status || ''));
+        }
+        
         return (
           <View>
             <Text style={styles.plantCode}>{listing.plantCode}</Text>
@@ -213,7 +244,7 @@ const renderCell = (key, listing) => {
 // lightweight in-memory cache for image availability checks
 const imageAvailabilityCache = new Map(); // url -> boolean
 
-const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus = () => {}, isProcessing = false }) => {
+const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus = () => {}, isProcessing = false, activeStatusFilter = null }) => {
   const [selectedUri, setSelectedUri] = useState(null);
   const [loadingImage, setLoadingImage] = useState(true);
   const mountedRef = useRef(true);
@@ -314,16 +345,16 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus 
                     )}
                   </TouchableOpacity>
                 ) : (
-                  renderCell(col.key, listing)
+                  renderCell(col.key, listing, activeStatusFilter)
                 )}
             </View>
           ))
         ) : (
           /* fallback small set */
           <>
-            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('code', listing)}</View>
-            <View style={[styles.columnCell, { width: 320 }]}>{renderCell('name', listing)}</View>
-            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('listingType', listing)}</View>
+            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('code', listing, activeStatusFilter)}</View>
+            <View style={[styles.columnCell, { width: 320 }]}>{renderCell('name', listing, activeStatusFilter)}</View>
+            <View style={[styles.columnCell, { width: 160 }]}>{renderCell('listingType', listing, activeStatusFilter)}</View>
           </>
         )}
       </View>

@@ -271,56 +271,113 @@ const ListingsViewer = ({ navigation }) => {
 
         let pageListings = extractListingsFromResponse(response.data) || [];
 
-        // Helper: extract a numeric USD price from a listing. Priority:
-        // 1) listing.usdPrice
-        // 2) first variation.usdPrice
-        // 3) null (meaning unknown)
-        // Notes/assumptions: backend already computes a usable `usdPrice` where
-        // possible. We avoid attempting currency conversion on the client as
-        // exchange rates or pricingBreakdown are not reliably available here.
-        // Listings missing USD price will be placed at the end of sorted lists.
-          const extractPriceForSort = (item) => {
-            const v0 = item?.variations && item.variations.length ? item.variations[0] : undefined;
-            const candidates = [item?.finalPrice, item?.usdPrice, v0?.finalPrice, v0?.usdPrice];
-            for (const c of candidates) {
-              const n = Number(c);
-              if (Number.isFinite(n)) return n;
-            }
-            return null;
-          };
-
-        if (selectedFilters.sort === 'priceLow' || selectedFilters.sort === 'priceHigh') {
-          const asc = selectedFilters.sort === 'priceLow';
-          pageListings = pageListings.slice().sort((a, b) => {
-              const av = extractPriceForSort(a);
-              const bv = extractPriceForSort(b);
-            // Put items with null/undefined USD price at the end
-              if (av === null && bv === null) return 0;
-              if (av === null) return 1;
-              if (bv === null) return -1;
-              return asc ? av - bv : bv - av;
-          });
-        }
+        // Note: Backend already handles price sorting globally when sort is 'priceLow' or 'priceHigh'.
+        // The backend fetches the full result set, sorts by finalPrice, and then paginates.
+        // Therefore, we should NOT re-sort on the client side as it would only sort within the
+        // current page and could cause incorrect ordering. The backend's global sort is the source of truth.
 
         setListings(pageListings);
-        // compute garden counts for the current pageListings so modal can show counts
-        try {
-          const counts = {};
-          (pageListings || []).forEach(l => {
-            const raw = (l?.garden || l?.gardenOrCompanyName || l?.sellerName || l?.seller || null);
-            const key = raw ? normalizeGardenName(raw) : null;
-            if (!key) return;
-            counts[key] = (counts[key] || 0) + 1;
-          });
-          setGardenCounts(counts);
-        } catch (e) {
-          console.warn('Failed to compute gardenCounts', e?.message || e);
-        }
+        // Compute garden counts from ALL listings matching current filters (excluding garden filter)
+        // This ensures accurate counts that match the total listings for each garden
+        // Fire-and-forget: fetch all listings with current filters (excluding garden) to calculate accurate counts
+        (async () => {
+          try {
+            // Build filters excluding garden filter to get all listings for accurate counts
+            const countFilters = {
+              sort: selectedFilters.sort || undefined,
+              status: selectedFilters.status || undefined,
+              genus: selectedFilters.genus || undefined,
+              variegation: selectedFilters.variegation || undefined,
+              listingType: selectedFilters.listingType || undefined,
+              // Exclude garden filter to get counts for all gardens
+              // garden: undefined,
+              country: selectedFilters.country || undefined,
+              shippingIndex: selectedFilters.shippingIndex || undefined,
+              acclimationIndex: selectedFilters.acclimationIndex || undefined,
+              search: isSearching ? searchTerm : undefined,
+              page: 1,
+              limit: 1000, // Fetch up to 1000 listings to calculate counts
+            };
+
+            // Add badge filter mappings
+            if (selectedBadgeFilter) {
+              switch (selectedBadgeFilter) {
+                case 'latest':
+                  countFilters.sort = 'latest';
+                  break;
+                case 'below20':
+                  countFilters.priceMax = 20;
+                  break;
+                case 'unicorn':
+                  countFilters.rarity = 'unicorn';
+                  break;
+                case 'wishlist':
+                  countFilters.isWishlist = true;
+                  break;
+                case 'sellers-fave':
+                  countFilters.isSellersFave = true;
+                  break;
+              }
+            }
+
+            const countResponse = await getAdminListingsApi(countFilters);
+            if (countResponse && countResponse.success) {
+              const extractListingsFromResponse = (respData) => {
+                if (!respData) return [];
+                if (Array.isArray(respData)) return respData;
+                if (Array.isArray(respData.listings)) return respData.listings;
+                if (Array.isArray(respData.data)) return respData.data;
+                if (Array.isArray(respData.data?.listings)) return respData.data.listings;
+                if (Array.isArray(respData?.data?.data?.listings)) return respData.data.data.listings;
+                if (Array.isArray(respData.list)) return respData.list;
+                return [];
+              };
+
+              const allListingsForCounts = extractListingsFromResponse(countResponse.data) || [];
+              const counts = {};
+              (allListingsForCounts || []).forEach(l => {
+                // Prioritize sellerName from listing collection
+                const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
+                const key = raw ? normalizeGardenName(raw) : null;
+                if (!key) return;
+                counts[key] = (counts[key] || 0) + 1;
+              });
+              setGardenCounts(counts);
+            } else {
+              // Fallback: use current page counts if full fetch fails
+              const counts = {};
+              (pageListings || []).forEach(l => {
+                const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
+                const key = raw ? normalizeGardenName(raw) : null;
+                if (!key) return;
+                counts[key] = (counts[key] || 0) + 1;
+              });
+              setGardenCounts(counts);
+            }
+          } catch (e) {
+            console.warn('Failed to compute gardenCounts from all listings', e?.message || e);
+            // Fallback: use current page counts
+            try {
+              const counts = {};
+              (pageListings || []).forEach(l => {
+                const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
+                const key = raw ? normalizeGardenName(raw) : null;
+                if (!key) return;
+                counts[key] = (counts[key] || 0) + 1;
+              });
+              setGardenCounts(counts);
+            } catch (fallbackError) {
+              console.warn('Failed to compute gardenCounts fallback', fallbackError?.message || fallbackError);
+            }
+          }
+        })();
         // Build garden options from the current page listings so the Garden
         // filter modal shows the gardens actually present in the listing set.
+        // Prioritize sellerName from listing collection as the primary source.
         try {
           const gardens = Array.isArray(pageListings) ? pageListings.map(l => {
-            const raw = (l?.garden || l?.gardenOrCompanyName || l?.sellerName || l?.seller || null);
+            // Use sellerName first (from listing collection), then fallback to other fields
+            const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
             return raw ? normalizeGardenName(raw) : null;
           }).filter(Boolean) : [];
           // de-duplicate and sort for stable UI
@@ -708,8 +765,10 @@ const ListingsViewer = ({ navigation }) => {
       };
 
       const allListings = extractListingsFromResponse(resp.data) || [];
+      // Prioritize sellerName from listing collection as the primary source for garden names
       const gardens = Array.isArray(allListings) ? allListings.map(l => {
-        const raw = (l?.garden || l?.gardenOrCompanyName || l?.sellerName || l?.seller || null);
+        // Use sellerName first (from listing collection), then fallback to other fields
+        const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
         return raw ? normalizeGardenName(raw) : null;
       }).filter(Boolean) : [];
       const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
@@ -1213,35 +1272,43 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   const PaginationControls = () => {
-    // Show pagination when server reports more than 1 page OR when current
-    // page looks 'full' (listings length >= itemsPerPage) which suggests
-    // there may be additional pages even if server metadata is missing.
+    // Show pagination when:
+    // 1. Server reports more than 1 page, OR
+    // 2. Current page looks 'full' (listings length >= itemsPerPage) which suggests there may be additional pages, OR
+    // 3. Server reports totalItems > itemsPerPage, OR
+    // 4. There are any listings (show pagination even for single page to indicate current page and total count)
     const itemsPerPage = pagination.itemsPerPage || 50;
     const hasMultiplePages = typeof pagination.totalPages === 'number' && pagination.totalPages > 1;
     const looksLikeMorePages = Array.isArray(listings) && listings.length >= itemsPerPage;
     const totalItemsSuggestsMore = typeof pagination.totalItems === 'number' && pagination.totalItems > itemsPerPage;
+    const hasListings = Array.isArray(listings) && listings.length > 0;
 
-  const shouldShow = hasMultiplePages || looksLikeMorePages || totalItemsSuggestsMore;
+  const shouldShow = hasMultiplePages || looksLikeMorePages || totalItemsSuggestsMore || hasListings;
     if (!shouldShow) return null;
 
-    const canGoPrev = pagination.currentPage > 1;
+    const canGoPrev = pagination.currentPage > 1 && !loading;
     // If totalPages is known use it; otherwise infer that next may exist when
     // current page is full (listings length >= itemsPerPage)
-    const canGoNext = (typeof pagination.totalPages === 'number' && pagination.totalPages > 0)
+    const canGoNext = !loading && ((typeof pagination.totalPages === 'number' && pagination.totalPages > 0)
       ? (pagination.currentPage < pagination.totalPages)
-      : looksLikeMorePages;
+      : looksLikeMorePages);
 
-    const totalPagesDisplay = (typeof pagination.totalPages === 'number' && pagination.totalPages > 0) ? pagination.totalPages : '...';
-    const totalItemsDisplay = (typeof pagination.totalItems === 'number' && pagination.totalItems > 0) ? `${pagination.totalItems} total listings` : `${listings.length} listings on this page`;
+    // Show loading placeholders when loading is active
+    const totalPagesDisplay = loading 
+      ? '...' 
+      : ((typeof pagination.totalPages === 'number' && pagination.totalPages > 0) ? pagination.totalPages : '...');
+    const totalItemsDisplay = loading 
+      ? 'Loading...' 
+      : ((typeof pagination.totalItems === 'number' && pagination.totalItems > 0) ? `${pagination.totalItems} total listings` : `${listings.length} listings on this page`);
 
     return (
       <View style={styles.paginationContainer}>
         <TouchableOpacity
-          style={[styles.paginationButton, !canGoPrev && styles.paginationButtonDisabled]}
+          style={[styles.paginationButton, (!canGoPrev || loading) && styles.paginationButtonDisabled]}
           onPress={() => handlePageChange(pagination.currentPage - 1)}
-          disabled={!canGoPrev}
+          disabled={!canGoPrev || loading}
         >
-          <Text style={[styles.paginationButtonText, !canGoPrev && styles.paginationButtonTextDisabled]}>
+          <Text style={[styles.paginationButtonText, (!canGoPrev || loading) && styles.paginationButtonTextDisabled]}>
             Previous
           </Text>
         </TouchableOpacity>
@@ -1256,11 +1323,11 @@ const ListingsViewer = ({ navigation }) => {
         </View>
 
         <TouchableOpacity
-          style={[styles.paginationButton, !canGoNext && styles.paginationButtonDisabled]}
+          style={[styles.paginationButton, (!canGoNext || loading) && styles.paginationButtonDisabled]}
           onPress={() => handlePageChange(pagination.currentPage + 1)}
-          disabled={!canGoNext}
+          disabled={!canGoNext || loading}
         >
-          <Text style={[styles.paginationButtonText, !canGoNext && styles.paginationButtonTextDisabled]}>
+          <Text style={[styles.paginationButtonText, (!canGoNext || loading) && styles.paginationButtonTextDisabled]}>
             Next
           </Text>
         </TouchableOpacity>
@@ -1490,6 +1557,7 @@ const ListingsViewer = ({ navigation }) => {
                         columns={filteredColumns}
                         onToggleStatus={handleToggleStatus}
                         isProcessing={!!activatingPlantCodes[listing.plantCode]}
+                        activeStatusFilter={selectedFilters.status}
                       />
                     ))}
                   </ScrollView>
