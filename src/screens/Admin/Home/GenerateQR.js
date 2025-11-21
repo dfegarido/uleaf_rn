@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -11,120 +11,157 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  PermissionsAndroid,
-  Animated,
+  Modal,
+  TextInput,
+  ScrollView,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../../config/apiConfig';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
+import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import DownloadIcon from '../../../assets/icons/accent/download.svg';
+import SearchIcon from '../../../assets/admin-icons/search.svg';
+import CloseIcon from '../../../assets/admin-icons/x.svg';
+import ArrowDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 
-// Import icons - using a placeholder for the back arrow and email icon
-import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import DownloadIcon from '../../../assets/icons/accent/download.svg'; // Using download icon for email
+// Seller Selection Modal Component
+const SellerSelectionModal = ({ isVisible, onClose, onSelectSeller, sellers, loading }) => {
+  const [searchQuery, setSearchQuery] = useState('');
 
-// Skeleton Item Component
-const SkeletonItem = ({ width, height = 20, style }) => {
-  const pulseAnim = useRef(new Animated.Value(0.3)).current;
-  
-  useEffect(() => {
-    const pulseTiming = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    
-    pulseTiming.start();
-    
-    return () => {
-      pulseTiming.stop();
-    };
-  }, [pulseAnim]);
-  
+  // Filter sellers based on the search query
+  const filteredSellers = sellers.filter(seller => {
+    const name = seller.name || seller.firstName + ' ' + seller.lastName || '';
+    const email = seller.email || '';
+    const searchLower = searchQuery.toLowerCase();
+    return name.toLowerCase().includes(searchLower) || email.toLowerCase().includes(searchLower);
+  });
+
+  const handleSelect = (seller) => {
+    onSelectSeller(seller);
+    onClose();
+    setSearchQuery('');
+  };
+
   return (
-    <Animated.View 
-      style={[{
-        width,
-        height,
-        backgroundColor: '#E4E7E9',
-        borderRadius: 4,
-        opacity: pulseAnim,
-      }, style]} 
-    />
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.actionSheetContainer}>
+              <SafeAreaView>
+                {/* Header */}
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalHeaderTitle}>Select Seller</Text>
+                  <TouchableOpacity onPress={onClose}>
+                    <CloseIcon width={24} height={24} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Content Area */}
+                <View style={styles.modalContentContainer}>
+                  {/* Search Bar */}
+                  <View style={styles.searchFieldContainer}>
+                    <SearchIcon width={20} height={20} />
+                    <TextInput
+                      style={styles.searchTextInput}
+                      placeholder="Search seller..."
+                      placeholderTextColor="#647276"
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                    />
+                  </View>
+
+                  {/* Scrollable List of Sellers */}
+                  {loading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="small" color="#539461" />
+                      <Text style={styles.loadingText}>Loading sellers...</Text>
+                    </View>
+                  ) : (
+                    <ScrollView style={styles.sellerListContainer} showsVerticalScrollIndicator={false}>
+                      {filteredSellers.length === 0 ? (
+                        <View style={styles.emptySellerContainer}>
+                          <Text style={styles.emptySellerText}>
+                            {searchQuery ? 'No sellers found' : 'No sellers available'}
+                          </Text>
+                        </View>
+                      ) : (
+                        filteredSellers.map((seller, index) => {
+                          const sellerName = seller.name || `${seller.firstName || ''} ${seller.lastName || ''}`.trim() || seller.email || 'Unknown';
+                          const avatarUrl = seller.profileImage || seller.avatar || '';
+                          return (
+                            <View key={seller.id || seller.uid || index}>
+                              <TouchableOpacity 
+                                style={styles.sellerItemContainer} 
+                                onPress={() => handleSelect(seller)}
+                              >
+                                {avatarUrl ? (
+                                  <Image source={{ uri: avatarUrl }} style={styles.sellerAvatar} />
+                                ) : (
+                                  <View style={[styles.sellerAvatar, styles.sellerAvatarPlaceholder]}>
+                                    <Text style={styles.sellerAvatarText}>
+                                      {sellerName.charAt(0).toUpperCase()}
+                                    </Text>
+                                  </View>
+                                )}
+                                <View style={styles.sellerInfo}>
+                                  <Text style={styles.sellerName}>{sellerName}</Text>
+                                  {seller.email && (
+                                    <Text style={styles.sellerEmail}>{seller.email}</Text>
+                                  )}
+                                </View>
+                              </TouchableOpacity>
+                              {index < filteredSellers.length - 1 && <View style={styles.divider} />}
+                            </View>
+                          );
+                        })
+                      )}
+                    </ScrollView>
+                  )}
+                </View>
+              </SafeAreaView>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 };
 
-// QR Code Skeleton Component
-const QRSkeleton = () => {
-  const itemWidth = 80;
-  const itemHeight = 170;
-  const rowSpacing = 10;
-  const containerWidth = Dimensions.get('window').width - 48;
-  const spacing = (containerWidth - (itemWidth * 4)) / 3;
-  const numItems = 16; // Show 16 skeleton items (4x4 grid)
-  const numRows = Math.ceil(numItems / 4);
-  const containerHeight = (numRows * itemHeight) + ((numRows - 1) * rowSpacing) + 10;
+// Custom Header with Centered Title and Seller Dropdown
+const GenerateQRHeader = ({ navigation, selectedSeller, onSellerPress }) => {
+  const sellerName = selectedSeller 
+    ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'All Sellers')
+    : 'All Sellers';
 
   return (
-    <View style={styles.pageContainer}>
-      <View style={styles.contentWrapper}>
-        <View style={[styles.qrListContainer, { height: containerHeight }]}>
-          {Array.from({ length: numItems }).map((_, index) => {
-            const row = Math.floor(index / 4);
-            const col = index % 4;
-            const left = col * (itemWidth + spacing);
-            const top = row * (itemHeight + rowSpacing);
-            
-            return (
-              <View 
-                key={`skeleton-${index}`}
-                style={[
-                  styles.qrItemContainer,
-                  {
-                    left: left,
-                    top: top,
-                    height: 170,
-                  }
-                ]}
-              >
-                <View style={styles.qrItemContent}>
-                  <View style={styles.qrContentInner}>
-                    {/* QR Code Image Skeleton */}
-                    <SkeletonItem width={50} height={50} style={{ borderRadius: 4 }} />
-                    {/* Plant Code Skeleton */}
-                    <SkeletonItem width={60} height={8} style={{ marginTop: 4, borderRadius: 2 }} />
-                    {/* Genus Species Skeleton */}
-                    <SkeletonItem width={50} height={7} style={{ marginTop: 2, borderRadius: 2 }} />
-                    {/* Receiver/Joiner Skeleton */}
-                    <SkeletonItem width={45} height={7} style={{ marginTop: 2, borderRadius: 2 }} />
-                    {/* Flight Date Skeleton */}
-                    <SkeletonItem width={55} height={7} style={{ marginTop: 2, borderRadius: 2 }} />
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </View>
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <BackSolidIcon />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Generate QR</Text>
+      <View style={styles.backButton} />
     </View>
   );
 };
 
-const ScreenExportQR = ({navigation}) => {
-  const insets = useSafeAreaInsets();
+const GenerateQR = ({navigation}) => {
   const [qrCodeData, setQrCodeData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [selectedSeller, setSelectedSeller] = useState(null);
+  const [sellers, setSellers] = useState([]);
+  const [loadingSellers, setLoadingSellers] = useState(false);
+  const [showSellerModal, setShowSellerModal] = useState(false);
 
   // Function to handle email sending
   const handleSendEmail = async () => {
@@ -138,7 +175,13 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(API_ENDPOINTS.QR_GENERATOR, {
+      // Build URL with seller filter if selected
+      let url = API_ENDPOINTS.QR_GENERATOR;
+      if (selectedSeller && selectedSeller.uid) {
+        url += `?sellerUid=${encodeURIComponent(selectedSeller.uid)}`;
+      }
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -202,6 +245,52 @@ const ScreenExportQR = ({navigation}) => {
     }
   };
 
+  // Function to fetch sellers from API
+  const fetchSellers = async () => {
+    try {
+      setLoadingSellers(true);
+      const authToken = await getStoredAuthToken();
+      
+      if (!authToken) {
+        console.warn('No auth token for fetching sellers');
+        return;
+      }
+
+      // Fetch suppliers (sellers) using SEARCH_USER API
+      const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=&userType=supplier&limit=100&offset=0`;
+      
+      const supplierResponse = await fetch(supplierUrl, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      
+      if (supplierResponse.ok) {
+        const supplierData = await supplierResponse.json();
+        if (supplierData && supplierData.success && supplierData.results) {
+          const sellerResults = supplierData.results.map(user => ({
+            id: user.id || user.uid,
+            uid: user.uid || user.id,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '',
+            profileImage: user.profileImage || '',
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+            userType: 'supplier'
+          }));
+          setSellers(sellerResults);
+          console.log(`✅ Loaded ${sellerResults.length} sellers`);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching sellers:', err);
+    } finally {
+      setLoadingSellers(false);
+    }
+  };
+
   // Function to fetch QR code data from API
   const fetchQRCodeData = async () => {
     try {
@@ -215,7 +304,13 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(API_ENDPOINTS.QR_GENERATOR_ORDERS, {
+      // Build URL with seller filter if selected
+      let url = API_ENDPOINTS.QR_GENERATOR_ORDERS;
+      if (selectedSeller && selectedSeller.uid) {
+        url += `?sellerUid=${encodeURIComponent(selectedSeller.uid)}`;
+      }
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -390,7 +485,6 @@ const ScreenExportQR = ({navigation}) => {
                     }
                     
                     date = new Date(inferredYear, monthIndex, day);
-                    console.log(`📅 [QR Export] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
                   }
                 }
               }
@@ -425,14 +519,6 @@ const ScreenExportQR = ({navigation}) => {
         let plantCode = order.plantCode || qrContent.plantCode || '';
         let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
         
-        // Log initial flight date extraction
-        console.log('🔍 [QR Export] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
-          order_flightDate: order.flightDate,
-          order_flightDateFormatted: order.flightDateFormatted,
-          order_cargoDate: order.cargoDate,
-          extracted: flightDate
-        });
-        
         if ((!genus || !plantCode) && order.products && Array.isArray(order.products) && order.products.length > 0) {
           const firstProduct = order.products[0];
           genus = genus || firstProduct.genus || '';
@@ -441,7 +527,6 @@ const ScreenExportQR = ({navigation}) => {
           const productFlightDate = firstProduct.flightDate || firstProduct.flightDateFormatted || null;
           
           if (productFlightDate && !flightDate) {
-            console.log('🔍 [QR Export] Using product flightDate:', productFlightDate);
             flightDate = productFlightDate;
           }
         }
@@ -450,14 +535,6 @@ const ScreenExportQR = ({navigation}) => {
         const formattedFlightDate = formatFlightDate(flightDate);
         // Only store flightDate if it's valid, otherwise set to null
         const validFlightDate = formattedFlightDate ? flightDate : null;
-        
-        // Log flight date processing result
-        console.log('📅 [QR Export] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
-          rawFlightDate: flightDate,
-          formattedFlightDate: formattedFlightDate,
-          validFlightDate: validFlightDate,
-          hasValidDate: !!formattedFlightDate
-        });
         
         allQRCodes.push({
           id: order.qrCode.id || order.qrCode.qrCodeId || qrContent.orderId,
@@ -532,7 +609,6 @@ const ScreenExportQR = ({navigation}) => {
                     }
                     
                     date = new Date(inferredYear, monthIndex, day);
-                    console.log(`📅 [QR Export - Fallback] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
                   }
                 }
               }
@@ -567,14 +643,6 @@ const ScreenExportQR = ({navigation}) => {
         let plantCode = order.plantCode || order.qrCode.plantCode || order.qrCode.code || order.qrCode.qrCodeId;
         let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
         
-        // Log initial flight date extraction (fallback format)
-        console.log('🔍 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
-          order_flightDate: order.flightDate,
-          order_flightDateFormatted: order.flightDateFormatted,
-          order_cargoDate: order.cargoDate,
-          extracted: flightDate
-        });
-        
         if ((!genus || !plantCode) && order.products && Array.isArray(order.products) && order.products.length > 0) {
           const firstProduct = order.products[0];
           genus = genus || firstProduct.genus || '';
@@ -583,7 +651,6 @@ const ScreenExportQR = ({navigation}) => {
           const productFlightDate = firstProduct.flightDate || firstProduct.flightDateFormatted || null;
           
           if (productFlightDate && !flightDate) {
-            console.log('🔍 [QR Export - Fallback] Using product flightDate:', productFlightDate);
             flightDate = productFlightDate;
           }
         }
@@ -592,14 +659,6 @@ const ScreenExportQR = ({navigation}) => {
         const formattedFlightDate = formatFlightDate(flightDate);
         // Only store flightDate if it's valid, otherwise set to null
         const validFlightDate = formattedFlightDate ? flightDate : null;
-        
-        // Log flight date processing result (fallback format)
-        console.log('📅 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
-          rawFlightDate: flightDate,
-          formattedFlightDate: formattedFlightDate,
-          validFlightDate: validFlightDate,
-          hasValidDate: !!formattedFlightDate
-        });
         
         allQRCodes.push({
           id: order.qrCode.id || order.qrCode.qrCodeId,
@@ -621,62 +680,39 @@ const ScreenExportQR = ({navigation}) => {
           orderStatus: order.status,
           createdAt: displayDate, // Use the properly parsed date
         });
-      } else {
-        // No QR codes found in this order
       }
     });
 
-    // Log summary of all QR codes
-    console.log('📊 [QR Export] Total QR codes collected:', allQRCodes.length);
-    const qrCodesWithFlightDate = allQRCodes.filter(qr => qr.flightDateFormatted).length;
-    const qrCodesWithoutFlightDate = allQRCodes.filter(qr => !qr.flightDateFormatted).length;
-    console.log('📊 [QR Export] QR codes with flight date:', qrCodesWithFlightDate);
-    console.log('📊 [QR Export] QR codes without flight date:', qrCodesWithoutFlightDate);
-    
     // If there are QR codes without flight date, use the most common flight date from others
-    if (qrCodesWithoutFlightDate > 0 && qrCodesWithFlightDate > 0) {
-      // Find the most common flight date
-      const flightDateCounts = {};
-      allQRCodes.forEach(qr => {
-        if (qr.flightDateFormatted) {
-          flightDateCounts[qr.flightDateFormatted] = (flightDateCounts[qr.flightDateFormatted] || 0) + 1;
-        }
-      });
+    if (allQRCodes.length > 0) {
+      const qrCodesWithFlightDate = allQRCodes.filter(qr => qr.flightDateFormatted).length;
+      const qrCodesWithoutFlightDate = allQRCodes.filter(qr => !qr.flightDateFormatted).length;
       
-      // Get the most common flight date
-      const mostCommonFlightDate = Object.keys(flightDateCounts).reduce((a, b) => 
-        flightDateCounts[a] > flightDateCounts[b] ? a : b
-      );
-      
-      // Also get the raw flight date for the most common one
-      const mostCommonRawFlightDate = allQRCodes.find(qr => qr.flightDateFormatted === mostCommonFlightDate)?.flightDate;
-      
-      console.log('📅 [QR Export] Most common flight date:', mostCommonFlightDate, '| Raw:', mostCommonRawFlightDate);
-      console.log('📅 [QR Export] Applying to', qrCodesWithoutFlightDate, 'QR codes without flight date');
-      
-      // Apply the most common flight date to QR codes without flight date
-      allQRCodes.forEach(qr => {
-        if (!qr.flightDateFormatted) {
-          qr.flightDateFormatted = mostCommonFlightDate;
-          qr.flightDate = mostCommonRawFlightDate || null;
-          console.log(`📅 [QR Export] Applied flight date "${mostCommonFlightDate}" to QR code:`, qr.plantCode, qr.id);
-        }
-      });
-    }
-    
-    // Log details of QR codes without flight date (after applying common date)
-    const finalQRCodesWithoutFlightDate = allQRCodes.filter(qr => !qr.flightDateFormatted).length;
-    if (finalQRCodesWithoutFlightDate > 0) {
-      console.log('⚠️ [QR Export] QR codes still missing flight date:', 
-        allQRCodes
-          .filter(qr => !qr.flightDateFormatted)
-          .map(qr => ({
-            id: qr.id,
-            plantCode: qr.plantCode,
-            orderId: qr.orderId,
-            rawFlightDate: qr.flightDate
-          }))
-      );
+      if (qrCodesWithoutFlightDate > 0 && qrCodesWithFlightDate > 0) {
+        // Find the most common flight date
+        const flightDateCounts = {};
+        allQRCodes.forEach(qr => {
+          if (qr.flightDateFormatted) {
+            flightDateCounts[qr.flightDateFormatted] = (flightDateCounts[qr.flightDateFormatted] || 0) + 1;
+          }
+        });
+        
+        // Get the most common flight date
+        const mostCommonFlightDate = Object.keys(flightDateCounts).reduce((a, b) => 
+          flightDateCounts[a] > flightDateCounts[b] ? a : b
+        );
+        
+        // Also get the raw flight date for the most common one
+        const mostCommonRawFlightDate = allQRCodes.find(qr => qr.flightDateFormatted === mostCommonFlightDate)?.flightDate;
+        
+        // Apply the most common flight date to QR codes without flight date
+        allQRCodes.forEach(qr => {
+          if (!qr.flightDateFormatted) {
+            qr.flightDateFormatted = mostCommonFlightDate;
+            qr.flightDate = mostCommonRawFlightDate || null;
+          }
+        });
+      }
     }
     
     // Convert to pages with pagination (16 items per page for 4x4 grid)
@@ -701,17 +737,37 @@ const ScreenExportQR = ({navigation}) => {
     return pages;
   };
 
+  const handleSelectSeller = useCallback((seller) => {
+    setSelectedSeller(seller);
+  }, []);
+
+  const handleClearSeller = useCallback(() => {
+    setSelectedSeller(null);
+  }, []);
+
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       if (Platform.OS === 'android') {
         StatusBar.setBarStyle('dark-content');
         StatusBar.setBackgroundColor('#fff');
       }
       
-      // Fetch data when screen comes into focus
-      fetchQRCodeData();
+      // Fetch sellers when screen comes into focus
+      fetchSellers();
     }, [])
   );
+
+  // Refetch QR codes when seller changes (only if seller is selected)
+  React.useEffect(() => {
+    if (selectedSeller) {
+      fetchQRCodeData();
+    } else {
+      // Clear QR codes when no seller is selected
+      setQrCodeData([]);
+      setError(null);
+      setLoading(false);
+    }
+  }, [selectedSeller]);
 
   const formatGeneratedDate = (dateInput) => {
     if (!dateInput) return 'Unknown';
@@ -774,35 +830,81 @@ const ScreenExportQR = ({navigation}) => {
     }
   };
 
-  if (loading) {
+  // Show message when no seller is selected
+  if (!selectedSeller) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.content}>
-          <View style={styles.controls}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}>
-              <BackIcon width={24} height={24} />
-            </TouchableOpacity>
-            <Text style={styles.title}>Export QR Code</Text>
-            <View style={styles.navbarRight}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.actionButtonDisabled]}
-                disabled={true}>
-                <DownloadIcon width={24} height={24} fill="#CDD3D4" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-        {/* Date Generated Skeleton */}
-        <View style={[styles.topDateContainer, { flexDirection: 'row', alignItems: 'center' }]}>
-          <SkeletonItem width={80} height={12} style={{ marginRight: 4 }} />
-          <SkeletonItem width={120} height={12} />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
+        
+        {/* Seller Selection Dropdown */}
+        <View style={styles.sellerDropdownContainer}>
+          <TouchableOpacity 
+            style={styles.sellerDropdown}
+            onPress={() => setShowSellerModal(true)}
+          >
+            <Text style={styles.sellerDropdownText} numberOfLines={1}>
+              Select Seller
+            </Text>
+            <ArrowDownIcon width={20} height={20} fill="#647276" />
+          </TouchableOpacity>
         </View>
 
-        {/* Skeleton Loading */}
-        <View style={styles.mainContent}>
-          <QRSkeleton />
+        {/* Seller Selection Modal */}
+        <SellerSelectionModal
+          isVisible={showSellerModal}
+          onClose={() => setShowSellerModal(false)}
+          onSelectSeller={handleSelectSeller}
+          sellers={sellers}
+          loading={loadingSellers}
+        />
+
+        <View style={styles.selectSellerContainer}>
+          <Text style={styles.selectSellerText}>Select a seller to generate QR codes</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
+        
+        {/* Seller Selection Dropdown */}
+        <View style={styles.sellerDropdownContainer}>
+          <TouchableOpacity 
+            style={styles.sellerDropdown}
+            onPress={() => setShowSellerModal(true)}
+          >
+            <Text style={styles.sellerDropdownText} numberOfLines={1}>
+              {selectedSeller 
+                ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'Selected Seller')
+                : 'Select Seller'}
+            </Text>
+            <ArrowDownIcon width={20} height={20} fill="#647276" />
+          </TouchableOpacity>
+          {selectedSeller && (
+            <TouchableOpacity 
+              style={styles.clearSellerButton}
+              onPress={handleClearSeller}
+            >
+              <Text style={styles.clearSellerText}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Seller Selection Modal */}
+        <SellerSelectionModal
+          isVisible={showSellerModal}
+          onClose={() => setShowSellerModal(false)}
+          onSelectSeller={handleSelectSeller}
+          sellers={sellers}
+          loading={loadingSellers}
+        />
+
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loadingText}>Loading QR codes...</Text>
         </View>
       </SafeAreaView>
     );
@@ -810,29 +912,41 @@ const ScreenExportQR = ({navigation}) => {
 
   if (error || qrCodeData.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.content}>
-          <View style={styles.controls}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}>
-              <BackIcon width={24} height={24} />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
+        
+        {/* Seller Selection Dropdown */}
+        <View style={styles.sellerDropdownContainer}>
+          <TouchableOpacity 
+            style={styles.sellerDropdown}
+            onPress={() => setShowSellerModal(true)}
+          >
+            <Text style={styles.sellerDropdownText} numberOfLines={1}>
+              {selectedSeller 
+                ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'Selected Seller')
+                : 'Select Seller'}
+            </Text>
+            <ArrowDownIcon width={20} height={20} fill="#647276" />
+          </TouchableOpacity>
+          {selectedSeller && (
+            <TouchableOpacity 
+              style={styles.clearSellerButton}
+              onPress={handleClearSeller}
+            >
+              <Text style={styles.clearSellerText}>Clear</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>Export QR Code</Text>
-            <View style={styles.navbarRight}>
-              <TouchableOpacity
-                style={[styles.actionButton, downloading && styles.actionButtonDisabled]}
-                onPress={handleSendEmail}
-                disabled={downloading || qrCodeData.length === 0}>
-                {downloading ? (
-                  <ActivityIndicator size="small" color="#4CAF50" />
-                ) : (
-                  <DownloadIcon width={24} height={24} fill="#4CAF50" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          )}
         </View>
+
+        {/* Seller Selection Modal */}
+        <SellerSelectionModal
+          isVisible={showSellerModal}
+          onClose={() => setShowSellerModal(false)}
+          onSelectSeller={handleSelectSeller}
+          sellers={sellers}
+          loading={loadingSellers}
+        />
+
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
             {error || 'No QR codes available for this period'}
@@ -840,35 +954,77 @@ const ScreenExportQR = ({navigation}) => {
           <TouchableOpacity style={styles.retryButton} onPress={fetchQRCodeData}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.sendEmailButton, (!selectedSeller || downloading) && styles.sendEmailButtonDisabled]} 
+            onPress={handleSendEmail}
+            disabled={!selectedSeller || downloading}
+          >
+            {downloading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <DownloadIcon width={20} height={20} fill="#FFFFFF" />
+                <Text style={styles.sendEmailButtonText}>Send QR Codes via Email</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.content}>
-        <View style={styles.controls}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}>
-            <BackIcon width={24} height={24} />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
+      
+      {/* Seller Selection Dropdown */}
+      <View style={styles.sellerDropdownContainer}>
+        <TouchableOpacity 
+          style={styles.sellerDropdown}
+          onPress={() => setShowSellerModal(true)}
+        >
+          <Text style={styles.sellerDropdownText} numberOfLines={1}>
+            {selectedSeller 
+              ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'Selected Seller')
+              : 'All Sellers'}
+          </Text>
+          <ArrowDownIcon width={20} height={20} fill="#647276" />
+        </TouchableOpacity>
+        {selectedSeller && (
+          <TouchableOpacity 
+            style={styles.clearSellerButton}
+            onPress={handleClearSeller}
+          >
+            <Text style={styles.clearSellerText}>Clear</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Export QR Code</Text>
-          <View style={styles.navbarRight}>
-            <TouchableOpacity
-              style={[styles.actionButton, downloading && styles.actionButtonDisabled]}
-              onPress={handleSendEmail}
-              disabled={downloading}>
-              {downloading ? (
-                <ActivityIndicator size="small" color="#4CAF50" />
-              ) : (
-                <DownloadIcon width={24} height={24} fill="#4CAF50" />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        )}
+      </View>
+
+      {/* Seller Selection Modal */}
+      <SellerSelectionModal
+        isVisible={showSellerModal}
+        onClose={() => setShowSellerModal(false)}
+        onSelectSeller={handleSelectSeller}
+        sellers={sellers}
+        loading={loadingSellers}
+      />
+      
+      {/* Send Email Button */}
+      <View style={styles.emailButtonContainer}>
+        <TouchableOpacity 
+          style={[styles.sendEmailButton, (!selectedSeller || downloading) && styles.sendEmailButtonDisabled]} 
+          onPress={handleSendEmail}
+          disabled={!selectedSeller || downloading}
+        >
+          {downloading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <DownloadIcon width={20} height={20} fill="#FFFFFF" />
+              <Text style={styles.sendEmailButtonText}>Send QR Codes via Email</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Date Generated - Single display at top */}
@@ -969,114 +1125,87 @@ const ScreenExportQR = ({navigation}) => {
   );
 };
 
-export default ScreenExportQR;
+export default GenerateQR;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  content: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    padding: 0,
-    width: Dimensions.get('window').width,
-    minHeight: 58,
-    alignSelf: 'stretch',
-  },
-  controls: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 6,
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    width: Dimensions.get('window').width,
-    minHeight: 58,
-    alignSelf: 'stretch',
-    position: 'relative',
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    height: 58,
   },
   backButton: {
-    width: 24,
-    height: 24,
-    zIndex: 0,
-  },
-  navbarRight: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    padding: 0,
-    gap: 12,
-    width: 319,
-    height: 40,
-    flex: 1,
-    zIndex: 1,
-  },
-  searchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
     width: 40,
     height: 40,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    width: 40,
-    height: 40,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-  },
-  actionButtonDisabled: {
-    opacity: 0.6,
-  },
-  profileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 4,
-    width: 40,
-    height: 40,
-  },
-  pageButton: {
-    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 6,
-    width: 33,
-    height: 32,
-    minHeight: 32,
-    borderRadius: 1000,
   },
-  linkButton: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    width: 54,
-    height: 22,
-  },
-  title: {
-    position: 'absolute',
-    width: 240,
-    height: 24,
-    left: Dimensions.get('window').width / 2 - 240 / 2 + 0.5,
-    top: 14,
-    fontWeight: '700',
+  headerTitle: {
     fontSize: 18,
-    lineHeight: 24,
-    textAlign: 'center',
+    fontWeight: '700',
     color: '#202325',
-    zIndex: 2,
+    textAlign: 'center',
+    flex: 1,
+  },
+  emailButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  sendEmailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#539461',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  sendEmailButtonDisabled: {
+    opacity: 0.6,
+  },
+  sendEmailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  topDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  dateLabel: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#202325',
+    marginRight: 4,
+  },
+  dateText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#202325',
   },
   mainContent: {
     flex: 1,
     width: '100%',
+  },
+  flatListContent: {
+    paddingBottom: 20, // Ensure last page has space at bottom
   },
   pageContainer: {
     flexDirection: 'column',
@@ -1095,95 +1224,6 @@ const styles = StyleSheet.create({
     width: '100%',
     flex: 0,
     alignSelf: 'stretch',
-  },
-  detailsContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    gap: 12,
-    width: '100%',
-    height: 48,
-    flex: 0,
-    alignSelf: 'stretch',
-    marginBottom: 8,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    gap: 4,
-    width: 280.5,
-    height: 12,
-    flex: 0,
-    order: 0,
-  },
-  dateLabel: {
-    width: 78,
-    height: 12,
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 10,
-    lineHeight: 12,
-    color: '#202325',
-    flex: 0,
-    order: 0,
-  },
-  dateText: {
-    width: 110,
-    height: 12,
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 10,
-    lineHeight: 12,
-    color: '#202325',
-    flex: 0,
-    order: 1,
-  },
-  pageInfoContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    gap: 10,
-    width: 280.5,
-    height: 12,
-    flex: 1,
-    order: 1,
-  },
-  pageText: {
-    width: 32,
-    height: 12,
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 10,
-    lineHeight: 12,
-    color: '#202325',
-    textAlign: 'right',
-    flex: 0,
-    order: 0,
-  },
-  topDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  mainContent: {
-    flex: 1,
-    width: '100%',
-  },
-  flatListContent: {
-    paddingBottom: 20, // Ensure last page has space at bottom
-  },
-  qrList: {
-    width: '100%',
-    alignSelf: 'stretch',
-    flex: 0,
   },
   qrListContainer: {
     position: 'relative',
@@ -1285,16 +1325,6 @@ const styles = StyleSheet.create({
     marginTop: 0, // No top margin
     paddingHorizontal: 1, // Small padding to prevent edge cutoff
   },
-  trxNumber: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 7, // Slightly smaller than plant code
-    lineHeight: 9,
-    textAlign: 'center',
-    color: '#666666', // Lighter color to differentiate from plant code
-    alignSelf: 'stretch',
-    flex: 0,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1324,11 +1354,174 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
+    marginBottom: 12,
   },
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
+  sellerDropdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  sellerDropdown: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  sellerDropdownText: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    color: '#202325',
+    marginRight: 8,
+  },
+  clearSellerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F2F7F3',
+  },
+  clearSellerText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#539461',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  actionSheetContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: 569,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    height: 60,
+  },
+  modalHeaderTitle: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 18,
+    color: '#202325',
+  },
+  modalContentContainer: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+  },
+  searchFieldContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+    gap: 12,
+  },
+  searchTextInput: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    color: '#202325',
+    height: '100%',
+  },
+  sellerListContainer: {
+    height: 343,
+    marginTop: 16,
+  },
+  sellerItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    minHeight: 56,
+  },
+  sellerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#539461',
+  },
+  sellerAvatarPlaceholder: {
+    backgroundColor: '#E4E7E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderColor: '#CDD3D4',
+  },
+  sellerAvatarText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#202325',
+  },
+  sellerInfo: {
+    flex: 1,
+    flexDirection: 'column',
+    gap: 4,
+  },
+  sellerName: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#202325',
+  },
+  sellerEmail: {
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    fontSize: 14,
+    color: '#647276',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E4E7E9',
+    marginVertical: 4,
+  },
+  emptySellerContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptySellerText: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    color: '#647276',
+  },
+  selectSellerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  selectSellerText: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    color: '#647276',
+    textAlign: 'center',
+  },
 });
-

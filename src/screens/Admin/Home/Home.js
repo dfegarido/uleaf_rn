@@ -34,6 +34,7 @@ import PayoutsIcon from '../../../assets/admin-icons/payouts.svg';
 import ReceivingIcon from '../../../assets/admin-icons/receiving.svg';
 import SalesReportIcon from '../../../assets/admin-icons/sales-report.svg';
 import ScanQrIcon from '../../../assets/admin-icons/scan-qr.svg';
+import GenerateQrIcon from '../../../assets/admin-icons/generate-qr.svg';
 import ScheduleIcon from '../../../assets/admin-icons/schedule.svg';
 import FlightDateIcon from '../../../assets/admin-icons/flight-date.svg';
 import ShippedIcon from '../../../assets/admin-icons/shipped.svg';
@@ -231,6 +232,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
           </IconTile>
           <IconTile title="Taxonomy" onPress={() => navigation.navigate('Taxonomy')}>
             <TaxonomyIcon width={48} height={48} />
+          </IconTile>
+          <IconTile title="Generate QR" onPress={() => navigation.navigate('GenerateQR')}>
+            <GenerateQrIcon width={48} height={48} />
           </IconTile>
         </View>
       </View>

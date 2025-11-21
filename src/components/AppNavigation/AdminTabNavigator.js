@@ -18,6 +18,7 @@ import EditSubAdmin from '../../screens/Admin/Home/EditSubAdmin';
 import AdminHomeScreen from '../../screens/Admin/Home/Home';
 import JungleAccess from '../../screens/Admin/Home/JungleAccess';
 import ScanQR from '../../screens/Admin/Home/ScanQR';
+import GenerateQR from '../../screens/Admin/Home/GenerateQR';
 import UserInformation from '../../screens/Admin/Home/UserInformation';
 import UserManagement from '../../screens/Admin/Home/UserManagement';
 import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
@@ -205,6 +206,7 @@ function AdminTabs() {
      <Stack.Screen name="ChatScreen" options={{headerShown: false}} component={ChatScreen} />
      <Stack.Screen name="ChatSettingsScreen" options={{headerShown: false}} component={ChatSettingsScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
+     <Stack.Screen name="GenerateQR" options={{headerShown: false}} component={GenerateQR} />
      <Stack.Screen name="LeafTrailSortingAdminScreen" options={{headerShown: false}} component={SortingScreen} />
      <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
      <Stack.Screen name="ViewPackingScreen" options={{headerShown: false}} component={ViewPackingScreen} />
