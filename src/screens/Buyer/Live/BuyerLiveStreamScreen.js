@@ -279,10 +279,19 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     fetchToken();
     const startAgora = async () => {
       if (Platform.OS === 'android') {
-        await PermissionsAndroid.requestMultiple([
+        const permissions = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.CAMERA,
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         ]);
+      
+        if (
+          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] !== 'granted' ||
+          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== 'granted'
+        ) {
+          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
+          navigation.goBack();
+          return;
+        }
       }
       
       const rtc = createAgoraRtcEngine();
@@ -607,8 +616,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               <View style={styles.plantDetails}>
                 <View style={styles.plantName}>
                   <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
-                  {/* <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text> */}
-                  <Text style={styles.variegation}></Text>
+                  <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
                 </View>
                 <View style={styles.price}>
                   <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>

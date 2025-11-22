@@ -167,13 +167,18 @@ const ReceivingScreen = ({navigation}) => {
     const [orderId, setOrderId] = useState(false);
 
     const openTagAs = (status, id) => {
-        console.log('status', status);
-        
         setIsMissing(status.isMissing);
         setIsDamaged(status.isDamaged);
         setForShipping(status.forShipping);
         setTagAsVisible(!isTagAsVisible);
         setOrderId(id)
+    }
+
+    const getFilters = async (statuses = null) => {
+        setIsLoading(true);
+        const adminFilter = await getAdminLeafTrailFilters(statuses);
+        setAdminFilters(adminFilter);
+        setIsLoading(false);
     }
 
     const fetchData = async (filters) => {
@@ -182,9 +187,8 @@ const ReceivingScreen = ({navigation}) => {
                 const response = await getAdminLeafTrailReceiving(filters);
                 
                 setReceivingData(response);
-
-                const adminFilter = await getAdminLeafTrailFilters();
-                setAdminFilters(adminFilter);
+                await getFilters('["forReceiving"]');
+                
             } catch (e) {
                 setIsLoading(false);
                 setError(e);
@@ -218,8 +222,6 @@ const ReceivingScreen = ({navigation}) => {
     };
 
     const setTagAs = async (status) => {
-        console.log('asdfsadf');
-        
         setIsLoading(true);
         setTagAsVisible(!isTagAsVisible);
         const response = await updateLeafTrailStatus(orderId, status);
@@ -244,6 +246,21 @@ const ReceivingScreen = ({navigation}) => {
         />
     );
 
+    const tabChange = async () => {
+        if (index === 0) {
+            await getFilters('["forReceiving"]');
+        }
+        if (index === 1) {
+            await getFilters('["received"]');
+        }
+        if (index === 2) {
+            await getFilters('["missing"]');
+        }
+        if (index === 3) {
+            await getFilters('["damaged"]');
+        }
+    }
+
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.screenContainer} edges={['top']}>
@@ -261,6 +278,7 @@ const ReceivingScreen = ({navigation}) => {
                     renderScene={renderScene}
                     onIndexChange={setIndex}
                     renderTabBar={renderTabBar}
+                    onTabSelect={tabChange}
                 />
             </SafeAreaView>
 

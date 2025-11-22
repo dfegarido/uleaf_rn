@@ -18,7 +18,7 @@ import DimensionIcon from '../../../../assets/admin-icons/dimension.svg';
 import ScaleIcon from '../../../../assets/admin-icons/scale.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailShipped } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailShipped } from '../../../../components/Api/getAdminLeafTrail';
 
 const ShippedListItem = ({ item, navigation }) => (
   <TouchableOpacity onPress={() => navigation.navigate('ViewShippedScreen', { item })}>
@@ -76,22 +76,39 @@ const ShippedScreen = ({navigation}) => {
   const [shippedData, setShippedData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [adminFilters, setAdminFilters] = useState(null);
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+
+  const getFilters = async () => {
+      setIsLoading(true);
+      const adminFilter = await getAdminLeafTrailFilters('["shipped", "shipping"]');
+      setAdminFilters(adminFilter);
+      setIsLoading(false);
+  }
+
+  const fetchData = async (filters) => {
+    try {
+         const response = await getAdminLeafTrailShipped(filters);
+           
+        setShippedData(response);
+    } catch (e) {
+        setError(e);
+        console.error("Failed to fetch shipped data:", e);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    fetchData({search: searchValue})
+    setSearchActive(false);
+    setSearchValue('');
+  }
 
   useEffect(() => {
-      const fetchData = async () => {
-      try {
-           const response = await getAdminLeafTrailShipped();
-           
-          setShippedData(response);
-      } catch (e) {
-          setError(e);
-          console.error("Failed to fetch shipped data:", e);
-      } finally {
-          setIsLoading(false);
-      }
-      };
-    
       fetchData();
+      getFilters();
     }, []);
 
   
@@ -106,14 +123,14 @@ const ShippedScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader navigation={navigation} title={'Shipped'} search={true}/>
+        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Tracking Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'Shipped'} search={true}/>
         <FlatList
           data={shippedData?.data || []}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <ShippedListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
-              <FilterBar />
+              <FilterBar adminFilters={adminFilters} onFilterChange={fetchData}/>
               <Text style={styles.countText}>{shippedData?.total || 0} tracking number(s)</Text>
             </>
           }

@@ -15,7 +15,7 @@ import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailPacking } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailPacking } from '../../../../components/Api/getAdminLeafTrail';
 
 const PackingListItem = ({ item, navigation }) => (
   <TouchableOpacity onPress={() => navigation.navigate('ViewPackingScreen', { item })}>
@@ -58,24 +58,40 @@ const PackingScreen = ({navigation}) => {
   const [packingData, setPackingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [adminFilters, setAdminFilters] = useState(null);
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+
+  const getFilters = async () => {
+      setIsLoading(true);
+      const adminFilter = await getAdminLeafTrailFilters('["sorted"]');
+      setAdminFilters(adminFilter);
+      setIsLoading(false);
+  }
+
+  const fetchData = async (filters) => {
+    try {
+        const response = await getAdminLeafTrailPacking(filters);
+        setPackingData(response);
+    } catch (e) {
+        setError(e);
+        console.error("Failed to fetch plant data:", e);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    fetchData({search: searchValue})
+    setSearchActive(false);
+    setSearchValue('');
+  }
     
     // useEffect hook to fetch data when the component mounts
   useEffect(() => {
-      const fetchData = async () => {
-      try {
-           const response = await getAdminLeafTrailPacking();
-                
-          setPackingData(response);
-      } catch (e) {
-          setError(e);
-          console.error("Failed to fetch plant data:", e);
-      } finally {
-          setIsLoading(false);
-      }
-      };
-    
+      getFilters();
       fetchData();
-    }, []); // The empty array ensures this effect runs only once
+  }, []); // The empty array ensures this effect runs only once
 
   return (
     <SafeAreaProvider>
@@ -88,14 +104,14 @@ const PackingScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader navigation={navigation} title={'Packing'} search={true}/>
+        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Tray Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'Packing'} search={true} />
         <FlatList
           data={packingData?.data || {}}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <PackingListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
-              <FilterBar />
+              <FilterBar adminFilters={adminFilters} onFilterChange={fetchData}/>
               <Text style={styles.countText}>{packingData?.total || 0} tray(es)</Text>
             </>
           }
