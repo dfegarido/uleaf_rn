@@ -74,7 +74,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isLive, setIsLive] = useState(false);
   const flatListRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
-
+  
   const updateLiveStatus = async (newStatus) => {
     setIsLoading(true);
     const response = await updateLiveSessionStatusApi(sessionId, newStatus);
@@ -191,10 +191,19 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       }
 
       if (Platform.OS === 'android') {
-        await PermissionsAndroid.requestMultiple([
+        const permissions = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.CAMERA,
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         ]);
+
+        if (
+          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] !== 'granted' ||
+          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== 'granted'
+        ) {
+          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
+          navigation.goBack();
+          return;
+        }
       }
 
       // If an engine instance already exists, release it first.
@@ -478,8 +487,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <View style={styles.plantDetails}>
                     <View style={styles.plantName}>
                       <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
-                      {/* <Text style={styles.variegation}>{activeListing.variegation} · {activeListing.potSize}</Text> */}
-                      <Text style={styles.variegation}></Text>
+                      <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
                     </View>
                     <View style={styles.price}>
                       <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
@@ -589,7 +597,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingTop: 48,
+    paddingTop: 8,
     paddingBottom: 34,
     backgroundColor: '#000',
   },
@@ -804,7 +812,7 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 15,
     lineHeight: 24,
   },
   variegation: {
@@ -876,7 +884,7 @@ const styles = StyleSheet.create({
   shipText: {
     ...baseFont,
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 11,
     lineHeight: 20,
   },
   actionButton: {

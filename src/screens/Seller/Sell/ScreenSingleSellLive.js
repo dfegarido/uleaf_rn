@@ -352,12 +352,14 @@ const ScreenSingleSellLive = ({navigation, route}) => {
       const uploadedUrls = await uploadMultipleImagesToBackend(images);
       console.log('✅ All images uploaded:', uploadedUrls);
 
+      const variegation = selectedVariegation === 'Choose the most suitable variegation.' ? '' : selectedVariegation;
+
       // Build final JSON using uploaded URLs
       const data = {
         listingType: 'Single Plant',
         genus: selectedGenus || null,
         species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
+        variegation,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
         imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
@@ -392,7 +394,7 @@ const ScreenSingleSellLive = ({navigation, route}) => {
         [
           { 
             text: "Ok",
-            onPress: () => navigation.goBack()
+            onPress: () => navigation.navigate('Sell')
           },
         ]
       );
