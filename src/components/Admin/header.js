@@ -2,9 +2,9 @@ import React from 'react';
 import {
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
-    TextInput,
 } from 'react-native';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -21,6 +21,7 @@ const ScreenHeader = ({
     onSearchChange,
     onSearchSubmit,
     inputRef,
+    searchPlaceholder='Search',
 }) => {
     return (
         <View style={styles.header}>
@@ -34,7 +35,7 @@ const ScreenHeader = ({
                 <TextInput
                     ref={inputRef}
                     style={styles.headerSearchInput}
-                    placeholder="Search orders, plants, buyers, gardens..."
+                    placeholder={searchPlaceholder}
                     placeholderTextColor="#647276"
                     value={searchValue}
                     onChangeText={onSearchChange}
@@ -60,6 +61,8 @@ const ScreenHeader = ({
                     <SearchIcon />
                 </TouchableOpacity>
             )}
+
+            {!search && !searchActive && !scarQr && (<View></View>)}
         </View>
     );
 };

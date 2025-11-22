@@ -103,16 +103,14 @@ export const getAdminScanQr = async (filters, leafTrailStatus) => {
   }
 };
 
-export const getAdminLeafTrailFilters = async (filters = {sort: 'desc'}) => {
+export const getAdminLeafTrailFilters = async (statuses = null) => {
   try {
     const token = await getStoredAuthToken();
-    let cleanedParams = null;
-    if (filters) {
-      cleanedParams = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value != null)
-      );
+    let url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminFilters`
+
+    if (statuses) {
+      url = url + '?statuses=' + statuses
     }
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminFilters`
     
     const response = await fetch(
       url,
@@ -138,11 +136,21 @@ export const getAdminLeafTrailFilters = async (filters = {sort: 'desc'}) => {
   }
 };
 
-export const getAdminLeafTrailSorting = async () => {
+export const getAdminLeafTrailSorting = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();
+
+    let cleanedParams = null;
+    if (filters) {
+      cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+    }
+
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailSorting${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+  
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailSorting',
+      url,
       {
         method: 'GET', 
         headers: {
@@ -223,12 +231,21 @@ export const addSortingTrayNumber = async (data) => {
   }
 };
 
-export const getAdminLeafTrailPacking = async () => {
+export const getAdminLeafTrailPacking = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();
 
+    let cleanedParams = null;
+    if (filters) {
+      cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+    }
+
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailPacking${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailPacking',
+      url,
       {
         method: 'GET', 
         headers: {
@@ -364,12 +381,21 @@ export const addLeafTrailTrackingNumber = async (data) => {
   }
 };
 
-export const getAdminLeafTrailShipping = async () => {
+export const getAdminLeafTrailShipping = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();
 
+    let cleanedParams = null;
+    if (filters) {
+      cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+    }
+
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailShipping${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailShipping',
+      url,
       {
         method: 'GET', 
         headers: {
@@ -392,12 +418,22 @@ export const getAdminLeafTrailShipping = async () => {
   }
 };
 
-export const getAdminLeafTrailShipped = async () => {
+export const getAdminLeafTrailShipped = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();
 
+    let cleanedParams = null;
+    if (filters) {
+      cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+    }
+
+    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailShipped${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    console.log('url', url);
+
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailShipped',
+      url,
       {
         method: 'GET', 
         headers: {

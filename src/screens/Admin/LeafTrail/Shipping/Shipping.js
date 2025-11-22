@@ -18,7 +18,7 @@ import DimensionIcon from '../../../../assets/admin-icons/dimension.svg';
 import ScaleIcon from '../../../../assets/admin-icons/scale.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailShipping } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailShipping } from '../../../../components/Api/getAdminLeafTrail';
 
 const ShippingListItem = ({ item, navigation }) => (
   <TouchableOpacity onPress={() => navigation.navigate('ViewShippingScreen', { item })}>
@@ -76,22 +76,38 @@ const ShippingScreen = ({navigation}) => {
   const [shippingData, setShippingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [adminFilters, setAdminFilters] = useState(null);
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+
+  const getFilters = async () => {
+    setIsLoading(true);
+    const adminFilter = await getAdminLeafTrailFilters('["packed", "shipping"]');
+    setAdminFilters(adminFilter);
+    setIsLoading(false);
+  }
+
+  const fetchData = async (filters) => {
+    try {
+         const response = await getAdminLeafTrailShipping(filters);
+        setShippingData(response);
+    } catch (e) {
+        setError(e);
+        console.error("Failed to fetch plant data:", e);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    fetchData({search: searchValue})
+    setSearchActive(false);
+    setSearchValue('');
+  }
 
   useEffect(() => {
-      const fetchData = async () => {
-      try {
-           const response = await getAdminLeafTrailShipping();
-            
-          setShippingData(response);
-      } catch (e) {
-          setError(e);
-          console.error("Failed to fetch plant data:", e);
-      } finally {
-          setIsLoading(false);
-      }
-      };
-    
       fetchData();
+      getFilters();
     }, []); // The empty array ensures this effect runs only once
 
   
@@ -106,7 +122,7 @@ const ShippingScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader navigation={navigation} title={'For Shipping'} search={true}/>
+        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Box Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'For Shipping'} search={true}/>
         <FlatList
           data={shippingData?.data || {}}
           keyExtractor={item => item.id}
@@ -114,7 +130,7 @@ const ShippingScreen = ({navigation}) => {
           ListHeaderComponent={
             <>
               {/* 👇 Corrected: Added the FilterBar here */}
-              <FilterBar />
+              <FilterBar adminFilters={adminFilters} onFilterChange={fetchData}/>
               <Text style={styles.countText}>{shippingData?.total || 0} box(es)</Text>
             </>
           }

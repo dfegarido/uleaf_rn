@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailSorting } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailSorting } from '../../../../components/Api/getAdminLeafTrail';
 
 // --- REUSABLE COMPONENTS (unchanged) ---
 
@@ -60,27 +60,40 @@ const SortingScreen = ({navigation}) => {
   const [sortingData, setSortingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [adminFilters, setAdminFilters] = useState(null);
+
+  const getFilters = async () => {
+      setIsLoading(true);
+      const adminFilter = await getAdminLeafTrailFilters('["received", "damaged", "missing", "sorted"]');
+      setAdminFilters(adminFilter);
+      setIsLoading(false);
+  }
+
+  const fetchData = async (filters) => {
+      setIsLoading(true);
+      try {
+        const response = await getAdminLeafTrailSorting(filters);
+          
+        setSortingData(response);
+      } catch (e) {
+        setError(e);
+        console.error("Failed to fetch plant data:", e);
+      } finally {
+        setIsLoading(false);
+      }
+  };
   
   // useFocusEffect hook to fetch data when the screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      const fetchData = async () => {
-        setIsLoading(true);
-        try {
-          const response = await getAdminLeafTrailSorting();
-          setSortingData(response);
-        } catch (e) {
-          setError(e);
-          console.error("Failed to fetch plant data:", e);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-  
       fetchData();
-
+      getFilters();
     }, [])
   );
+
+  const onFilterChange = (filters) => {
+       fetchData(filters);
+  }
 
   return (
     // SafeAreaView ensures content is within the screen's safe boundaries, avoiding notches and the status bar.
@@ -97,16 +110,16 @@ const SortingScreen = ({navigation}) => {
           </View>
         </Modal>
       )}
-      <ScreenHeader navigation={navigation} title={'Plant Sorting'} search={true}/>
+      <ScreenHeader navigation={navigation} title={'Plant Sorting'} />
       
       <FlatList
         data={sortingData?.data || {}}
         renderItem={({ item }) => <ListItem item={item} navigation={navigation} />}
-        keyExtractor={item => item.hubReceiverId}
+        keyExtractor={item => item.id}
         ListHeaderComponent={
           <>
             {/* 👇 Corrected: Added the FilterBar here */}
-            <FilterBar />
+            <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
             <Text style={styles.countText}>{sortingData?.total || 0} box(es)</Text>
           </>
         }
