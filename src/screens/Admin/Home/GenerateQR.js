@@ -154,6 +154,8 @@ const GenerateQRHeader = ({ navigation, selectedSeller, onSellerPress }) => {
 };
 
 const GenerateQR = ({navigation}) => {
+  // Enable debug logs for QR date parsing
+  const DEBUG_QR_DATE_PARSING = true;
   const [qrCodeData, setQrCodeData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -162,6 +164,7 @@ const GenerateQR = ({navigation}) => {
   const [sellers, setSellers] = useState([]);
   const [loadingSellers, setLoadingSellers] = useState(false);
   const [showSellerModal, setShowSellerModal] = useState(false);
+  const [sortOrder] = useState('newest'); // Always sort newest first
 
   // Function to handle email sending
   const handleSendEmail = async () => {
@@ -292,7 +295,7 @@ const GenerateQR = ({navigation}) => {
   };
 
   // Function to fetch QR code data from API
-  const fetchQRCodeData = async () => {
+  const fetchQRCodeData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -339,13 +342,15 @@ const GenerateQR = ({navigation}) => {
       
       // Transform API data to match the expected format
       const transformedData = transformApiData(data);
-      
+
       // Check if no orders were found after transformation
       if (transformedData.length === 0) {
         setQrCodeData([]);
         setError('No QR codes found for the current period.');
       } else {
-        setQrCodeData(transformedData);
+        // Apply current sort order to the fetched data
+        const sortedData = sortQRCodesByDate(transformedData, sortOrder);
+        setQrCodeData(sortedData);
         setError(null); // Clear any previous errors
       }
       
@@ -379,7 +384,7 @@ const GenerateQR = ({navigation}) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSeller, sortOrder, sortQRCodesByDate]);
 
   // Transform API data to match the UI structure
   const transformApiData = (apiData) => {
@@ -392,42 +397,82 @@ const GenerateQR = ({navigation}) => {
 
     // Helper function to parse date from various formats (Firestore Timestamp, ISO string, etc.)
     const parseDate = (dateInput) => {
-      if (!dateInput) return new Date();
-      
+      if (!dateInput) return null;
+
       try {
         // Handle Firestore Timestamp objects
         if (dateInput && typeof dateInput === 'object') {
-          // Check if it's a Firestore Timestamp (has toDate method)
           if (dateInput.toDate && typeof dateInput.toDate === 'function') {
-            return dateInput.toDate();
+            const res = dateInput.toDate();
+            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate input(object).toDate ->', dateInput, '->', res);
+            return res;
           }
-          // Check if it has seconds property (Firestore Timestamp format)
-          else if (dateInput.seconds) {
-            return new Date(dateInput.seconds * 1000);
+          if (dateInput.seconds) {
+            const res = new Date(dateInput.seconds * 1000);
+            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate input(seconds) ->', dateInput.seconds, '->', res);
+            return res;
           }
-          // Check if it has _seconds property
-          else if (dateInput._seconds) {
-            return new Date(dateInput._seconds * 1000);
-          }
-        }
-        // Handle ISO strings or other date strings
-        else if (typeof dateInput === 'string') {
-          return new Date(dateInput);
-        }
-        // Handle numeric timestamps
-        else if (typeof dateInput === 'number') {
-          // If it's in seconds (less than year 2100 in milliseconds)
-          if (dateInput < 4102444800000) {
-            return new Date(dateInput * 1000);
-          } else {
-            return new Date(dateInput);
+          if (dateInput._seconds) {
+            const res = new Date(dateInput._seconds * 1000);
+            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate input(_seconds) ->', dateInput._seconds, '->', res);
+            return res;
           }
         }
-        
-        return new Date(dateInput);
+
+        // Strings - attempt robust parsing for formats like
+        // "November 19, 2025 at 10:31:12 AM UTC+8" (may contain NBSP)
+        if (typeof dateInput === 'string') {
+          let s = String(dateInput).replace(/\u202f|\u00A0/g, ' ');
+          const original = s;
+          s = s.replace(/\s+at\s+/i, ' ');
+          if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate rawString ->', original, 'normalized ->', s);
+
+          // Try Date.parse directly
+          let ts = Date.parse(s);
+          if (!isNaN(ts)) {
+            const res = new Date(ts);
+            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate parsed direct ->', res);
+            return res;
+          }
+
+          // Remove timezone suffix like 'UTC+8' or 'GMT+8' and try again
+          const noTz = s.replace(/\bUTC.*$|\bGMT.*$|\b[+-]\d{1,4}(:?\d{2})?$/i, '').trim();
+          if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate noTz ->', noTz);
+          ts = Date.parse(noTz);
+          if (!isNaN(ts)) {
+            const res = new Date(ts);
+            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate parsed noTz ->', res);
+            return res;
+          }
+
+          // Last resort: remove commas
+          const cleaned = noTz.replace(/,/g, '');
+          if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate cleaned ->', cleaned);
+          ts = Date.parse(cleaned);
+          if (!isNaN(ts)) {
+            const res = new Date(ts);
+            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin parseDate parsed cleaned ->', res);
+            return res;
+          }
+
+          return null;
+        }
+
+        // Numeric timestamps
+        if (typeof dateInput === 'number') {
+          const ms = dateInput < 4102444800000 ? dateInput * 1000 : dateInput;
+          const parsed = new Date(ms);
+          if (isNaN(parsed.getTime())) return null;
+          return parsed;
+        }
+
+        // Fallback: try constructing a Date
+        const parsed = new Date(dateInput);
+        if (isNaN(parsed.getTime())) return null;
+        return parsed;
       } catch (error) {
         console.warn('Date parsing error:', error, dateInput);
-        return new Date();
+        return null;
       }
     };
 
@@ -440,15 +485,33 @@ const GenerateQR = ({navigation}) => {
       if (order.qrCode && order.qrCode.content) {
         const qrContent = order.qrCode.content;
         
-        // Use QR code generatedAt if available, otherwise use order createdAt
-        const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
+        // Prefer `orderDate` (the actual order date) when present, then `dateCreated`/`createdAt`,
+        // otherwise fall back to QR generation time (`qrCode.generatedAt`).
+        const displayDate = order.orderDate || order.dateCreated || order.createdAt || (order.qrCode && order.qrCode.generatedAt);
+
+        if (DEBUG_QR_DATE_PARSING) {
+          console.log('[QR DATE DEBUG] admin rawDates for order=', order.id || order.orderId, {
+            orderDate: order.orderDate,
+            dateCreated: order.dateCreated,
+            createdAt: order.createdAt,
+            qrCodeGeneratedAt: order.qrCode && order.qrCode.generatedAt,
+            chosenDisplayDate: displayDate,
+          });
+        }
         
         // Track earliest date for "Date generated" display
         if (displayDate) {
           try {
             const parsedDate = parseDate(displayDate);
-            if (!earliestDate || parsedDate < earliestDate) {
-              earliestDate = parsedDate;
+            // Debug log
+            if (DEBUG_QR_DATE_PARSING) {
+              console.log('[QR DATE DEBUG] admin order=', order.id || order.orderId, 'rawDisplayDate=', displayDate, 'parsedDate=', parsedDate);
+            }
+            // Only accept valid parsed dates (non-null and valid)
+            if (parsedDate && parsedDate instanceof Date && !isNaN(parsedDate.getTime())) {
+              if (!earliestDate || parsedDate < earliestDate) {
+                earliestDate = parsedDate;
+              }
             }
           } catch (e) {
             // Ignore parsing errors
@@ -561,18 +624,31 @@ const GenerateQR = ({navigation}) => {
           generatedAt: order.qrCode.generatedAt || qrContent.generatedAt,
           dataUrl: order.qrCode.dataUrl, // QR code image data URL
           orderStatus: order.status,
+          orderDate: order.orderDate, // Preserve orderDate for sorting
           createdAt: displayDate, // Use the properly parsed date
         });
       } else if (order.qrCode) {
         // Fallback for older format without content wrapper
-        const displayDate = order.qrCode.generatedAt || order.createdAt || order.orderDate;
-        
+        const displayDate = order.dateCreated || order.createdAt || (order.qrCode && order.qrCode.generatedAt) || order.orderDate;
+        if (DEBUG_QR_DATE_PARSING) {
+          console.log('[QR DATE DEBUG] admin fallback rawDates for order=', order.id || order.orderId, {
+            dateCreated: order.dateCreated,
+            createdAt: order.createdAt,
+            qrCodeGeneratedAt: order.qrCode && order.qrCode.generatedAt,
+            orderDate: order.orderDate,
+            chosenDisplayDate: displayDate,
+          });
+        }
+
         // Track earliest date for "Date generated" display
         if (displayDate) {
           try {
             const parsedDate = parseDate(displayDate);
-            if (!earliestDate || parsedDate < earliestDate) {
-              earliestDate = parsedDate;
+            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] admin fallback parsedDate=', parsedDate);
+            if (parsedDate && parsedDate instanceof Date && !isNaN(parsedDate.getTime())) {
+              if (!earliestDate || parsedDate < earliestDate) {
+                earliestDate = parsedDate;
+              }
             }
           } catch (e) {
             // Ignore parsing errors
@@ -678,6 +754,7 @@ const GenerateQR = ({navigation}) => {
           dataUrl: order.qrCode.dataUrl,
           orderId: order.id || order.orderId,
           orderStatus: order.status,
+          orderDate: order.orderDate, // Preserve orderDate for sorting
           createdAt: displayDate, // Use the properly parsed date
         });
       }
@@ -725,8 +802,8 @@ const GenerateQR = ({navigation}) => {
       const pageNumber = Math.floor(i / itemsPerPage) + 1;
       const totalPages = Math.ceil(allQRCodes.length / itemsPerPage);
       
-      // Use earliest date for all pages, or current date as fallback
-      const pageDate = earliestDate ? earliestDate.toISOString() : new Date().toISOString();
+      // Use earliest date for all pages, or null as fallback (so UI shows Unknown)
+      const pageDate = earliestDate ? earliestDate.toISOString() : null;
       
       pages.push({
         qrcodes: chunk,
@@ -743,6 +820,100 @@ const GenerateQR = ({navigation}) => {
 
   const handleClearSeller = useCallback(() => {
     setSelectedSeller(null);
+  }, []);
+
+  // Function to sort QR codes by order date
+  const sortQRCodesByDate = useCallback((pages, order) => {
+    if (!pages || pages.length === 0) return pages;
+
+    // Helper function to parse date for sorting
+    const parseDateForSort = (dateInput) => {
+      if (!dateInput) return 0;
+
+      try {
+        // Handle Firestore Timestamp objects
+        if (dateInput && typeof dateInput === 'object') {
+          if (dateInput.toDate && typeof dateInput.toDate === 'function') {
+            return dateInput.toDate().getTime();
+          }
+          if (dateInput.seconds) {
+            return dateInput.seconds * 1000;
+          }
+          if (dateInput._seconds) {
+            return dateInput._seconds * 1000;
+          }
+        }
+
+        // Handle strings
+        if (typeof dateInput === 'string') {
+          let s = String(dateInput).replace(/\u202f|\u00A0/g, ' ').replace(/\s+at\s+/i, ' ');
+          let ts = Date.parse(s);
+          if (!isNaN(ts)) return ts;
+
+          const noTz = s.replace(/\bUTC.*$|\bGMT.*$|\b[+-]\d{1,4}(:?\d{2})?$/i, '').trim();
+          ts = Date.parse(noTz);
+          if (!isNaN(ts)) return ts;
+
+          const cleaned = noTz.replace(/,/g, '');
+          ts = Date.parse(cleaned);
+          if (!isNaN(ts)) return ts;
+        }
+
+        // Handle numeric timestamps
+        if (typeof dateInput === 'number') {
+          const ms = dateInput < 4102444800000 ? dateInput * 1000 : dateInput;
+          return ms;
+        }
+
+        const parsed = new Date(dateInput);
+        return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+      } catch (error) {
+        return 0;
+      }
+    };
+
+    // Flatten all QR codes from all pages
+    const allQRCodes = pages.flatMap(page => page.qrcodes || []);
+
+    // Sort all QR codes by date
+    const sortedQRCodes = [...allQRCodes].sort((a, b) => {
+      const dateA = parseDateForSort(a.orderDate || a.createdAt);
+      const dateB = parseDateForSort(b.orderDate || b.createdAt);
+
+      if (order === 'newest') {
+        return dateB - dateA; // Newest first
+      } else {
+        return dateA - dateB; // Oldest first
+      }
+    });
+
+    // Debug: Log first and last QR code dates with plant codes for verification
+    if (sortedQRCodes.length > 0) {
+      const first = sortedQRCodes[0];
+      const last = sortedQRCodes[sortedQRCodes.length - 1];
+      const firstDate = first.orderDate || first.createdAt;
+      const lastDate = last.orderDate || last.createdAt;
+      console.log(`[GenerateQR] Sorted ${sortedQRCodes.length} QR codes. Order: ${order}`);
+      console.log(`[GenerateQR] First: ${first.plantCode} - ${firstDate} (orderDate: ${first.orderDate}, createdAt: ${first.createdAt})`);
+      console.log(`[GenerateQR] Last: ${last.plantCode} - ${lastDate} (orderDate: ${last.orderDate}, createdAt: ${last.createdAt})`);
+    }
+
+    // Re-paginate the sorted QR codes (16 items per page for 4x4 grid)
+    const itemsPerPage = 16;
+    const newPages = [];
+
+    for (let i = 0; i < sortedQRCodes.length; i += itemsPerPage) {
+      const chunk = sortedQRCodes.slice(i, i + itemsPerPage);
+      // Use the createdAt from the first page (earliest date)
+      const pageDate = pages[0]?.createdAt || null;
+
+      newPages.push({
+        qrcodes: chunk,
+        createdAt: pageDate,
+      });
+    }
+
+    return newPages;
   }, []);
 
   useFocusEffect(
@@ -767,54 +938,49 @@ const GenerateQR = ({navigation}) => {
       setError(null);
       setLoading(false);
     }
-  }, [selectedSeller]);
+  }, [selectedSeller, fetchQRCodeData]);
 
   const formatGeneratedDate = (dateInput) => {
     if (!dateInput) return 'Unknown';
-    
+
     try {
-      let date;
-      
-      // Handle Firestore Timestamp objects
+      let date = null;
+
+      // Object-like Firestore Timestamp
       if (dateInput && typeof dateInput === 'object') {
-        // Check if it's a Firestore Timestamp (has toDate method)
         if (dateInput.toDate && typeof dateInput.toDate === 'function') {
           date = dateInput.toDate();
-        }
-        // Check if it has seconds property (Firestore Timestamp format)
-        else if (dateInput.seconds) {
+        } else if (dateInput.seconds) {
           date = new Date(dateInput.seconds * 1000);
-        }
-        // Check if it has _seconds property
-        else if (dateInput._seconds) {
+        } else if (dateInput._seconds) {
           date = new Date(dateInput._seconds * 1000);
-        }
-        else {
-          date = new Date(dateInput);
-        }
-      }
-      // Handle ISO strings or other date strings
-      else if (typeof dateInput === 'string') {
-        date = new Date(dateInput);
-      }
-      // Handle numeric timestamps
-      else if (typeof dateInput === 'number') {
-        // If it's in seconds (less than year 2100 in milliseconds)
-        if (dateInput < 4102444800000) {
-          date = new Date(dateInput * 1000);
         } else {
           date = new Date(dateInput);
         }
-      }
-      else {
+      } else if (typeof dateInput === 'string') {
+        // Normalize NBSP and ' at ' and try parsing with and without timezone
+        let s = String(dateInput).replace(/\u202f|\u00A0/g, ' ').replace(/\s+at\s+/i, ' ');
+        let ts = Date.parse(s);
+        if (!isNaN(ts)) date = new Date(ts);
+        if (!date) {
+          const noTz = s.replace(/\bUTC.*$|\bGMT.*$|\b[+-]\d{1,4}(:?\d{2})?$/i, '').trim();
+          ts = Date.parse(noTz);
+          if (!isNaN(ts)) date = new Date(ts);
+        }
+        if (!date) {
+          const cleaned = (s.replace(/\bUTC.*$|\bGMT.*$|\b[+-]\d{1,4}(:?\d{2})?$/i, '').trim()).replace(/,/g, '');
+          ts = Date.parse(cleaned);
+          if (!isNaN(ts)) date = new Date(ts);
+        }
+      } else if (typeof dateInput === 'number') {
+        const ms = dateInput < 4102444800000 ? dateInput * 1000 : dateInput;
+        date = new Date(ms);
+      } else {
         date = new Date(dateInput);
       }
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return 'Unknown';
-      }
-      
+
+      if (!date || isNaN(date.getTime())) return 'Unknown';
+
       return date.toLocaleDateString('en-US', {
         month: 'short',
         day: '2-digit',
@@ -1091,31 +1257,7 @@ const GenerateQR = ({navigation}) => {
                             </Text>
                             {item.createdAt && (
                               <Text style={styles.orderDate} numberOfLines={1}>
-                                {(() => {
-                                  try {
-                                    let date;
-                                    if (item.createdAt && typeof item.createdAt === 'object') {
-                                      if (item.createdAt.toDate && typeof item.createdAt.toDate === 'function') {
-                                        date = item.createdAt.toDate();
-                                      } else if (item.createdAt.seconds) {
-                                        date = new Date(item.createdAt.seconds * 1000);
-                                      } else if (item.createdAt._seconds) {
-                                        date = new Date(item.createdAt._seconds * 1000);
-                                      } else {
-                                        date = new Date(item.createdAt);
-                                      }
-                                    } else if (typeof item.createdAt === 'string') {
-                                      date = new Date(item.createdAt);
-                                    } else if (typeof item.createdAt === 'number') {
-                                      date = new Date(item.createdAt < 4102444800000 ? item.createdAt * 1000 : item.createdAt);
-                                    }
-                                    return date && !isNaN(date.getTime())
-                                      ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                      : '';
-                                  } catch (e) {
-                                    return '';
-                                  }
-                                })()}
+                                {formatGeneratedDate(item.createdAt)}
                               </Text>
                             )}
                             {(item.genus || item.species) && (
