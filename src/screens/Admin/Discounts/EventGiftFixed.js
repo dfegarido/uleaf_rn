@@ -13,6 +13,7 @@ import FlagTH from '../../../assets/country-flags/TH.svg';
 import FlagID from '../../../assets/country-flags/ID.svg';
 import FlagPH from '../../../assets/country-flags/PH.svg';
 import { getGenusApi } from '../../../components/Api/getGenusApi';
+import { createDiscountApi } from '../../../components/Api/discountApi';
 
 const countryNameToCode = {
   Thailand: 'TH',
@@ -150,6 +151,7 @@ const EventGiftFixed = () => {
   // Event detail checkboxes
   const [freeUpsShipping, setFreeUpsShipping] = useState(false);
   const [freeAirCargo, setFreeAirCargo] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     const loadListingTypes = async () => {
@@ -476,7 +478,19 @@ const EventGiftFixed = () => {
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity 
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              console.warn('Cannot go back - navigating to AdminDiscounts');
+              navigation.navigate('AdminDiscounts');
+            }
+          }} 
+          style={styles.backBtn}
+          activeOpacity={0.7}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+        >
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
             <Path
               fillRule="evenodd"
@@ -486,7 +500,7 @@ const EventGiftFixed = () => {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Event Gift (Fixed Amount)</Text>
+        <Text style={styles.headerTitle} pointerEvents="none">Event Gift (Fixed Amount)</Text>
       </View>
 
       <ScrollView style={{flex: 1}} contentContainerStyle={{paddingBottom: 24}} showsVerticalScrollIndicator={false}>
@@ -1193,9 +1207,9 @@ const EventGiftFixed = () => {
           <Text style={styles.sectionTitle}>Details</Text>
           {isFixed ? (
             <View style={styles.boxList}>
-              <Text style={styles.boxListItem}>{'\u2022'} For specific customer(s)</Text>
-              <Text style={styles.boxListItem}>{'\u2022'} Minimum quantity of 10 plants</Text>
-              <Text style={styles.boxListItem}>{'\u2022'} Limited to one use per customer</Text>
+              <Text style={styles.boxListItem}>{'\u2022'} For {eligibility.toLowerCase()}</Text>
+              <Text style={styles.boxListItem}>{'\u2022'} {minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount ? `Minimum purchase amount of $${minPurchaseAmount}` : minRequirement === 'Minimum quantity of plants' ? `Minimum quantity of ${minPurchaseQuantity || '0'} plants` : minRequirement}</Text>
+              <Text style={styles.boxListItem}>{'\u2022'} {limitPerCustomerEnabled ? 'Limited to one use per customer' : limitTotalEnabled ? `Limited to ${maxUsesTotal || '0'} total uses` : 'No usage limits'}</Text>
             </View>
           ) : (
             <View style={styles.boxList}>
@@ -1208,8 +1222,81 @@ const EventGiftFixed = () => {
 
         {/* Action */}
         <View style={styles.actionWrap}>
-          <TouchableOpacity style={styles.primaryBtn}>
-            <Text style={styles.primaryBtnText}>Save discount</Text>
+          <TouchableOpacity 
+            style={[styles.primaryBtn, isCreating && { opacity: 0.6 }]}
+            onPress={async () => {
+              // Validate required fields
+              if (!code.trim()) {
+                Alert.alert('Error', 'Please enter a discount code');
+                return;
+              }
+              if (!discountPercent) {
+                Alert.alert('Error', 'Please enter a discount amount');
+                return;
+              }
+              if (!startDate || !startTime) {
+                Alert.alert('Error', 'Please select a start date and time');
+                return;
+              }
+
+              setIsCreating(true);
+
+              try {
+                // Prepare discount data
+                const discountData = {
+                  code: code.trim(),
+                  type: 'eventGiftFixed',
+                  discountAmount: parseFloat(discountPercent),
+                  maxDiscount: maxDiscount ? parseFloat(maxDiscount) : undefined,
+                  startDate,
+                  startTime,
+                  endDate: endDateEnabled ? endDate : undefined,
+                  endTime: endDateEnabled ? endTime : undefined,
+                  appliesText,
+                  selectedListingTypes,
+                  selectedGenus,
+                  selectedCountries,
+                  selectedGardens,
+                  selectedListings: selectedListings.map(l => l.id),
+                  eligibility,
+                  minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
+                    ? `Minimum purchase amount of $${minPurchaseAmount}` 
+                    : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                    ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                    : minRequirement,
+                  limitTotalEnabled,
+                  limitPerCustomerEnabled,
+                  maxUsesTotal: limitTotalEnabled ? maxUsesTotal : undefined,
+                  selectedBuyers: eligibility === 'Specific customers' ? selectedBuyers.map(b => b.id) : undefined,
+                };
+
+                console.log('Create Event Gift Fixed Discount:', discountData);
+                
+                const result = await createDiscountApi(discountData);
+                
+                if (result.success) {
+                  Alert.alert('Success', 'Discount code created successfully!', [
+                    { text: 'OK', onPress: () => {
+                      // Navigate back to AdminDiscounts screen with refresh flag
+                      navigation.navigate('AdminDiscounts', { refresh: true });
+                    }}
+                  ]);
+                } else {
+                  Alert.alert('Error', result.error || 'Failed to create discount code');
+                }
+              } catch (error) {
+                console.error('Error creating discount:', error);
+                Alert.alert('Error', error.message || 'An unexpected error occurred');
+              } finally {
+                setIsCreating(false);
+              }
+            }}
+            activeOpacity={0.8}
+            disabled={isCreating}
+          >
+            <Text style={styles.primaryBtnText}>
+              {isCreating ? 'Saving...' : 'Save discount'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -2086,7 +2173,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
   },
-  backBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { 
+    width: 44, 
+    height: 44, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    zIndex: 1,
+  },
   headerTitle: {
     position: 'absolute', left: 0, right: 0, textAlign: 'center',
     fontFamily: 'Inter', fontWeight: '700', fontSize: 18, lineHeight: 24, color: '#202325',
