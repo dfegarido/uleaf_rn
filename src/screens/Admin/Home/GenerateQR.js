@@ -1089,9 +1089,48 @@ const GenerateQR = ({navigation}) => {
                             <Text style={styles.plantCode} numberOfLines={2}>
                               {item.plantCode || 'N/A'}
                             </Text>
+                            {item.createdAt && (
+                              <Text style={styles.orderDate} numberOfLines={1}>
+                                {(() => {
+                                  try {
+                                    let date;
+                                    if (item.createdAt && typeof item.createdAt === 'object') {
+                                      if (item.createdAt.toDate && typeof item.createdAt.toDate === 'function') {
+                                        date = item.createdAt.toDate();
+                                      } else if (item.createdAt.seconds) {
+                                        date = new Date(item.createdAt.seconds * 1000);
+                                      } else if (item.createdAt._seconds) {
+                                        date = new Date(item.createdAt._seconds * 1000);
+                                      } else {
+                                        date = new Date(item.createdAt);
+                                      }
+                                    } else if (typeof item.createdAt === 'string') {
+                                      date = new Date(item.createdAt);
+                                    } else if (typeof item.createdAt === 'number') {
+                                      date = new Date(item.createdAt < 4102444800000 ? item.createdAt * 1000 : item.createdAt);
+                                    }
+                                    return date && !isNaN(date.getTime())
+                                      ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                      : '';
+                                  } catch (e) {
+                                    return '';
+                                  }
+                                })()}
+                              </Text>
+                            )}
                             {(item.genus || item.species) && (
                               <Text style={styles.genusSpecies} numberOfLines={3}>
                                 {item.genus || ''} {item.species || ''}
+                              </Text>
+                            )}
+                            {item.gardenOrCompanyName && (
+                              <Text style={styles.garden} numberOfLines={1}>
+                                {item.gardenOrCompanyName}
+                              </Text>
+                            )}
+                            {item.sellerName && (
+                              <Text style={styles.seller} numberOfLines={1}>
+                                {item.sellerName}
                               </Text>
                             )}
                             {item.receiverInfo && (
@@ -1106,7 +1145,7 @@ const GenerateQR = ({navigation}) => {
                             )}
                             {item.flightDateFormatted && (
                               <Text style={styles.flightDate} numberOfLines={2}>
-                                Flight Date: {item.flightDateFormatted}
+                                Flight: {item.flightDateFormatted}
                               </Text>
                             )}
                           </View>
@@ -1247,7 +1286,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CDD3D4',
     width: '100%',
-    height: '65%',
+    height: '95%',
   },
   qrContentInner: {
     flexDirection: 'column',
@@ -1276,6 +1315,18 @@ const styles = StyleSheet.create({
     marginTop: 1, // Reduced top margin
     paddingHorizontal: 1, // Small padding to prevent edge cutoff
   },
+  orderDate: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#202325',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0,
+    paddingHorizontal: 1,
+  },
   genusSpecies: {
     fontFamily: 'Inter',
     fontWeight: '500',
@@ -1288,18 +1339,29 @@ const styles = StyleSheet.create({
     marginTop: 0, // No top margin
     paddingHorizontal: 1, // Small padding to prevent edge cutoff
   },
-  flightDate: {
+  garden: {
     fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 5.5,
     lineHeight: 7,
     textAlign: 'center',
-    color: '#666666',
+    color: '#8B4513',
     alignSelf: 'stretch',
     flex: 0,
-    marginTop: 0, // No top margin
-    marginBottom: 0, // No bottom margin
-    paddingHorizontal: 1, // Small padding to prevent edge cutoff
+    marginTop: 0,
+    paddingHorizontal: 1,
+  },
+  seller: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#6A5ACD',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0,
+    paddingHorizontal: 1,
   },
   receiver: {
     fontFamily: 'Inter',
@@ -1324,6 +1386,19 @@ const styles = StyleSheet.create({
     flex: 0,
     marginTop: 0, // No top margin
     paddingHorizontal: 1, // Small padding to prevent edge cutoff
+  },
+  flightDate: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#666666',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingHorizontal: 1,
   },
   loadingContainer: {
     flex: 1,
