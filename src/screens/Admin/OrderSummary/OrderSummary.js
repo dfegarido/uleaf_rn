@@ -315,8 +315,8 @@ const OrderSummary = ({navigation}) => {
         hubReceiver: order.hubReceiver,
         hubReceiverDateScanned: order.hubReceiver?.dateScanned,
         hubReceivedDateFormatted: order.hubReceivedDateFormatted,
-        hubPacker: order.hubPacker,
-        hubPackerDateScanned: order.hubPacker?.dateScanned,
+        hubPackDetails: order.hubPackDetails,
+        hubPackDetailsDateProcessed: order.hubPackDetails?.dateProcessed,
         hubPackedDateFormatted: order.hubPackedDateFormatted,
       });
       order._hubDebugLogged = true; // Prevent multiple logs
@@ -329,7 +329,7 @@ const OrderSummary = ({navigation}) => {
       orderDate: safeFormatDate(order.orderDate || order.createdAt, order.orderDateFormatted || order.createdAtFormatted),
       createdAt: safeFormatDate(order.createdAt, order.createdAtFormatted),
       hubReceivedDate: safeFormatDate(order.hubReceiver?.dateScanned, order.hubReceivedDateFormatted),
-      hubPackedDate: safeFormatDate(order.hubPacker?.dateScanned, order.hubPackedDateFormatted),
+      hubPackedDate: safeFormatDate(order.hubPackDetails?.dateProcessed, order.hubPackedDateFormatted),
       deliveredDate: safeFormatDate(order.deliveredDate, order.deliveredDateFormatted),
       receivedDate: safeFormatDate(order.receivedDate, order.receivedDateFormatted),
       plantCode: (order.plantCode || '—').toString(),
@@ -405,8 +405,8 @@ const OrderSummary = ({navigation}) => {
             hubReceiver: o.hubReceiver,
             hubReceiverDateScanned: o.hubReceiver?.dateScanned,
             hubReceivedDateFormatted: o.hubReceivedDateFormatted,
-            hubPacker: o.hubPacker,
-            hubPackerDateScanned: o.hubPacker?.dateScanned,
+            hubPackDetails: o.hubPackDetails,
+            hubPackDetailsDateProcessed: o.hubPackDetails?.dateProcessed,
             hubPackedDateFormatted: o.hubPackedDateFormatted,
           })));
         }
