@@ -73,7 +73,7 @@ const EditDiscount = () => {
     }
   };
   
-  // Get discount type from route params - support: 'buyXGetY', 'amountOffPlantsPercentage', 'eventGift', 'eventGiftFixed'
+  // Get discount type from route params - support: 'buyXGetY', 'amountOffPlantsPercentage', 'eventGift', 'eventGiftFixed', 'freeShipping'
   // Use state so it can be updated when discount data loads
   const [discountTypeParam, setDiscountTypeParam] = React.useState(
     () => route?.params?.discountType || route?.params?.type || 'buyXGetY'
@@ -135,7 +135,11 @@ const EditDiscount = () => {
   const [discountType, setDiscountType] = useState(isFixed ? 'Fixed amount' : 'Percentage');
   const [discountPercent, setDiscountPercent] = useState('');
   const [maxDiscount, setMaxDiscount] = useState('');
-  
+
+  // FreeShipping specific state
+  const [freeUpsShipping, setFreeUpsShipping] = useState(false);
+  const [freeAirCargo, setFreeAirCargo] = useState(false);
+
   // Common discount state (Applies to, Eligibility, etc.)
   const [appliesText, setAppliesText] = useState('Specific listing type');
   const [listingTypes, setListingTypes] = useState([]);

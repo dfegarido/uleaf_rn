@@ -243,7 +243,15 @@ const generateEndpoints = () => ({
   CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getBaseUrl()}/calculateCheckoutShippingJoiner`,
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
-  
+
+  // Discount Code APIs
+  VALIDATE_DISCOUNT_CODE: `${getBaseUrl()}/validateDiscountCode`,
+  CREATE_DISCOUNT: `${getBaseUrl()}/createDiscount`,
+  UPDATE_DISCOUNT: `${getBaseUrl()}/updateDiscount`,
+  DELETE_DISCOUNT: `${getBaseUrl()}/deleteDiscount`,
+  GET_DISCOUNTS: `${getBaseUrl()}/getDiscounts`,
+  GET_DISCOUNT: `${getBaseUrl()}/getDiscount`,
+
   // Order APIs
   GET_ORDERS: `${getBaseUrl()}/getOrders`,
   GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,

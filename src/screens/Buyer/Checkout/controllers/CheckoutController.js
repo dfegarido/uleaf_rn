@@ -73,7 +73,7 @@ export const useCheckoutController = () => {
   const [loading, setLoading] = useState(false);
   const [transactionNum, setTransactionNum] = useState(null);
   const [discountCode, setDiscountCode] = useState('');
-  const [appliedDiscount, setAppliedDiscount] = useState({ amount: 0, discountId: null, code: null });
+  const [appliedDiscount, setAppliedDiscount] = useState({ amount: 0, discountId: null, code: null, discountDetails: null });
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
       street: '123 Main St',
@@ -650,7 +650,9 @@ export const useCheckoutController = () => {
     const backendFinalTotal = shippingCalculation?.finalTotal;
     const shippingDiscount = shippingCalculation?.discount || 0;
     const codeDiscount = appliedDiscount.amount || 0;
-    const totalDiscount = shippingDiscount + codeDiscount;
+    // For freeShipping type, get the discount amount from shipping calculation
+    const freeShippingDiscount = shippingCalculation?.freeShippingDiscount || 0;
+    const totalDiscount = shippingDiscount + codeDiscount + freeShippingDiscount;
     
     // Calculate final total - ensure it never goes negative
     let finalTotal;
@@ -727,11 +729,19 @@ export const useCheckoutController = () => {
     // Use the values already extracted above (backendShippingCreditsDiscount, backendFinalShippingCost, backendTotalShippingCost)
     const creditsApplied = (leafPointsEnabled ? leafPoints : 0) + (plantCreditsEnabled ? plantCredits : 0);
 
+    // Check if Buy X Get Y discount is applied
+    const isBuyXGetYDiscount = appliedDiscount.discountDetails?.type === 'buyXGetY';
+    const buyXGetYDiscountAmount = isBuyXGetYDiscount ? codeDiscount : 0;
+
     return {
       subtotal: roundToCents(subtotal),
       discount: roundToCents(totalDiscount),
       codeDiscount: roundToCents(codeDiscount),
       shippingDiscount: roundToCents(shippingDiscount),
+      freeShippingDiscount: roundToCents(freeShippingDiscount),
+      isFreeShippingDiscount: appliedDiscount.discountDetails?.type === 'freeShipping',
+      buyXGetYDiscount: roundToCents(buyXGetYDiscountAmount),
+      isBuyXGetYDiscount: isBuyXGetYDiscount,
       shipping: roundToCents(shippingTotal),
       finalTotal: roundToCents(finalTotal),
       totalItems: totalItems,
@@ -1102,19 +1112,31 @@ export const useCheckoutController = () => {
         totalUserCredits,
       });
 
+      // Prepare free shipping discount info if a freeShipping discount is applied
+      let freeShippingDiscount = null;
+      if (appliedDiscount.discountDetails && appliedDiscount.discountDetails.type === 'freeShipping') {
+        freeShippingDiscount = {
+          freeUpsShipping: appliedDiscount.discountDetails.freeUpsShipping || false,
+          freeAirCargo: appliedDiscount.discountDetails.freeAirCargo || false,
+        };
+        console.log('🚚 [fetchShippingCalculation] Free shipping discount applied:', freeShippingDiscount);
+      }
+
       // Use joiner shipping API if user is an approved joiner
       const result = isJoinerApproved
         ? await calculateCheckoutShippingJoinerApi(
             plants, 
             selectedFlightDate.iso, 
             upsNextDayEnabled, 
-            totalUserCredits
+            totalUserCredits,
+            freeShippingDiscount
           )
         : await calculateCheckoutShippingApi(
             plants, 
             selectedFlightDate.iso, 
             upsNextDayEnabled, 
-            totalUserCredits
+            totalUserCredits,
+            freeShippingDiscount
           );
 
       if (result && result.success) {
@@ -1203,7 +1225,8 @@ export const useCheckoutController = () => {
     leafPoints, 
     plantCredits, 
     shippingCredits, 
-    convertListingTypeToApiFormat
+    convertListingTypeToApiFormat,
+    appliedDiscount // Include appliedDiscount to trigger recalculation when discount changes
   ]);
 
   // Use ref to track if calculation is in progress to prevent infinite loops
@@ -1229,6 +1252,10 @@ export const useCheckoutController = () => {
       leafPoints,
       plantCredits,
       shippingCredits,
+      freeShippingDiscount: appliedDiscount.discountDetails?.type === 'freeShipping' ? {
+        freeUpsShipping: appliedDiscount.discountDetails.freeUpsShipping,
+        freeAirCargo: appliedDiscount.discountDetails.freeAirCargo,
+      } : null,
     });
 
     // Skip if params haven't actually changed
@@ -1245,7 +1272,7 @@ export const useCheckoutController = () => {
       isCalculatingRef.current = false;
       setIsCalculatingShipping(false);
     });
-  }, [fetchShippingCalculation, plantItems, selectedFlightDate, upsNextDayEnabled, leafPointsEnabled, plantCreditsEnabled, shippingCreditsEnabled, leafPoints, plantCredits, shippingCredits]);
+  }, [fetchShippingCalculation, plantItems, selectedFlightDate, upsNextDayEnabled, leafPointsEnabled, plantCreditsEnabled, shippingCreditsEnabled, leafPoints, plantCredits, shippingCredits, appliedDiscount]);
 
   // Check for existing orders - use ref to access latest flightDateOptions without causing re-renders
   const flightDateOptionsRef = useRef(flightDateOptions);
@@ -2186,7 +2213,9 @@ export const useCheckoutController = () => {
           maxAllowedDiscount,
         });
         
-        if (discountAmount <= 0) {
+        // For freeShipping type, discountAmount is 0 because discount applies to shipping, not order total
+        // Skip the discountAmount check for freeShipping type
+        if (discountDetails.type !== 'freeShipping' && discountAmount <= 0) {
           console.warn('⚠️ [handleApplyDiscount] Discount amount is 0 or negative:', discountAmount);
           
           // For Buy X Get Y discounts, provide specific message
@@ -2210,11 +2239,12 @@ export const useCheckoutController = () => {
           return;
         }
         
-        // Store applied discount
+        // Store applied discount (including discountDetails for freeShipping type)
         setAppliedDiscount({
           amount: discountAmount,
           discountId: discountId,
           code: discountCode.trim().toUpperCase(),
+          discountDetails: discountDetails, // Store discountDetails to access freeShipping flags
         });
 
         console.log('💳 [handleApplyDiscount] Applied discount state updated with amount:', discountAmount);
@@ -2247,7 +2277,7 @@ export const useCheckoutController = () => {
         );
         
         if (isInvalidCode) {
-          userMessage = "Uh-oh!, this code didn't bloom. It may have expired or been entered incorrectly.";
+          userMessage = "Uh-oh! This code didn't bloom. It may have expired or been entered incorrectly.";
           alertTitle = 'Invalid Discount Code';
         } else if (result.debug && errorMessage.includes('No eligible items')) {
           userMessage = `No eligible items in cart for this discount code.\n\nThis discount applies to: ${result.debug.appliesTo || 'Unknown'}\n\nPlease check that your cart items match the discount criteria.`;
@@ -2267,7 +2297,7 @@ export const useCheckoutController = () => {
       
       // For network errors or generic errors, show the friendly message
       if (isNetworkError || errorMessage.includes('Invalid') || errorMessage.includes('not found') || errorMessage.includes('expired')) {
-        Alert.alert('Invalid Discount Code', "Uh-oh!, this code didn't bloom. It may have expired or been entered incorrectly.");
+        Alert.alert('Invalid Discount Code', "Uh-oh! This code didn't bloom. It may have expired or been entered incorrectly.");
       } else {
         Alert.alert('Error', errorMessage);
       }

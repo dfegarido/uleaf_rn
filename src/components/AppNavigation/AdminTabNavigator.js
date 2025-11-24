@@ -51,6 +51,7 @@ import Discounts from '../../screens/Admin/Discounts/Discounts';
 import EditDiscount from '../../screens/Admin/Discounts/EditDiscount';
 import EventGift from '../../screens/Admin/Discounts/EventGift';
 import EventGiftFixed from '../../screens/Admin/Discounts/EventGiftFixed';
+import FreeShipping from '../../screens/Admin/Discounts/FreeShipping';
 import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
 import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
@@ -232,6 +233,7 @@ function AdminTabs() {
       <Stack.Screen name="AdminDiscountBuyXGetY" options={{headerShown: false}} component={BuyXGetY} />
       <Stack.Screen name="AdminDiscountEventGiftPercentage" options={{headerShown: false}} component={EventGift} />
       <Stack.Screen name="AdminDiscountEventGiftFixed" options={{headerShown: false}} component={EventGiftFixed} />
+      <Stack.Screen name="AdminDiscountFreeShipping" options={{headerShown: false}} component={FreeShipping} />
       <Stack.Screen name="AdminDiscountEdit" options={{headerShown: false}} component={EditDiscount} />
       <Stack.Screen name="AdminDiscountSelectListing" options={{headerShown: false}} component={SelectListingScreen} />
       {/* Order Summary */}

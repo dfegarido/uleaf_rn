@@ -44,6 +44,11 @@ export const createDiscountApi = async (discountData) => {
       ...(discountData.discountPercent !== undefined && { discountPercent: discountData.discountPercent }),
       ...(discountData.discountAmount !== undefined && { discountAmount: discountData.discountAmount }),
       ...(discountData.maxDiscount !== undefined && { maxDiscount: discountData.maxDiscount }),
+      // Free Shipping specific fields
+      ...(discountData.type === 'freeShipping' && {
+        freeUpsShipping: Boolean(discountData.freeUpsShipping),
+        freeAirCargo: Boolean(discountData.freeAirCargo),
+      }),
       // Date and time fields
       startDate: discountData.startDate,
       startTime: discountData.startTime,
@@ -149,6 +154,11 @@ export const updateDiscountApi = async (discountId, discountData) => {
       ...(discountData.discountPercent !== undefined && { discountPercent: discountData.discountPercent }),
       ...(discountData.discountAmount !== undefined && { discountAmount: discountData.discountAmount }),
       ...(discountData.maxDiscount !== undefined && { maxDiscount: discountData.maxDiscount }),
+      // Free Shipping specific fields
+      ...(discountData.type === 'freeShipping' && {
+        freeUpsShipping: Boolean(discountData.freeUpsShipping),
+        freeAirCargo: Boolean(discountData.freeAirCargo),
+      }),
       startDate: discountData.startDate,
       startTime: discountData.startTime,
       ...(discountData.endDate && { endDate: discountData.endDate }),
@@ -175,8 +185,15 @@ export const updateDiscountApi = async (discountId, discountData) => {
 
     console.log('Updating discount with payload:', JSON.stringify(payload, null, 2));
 
-    let endpoint = API_ENDPOINTS?.UPDATE_DISCOUNT?.replace(':id', discountId);
-    if (!endpoint) {
+    let endpoint = API_ENDPOINTS?.UPDATE_DISCOUNT;
+    
+    // If endpoint exists and has :id placeholder, replace it
+    if (endpoint && endpoint.includes(':id')) {
+      endpoint = endpoint.replace(':id', discountId);
+    } else if (endpoint) {
+      // If endpoint exists but no placeholder, append the ID
+      endpoint = `${endpoint}/${discountId}`;
+    } else {
       // Fallback to constructing URL manually
       const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
         'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -317,10 +334,15 @@ export const validateDiscountCodeApi = async (code, cartItems, buyerId) => {
     console.log('💳 [validateDiscountCodeApi] Validating discount code:', code);
     console.log('💳 [validateDiscountCodeApi] Payload:', JSON.stringify(payload, null, 2));
 
+    // Debug: Check if API_ENDPOINTS has the validate endpoint
+    console.log('💳 [validateDiscountCodeApi] API_ENDPOINTS.VALIDATE_DISCOUNT_CODE:', API_ENDPOINTS?.VALIDATE_DISCOUNT_CODE);
+    console.log('💳 [validateDiscountCodeApi] API_ENDPOINTS keys:', Object.keys(API_ENDPOINTS || {}).filter(k => k.includes('DISCOUNT')));
+
     let endpoint = API_ENDPOINTS?.VALIDATE_DISCOUNT_CODE;
     if (!endpoint) {
+      console.warn('⚠️ [validateDiscountCodeApi] VALIDATE_DISCOUNT_CODE not found in API_ENDPOINTS, using fallback');
       // Fallback to constructing URL manually
-      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
+      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') ||
         'https://us-central1-i-leaf-u.cloudfunctions.net';
       endpoint = `${baseUrl}/validateDiscountCode`;
     }
@@ -365,8 +387,9 @@ export const validateDiscountCodeApi = async (code, cartItems, buyerId) => {
         });
       }
       
-      // Provide helpful error message for 404
-      if (response.status === 404) {
+      // Provide helpful error message for 404 ONLY if there's no error data
+      // If errorData exists, it means the endpoint is working but returned a validation error
+      if (response.status === 404 && !errorData.error) {
         return {
           success: false,
           error: `Discount validation endpoint not found. Please deploy the 'validateDiscountCode' Firebase Cloud Function. Endpoint: ${endpoint}`,
@@ -418,8 +441,15 @@ export const getDiscountApi = async (discountId) => {
       };
     }
 
-    let endpoint = API_ENDPOINTS?.GET_DISCOUNT?.replace(':id', discountId);
-    if (!endpoint) {
+    let endpoint = API_ENDPOINTS?.GET_DISCOUNT;
+    
+    // If endpoint exists and has :id placeholder, replace it
+    if (endpoint && endpoint.includes(':id')) {
+      endpoint = endpoint.replace(':id', discountId);
+    } else if (endpoint) {
+      // If endpoint exists but no placeholder, append the ID
+      endpoint = `${endpoint}/${discountId}`;
+    } else {
       // Fallback to constructing URL manually
       const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
         'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -465,8 +495,15 @@ export const deleteDiscountApi = async (discountId) => {
   try {
     const token = await getStoredAuthToken();
 
-    let endpoint = API_ENDPOINTS?.DELETE_DISCOUNT?.replace(':id', discountId);
-    if (!endpoint) {
+    let endpoint = API_ENDPOINTS?.DELETE_DISCOUNT;
+    
+    // If endpoint exists and has :id placeholder, replace it
+    if (endpoint && endpoint.includes(':id')) {
+      endpoint = endpoint.replace(':id', discountId);
+    } else if (endpoint) {
+      // If endpoint exists but no placeholder, append the ID
+      endpoint = `${endpoint}/${discountId}`;
+    } else {
       // Fallback to constructing URL manually
       const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
         'https://us-central1-i-leaf-u.cloudfunctions.net';

@@ -9,9 +9,10 @@ import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
  * @param {string} flightDate - Optional flight date to check if it's a succeeding order
  * @param {boolean} upsNextDay - Whether UPS Next Day upgrade is enabled
  * @param {number} userCredits - Total user credits (leaf points + plant credits + shipping credits)
+ * @param {Object} freeShippingDiscount - Optional free shipping discount info { freeUpsShipping, freeAirCargo }
  * @returns {Promise<Object>} Shipping calculation result
  */
-export const calculateCheckoutShippingApi = async (items, flightDate = null, upsNextDay = false, userCredits = 0) => {
+export const calculateCheckoutShippingApi = async (items, flightDate = null, upsNextDay = false, userCredits = 0, freeShippingDiscount = null) => {
   try {
     const authToken = await getStoredAuthToken();
     
@@ -26,7 +27,7 @@ export const calculateCheckoutShippingApi = async (items, flightDate = null, ups
     const response = await fetch(API_ENDPOINTS.CALCULATE_CHECKOUT_SHIPPING, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ items, flightDate, upsNextDay, userCredits }),
+      body: JSON.stringify({ items, flightDate, upsNextDay, userCredits, freeShippingDiscount }),
     });
 
     const data = await response.json();
