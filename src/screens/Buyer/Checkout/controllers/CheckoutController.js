@@ -2230,18 +2230,47 @@ export const useCheckoutController = () => {
         
         // Show user-friendly error message
         let userMessage = errorMessage;
-        if (result.debug && errorMessage.includes('No eligible items')) {
+        let alertTitle = 'Discount Not Applicable';
+        
+        // Check if it's an invalid/incorrect/expired code
+        const invalidCodePatterns = [
+          'Invalid discount code',
+          'Discount code not found',
+          'Discount code has expired',
+          'Discount code is not yet active',
+          'Discount code usage limit reached',
+          'You are not eligible for this discount code'
+        ];
+        
+        const isInvalidCode = invalidCodePatterns.some(pattern => 
+          errorMessage.toLowerCase().includes(pattern.toLowerCase())
+        );
+        
+        if (isInvalidCode) {
+          userMessage = "Uh-oh!, this code didn't bloom. It may have expired or been entered incorrectly.";
+          alertTitle = 'Invalid Discount Code';
+        } else if (result.debug && errorMessage.includes('No eligible items')) {
           userMessage = `No eligible items in cart for this discount code.\n\nThis discount applies to: ${result.debug.appliesTo || 'Unknown'}\n\nPlease check that your cart items match the discount criteria.`;
         }
         
-        Alert.alert('Discount Not Applicable', userMessage);
+        Alert.alert(alertTitle, userMessage);
       }
     } catch (error) {
       console.error('💳 [handleApplyDiscount] Exception caught:', error);
       console.error('💳 [handleApplyDiscount] Error message:', error.message);
       console.error('💳 [handleApplyDiscount] Error stack:', error.stack);
       console.error('💳 [handleApplyDiscount] Full error object:', JSON.stringify(error, null, 2));
-      Alert.alert('Error', error.message || 'An error occurred while applying the discount code');
+      
+      // Check if it's a network or validation error that might indicate invalid code
+      const errorMessage = error.message || 'An error occurred while applying the discount code';
+      const isNetworkError = errorMessage.includes('Network') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch');
+      
+      // For network errors or generic errors, show the friendly message
+      if (isNetworkError || errorMessage.includes('Invalid') || errorMessage.includes('not found') || errorMessage.includes('expired')) {
+        Alert.alert('Invalid Discount Code', "Uh-oh!, this code didn't bloom. It may have expired or been entered incorrectly.");
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
