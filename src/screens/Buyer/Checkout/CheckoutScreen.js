@@ -197,7 +197,8 @@ const CheckoutScreen = () => {
     orderSummary,
     flightDateOptions,
     flightLockInfo,
-    
+    orderCutoffDate,
+
     // Actions
     setCargoDate,
     setSelectedFlightDate,
@@ -270,6 +271,7 @@ const CheckoutScreen = () => {
           flightLockInfo={flightLockInfo}
           lockedFlightKey={lockedFlightKey}
           cargoDate={cargoDate}
+          orderCutoffDate={orderCutoffDate}
           onSelectFlightDate={(obj) => {
             setSelectedFlightDate(obj);
             if (obj.iso) {

@@ -18,6 +18,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
+  cutoffDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+  },
+  cutoffDateLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  cutoffDateValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  skeletonCutoffText: {
+    height: 18,
+    width: 200,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+  },
   infoCircle: {
     width: 24,
     height: 24,

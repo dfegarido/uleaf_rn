@@ -15,6 +15,7 @@ const FlightSelector = ({
   flightLockInfo = {},
   lockedFlightKey,
   cargoDate,
+  orderCutoffDate = null,
   onSelectFlightDate,
   normalizeFlightKey,
   formatFlightDateToISO,
@@ -46,9 +47,9 @@ const FlightSelector = ({
       } else {
         date = new Date(dateString);
       }
-      
+
       if (isNaN(date.getTime())) return '';
-      
+
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = monthNames[date.getMonth()];
       const day = date.getDate();
@@ -56,6 +57,21 @@ const FlightSelector = ({
       return `${month} ${day}, ${year}`;
     } catch (error) {
       console.error('Error formatting receiver flight date:', error);
+      return '';
+    }
+  };
+
+  // Format order cutoff date for display with timezone
+  const formatCutoffDate = (date) => {
+    if (!date) return '';
+    try {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const day = date.getDate();
+      const year = date.getFullYear();
+      return `${month} ${day}, ${year} 11:59 PM ET`;
+    } catch (error) {
+      console.error('Error formatting cutoff date:', error);
       return '';
     }
   };
@@ -138,6 +154,30 @@ const FlightSelector = ({
           </TouchableOpacity>
         ) : null}
       </View>
+
+      {/* Order Cutoff Date */}
+      {checkingOrders ? (
+        // Show skeleton while loading flight dates
+        <View style={[styles.cutoffDateContainer, { backgroundColor: '#F9FAFB' }]}>
+          <Text style={styles.cutoffDateLabel}>Order by: </Text>
+          <Animated.View
+            style={[
+              styles.skeletonCutoffText,
+              {
+                opacity: shimmerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.3, 0.7],
+                }),
+              },
+            ]}
+          />
+        </View>
+      ) : orderCutoffDate ? (
+        <View style={styles.cutoffDateContainer}>
+          <Text style={styles.cutoffDateLabel}>Order by: </Text>
+          <Text style={styles.cutoffDateValue}>{formatCutoffDate(orderCutoffDate)}</Text>
+        </View>
+      ) : null}
 
       {/* Options */}
       <View style={styles.flightOptions}>
