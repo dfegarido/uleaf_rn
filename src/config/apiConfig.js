@@ -1,12 +1,35 @@
 // API Configuration for local and production environments
+import {LOCAL_BASE_URL as ENV_LOCAL_BASE_URL} from '@env';
 
-// Set this to true for local development, false for production
-const USE_LOCAL_API = false;
+// Automatically detect environment based on __DEV__ flag and NODE_ENV
+// This prevents accidentally using local API in production builds
+// __DEV__ is automatically false in production builds (release mode)
+// NODE_ENV can be set via environment variable for additional control
+const isDevelopment = __DEV__ === true || process.env.NODE_ENV === 'development';
+const isProduction = __DEV__ === false || process.env.NODE_ENV === 'production';
+
+// Use local API only in development mode
+// In production builds, __DEV__ is always false, so this will always be false
+// Note: This is a const, but can be overridden via setApiEnvironment for runtime switching (dev only)
+// FORCE local API in development mo de (__DEV__ === true)
+let USE_LOCAL_API = __DEV__ === true;
+
+// Safety check: If somehow USE_LOCAL_API is true in a production build, force it to false
+// This prevents the issue where local API is accidentally used in production
+if (!__DEV__ && USE_LOCAL_API) {
+  console.error('⚠️ CRITICAL: USE_LOCAL_API was true in production build! Forcing to false.');
+  USE_LOCAL_API = false; // Force to false in production builds
+}
 
 // Local development endpoints (Firebase Functions Emulator)
-// Use 10.0.2.2 for Android emulator, localhost for iOS simulator/web, your IP for physical devices
-// Using actual IP address (192.168.1.6) instead of 10.0.2.2 for better Android emulator connectivity
-const LOCAL_BASE_URL = 'http://192.168.1.6:5001/i-leaf-u/us-central1';
+// Loaded from .env file - each team member can configure their own IP address
+// Default fallback if .env is not configured
+const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL || 'http://localhost:5001/i-leaf-u/us-central1';
+
+// If LOCAL_BASE_URL is not set, log a warning
+if (__DEV__ && !ENV_LOCAL_BASE_URL) {
+  console.warn('⚠️ LOCAL_BASE_URL not found in .env, using default: http://localhost:5001/i-leaf-u/us-central1');
+}
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -97,11 +120,32 @@ export const GEODATABASE_CONFIG = {
 
 // Get the base URL based on current environment setting
 const getBaseUrl = () => {
-  return USE_LOCAL_API ? LOCAL_BASE_URL : PROD_BASE_URL;
+  const baseUrl = USE_LOCAL_API ? LOCAL_BASE_URL : PROD_BASE_URL;
+  
+  // Log the actual URL being used (only in development, and only once per session)
+  if (__DEV__ && !getBaseUrl._logged) {
+    console.log('🔧 API Base URL:', {
+      USE_LOCAL_API,
+      LOCAL_BASE_URL: LOCAL_BASE_URL || 'NOT SET',
+      PROD_BASE_URL,
+      selectedBaseUrl: baseUrl,
+      environment: USE_LOCAL_API ? 'LOCAL DEVELOPMENT' : 'PRODUCTION',
+    });
+    getBaseUrl._logged = true;
+  }
+  
+  return baseUrl;
 };
 
 // Helper function to dynamically switch API environment
+// WARNING: This only works in development mode. In production, it will be ignored.
 export const setApiEnvironment = (useLocal) => {
+  // Prevent switching to local API in production builds
+  if (!__DEV__ && useLocal) {
+    console.error('⚠️ Cannot switch to LOCAL API in production build! Ignoring request.');
+    return;
+  }
+  
   USE_LOCAL_API = useLocal;
   // Environment switch - minimal logging
   console.info(`API environment switched to: ${useLocal ? 'LOCAL' : 'PROD'}`);
@@ -199,7 +243,15 @@ const generateEndpoints = () => ({
   CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getBaseUrl()}/calculateCheckoutShippingJoiner`,
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
-  
+
+  // Discount Code APIs
+  VALIDATE_DISCOUNT_CODE: `${getBaseUrl()}/validateDiscountCode`,
+  CREATE_DISCOUNT: `${getBaseUrl()}/createDiscount`,
+  UPDATE_DISCOUNT: `${getBaseUrl()}/updateDiscount`,
+  DELETE_DISCOUNT: `${getBaseUrl()}/deleteDiscount`,
+  GET_DISCOUNTS: `${getBaseUrl()}/getDiscounts`,
+  GET_DISCOUNT: `${getBaseUrl()}/getDiscount`,
+
   // Order APIs
   GET_ORDERS: `${getBaseUrl()}/getOrders`,
   GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
@@ -251,6 +303,15 @@ const generateEndpoints = () => ({
   APPROVE_REJECT_BUDDY_REQUEST: `${getBaseUrl()}/approveRejectBuddyRequest`,
   GET_MY_RECEIVER_REQUEST: `${getBaseUrl()}/getMyReceiverRequest`,
   CANCEL_RECEIVER_REQUEST: `${getBaseUrl()}/cancelReceiverRequest`,
+  
+  // Flight Change Request endpoints
+  SUBMIT_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/submitFlightChangeRequest`,
+  GET_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getFlightChangeRequests`,
+  GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getAdminFlightChangeRequests`,
+  UPDATE_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/updateFlightChangeRequest`,
+
+  // Delivery Export endpoint
+  DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,
 });
 
 // API Endpoints - Initially generated with default environment

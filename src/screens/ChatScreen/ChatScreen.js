@@ -43,8 +43,8 @@ const ChatScreen = ({navigation, route}) => {
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
   
   // Check if current user is a buyer (only buyers can request to join public groups)
-  const isBuyer = 
-    userInfo?.user?.userType === 'buyer' || 
+  const isBuyer =
+    userInfo?.user?.userType === 'buyer' ||
     userInfo?.data?.userType === 'buyer' ||
     userInfo?.userType === 'buyer';
   
@@ -814,18 +814,6 @@ const ChatScreen = ({navigation, route}) => {
         />
       )}
 
-      {/* Plant Recommendations for plant-related conversations */}
-      {messages.length > 3 && isPlantRelatedConversation() && (
-        <View style={styles.plantRecommendationsContainer}>
-          <BrowseMorePlants
-            title="Plants You Might Like"
-            limit={4}
-            showLoadMore={false}
-            containerStyle={styles.chatBrowseMoreContainer}
-            horizontal={true}
-          />
-        </View>
-      )}
 
       {/* Input - Disabled for non-members */}
       <MessageInput 

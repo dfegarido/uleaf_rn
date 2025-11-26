@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
+import { useUnreadMessageCount } from '../../hooks/useUnreadMessageCount';
 import TaxonomyIconSelected from '../../assets/admin-icons/taxonomy-selected.svg';
 import TaxonomyIcon from '../../assets/admin-icons/taxonomy.svg';
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
@@ -17,6 +18,7 @@ import EditSubAdmin from '../../screens/Admin/Home/EditSubAdmin';
 import AdminHomeScreen from '../../screens/Admin/Home/Home';
 import JungleAccess from '../../screens/Admin/Home/JungleAccess';
 import ScanQR from '../../screens/Admin/Home/ScanQR';
+import GenerateQR from '../../screens/Admin/Home/GenerateQR';
 import UserInformation from '../../screens/Admin/Home/UserInformation';
 import UserManagement from '../../screens/Admin/Home/UserManagement';
 import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
@@ -49,6 +51,7 @@ import Discounts from '../../screens/Admin/Discounts/Discounts';
 import EditDiscount from '../../screens/Admin/Discounts/EditDiscount';
 import EventGift from '../../screens/Admin/Discounts/EventGift';
 import EventGiftFixed from '../../screens/Admin/Discounts/EventGiftFixed';
+import FreeShipping from '../../screens/Admin/Discounts/FreeShipping';
 import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
 import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
@@ -65,8 +68,30 @@ import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// Badge component for displaying unread message count
+const UnreadBadge = ({ count }) => {
+  if (count <= 0) return null;
+  
+  return (
+    <View style={styles.badgeContainer}>
+      <Text style={styles.badgeText}>
+        {count > 99 ? '99+' : count.toString()}
+      </Text>
+    </View>
+  );
+};
+
 function AdminTabs() {
     const navigation = useNavigation();
+    const { unreadCount } = useUnreadMessageCount();
+    
+    // Log badge count for debugging
+    console.log('💬 Admin Chat Badge:', {
+      unreadCount,
+      willShow: unreadCount > 0,
+      timestamp: new Date().toISOString(),
+    });
+    
     return (
       <Tab.Navigator
         initialRouteName="Home"
@@ -120,10 +145,15 @@ function AdminTabs() {
                   <TaxonomyIcon width={size} height={size} />
                 );
               case 'Chat':
-                return focused ? (
-                  <ChatIconSelected width={size} height={size} />
-                ) : (
-                  <ChatIcon width={size} height={size} />
+                return (
+                  <View style={styles.chatIconContainer}>
+                    {focused ? (
+                      <ChatIconSelected width={size} height={size} />
+                    ) : (
+                      <ChatIcon width={size} height={size} />
+                    )}
+                    <UnreadBadge count={unreadCount} />
+                  </View>
                 );
             }
           },
@@ -177,6 +207,7 @@ function AdminTabs() {
      <Stack.Screen name="ChatScreen" options={{headerShown: false}} component={ChatScreen} />
      <Stack.Screen name="ChatSettingsScreen" options={{headerShown: false}} component={ChatSettingsScreen} />
      <Stack.Screen name="ScanQR" options={{headerShown: false}} component={ScanQR} />
+     <Stack.Screen name="GenerateQR" options={{headerShown: false}} component={GenerateQR} />
      <Stack.Screen name="LeafTrailSortingAdminScreen" options={{headerShown: false}} component={SortingScreen} />
      <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
      <Stack.Screen name="ViewPackingScreen" options={{headerShown: false}} component={ViewPackingScreen} />
@@ -202,10 +233,16 @@ function AdminTabs() {
       <Stack.Screen name="AdminDiscountBuyXGetY" options={{headerShown: false}} component={BuyXGetY} />
       <Stack.Screen name="AdminDiscountEventGiftPercentage" options={{headerShown: false}} component={EventGift} />
       <Stack.Screen name="AdminDiscountEventGiftFixed" options={{headerShown: false}} component={EventGiftFixed} />
+      <Stack.Screen name="AdminDiscountFreeShipping" options={{headerShown: false}} component={FreeShipping} />
       <Stack.Screen name="AdminDiscountEdit" options={{headerShown: false}} component={EditDiscount} />
       <Stack.Screen name="AdminDiscountSelectListing" options={{headerShown: false}} component={SelectListingScreen} />
       {/* Order Summary */}
       <Stack.Screen name="OrderSummary" options={{headerShown: false}} component={require('../../screens/Admin/OrderSummary/OrderSummary').default} />
+      
+      {/* Flight Date */}
+      <Stack.Screen name="FlightDate" options={{headerShown: false}} component={require('../../screens/Admin/FlightDate/FlightDate').default} />
+      {/* Flight Date Orders */}
+      <Stack.Screen name="FlightDateOrders" options={{headerShown: false}} component={require('../../screens/Admin/FlightDate/FlightDateOrders').default} />
       
       {/* Taxonomy Screens */}
       <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />
@@ -241,6 +278,32 @@ const styles = StyleSheet.create({
     tabBar: {
       paddingBottom: 30,
       height: 80,
+    },
+    chatIconContainer: {
+      position: 'relative',
+      width: 24,
+      height: 24,
+    },
+    badgeContainer: {
+      position: 'absolute',
+      top: -6,
+      right: -8,
+      backgroundColor: '#E7522F',
+      borderRadius: 10,
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 5,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: '#fff',
+    },
+    badgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '700',
+      fontFamily: 'Inter',
+      textAlign: 'center',
     },
   });
 

@@ -476,6 +476,20 @@ const Discounts = () => {
             contentContainerStyle={[styles.sheetContent, {paddingBottom: Math.max(insets.bottom, 16)}]}
             showsVerticalScrollIndicator={false}
           >
+            <TouchableOpacity style={[styles.optionCard, {height: 80}]} onPress={() => { setShowAddSheet(false); navigation.navigate('AdminDiscountFreeShipping'); }}>
+              <Svg width={48} height={48} viewBox="0 0 48 48" fill="none">
+                <Path d="M40 13H8C6.89543 13 6 13.8954 6 15V33C6 34.1046 6.89543 35 8 35H40C41.1046 35 42 34.1046 42 33V15C42 13.8954 41.1046 13 40 13Z" fill="#4A90E2"/>
+                <Path d="M32 20H16V28H32V20Z" fill="#5BA3F5"/>
+                <Path d="M24 16C22.8954 16 22 16.8954 22 18V30C22 31.1046 22.8954 32 24 32C25.1046 32 26 31.1046 26 30V18C26 16.8954 25.1046 16 24 16Z" fill="#357ABD"/>
+                <Path d="M36 22C36 20.8954 35.1046 20 34 20H14C12.8954 20 12 20.8954 12 22V26C12 27.1046 12.8954 28 14 28H34C35.1046 28 36 27.1046 36 26V22Z" fill="#FFFFFF" fillOpacity="0.3"/>
+                <Path d="M24 10L20 14H28L24 10Z" fill="#23C16B"/>
+                <Path d="M24 38L28 34H20L24 38Z" fill="#23C16B"/>
+              </Svg>
+              <View style={styles.optionTextWrap}>
+                <Text style={styles.optionTitle}>Free Shipping</Text>
+                <Text style={styles.optionSubtitle}>Free UPS shipping and/or air cargo for eligible orders.</Text>
+              </View>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.optionCard} onPress={() => { setShowAddSheet(false); navigation.navigate('AdminDiscountAmountOffPlants'); }}>
               <Svg width={48} height={48} viewBox="0 0 48 48" fill="none">
                 <Path d="M39.6006 40.834H36.9736V20.9941C36.0134 21.2788 34.9973 21.4324 33.946 21.4324C33.1042 21.4324 32.2639 21.3332 31.4486 21.1377L31.3326 21.1098L31.334 21.3045C31.334 23.5751 30.7892 25.7206 29.8242 27.618V40.834H27.1972C26.9049 40.834 26.755 41.1841 26.9568 41.3956L33.1584 47.8971C33.2893 48.0344 33.5084 48.0344 33.6394 47.8971L39.841 41.3956C40.0428 41.1841 39.8929 40.834 39.6006 40.834Z" fill="#FC502A"/>

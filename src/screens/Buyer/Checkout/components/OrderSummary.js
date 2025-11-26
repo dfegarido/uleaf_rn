@@ -352,9 +352,9 @@ const OrderSummary = ({
             <View style={styles.discountTextField}>
               <View style={[
                 styles.textFieldContainer,
-                orderSummary.codeDiscount > 0 && styles.textFieldContainerApplied
+                (orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && styles.textFieldContainerApplied
               ]}>
-                {orderSummary.codeDiscount > 0 ? (
+                {(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? (
                   <Svg width={20} height={20} viewBox="0 0 20 20" fill="none" style={styles.textFieldIcon}>
                     <Path
                       fillRule="evenodd"
@@ -373,13 +373,13 @@ const OrderSummary = ({
                 )}
                 <TextInput
                   style={styles.textFieldInput}
-                  placeholder={orderSummary.codeDiscount > 0 ? `${discountCode} applied` : "Enter discount code"}
-                  placeholderTextColor={orderSummary.codeDiscount > 0 ? "#23C16B" : "#647276"}
+                  placeholder={(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? `${discountCode} applied` : "Enter discount code"}
+                  placeholderTextColor={(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? "#23C16B" : "#647276"}
                   value={discountCode}
                   onChangeText={onDiscountCodeChange}
                   autoCapitalize="characters"
                   autoCorrect={false}
-                  editable={orderSummary.codeDiscount === 0}
+                  editable={orderSummary.codeDiscount === 0 && !(orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)}
                 />
               </View>
             </View>
@@ -393,10 +393,15 @@ const OrderSummary = ({
           </View>
 
           {/* Discount Applied Confirmation - Simple text indicator */}
-          {orderSummary.codeDiscount > 0 && (
+          {(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && (
             <View style={styles.discountAppliedSimple}>
               <Text style={styles.discountAppliedSimpleText}>
-                ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied • You saved {formatCurrencyFull(orderSummary.codeDiscount)}
+                ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied
+                {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 ? (
+                  <Text> • Free shipping applied • You saved {formatCurrencyFull(orderSummary.freeShippingDiscount)}</Text>
+                ) : orderSummary.codeDiscount > 0 ? (
+                  <Text> • You saved {formatCurrencyFull(orderSummary.codeDiscount)}</Text>
+                ) : null}
               </Text>
             </View>
           )}
@@ -459,42 +464,45 @@ const OrderSummary = ({
                 <View style={[styles.iconContainer, styles.plantIconContainer]}>
                   <PlantVioletIcon width={32} height={32} />
                 </View>
-                <Text style={[styles.iconLabel, styles.plantIconLabel]}>Plant Credits</Text>
+                <Text style={[styles.iconLabel, styles.plantIconLabel]}>
+                  {orderSummary.isBuyXGetYDiscount ? 'Free Plants' : 'Plant Credits'}
+                </Text>
               </View>
 
               {/* Toggle */}
               <TouchableOpacity
                 style={styles.toggle}
-                onPress={onTogglePlantCredits}>
+                onPress={onTogglePlantCredits}
+                disabled={orderSummary.isBuyXGetYDiscount}>
                 <View style={styles.toggleText}>
                   <Text
                     style={
-                      plantCreditsEnabled
+                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount)
                         ? styles.toggleOnLabel
                         : styles.toggleOffLabel
                     }>
-                    {plantCreditsEnabled ? '+' : '-'}
+                    {(plantCreditsEnabled || orderSummary.isBuyXGetYDiscount) ? '+' : '-'}
                   </Text>
                   <Text
                     style={
-                      plantCreditsEnabled
+                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount)
                         ? styles.toggleOnNumber
                         : styles.toggleOffNumber
                     }>
-                    {plantCreditsEnabled
-                      ? formatCurrencyFull(plantCredits)
+                    {(plantCreditsEnabled || orderSummary.isBuyXGetYDiscount)
+                      ? formatCurrencyFull(plantCredits + (orderSummary.buyXGetYDiscount || 0))
                       : formatCurrencyFull(0)}
                   </Text>
                 </View>
                 <View
                   style={[
                     styles.switchContainer,
-                    plantCreditsEnabled && styles.switchContainerActive,
+                    (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount) && styles.switchContainerActive,
                   ]}>
                   <View
                     style={[
                       styles.switchKnob,
-                      plantCreditsEnabled && styles.switchKnobActive,
+                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount) && styles.switchKnobActive,
                     ]}
                   />
                 </View>
@@ -508,29 +516,38 @@ const OrderSummary = ({
                 <View style={[styles.iconContainer, styles.shippingIconContainer]}>
                   <TruckBlueIcon width={32} height={32} />
                 </View>
-                <Text style={[styles.iconLabel, styles.shippingIconLabel]}>Shipping Credits</Text>
+                <Text style={[styles.iconLabel, styles.shippingIconLabel]}>
+                  {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 
+                    ? 'Free Shipping' 
+                    : 'Shipping Credits'}
+                </Text>
               </View>
 
               {/* Toggle */}
               <TouchableOpacity
                 style={styles.toggle}
-                onPress={onToggleShippingCredits}>
+                onPress={orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 
+                  ? undefined 
+                  : onToggleShippingCredits}
+                disabled={orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0}>
                 <View style={styles.toggleText}>
                   <Text
                     style={
-                      shippingCreditsEnabled
+                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0))
                         ? styles.toggleOnLabel
                         : styles.toggleOffLabel
                     }>
-                    {shippingCreditsEnabled ? '+' : '-'}
+                    {(shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? '+' : '-'}
                   </Text>
                   <Text
                     style={
-                      shippingCreditsEnabled
+                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0))
                         ? styles.toggleOnNumber
                         : styles.toggleOffNumber
                     }>
-                    {shippingCreditsEnabled
+                    {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0
+                      ? formatCurrencyFull(orderSummary.freeShippingDiscount)
+                      : shippingCreditsEnabled
                       ? formatCurrencyFull(orderSummary.shippingCreditsDiscount)
                       : formatCurrencyFull(0)}
                   </Text>
@@ -538,12 +555,12 @@ const OrderSummary = ({
                 <View
                   style={[
                     styles.switchContainer,
-                    shippingCreditsEnabled && styles.switchContainerActive,
+                    (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && styles.switchContainerActive,
                   ]}>
                   <View
                     style={[
                       styles.switchKnob,
-                      shippingCreditsEnabled && styles.switchKnobActive,
+                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && styles.switchKnobActive,
                     ]}
                   />
                 </View>

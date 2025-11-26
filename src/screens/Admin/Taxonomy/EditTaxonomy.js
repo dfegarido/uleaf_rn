@@ -607,6 +607,43 @@ const EditTaxonomy = () => {
               </View>
             </View>
 
+            {/* Action Buttons - Add Specie and Update Taxonomy */}
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity 
+                style={styles.addSpecieButton} 
+                onPress={handleAddSpecie}
+              >
+                <PlusIcon width={16} height={16} />
+                <Text style={styles.addSpecieText}>Add Specie</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.saveButton, 
+                  (isLoading || !genusName.trim()) && styles.saveButtonDisabled
+                ]} 
+                onPress={() => {
+                  console.log('🔘 Save button pressed, isLoading:', isLoading, 'genusName:', genusName.trim());
+                  handleSave();
+                }}
+                disabled={isLoading || !genusName.trim()}
+                accessibilityRole="button"
+                accessibilityLabel="Update taxonomy"
+                accessibilityHint="Saves changes to the genus name"
+                accessibilityState={{ disabled: isLoading || !genusName.trim() }}
+              >
+                <View style={styles.saveButtonTextContainer}>
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>
+                      Update{newlyAddedSpecies.length > 0 || genusName.trim() !== originalGenusName ? ` (${newlyAddedSpecies.length + (genusName.trim() !== originalGenusName ? 1 : 0)})` : ''}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
+
             {/* Loading / Error States */}
             {isLoadingSpecies && (
               <View style={[styles.specieListSection, { paddingBottom: 0 }]}>
@@ -645,46 +682,6 @@ const EditTaxonomy = () => {
             </View>
           </View>
         ) : null}
-        ListFooterComponent={(
-          <View>
-            {/* Add Specie Button */}
-            <View style={styles.addSpecieSection}>
-              <TouchableOpacity style={styles.addSpecieButton} onPress={handleAddSpecie}>
-                <PlusIcon width={24} height={24} />
-                <Text style={styles.addSpecieText}>Add Specie</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Save Button */}
-            <View style={styles.actionSection}>
-              <TouchableOpacity 
-                style={[
-                  styles.saveButton, 
-                  (isLoading || !genusName.trim()) && styles.saveButtonDisabled
-                ]} 
-                onPress={() => {
-                  console.log('🔘 Save button pressed, isLoading:', isLoading, 'genusName:', genusName.trim());
-                  handleSave();
-                }}
-                disabled={isLoading || !genusName.trim()}
-                accessibilityRole="button"
-                accessibilityLabel="Update taxonomy"
-                accessibilityHint="Saves changes to the genus name"
-                accessibilityState={{ disabled: isLoading || !genusName.trim() }}
-              >
-                <View style={styles.saveButtonTextContainer}>
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>
-                      Update Taxonomy{newlyAddedSpecies.length > 0 || genusName.trim() !== originalGenusName ? ` (${newlyAddedSpecies.length + (genusName.trim() !== originalGenusName ? 1 : 0)} changes)` : ''}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
       />
 
       {/* Add Specie Modal */}
@@ -968,17 +965,20 @@ const styles = StyleSheet.create({
     height: 28,
   },
 
-  // Add Specie Section
-  addSpecieSection: {
+  // Action Buttons Container (horizontal layout)
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
     paddingVertical: 12,
     paddingHorizontal: 24,
   },
   addSpecieButton: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     height: 48,
     backgroundColor: '#414649',
     borderRadius: 12,
@@ -996,19 +996,13 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#FFFFFF',
   },
-
-  // Action Section
-  actionSection: {
-    paddingTop: 24,
-    paddingBottom: 12,
-    paddingHorizontal: 24,
-  },
   saveButton: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     height: 48,
     backgroundColor: '#56a65dff',
     borderRadius: 12,

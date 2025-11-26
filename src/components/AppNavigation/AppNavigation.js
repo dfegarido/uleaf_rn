@@ -5,11 +5,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../../auth/AuthProvider';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
@@ -826,13 +828,26 @@ const MainStack = () => {
 
 // Tab navigator containing Home, Vote, Community, and Store screens
 function MainTabNavigator() {
+  const insets = useSafeAreaInsets();
+  
+  // Calculate dynamic bottom padding for Android
+  const bottomPadding = Platform.OS === 'android' 
+    ? Math.max(insets.bottom, 20) 
+    : 20;
+  
+  const dynamicTabBarStyle = {
+    ...styles.tabBar,
+    paddingBottom: bottomPadding,
+    height: 60 + (Platform.OS === 'android' ? Math.max(insets.bottom - 20, 0) : 0),
+  };
+  
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
         tabBarStyle:
           route.name === 'ChatScreen' || route.name === 'MessagesScreen'
             ? {display: 'none'}
-            : styles.tabBar,
+            : dynamicTabBarStyle,
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused
@@ -1065,7 +1080,9 @@ const styles = StyleSheet.create({
     marginTop: -10,
   },
   tabBar: {
-    // paddingBottom: 20,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
   },
 });
 

@@ -34,6 +34,8 @@ const BrowseMorePlants = React.forwardRef(({
   const [hasMore, setHasMore] = useState(true);
   const loadMoreTriggered = useRef(false);
   const observerRef = useRef(null);
+  // Use ref to track current offset to avoid stale closure issues
+  const offsetRef = useRef(0);
 
   // Load plants from API with offset pagination
   const loadPlants = async (loadOffset = 0, isLoadMore = false) => {
@@ -95,11 +97,21 @@ const BrowseMorePlants = React.forwardRef(({
           // Update pagination state
           if (apiData.pagination) {
             setHasMore(apiData.pagination.hasMore);
+            // Use nextOffset from backend if available, otherwise calculate from returned count
+            const nextOffset = apiData.pagination.nextOffset !== undefined 
+              ? apiData.pagination.nextOffset 
+              : loadOffset + normalized.length;
+            console.log(`🌱 Updating offset: ${loadOffset} -> ${nextOffset} (returned ${normalized.length} plants)`);
+            setOffset(nextOffset);
+            offsetRef.current = nextOffset;
           } else {
             setHasMore(true); // Default to true if pagination info not available
+            // Fallback: calculate offset from returned plants
+            const nextOffset = loadOffset + normalized.length;
+            console.log(`🌱 Updating offset (no pagination info): ${loadOffset} -> ${nextOffset}`);
+            setOffset(nextOffset);
+            offsetRef.current = nextOffset;
           }
-          
-          setOffset(loadOffset + validPlants.length);
         } else if (!isLoadMore) {
           setPlants([]);
         }
@@ -158,17 +170,19 @@ const BrowseMorePlants = React.forwardRef(({
   };
 
   // Auto-load more when scrolling near bottom - using useCallback to prevent recreation
+  // Use offsetRef to always get the latest offset value, avoiding stale closure issues
   const handleLoadMoreIfNeeded = React.useCallback(() => {
+    const currentOffset = offsetRef.current; // Always use ref value
     if (hasMore && !loadingMore && !loadMoreTriggered.current) {
-      console.log('🌱 BrowseMorePlants: Loading more plants...');
+      console.log(`🌱 BrowseMorePlants: Loading more plants from offset ${currentOffset}...`);
       loadMoreTriggered.current = true;
-      loadPlants(offset, true);
+      loadPlants(currentOffset, true); // Use ref value, not state
       // Reset the flag after a delay to allow another load
       setTimeout(() => {
         loadMoreTriggered.current = false;
       }, 2000); // Increased delay to prevent rapid successive calls
     }
-  }, [hasMore, loadingMore, offset, plants.length]);
+  }, [hasMore, loadingMore, plants.length]); // Removed offset from deps, using ref instead
   
   // Register scroll handler with parent if provided
   useEffect(() => {
@@ -182,7 +196,9 @@ const BrowseMorePlants = React.forwardRef(({
   useEffect(() => {
     console.log('🌱 BrowseMorePlants useEffect triggered:', { autoLoad, plantsCount: plants.length, forceRefresh });
     if (autoLoad && plants.length === 0) {
-      console.log('🌱 BrowseMorePlants: Loading initial plants');
+      console.log('🌱 BrowseMorePlants: Loading initial plants - resetting offset to 0');
+      offsetRef.current = 0;
+      setOffset(0);
       loadPlants(0, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

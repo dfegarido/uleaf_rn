@@ -1,6 +1,6 @@
 {
   "name": "ileafu",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -8,8 +8,13 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "build:android": "cd android && ./gradlew assembleRelease",
-    "build:android-bundle": "cd android && ./gradlew bundleRelease",
+    "prebuild:android": "node scripts/validate-api-config.js",
+    "build:android": "NODE_ENV=production cd android && ./gradlew assembleRelease",
+    "prebuild:android-bundle": "node scripts/validate-api-config.js",
+    "build:android-bundle": "NODE_ENV=production cd android && ./gradlew bundleRelease",
+    "build:ios-bundle": "NODE_ENV=production npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output ios/main.jsbundle --assets-dest ios",
+    "build:ios": "npm run build:ios-bundle && cd ios && xcodebuild -workspace iLeafU.xcworkspace -scheme iLeafU -configuration Release -archivePath build/iLeafU.xcarchive archive",
+    "build:ios-simulator": "npm run build:ios-bundle && cd ios && xcodebuild -workspace iLeafU.xcworkspace -scheme iLeafU -configuration Release -sdk iphonesimulator -derivedDataPath build",
     "clean": "cd android && ./gradlew clean && cd .. && rm -rf node_modules && npm install",
     "clean:android": "cd android && ./gradlew clean && rm -rf android/app/build android/build android/android/build android/ios/build",
     "clean:ios": "cd ios && rm -rf build && cd .. && rm -rf ios/build ios/main.jsbundle",
@@ -69,6 +74,7 @@
     "jest": "^29.6.3",
     "patch-package": "^8.0.0",
     "prettier": "2.8.8",
+    "react-native-dotenv": "^3.4.11",
     "react-test-renderer": "18.3.1",
     "typescript": "5.0.4"
   },

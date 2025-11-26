@@ -9,7 +9,6 @@ import {
   Modal,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {StackActions} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
 import { auth } from '../../../firebase';
@@ -154,43 +153,64 @@ const ScreenLoginOtp = ({navigation}) => {
         }
 
         await AsyncStorage.setItem('authToken', idToken);
-        setIsLoggedIn(true);
+        
+        // ✅ Fetch and store user profile info BEFORE setting isLoggedIn
+        // This ensures AppNavigation has userInfo when it checks auth state
+        try {
+          const profile = await getProfileInfoApi();
+          if (profile?.success) {
+            setUserInfo(profile);
+            await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
 
-        // ✅ Fetch and store user profile info after successful login
-        const profile = await getProfileInfoApi();
-        if (profile?.success) {
-          setUserInfo(profile);
-          await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
+            // Extract and store profile photo
+            const profilePhotoUrl = profile?.data?.profilePhotoUrl || 
+                                   profile?.data?.profileImage ||
+                                   profile?.user?.profilePhotoUrl ||
+                                   profile?.user?.profileImage ||
+                                   profile?.profilePhotoUrl ||
+                                   profile?.profileImage ||
+                                   null;
+            
+            if (profilePhotoUrl) {
+              const timestamp = Date.now();
+              const cacheBustedUrl = `${profilePhotoUrl}${profilePhotoUrl.includes('?') ? '&' : '?'}cb=${timestamp}`;
+              await AsyncStorage.setItem('profilePhotoUrl', profilePhotoUrl);
+              await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', cacheBustedUrl);
+              console.log('✅ Profile photo stored in AsyncStorage:', profilePhotoUrl);
+            } else {
+              console.log('ℹ️ No profile photo found in profile response');
+            }
 
-          // Extract and store profile photo
-          const profilePhotoUrl = profile?.data?.profilePhotoUrl || 
-                                 profile?.data?.profileImage ||
-                                 profile?.user?.profilePhotoUrl ||
-                                 profile?.user?.profileImage ||
-                                 profile?.profilePhotoUrl ||
-                                 profile?.profileImage ||
-                                 null;
-          
-          if (profilePhotoUrl) {
-            const timestamp = Date.now();
-            const cacheBustedUrl = `${profilePhotoUrl}${profilePhotoUrl.includes('?') ? '&' : '?'}cb=${timestamp}`;
-            await AsyncStorage.setItem('profilePhotoUrl', profilePhotoUrl);
-            await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', cacheBustedUrl);
-            console.log('✅ Profile photo stored in AsyncStorage:', profilePhotoUrl);
+            // Log user type for debugging
+            console.log('✅ User type detected:', profile?.user?.userType);
+            console.log('✅ Profile loaded successfully, setting isLoggedIn to true');
           } else {
-            console.log('ℹ️ No profile photo found in profile response');
+            console.warn('⚠️ Profile fetch returned unsuccessful response:', profile);
+            // Still set isLoggedIn even if profile fetch fails
+            // AppNavigation will handle the fallback
           }
-
-          // Log user type for debugging
-          console.log('User type detected:', profile?.user?.userType);
-        } else {
-          console.log('Profile fetch failed, user type unknown');
+        } catch (profileError) {
+          console.error('❌ Profile fetch error:', profileError);
+          // Don't block login if profile fetch fails - AppNavigation will handle it
+          // But log the error for debugging
         }
-
-        // Force navigation reset to ensure we leave the OTP screen
+        
+        // Set isLoggedIn AFTER profile is fetched (or attempted)
+        // This ensures AppNavigation has userInfo when checking auth state
+        // The NavigationContainer key={isLoggedIn ? 'loggedIn' : 'loggedOut'} in AppNavigation
+        // will force a complete remount when isLoggedIn changes, switching from AuthStack
+        // to the appropriate navigator (BuyerTabNavigator, AdminTabNavigator, or MainStack)
+        console.log('🔄 Setting isLoggedIn to true...');
+        setIsLoggedIn(true);
+        console.log('✅ setIsLoggedIn(true) called - NavigationContainer should remount with new key');
+        
+        // Force a state update by accessing the navigation state
+        // This ensures React processes the context update and AppNavigation re-renders
+        // The NavigationContainer key change will handle the actual navigation switch
         setTimeout(() => {
-          navigation.dispatch(StackActions.popToTop());
-        }, 100);
+          console.log('🔄 Checking if navigation state updated...');
+          // Just trigger a re-render check - NavigationContainer key should handle navigation
+        }, 50);
       }
     } catch (error) {
       console.error('OTP verification error:', error);

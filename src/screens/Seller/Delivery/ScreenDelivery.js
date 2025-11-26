@@ -78,6 +78,7 @@ const ScreenDelivery = ({navigation}) => {
 
   const isActive = key => active === key;
   const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const [dataTable, setDataTable] = useState([]);
 
   // Pagination state (similar to Orders)
@@ -342,7 +343,7 @@ const ScreenDelivery = ({navigation}) => {
   // Function to download Excel file
   const downloadExcelFile = async () => {
     try {
-      setLoading(true);
+      setExportLoading(true);
 
       const response = await getDeliveryExportApi();
 
@@ -350,12 +351,22 @@ const ScreenDelivery = ({navigation}) => {
         throw new Error(response?.message || 'Export failed.');
       }
 
-      Alert.alert('Export', 'Excel file sent to your email');
+      Alert.alert(
+        'Export Successful',
+        'Your delivery details Excel file has been sent to your email. Please check your inbox.',
+        [{text: 'OK'}]
+      );
     } catch (error) {
       console.log('Export:', error.message);
-      Alert.alert('Export', 'No Orders found');
+      Alert.alert(
+        'Export Failed',
+        error.message.includes('404')
+          ? 'No orders found with status "Ready to Fly".'
+          : 'Failed to export delivery details. Please try again.',
+        [{text: 'OK'}]
+      );
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
   };
 
@@ -666,10 +677,18 @@ const ScreenDelivery = ({navigation}) => {
         backgroundColor: '#fff',
         paddingTop: insets.top,
       }}>
-      {loading && (
+      {exportLoading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#699E73" />
+              <Text style={styles.loadingText}>
+                Exporting delivery details...
+              </Text>
+              <Text style={styles.loadingSubtext}>
+                Please wait while we generate your Excel file
+              </Text>
+            </View>
           </View>
         </Modal>
       )}
@@ -1110,7 +1129,8 @@ const ScreenDelivery = ({navigation}) => {
               <TouchableOpacity
                 style={styles.exportOption}
                 onPress={() => {
-                  closeModal();
+                  // Close modal instantly without animation for immediate feedback
+                  setIsExportModalVisible(false);
                   downloadExcelFile();
                 }}>
                 <View style={styles.exportIcon}>
@@ -1359,9 +1379,34 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    minWidth: 200,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   image: {
     width: 45,

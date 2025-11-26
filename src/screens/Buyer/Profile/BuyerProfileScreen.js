@@ -35,6 +35,7 @@ import RightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import TrashIcon from '../../../assets/icons/red/trash.svg';
+import PlantIcon from '../../../assets/icons/greydark/plant-regular.svg';
 import { useNavigation } from '@react-navigation/native';
 
 // Custom Shipping Credits Icon Component (from Figma SVG)
@@ -198,7 +199,7 @@ const BuyerProfileScreen = (props) => {
   
   // Local require for reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
-  const {logout, userInfo} = useContext(AuthContext);
+  const {logout, userInfo, isLoggedIn} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState({});
@@ -214,10 +215,12 @@ const BuyerProfileScreen = (props) => {
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (isFocused) {
+    // Only load data if screen is focused AND user is logged in
+    // This prevents API calls during/after logout
+    if (isFocused && isLoggedIn) {
       loadAllProfileData();
     }
-  }, [isFocused]);
+  }, [isFocused, isLoggedIn]);
 
   const loadAllProfileData = async () => {
     setLoading(true);
@@ -477,7 +480,7 @@ const BuyerProfileScreen = (props) => {
               {loading ? (
                 <View style={styles.skeletonSubtitle} />
               ) : (
-                <Text style={styles.usernameText}>
+                <Text style={styles.userrnameText}>
                   @{data?.username || data?.email?.split('@')[0] }
                 </Text>
               )}
@@ -569,6 +572,12 @@ const BuyerProfileScreen = (props) => {
             icon={<PasswordIcon width={24} height={24} fill="#556065" />}
             title="Password"
             onPress={() => navigation.navigate('UpdatePasswordScreen')}
+          />
+
+          <MenuItem
+            icon={<PlantIcon width={24} height={24} fill="#556065" />}
+            title="Request to Change Plant Flight"
+            onPress={() => navigation.navigate('RequestChangePlantFlightScreen')}
           />
         </View>
 

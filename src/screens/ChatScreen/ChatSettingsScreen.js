@@ -64,7 +64,12 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const [loadingRequests, setLoadingRequests] = useState(false);
   // Map of userId -> { name, avatarUrl } for join request users (fetched from Firestore)
   const [joinRequestUserDataMap, setJoinRequestUserDataMap] = useState({});
-  
+  // Member search state
+  const [memberSearchText, setMemberSearchText] = useState('');
+  const [filteredParticipants, setFilteredParticipants] = useState([]);
+  // Add member modal selection state
+  const [selectedUsersToAdd, setSelectedUsersToAdd] = useState([]);
+
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
   
@@ -142,9 +147,29 @@ const ChatSettingsScreen = ({navigation, route}) => {
     if (participant?.uid && participantDataMap[participant.uid]?.name) {
       return participantDataMap[participant.uid].name;
     }
-    
+
     // Priority 2: Use participant name from route params
     return participant?.name || 'Unknown';
+  };
+
+  // Filter participants based on search text
+  const filterParticipants = (searchQuery) => {
+    if (!searchQuery.trim()) {
+      setFilteredParticipants(participants || []);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const filtered = (participants || []).filter(participant => {
+      // Get display name from participantDataMap or fallback
+      const displayName = participant?.uid && participantDataMap[participant.uid]?.name
+        ? participantDataMap[participant.uid].name
+        : participant?.name || '';
+
+      return displayName.toLowerCase().includes(query);
+    });
+
+    setFilteredParticipants(filtered);
   };
 
   useEffect(() => {
@@ -491,6 +516,16 @@ const ChatSettingsScreen = ({navigation, route}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participants?.length, currentUserUid, isFocused]);
 
+  // Initialize filtered participants when participants change or search text changes
+  useEffect(() => {
+    if (memberSearchText.trim() === '') {
+      setFilteredParticipants(participants || []);
+    } else {
+      filterParticipants(memberSearchText);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants, participantDataMap, memberSearchText]);
+
   const fetchUsers = async (query = '') => {
     try {
       setFetchingUsers(true);
@@ -697,39 +732,96 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const handleAddMember = async (user) => {
     try {
       setLoading(true);
-      
+
       const newParticipant = {
         uid: user.uid,
         name: user.name,
-        avatarUrl: typeof user.avatarUrl === 'object' && user.avatarUrl.uri 
-          ? user.avatarUrl.uri 
+        avatarUrl: typeof user.avatarUrl === 'object' && user.avatarUrl.uri
+          ? user.avatarUrl.uri
           : (typeof user.avatarUrl === 'string' ? user.avatarUrl : ''),
       };
-      
+
       // Add the user to the chat's participants and participantIds
       await updateDoc(doc(db, 'chats', chatId), {
         participants: arrayUnion(newParticipant),
         participantIds: arrayUnion(user.uid),
       });
-      
+
       // Refresh the chat document to get the latest data
       const chatDocRef = doc(db, 'chats', chatId);
       const chatDocSnap = await getDoc(chatDocRef);
-      
+
       if (chatDocSnap.exists()) {
         const chatData = chatDocSnap.data();
         setParticipants(Array.isArray(chatData.participants) ? chatData.participants : []);
       }
-      
+
       // Remove from available users list
       setAvailableUsers(prev => prev.filter(u => u.uid !== user.uid));
       setFilteredUsers(prev => prev.filter(u => u.uid !== user.uid));
-      
+
       setAddMemberModalVisible(false);
       Alert.alert('Success', `${user.name} has been added to the group.`);
     } catch (error) {
       console.log('Error adding member:', error);
       Alert.alert('Error', 'Failed to add member. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle adding selected users (bulk add)
+  const handleAddSelectedMembers = async () => {
+    if (selectedUsersToAdd.length === 0) {
+      Alert.alert('Error', 'Please select at least one user to add.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Prepare new participants
+      const newParticipants = selectedUsersToAdd.map(user => ({
+        uid: user.uid,
+        name: user.name,
+        avatarUrl: typeof user.avatarUrl === 'object' && user.avatarUrl.uri
+          ? user.avatarUrl.uri
+          : (typeof user.avatarUrl === 'string' ? user.avatarUrl : ''),
+      }));
+
+      const newParticipantIds = selectedUsersToAdd.map(user => user.uid);
+
+      // Add all users to the chat's participants and participantIds
+      await updateDoc(doc(db, 'chats', chatId), {
+        participants: arrayUnion(...newParticipants),
+        participantIds: arrayUnion(...newParticipantIds),
+      });
+
+      // Refresh the chat document to get the latest data
+      const chatDocRef = doc(db, 'chats', chatId);
+      const chatDocSnap = await getDoc(chatDocRef);
+
+      if (chatDocSnap.exists()) {
+        const chatData = chatDocSnap.data();
+        setParticipants(Array.isArray(chatData.participants) ? chatData.participants : []);
+      }
+
+      // Remove added users from available users list
+      const addedUids = new Set(newParticipantIds);
+      setAvailableUsers(prev => prev.filter(u => !addedUids.has(u.uid)));
+      setFilteredUsers(prev => prev.filter(u => !addedUids.has(u.uid)));
+
+      // Clear selection
+      setSelectedUsersToAdd([]);
+      setAddMemberModalVisible(false);
+
+      Alert.alert(
+        'Success',
+        `${selectedUsersToAdd.length} ${selectedUsersToAdd.length === 1 ? 'member has' : 'members have'} been added to the group.`
+      );
+    } catch (error) {
+      console.log('Error adding members:', error);
+      Alert.alert('Error', 'Failed to add members. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -1219,7 +1311,47 @@ const ChatSettingsScreen = ({navigation, route}) => {
     setSearchText('');
     setAvailableUsers([]);
     setFilteredUsers([]);
+    setSelectedUsersToAdd([]);
   };
+
+  // Toggle user selection in Add Member modal
+  const toggleUserSelection = (user) => {
+    setSelectedUsersToAdd(prev => {
+      const isSelected = prev.some(u => u.uid === user.uid);
+      if (isSelected) {
+        return prev.filter(u => u.uid !== user.uid);
+      } else {
+        return [...prev, user];
+      }
+    });
+  };
+
+  // Select all users or deselect all
+  const handleSelectAll = () => {
+    const availableToAdd = filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid));
+
+    if (selectedUsersToAdd.length === availableToAdd.length && availableToAdd.length > 0) {
+      // All are selected, deselect all
+      setSelectedUsersToAdd([]);
+    } else {
+      // Select all available users
+      setSelectedUsersToAdd(availableToAdd);
+    }
+  };
+
+  // Skeleton loading component for user items in Add Member modal
+  const SkeletonUserItem = ({ index = 0 }) => (
+    <View style={[
+      styles.userItem,
+      index !== 4 && styles.userItemBorder
+    ]}>
+      <View style={styles.skeletonAvatar} />
+      <View style={styles.userItemInfo}>
+        <View style={[styles.skeletonName, { width: 120 + (index % 3) * 30 }]} />
+        <View style={[styles.skeletonEmail, { width: 80 + (index % 4) * 20 }]} />
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1317,10 +1449,41 @@ const ChatSettingsScreen = ({navigation, route}) => {
           <View style={styles.section}>
             <View style={styles.sectionHeaderContainer}>
               <Text style={styles.sectionHeader}>Members</Text>
-              <Text style={styles.memberCount}>{participants?.length || 0} {participants?.length === 1 ? 'member' : 'members'}</Text>
+              <Text style={styles.memberCount}>
+                {memberSearchText.trim()
+                  ? `${filteredParticipants.length} of ${participants?.length || 0}`
+                  : `${participants?.length || 0}`
+                } {participants?.length === 1 ? 'member' : 'members'}
+              </Text>
             </View>
+
+            {/* Member Search Input - Only show if 4 or more members */}
+            {participants && participants.length > 3 && (
+              <View style={styles.memberSearchContainer}>
+                <View style={styles.memberSearchBox}>
+                  <View style={styles.searchIconContainer}>
+                    <Text style={styles.searchIconText}>🔍</Text>
+                  </View>
+                  <TextInput
+                    placeholder="Search members..."
+                    placeholderTextColor="#647276"
+                    style={styles.memberSearchInput}
+                    value={memberSearchText}
+                    onChangeText={setMemberSearchText}
+                  />
+                  {memberSearchText.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setMemberSearchText('')}
+                      style={styles.clearSearchButton}>
+                      <Text style={styles.clearSearchText}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+
             <FlatList
-              data={participants || []}
+              data={filteredParticipants}
               keyExtractor={(item, index) => item.uid || `member-${index}`}
               renderItem={({item}) => {
                 // Get latest name from Firestore or fallback to participant name
@@ -1350,6 +1513,15 @@ const ChatSettingsScreen = ({navigation, route}) => {
               scrollEnabled={true}
               nestedScrollEnabled={true}
               style={styles.membersList}
+              ListEmptyComponent={
+                memberSearchText.trim() ? (
+                  <View style={styles.emptySearchContainer}>
+                    <Text style={styles.emptySearchText}>
+                      No members found for "{memberSearchText}"
+                    </Text>
+                  </View>
+                ) : null
+              }
             />
           </View>
 
@@ -1524,9 +1696,38 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 <TouchableOpacity onPress={() => setAddMemberModalVisible(false)}>
                   <Text style={styles.modalCancelButton}>Cancel</Text>
                 </TouchableOpacity>
-                <Text style={styles.modalTitle}>Add Member</Text>
-                <View style={{width: 60}} />
+                <Text style={styles.modalTitle}>Add Members</Text>
+                <TouchableOpacity
+                  onPress={handleAddSelectedMembers}
+                  disabled={selectedUsersToAdd.length === 0}>
+                  <Text style={[
+                    styles.modalAddButton,
+                    selectedUsersToAdd.length === 0 && styles.modalAddButtonDisabled
+                  ]}>
+                    Add ({selectedUsersToAdd.length})
+                  </Text>
+                </TouchableOpacity>
               </View>
+
+              {/* Select All Button */}
+              {!fetchingUsers && filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length > 0 && (
+                <View style={styles.selectAllContainer}>
+                  <TouchableOpacity
+                    onPress={handleSelectAll}
+                    style={styles.selectAllButton}>
+                    <Text style={styles.selectAllButtonText}>
+                      {selectedUsersToAdd.length === filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length
+                        ? 'Deselect All'
+                        : 'Select All'}
+                    </Text>
+                  </TouchableOpacity>
+                  {selectedUsersToAdd.length > 0 && (
+                    <Text style={styles.selectedCountText}>
+                      {selectedUsersToAdd.length} selected
+                    </Text>
+                  )}
+                </View>
+              )}
 
               <TextInput
                 placeholder="Search users..."
@@ -1537,28 +1738,44 @@ const ChatSettingsScreen = ({navigation, route}) => {
               />
 
               {fetchingUsers ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#539461" />
-                  <Text style={styles.loadingText}>Loading users...</Text>
+                <View style={styles.skeletonListContainer}>
+                  {Array.from({length: 5}).map((_, idx) => (
+                    <SkeletonUserItem key={`skeleton-${idx}`} index={idx} />
+                  ))}
                 </View>
               ) : (
                 <FlatList
                   data={filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid))}
                   keyExtractor={item => item.uid}
-                  renderItem={({item}) => (
-                    <TouchableOpacity
-                      onPress={() => handleAddMember(item)}
-                      style={styles.userItem}>
-                      <Image
-                        source={item.avatarUrl}
-                        style={styles.userItemAvatar}
-                      />
-                      <View style={styles.userItemInfo}>
-                        <Text style={styles.userItemName}>{item.name}</Text>
-                        {item.email && <Text style={styles.userItemEmail}>{item.email}</Text>}
-                      </View>
-                    </TouchableOpacity>
-                  )}
+                  renderItem={({item}) => {
+                    const isSelected = selectedUsersToAdd.some(u => u.uid === item.uid);
+                    return (
+                      <TouchableOpacity
+                        onPress={() => toggleUserSelection(item)}
+                        style={[
+                          styles.userItem,
+                          isSelected && styles.userItemSelected
+                        ]}>
+                        <Image
+                          source={item.avatarUrl}
+                          style={styles.userItemAvatar}
+                        />
+                        <View style={styles.userItemInfo}>
+                          <Text style={styles.userItemName}>{item.name}</Text>
+                          {item.email && <Text style={styles.userItemEmail}>{item.email}</Text>}
+                        </View>
+                        {/* Checkbox */}
+                        <View style={[
+                          styles.checkbox,
+                          isSelected && styles.checkboxSelected
+                        ]}>
+                          {isSelected && (
+                            <Text style={styles.checkboxCheck}>✓</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }}
                   ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                       <Text style={styles.emptyText}>No users found</Text>
@@ -1955,6 +2172,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#202325',
   },
+  modalAddButton: {
+    fontSize: 16,
+    color: '#539461',
+    fontWeight: '600',
+  },
+  modalAddButtonDisabled: {
+    color: '#CDD3D4',
+  },
+  selectAllContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E8EA',
+  },
+  selectAllButton: {
+    paddingVertical: 4,
+  },
+  selectAllButtonText: {
+    fontSize: 16,
+    color: '#539461',
+    fontWeight: '600',
+  },
+  selectedCountText: {
+    fontSize: 14,
+    color: '#647276',
+  },
   searchInput: {
     borderWidth: 1,
     borderColor: '#CDD3D4',
@@ -1968,6 +2214,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  userItemBorder: {
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
@@ -1991,6 +2241,50 @@ const styles = StyleSheet.create({
     color: '#647276',
     marginTop: 2,
   },
+  userItemSelected: {
+    backgroundColor: '#F0F9F2',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  checkboxSelected: {
+    backgroundColor: '#539461',
+    borderColor: '#539461',
+  },
+  checkboxCheck: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  skeletonListContainer: {
+    flex: 1,
+  },
+  skeletonAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E8EA',
+    marginRight: 12,
+  },
+  skeletonName: {
+    height: 16,
+    backgroundColor: '#E5E8EA',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonEmail: {
+    height: 12,
+    backgroundColor: '#E5E8EA',
+    borderRadius: 3,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -2009,6 +2303,55 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyText: {
+    fontSize: 14,
+    color: '#647276',
+    textAlign: 'center',
+  },
+  memberSearchContainer: {
+    marginBottom: 12,
+  },
+  memberSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  searchIconContainer: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchIconText: {
+    fontSize: 14,
+    color: '#7F8D91',
+  },
+  memberSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#202325',
+    paddingVertical: 8,
+  },
+  clearSearchButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearSearchText: {
+    fontSize: 16,
+    color: '#647276',
+    fontWeight: 'bold',
+  },
+  emptySearchContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  emptySearchText: {
     fontSize: 14,
     color: '#647276',
     textAlign: 'center',

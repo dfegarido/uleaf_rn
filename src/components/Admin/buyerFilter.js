@@ -16,21 +16,38 @@ import {
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 
-const BuyerItem = ({ name, avatarUrl, onSelect }) => (
-  <TouchableOpacity style={styles.buyerItemContainer} onPress={onSelect}>
-    {/* Avatar */}
-    <View style={styles.avatarWrapper}>
-      <View style={styles.avatarContainer}>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-      </View>
-    </View>
+const BuyerItem = ({ name, avatarUrl, onSelect }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const validAvatarUrl = avatarUrl && avatarUrl.trim() ? avatarUrl.trim() : 'https://via.placeholder.com/40';
 
-    {/* Details */}
-    <View style={styles.detailsContainer}>
-      <Text style={styles.buyerName}>{name}</Text>
-    </View>
-  </TouchableOpacity>
-);
+  return (
+    <TouchableOpacity style={styles.buyerItemContainer} onPress={onSelect}>
+      {/* Avatar */}
+      <View style={styles.avatarWrapper}>
+        <View style={styles.avatarContainer}>
+          {!imageError && validAvatarUrl ? (
+            <Image 
+              source={{ uri: validAvatarUrl }} 
+              style={styles.avatar}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarPlaceholderText}>
+                {name ? name.charAt(0).toUpperCase() : '?'}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Details */}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.buyerName}>{name || 'Unknown Buyer'}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const BuyerFilter = ({ isVisible, onClose, onSelectBuyer, onReset, buyers = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -156,7 +173,15 @@ const BuyerFilter = ({ isVisible, onClose, onSelectBuyer, onReset, buyers = [] }
                   {/* Button View */}
                   <TouchableOpacity 
                     style={styles.buttonView} 
-                    onPress={onClose}
+                    onPress={() => {
+                      // "View All" should clear the buyer filter and show all orders
+                      if (onReset && typeof onReset === 'function') {
+                        onReset();
+                      } else {
+                        // Fallback to just closing if onReset is not provided
+                        onClose();
+                      }
+                    }}
                     activeOpacity={0.7}
                   >
                     {/* Text */}
@@ -383,6 +408,18 @@ const styles = StyleSheet.create({
     borderColor: '#539461',
     borderRadius: 1000,
     flex: 0,
+  },
+  // avatar placeholder
+  avatarPlaceholder: {
+    backgroundColor: '#E4E7E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholderText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#647276',
   },
   // Details
   detailsContainer: {

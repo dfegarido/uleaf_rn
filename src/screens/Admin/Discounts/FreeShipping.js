@@ -40,7 +40,7 @@ const renderFlag = (code) => {
   }
 };
 
-const EventGiftFixed = () => {
+const FreeShipping = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
@@ -59,8 +59,6 @@ const EventGiftFixed = () => {
     }
   };
   
-  const [discountPercent, setDiscountPercent] = useState('');
-  const [maxDiscount, setMaxDiscount] = useState('');
   const [appliesText, setAppliesText] = useState('Specific listing type');
   const [listingTypes, setListingTypes] = useState([]);
   const [selectedListingTypes, setSelectedListingTypes] = useState([]);
@@ -118,7 +116,6 @@ const EventGiftFixed = () => {
   const [minRequirement, setMinRequirement] = useState('No minimum requirements');
   const [minPurchaseAmount, setMinPurchaseAmount] = useState('');
   const [minPurchaseQuantity, setMinPurchaseQuantity] = useState('');
-  const [discountType, setDiscountType] = useState(isFixed ? 'Fixed amount' : 'Percentage');
   // Starts date controls
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('00:00 AM');
@@ -143,10 +140,7 @@ const EventGiftFixed = () => {
   const [tempEndAmPm, setTempEndAmPm] = useState('AM');
   const [endCalendarMonth, setEndCalendarMonth] = useState(() => new Date());
   const [endTimeKeyboardOffset, setEndTimeKeyboardOffset] = useState(0);
-  const [showTypeSheet, setShowTypeSheet] = useState(false);
-  const [typeSheetTop, setTypeSheetTop] = useState(0);
   const [appliesSheetTop, setAppliesSheetTop] = useState(0);
-  const dropdownRef = React.useRef(null);
   const appliesRef = React.useRef(null);
   // Event detail checkboxes
   const [freeUpsShipping, setFreeUpsShipping] = useState(false);
@@ -500,7 +494,7 @@ const EventGiftFixed = () => {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} pointerEvents="none">Event Gift (Fixed Amount)</Text>
+        <Text style={styles.headerTitle} pointerEvents="none">Free Shipping</Text>
       </View>
 
       <ScrollView style={{flex: 1}} contentContainerStyle={{paddingBottom: 24}} showsVerticalScrollIndicator={false}>
@@ -523,19 +517,9 @@ const EventGiftFixed = () => {
         </View>
         <View style={styles.dividerStrip} />
 
-        {/* Event detail */}
+        {/* Free Shipping Options */}
         <View style={styles.sectionPad}>
-          <Text style={styles.sectionTitle}>Event detail</Text>
-          <TouchableOpacity style={styles.optionRow} activeOpacity={0.7} onPress={() => setFreeUpsShipping(prev => !prev)}>
-            <View style={[styles.checkboxSquare, freeUpsShipping ? styles.checkboxSquareSelected : styles.checkboxSquareDefault]}>
-              {freeUpsShipping && (
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              )}
-            </View>
-            <Text style={styles.optionText}>Free UPS shipping</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Free Shipping Options<Text style={styles.reqAsterisk}>*</Text></Text>
           <TouchableOpacity style={styles.optionRow} activeOpacity={0.7} onPress={() => setFreeAirCargo(prev => !prev)}>
             <View style={[styles.checkboxSquare, freeAirCargo ? styles.checkboxSquareSelected : styles.checkboxSquareDefault]}>
               {freeAirCargo && (
@@ -544,80 +528,21 @@ const EventGiftFixed = () => {
                 </Svg>
               )}
             </View>
-            <Text style={styles.optionText}>Free air cargo</Text>
+            <Text style={styles.optionText}>Free Air Cargo (Base + Wholesale)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.optionRow} activeOpacity={0.7} onPress={() => setFreeUpsShipping(prev => !prev)}>
+            <View style={[styles.checkboxSquare, freeUpsShipping ? styles.checkboxSquareSelected : styles.checkboxSquareDefault]}>
+              {freeUpsShipping && (
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              )}
+            </View>
+            <Text style={styles.optionText}>Free UPS Shipping (2nd Day + Next Day)</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.dividerStrip} />
 
-        {/* Type */}
-        <View style={styles.sectionPad}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Discount type<Text style={styles.reqAsterisk}>*</Text></Text>
-            <TouchableOpacity
-              ref={dropdownRef}
-              style={[styles.inputRow, {borderColor: '#647276'}]}
-              activeOpacity={0.7}
-              onPress={() => {
-                if (dropdownRef.current && dropdownRef.current.measureInWindow) {
-                  dropdownRef.current.measureInWindow((x, y, w, h) => {
-                    const desiredTop = y + h + 6;
-                    const maxTop = SCREEN.height - 121 - 16; // panel height + bottom margin
-                    setTypeSheetTop(Math.min(desiredTop, maxTop));
-                    setShowTypeSheet(true);
-                  });
-                } else {
-                  setShowTypeSheet(true);
-                }
-              }}>
-              <Text style={[styles.inputValue, !discountType && {color: '#647276'}]}>{discountType || 'Select...'}</Text>
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                <Path fillRule="evenodd" clipRule="evenodd" d="M5.46967 9.46967C5.76256 9.17678 6.23744 9.17678 6.53033 9.46967L12 14.9393L17.4697 9.46967C17.7626 9.17678 18.2376 9.17678 18.5305 9.46967C18.8233 9.76256 18.8233 10.2374 18.5305 10.5303L12.5305 16.5303C12.2376 16.8232 11.7628 16.8232 11.4699 16.5303L5.46967 10.5303C5.17678 10.2374 5.17678 9.76256 5.46967 9.46967Z" fill="#202325"/>
-              </Svg>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <View style={styles.dividerStrip} />
-
-        {/* Discount percent */}
-        <View style={styles.sectionPad}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Discount value<Text style={styles.reqAsterisk}>*</Text></Text>
-            <View style={{flexDirection: 'row'}}>
-              <View style={styles.prefixBox}><Text style={styles.suffixText}>$</Text></View>
-              <View style={[styles.inputRow, {flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0}]}> 
-                <TextInput
-                  style={styles.input}
-                  placeholder="00"
-                  placeholderTextColor="#647276"
-                  keyboardType="numeric"
-                  value={discountPercent}
-                  onChangeText={setDiscountPercent}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-        {!isFixed && (
-        <View style={styles.sectionPad}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Maximum discount value<Text style={styles.reqAsterisk}>*</Text></Text>
-            <View style={{flexDirection: 'row'}}>
-              <View style={styles.prefixBox}><Text style={styles.suffixText}>$</Text></View>
-              <View style={[styles.inputRow, {flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0}]}> 
-                <TextInput
-                  style={styles.input}
-                  placeholder="00"
-                  placeholderTextColor="#647276"
-                  keyboardType="numeric"
-                  value={maxDiscount}
-                  onChangeText={setMaxDiscount}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-        )}
-        <View style={styles.dividerStrip} />
 
         {/* Applies */}
         <View style={styles.sectionPad}>
@@ -1185,17 +1110,17 @@ const EventGiftFixed = () => {
           <Text style={styles.boxTitle}>Discount Summary</Text>
           <View style={styles.boxDetails}>
             <View style={styles.boxRow}><Text style={styles.boxLabel}>Code</Text><Text style={styles.boxValue}>{code || '—'}</Text></View>
-            <View style={styles.boxRow}><Text style={styles.boxLabel}>Type</Text><Text style={styles.boxValue}>Event Gift</Text></View>
+            <View style={styles.boxRow}><Text style={styles.boxLabel}>Type</Text><Text style={styles.boxValue}>Free Shipping</Text></View>
             <View style={styles.boxRow}>
-              <Text style={styles.boxLabel}>Event detail</Text>
+              <Text style={styles.boxLabel}>Shipping options</Text>
               <Text style={styles.boxValue}>
                 {(() => {
                   if (freeUpsShipping && freeAirCargo) {
-                    return 'Free UPS shipping & air cargo';
+                    return 'Free UPS & Air Cargo';
                   } else if (freeUpsShipping) {
-                    return 'Free UPS shipping';
+                    return 'Free UPS Shipping';
                   } else if (freeAirCargo) {
-                    return 'Free air cargo';
+                    return 'Free Air Cargo';
                   }
                   return '—';
                 })()}
@@ -1230,8 +1155,8 @@ const EventGiftFixed = () => {
                 Alert.alert('Error', 'Please enter a discount code');
                 return;
               }
-              if (!discountPercent) {
-                Alert.alert('Error', 'Please enter a discount amount');
+              if (!freeAirCargo && !freeUpsShipping) {
+                Alert.alert('Error', 'Please select at least one free shipping option');
                 return;
               }
               if (!startDate || !startTime) {
@@ -1245,9 +1170,9 @@ const EventGiftFixed = () => {
                 // Prepare discount data
                 const discountData = {
                   code: code.trim(),
-                  type: 'eventGiftFixed',
-                  discountAmount: parseFloat(discountPercent),
-                  maxDiscount: maxDiscount ? parseFloat(maxDiscount) : undefined,
+                  type: 'freeShipping',
+                  freeAirCargo,
+                  freeUpsShipping,
                   startDate,
                   startTime,
                   endDate: endDateEnabled ? endDate : undefined,
@@ -1259,10 +1184,10 @@ const EventGiftFixed = () => {
                   selectedGardens,
                   selectedListings: selectedListings.map(l => l.id),
                   eligibility,
-                  minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
-                    ? `Minimum purchase amount of $${minPurchaseAmount}` 
-                    : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
-                    ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                  minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount
+                    ? `Minimum purchase amount of $${minPurchaseAmount}`
+                    : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity
+                    ? `Minimum quantity of ${minPurchaseQuantity} plants`
                     : minRequirement,
                   limitTotalEnabled,
                   limitPerCustomerEnabled,
@@ -1270,7 +1195,7 @@ const EventGiftFixed = () => {
                   selectedBuyers: eligibility === 'Specific customers' ? selectedBuyers.map(b => b.id) : undefined,
                 };
 
-                console.log('Create Event Gift Fixed Discount:', discountData);
+                console.log('Create Free Shipping Discount:', discountData);
                 
                 const result = await createDiscountApi(discountData);
                 
@@ -1300,47 +1225,6 @@ const EventGiftFixed = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-      {/* Discount type modal */}
-      <Modal transparent visible={showTypeSheet} onRequestClose={() => setShowTypeSheet(false)} animationType="fade">
-        <TouchableWithoutFeedback onPress={() => setShowTypeSheet(false)}>
-          <View style={styles.fullscreenOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={[styles.typeSheetContainer, {position: 'absolute', left: (SCREEN.width - 340) / 2, top: typeSheetTop}] }>
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { 
-                    setDiscountType('Percentage'); 
-                    setShowTypeSheet(false); 
-                    navigation.replace('AdminDiscountEventGiftPercentage');
-                  }}>
-                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Path fillRule="evenodd" clipRule="evenodd" d="M10.1242 4.41999C9.84532 4.66024 9.51249 4.91023 9.12843 5.06922L9.12833 5.06926C8.74966 5.22595 8.34051 5.2791 7.98032 5.30245C7.74519 5.3177 7.48258 5.32176 7.24307 5.32547C7.12848 5.32724 7.01917 5.32893 6.92069 5.33173C6.19853 5.35223 5.83088 5.44103 5.63595 5.63595C5.44103 5.83088 5.35223 6.19853 5.33173 6.92069C5.32893 7.01917 5.32724 7.12848 5.32547 7.24307C5.32176 7.48258 5.3177 7.74519 5.30245 7.98032C5.2791 8.34051 5.22595 8.74966 5.06926 9.12833L5.06879 9.12948C4.9097 9.51213 4.65971 9.84419 4.41979 10.1224C4.25548 10.313 4.06592 10.5108 3.89398 10.6903C3.82159 10.7659 3.75231 10.8382 3.68936 10.9053C3.45757 11.1525 3.2784 11.3623 3.15646 11.56C3.03755 11.7528 3 11.8915 3 12C3 12.1085 3.03755 12.2472 3.15646 12.44C3.2784 12.6377 3.45757 12.8475 3.68936 13.0947C3.75231 13.1618 3.82159 13.2341 3.89398 13.3097C4.06592 13.4892 4.25548 13.687 4.41979 13.8776C4.65971 14.1558 4.9097 14.4879 5.06879 14.8705L5.06935 14.8719C5.22595 15.2507 5.2791 15.6598 5.30245 16.0201C5.3177 16.2552 5.32176 16.5178 5.32547 16.7573C5.32724 16.8719 5.32893 16.9812 5.33173 17.0797C5.35222 17.8016 5.44101 18.1691 5.63595 18.364C5.83088 18.559 6.19853 18.6478 6.92069 18.6683C7.01917 18.6711 7.12847 18.6728 7.24305 18.6745C7.48257 18.6782 7.74518 18.6823 7.98032 18.6975C8.34051 18.7209 8.74966 18.774 9.12833 18.9307L9.12948 18.9312C9.51213 19.0903 9.84419 19.3403 10.1224 19.5802C10.313 19.7445 10.5108 19.9341 10.6903 20.106C10.7659 20.1784 10.8382 20.2477 10.9053 20.3106C11.1525 20.5424 11.3623 20.7216 11.56 20.8435C11.7528 20.9625 11.8915 21 12 21C12.1085 21 12.2472 20.9625 12.44 20.8435C12.6377 20.7216 12.8475 20.5424 13.0947 20.3106C13.1618 20.2477 13.2341 20.1784 13.3097 20.106C13.4892 19.9341 13.687 19.7445 13.8776 19.5802C14.1558 19.3403 14.4879 19.0903 14.8705 18.9312L14.8719 18.9306C15.2507 18.774 15.6598 18.7209 16.0201 18.6975C16.2552 18.6823 16.5178 18.6782 16.7573 18.6745C16.8719 18.6728 16.9812 18.6711 17.0797 18.6683C17.8016 18.6478 18.1691 18.559 18.364 18.364C18.559 18.1691 18.6478 17.8016 18.6683 17.0797C18.6711 16.9812 18.6728 16.8719 18.6745 16.7573C18.6782 16.5178 18.6823 16.2552 18.6975 16.0201C18.7209 15.6598 18.774 15.2507 18.9306 14.8719L18.9312 14.8705C19.0903 14.4879 19.3403 14.1558 19.5802 13.8776C19.7445 13.687 19.9341 13.4892 20.106 13.3097C20.1784 13.2341 20.2477 13.1618 20.3106 13.0947C20.5424 12.8475 20.7216 12.6377 20.8435 12.44C20.9625 12.2472 21 12.1085 21 12C21 11.8916 20.9625 11.7533 20.8438 11.5611C20.7219 11.3638 20.5429 11.1544 20.3109 10.9074C20.2487 10.8411 20.1803 10.7698 20.1089 10.6953C19.9361 10.5151 19.7455 10.3162 19.58 10.1242C19.3398 9.84532 19.0898 9.51249 18.9308 9.12843L18.9306 9.12811C18.774 8.74933 18.7209 8.34019 18.6975 7.97992C18.6823 7.74477 18.6782 7.48218 18.6745 7.24269C18.6728 7.12811 18.6711 7.01881 18.6683 6.92034C18.6478 6.19838 18.559 5.8309 18.364 5.63595C18.1691 5.44101 17.8016 5.35222 17.0797 5.33173C16.9812 5.32893 16.8719 5.32724 16.7573 5.32547C16.5178 5.32176 16.2552 5.3177 16.0201 5.30245C15.6598 5.2791 15.2507 5.22595 14.8719 5.06935L14.8705 5.06879C14.4879 4.9097 14.1558 4.65971 13.8776 4.41979C13.687 4.25548 13.4892 4.06592 13.3097 3.89398C13.2341 3.82159 13.1618 3.75231 13.0947 3.68936C12.8475 3.45757 12.6377 3.2784 12.44 3.15646C12.2472 3.03755 12.1085 3 12 3C11.8916 3 11.7533 3.03746 11.5611 3.15622C11.3638 3.27808 11.1544 3.45714 10.9074 3.68906C10.8411 3.75131 10.7698 3.81969 10.6953 3.89113C10.5151 4.06385 10.3162 4.25452 10.1242 4.41999ZM10.7727 1.88009C11.1106 1.67136 11.5225 1.5 12 1.5C12.4774 1.5 12.8895 1.67128 13.2276 1.87985C13.5607 2.08539 13.8618 2.35235 14.1207 2.59517C14.2143 2.68291 14.3007 2.76578 14.3833 2.845C14.5476 3.00246 14.6968 3.14552 14.8572 3.28383C15.0905 3.48502 15.2805 3.61464 15.4457 3.68344C15.5975 3.74605 15.8126 3.78586 16.1171 3.80559C16.3181 3.81862 16.5114 3.82144 16.7248 3.82456C16.8487 3.82637 16.9793 3.82828 17.1222 3.83233C17.7873 3.85121 18.7572 3.90774 19.4247 4.57529C20.0923 5.24285 20.1488 6.21271 20.1677 6.87778C20.1717 7.02069 20.1736 7.15133 20.1754 7.27517C20.1786 7.48865 20.1814 7.6819 20.1944 7.88288C20.2142 8.18761 20.254 8.40287 20.3167 8.55469C20.3855 8.72095 20.5152 8.91159 20.7164 9.14505C20.8553 9.30622 20.9992 9.45628 21.1578 9.62153C21.2361 9.70317 21.318 9.78851 21.4045 9.88073C21.6472 10.1392 21.9143 10.4399 22.1199 10.7727C22.3286 11.1106 22.5 11.5225 22.5 12C22.5 12.4774 22.3287 12.8895 22.1202 13.2276C21.9146 13.5607 21.6476 13.8618 21.4048 14.1207C21.3171 14.2143 21.2342 14.3007 21.155 14.3833C20.9975 14.5476 20.8545 14.6968 20.7162 14.8572C20.5149 15.0905 20.3853 15.2806 20.3165 15.4458C20.2539 15.5976 20.2141 15.8127 20.1944 16.1171C20.1814 16.3181 20.1786 16.5113 20.1754 16.7248C20.1736 16.8487 20.1717 16.9793 20.1677 17.1222C20.0923 17.7873 20.0923 18.7572 19.4247 19.4247C18.7572 20.0923 17.7873 20.1488 17.1222 20.1677C16.9793 20.1717 16.8487 20.1736 16.7248 20.1754C16.5113 20.1786 16.3181 20.1814 16.1171 20.1944C15.8127 20.2141 15.5976 20.2539 15.4458 20.3165C15.2806 20.3853 15.0905 20.5149 14.8572 20.7162C14.6968 20.8545 14.5476 20.9975 14.3833 21.155C14.3007 21.2342 14.2143 21.3171 14.1207 21.4048C13.8618 21.6476 13.5607 21.9146 13.2276 22.1202C12.8895 22.3287 12.4774 22.5 12 22.5C11.5226 22.5 11.1105 22.3287 10.7724 22.1202C10.4393 21.9146 10.1382 21.6476 9.87929 21.4048C9.78572 21.3171 9.69929 21.2342 9.61667 21.155C9.45243 20.9975 9.30322 20.8545 9.14283 20.7162C8.90954 20.515 8.71951 20.3854 8.55436 20.3166C8.4029 20.254 8.18791 20.2142 7.88327 20.1944C7.68231 20.1814 7.48904 20.1786 7.27553 20.1754C7.15169 20.1736 7.02104 20.1717 6.87813 20.1677C6.21303 20.1488 5.24287 20.0923 4.57529 19.4247C3.90774 18.7572 3.85121 17.7873 3.83233 17.1222C3.82828 16.9793 3.82637 16.8487 3.82456 16.7248C3.82144 16.5114 3.81862 16.3181 3.80559 16.1171C3.78586 15.8126 3.74605 15.5975 3.68344 15.4457C3.61464 15.2805 3.48502 15.0905 3.28383 14.8572C3.14552 14.6968 3.00246 14.5476 2.845 14.3833C2.76578 14.3007 2.68291 14.2143 2.59517 14.1207C2.35235 13.8618 2.08539 13.5607 1.87985 13.2276C1.67128 12.8895 1.5 12.4774 1.5 12C1.5 11.5226 1.67128 11.1105 1.87985 10.7724C2.08539 10.4393 2.35235 10.1382 2.59517 9.87929C2.68291 9.78572 2.76578 9.69929 2.845 9.61666C3.00246 9.45242 3.14552 9.30321 3.28383 9.14283C3.48505 8.90948 3.61468 8.71941 3.68347 8.55424C3.74602 8.40278 3.78585 8.18782 3.80559 7.88327C3.81862 7.68232 3.82144 7.48906 3.82456 7.27555C3.82637 7.15171 3.82828 7.02105 3.83233 6.87814C3.85121 6.21303 3.90772 5.24287 4.57529 4.57529C5.24287 3.90772 6.21303 3.85121 6.87814 3.83233C7.02105 3.82828 7.15171 3.82637 7.27555 3.82456C7.48906 3.82144 7.68232 3.81862 7.88327 3.80559C8.18813 3.78583 8.40321 3.74594 8.55469 3.68328M10.7727 1.88009C10.4399 2.08571 10.1392 2.35278 9.88073 2.59547L10.7727 1.88009ZM9.88073 2.59547C9.78851 2.68204 9.70317 2.76391 9.62155 2.84223L9.88073 2.59547ZM9.62155 2.84223C9.45628 3.00078 9.30623 3.14475 9.14505 3.28362L9.62155 2.84223ZM9.14505 3.28362C8.91164 3.48472 8.72103 3.6144 8.5548 3.68324L9.14505 3.28362Z" fill="#556065"/>
-                      <Path fillRule="evenodd" clipRule="evenodd" d="M9 8.25C8.58579 8.25 8.25 8.58579 8.25 9C8.25 9.41421 8.58579 9.75 9 9.75C9.41421 9.75 9.75 9.41421 9.75 9C9.75 8.58579 9.41421 8.25 9 8.25ZM6.75 9C6.75 7.75736 7.75736 6.75 9 6.75C10.2426 6.75 11.25 7.75736 11.25 9C11.25 10.2426 10.2426 11.25 9 11.25C7.75736 11.25 6.75 10.2426 6.75 9Z" fill="#556065"/>
-                      <Path fillRule="evenodd" clipRule="evenodd" d="M15 14.25C14.5858 14.25 14.25 14.5858 14.25 15C14.25 15.4142 14.5858 15.75 15 15.75C15.4142 15.75 15.75 15.4142 15.75 15C15.75 14.5858 15.4142 14.25 15 14.25ZM12.75 15C12.75 13.7574 13.7574 12.75 15 12.75C16.2426 12.75 17.25 13.7574 17.25 15C17.25 16.2426 16.2426 17.25 15 17.25C13.7574 17.25 12.75 16.2426 12.75 15Z" fill="#556065"/>
-                      <Path fillRule="evenodd" clipRule="evenodd" d="M16.2803 7.71967C16.5732 8.01256 16.5732 8.48744 16.2803 8.78033L8.78033 16.2803C8.48744 16.5732 8.01256 16.5732 7.71967 16.2803C7.42678 15.9874 7.42678 15.5126 7.71967 15.2197L15.2197 7.71967C15.5126 7.42678 15.9874 7.42678 16.2803 7.71967Z" fill="#556065"/>
-                    </Svg>
-                    <Text style={styles.typeRowText}>Percentage</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.typeDivider} />
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { 
-                    setDiscountType('Fixed amount'); 
-                    setShowTypeSheet(false); 
-                  }}>
-                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Path d="M21 8.25041C21.4142 8.25041 21.75 8.58619 21.75 9.00041C21.75 9.41462 21.4142 9.75041 21 9.75041H4.5C4.08579 9.75041 3.75 9.41462 3.75 9.00041C3.75 8.58619 4.08579 8.25041 4.5 8.25041H21Z" fill="#556065"/>
-                      <Path d="M15.7617 3.61662C15.8358 3.20923 16.2264 2.9383 16.6338 3.01213C17.0412 3.0862 17.3121 3.47682 17.2383 3.8842L14.2383 20.3842C14.1642 20.7916 13.7736 21.0625 13.3662 20.9887C12.9588 20.9146 12.6879 20.524 12.7617 20.1166L15.7617 3.61662Z" fill="#556065"/>
-                      <Path d="M9.76172 3.61662C9.83579 3.20923 10.2264 2.9383 10.6338 3.01213C11.0412 3.0862 11.3121 3.47682 11.2383 3.8842L8.23828 20.3842C8.16421 20.7916 7.77359 21.0625 7.36621 20.9887C6.95882 20.9146 6.68789 20.524 6.76172 20.1166L9.76172 3.61662Z" fill="#556065"/>
-                      <Path d="M19.5 14.2504C19.9142 14.2504 20.25 14.5862 20.25 15.0004C20.25 15.4146 19.9142 15.7504 19.5 15.7504H3C2.58579 15.7504 2.25 15.4146 2.25 15.0004C2.25 14.5862 2.58579 14.2504 3 14.2504H19.5Z" fill="#556065"/>
-                    </Svg>
-                    <Text style={styles.typeRowText}>Fixed amount</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
       {/* Start Date modal (bottom sheet) */}
       <Modal transparent visible={showStartDateSheet} onRequestClose={() => setShowStartDateSheet(false)} animationType="fade" presentationStyle="overFullScreen" statusBarTranslucent>
         <TouchableWithoutFeedback onPress={() => setShowStartDateSheet(false)}>
@@ -1476,6 +1360,12 @@ const EventGiftFixed = () => {
                           maxLength={2}
                           value={tempHour}
                           onChangeText={setTempHour}
+                          onFocus={() => {
+                            // Auto-clear "00" when field is focused
+                            if (tempHour === '00') {
+                              setTempHour('');
+                            }
+                          }}
                         />
                       </View>
                       <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Hour</Text>
@@ -1489,6 +1379,12 @@ const EventGiftFixed = () => {
                           maxLength={2}
                           value={tempMinute}
                           onChangeText={setTempMinute}
+                          onFocus={() => {
+                            // Auto-clear "00" when field is focused
+                            if (tempMinute === '00') {
+                              setTempMinute('');
+                            }
+                          }}
                         />
                       </View>
                       <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Minutes</Text>
@@ -2103,6 +1999,12 @@ const EventGiftFixed = () => {
                           maxLength={2}
                           value={tempEndHour}
                           onChangeText={setTempEndHour}
+                          onFocus={() => {
+                            // Auto-clear "00" when field is focused
+                            if (tempEndHour === '00') {
+                              setTempEndHour('');
+                            }
+                          }}
                         />
                       </View>
                       <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Hour</Text>
@@ -2116,6 +2018,12 @@ const EventGiftFixed = () => {
                           maxLength={2}
                           value={tempEndMinute}
                           onChangeText={setTempEndMinute}
+                          onFocus={() => {
+                            // Auto-clear "00" when field is focused
+                            if (tempEndMinute === '00') {
+                              setTempEndMinute('');
+                            }
+                          }}
                         />
                       </View>
                       <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Minutes</Text>
@@ -2162,7 +2070,7 @@ const EventGiftFixed = () => {
   );
 };
 
-export default EventGiftFixed;
+export default FreeShipping;
 
 const styles = StyleSheet.create({
   header: {

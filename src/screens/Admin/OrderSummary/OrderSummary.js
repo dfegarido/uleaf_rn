@@ -2,6 +2,7 @@ import React, {useRef, useState, useEffect} from 'react';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,46 @@ import ReceiverFilter from '../../../components/Admin/receiverFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
 import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
 import OrderTableSkeleton from './OrderTableSkeleton';
+
+// Skeleton component for pagination loading
+const SkeletonBox = ({ width, height, style }) => {
+  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+  
+  useEffect(() => {
+    const pulseTiming = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    
+    pulseTiming.start();
+    
+    return () => {
+      pulseTiming.stop();
+    };
+  }, [pulseAnim]);
+  
+  return (
+    <Animated.View 
+      style={[{
+        width,
+        height,
+        backgroundColor: '#E4E7E9',
+        borderRadius: 4,
+        opacity: pulseAnim,
+      }, style]} 
+    />
+  );
+};
 
 const filterTabs = [
   { label: 'Sort', leftIcon: SortIcon },
@@ -274,8 +315,8 @@ const OrderSummary = ({navigation}) => {
         hubReceiver: order.hubReceiver,
         hubReceiverDateScanned: order.hubReceiver?.dateScanned,
         hubReceivedDateFormatted: order.hubReceivedDateFormatted,
-        hubPacker: order.hubPacker,
-        hubPackerDateScanned: order.hubPacker?.dateScanned,
+        hubPackDetails: order.hubPackDetails,
+        hubPackDetailsDateProcessed: order.hubPackDetails?.dateProcessed,
         hubPackedDateFormatted: order.hubPackedDateFormatted,
       });
       order._hubDebugLogged = true; // Prevent multiple logs
@@ -288,7 +329,7 @@ const OrderSummary = ({navigation}) => {
       orderDate: safeFormatDate(order.orderDate || order.createdAt, order.orderDateFormatted || order.createdAtFormatted),
       createdAt: safeFormatDate(order.createdAt, order.createdAtFormatted),
       hubReceivedDate: safeFormatDate(order.hubReceiver?.dateScanned, order.hubReceivedDateFormatted),
-      hubPackedDate: safeFormatDate(order.hubPacker?.dateScanned, order.hubPackedDateFormatted),
+      hubPackedDate: safeFormatDate(order.hubPackDetails?.dateProcessed, order.hubPackedDateFormatted),
       deliveredDate: safeFormatDate(order.deliveredDate, order.deliveredDateFormatted),
       receivedDate: safeFormatDate(order.receivedDate, order.receivedDateFormatted),
       plantCode: (order.plantCode || '—').toString(),
@@ -364,8 +405,8 @@ const OrderSummary = ({navigation}) => {
             hubReceiver: o.hubReceiver,
             hubReceiverDateScanned: o.hubReceiver?.dateScanned,
             hubReceivedDateFormatted: o.hubReceivedDateFormatted,
-            hubPacker: o.hubPacker,
-            hubPackerDateScanned: o.hubPacker?.dateScanned,
+            hubPackDetails: o.hubPackDetails,
+            hubPackDetailsDateProcessed: o.hubPackDetails?.dateProcessed,
             hubPackedDateFormatted: o.hubPackedDateFormatted,
           })));
         }
@@ -391,7 +432,8 @@ const OrderSummary = ({navigation}) => {
         // Update pagination info
         setTotalOrders(response.total || response.orders.length);
         setTotalPages(response.totalPages || Math.ceil((response.total || response.orders.length) / 50));
-        setCurrentPage(page);
+        // Use backend's currentPage if available, otherwise use the page we requested
+        setCurrentPage(response.currentPage || page);
 
         // Use garden options from backend response (includes all gardens from filtered orders, not just current page)
         // Fallback to deriving from current page if backend doesn't provide gardens
@@ -432,7 +474,11 @@ const OrderSummary = ({navigation}) => {
             setBuyerOptionsState(response.buyers);
             console.log('Using buyers from backend response:', {
               count: response.buyers.length,
-              sample: response.buyers.slice(0, 10).map(b => b.name)
+              sample: response.buyers.slice(0, 10).map(b => ({
+                id: b.id,
+                name: b.name,
+                hasAvatar: !!(b.avatar && b.avatar.trim())
+              }))
             });
           } else {
             // Fallback: derive from current page orders (backward compatibility)
@@ -1419,12 +1465,21 @@ const OrderSummary = ({navigation}) => {
             </TouchableOpacity>
 
             <View style={styles.paginationInfo}>
-              <Text style={styles.paginationText}>
-                Page {currentPage} of {totalPages}
-              </Text>
-              <Text style={styles.paginationSubtext}>
-                {loading ? 'Loading...' : `${totalOrders} total orders`}
-              </Text>
+              {loading ? (
+                <>
+                  <SkeletonBox width={120} height={20} style={{ marginBottom: 4 }} />
+                  <SkeletonBox width={100} height={16} />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.paginationText}>
+                    Page {currentPage} of {totalPages}
+                  </Text>
+                  <Text style={styles.paginationSubtext}>
+                    {totalOrders} total orders
+                  </Text>
+                </>
+              )}
             </View>
 
             <TouchableOpacity 

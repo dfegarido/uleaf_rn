@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useUnreadMessageCount } from '../../hooks/useUnreadMessageCount';
 
 // Import buyer screens
 import { ScreenCart } from '../../screens/Buyer/Cart';
@@ -15,6 +16,7 @@ import LiveScreen from '../../screens/Buyer/Live/LiveScreen'; // Disabled for no
 import OngoingLiveListScreen from '../../screens/Buyer/Live/OngoingLiveListScreen';
 import UpcomingLiveListScreen from '../../screens/Buyer/Live/UpcomingLiveListScreen';
 import { OrderDetailsScreen } from '../../screens/Buyer/Orders';
+import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
@@ -28,6 +30,8 @@ import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPolicies
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
+import RequestChangePlantFlightScreen from '../../screens/Buyer/Profile/RequestChangePlantFlightScreen';
+import AddRequestChangePlantFlightScreen from '../../screens/Buyer/Profile/AddRequestChangePlantFlightScreen';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 import ScreenPlantDetailPurge from '../../screens/Buyer/Shop/ScreenPlantDetailPurge';
@@ -155,6 +159,18 @@ function BuyerTabNavigator() {
       />
 
       <Stack.Screen
+        name="RequestChangePlantFlightScreen"
+        component={RequestChangePlantFlightScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="AddRequestChangePlantFlightScreen"
+        component={AddRequestChangePlantFlightScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
         name="BuyerLiveStreamScreen"
         component={BuyerLiveStreamScreen}
         options={{headerShown: false}}
@@ -254,6 +270,11 @@ function BuyerTabNavigator() {
         options={{headerShown: false}}
       />
       <Stack.Screen
+        name="InvoiceViewScreen"
+        component={InvoiceViewScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
         name="ScreenCart"
         component={ScreenCart}
         options={{headerShown: false}}
@@ -262,8 +283,23 @@ function BuyerTabNavigator() {
   );
 }
 
+// Badge component for displaying unread message count
+const UnreadBadge = ({ count }) => {
+  if (count <= 0) return null;
+  
+  return (
+    <View style={styles.badgeContainer}>
+      <Text style={styles.badgeText}>
+        {count > 99 ? '99+' : count.toString()}
+      </Text>
+    </View>
+  );
+};
+
 function BuyerTabs() {
   const navigation = useNavigation();
+  const { unreadCount } = useUnreadMessageCount();
+  
   return (
     <Tab.Navigator
       initialRouteName="Shop"
@@ -317,10 +353,15 @@ function BuyerTabs() {
                 <OrderIcon width={size} height={size} />
               );
             case 'Chat':
-              return focused ? (
-                <ChatIconSelected width={size} height={size} />
-              ) : (
-                <ChatIcon width={size} height={size} />
+              return (
+                <View style={styles.chatIconContainer}>
+                  {focused ? (
+                    <ChatIconSelected width={size} height={size} />
+                  ) : (
+                    <ChatIcon width={size} height={size} />
+                  )}
+                  <UnreadBadge count={unreadCount} />
+                </View>
               );
           }
         },
@@ -382,6 +423,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#E5E5E5',
+  },
+  chatIconContainer: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    backgroundColor: '#E7522F',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'Inter',
+    textAlign: 'center',
   },
 });
 

@@ -1,15 +1,24 @@
 // Add IconTile component for use in LeafTrailGreenhouse and other sections
-const IconTile = ({title, children, onPress}) => {
+const IconTile = ({title, children, onPress, badgeCount = 0}) => {
+  const hasBadge = badgeCount > 0;
   return (
     <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile]} onPress={onPress}>
-      {children}
+      <View style={styles.iconTileContainer}>
+        {children}
+        {hasBadge && (
+          <View style={styles.iconTileBadge}>
+            <Text style={styles.iconTileBadgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text>
+          </View>
+        )}
+      </View>
       <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>{title}</Text>
     </TouchableOpacity>
   );
 };
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState, useCallback } from 'react';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
 import DiscountsIcon from '../../../assets/admin-icons/discounts.svg';
 import ForShippingIcon from '../../../assets/admin-icons/for-shipping.svg';
@@ -25,13 +34,17 @@ import PayoutsIcon from '../../../assets/admin-icons/payouts.svg';
 import ReceivingIcon from '../../../assets/admin-icons/receiving.svg';
 import SalesReportIcon from '../../../assets/admin-icons/sales-report.svg';
 import ScanQrIcon from '../../../assets/admin-icons/scan-qr.svg';
+import GenerateQrIcon from '../../../assets/admin-icons/generate-qr.svg';
 import ScheduleIcon from '../../../assets/admin-icons/schedule.svg';
+import FlightDateIcon from '../../../assets/admin-icons/flight-date.svg';
 import ShippedIcon from '../../../assets/admin-icons/shipped.svg';
 import SortingIcon from '../../../assets/admin-icons/sorting.svg';
 import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
 import UserManagementIcon from '../../../assets/admin-icons/user-management.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
+import { getAdminFlightChangeRequestsApi } from '../../../components/Api/adminOrderApi';
+import NetInfo from '@react-native-community/netinfo';
 
 
 const AdminHeader = ({onPressProfile = () => {}, insets}) => {
@@ -140,6 +153,52 @@ const LeafTrailGreenhouse = ({navigation}) => {
 };
   const BehindTheJungle = () => {
     const navigation = useNavigation();
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+    // Fetch pending flight change requests count
+    const fetchPendingRequestsCount = useCallback(async () => {
+      try {
+        const netState = await NetInfo.fetch();
+        if (!netState.isConnected || !netState.isInternetReachable) {
+          console.log('⚠️ No internet connection, skipping badge count fetch');
+          return;
+        }
+
+        console.log('🔍 Fetching pending flight change requests for badge...');
+        const response = await getAdminFlightChangeRequestsApi({
+          status: 'pending',
+          limit: 1000,
+          offset: 0
+        });
+
+        console.log('📦 Full API response:', JSON.stringify(response, null, 2));
+
+        // Check multiple possible response structures
+        let count = 0;
+        if (response.success) {
+          if (response.data?.data?.requests && Array.isArray(response.data.data.requests)) {
+            count = response.data.data.requests.length;
+          } else if (response.data?.requests && Array.isArray(response.data.requests)) {
+            count = response.data.requests.length;
+          } else if (Array.isArray(response.data)) {
+            count = response.data.length;
+          }
+        }
+
+        console.log('✅ Pending flight change requests count:', count);
+        setPendingRequestsCount(count);
+      } catch (error) {
+        console.error('❌ Error fetching pending flight change requests:', error);
+        // Don't reset to 0 on error, keep previous count
+      }
+    }, []);
+
+    // Fetch count when screen is focused
+    useFocusEffect(
+      useCallback(() => {
+        fetchPendingRequestsCount();
+      }, [fetchPendingRequestsCount])
+    );
 
     return (
       <View style={[styles.sectionContainer, {paddingTop: 24}]}>
@@ -155,6 +214,16 @@ const LeafTrailGreenhouse = ({navigation}) => {
           <IconTile title="Schedule">
             <ScheduleIcon width={48} height={48} />
           </IconTile>
+          <IconTile 
+            title="Flight Date" 
+            onPress={() => {
+              console.log('Flight Date button pressed, pendingRequestsCount:', pendingRequestsCount);
+              navigation.navigate('FlightDate');
+            }}
+            badgeCount={pendingRequestsCount}
+          >
+            <FlightDateIcon width={48} height={48} />
+          </IconTile>
           <IconTile title="Jungle Acces..." onPress={() => navigation.navigate('JungleAccess')}>
             <JungleAccessIcon width={48} height={48} />
           </IconTile>
@@ -163,6 +232,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
           </IconTile>
           <IconTile title="Taxonomy" onPress={() => navigation.navigate('Taxonomy')}>
             <TaxonomyIcon width={48} height={48} />
+          </IconTile>
+          <IconTile title="Generate QR" onPress={() => navigation.navigate('GenerateQR')}>
+            <GenerateQrIcon width={48} height={48} />
           </IconTile>
         </View>
       </View>
@@ -292,6 +364,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    overflow: 'visible', // Allow badge to overflow
+  },
+  iconTileContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    overflow: 'visible', // Allow badge to overflow
+  },
+  iconTileBadge: {
+    position: 'absolute',
+    top: -12,
+    right: -24,
+    backgroundColor: '#FF5247',
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 5, // For Android shadow
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+  },
+  iconTileBadgeText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 12,
+    color: '#FFFFFF',
+    lineHeight: 20,
+    textAlign: 'center',
   },
   badge: {
     position: 'absolute',
