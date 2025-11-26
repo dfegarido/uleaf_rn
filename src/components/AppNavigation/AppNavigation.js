@@ -25,6 +25,8 @@ import MyLiveSessionsScreen from '../../screens/Live/MyLiveSessionsScreen';
 import ScreenMyPurges from '../../screens/Live/ScreenMyPurges';
 import SetUpListingsPurgeScreen from '../../screens/Live/SetUpListingsPurgeScreen';
 
+import ScanQRSellerScreen from '../../screens/Seller/Delivery/ScanQR/SellerScanQR';
+
 import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
 import {
   ScreenForgotPassword,
@@ -48,6 +50,7 @@ import {
   ScreenDeliveryMissing,
   ScreenDeliveryReceived,
   ScreenExportQR,
+  ScreenForDelivery
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
@@ -136,6 +139,11 @@ const DeliveryStack = () => (
     <Stack.Screen
       name="ScreenExportQR"
       component={ScreenExportQR}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenForDelivery"
+      component={ScreenForDelivery}
       options={{headerShown: false, animation: 'slide_from_right'}}
     />
   </Stack.Navigator>
@@ -721,6 +729,12 @@ const MainStack = () => {
         options={{headerShown: false}}
       />
 
+      <Stack.Screen
+        name="ScanQRSellerScreen"
+        component={ScanQRSellerScreen}
+        options={{headerShown: false}}
+      />
+      
       <Stack.Screen
         name="CreateLiveSession"
         component={CreateLiveSessionScreen}

@@ -20,9 +20,9 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { globalStyles } from '../../../assets/styles/styles';
+import ScanQrIcon from '../../../assets/admin-icons/qr.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { InputSearch } from '../../../components/InputGroup/Left';
+import { getSellerOrderCounts } from '../../../components/Api/sellerOrderApi';
 import { retryAsync } from '../../../utils/utils';
 import OrderActionSheet from '../Order/components/OrderActionSheet';
 
@@ -35,15 +35,11 @@ import {
 } from '../../../components/Api';
 
 import ShareIcon from '../../../assets/icons/accent/share-regular.svg';
-import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import RightIcon from '../../../assets/icons/greylight/caret-right-regular.svg';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import LiveIcon from '../../../assets/images/live.svg';
 
 import DeliverActionSheetEdit from './components/DeliverActionSheetEdit';
-import DeliverTableList from './components/DeliverTableList';
-import DeliverTableSkeleton from './components/DeliverTableSkeleton';
 
 // Export modal icons
 import ExportPdfIcon from '../../../assets/export/export-pdf.svg';
@@ -637,6 +633,32 @@ const ScreenDelivery = ({navigation}) => {
   };
   // Action Sheet
 
+  const [ordersCount, setOrdersCount] = useState({
+        "forDelivery": 0,
+        "inventoryForHub": 0,
+        "receivedScanned": 0,
+        "receivedUnscanned": 0,
+        "missing": 0,
+        "casualty": 0
+  });
+
+  const orderCounts = async () => {
+    setLoading(true);
+    try {      
+        const response = await getSellerOrderCounts();        
+        setOrdersCount(response.data);
+    } catch (e) {
+        setError(e);
+        console.error("Failed to fetch order data:", e);
+    } finally {
+        setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+      orderCounts();
+  }, [isFocused, isInitialFetchRefresh]); // The empty array ensures this effect runs only once
+
   return (
     <SafeAreaView
       style={{
@@ -655,15 +677,19 @@ const ScreenDelivery = ({navigation}) => {
       <View style={styles.stickyHeader}>
         <View style={styles.header}>
           <View style={{flex: 1}}>
-            <InputSearch
+            {/* <InputSearch
               placeholder="Search ileafU"
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearchSubmit}
               showClear={true} // shows an 'X' icon to clear
-            />
+            /> */}
+            <Text style={styles.screenTitle}>Delivery</Text>
           </View>
           <View style={styles.headerIcons}>
+            <TouchableOpacity onPress={() => navigation.navigate('ScanQRSellerScreen')} style={styles.iconButton}>
+              <ScanQrIcon />
+            </TouchableOpacity>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
                 onPress={() => {}}
@@ -689,7 +715,7 @@ const ScreenDelivery = ({navigation}) => {
         </View>
       </View>
       {/* Filter Cards */}
-      <ScrollView
+      {/* <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={{
@@ -752,7 +778,7 @@ const ScreenDelivery = ({navigation}) => {
           <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
           <DownIcon width={20} height={20}></DownIcon>
         </TouchableOpacity>
-      </ScrollView>
+      </ScrollView> */}
       {/* Filter Cards */}
 
       <ScrollView
@@ -783,14 +809,20 @@ const ScreenDelivery = ({navigation}) => {
                 borderBottomWidth: 1,
                 paddingBottom: 10,
               }}>
-              <View style={{flexDirection: 'column'}}>
-                <Text style={{color: '#202325', fontSize: 16}}>
-                  For Delivery
-                </Text>
-                <Text style={{color: '#202325', fontSize: 28}}>
-                  {totalOrders}
-                </Text>
-              </View>
+              <TouchableOpacity
+                style={{flexDirection: 'column'}}
+                onPress={() => navigation.navigate('ScreenForDelivery', {orderType: 'forDelivery'})}>
+                  <Text style={{color: '#202325', fontSize: 16}}>
+                    For Delivery
+                  </Text>
+                  <Text style={{color: '#202325', fontSize: 28}}>
+                    {ordersCount.forDelivery || 0} 
+                    <RightIcon
+                      width={20}
+                      height={20}
+                      style={{marginTop: 10, marginRight: 10}}></RightIcon>
+                  </Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={openModal}
                 style={{flexDirection: 'row', justifyContent: 'space-between'}}>
@@ -808,7 +840,7 @@ const ScreenDelivery = ({navigation}) => {
                 borderBottomWidth: 1,
               }}>
               <TouchableOpacity
-                onPress={() => navigation.navigate('ScreenDeliveryHub')}
+                onPress={() => navigation.navigate('ScreenForDelivery', {orderType: 'inventoryForHub'})}
                 style={{
                   flexDirection: 'column',
                   width: '50%',
@@ -817,7 +849,7 @@ const ScreenDelivery = ({navigation}) => {
                   paddingVertical: 10,
                 }}>
                 <Text style={{color: '#202325', fontSize: 16}}>
-                  Deliver to Hub
+                  Inventory for Hub
                 </Text>
                 <View
                   style={{
@@ -825,7 +857,7 @@ const ScreenDelivery = ({navigation}) => {
                     justifyContent: 'space-between',
                   }}>
                   <Text style={{color: '#202325', fontSize: 28}}>
-                    {summaryCount['Deliver to Hub']}
+                    {ordersCount.inventoryForHub || 0}
                   </Text>
                   <RightIcon
                     width={20}
@@ -834,21 +866,21 @@ const ScreenDelivery = ({navigation}) => {
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => navigation.navigate('ScreenDeliveryReceived')}
+                onPress={() => navigation.navigate('ScreenForDelivery', {orderType: 'receivedScanned'})}
                 style={{
                   flexDirection: 'column',
                   width: '50%',
                   paddingVertical: 10,
                   paddingLeft: 10,
                 }}>
-                <Text style={{color: '#202325', fontSize: 16}}>Received</Text>
+                <Text style={{color: '#202325', fontSize: 16}}>Received Scanned</Text>
                 <View
                   style={{
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                   }}>
                   <Text style={{color: '#539461', fontSize: 28}}>
-                    {summaryCount['Received']}
+                    {ordersCount.receivedScanned || 0}
                   </Text>
                   <RightIcon
                     width={20}
@@ -863,7 +895,7 @@ const ScreenDelivery = ({navigation}) => {
                 flexDirection: 'row',
               }}>
               <TouchableOpacity
-                onPress={() => navigation.navigate('ScreenDeliveryMissing')}
+                onPress={() => navigation.navigate('ScreenForDelivery', {orderType: 'missing'})}
                 style={{
                   flexDirection: 'column',
                   width: '50%',
@@ -878,7 +910,7 @@ const ScreenDelivery = ({navigation}) => {
                     justifyContent: 'space-between',
                   }}>
                   <Text style={{color: '#FF5247', fontSize: 28}}>
-                    {summaryCount['Missing']}
+                    {ordersCount.missing || 0}
                   </Text>
                   <RightIcon
                     width={20}
@@ -887,21 +919,51 @@ const ScreenDelivery = ({navigation}) => {
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => navigation.navigate('ScreenDeliveryCasualty')}
+                onPress={() => navigation.navigate('ScreenForDelivery', {orderType: 'receivedUnscanned'})}
                 style={{
                   flexDirection: 'column',
                   width: '50%',
                   paddingVertical: 10,
                   paddingLeft: 10,
                 }}>
-                <Text style={{color: '#202325', fontSize: 16}}>Casualty</Text>
+                <Text style={{color: '#202325', fontSize: 16}}>Received Unscanned</Text>
                 <View
                   style={{
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                   }}>
                   <Text style={{color: '#000', fontSize: 28}}>
-                    {summaryCount['Casualty']}
+                    {ordersCount.receivedUnscanned || 0}
+                  </Text>
+                  <RightIcon
+                    width={20}
+                    height={20}
+                    style={{marginTop: 10, marginRight: 10}}></RightIcon>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+                        <View
+              style={{
+                flexDirection: 'row',
+              }}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ScreenForDelivery', {orderType: 'damaged'})}
+                style={{
+                  flexDirection: 'column',
+                  width: '50%',
+                  borderColor: '#CDD3D4',
+                  borderRightWidth: 1,
+                  paddingVertical: 10,
+                }}>
+                <Text style={{color: '#202325', fontSize: 16}}>Damaged</Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                  }}>
+                  <Text style={{color: '#FF5247', fontSize: 28}}>
+                    {ordersCount.casualty || 0}
                   </Text>
                   <RightIcon
                     width={20}
@@ -912,7 +974,7 @@ const ScreenDelivery = ({navigation}) => {
             </View>
           </View>
 
-          {loading && dataTable.length === 0 ? (
+          {/* {loading && dataTable.length === 0 ? (
             <View>
               <DeliverTableSkeleton rowCount={5} />
             </View>
@@ -943,12 +1005,12 @@ const ScreenDelivery = ({navigation}) => {
                 />
               </View>
             </>
-          )}
+          )} */}
         </View>
       </ScrollView>
 
       {/* Pagination Controls */}
-      <View style={styles.paginationWrapper}>
+      {/* <View style={styles.paginationWrapper}>
         <View style={styles.paginationContainer}>
           <TouchableOpacity
             style={[
@@ -995,7 +1057,7 @@ const ScreenDelivery = ({navigation}) => {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </View> */}
 
       {/* Export Modal */}
       <Modal
@@ -1097,6 +1159,11 @@ const ScreenDelivery = ({navigation}) => {
 export default ScreenDelivery;
 
 const styles = StyleSheet.create({
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#202325',
+  },
   container: {
     flex: 1,
     // padding: 16,
