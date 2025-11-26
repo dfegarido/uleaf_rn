@@ -229,3 +229,32 @@ export const toggleLoveLiveSession = async (sessionId) => {
     return error;
   }
 };
+
+export const getLiveSessionsApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const response = await fetch(
+      `https://us-central1-i-leaf-u.cloudfunctions.net/getLiveSessions`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get live sessions API error:', error);
+    return { success: false, error: error.message };
+  }
+};

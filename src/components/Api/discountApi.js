@@ -105,7 +105,19 @@ export const createDiscountApi = async (discountData) => {
       } catch (e) {
         errorData = { error: await response.text() };
       }
-      const errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      
+      // Handle backend error format - check for errors array first
+      let errorMessage;
+      if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        errorMessage = errorData.errors.join('. ');
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      } else {
+        errorMessage = `HTTP error! status: ${response.status}`;
+      }
+      
       console.error('API Error Response:', {
         status: response.status,
         statusText: response.statusText,

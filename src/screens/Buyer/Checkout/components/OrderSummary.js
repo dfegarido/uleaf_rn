@@ -352,9 +352,9 @@ const OrderSummary = ({
             <View style={styles.discountTextField}>
               <View style={[
                 styles.textFieldContainer,
-                (orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && styles.textFieldContainerApplied
+                (orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) && styles.textFieldContainerApplied
               ]}>
-                {(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? (
+                {(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) ? (
                   <Svg width={20} height={20} viewBox="0 0 20 20" fill="none" style={styles.textFieldIcon}>
                     <Path
                       fillRule="evenodd"
@@ -373,13 +373,13 @@ const OrderSummary = ({
                 )}
                 <TextInput
                   style={styles.textFieldInput}
-                  placeholder={(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? `${discountCode} applied` : "Enter discount code"}
-                  placeholderTextColor={(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? "#23C16B" : "#647276"}
+                  placeholder={(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) ? `${discountCode} applied` : "Enter discount code"}
+                  placeholderTextColor={(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) ? "#23C16B" : "#647276"}
                   value={discountCode}
                   onChangeText={onDiscountCodeChange}
                   autoCapitalize="characters"
                   autoCorrect={false}
-                  editable={orderSummary.codeDiscount === 0 && !(orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)}
+                  editable={orderSummary.codeDiscount === 0 && !(orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) && !(orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)}
                 />
               </View>
             </View>
@@ -393,12 +393,14 @@ const OrderSummary = ({
           </View>
 
           {/* Discount Applied Confirmation - Simple text indicator */}
-          {(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && (
+          {(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) && (
             <View style={styles.discountAppliedSimple}>
               <Text style={styles.discountAppliedSimpleText}>
                 ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied
                 {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 ? (
                   <Text> • Free shipping applied • You saved {formatCurrencyFull(orderSummary.freeShippingDiscount)}</Text>
+                ) : (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0) ? (
+                  <Text> • Event Gift discount applied • You saved {formatCurrencyFull(orderSummary.eventGiftDiscount)}</Text>
                 ) : orderSummary.codeDiscount > 0 ? (
                   <Text> • You saved {formatCurrencyFull(orderSummary.codeDiscount)}</Text>
                 ) : null}
@@ -519,34 +521,36 @@ const OrderSummary = ({
                 <Text style={[styles.iconLabel, styles.shippingIconLabel]}>
                   {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 
                     ? 'Free Shipping' 
-                    : 'Shipping Credits'}
+                    : 'Shipping'}
                 </Text>
               </View>
 
               {/* Toggle */}
               <TouchableOpacity
                 style={styles.toggle}
-                onPress={orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 
+                onPress={(orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)
                   ? undefined 
                   : onToggleShippingCredits}
-                disabled={orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0}>
+                disabled={(orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)}>
                 <View style={styles.toggleText}>
                   <Text
                     style={
-                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0))
+                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0))
                         ? styles.toggleOnLabel
                         : styles.toggleOffLabel
                     }>
-                    {(shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) ? '+' : '-'}
+                    {(shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) ? '+' : '-'}
                   </Text>
                   <Text
                     style={
-                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0))
+                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0))
                         ? styles.toggleOnNumber
                         : styles.toggleOffNumber
                     }>
                     {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0
                       ? formatCurrencyFull(orderSummary.freeShippingDiscount)
+                      : (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)
+                      ? formatCurrencyFull(orderSummary.eventGiftDiscount)
                       : shippingCreditsEnabled
                       ? formatCurrencyFull(orderSummary.shippingCreditsDiscount)
                       : formatCurrencyFull(0)}
@@ -555,12 +559,12 @@ const OrderSummary = ({
                 <View
                   style={[
                     styles.switchContainer,
-                    (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && styles.switchContainerActive,
+                    (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) && styles.switchContainerActive,
                   ]}>
                   <View
                     style={[
                       styles.switchKnob,
-                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0)) && styles.switchKnobActive,
+                      (shippingCreditsEnabled || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) && styles.switchKnobActive,
                     ]}
                   />
                 </View>

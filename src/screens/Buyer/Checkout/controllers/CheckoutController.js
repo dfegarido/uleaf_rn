@@ -736,6 +736,10 @@ export const useCheckoutController = () => {
     const isBuyXGetYDiscount = appliedDiscount.discountDetails?.type === 'buyXGetY';
     const buyXGetYDiscountAmount = isBuyXGetYDiscount ? codeDiscount : 0;
 
+    // Check if Event Gift discount is applied
+    const isEventGiftDiscount = appliedDiscount.discountDetails?.type === 'eventGift' || appliedDiscount.discountDetails?.type === 'eventGiftFixed';
+    const eventGiftDiscountAmount = isEventGiftDiscount ? codeDiscount : 0;
+
     return {
       subtotal: roundToCents(subtotal),
       discount: roundToCents(totalDiscount),
@@ -743,6 +747,8 @@ export const useCheckoutController = () => {
       shippingDiscount: roundToCents(shippingDiscount),
       freeShippingDiscount: roundToCents(freeShippingDiscount),
       isFreeShippingDiscount: appliedDiscount.discountDetails?.type === 'freeShipping',
+      eventGiftDiscount: roundToCents(eventGiftDiscountAmount),
+      isEventGiftDiscount: isEventGiftDiscount,
       buyXGetYDiscount: roundToCents(buyXGetYDiscountAmount),
       isBuyXGetYDiscount: isBuyXGetYDiscount,
       shipping: roundToCents(shippingTotal),

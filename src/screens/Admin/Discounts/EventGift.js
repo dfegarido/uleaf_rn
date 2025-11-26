@@ -1334,7 +1334,7 @@ const EventGift = () => {
             <View style={styles.boxList}>
               <Text style={styles.boxListItem}>{'\u2022'} For {eligibility.toLowerCase()}</Text>
               <Text style={styles.boxListItem}>{'\u2022'} {minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount ? `Minimum purchase amount of $${minPurchaseAmount}` : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity ? `Minimum quantity of ${minPurchaseQuantity} plants` : minRequirement}</Text>
-              <Text style={styles.boxListItem}>{'\u2022'} Limited to {maxUsesTotal || '100'} total of use</Text>
+              <Text style={styles.boxListItem}>{'\u2022'} Limited to {maxUsesTotal || '0'} total of use</Text>
             </View>
           )}
         </View>
@@ -1346,15 +1346,49 @@ const EventGift = () => {
             onPress={async () => {
               // Validate required fields
               if (!code.trim()) {
-                Alert.alert('Error', 'Please enter a discount code');
+                Alert.alert('Missing Information', 'Please enter a discount code to continue.');
                 return;
               }
               if (!discountPercent) {
-                Alert.alert('Error', 'Please enter a discount percentage');
+                Alert.alert('Missing Information', 'Please enter a discount percentage to continue.');
                 return;
               }
               if (!startDate || !startTime) {
-                Alert.alert('Error', 'Please select a start date and time');
+                Alert.alert('Missing Information', 'Please select a start date and time to continue.');
+                return;
+              }
+
+              // Validate "Applies to" selections
+              if (appliesText === 'Specific listing type' && (!selectedListingTypes || selectedListingTypes.length === 0)) {
+                Alert.alert('Missing Information', 'Please select at least one listing type. Click "+ Add listing type" to add selections.');
+                return;
+              }
+              if (appliesText === 'Specific genus' && (!selectedGenus || selectedGenus.length === 0)) {
+                Alert.alert('Missing Information', 'Please select at least one genus. Click "+ Add genus" to add selections.');
+                return;
+              }
+              if (appliesText === 'Specific country' && (!selectedCountries || selectedCountries.length === 0)) {
+                Alert.alert('Missing Information', 'Please select at least one country. Click "+ Add country" to add selections.');
+                return;
+              }
+              if (appliesText === 'Specific garden' && (!selectedGardens || selectedGardens.length === 0)) {
+                Alert.alert('Missing Information', 'Please select at least one garden. Click "+ Add garden" to add selections.');
+                return;
+              }
+              if (appliesText === 'Specific listing' && (!selectedListings || selectedListings.length === 0)) {
+                Alert.alert('Missing Information', 'Please select at least one listing. Click "+ Add listing" to add selections.');
+                return;
+              }
+
+              // Validate eligibility selections
+              if (eligibility === 'Specific customers' && (!selectedBuyers || selectedBuyers.length === 0)) {
+                Alert.alert('Missing Information', 'Please select at least one customer for "Specific customers" eligibility.');
+                return;
+              }
+
+              // Validate max uses if limit is enabled
+              if (limitTotalEnabled && (!maxUsesTotal || maxUsesTotal.trim() === '' || parseInt(maxUsesTotal, 10) < 1)) {
+                Alert.alert('Invalid Input', 'Please enter a valid number (at least 1) for the maximum total uses.');
                 return;
               }
 
@@ -1397,11 +1431,36 @@ const EventGift = () => {
                     }}
                   ]);
                 } else {
-                  Alert.alert('Error', result.error || 'Failed to create discount code');
+                  // Parse error message - handle both string and array formats
+                  let errorMessage = 'Unable to create discount code. Please check your input and try again.';
+                  if (result.error) {
+                    if (Array.isArray(result.error)) {
+                      errorMessage = result.error.join('\n');
+                    } else if (typeof result.error === 'string') {
+                      // Check if it's a generic HTTP error and try to extract meaningful message
+                      if (result.error.includes('HTTP error! status: 400')) {
+                        errorMessage = 'Invalid input. Please check all required fields are filled correctly.';
+                      } else {
+                        errorMessage = result.error;
+                      }
+                    }
+                  }
+                  Alert.alert('Unable to Save', errorMessage);
                 }
               } catch (error) {
                 console.error('Error creating discount:', error);
-                Alert.alert('Error', error.message || 'An unexpected error occurred');
+                let errorMessage = 'An unexpected error occurred. Please try again.';
+                if (error.message) {
+                  // Handle API errors with better messages
+                  if (error.message.includes('HTTP error! status: 400')) {
+                    errorMessage = 'Invalid input. Please check all required fields are filled correctly.';
+                  } else if (error.message.includes('HTTP error! status:')) {
+                    errorMessage = 'Unable to connect to server. Please check your connection and try again.';
+                  } else {
+                    errorMessage = error.message;
+                  }
+                }
+                Alert.alert('Unable to Save', errorMessage);
               } finally {
                 setIsCreating(false);
               }
@@ -1837,9 +1896,9 @@ const EventGift = () => {
       {/* Listing Type modal (centered) */}
       <Modal transparent visible={showListingTypeSheet} onRequestClose={() => setShowListingTypeSheet(false)} animationType="fade">
         <TouchableWithoutFeedback onPress={() => setShowListingTypeSheet(false)}>
-          <View style={styles.fullscreenOverlay}>
+          <View style={[styles.fullscreenOverlay, { justifyContent: 'center' }]}>
             <TouchableWithoutFeedback>
-              <View style={styles.listingTypeSheetContainer}>
+              <View style={[styles.listingTypeSheetContainer, { alignSelf: 'center' }]}>
                 {(listingTypes.length ? listingTypes : ['Single Plant', 'Wholesale', 'Growers Choice']).map((label, idx, arr) => (
                   <View key={`${label}-${idx}`}>
                     <View style={styles.typeRowWrapper}>

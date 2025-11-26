@@ -1584,9 +1584,9 @@ const FreeShipping = () => {
       {/* Listing Type modal (centered) */}
       <Modal transparent visible={showListingTypeSheet} onRequestClose={() => setShowListingTypeSheet(false)} animationType="fade">
         <TouchableWithoutFeedback onPress={() => setShowListingTypeSheet(false)}>
-          <View style={styles.fullscreenOverlay}>
+          <View style={[styles.fullscreenOverlay, { justifyContent: 'center' }]}>
             <TouchableWithoutFeedback>
-              <View style={styles.listingTypeSheetContainer}>
+              <View style={[styles.listingTypeSheetContainer, { alignSelf: 'center' }]}>
                 {(listingTypes.length ? listingTypes : ['Single Plant', 'Wholesale', 'Growers Choice']).map((label, idx, arr) => (
                   <View key={`${label}-${idx}`}>
                     <View style={styles.typeRowWrapper}>
