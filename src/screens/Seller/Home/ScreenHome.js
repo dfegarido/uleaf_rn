@@ -2,11 +2,9 @@ import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
-  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -274,14 +272,6 @@ const ScreenHome = ({navigation}) => {
   return (
     <SafeAreaView
       style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
-
       {/* Search and Icons */}
       <View style={styles.stickyHeader}>
         <View style={styles.header}>
@@ -408,118 +398,142 @@ const ScreenHome = ({navigation}) => {
               gap: 10,
               alignItems: 'flex-start',
             }}>
-            <View style={styles.cardBlack}>
-              <Text
-                style={[
-                  globalStyles.textSMWhite,
-                  globalStyles.textBold,
-                  {paddingBottom: 10},
-                ]}>
-                Total Sales
-              </Text>
-              <Text
-                style={[
-                  globalStyles.textXXLWhite,
-                  globalStyles.textBold,
-                  {paddingBottom: 10},
-                ]}>
-                {(totalSales?.symbol || getCurrencySymbol(userInfo))}
-                {formatNumberWithCommas(Number(totalSales?.thisWeek || 0))}
-              </Text>
-              <View style={{flexDirection: 'row', gap: 10}}>
-                <Text
-                  style={[globalStyles.textSMWhite, globalStyles.textSemiBold]}>
-                  {(totalSales?.symbol || getCurrencySymbol(userInfo))}{formatNumberWithCommas(Number(totalSales?.lastWeek || 0))}
-                </Text>
-                <Text
-                  style={[
-                    globalStyles.textSMGreyLight,
-                    globalStyles.textSemiBold,
-                  ]}>
-                  from previous week
-                </Text>
-              </View>
+            {loading ? (
+              // Skeleton Loading
+              <>
+                <View style={[styles.cardBlack, styles.skeleton]}>
+                  <View style={[styles.skeletonText, {width: '50%', height: 14, marginBottom: 10}]} />
+                  <View style={[styles.skeletonText, {width: '80%', height: 32, marginBottom: 10}]} />
+                  <View style={[styles.skeletonText, {width: '90%', height: 12}]} />
+                </View>
+                <View style={[styles.cardWhite, styles.skeleton]}>
+                  <View style={[styles.skeletonText, {width: '50%', height: 14, marginBottom: 10, backgroundColor: '#d0d0d0'}]} />
+                  <View style={[styles.skeletonText, {width: '60%', height: 32, marginBottom: 10, backgroundColor: '#d0d0d0'}]} />
+                  <View style={[styles.skeletonText, {width: '70%', height: 12, backgroundColor: '#d0d0d0'}]} />
+                </View>
+                <View style={[styles.cardWhite, styles.skeleton]}>
+                  <View style={[styles.skeletonText, {width: '50%', height: 14, marginBottom: 10, backgroundColor: '#d0d0d0'}]} />
+                  <View style={[styles.skeletonText, {width: '40%', height: 32, marginBottom: 10, backgroundColor: '#d0d0d0'}]} />
+                  <View style={[styles.skeletonText, {width: '60%', height: 12, backgroundColor: '#d0d0d0'}]} />
+                </View>
+              </>
+            ) : (
+              // Actual Content
+              <>
+                <View style={styles.cardBlack}>
+                  <Text
+                    style={[
+                      globalStyles.textSMWhite,
+                      globalStyles.textBold,
+                      {paddingBottom: 10},
+                    ]}>
+                    Total Sales
+                  </Text>
+                  <Text
+                    style={[
+                      globalStyles.textXXLWhite,
+                      globalStyles.textBold,
+                      {paddingBottom: 10},
+                    ]}>
+                    {(totalSales?.symbol || getCurrencySymbol(userInfo))}
+                    {formatNumberWithCommas(Number(totalSales?.thisWeek || 0))}
+                  </Text>
+                  <View style={{flexDirection: 'row', gap: 10}}>
+                    <Text
+                      style={[globalStyles.textSMWhite, globalStyles.textSemiBold]}>
+                      {(totalSales?.symbol || getCurrencySymbol(userInfo))}{formatNumberWithCommas(Number(totalSales?.lastWeek || 0))}
+                    </Text>
+                    <Text
+                      style={[
+                        globalStyles.textSMGreyLight,
+                        globalStyles.textSemiBold,
+                      ]}>
+                      from previous week
+                    </Text>
+                  </View>
 
-              <Text style={styles.greenTag}>
-                {roundNumber(totalSales?.percentChange) ?? '0'}%
-              </Text>
-            </View>
+                  <Text style={styles.greenTag}>
+                    {roundNumber(totalSales?.percentChange) ?? '0'}%
+                  </Text>
+                </View>
 
-            <View style={styles.cardWhite}>
-              <Text
-                style={[
-                  globalStyles.textSMGreyLight,
-                  globalStyles.textBold,
-                  {paddingBottom: 10},
-                ]}>
-                Plants Sold
-              </Text>
-              <Text
-                style={[
-                  globalStyles.textXXLGreyDark,
-                  globalStyles.textBold,
-                  {paddingBottom: 10},
-                ]}>
-                {plantSold?.thisWeek ?? 0}
-              </Text>
+                <View style={styles.cardWhite}>
+                  <Text
+                    style={[
+                      globalStyles.textSMGreyLight,
+                      globalStyles.textBold,
+                      {paddingBottom: 10},
+                    ]}>
+                    Plants Sold
+                  </Text>
+                  <Text
+                    style={[
+                      globalStyles.textXXLGreyDark,
+                      globalStyles.textBold,
+                      {paddingBottom: 10},
+                    ]}>
+                    {plantSold?.thisWeek ?? 0}
+                  </Text>
 
-              <View style={{flexDirection: 'row', gap: 10}}>
-                <Text
-                  style={[
-                    globalStyles.textSMGreyDark,
-                    globalStyles.textSemiBold,
-                  ]}>
-                  {plantSold?.difference ?? 0}
-                </Text>
-                <Text
-                  style={[
-                    globalStyles.textSMGreyLight,
-                    globalStyles.textSemiBold,
-                  ]}>
-                  from previous week
-                </Text>
-              </View>
+                  <View style={{flexDirection: 'row', gap: 10}}>
+                    <Text
+                      style={[
+                        globalStyles.textSMGreyDark,
+                        globalStyles.textSemiBold,
+                      ]}>
+                      {plantSold?.difference ?? 0}
+                    </Text>
+                    <Text
+                      style={[
+                        globalStyles.textSMGreyLight,
+                        globalStyles.textSemiBold,
+                      ]}>
+                      from previous week
+                    </Text>
+                  </View>
 
-              <Text style={styles.redPercentTag}>
-                {roundNumber(plantSold?.percentChange) ?? 0}%
-              </Text>
-            </View>
+                  <Text style={styles.redPercentTag}>
+                    {roundNumber(plantSold?.percentChange) ?? 0}%
+                  </Text>
+                </View>
 
-            <View style={styles.cardWhite}>
-              <Text
-                style={[
-                  globalStyles.textSMGreyLight,
-                  globalStyles.textBold,
-                  {paddingBottom: 10},
-                ]}>
-                Plants Listed
-              </Text>
-              <Text
-                style={[
-                  globalStyles.textXXLGreyDark,
-                  globalStyles.textBold,
-                  {paddingBottom: 10},
-                ]}>
-                {(plantListed?.lastWeek ?? 0) + (plantListed?.thisWeek ?? 0)}
-              </Text>
+                <View style={styles.cardWhite}>
+                  <Text
+                    style={[
+                      globalStyles.textSMGreyLight,
+                      globalStyles.textBold,
+                      {paddingBottom: 10},
+                    ]}>
+                    Plants Listed
+                  </Text>
+                  <Text
+                    style={[
+                      globalStyles.textXXLGreyDark,
+                      globalStyles.textBold,
+                      {paddingBottom: 10},
+                    ]}>
+                    {(plantListed?.lastWeek ?? 0) + (plantListed?.thisWeek ?? 0)}
+                  </Text>
 
-              <View style={{flexDirection: 'row', gap: 10}}>
-                <Text
-                  style={[
-                    globalStyles.textSMGreyDark,
-                    globalStyles.textSemiBold,
-                  ]}>
-                  {plantListed?.thisWeek ?? 0}
-                </Text>
-                <Text
-                  style={[
-                    globalStyles.textSMGreyLight,
-                    globalStyles.textSemiBold,
-                  ]}>
-                  added this week
-                </Text>
-              </View>
-            </View>
+                  <View style={{flexDirection: 'row', gap: 10}}>
+                    <Text
+                      style={[
+                        globalStyles.textSMGreyDark,
+                        globalStyles.textSemiBold,
+                      ]}>
+                      {plantListed?.thisWeek ?? 0}
+                    </Text>
+                    <Text
+                      style={[
+                        globalStyles.textSMGreyLight,
+                        globalStyles.textSemiBold,
+                      ]}>
+                      added this week
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
           </ScrollView>
           {/* Stats Cards */}
 
@@ -543,41 +557,56 @@ const ScreenHome = ({navigation}) => {
               gap: 10,
               alignItems: 'flex-start',
             }}>
-            {(eventData || [])
-              // Hide buyer-only referral items
-              .filter(item => {
-                const name = String(item?.name || '').trim().toLowerCase();
-                if (!name) return true;
-                // Common variations
-                if (name.includes('refer your friends')) return false;
-                if (name.includes('refer to your friends')) return false;
-                // Generic guard: titles starting with "refer" and containing "friend"
-                if (name.startsWith('refer') && name.includes('friend')) return false;
-                return true;
-              })
-              .map(item => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => {
-                  // Optional: handle link navigation
-                  // Linking.openURL(item.link);
-                }}
-                style={{width: 316}}>
-                <Image
-                  style={styles.banner}
-                  source={{uri: item.image}}
-                  resizeMode="cover"
-                />
-                <Text
-                  style={[
-                    globalStyles.textSMGreyDark,
-                    globalStyles.textSemiBold,
-                    {paddingTop: 10},
-                  ]}>
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {loading ? (
+              // Skeleton Loading
+              <>
+                <View style={{width: 316}}>
+                  <View style={[styles.banner, styles.skeleton, {backgroundColor: '#e0e0e0'}]} />
+                  <View style={[styles.skeletonText, {width: '80%', height: 14, marginTop: 10, backgroundColor: '#e0e0e0'}]} />
+                </View>
+                <View style={{width: 316}}>
+                  <View style={[styles.banner, styles.skeleton, {backgroundColor: '#e0e0e0'}]} />
+                  <View style={[styles.skeletonText, {width: '70%', height: 14, marginTop: 10, backgroundColor: '#e0e0e0'}]} />
+                </View>
+              </>
+            ) : (
+              // Actual Content
+              (eventData || [])
+                // Hide buyer-only referral items
+                .filter(item => {
+                  const name = String(item?.name || '').trim().toLowerCase();
+                  if (!name) return true;
+                  // Common variations
+                  if (name.includes('refer your friends')) return false;
+                  if (name.includes('refer to your friends')) return false;
+                  // Generic guard: titles starting with "refer" and containing "friend"
+                  if (name.startsWith('refer') && name.includes('friend')) return false;
+                  return true;
+                })
+                .map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => {
+                    // Optional: handle link navigation
+                    // Linking.openURL(item.link);
+                  }}
+                  style={{width: 316}}>
+                  <Image
+                    style={styles.banner}
+                    source={{uri: item.image}}
+                    resizeMode="cover"
+                  />
+                  <Text
+                    style={[
+                      globalStyles.textSMGreyDark,
+                      globalStyles.textSemiBold,
+                      {paddingTop: 10},
+                    ]}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
           {/* News Section */}
 
@@ -600,28 +629,46 @@ const ScreenHome = ({navigation}) => {
             />
           </View>
 
-          <BusinessPerformance data={businessPerformanceTable} />
-          <View style={{marginBottom: 30}}>
-            {(() => {
-              const chartCurrency = getCurrencySymbol(userInfo);
-              
-              console.log('💰 Home Screen Currency Info:', {
-                userInfoCurrency: userInfo?.currencySymbol,
-                userCountry: userInfo?.country,
-                finalCurrency: chartCurrency,
-                hasCurrencySymbol: !!userInfo?.currencySymbol,
-                derivedFromCountry: !userInfo?.currencySymbol && !!userInfo?.country
-              });
-              
-              return (
-                <CustomSalesChart 
-                  data={chartData} 
-                  isMonthly={false} 
-                  currencySymbol={chartCurrency} 
-                />
-              );
-            })()}
-          </View>
+          {loading ? (
+            // Skeleton Loading for Business Performance
+            <>
+              <View style={{marginTop: 20}}>
+                <View style={[styles.skeletonText, {width: '100%', height: 60, marginBottom: 10, backgroundColor: '#e0e0e0', borderRadius: 8}]} />
+                <View style={[styles.skeletonText, {width: '100%', height: 60, marginBottom: 10, backgroundColor: '#e0e0e0', borderRadius: 8}]} />
+                <View style={[styles.skeletonText, {width: '100%', height: 60, marginBottom: 10, backgroundColor: '#e0e0e0', borderRadius: 8}]} />
+                <View style={[styles.skeletonText, {width: '100%', height: 60, marginBottom: 10, backgroundColor: '#e0e0e0', borderRadius: 8}]} />
+              </View>
+              <View style={{marginTop: 20, marginBottom: 30}}>
+                <View style={[styles.skeletonText, {width: '100%', height: 250, backgroundColor: '#e0e0e0', borderRadius: 8}]} />
+              </View>
+            </>
+          ) : (
+            // Actual Content
+            <>
+              <BusinessPerformance data={businessPerformanceTable} />
+              <View style={{marginBottom: 30}}>
+                {(() => {
+                  const chartCurrency = getCurrencySymbol(userInfo);
+
+                  console.log('💰 Home Screen Currency Info:', {
+                    userInfoCurrency: userInfo?.currencySymbol,
+                    userCountry: userInfo?.country,
+                    finalCurrency: chartCurrency,
+                    hasCurrencySymbol: !!userInfo?.currencySymbol,
+                    derivedFromCountry: !userInfo?.currencySymbol && !!userInfo?.country
+                  });
+
+                  return (
+                    <CustomSalesChart
+                      data={chartData}
+                      isMonthly={false}
+                      currencySymbol={chartCurrency}
+                    />
+                  );
+                })()}
+              </View>
+            </>
+          )}
           {/* Business Performance */}
         </View>
       </ScrollView>
@@ -782,5 +829,13 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: '#C0DAC2',
     borderColor: '#539461',
+  },
+  skeleton: {
+    overflow: 'hidden',
+  },
+  skeletonText: {
+    backgroundColor: '#e8e8e8',
+    borderRadius: 4,
+    overflow: 'hidden',
   },
 });

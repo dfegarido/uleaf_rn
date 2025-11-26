@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getDeliveryExportApi = async (startDate, endDate) => {
   try {
@@ -8,21 +9,20 @@ export const getDeliveryExportApi = async (startDate, endDate) => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    
+
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
     const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
-    
+
     const defaultStartDate = firstDayOfMonth.toISOString().split('T')[0];
     const defaultEndDate = lastDayOfMonth.toISOString().split('T')[0];
 
-    // Construct the URL with query parameters
-    const baseUrl = 'https://us-central1-i-leaf-u.cloudfunctions.net/deliveryExport';
+    // Construct the URL with query parameters using API_ENDPOINTS
     const params = new URLSearchParams({
       startDate: startDate || defaultStartDate,
       endDate: endDate || defaultEndDate,
       format: 'excel'
     });
-    const url = `${baseUrl}?${params.toString()}`;
+    const url = `${API_ENDPOINTS.DELIVERY_EXPORT}?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
