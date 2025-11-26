@@ -309,6 +309,9 @@ const generateEndpoints = () => ({
   GET_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getFlightChangeRequests`,
   GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getAdminFlightChangeRequests`,
   UPDATE_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/updateFlightChangeRequest`,
+
+  // Delivery Export endpoint
+  DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,
 });
 
 // API Endpoints - Initially generated with default environment
