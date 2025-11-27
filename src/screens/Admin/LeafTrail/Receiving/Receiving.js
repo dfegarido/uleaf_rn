@@ -27,8 +27,6 @@ import TagAsOptions from './TagAs';
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs }) => {
     const setTags = () => {
-        console.log('item', item);
-        
         let status = {isMissing: true, isDamaged: true};
         if (item.leafTrailStatus === "missing") {
         status = {isDamaged: true, forShipping: true}
@@ -48,6 +46,18 @@ const PlantListItem = ({ item, type, openTagAs }) => {
         {type === 'damaged' && (
              <View style={styles.missingStatusContainer}>
                 <Text style={styles.missingStatusText}>Damaged</Text>
+            </View>
+        )}
+        
+        {(item?.sellerScanned && type === 'received') && (
+             <View style={styles.missingStatusContainer}>
+                <Text style={styles.scannedStatusText}>Seller Scanned</Text>
+            </View>
+        )}
+
+        {(!(item?.sellerScanned) && type === 'received') && (
+             <View style={styles.missingStatusContainer}>
+                <Text style={styles.unscannedStatusText}>Seller Unscanned</Text>
             </View>
         )}
         <View style={styles.flightDetailsRow}>
@@ -100,33 +110,117 @@ const PlantListItem = ({ item, type, openTagAs }) => {
 
 // --- TAB SCREENS ---
 
-const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
+const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+    if (!(data?.data) || data.data.length === 0) {   
+        return (
+            <>
+                <FlatList
+                    ListHeaderComponent={
+                    <>
+                        <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters}/>
+                        <Text style={styles.countText}>{data.total} plant(s)</Text>
+                    </>}
+                    ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+                    contentContainerStyle={styles.listContentContainer}
+                    ListFooterComponent={
+                            <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                                <Text style={{fontSize: 16, color: '#647276'}}>No For Receiving plants found.</Text>
+                            </View>}
+                />
+            </>
+        )
+     }
+
+    return (
             <FlatList
                 data={data.data}
                 keyExtractor={item => item.id}
                 renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="forReceiving" />}
                 ListHeaderComponent={
                 <>
-                    <FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters}/>
+                    <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters}/>
                     <Text style={styles.countText}>{data.total} plant(s)</Text>
                 </>}
                 ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                 contentContainerStyle={styles.listContentContainer}
             />
-);
+)};
 
-const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
+const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+    if (!(data?.data) || data.data.length === 0) {   
+        return (
+            <>
+                <FlatList
+                    ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+                    contentContainerStyle={styles.listContentContainer}
+                    ListFooterComponent={
+                         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                            <Text style={{fontSize: 16, color: '#647276'}}>No received plants found.</Text>
+                        </View>}
+                />
+            </>
+        )
+     }
+
+    return (
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="received" />}
+        ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+        contentContainerStyle={styles.listContentContainer}
+    />
+)};
+
+const InventoryForHubTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+    
+    if (!(data?.data) || data.data.length === 0) {   
+        return (
+            <>
+                <FlatList
+                    ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+                    contentContainerStyle={styles.listContentContainer}
+                    ListFooterComponent={
+                         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                            <Text style={{fontSize: 16, color: '#647276'}}>No For Inventory Hub plants found.</Text>
+                        </View>}
+                />
+            </>
+        )
+     }
+
+    return(
+    <FlatList
+        data={data.data}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="forInventoryHub" />}
         ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
-);
+)};
 
-const MissingTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
+const MissingTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+    
+    if (!(data?.data) || data.data.length === 0) {   
+        return (
+            <>
+                <FlatList
+                    ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+                    contentContainerStyle={styles.listContentContainer}
+                    ListFooterComponent={<View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                        <Text style={{fontSize: 16, color: '#647276'}}>No Missing plants found.</Text>
+                    </View>}
+                />
+            </>
+        )
+    }
+
+    return (
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
@@ -135,9 +229,28 @@ const MissingTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
-);
+)};
 
-const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
+const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+    if (!(data?.data) || data.data.length === 0) {   
+        return (
+            <>
+                <FlatList
+                    ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ItemSeparatorComponent={() => <View style={{height: 6}}/>}
+                    contentContainerStyle={styles.listContentContainer}
+                    ListFooterComponent={
+                        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                            <Text style={{fontSize: 16, color: '#647276'}}>No Damaged plants found.</Text>
+                        </View>
+                    }
+                />
+            </>
+            
+        )
+     }
+
+    return (
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
@@ -146,12 +259,13 @@ const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs}) => (
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
-);
+)};
 
 const ReceivingScreen = ({navigation}) => {
     const [index, setIndex] = useState(0);
     const [routes] = useState([
         { key: 'forReceiving', title: 'For Receiving' },
+        { key: 'inventoryForHub', title: ' Inventory for Hub' },
         { key: 'received', title: 'Received' },
         { key: 'missing', title: 'Missing' },
         { key: 'damaged', title: 'Damaged' },
@@ -210,6 +324,8 @@ const ReceivingScreen = ({navigation}) => {
         switch (route.key) {
             case 'forReceiving':
                 return <ForReceivingTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.forReceiving || {}} adminFilters={adminFilters}  />;
+            case 'inventoryForHub':
+                return <InventoryForHubTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.inventoryForHub || {}} adminFilters={adminFilters} />;
             case 'received':
                 return <ReceivedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFilters} />;
             case 'missing':
@@ -439,6 +555,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
     },
     missingStatusText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#E7522F',
+    },
+    scannedStatusText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#539461',
+    },
+    unscannedStatusText: {
         fontSize: 18,
         fontWeight: '700',
         color: '#E7522F',

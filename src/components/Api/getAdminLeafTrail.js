@@ -3,6 +3,7 @@ import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();
+    
     let cleanedParams = null;
     if (filters) {
       cleanedParams = Object.fromEntries(
