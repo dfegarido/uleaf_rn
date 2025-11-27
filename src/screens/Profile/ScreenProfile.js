@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Modal,
-  ActivityIndicator,
   SafeAreaView,
   Alert,
   Linking,
@@ -132,13 +130,6 @@ const ScreenProfile = ({navigation}) => {
         contentContainerStyle={{
           marginBottom: insets.bottom + 30,
         }}>
-        {loading && (
-          <Modal transparent animationType="fade">
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#699E73" />
-            </View>
-          </Modal>
-        )}
         <View
           style={[
             styles.stickyHeader,
@@ -169,157 +160,252 @@ const ScreenProfile = ({navigation}) => {
         </View>
 
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarWrapper}>
-            {cachedProfilePhoto || (userInfo && userInfo.profileImage) ? (
-              <Image
-                source={{uri: cachedProfilePhoto || (userInfo && userInfo.profileImage)}}
-                style={styles.image}
-                resizeMode="cover"
-              />
-            ) : (
-              <AvatarIcon width={40} height={40} />
-            )}
+        {loading ? (
+          // Skeleton Loading for Header
+          <View style={styles.header}>
+            <View style={styles.avatarWrapper}>
+              <View style={[styles.skeletonCircle, {width: 50, height: 50, borderRadius: 25}]} />
+            </View>
+            <View style={{flex: 1}}>
+              <View style={[styles.skeletonText, {width: '60%', height: 20, marginBottom: 8}]} />
+              <View style={[styles.skeletonText, {width: '40%', height: 16}]} />
+            </View>
           </View>
-          <View>
-            <Text style={globalStyles.textLGGreyDark}>
-              {data?.firstName && data?.lastName
-                ? `${data.firstName} ${data.lastName}`
-                : data?.gardenOrCompanyName || 'User Name'}
-            </Text>
-            <Text style={styles.status}>
-              @{data?.username || data?.email?.split('@')[0] || 'username'}
-            </Text>
+        ) : (
+          // Actual Header Content
+          <View style={styles.header}>
+            <View style={styles.avatarWrapper}>
+              {cachedProfilePhoto || (userInfo && userInfo.profileImage) ? (
+                <Image
+                  source={{uri: cachedProfilePhoto || (userInfo && userInfo.profileImage)}}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
+              ) : (
+                <AvatarIcon width={40} height={40} />
+              )}
+            </View>
+            <View>
+              <Text style={globalStyles.textLGGreyDark}>
+                {data?.firstName && data?.lastName
+                  ? `${data.firstName} ${data.lastName}`
+                  : data?.gardenOrCompanyName || 'User Name'}
+              </Text>
+              <Text style={styles.status}>
+                @{data?.username || data?.email?.split('@')[0] || 'username'}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={{backgroundColor: '#fff'}}>
-          {/* Sections */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Profile</Text>
+          {loading ? (
+            // Skeleton Loading for Menu Items
+            <>
+              {/* Profile Section Skeleton */}
+              <View style={styles.section}>
+                <View style={[styles.skeletonText, {width: '20%', height: 14, marginBottom: 10}]} />
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 140, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 80, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
+              </View>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('ScreenProfileAccount', data)}>
-              <View style={styles.menuLeft}>
-                <ProfileIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Account Information
-                </Text>
+              {/* Support Section Skeleton */}
+              <View style={styles.section}>
+                <View style={[styles.skeletonText, {width: '20%', height: 14, marginBottom: 10}]} />
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 120, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 180, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 70, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
               </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('ScreenProfilePassword')}>
-              <View style={styles.menuLeft}>
-                <PasswordIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Password
-                </Text>
+              {/* Legal Section Skeleton */}
+              <View style={styles.section}>
+                <View style={[styles.skeletonText, {width: '20%', height: 14, marginBottom: 10}]} />
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 100, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 110, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
               </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Support</Text>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('ScreenProfileProblem')}>
-              <View style={styles.menuLeft}>
-                <ReportIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Report a Problem
-                </Text>
+              {/* Account Section Skeleton */}
+              <View style={styles.section}>
+                <View style={[styles.skeletonText, {width: '20%', height: 14, marginBottom: 10}]} />
+                <View style={[styles.menuItem, styles.skeleton]}>
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.skeletonCircle, {width: 20, height: 20, borderRadius: 10}]} />
+                    <View style={[styles.skeletonText, {width: 130, height: 14, marginLeft: 5}]} />
+                  </View>
+                </View>
               </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('ScreenProfileRequest')}>
-              <View style={styles.menuLeft}>
-                <PlantIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Request Genus/Species Name
-                </Text>
-              </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                // Open email app with the specified email address (encoded)
-                const subject = encodeURIComponent('Support Request');
-                const body = encodeURIComponent('Hello iLeafU Support Team,\n\n');
-                const emailUrl = `mailto:ileafuasiausa@gmail.com?subject=${subject}&body=${body}`;
-                console.log('mailto url:', emailUrl);
-                Linking.openURL(emailUrl).catch(err => {
-                  console.error('Failed to open email app:', err);
-                  Alert.alert(
-                    'Email App Not Available',
-                    'Please send an email to: ileafuasiausa@gmail.com',
-                    [{ text: 'OK' }]
-                  );
-                });
-              }}>
-              <View style={styles.menuLeft}>
-                <ChatIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Email Us
-                </Text>
-              </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Legal</Text>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('ScreenTerms')}>
-              <View style={styles.menuLeft}>
-                <EnvelopeIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Terms of Use
-                </Text>
+              {/* Logout Button Skeleton */}
+              <View style={[styles.logoutButton, styles.skeleton]}>
+                <View style={[styles.skeletonText, {width: 60, height: 16}]} />
               </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('ScreenPrivacy')}>
-              <View style={styles.menuLeft}>
-                <EnvelopeIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
-                  Privacy Policy
-                </Text>
-              </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
-          </View>
+            </>
+          ) : (
+            // Actual Content
+            <>
+              {/* Sections */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Profile</Text>
 
-          {/* Danger Zone */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <TouchableOpacity
-              style={styles.dangerMenuItem}
-              onPress={handleDeactivateAccount}>
-              <View style={styles.menuLeft}>
-                <TrashIcon width={20} height={20} />
-                <Text style={[globalStyles.textSMGreyDark, styles.dangerText, {paddingLeft: 5}]}>
-                  Deactivate Account
-                </Text>
-              </View>
-              <RightIcon width={20} height={20} />
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => navigation.navigate('ScreenProfileAccount', data)}>
+                  <View style={styles.menuLeft}>
+                    <ProfileIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                      Account Information
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
 
-          {/* Logout */}
-          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => navigation.navigate('ScreenProfilePassword')}>
+                  <View style={styles.menuLeft}>
+                    <PasswordIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                      Password
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Support</Text>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => navigation.navigate('ScreenProfileProblem')}>
+                  <View style={styles.menuLeft}>
+                    <ReportIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                      Report a Problem
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => navigation.navigate('ScreenProfileRequest')}>
+                  <View style={styles.menuLeft}>
+                    <PlantIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                      Request Genus/Species Name
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    // Open email app with the specified email address (encoded)
+                    const subject = encodeURIComponent('Support Request');
+                    const body = encodeURIComponent('Hello iLeafU Support Team,\n\n');
+                    const emailUrl = `mailto:ileafuasiausa@gmail.com?subject=${subject}&body=${body}`;
+                    console.log('mailto url:', emailUrl);
+                    Linking.openURL(emailUrl).catch(err => {
+                      console.error('Failed to open email app:', err);
+                      Alert.alert(
+                        'Email App Not Available',
+                        'Please send an email to: ileafuasiausa@gmail.com',
+                        [{ text: 'OK' }]
+                      );
+                    });
+                  }}>
+                  <View style={styles.menuLeft}>
+                    <ChatIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                      Email Us
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Legal</Text>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => navigation.navigate('ScreenTerms')}>
+                  <View style={styles.menuLeft}>
+                    <EnvelopeIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                      Terms of Use
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => navigation.navigate('ScreenPrivacy')}>
+                  <View style={styles.menuLeft}>
+                    <EnvelopeIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, {paddingLeft: 5}]}>
+                      Privacy Policy
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Danger Zone */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Account</Text>
+                <TouchableOpacity
+                  style={styles.dangerMenuItem}
+                  onPress={handleDeactivateAccount}>
+                  <View style={styles.menuLeft}>
+                    <TrashIcon width={20} height={20} />
+                    <Text style={[globalStyles.textSMGreyDark, styles.dangerText, {paddingLeft: 5}]}>
+                      Deactivate Account
+                    </Text>
+                  </View>
+                  <RightIcon width={20} height={20} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Logout */}
+              <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+                <Text style={styles.logoutText}>Logout</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -412,12 +498,6 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '600',
   },
-  loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   image: {
     width: 50,
     height: 50,
@@ -425,6 +505,18 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: '#C0DAC2',
     borderColor: '#539461',
+  },
+  skeleton: {
+    overflow: 'hidden',
+  },
+  skeletonText: {
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  skeletonCircle: {
+    backgroundColor: '#e0e0e0',
+    overflow: 'hidden',
   },
 });
 

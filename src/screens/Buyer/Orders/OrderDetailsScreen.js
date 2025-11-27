@@ -212,7 +212,7 @@ const OrderDetailsScreen = () => {
             const transformedOrder = {
               // Order level data
               invoiceNumber: detailedOrder.transactionNumber || detailedOrder.id || 'N/A',
-              plantFlight: plantRecord?.flightDate || detailedOrder.cargoDateFormatted || formatCargoDate(detailedOrder.cargoDate) || formatCargoDate(plantRecord?.flightDate) || 'TBD',
+              plantFlight: detailedOrder.cargoDateFormatted || formatOrderDate(plantRecord?.flightDate) || formatOrderDate(detailedOrder.cargoDate) || 'TBD',
               trackingNumber: activeTab === 'Journey Mishap' ? 'Credit Request Tracking' : (detailedOrder.trackingNumber || 'Not Available'),
               orderDate: formatOrderDate(detailedOrder.orderDate) || formatOrderDate(detailedOrder.createdAt),
               status: activeTab === 'Journey Mishap' ? 'Credit Requested' : (detailedOrder.status || 'Ready to Fly'),
@@ -321,7 +321,7 @@ const OrderDetailsScreen = () => {
         const transformedOrder = {
         // Order level data
         invoiceNumber: realOrder.transactionNumber || realOrder.id || 'N/A',
-        plantFlight: realOrder.cargoDateFormatted || formatCargoDate(realOrder.cargoDate),
+        plantFlight: realOrder.cargoDateFormatted || formatOrderDate(realOrder.cargoDate),
         trackingNumber: realOrder.trackingNumber || realOrder.shipment?.trackingNumber || 'Not Available',
         orderDate: formatOrderDate(realOrder.orderDate) || formatOrderDate(realOrder.createdAt),
         status: realOrder.status || 'Ready to Fly',
@@ -903,7 +903,10 @@ const OrderDetailsScreen = () => {
 
                 {/* Price + Quantity */}
                 <View style={styles.priceQuantityRow}>
-                  <Text style={styles.priceText}>{order.plant.price}</Text>
+                  {/* Hide price for Ready to Fly orders */}
+                  {activeTab !== 'Ready to Fly' && (
+                    <Text style={styles.priceText}>{order.plant.price}</Text>
+                  )}
                   <View style={styles.quantityContainer}>
                     <Text style={styles.quantityNumber}>{order.plant.quantity}</Text>
                     <Text style={styles.quantityMultiple}>x</Text>
