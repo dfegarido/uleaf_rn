@@ -363,6 +363,9 @@ export const useCheckoutController = () => {
         country: plantData.country || plantData.listingDetails?.country || 'TH',
         shippingMethod: plantData.shippingMethod || 'Plant / UPS Ground Shipping',
         hasAirCargo: plantData.hasAirCargo || plantData.listingDetails?.hasAirCargo || false,
+        // Store genus and species explicitly for discount validation
+        genus: plantData.genus || plantData.listingDetails?.genus || '',
+        species: plantData.species || plantData.listingDetails?.species || '',
         // Ensure id exists for key prop in PlantList
         id: plantData.id || plantData.plantCode || `plant-${Date.now()}`,
       };
@@ -484,6 +487,23 @@ export const useCheckoutController = () => {
           country: cartItem.country || cartItem.listingDetails?.country || 'TH',
           shippingMethod: cartItem.shippingMethod || 'Plant / UPS Ground Shipping',
           hasAirCargo: cartItem.hasAirCargo || cartItem.listingDetails?.hasAirCargo || false,
+          // Store genus and species explicitly for discount validation
+          // Note: listingDetails is spread above, so species might already be at root level
+          // But we explicitly set it to ensure it's always present
+          genus: cartItem.genus || cartItem.listingDetails?.genus || '',
+          species: cartItem.species || cartItem.listingDetails?.species || (() => {
+            // If species is still not found, try to parse from name
+            const name = cartItem.name || cartItem.listingDetails?.title || cartItem.listingDetails?.name || '';
+            if (name) {
+              const nameParts = name.trim().split(/\s+/);
+              if (nameParts.length >= 2) {
+                // For names like "ALOCASIA AMAZONICA RESERVED FOR ST-GA"
+                // The species is everything after the first word (genus)
+                return nameParts.slice(1).join(' ').trim();
+              }
+            }
+            return '';
+          })(),
           // Ensure id exists for key prop
           id: cartItem.id || cartItem.plantCode || `cart-${index}`,
         };
@@ -593,6 +613,9 @@ export const useCheckoutController = () => {
         country: product?.country || cartItem.country || cartItem.listingDetails?.country || 'TH',
         shippingMethod: product?.shippingMethod || cartItem.shippingMethod || 'Plant / UPS Ground Shipping',
         hasAirCargo: product?.hasAirCargo || cartItem.hasAirCargo || product?.listingDetails?.hasAirCargo || cartItem.listingDetails?.hasAirCargo || false,
+        // Store genus and species explicitly for discount validation
+        genus: product?.genus || cartItem.genus || product?.listingDetails?.genus || cartItem.listingDetails?.genus || '',
+        species: product?.species || cartItem.species || product?.listingDetails?.species || cartItem.listingDetails?.species || '',
         // Ensure id exists for key prop
         id: cartItem.id || product?.id || cartItem.plantCode || product?.plantCode || `item-${Date.now()}`,
       };
@@ -2281,6 +2304,86 @@ export const useCheckoutController = () => {
                      (item.name && typeof item.name === 'string' ? item.name.split(' ')[0] : '') ||
                      '';
 
+        // Get species - try multiple sources including original cartItems
+        // Priority: item.species > item.listingDetails?.species > originalCartItem.species > originalCartItem.listingDetails?.species > productData > parse from name
+        let species = item.species || 
+                      item.listingDetails?.species || 
+                      '';
+        
+        // If species not found, try to get from original cartItems (deep check)
+        if (!species && cartItems && cartItems.length > 0) {
+          const originalCartItem = cartItems.find(ci => ci?.plantCode === item.plantCode);
+          if (originalCartItem) {
+            // Check multiple possible locations in the cart item
+            species = originalCartItem.species || 
+                     originalCartItem.listingDetails?.species ||
+                     (originalCartItem.listingDetails && typeof originalCartItem.listingDetails === 'object' ? originalCartItem.listingDetails.species : '') ||
+                     '';
+            
+            // Log for debugging
+            if (species) {
+              console.log(`💳 [handleApplyDiscount] Found species for ${item.plantCode} from originalCartItem:`, species);
+            } else {
+              console.log(`💳 [handleApplyDiscount] Species not found in originalCartItem for ${item.plantCode}. Structure:`, {
+                hasSpecies: !!originalCartItem.species,
+                hasListingDetails: !!originalCartItem.listingDetails,
+                listingDetailsKeys: originalCartItem.listingDetails ? Object.keys(originalCartItem.listingDetails) : []
+              });
+            }
+          }
+        }
+        
+        // Also check productData if available
+        if (!species && productData && productData.length > 0) {
+          const originalProduct = productData.find(p => p?.plantCode === item.plantCode);
+          if (originalProduct) {
+            species = originalProduct.species || 
+                     originalProduct.listingDetails?.species || 
+                     '';
+            if (species) {
+              console.log(`💳 [handleApplyDiscount] Found species for ${item.plantCode} from productData:`, species);
+            }
+          }
+        }
+        
+        // If still not found, try to parse from name (format: "Genus species" or "GENUS SPECIES ...")
+        if (!species && item.name && typeof item.name === 'string') {
+          const nameParts = item.name.trim().split(/\s+/);
+          if (nameParts.length >= 2) {
+            // For names like "ALOCASIA AMAZONICA RESERVED FOR ST-GA"
+            // The species is everything after the first word (genus)
+            // So we take all parts from index 1 onwards
+            species = nameParts.slice(1).join(' ').trim();
+            console.log(`💳 [handleApplyDiscount] Parsed species from name for ${item.plantCode}:`, species);
+          }
+        }
+        
+        // Also try parsing from title if name didn't work
+        if (!species && item.title && typeof item.title === 'string') {
+          const titleParts = item.title.trim().split(/\s+/);
+          if (titleParts.length >= 2) {
+            species = titleParts.slice(1).join(' ').trim();
+            console.log(`💳 [handleApplyDiscount] Parsed species from title for ${item.plantCode}:`, species);
+          }
+        }
+        
+        // Final fallback: ensure species is at least an empty string (never undefined or null)
+        if (!species) {
+          species = '';
+          console.warn(`⚠️ [handleApplyDiscount] Species not found for ${item.plantCode}. Item structure:`, {
+            hasSpecies: !!item.species,
+            hasListingDetails: !!item.listingDetails,
+            listingDetailsSpecies: item.listingDetails?.species,
+            name: item.name,
+            title: item.title,
+            cartItemsLength: cartItems?.length || 0,
+            productDataLength: productData?.length || 0
+          });
+        }
+        
+        // Normalize species: ensure it's a string and trim it
+        species = typeof species === 'string' ? species.trim() : String(species || '').trim();
+
         // Get country - try multiple sources
         const country = item.country || 
                        item.listingDetails?.country || 
@@ -2304,16 +2407,66 @@ export const useCheckoutController = () => {
           listingType: listingType,
           country: country,
           genus: genus,
+          species: species || '', // Ensure species is always a string, never undefined
           sellerCode: sellerCode,
         };
 
-        console.log(`💳 [handleApplyDiscount] Prepared cart item for ${item.plantCode}:`, cartItem);
+        // Log detailed information about species extraction
+        const speciesSource = item.species ? 'item.species' : 
+                        item.listingDetails?.species ? 'item.listingDetails.species' :
+                        cartItems.find(ci => ci?.plantCode === item.plantCode)?.species ? 'originalCartItem.species' :
+                        cartItems.find(ci => ci?.plantCode === item.plantCode)?.listingDetails?.species ? 'originalCartItem.listingDetails.species' :
+                        productData?.find(p => p?.plantCode === item.plantCode)?.species ? 'productData.species' :
+                        productData?.find(p => p?.plantCode === item.plantCode)?.listingDetails?.species ? 'productData.listingDetails.species' :
+                        item.name ? 'parsed from name' : 'not found';
+        
+        console.log(`💳 [handleApplyDiscount] Prepared cart item for ${item.plantCode}:`, {
+          ...cartItem,
+          speciesSource,
+          debugInfo: {
+            itemHasSpecies: !!item.species,
+            itemSpeciesValue: item.species,
+            itemHasListingDetails: !!item.listingDetails,
+            itemListingDetailsSpecies: item.listingDetails?.species,
+            originalCartItemHasSpecies: !!cartItems.find(ci => ci?.plantCode === item.plantCode)?.species,
+            originalCartItemListingDetailsSpecies: cartItems.find(ci => ci?.plantCode === item.plantCode)?.listingDetails?.species,
+            itemName: item.name
+          }
+        });
 
         return cartItem;
       }).filter(item => item !== null); // Remove any null items
 
       console.log('💳 [handleApplyDiscount] Validating discount code:', discountCode);
       console.log('💳 [handleApplyDiscount] Plant items count:', plantItems.length);
+      console.log('💳 [handleApplyDiscount] Sample plantItem structure:', plantItems[0] ? {
+        plantCode: plantItems[0].plantCode,
+        hasSpecies: !!plantItems[0].species,
+        species: plantItems[0].species,
+        speciesType: typeof plantItems[0].species,
+        hasListingDetails: !!plantItems[0].listingDetails,
+        listingDetailsSpecies: plantItems[0].listingDetails?.species,
+        name: plantItems[0].name,
+        genus: plantItems[0].genus
+      } : 'No plantItems');
+      console.log('💳 [handleApplyDiscount] Sample cartItem structure:', cartItems[0] ? {
+        plantCode: cartItems[0].plantCode,
+        hasSpecies: !!cartItems[0].species,
+        species: cartItems[0].species,
+        hasListingDetails: !!cartItems[0].listingDetails,
+        listingDetailsSpecies: cartItems[0].listingDetails?.species,
+        listingDetailsKeys: cartItems[0].listingDetails ? Object.keys(cartItems[0].listingDetails) : [],
+        name: cartItems[0].name
+      } : 'No cartItems');
+      
+      // Log each cart item's species before sending
+      console.log('💳 [handleApplyDiscount] Cart items species check:', cartItemsForDiscount.map(ci => ({
+        plantCode: ci.plantCode,
+        species: ci.species,
+        speciesType: typeof ci.species,
+        speciesLength: ci.species ? ci.species.length : 0
+      })));
+      
       console.log('💳 [handleApplyDiscount] Cart items for discount:', JSON.stringify(cartItemsForDiscount, null, 2));
 
       if (!cartItemsForDiscount || cartItemsForDiscount.length === 0) {
