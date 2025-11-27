@@ -839,7 +839,7 @@ const ScreenDelivery = ({navigation}) => {
                     <RightIcon
                       width={20}
                       height={20}
-                      style={{marginTop: 10, marginRight: 10}}></RightIcon>
+                      style={{marginTop: 10, marginRight: 10, marginLeft: 50}}></RightIcon>
                   </Text>
               </TouchableOpacity>
               <TouchableOpacity

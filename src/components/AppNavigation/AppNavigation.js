@@ -67,7 +67,7 @@ import {
   ScreenListingDetail,
   ScreenSearchListing,
 } from '../../screens/Seller/Listing/';
-import ScreenOrder from '../../screens/Seller/Order/ScreenOrder';
+import OrderScreen from '../../screens/Seller/Order/OrderScreen';
 import {
   ScreenDraftSell,
   ScreenDuplicateSell,
@@ -915,7 +915,7 @@ function MainTabNavigator() {
       <Tab.Screen name="Home" component={ScreenHome} />
       <Tab.Screen name="Listings" component={ScreenListing} />
       <Tab.Screen name="Sell" component={ScreenSell} />
-  <Tab.Screen name="Orders" component={ScreenOrder} />
+  <Tab.Screen name="Orders" component={OrderScreen} />
       <Tab.Screen name="Delivery" component={DeliveryStack} />
     </Tab.Navigator>
   );
