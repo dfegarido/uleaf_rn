@@ -297,16 +297,34 @@ const EditDiscount = () => {
             setMaxDiscount(discountData.maxDiscount.toString());
             console.log('📝 EditDiscount - Set maxDiscount:', discountData.maxDiscount.toString());
           }
-        } else if (discountData.type === 'eventGift') {
+        } else if (discountData.type === 'eventGift' || discountData.type === 'eventGiftFixed') {
           console.log('📝 EditDiscount - Event Gift:', { 
-            discountPercent: discountData.discountPercent, 
+            type: discountData.type,
+            discountPercent: discountData.discountPercent,
+            discountAmount: discountData.discountAmount,
             maxDiscount: discountData.maxDiscount 
           });
           
-          if (discountData.discountPercent !== null && discountData.discountPercent !== undefined) {
-            setDiscountPercent(discountData.discountPercent.toString());
-            console.log('📝 EditDiscount - Set discountPercent (event gift):', discountData.discountPercent.toString());
+          if (discountData.type === 'eventGiftFixed') {
+            // Fixed amount
+            setDiscountType('Fixed amount');
+            if (discountData.discountAmount !== null && discountData.discountAmount !== undefined) {
+              setDiscountPercent(discountData.discountAmount.toString());
+              console.log('📝 EditDiscount - Set discountPercent (event gift fixed amount):', discountData.discountAmount.toString());
+            } else if (discountData.discountPercent !== null && discountData.discountPercent !== undefined) {
+              // Fallback: if discountAmount is missing but discountPercent exists, use it
+              setDiscountPercent(discountData.discountPercent.toString());
+              console.log('📝 EditDiscount - Set discountPercent (fallback for event gift fixed):', discountData.discountPercent.toString());
+            }
+          } else {
+            // Percentage
+            setDiscountType('Percentage');
+            if (discountData.discountPercent !== null && discountData.discountPercent !== undefined) {
+              setDiscountPercent(discountData.discountPercent.toString());
+              console.log('📝 EditDiscount - Set discountPercent (event gift percentage):', discountData.discountPercent.toString());
+            }
           }
+          
           if (discountData.maxDiscount !== null && discountData.maxDiscount !== undefined) {
             setMaxDiscount(discountData.maxDiscount.toString());
             console.log('📝 EditDiscount - Set maxDiscount (event gift):', discountData.maxDiscount.toString());
@@ -996,7 +1014,7 @@ const EditDiscount = () => {
           </>
         )}
 
-        {(discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'eventGift') && (
+        {(discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'amountOffPlantsFixed' || discountTypeParam === 'eventGift' || discountTypeParam === 'eventGiftFixed') && (
           <>
             {/* Discount type */}
             <View style={styles.sectionPad}>
@@ -1680,7 +1698,7 @@ const EditDiscount = () => {
                   Alert.alert('Error', 'Please enter buy and get quantities');
                   return;
                 }
-              } else if (discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'eventGift') {
+              } else if (discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'amountOffPlantsFixed' || discountTypeParam === 'eventGift' || discountTypeParam === 'eventGiftFixed') {
                 if (!discountPercent) {
                   Alert.alert('Error', 'Please enter a discount percentage');
                   return;
@@ -1752,6 +1770,7 @@ const EditDiscount = () => {
                 console.log('📝 Update Discount - Using discountId:', discountIdForUpdate);
                 
                 // Prepare discount data based on type
+                console.log('📝 Update Discount - discountTypeParam:', discountTypeParam, 'discountType:', discountType);
                 let discountData;
                 
                 if (discountTypeParam === 'buyXGetY') {
@@ -1782,7 +1801,7 @@ const EditDiscount = () => {
                     maxUsesTotal: maxUsesTotal && limitTotalEnabled ? parseInt(maxUsesTotal, 10) : undefined,
                     selectedBuyers: eligibility === 'Specific customers' ? (selectedBuyers?.map(b => typeof b === 'object' ? b.id : b) || []) : undefined,
                   };
-                } else if (discountTypeParam === 'amountOffPlantsPercentage') {
+                } else if (discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'amountOffPlantsFixed') {
                   discountData = {
                     code: code.trim(),
                     type: discountType === 'Fixed amount' ? 'amountOffPlantsFixed' : 'amountOffPlantsPercentage',
@@ -1811,11 +1830,12 @@ const EditDiscount = () => {
                     maxUsesTotal: maxUsesTotal && limitTotalEnabled ? parseInt(maxUsesTotal, 10) : undefined,
                     selectedBuyers: eligibility === 'Specific customers' ? (selectedBuyers?.map(b => typeof b === 'object' ? b.id : b) || []) : undefined,
                   };
-                } else if (discountTypeParam === 'eventGift') {
+                } else if (discountTypeParam === 'eventGift' || discountTypeParam === 'eventGiftFixed') {
                   discountData = {
                     code: code.trim(),
-                    type: 'eventGift',
-                    discountPercent: parseFloat(discountPercent),
+                    type: discountType === 'Fixed amount' ? 'eventGiftFixed' : 'eventGift',
+                    discountPercent: discountType === 'Percentage' ? parseFloat(discountPercent) : undefined,
+                    discountAmount: discountType === 'Fixed amount' ? parseFloat(discountPercent) : undefined,
                     maxDiscount: maxDiscount ? parseFloat(maxDiscount) : undefined,
                     startDate,
                     startTime,
@@ -1840,7 +1860,8 @@ const EditDiscount = () => {
                     selectedBuyers: eligibility === 'Specific customers' ? (selectedBuyers?.map(b => typeof b === 'object' ? b.id : b) || []) : undefined,
                   };
                 } else {
-                  Alert.alert('Error', 'Invalid discount type');
+                  console.error('❌ Update Discount - Invalid discountTypeParam:', discountTypeParam);
+                  Alert.alert('Error', `Invalid discount type: ${discountTypeParam || 'undefined'}. Please refresh and try again.`);
                   setIsUpdating(false);
                   return;
                 }
@@ -2444,7 +2465,7 @@ const EditDiscount = () => {
       </Modal>
 
       {/* Discount Type Modal */}
-      {discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'eventGift' ? (
+      {(discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'amountOffPlantsFixed' || discountTypeParam === 'eventGift' || discountTypeParam === 'eventGiftFixed') ? (
         <Modal transparent visible={showTypeSheet} onRequestClose={() => setShowTypeSheet(false)} animationType="fade">
           <TouchableWithoutFeedback onPress={() => setShowTypeSheet(false)}>
             <View style={styles.fullscreenOverlay}>

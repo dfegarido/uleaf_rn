@@ -226,7 +226,13 @@ export const updateDiscountApi = async (discountId, discountData) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      // Backend returns errors as an array, or single error/message
+      let errorMessage;
+      if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        errorMessage = errorData.errors.join(', ');
+      } else {
+        errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      }
       throw new Error(errorMessage);
     }
 
