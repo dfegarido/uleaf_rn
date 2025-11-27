@@ -27,6 +27,8 @@ import MyLiveSessionsScreen from '../../screens/Live/MyLiveSessionsScreen';
 import ScreenMyPurges from '../../screens/Live/ScreenMyPurges';
 import SetUpListingsPurgeScreen from '../../screens/Live/SetUpListingsPurgeScreen';
 
+import ScanQRSellerScreen from '../../screens/Seller/Delivery/ScanQR/SellerScanQR';
+
 import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
 import {
   ScreenForgotPassword,
@@ -50,6 +52,7 @@ import {
   ScreenDeliveryMissing,
   ScreenDeliveryReceived,
   ScreenExportQR,
+  ScreenForDelivery
 } from '../../screens/Seller/Delivery';
 import {
   ScreenHome,
@@ -64,7 +67,7 @@ import {
   ScreenListingDetail,
   ScreenSearchListing,
 } from '../../screens/Seller/Listing/';
-import ScreenOrder from '../../screens/Seller/Order/ScreenOrder';
+import OrderScreen from '../../screens/Seller/Order/OrderScreen';
 import {
   ScreenDraftSell,
   ScreenDuplicateSell,
@@ -138,6 +141,11 @@ const DeliveryStack = () => (
     <Stack.Screen
       name="ScreenExportQR"
       component={ScreenExportQR}
+      options={{headerShown: false, animation: 'slide_from_right'}}
+    />
+    <Stack.Screen
+      name="ScreenForDelivery"
+      component={ScreenForDelivery}
       options={{headerShown: false, animation: 'slide_from_right'}}
     />
   </Stack.Navigator>
@@ -724,6 +732,12 @@ const MainStack = () => {
       />
 
       <Stack.Screen
+        name="ScanQRSellerScreen"
+        component={ScanQRSellerScreen}
+        options={{headerShown: false}}
+      />
+      
+      <Stack.Screen
         name="CreateLiveSession"
         component={CreateLiveSessionScreen}
         options={{headerShown: false}}
@@ -901,7 +915,7 @@ function MainTabNavigator() {
       <Tab.Screen name="Home" component={ScreenHome} />
       <Tab.Screen name="Listings" component={ScreenListing} />
       <Tab.Screen name="Sell" component={ScreenSell} />
-  <Tab.Screen name="Orders" component={ScreenOrder} />
+  <Tab.Screen name="Orders" component={OrderScreen} />
       <Tab.Screen name="Delivery" component={DeliveryStack} />
     </Tab.Navigator>
   );

@@ -1,43 +1,36 @@
-import React, {useEffect, useState, useContext} from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useIsFocused } from '@react-navigation/native';
+import React, { useContext, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
   Image,
+  Modal,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  Modal,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
+  View
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useIsFocused} from '@react-navigation/native';
-import changeNavigationBarColor from 'react-native-navigation-bar-color';
-import {globalStyles} from '../../../assets/styles/styles';
-import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
-import NetInfo from '@react-native-community/netinfo';
-import {retryAsync} from '../../../utils/utils';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { globalStyles } from '../../../assets/styles/styles';
+import { AuthContext } from '../../../auth/AuthProvider';
+import { InputSearch } from '../../../components/InputGroup/Left';
+import { retryAsync } from '../../../utils/utils';
 import OrderActionSheet from './components/OrderActionSheet';
-import {InputSearch} from '../../../components/InputGroup/Left';
-import {AuthContext} from '../../../auth/AuthProvider';
 
 import {
+  getListingTypeApi,
   getOrderListingApi,
   getSortApi,
-  getListingTypeApi,
 } from '../../../components/Api';
 
-import LiveIcon from '../../../assets/images/live.svg';
-import AvatarIcon from '../../../assets/images/avatar.svg';
-import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import AvatarIcon from '../../../assets/images/avatar.svg';
+import LiveIcon from '../../../assets/images/live.svg';
 
 import OrderTableList from './components/OrderTableList';
 import OrderTableSkeleton from './components/OrderTableSkeleton';
@@ -370,7 +363,7 @@ const ScreenOrder = ({navigation}) => {
     console.log('📦 Orders Status Tab Changed:', {
       from: active,
       to: pressCode,
-      availableOptions: ['For Delivery', 'Delivered']
+      availableOptions: ['For Delivery', 'Inventory for Hub', 'Received Seller Scanned', 'Received Seller Unscanned', 'Missing', 'Delivered']
     });
     setActive(pressCode);
     resetPaginationState();
@@ -507,7 +500,11 @@ const ScreenOrder = ({navigation}) => {
           }}>
           {[
             {filterKey: 'For Delivery'},
-            {filterKey: 'Delivered'},
+            {filterKey: 'Inventory for Hub'},
+            {filterKey: 'Received Seller Scanned'},
+            {filterKey: 'Received Seller Unscanned'},
+            {filterKey: 'Missing'},
+            {filterKey: 'Damaged'},
           ].map((tab, index) => (
             <TouchableOpacity
               key={index}
