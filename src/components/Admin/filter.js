@@ -13,10 +13,11 @@ import CountryFilter from './countryFilter';
 import GardenFilter from './gardenFilter';
 import PlantFlightFilter from './plantFlightFilter';
 import ReceiverFilter from './receiverFilter';
+import ScanOptions from './scan';
 import SellerFilter from './sellerFilter';
 import SortOptions from './sort';
 
-const FilterBar = ({ onFilterChange, adminFilters }) => {
+const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
   const [filters, setFilters] = useState({
     sort: null,
     flightDate: null,
@@ -25,8 +26,10 @@ const FilterBar = ({ onFilterChange, adminFilters }) => {
     sellerName: null,
     buyerUid: null,
     hubReceiverUserName: null,
+    scan: null,
   });
   const [isSortVisible, setSortVisible] = useState(false);
+  const [isScantVisible, setScanVisible] = useState(false);
   const [isCountryVisible, setCountryVisible] = useState(false);
   const [isFlightVisible, setFlightVisible] = useState(false); 
   const [isGardenVisible, setGardenVisible] = useState(false);
@@ -36,6 +39,14 @@ const FilterBar = ({ onFilterChange, adminFilters }) => {
 
   const onSortPress = (selectedSort) => {
     const updatedFilters = { ...filters, sort: selectedSort === 'Newest' ? 'desc' : 'asc' };
+    setFilters(updatedFilters);
+    if (onFilterChange) {
+      onFilterChange(updatedFilters);
+    }
+  }
+
+  const onScanPress = (selectedSort) => {
+    const updatedFilters = { ...filters, scan: selectedSort };    
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
@@ -97,6 +108,12 @@ const FilterBar = ({ onFilterChange, adminFilters }) => {
           <SortIcon />
           <Text style={styles.filterButtonText}>Sort</Text>
         </TouchableOpacity>
+        {showScan && (
+          <TouchableOpacity style={styles.filterButton} onPress={() => setScanVisible(true)}>
+            <Text style={styles.filterButtonText}>Receipt Status</Text>
+            <DownIcon />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.filterButton} onPress={() => setFlightVisible(true)}>
           <Text style={styles.filterButtonText}>Plant Flight</Text>
           <DownIcon />
@@ -129,6 +146,12 @@ const FilterBar = ({ onFilterChange, adminFilters }) => {
         onApplySort={onSortPress}
       />
 
+      <ScanOptions
+        isVisible={isScantVisible}
+        onClose={() => setScanVisible(false)}
+        onApplyScan={onScanPress}
+      />
+      
       <CountryFilter
         isVisible={isCountryVisible}
         onClose={() => setCountryVisible(false)}
