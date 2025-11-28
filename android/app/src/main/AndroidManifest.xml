@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     
+    <uses-feature android:name="android.software.picture_in_picture" android:required="false" />
+    
     <!-- Foreground service permission for live video streaming -->
     <!-- Only FOREGROUND_SERVICE_CAMERA is needed for Agora live broadcasting -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
@@ -37,7 +39,9 @@
         android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
         android:launchMode="singleTask"
         android:windowSoftInputMode="adjustResize"
-        android:exported="true">
+        android:exported="true"
+        android:resizeableActivity="true"
+        android:supportsPictureInPicture="true">
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -54,6 +58,14 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="ileafu" android:host="payment-cancel" />
         </intent-filter>
+      </activity>
+      <!-- Dedicated PiP Activity used to render only the video surface for PiP -->
+      <activity
+        android:name=".VideoPipActivity"
+        android:exported="false"
+        android:resizeableActivity="true"
+        android:supportsPictureInPicture="true"
+        android:taskAffinity="">
       </activity>
     </application>
 </manifest>

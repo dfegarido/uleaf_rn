@@ -15,6 +15,7 @@ import {
   Alert,
   FlatList,
   Image,
+  NativeModules,
   PermissionsAndroid,
   Platform,
   ScrollView,
@@ -28,7 +29,8 @@ import {
   ChannelProfileType,
   ClientRoleType,
   createAgoraRtcEngine,
-  RtcSurfaceView
+  RtcSurfaceView,
+  RtcTextureView
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
@@ -209,6 +211,53 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const goBack = async () => {
     await removeViewers();
     navigation.goBack();
+  }
+
+  const { PipModule } = NativeModules;
+  const [showOverlays, setShowOverlays] = useState(true);
+  const [inPiP, setInPiP] = useState(false);
+
+  useEffect(() => {
+    // Listen to native PiP mode changes
+    let subscription = null;
+    try {
+      const { DeviceEventEmitter } = require('react-native');
+      subscription = DeviceEventEmitter.addListener('onPipModeChanged', (isInPiP) => {
+        setInPiP(Boolean(isInPiP));
+        // When entering PiP, keep overlays hidden; when exiting, restore
+        setShowOverlays(!isInPiP);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to PiP events', e);
+    }
+
+    return () => {
+      if (subscription) subscription.remove();
+    };
+  }, []);
+
+  const enterPip = () => {
+    if (Platform.OS === 'android') {
+      try {
+        console.log('Attempting to enter PiP (Android)');
+        // Hide overlays so only video is visible in PiP
+        setShowOverlays(false);
+        // Small delay to let UI update before entering PiP
+        setTimeout(() => {
+          // Launch native PiP activity and attach renderer for the current remoteUid
+          if (remoteUid) {
+            PipModule?.startPip(remoteUid);
+          } else {
+            PipModule?.enterPip();
+          }
+        }, 250);
+      } catch (err) {
+        console.warn('PiP enter failed:', err);
+      }
+    } else {
+      // iOS: PiP is handled by system controls for Agora; optionally implement native iOS module if needed
+      console.log('iOS PiP should be triggered via native AVPictureInPictureController or system controls');
+    }
   }
 
   const fetchToken = async () => {
@@ -522,17 +571,17 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         onClose={() => setIsGuideModalVisible(false)}
       />
       <View style={styles.stream}>
-        {joined && remoteUid ? (
-          <RtcSurfaceView
-            style={styles.video}
-            canvas={{
-              uid: remoteUid,
-              renderMode: 1, // FIT mode
-              mirrorMode: 0  // No mirror
-            }}
-            zOrderMediaOverlay={true}
-          />
-        ) : (
+          {joined && remoteUid ? (
+            <RtcTextureView
+              style={styles.video}
+              canvas={{
+                uid: remoteUid,
+                renderMode: 1, // FIT mode
+                mirrorMode: 0  // No mirror
+              }}
+              zOrderMediaOverlay={true}
+            />
+          ) : (
           <View style={styles.connectingContainer}>
             <ActivityIndicator size="large" color="#FFFFFF" />
             <Text style={styles.connectingText}>
@@ -547,124 +596,130 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       {/* Only show UI components when stream is active */}
       {joined && remoteUid && (
         <>
-          <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
-                    <BackSolidIcon width={24} height={24} color="#333" />
-            </TouchableOpacity>
-            <View style={styles.topAction}>
-              <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
-                    <GuideIcon width={19} height={19} />
-                    <Text style={styles.guideText}>Guide</Text>
+          {/* Top bar (hidden in PiP) */}
+          {showOverlays && (
+            <View style={styles.topBar}>
+              <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
+                <BackSolidIcon width={24} height={24} color="#333" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.liveViewer}>
-                    <ViewersIcon width={24} height={24} />
-                    <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
-              </TouchableOpacity>
+              <View style={styles.topAction}>
+                <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
+                  <GuideIcon width={19} height={19} />
+                  <Text style={styles.guideText}>Guide</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.pipButton} onPress={() => enterPip()}>
+                  <Text style={styles.pipText}>PiP</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.liveViewer}>
+                  <ViewersIcon width={24} height={24} />
+                  <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
 
-          {liveStats?.stickyNote && (
+          {/* Sticky note */}
+          {showOverlays && liveStats?.stickyNote && (
             <View style={styles.stickyNoteContainer}>
               <ScrollView showsVerticalScrollIndicator={true}>
                 <Text style={styles.stickyNoteText}>{liveStats.stickyNote}</Text>
               </ScrollView>
             </View>
           )}
-          
-          <View style={styles.actionBar}>
-        <View style={styles.social}>
-          <View style={styles.comments}>
-            <FlatList
-              ref={flatListRef}
-              data={comments}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={styles.commentRow}>
-                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
-                  <View style={styles.commentContent}>
-                    <Text style={styles.chatName}>{item.name}</Text>
-                    <Text style={styles.chatMessage}>{item.message}</Text>
-                  </View>
-                </View>
-              )}
-            />
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Comment"
-              placeholderTextColor="#888"
-              value={newComment}
-              onChangeText={setNewComment}
-              onSubmitEditing={handleSendComment}
-            />
 
-          </View>
-          <View style={styles.sideActions}>
-              {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                <ActiveLoveIcon />
-                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
-              </TouchableOpacity>) : 
-              (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                <LoveIcon />
-                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
-              </TouchableOpacity>
-              )}
-              
-          </View>
-        </View>
-        {activeListing && (<View style={styles.shop}>
-            <View style={styles.plant}>
-              <View style={styles.plantDetails}>
-                <View style={styles.plantName}>
-                  <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
-                  <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
+          {/* Main action area (comments, side actions, shop) */}
+          {showOverlays && (
+            <View style={styles.actionBar}>
+              <View style={styles.social}>
+                <View style={styles.comments}>
+                  <FlatList
+                    ref={flatListRef}
+                    data={comments}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <View style={styles.commentRow}>
+                        <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                        <View style={styles.commentContent}>
+                          <Text style={styles.chatName}>{item.name}</Text>
+                          <Text style={styles.chatMessage}>{item.message}</Text>
+                        </View>
+                      </View>
+                    )}
+                  />
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Comment"
+                    placeholderTextColor="#888"
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    onSubmitEditing={handleSendComment}
+                  />
                 </View>
-                <View style={styles.price}>
-                  <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
-                  {/* Discount logic can be added here if available in data */}
-                      {/* <View style={styles.discount}>
-                        <Text style={styles.discountText}>33% OFF</Text>
-                      </View> */}
+
+                <View style={styles.sideActions}>
+                  {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (
+                    <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                      <ActiveLoveIcon />
+                      <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                      <LoveIcon />
+                      <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-                
               </View>
-              <View style={styles.shipping}>
-                  <View style={styles.shippingType}>
-                    <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
+
+              {/* Shop / listing */}
+              {activeListing ? (
+                <View style={styles.shop}>
+                  <View style={styles.plant}>
+                    <View style={styles.plantDetails}>
+                      <View style={styles.plantName}>
+                        <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
+                        <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
+                      </View>
+                      <View style={styles.price}>
+                        <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.shipping}>
+                      <View style={styles.shippingType}>
+                        <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
+                      </View>
+                      <View style={styles.shipDays}>
+                        <TruckIcon width={24} height={24} />
+                        <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.shipDays}>
-                    <TruckIcon width={24} height={24} />
-                    <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
+
+                  <View style={styles.actionButton}>
+                    {orderStatus === 'pending_payment' && (
+                      <TouchableOpacity onPress={() => {}} style={styles.actionButtonTouch}>
+                        <Text style={styles.actionText}>Pending Payment</Text>
+                      </TouchableOpacity>
+                    )}
+                    {orderStatus === 'Ready to Fly' && (
+                      <TouchableOpacity onPress={() => {}} style={styles.actionButtonTouch}>
+                        <Text style={styles.actionText}>Already Brought</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!orderStatus && (
+                      <TouchableOpacity onPress={() => buyNow()} style={styles.actionButtonTouch}>
+                        <Text style={styles.actionText}>Buy Now</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
+              ) : (
+                <View style={styles.shop}>
+                  <Text style={{ ...baseFont, fontSize: 16, color: '#FFF' }}>No active listing</Text>
+                </View>
+              )}
             </View>
-            <View style={styles.actionButton}>
-              {orderStatus === 'pending_payment' && (
-                <TouchableOpacity onPress={() => {
-                }} style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Pending Payment</Text>
-                </TouchableOpacity>
-              )} 
-
-              {orderStatus === 'Ready to Fly' && (
-                <TouchableOpacity onPress={() => {
-                }} style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Already Brought</Text>
-                </TouchableOpacity>
-              )} 
-
-              {!orderStatus && (
-               <TouchableOpacity onPress={() => {
-                  buyNow();
-                }} style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Buy Now</Text>
-                </TouchableOpacity>
-              )} 
-            </View>
-        </View>)}
-        {!activeListing && (<View style={styles.shop}>
-                      <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
-                    </View>)}
-          </View>
+          )}
         </>
       )}
     </SafeAreaView>
@@ -766,6 +821,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     lineHeight: 22,
+  },
+  pipButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    height: 34,
+    backgroundColor: '#2E2E2E',
+    borderRadius: 12,
+    marginHorizontal: 6,
+  },
+  pipText: {
+    ...baseFont,
+    fontWeight: '600',
+    fontSize: 14,
   },
   actionBar: {
     flexDirection: 'column',

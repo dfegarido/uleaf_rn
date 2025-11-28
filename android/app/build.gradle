@@ -135,6 +135,9 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
+    // Agora native SDK for Android - required for native PiP engine holder usage
+    implementation 'io.agora.rtc:full-sdk:4.5.2'
+
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
