@@ -324,7 +324,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
     try {
       const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
-      console.log('currentUserInfo', currentUserInfo);
       
       await addDoc(commentsCollectionRef, {
         message: commentToSend,
@@ -569,7 +568,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           onRequestClose={() => setStickyNoteModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <View style={styles.stickyNoteModalContainer}>
-              <Text style={styles.modalTitle}>Note</Text>
+              <Text style={styles.modalTitle}>Notes</Text>
               <TextInput
                 style={styles.stickyNoteInput}
                 placeholder="Write a notes for your viewers..."

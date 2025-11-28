@@ -613,11 +613,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
           {showStickyNote && (
             <View style={styles.stickyNoteContainer}>
+              <Text style={styles.stickyNoteTitle}>Notes</Text>
               <TouchableOpacity onPress={() => setShowStickyNote(false)} style={styles.stickyNoteCloseButton}>
                 <CloseIcon width={16} height={16} color="#333" />
               </TouchableOpacity>
               <ScrollView showsVerticalScrollIndicator={true}>
-                <Text style={styles.stickyNoteText}>{liveStats?.stickyNote || 'Notes:'}</Text>
+                <Text style={styles.stickyNoteText}>{liveStats?.stickyNote || ''}</Text>
               </ScrollView>
             </View>
           )}
@@ -735,6 +736,14 @@ const baseFont = {
 };
 
 const styles = StyleSheet.create({
+  stickyNoteTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    fontFamily: 'Inter-Bold',
+    marginBottom: 8,
+    paddingRight: 30, // Ensure title doesn't overlap with close button
+  },
   loadingOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
