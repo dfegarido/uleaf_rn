@@ -16,6 +16,7 @@ import {
   FlatList,
   Image,
   NativeModules,
+  NativeEventEmitter,
   PermissionsAndroid,
   Platform,
   ScrollView,
@@ -41,6 +42,7 @@ import LoveIcon from '../../../assets/live-icon/love.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
+import { useFloatingPlayer } from '../../../contexts/FloatingPlayerContext';
 import {
   addViewerToLiveSession,
   generateAgoraToken,
@@ -54,9 +56,11 @@ import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import GuideModal from './GuideModal'; // Import the new modal
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
+  const { showFloatingPlayer, isVisible: floatingPlayerVisible, markStreamEnded } = useFloatingPlayer();
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
   const [remoteUid, setRemoteUid] = useState(null);
+  const isEnteringFloatingMode = useRef(false);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -210,7 +214,22 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   const goBack = async () => {
     await removeViewers();
-    navigation.goBack();
+    
+    // Stop PiP mode if active (iOS)
+    if (Platform.OS === 'ios' && inPiP && PipModule?.stopPip) {
+      try {
+        await PipModule.stopPip();
+        console.log('Stopped PiP mode on iOS');
+      } catch (err) {
+        console.warn('Failed to stop PiP:', err);
+      }
+    }
+    
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Live');
+    }
   }
 
   const { PipModule } = NativeModules;
@@ -221,12 +240,26 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     // Listen to native PiP mode changes
     let subscription = null;
     try {
-      const { DeviceEventEmitter } = require('react-native');
-      subscription = DeviceEventEmitter.addListener('onPipModeChanged', (isInPiP) => {
-        setInPiP(Boolean(isInPiP));
-        // When entering PiP, keep overlays hidden; when exiting, restore
-        setShowOverlays(!isInPiP);
-      });
+      if (Platform.OS === 'ios') {
+        // iOS uses NativeEventEmitter
+        if (PipModule) {
+          const eventEmitter = new NativeEventEmitter(PipModule);
+          subscription = eventEmitter.addListener('onPipModeChanged', (isInPiP) => {
+            console.log('PiP mode changed (iOS):', isInPiP);
+            setInPiP(Boolean(isInPiP));
+            // On iOS, we don't hide overlays since there's no video PiP
+          });
+        }
+      } else {
+        // Android uses DeviceEventEmitter
+        const { DeviceEventEmitter } = require('react-native');
+        subscription = DeviceEventEmitter.addListener('onPipModeChanged', (isInPiP) => {
+          console.log('PiP mode changed (Android):', isInPiP);
+          setInPiP(Boolean(isInPiP));
+          // When entering PiP, keep overlays hidden; when exiting, restore
+          setShowOverlays(!isInPiP);
+        });
+      }
     } catch (e) {
       console.warn('Failed to subscribe to PiP events', e);
     }
@@ -234,29 +267,47 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     return () => {
       if (subscription) subscription.remove();
     };
-  }, []);
+  }, [PipModule]);
 
-  const enterPip = () => {
-    if (Platform.OS === 'android') {
-      try {
-        console.log('Attempting to enter PiP (Android)');
-        // Hide overlays so only video is visible in PiP
-        setShowOverlays(false);
-        // Small delay to let UI update before entering PiP
-        setTimeout(() => {
-          // Launch native PiP activity and attach renderer for the current remoteUid
-          if (remoteUid) {
-            PipModule?.startPip(remoteUid);
-          } else {
-            PipModule?.enterPip();
-          }
-        }, 250);
-      } catch (err) {
-        console.warn('PiP enter failed:', err);
+  const enterPip = async () => {
+    // Universal floating mini player (works on both iOS and Android)
+    try {
+      console.log('Activating floating mini player');
+      
+      if (!remoteUid || !rtcEngineRef.current) {
+        Alert.alert('Not Ready', 'Please wait for the video to load.');
+        return;
       }
-    } else {
-      // iOS: PiP is handled by system controls for Agora; optionally implement native iOS module if needed
-      console.log('iOS PiP should be triggered via native AVPictureInPictureController or system controls');
+
+      // Set flag to prevent engine cleanup
+      isEnteringFloatingMode.current = true;
+
+      // Prepare stream data for floating player
+      const streamInfo = {
+        sessionId,
+        broadcasterId: brodcasterId,
+        title: activeListing ? `${activeListing.genus || ''} ${activeListing.species || 'Live Stream'}`.trim() : 'Live Stream',
+        viewerCount: liveStats?.viewerCount || 0,
+      };
+
+      // Show the floating player
+      showFloatingPlayer(streamInfo, rtcEngineRef.current, remoteUid);
+      
+      console.log('Floating mini player activated successfully');
+      
+      // Navigate away from live screen AFTER a small delay
+      setTimeout(() => {
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('Live');
+        }
+      }, 100);
+      
+    } catch (err) {
+      isEnteringFloatingMode.current = false;
+      console.warn('Failed to activate floating mini player:', err);
+      Alert.alert('Error', 'Failed to activate mini player');
     }
   }
 
@@ -410,7 +461,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           setRemoteUid(null);
           setSessionEnded(true);
           setViewerCount((prev) => Math.max(prev - 1, 0));
-          navigation.navigate('Live');
+          
+          // If in floating mode, mark stream as ended instead of navigating
+          if (floatingPlayerVisible) {
+            console.log('Marking floating player stream as ended');
+            markStreamEnded();
+          } else {
+            navigation.navigate('Live');
+          }
         },
         onRemoteVideoStateChanged: (uid, state, reason, elapsed) => {
           
@@ -471,6 +529,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     startAgora();
 
     return () => {
+      // Don't cleanup if entering floating mode
+      if (isEnteringFloatingMode.current) {
+        console.log('Skipping engine cleanup - entering floating mode');
+        isEnteringFloatingMode.current = false;
+        return;
+      }
+
       const engine = rtcEngineRef.current;
       if (engine) {
         console.log('Leaving channel and releasing Agora engine');
@@ -478,6 +543,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         engine.unregisterEventHandler();
         engine.release();
         rtcEngineRef.current = null;
+      }
+      
+      // Stop PiP mode if active (iOS cleanup)
+      if (Platform.OS === 'ios' && inPiP && PipModule?.stopPip) {
+        PipModule.stopPip().catch(err => console.warn('Failed to stop PiP on cleanup:', err));
       }
     };
   }, [token, appId, channelName]);
@@ -572,15 +642,27 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       />
       <View style={styles.stream}>
           {joined && remoteUid ? (
-            <RtcTextureView
-              style={styles.video}
-              canvas={{
-                uid: remoteUid,
-                renderMode: 1, // FIT mode
-                mirrorMode: 0  // No mirror
-              }}
-              zOrderMediaOverlay={true}
-            />
+            Platform.OS === 'ios' ? (
+              <RtcSurfaceView
+                style={styles.video}
+                canvas={{
+                  uid: remoteUid,
+                  renderMode: 1, // FIT mode
+                  mirrorMode: 0  // No mirror
+                }}
+                zOrderMediaOverlay={true}
+              />
+            ) : (
+              <RtcTextureView
+                style={styles.video}
+                canvas={{
+                  uid: remoteUid,
+                  renderMode: 1, // FIT mode
+                  mirrorMode: 0  // No mirror
+                }}
+                zOrderMediaOverlay={true}
+              />
+            )
           ) : (
           <View style={styles.connectingContainer}>
             <ActivityIndicator size="large" color="#FFFFFF" />
@@ -608,7 +690,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   <Text style={styles.guideText}>Guide</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.pipButton} onPress={() => enterPip()}>
-                  <Text style={styles.pipText}>PiP</Text>
+                  <Text style={styles.pipText}>Mini</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.liveViewer}>
                   <ViewersIcon width={24} height={24} />

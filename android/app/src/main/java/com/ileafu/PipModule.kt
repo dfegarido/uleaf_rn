@@ -30,6 +30,7 @@ class PipModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
       return
     }
 
+    // Use 9:16 aspect ratio (portrait video)
     val params = PictureInPictureParams.Builder()
       .setAspectRatio(Rational(9, 16))
       .build()
@@ -39,6 +40,9 @@ class PipModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
       try {
         val entered = activity.enterPictureInPictureMode(params)
         Log.d("PipModule", "enterPictureInPictureMode called, result=$entered")
+        if (!entered) {
+          Log.w("PipModule", "enterPictureInPictureMode returned false - PiP may not be supported or permission denied")
+        }
       } catch (ex: Exception) {
         Log.e("PipModule", "enterPip failed", ex)
       }

@@ -84,7 +84,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       } else {
         setIsLive(false);
         setIsLoading(false);
-        navigation.goBack();
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('Live');
+        }
       }
   }
 
@@ -101,7 +105,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             },
             { 
               text: "No",
-              onPress: () => navigation.goBack()
+              onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Live')
             },
             { 
               text: "Cancel",
@@ -201,7 +205,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== 'granted'
         ) {
           Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
-          navigation.goBack();
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Live');
+          }
           return;
         }
       }
