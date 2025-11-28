@@ -32,6 +32,7 @@ import {
   createAgoraRtcEngine,
   RtcSurfaceView
 } from 'react-native-agora';
+import KeepAwake from 'react-native-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
 import CaretDown from '../../../assets/icons/white/caret-down.svg';
@@ -576,6 +577,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     });
     return () => unsubscribe();
   }, [activeListing]);
+
+  // Effect to keep the screen awake during the live stream
+  useEffect(() => {
+    KeepAwake.activate();
+    return () => KeepAwake.deactivate();
+  }, [joined, remoteUid]);
 
   return (
      <SafeAreaView style={styles.container}>

@@ -38,6 +38,7 @@ import LoveIcon from '../../assets/live-icon/love.svg';
 import MicOffIcon from '../../assets/live-icon/muted.svg';
 import MicOnIcon from '../../assets/live-icon/unmuted.svg';
 
+import KeepAwake from 'react-native-keep-awake';
 import CaretDown from '../../assets/icons/white/caret-down.svg';
 import CaretUp from '../../assets/icons/white/caret-up.svg';
 import NoteIcon from '../../assets/live-icon/notes.svg';
@@ -80,6 +81,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
   const [soldToUser, setSoldToUser] = useState(null);
+
+  useEffect(() => {
+      KeepAwake.activate();
+      return () => KeepAwake.deactivate();
+  }, [joined]);
 
   const updateLiveStatus = async (newStatus) => {
     setIsLoading(true);
