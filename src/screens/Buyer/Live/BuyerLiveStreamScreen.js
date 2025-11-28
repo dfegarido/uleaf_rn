@@ -703,8 +703,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
               {orderStatus === 'Ready to Fly' && (
                 <TouchableOpacity onPress={() => {
-                }} style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Sold</Text>
+                }} style={styles.waitingButtonTouch}>
+                  <Text style={styles.actionText}>Awaiting new item</Text>
                 </TouchableOpacity>
               )} 
 
@@ -1058,6 +1058,15 @@ const styles = StyleSheet.create({
     width: 327,
     height: 48,
     backgroundColor: '#539461',
+    borderRadius: 12,
+  },
+  waitingButtonTouch: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
+    width: 327,
+    height: 48,
+    backgroundColor: '#bdc5bfff',
     borderRadius: 12,
   },
   actionText: {
