@@ -79,6 +79,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [brodcasterId, setBrodcasterId] = useState(route.params?.broadcasterId);
   const [plantData, setPlantData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [buyerPendingPayment, setBuyerPendingPayment] = useState(false);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -86,7 +87,23 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       const orderCollectionRef = collection(db, 'order');
       
       const q = query(orderCollectionRef, where('buyerUid', '==' , currentUserInfo?.uid || null), where('listingId', '==' , activeListing?.id || null));
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedOrders = [];
+        querySnapshot.forEach((doc) => {
+          fetchedOrders.push({ id: doc.id, ...doc.data() });
+        });
+        setBuyerPendingPayment(fetchedOrders[0] || {});
+      });
+      
+      return () => unsubscribe();
+  }, [sessionId, activeListing]);
+
+  useEffect(() => {
+      if (!sessionId) return;
   
+      const orderCollectionRef = collection(db, 'order');
+      
+      const q = query(orderCollectionRef, where('listingId', '==' , activeListing?.id || null));
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const fetchedOrders = [];
         querySnapshot.forEach((doc) => {
@@ -96,7 +113,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       });
       
       return () => unsubscribe();
-    }, [sessionId, activeListing]);
+  }, [sessionId, activeListing]);
 
 
   const getDiscountedPrice = () => {
@@ -641,7 +658,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
                 <View style={styles.plantName}>
-                  <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
+                  <Text style={styles.name}>{activeListing.genus}</Text>
+                  <Text style={styles.name}>{activeListing.species}</Text>
                   <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
                 </View>
                 <View style={styles.price}>
@@ -664,7 +682,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 </View>
             </View>
             <View style={styles.actionButton}>
-              {orderStatus === 'pending_payment' && (
+              {buyerPendingPayment?.status === 'pending_payment' && (
                 <TouchableOpacity onPress={() => {
                 }} style={styles.actionButtonTouch}>
                   <Text style={styles.actionText}>Pending Payment</Text>
@@ -674,7 +692,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               {orderStatus === 'Ready to Fly' && (
                 <TouchableOpacity onPress={() => {
                 }} style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Already Brought</Text>
+                  <Text style={styles.actionText}>Sold</Text>
                 </TouchableOpacity>
               )} 
 
@@ -897,7 +915,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     width: 359,
-    height: 182,
+    height: 210,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 16,
   },
@@ -923,7 +941,7 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 13,
     lineHeight: 24,
   },
   variegation: {
@@ -972,6 +990,7 @@ const styles = StyleSheet.create({
   shipping: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 28,
@@ -1007,6 +1026,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 48,

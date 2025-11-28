@@ -502,7 +502,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 <View style={styles.plant}>
                   <View style={styles.plantDetails}>
                     <View style={styles.plantName}>
-                      <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
+                      <Text style={styles.name}>{activeListing.genus}</Text>
+                      <Text style={styles.name}>{activeListing.species}</Text>
                       <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
                     </View>
                     <View style={styles.price}>
@@ -802,7 +803,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     width: 359,
-    height: 182,
+    height: 210,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 16,
   },
@@ -828,7 +829,7 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 13,
     lineHeight: 24,
   },
   variegation: {
@@ -871,6 +872,7 @@ const styles = StyleSheet.create({
   shipping: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 28,
@@ -906,6 +908,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 48,
