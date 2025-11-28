@@ -38,7 +38,11 @@ const LivePurgeScreen = ({navigation, route}) => {
 
   const goBack = async () => {
     await removeViewers();
-    navigation.goBack();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Live');
+    }
   }
 
   useEffect(() => {
@@ -51,7 +55,10 @@ const LivePurgeScreen = ({navigation, route}) => {
         setSessionDetails(data);
         addViewers()
       } else {
-        Alert.alert('Error', 'Session not found.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+        Alert.alert('Error', 'Session not found.', [{ 
+          text: 'OK', 
+          onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Live')
+        }]);
       }
     });
 
@@ -79,7 +86,7 @@ const LivePurgeScreen = ({navigation, route}) => {
       if (remaining === 0) {
         clearInterval(timer);
         Alert.alert('Live Purge Ended', 'This live purge session is now over.', [
-          { text: 'OK', onPress: () => navigation.goBack() },
+          { text: 'OK', onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Live') },
         ]);
       }
     }, 1000);

@@ -124,7 +124,12 @@ const LiveScreen = () => {
   }
 
   const goBack = () => {
-    navigation.goBack();
+    // LiveScreen is a tab screen, so there's nowhere to go back to
+    // Just stay on the current screen or navigate to Shop tab as default
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+    // If can't go back, just stay on this screen (it's a tab)
   }
 
   return (
