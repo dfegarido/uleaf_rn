@@ -79,6 +79,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isJoinListExpanded, setJoinListExpanded] = useState(false);
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
+  const [soldToUser, setSoldToUser] = useState(null);
 
   const updateLiveStatus = async (newStatus) => {
     setIsLoading(true);
@@ -417,6 +418,27 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       return () => unsubscribe();
   }, [sessionId]);
 
+  // Effect to fetch order for the active listing
+  useEffect(() => {
+    if (!activeListing?.id) {
+      setSoldToUser(null); // Reset when there's no active listing
+      return;
+    }
+
+    const orderCollectionRef = collection(db, 'order');
+    const q = query(orderCollectionRef, where('listingId', '==', activeListing.id), where('status', '==', 'Ready to Fly'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const orderData = querySnapshot.docs[0].data();
+        setSoldToUser((orderData?.buyerInfo?.firstName || '')+ ' ' + (orderData?.buyerInfo?.lastName || '')); // Assuming buyerUsername is in the order
+      } else {
+        setSoldToUser(null); // No pending payment order found
+      }
+    });
+    return () => unsubscribe();
+  }, [activeListing]);
+
   return (
        <SafeAreaView style={styles.container}>
         {isLoading && (
@@ -549,6 +571,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
             </View>
           </View>
+          {soldToUser && (
+            <View style={styles.soldToContainer}>
+              <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
+            </View>
+          )}
           {activeListing && (
             <View style={styles.shop}>
                 <View style={styles.plant}>
@@ -766,6 +793,18 @@ const styles = StyleSheet.create({
     gap: 12,
     width: 359,
     height: 353,
+  },
+  soldToContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: -50,
+  },
+  soldToText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   leftColumn: {
     flex: 1,
