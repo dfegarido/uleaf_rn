@@ -118,6 +118,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   const fetchToken = async () => {
     try {
+
       // const response = await generateAgoraToken(channelName);
       const response = {
         token: '007eJxTYAg/aK+8/e7n5znqCzvDGDbWz/9m+fraN0nWRdYa0hv/bD2pwGBkaGlsbG5samlqbmZiYG5kmWpunmpgmWiQZGCUZp5myBCnmdkQyMiw024eAyMUgvjsDJk5qYlpoYYMDADJvR/B',
@@ -323,10 +324,12 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
     try {
       const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+      console.log('currentUserInfo', currentUserInfo);
+      
       await addDoc(commentsCollectionRef, {
         message: commentToSend,
-        name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
-        avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
+        name: `${currentUserInfo.gardenOrCompanyName}`,
+        avatar: currentUserInfo?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
         uid: currentUserInfo.uid,
         createdAt: serverTimestamp(),
       });
@@ -384,7 +387,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
  //get active listing
   useEffect(() => {
       if (!sessionId) return;
-  
+
       const listingsCollectionRef = collection(db, 'listing');
       const q = query(
         listingsCollectionRef,

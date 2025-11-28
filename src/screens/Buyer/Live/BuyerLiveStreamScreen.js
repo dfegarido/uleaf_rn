@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import {
   addDoc,
@@ -82,6 +83,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [buyerPendingPayment, setBuyerPendingPayment] = useState(false);
   const [showStickyNote, setShowStickyNote] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -191,10 +193,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setNewComment(''); // Clear input after sending
       try {
         const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+        
         await addDoc(commentsCollectionRef, {
           message: commentToSend,
-          name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
-          avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
+          name: `${currentUserInfo.username}`,
+          avatar: profilePhotoUrl || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
           uid: currentUserInfo.uid,
           createdAt: serverTimestamp(),
         });
@@ -236,6 +239,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   const fetchToken = async () => {
       try {
+        const buyerAvatar = await AsyncStorage.getItem('profilePhotoUrl');
+        setProfilePhotoUrl(buyerAvatar);
+
         // const response = await generateAgoraToken(channelName);
         // console.log('Fetched token response:', response);
         const response = {
@@ -284,7 +290,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     return () => unsubscribe();
   }, [sessionId, brodcasterId]);
 
-   useEffect(() => {
+  useEffect(() => {
      if (!sessionId) return;
  
      console.log(`Setting up snapshot listener for live session: ${sessionId}`);

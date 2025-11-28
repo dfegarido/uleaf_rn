@@ -1,11 +1,10 @@
 // AuthContext.js
-import React, {createContext, useState, useEffect, useContext} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 // Use Web Firebase SDK to avoid relying on native default app initialization
 import { onIdTokenChanged, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
-import {getBuyerProfileApi} from '../components/Api/buyerProfileApi';
-import {checkMaintenanceApi} from '../components/Api/maintenanceApi';
+import { checkMaintenanceApi } from '../components/Api/maintenanceApi';
 
 export const AuthContext = createContext();
 
