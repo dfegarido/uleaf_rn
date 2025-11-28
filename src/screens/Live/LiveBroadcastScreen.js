@@ -33,7 +33,7 @@ import {
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
-import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import BackSolidIcon from '../../assets/icons/white/caret-left-regular.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
 import MicOffIcon from '../../assets/live-icon/muted.svg';
 import MicOnIcon from '../../assets/live-icon/unmuted.svg';
@@ -118,7 +118,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   const fetchToken = async () => {
     try {
-      const response = await generateAgoraToken(channelName);
+      // const response = await generateAgoraToken(channelName);
+      const response = {
+        token: '007eJxTYAg/aK+8/e7n5znqCzvDGDbWz/9m+fraN0nWRdYa0hv/bD2pwGBkaGlsbG5samlqbmZiYG5kmWpunmpgmWiQZGCUZp5myBCnmdkQyMiw024eAyMUgvjsDJk5qYlpoYYMDADJvR/B',
+        channelName: 'ileafU1',
+        appId: '7212620b0b054407926d0a3dc9c69100',
+        agoraUid: ''
+      }
       console.log('Fetched token response:', response);
       
       setToken(response.token);
@@ -339,6 +345,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     setStickyNoteModalVisible(true);
   };
 
+    const formatViewersLikes = (data) => {
+      // Use 'en-US' locale, compact notation, and 0-1 fraction digits
+      const formatter = new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 1
+      });
+
+      return formatter.format(data);
+    }
+
   const handleSaveStickyNote = async () => {
     if (!sessionId) return;
     setIsLoading(true);
@@ -427,7 +443,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           <>
             <View style={styles.topBar}>
               <TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.backButton}>
-                      <BackSolidIcon width={24} height={24} color="#333" />
+                      <BackSolidIcon width={24} height={24} />
               </TouchableOpacity>
               <View style={styles.topAction}>
                 <TouchableOpacity style={styles.guide} onPress={handleMuteToggle}>
@@ -438,7 +454,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.liveViewer}>
                       <ViewersIcon width={24} height={24} />
-                      <Text style={styles.liveViewerText}>{liveStats.viewerCount}</Text>
+                      <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -463,7 +479,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               <TextInput
                   style={styles.commentInput}
                   placeholder="Comment"
-                  placeholderTextColor="#888"
+                  placeholderTextColor="#fff"
                   value={newComment}
                   onChangeText={setNewComment}
                   onSubmitEditing={handleSendComment}
@@ -473,7 +489,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             <View style={styles.sideActions}>
                 <TouchableOpacity style={styles.sideAction}>
                   <LoveIcon />
-                  <Text style={styles.sideActionText}>{liveStats.likeCount}</Text>
+                  <Text style={styles.sideActionText}>{formatViewersLikes(liveStats?.likeCount || 0)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
                   <NoteIcon width={32} height={32} />
@@ -597,7 +613,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingTop: 8,
+    paddingTop: 1,
     paddingBottom: 34,
     backgroundColor: '#000',
   },
@@ -625,7 +641,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
-    gap: 12,
+    gap: 2,
     width: 375,
     height: 58,
     alignSelf: 'center',
@@ -951,7 +967,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
     elevation: 8,
-    transform: [{ rotate: '-2deg' }], // Slight rotation for effect
+    // transform: [{ rotate: '-2deg' }], // Slight rotation for effect
   },
   modalTitle: {
     fontSize: 20,

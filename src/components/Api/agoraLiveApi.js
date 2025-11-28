@@ -212,6 +212,7 @@ export const removeViewerFromLiveSession = async (sessionId) => {
 export const toggleLoveLiveSession = async (sessionId) => {
   try {
     const token = await getStoredAuthToken();
+    
     const url = `https://us-central1-i-leaf-u.cloudfunctions.net/toggleLoveLiveSession`;
 
     const response = await fetch(url, {
@@ -222,7 +223,7 @@ export const toggleLoveLiveSession = async (sessionId) => {
       },
       body: JSON.stringify({ sessionId }),
     });
-
+    
     return await response.json();
   } catch (error) {
     console.error('toggleLoveLiveSession error:', error.message);

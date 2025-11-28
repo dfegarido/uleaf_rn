@@ -15,6 +15,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   PermissionsAndroid,
   Platform,
   ScrollView,
@@ -32,19 +33,19 @@ import {
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
-import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
 import ActiveLoveIcon from '../../../assets/live-icon/active-love.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
+import NoteIcon from '../../../assets/live-icon/notes.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import {
   addViewerToLiveSession,
-  generateAgoraToken,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,
-  updateLiveSessionStatusApi,
+  updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { retryAsync } from '../../../utils/utils';
@@ -77,6 +78,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [orderStatus, setOrderStatus] = useState(null);
   const [brodcasterId, setBrodcasterId] = useState(route.params?.broadcasterId);
   const [plantData, setPlantData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -207,14 +209,22 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }
 
   const goBack = async () => {
+    setIsLoading(true);
     await removeViewers();
+    setIsLoading(false);
     navigation.goBack();
   }
 
   const fetchToken = async () => {
       try {
-        const response = await generateAgoraToken(channelName);
-        console.log('Fetched token response:', response);
+        // const response = await generateAgoraToken(channelName);
+        // console.log('Fetched token response:', response);
+        const response = {
+        token: '007eJxTYAg/aK+8/e7n5znqCzvDGDbWz/9m+fraN0nWRdYa0hv/bD2pwGBkaGlsbG5samlqbmZiYG5kmWpunmpgmWiQZGCUZp5myBCnmdkQyMiw024eAyMUgvjsDJk5qYlpoYYMDADJvR/B',
+        channelName: 'ileafU1',
+        appId: '7212620b0b054407926d0a3dc9c69100',
+        agoraUid: ''
+      }
         
         setToken(response.token);
         setAppId(response.appId);
@@ -279,6 +289,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     fetchToken();
     const startAgora = async () => {
       if (Platform.OS === 'android') {
+        if (!token) {
+          console.log('Waiting for token...');
+          return;
+        }
+
+
         const permissions = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.CAMERA,
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
@@ -501,6 +517,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   return (
      <SafeAreaView style={styles.container}>
+      {isLoading && (
+                      <Modal transparent animationType="fade">
+                        <View style={styles.loadingOverlay}>
+                          <ActivityIndicator size="large" color="#699E73" />
+                        </View>
+                      </Modal>
+                    )}
        <CheckoutLiveModal
           isVisible={isPlantDetailLiveModalVisible}
           onClose={() => setPlantDetailLiveModalVisible(false)}
@@ -549,7 +572,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         <>
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
-                    <BackSolidIcon width={24} height={24} color="#333" />
+                    <BackSolidIcon width={24} height={24} />
             </TouchableOpacity>
             <View style={styles.topAction}>
               <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
@@ -591,7 +614,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             <TextInput
               style={styles.commentInput}
               placeholder="Comment"
-              placeholderTextColor="#888"
+              placeholderTextColor="#fff"
               value={newComment}
               onChangeText={setNewComment}
               onSubmitEditing={handleSendComment}
@@ -608,7 +631,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
               </TouchableOpacity>
               )}
-              
+              <TouchableOpacity style={styles.sideAction}>
+                <NoteIcon width={32} height={32} />
+                <Text style={styles.sideActionNotesText}>Notes</Text>
+              </TouchableOpacity>
           </View>
         </View>
         {activeListing && (<View style={styles.shop}>
@@ -680,11 +706,23 @@ const baseFont = {
 };
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sideActionNotesText: {
+    ...baseFont,
+    fontWeight: '600',
+    fontSize: 10,
+    marginTop: 4,
+  },
   container: { 
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingTop: 48,
+    paddingTop: 1,
     paddingBottom: 34,
     backgroundColor: '#000',
   },
@@ -712,7 +750,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
-    gap: 12,
+    gap: 2,
     width: 375,
     height: 58,
     alignSelf: 'center',
@@ -885,7 +923,7 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 15,
     lineHeight: 24,
   },
   variegation: {
@@ -963,7 +1001,7 @@ const styles = StyleSheet.create({
   shipText: {
     ...baseFont,
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 11,
     lineHeight: 20,
   },
   actionButton: {
