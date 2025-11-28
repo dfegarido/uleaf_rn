@@ -167,7 +167,7 @@ export const updateLiveSessionStatusApi = async (sessionId, newStatus) => {
   }
 };
 
-export const addViewerToLiveSession = async (sessionId) => {
+export const addViewerToLiveSession = async (sessionId, profilePhotoUrl) => {
   try {
     const token = await getStoredAuthToken();
     const url = `https://us-central1-i-leaf-u.cloudfunctions.net/addViewerToLiveSession`;
@@ -178,7 +178,7 @@ export const addViewerToLiveSession = async (sessionId) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ sessionId }),
+      body: JSON.stringify({ sessionId, profilePhotoUrl }),
     });
 
     return await response.json();

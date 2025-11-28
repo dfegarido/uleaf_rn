@@ -38,6 +38,8 @@ import LoveIcon from '../../assets/live-icon/love.svg';
 import MicOffIcon from '../../assets/live-icon/muted.svg';
 import MicOnIcon from '../../assets/live-icon/unmuted.svg';
 
+import CaretDown from '../../assets/icons/white/caret-down.svg';
+import CaretUp from '../../assets/icons/white/caret-up.svg';
 import NoteIcon from '../../assets/live-icon/notes.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
@@ -74,7 +76,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isLive, setIsLive] = useState(false);
   const flatListRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [isJoinListExpanded, setJoinListExpanded] = useState(false);
+  const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
+  const [lastJoinedUser, setLastJoinedUser] = useState(null);
+
   const updateLiveStatus = async (newStatus) => {
     setIsLoading(true);
     const response = await updateLiveSessionStatusApi(sessionId, newStatus);
@@ -271,18 +276,22 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   useEffect(() => {
     if (!sessionId) return;
 
-    console.log(`Setting up snapshot listener for live session: ${sessionId}`);
     const sessionDocRef = doc(db, 'live', sessionId);
 
     const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
         setSessionDetails(data);
-        console.log('Live session data updated:', data);
         setLiveStats({
           viewerCount: data.viewerCount || 0,
           likeCount: data.likeCount || 0,
         });
+
+        const joinNotifications = data?.joiners || [];
+        
+        setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
+        setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null)
+
         setStickyNoteText(data.stickyNote || '');
       } else {
         console.log('Live session document does not exist.');
@@ -463,6 +472,46 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             
         <View style={styles.actionBar}>
           <View style={styles.social}>
+            <View style={styles.leftColumn}>
+              {lastJoinedUser && (
+                <View style={styles.joinNotificationContainer}>
+                  <TouchableOpacity
+                    style={styles.joinNotificationHeader}
+                    onPress={() => setJoinListExpanded(!isJoinListExpanded)}>
+                    {isJoinListExpanded && (<Text style={styles.joinNotificationText}>
+                        Viewers who joined
+                    </Text>)}
+                    {!isJoinListExpanded &&(<View style={styles.joinedRow}>
+                          <Image source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
+                          <View style={styles.joinedContent}>
+                            <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
+                            <Text style={styles.joinedMessage}>👋 joined</Text>
+                          </View>
+                    </View>)}
+                    {isJoinListExpanded ? <CaretUp width={12} height={12} color="#fff" /> : <CaretDown width={12} height={12} color="#fff" />}
+                  </TouchableOpacity>
+                  {isJoinListExpanded && (
+                    <FlatList
+                      data={uniqueJoinedUsers}
+                      keyExtractor={(item) => item.id}
+                      renderItem={({ item }) => (
+                        // <Text style={styles.joinNotificationText}>
+                        //   {item.displayName} joined 👋
+                        // </Text>
+                 
+                         <View style={styles.commentRow}>
+                          <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+                          <View style={styles.commentContent}>
+                            <Text style={styles.chatName}>{item.displayName}</Text>
+                            <Text style={styles.chatMessage}>👋 joined</Text>
+                          </View>
+                        </View>
+                      )}
+                      style={styles.joinList}
+                    />
+                  )}
+                </View>
+              )}
             <View style={styles.comments}>
               <FlatList
                 ref={flatListRef}
@@ -487,6 +536,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   onSubmitEditing={handleSendComment}
                 />
   
+            </View>
             </View>
             <View style={styles.sideActions}>
                 <TouchableOpacity style={styles.sideAction}>
@@ -717,6 +767,37 @@ const styles = StyleSheet.create({
     width: 359,
     height: 353,
   },
+  leftColumn: {
+    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    height: '100%',
+    marginTop: 250,
+  },
+  joinNotificationContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
+    maxHeight: 180,
+  },
+  joinNotificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  joinNotificationText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Inter',
+    paddingVertical: 2,
+  },
+  joinList: {
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
   comments: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
@@ -724,13 +805,41 @@ const styles = StyleSheet.create({
     gap: 16,
     width: 260,
     height: 453,
-    paddingBottom: 163
+    paddingBottom: 213
   },
   commentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
     width: '100%',
+  },
+  joinedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    width: '90%',
+  },
+  joinedContent: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    width: 118,
+  },
+  joinedName: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#FFF',
+  },
+  joinedMessage: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 22,
+    flexWrap: 'wrap',
+    color: '#fff',
+    height: 'auto',
   },
   avatar: {
     width: 24,
@@ -772,6 +881,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
+    color: '#FFF',
   },
   sideActions: {
     flexDirection: 'column',

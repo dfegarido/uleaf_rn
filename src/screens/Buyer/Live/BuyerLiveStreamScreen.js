@@ -34,7 +34,9 @@ import {
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
+import CaretDown from '../../../assets/icons/white/caret-down.svg';
 import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
+import CaretUp from '../../../assets/icons/white/caret-up.svg';
 import ActiveLoveIcon from '../../../assets/live-icon/active-love.svg';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
@@ -84,6 +86,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [buyerPendingPayment, setBuyerPendingPayment] = useState(false);
   const [showStickyNote, setShowStickyNote] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
+  const [isJoinListExpanded, setJoinListExpanded] = useState(false);
+  const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
+  const [lastJoinedUser, setLastJoinedUser] = useState(null);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -223,7 +228,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }
 
   const addViewers = async () => {
-    await addViewerToLiveSession(sessionId);
+    await addViewerToLiveSession(sessionId, profilePhotoUrl);
   }
 
   const removeViewers = async () => {
@@ -301,6 +306,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
          const data = doc.data();
          console.log('Live session data updated:', data);
          setLiveStats(data);
+
+         const joinNotifications = data?.joiners || [];
+        
+         setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
+         setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null)
        } else {
          console.log('Live session document does not exist.');
        }
@@ -368,7 +378,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         profile: 0, // Standard
         scenario: 1 // Game Streaming
       });
-      setNewComment('Joined 👋');
+      setNewComment('');
       rtc.registerEventHandler({
         onJoinChannelSuccess: (connection, elapsed) => {
           console.log('✅ Joined Channel as viewer:', connection, 'Elapsed:', elapsed);
@@ -570,10 +580,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             totalAmount: unitPrice * 1,
           }}
       />
-      <GuideModal
-        isVisible={isGuideModalVisible}
-        onClose={() => setIsGuideModalVisible(false)}
-      />
+     
       <View style={styles.stream}>
         {joined && remoteUid ? (
           <RtcSurfaceView
@@ -630,7 +637,72 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           
       <View style={styles.actionBar}>
         <View style={styles.social}>
-          <View style={styles.comments}>
+              <View style={styles.leftColumn}>
+                {lastJoinedUser && (
+                  <View style={styles.joinNotificationContainer}>
+                    <TouchableOpacity
+                      style={styles.joinNotificationHeader}
+                      onPress={() => setJoinListExpanded(!isJoinListExpanded)}>
+                      {isJoinListExpanded && (<Text style={styles.joinNotificationText}>
+                          Viewers who joined
+                      </Text>)}
+                      {!isJoinListExpanded &&(<View style={styles.joinedRow}>
+                            <Image source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
+                            <View style={styles.joinedContent}>
+                              <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
+                              <Text style={styles.joinedMessage}>👋 joined</Text>
+                            </View>
+                      </View>)}
+                      {isJoinListExpanded ? <CaretUp width={12} height={12} color="#fff" /> : <CaretDown width={12} height={12} color="#fff" />}
+                    </TouchableOpacity>
+                    {isJoinListExpanded && (
+                      <FlatList
+                        data={uniqueJoinedUsers}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                          // <Text style={styles.joinNotificationText}>
+                          //   {item.displayName} joined 👋
+                          // </Text>
+                        
+                           <View style={styles.commentRow}>
+                            <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+                            <View style={styles.commentContent}>
+                              <Text style={styles.chatName}>{item.displayName}</Text>
+                              <Text style={styles.chatMessage}>👋 joined</Text>
+                            </View>
+                          </View>
+                        )}
+                        style={styles.joinList}
+                      />
+                    )}
+                  </View>
+                )}
+              <View style={styles.comments}>
+                <FlatList
+                  ref={flatListRef}
+                  data={comments}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.commentRow}>
+                      <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                      <View style={styles.commentContent}>
+                        <Text style={styles.chatName}>{item.name}</Text>
+                        <Text style={styles.chatMessage}>{item.message}</Text>
+                      </View>
+                    </View>
+                  )}
+                />
+                <TextInput
+                    style={styles.commentInput}
+                    placeholder="Comment"
+                    placeholderTextColor="#fff"
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    onSubmitEditing={handleSendComment}
+                  />
+            </View>
+          </View>
+          {/* <View style={styles.comments}>
             <FlatList
               ref={flatListRef}
               data={comments}
@@ -654,7 +726,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               onSubmitEditing={handleSendComment}
             />
 
-          </View>
+          </View> */}
           <View style={styles.sideActions}>
               {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
                 <ActiveLoveIcon />
@@ -728,6 +800,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           </View>
         </>
       )}
+       <GuideModal
+        isVisible={isGuideModalVisible}
+        onClose={() => setIsGuideModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -865,6 +941,37 @@ const styles = StyleSheet.create({
     width: 359,
     height: 253,
   },
+    leftColumn: {
+    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    height: '100%',
+    marginTop: 250,
+  },
+  joinNotificationContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
+    maxHeight: 180,
+  },
+  joinNotificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  joinNotificationText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Inter',
+    paddingVertical: 2,
+  },
+  joinList: {
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
   comments: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
@@ -880,6 +987,34 @@ const styles = StyleSheet.create({
     gap: 8,
     width: '100%',
     // marginBottom: 16,
+  },
+    joinedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    width: '90%',
+  },
+  joinedContent: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    width: 118,
+  },
+  joinedName: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#FFF',
+  },
+  joinedMessage: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 22,
+    flexWrap: 'wrap',
+    color: '#fff',
+    height: 'auto',
   },
   avatar: {
     width: 24,
@@ -921,6 +1056,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
+    color: '#FFF',
   },
   sideActions: {
     flexDirection: 'column',
