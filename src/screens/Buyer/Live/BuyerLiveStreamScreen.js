@@ -35,6 +35,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
 import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
 import ActiveLoveIcon from '../../../assets/live-icon/active-love.svg';
+import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
 import NoteIcon from '../../../assets/live-icon/notes.svg';
@@ -80,6 +81,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [plantData, setPlantData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [buyerPendingPayment, setBuyerPendingPayment] = useState(false);
+  const [showStickyNote, setShowStickyNote] = useState(false);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -603,10 +605,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             </View>
           </View>
 
-          {liveStats?.stickyNote && (
+          {showStickyNote && (
             <View style={styles.stickyNoteContainer}>
+              <TouchableOpacity onPress={() => setShowStickyNote(false)} style={styles.stickyNoteCloseButton}>
+                <CloseIcon width={16} height={16} color="#333" />
+              </TouchableOpacity>
               <ScrollView showsVerticalScrollIndicator={true}>
-                <Text style={styles.stickyNoteText}>{liveStats.stickyNote}</Text>
+                <Text style={styles.stickyNoteText}>{liveStats?.stickyNote || 'Notes:'}</Text>
               </ScrollView>
             </View>
           )}
@@ -648,7 +653,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
               </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.sideAction}>
+              <TouchableOpacity onPress={() => setShowStickyNote(!showStickyNote)} style={styles.sideAction}>
                 <NoteIcon width={32} height={32} />
                 <Text style={styles.sideActionNotesText}>Notes</Text>
               </TouchableOpacity>
@@ -1050,8 +1055,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 140,
     right: 10,
-    maxHeight: 150,
-    width: '45%', // Occupy a portion of the right side
+    maxHeight: 200,
+    width: '60%', // Occupy a portion of the right side
     backgroundColor: 'rgba(255, 249, 196, 0.9)', // Yellowish sticky note color
     padding: 12,
     borderRadius: 8,
@@ -1062,11 +1067,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    transform: [{ rotate: '2deg' }], // Slight rotation for effect
+    // transform: [{ rotate: '2deg' }], // Slight rotation for effect
   },
   stickyNoteText: {
     color: '#333',
     fontSize: 14,
     fontFamily: 'Inter',
+  },
+  stickyNoteCloseButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 12,
+    padding: 4,
   },
 });
