@@ -342,6 +342,7 @@ export const validateDiscountCodeApi = async (code, cartItems, buyerId) => {
       code: code.trim().toUpperCase(),
       cartItems: cartItems.map(item => ({
         plantCode: item.plantCode,
+        listingId: item.listingId || null, // Include listingId for discount validation
         quantity: item.quantity || 1,
         price: item.price || item.unitPrice || 0,
         listingType: item.listingType,

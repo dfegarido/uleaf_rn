@@ -467,7 +467,7 @@ const OrderSummary = ({
                   <PlantVioletIcon width={32} height={32} />
                 </View>
                 <Text style={[styles.iconLabel, styles.plantIconLabel]}>
-                  {orderSummary.isBuyXGetYDiscount ? 'Free Plants' : 'Plant Credits'}
+                  {orderSummary.isBuyXGetYDiscount ? 'Free Plants' : 'Plant.'}
                 </Text>
               </View>
 
@@ -475,23 +475,25 @@ const OrderSummary = ({
               <TouchableOpacity
                 style={styles.toggle}
                 onPress={onTogglePlantCredits}
-                disabled={orderSummary.isBuyXGetYDiscount}>
+                disabled={orderSummary.isBuyXGetYDiscount || orderSummary.codeDiscount > 0}>
                 <View style={styles.toggleText}>
                   <Text
                     style={
-                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount)
+                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount || orderSummary.codeDiscount > 0)
                         ? styles.toggleOnLabel
                         : styles.toggleOffLabel
                     }>
-                    {(plantCreditsEnabled || orderSummary.isBuyXGetYDiscount) ? '+' : '-'}
+                    {(plantCreditsEnabled || orderSummary.isBuyXGetYDiscount || orderSummary.codeDiscount > 0) ? '+' : '-'}
                   </Text>
                   <Text
                     style={
-                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount)
+                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount || orderSummary.codeDiscount > 0)
                         ? styles.toggleOnNumber
                         : styles.toggleOffNumber
                     }>
-                    {(plantCreditsEnabled || orderSummary.isBuyXGetYDiscount)
+                    {orderSummary.codeDiscount > 0
+                      ? formatCurrencyFull(orderSummary.codeDiscount)
+                      : (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount)
                       ? formatCurrencyFull(plantCredits + (orderSummary.buyXGetYDiscount || 0))
                       : formatCurrencyFull(0)}
                   </Text>
@@ -499,12 +501,12 @@ const OrderSummary = ({
                 <View
                   style={[
                     styles.switchContainer,
-                    (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount) && styles.switchContainerActive,
+                    (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount || orderSummary.codeDiscount > 0) && styles.switchContainerActive,
                   ]}>
                   <View
                     style={[
                       styles.switchKnob,
-                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount) && styles.switchKnobActive,
+                      (plantCreditsEnabled || orderSummary.isBuyXGetYDiscount || orderSummary.codeDiscount > 0) && styles.switchKnobActive,
                     ]}
                   />
                 </View>

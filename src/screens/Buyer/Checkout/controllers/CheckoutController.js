@@ -335,6 +335,7 @@ export const useCheckoutController = () => {
         quantity: quantity,
         selectedPotSize: selectedPotSize,
         plantCode: plantCode || plantData.plantCode,
+        listingId: plantData.listingId || plantData.id || null, // Preserve listingId for discount validation
         totalAmount: totalAmount,
         // Extract flight date from multiple possible locations
         plantFlightDate: plantData.plantFlightDate || plantData.flightDate || plantData.listingDetails?.plantFlightDate,
@@ -471,6 +472,7 @@ export const useCheckoutController = () => {
           quantity: cartItem.quantity,
           selectedPotSize: cartItem.selectedPotSize,
           plantCode: cartItem.plantCode,
+          listingId: cartItem.listingId || null, // Preserve listingId for discount validation
           totalAmount: cartItem.totalAmount || (cartItem.price || cartItem.listingDetails?.price || 0) * (cartItem.quantity || 1),
           flightDates: flightDates,
           // Ensure all needed fields are present for PlantItemComponent
@@ -597,6 +599,7 @@ export const useCheckoutController = () => {
         quantity: cartItem.quantity,
         selectedPotSize: cartItem.selectedPotSize,
         plantCode: product?.plantCode || cartItem.plantCode,
+        listingId: cartItem.listingId || product?.listingId || null, // Preserve listingId for discount validation
         totalAmount: cartItem.totalAmount || (product?.price || cartItem.price || cartItem.listingDetails?.price || 0) * (cartItem.quantity || 1),
         flightDates: flightDates, // Ensure flightDates is preserved
         // Ensure all needed fields are present for PlantItemComponent
@@ -2400,8 +2403,27 @@ export const useCheckoutController = () => {
                           item.listingDetails?.sellerCode || 
                           '';
 
+        // Get listingId - try multiple sources
+        let listingId = null;
+        if (item.listingId) {
+          listingId = item.listingId;
+        } else if (cartItems && cartItems.length > 0) {
+          const originalCartItem = cartItems.find(ci => ci?.plantCode === item.plantCode);
+          if (originalCartItem) {
+            listingId = originalCartItem.listingId || null;
+          }
+        }
+        // Also check productData if available
+        if (!listingId && productData && productData.length > 0) {
+          const originalProduct = productData.find(p => p?.plantCode === item.plantCode);
+          if (originalProduct) {
+            listingId = originalProduct.listingId || null;
+          }
+        }
+
         const cartItem = {
           plantCode: item.plantCode,
+          listingId: listingId, // Include listingId for discount validation
           quantity: item.quantity || 1,
           price: price,
           listingType: listingType,
