@@ -313,6 +313,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   useEffect(() => {
     fetchToken();
     const startAgora = async () => {
+      if (!token) {
+          console.log('Waiting for token...');
+          return;
+      }
+
       if (Platform.OS === 'android') {
         if (!token) {
           console.log('Waiting for token...');
@@ -623,7 +628,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             </View>
           )}
           
-          <View style={styles.actionBar}>
+      <View style={styles.actionBar}>
         <View style={styles.social}>
           <View style={styles.comments}>
             <FlatList
@@ -873,9 +878,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    width: 260,
-    height: 41,
-    marginVertical: 15,
+    width: '100%',
+    // marginBottom: 16,
   },
   avatar: {
     width: 24,
@@ -889,19 +893,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 2,
     width: 228,
-    height: 41,
   },
   chatName: {
     ...baseFont,
     fontWeight: '500',
     fontSize: 12,
     lineHeight: 17,
+    color: '#fff',
   },
   chatMessage: {
     ...baseFont,
     fontWeight: '500',
-    fontSize: 16,
+    fontSize: 13,
     lineHeight: 22,
+    flexWrap: 'wrap',
+    color: '#fff',
+    height: 'auto',
   },
   commentInput: {
     flexDirection: 'row',
