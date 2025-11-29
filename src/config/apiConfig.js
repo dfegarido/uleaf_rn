@@ -310,8 +310,11 @@ const generateEndpoints = () => ({
   GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getAdminFlightChangeRequests`,
   UPDATE_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/updateFlightChangeRequest`,
 
-  // Flight Schedule endpoint
+  // Flight Schedule endpoints
   GET_FLIGHT_SCHEDULE: `${getBaseUrl()}/getFlightSchedule`,
+  UPDATE_FLIGHT_DATE_STATUS: `${getBaseUrl()}/updateFlightDateStatus`,
+  UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getBaseUrl()}/updateFlightDateForSchedule`,
+  GET_ACTIVE_FLIGHT_DATES: `${getBaseUrl()}/getActiveFlightDates`,
 
   // Delivery Export endpoint
   DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,

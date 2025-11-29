@@ -10,6 +10,7 @@ import { calculateCheckoutShippingJoinerApi } from '../../../../components/Api/c
 import { validateDiscountCodeApi } from '../../../../components/Api/discountApi';
 import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileApi';
 import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
+import { getActiveFlightDatesApi } from '../../../../components/Api/getActiveFlightDatesApi';
 import { roundToCents } from '../../../../utils/money';
 
 /**
@@ -804,15 +805,20 @@ export const useCheckoutController = () => {
   }, [plantItems]);
 
   // Flight date options - generate Saturdays with Thailand-specific rule
-  const flightDateOptions = useMemo(() => {
-    console.log('🔍 [flightDateOptions] Starting generation...', {
+  // State to hold flight date options from API
+  const [flightDateOptions, setFlightDateOptions] = useState([]);
+  const [isLoadingFlightDates, setIsLoadingFlightDates] = useState(false);
+
+  // Calculate the starting Saturday based on existing logic
+  const calculateStartingSaturday = useCallback(() => {
+    console.log('🔍 [calculateStartingSaturday] Starting calculation...', {
       plantItemsLength: plantItems.length,
       isThailandPlant,
     });
 
     if (!plantItems.length) {
-      console.log('⚠️ [flightDateOptions] No plantItems, returning empty array');
-      return [];
+      console.log('⚠️ [calculateStartingSaturday] No plantItems, returning null');
+      return null;
     }
 
     let startSaturday;
@@ -975,42 +981,89 @@ export const useCheckoutController = () => {
       console.log('🔍 [flightDateOptions] Next Saturday from start date:', startSaturday.toISOString());
     }
 
-    // Generate 3 Saturday options starting from the startSaturday
-    const options = [];
+    // Return the starting Saturday as ISO date string
+    const year = startSaturday.getFullYear();
+    const month = String(startSaturday.getMonth() + 1).padStart(2, '0');
+    const day = String(startSaturday.getDate()).padStart(2, '0');
+    const iso = `${year}-${month}-${day}`;
+
+    console.log('✅ [calculateStartingSaturday] Calculated starting Saturday:', iso);
+    return iso;
+  }, [plantItems, isThailandPlant, lockedFlightDate, parseFlightDate, getNextSaturday]);
+
+  // Fetch active flight dates from API
+  useEffect(() => {
+    const fetchActiveFlightDates = async () => {
+      const startDateISO = calculateStartingSaturday();
+      
+      if (!startDateISO) {
+        console.log('⚠️ [fetchActiveFlightDates] No start date calculated, skipping API call');
+        setFlightDateOptions([]);
+        return;
+      }
+
+      try {
+        setIsLoadingFlightDates(true);
+        console.log('📅 [fetchActiveFlightDates] Calling API with start date:', startDateISO);
+
+        const response = await getActiveFlightDatesApi(startDateISO, 3);
+
+        if (response.success && response.data?.activeDates) {
+          const activeDates = response.data.activeDates;
+          console.log('✅ [fetchActiveFlightDates] Received active dates:', activeDates);
+          setFlightDateOptions(activeDates);
+        } else {
+          console.error('❌ [fetchActiveFlightDates] API returned no active dates');
+          // Fallback: generate 3 consecutive Saturdays as before
+          const fallbackOptions = generateFallbackOptions(startDateISO);
+          setFlightDateOptions(fallbackOptions);
+        }
+      } catch (error) {
+        console.error('❌ [fetchActiveFlightDates] Error fetching active dates:', error);
+        // Fallback: generate 3 consecutive Saturdays as before
+        const fallbackOptions = generateFallbackOptions(startDateISO);
+        setFlightDateOptions(fallbackOptions);
+      } finally {
+        setIsLoadingFlightDates(false);
+      }
+    };
+
+    fetchActiveFlightDates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plantItems.length, isThailandPlant, lockedFlightDate]);
+
+  // Fallback function to generate 3 consecutive Saturdays (old logic)
+  const generateFallbackOptions = useCallback((startDateISO) => {
+    console.log('🔄 [generateFallbackOptions] Generating fallback options from:', startDateISO);
     
-    console.log('🔍 [flightDateOptions] Generating Saturday options...');
+    const [year, month, day] = startDateISO.split('-').map(Number);
+    const startSaturday = new Date(year, month - 1, day);
+    
+    const options = [];
     for (let i = 0; i < 3; i++) {
       const saturday = new Date(startSaturday);
       saturday.setDate(startSaturday.getDate() + (i * 7));
       
-      // Include all Saturdays (past, current, future) - all should be clickable
-      // Use local date components to avoid timezone issues with toISOString()
-      const year = saturday.getFullYear();
-      const month = String(saturday.getMonth() + 1).padStart(2, '0');
-      const day = String(saturday.getDate()).padStart(2, '0');
-      const iso = `${year}-${month}-${day}`;
+      const y = saturday.getFullYear();
+      const m = String(saturday.getMonth() + 1).padStart(2, '0');
+      const d = String(saturday.getDate()).padStart(2, '0');
+      const iso = `${y}-${m}-${d}`;
       const label = formatDateLabel(saturday);
       const key = normalizeFlightKey(label);
       
-      const option = {
+      options.push({
         date: label,
         iso: iso,
         key: key,
         label: label,
         displayLabel: label,
         value: label,
-      };
-      
-      options.push(option);
-      console.log(`✅ [flightDateOptions] Generated option ${i}:`, option);
+      });
     }
-
-    console.log('🎯 [flightDateOptions] Final options array:', options);
-    console.log('🎯 [flightDateOptions] Options count:', options.length);
-    console.log('🎯 [flightDateOptions] First suggested Saturday:', options[0]?.iso);
-
+    
+    console.log('✅ [generateFallbackOptions] Generated fallback options:', options);
     return options;
-  }, [plantItems, isThailandPlant, lockedFlightDate, normalizeFlightKey, formatFlightDateToISO, parseFlightDate, getNextSaturday, formatDateLabel]);
+  }, [formatDateLabel, normalizeFlightKey]);
 
   // Flight lock info
   const flightLockInfo = useMemo(() => {
