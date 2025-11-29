@@ -57,6 +57,7 @@ import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import GuideModal from './GuideModal'; // Import the new modal
+import ShopModal from './ShopModal';
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
@@ -81,6 +82,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [plantDataCountry, setPlantDataCountry] = useState(null);
   const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
   const [isGuideModalVisible, setIsGuideModalVisible] = useState(false);
+  const [isShopModalVisible, setIsShopModalVisible] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null);
   const [brodcasterId, setBrodcasterId] = useState(route.params?.broadcasterId);
   const [plantData, setPlantData] = useState(null);
@@ -542,7 +544,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   };
 
   const buyNow = async () => {
-    removeViewers();
+    // removeViewers();
     navigation.navigate('CheckoutScreen', {
             fromBuyNow: true,
             plantData: {
@@ -585,6 +587,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     return () => KeepAwake.deactivate();
   }, [joined, remoteUid]);
 
+  const handleBuyFromShop = (item) => {
+    // Logic to handle buying an item from the shop modal
+    console.log('Buying item from shop:', item);
+    // You can navigate to checkout or show another modal here
+  };
   return (
      <SafeAreaView style={styles.container}>
       {isLoading && (
@@ -771,7 +778,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 <NoteIcon width={32} height={32} />
                 <Text style={styles.sideActionNotesText}>Notes</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowStickyNote(!showStickyNote)} style={styles.sideAction}>
+              <TouchableOpacity style={styles.sideAction} onPress={() => setIsShopModalVisible(true)}>
                  <ShopIcon width={32} height={32} />
                 <Text style={styles.sideActionNotesText}>Shop</Text>
               </TouchableOpacity>
@@ -844,6 +851,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
        <GuideModal
         isVisible={isGuideModalVisible}
         onClose={() => setIsGuideModalVisible(false)}
+      />
+      <ShopModal
+        isVisible={isShopModalVisible}
+        onClose={() => setIsShopModalVisible(false)}
+        broadcasterId={brodcasterId}
+        onBuyNow={handleBuyFromShop}
       />
     </SafeAreaView>
   );
