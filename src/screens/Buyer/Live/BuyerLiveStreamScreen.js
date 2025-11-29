@@ -1270,16 +1270,17 @@ const styles = StyleSheet.create({
     right: 10,
     maxHeight: 200,
     width: '60%', // Occupy a portion of the right side
-    backgroundColor: 'rgba(255, 249, 196, 0.9)', // Yellowish sticky note color
+    backgroundColor: '#FFE7E2', // Yellowish sticky note color
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E9D5A1',
+    borderColor: '#e7c2bbff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    zIndex: 10,
     // transform: [{ rotate: '2deg' }], // Slight rotation for effect
   },
   stickyNoteText: {
