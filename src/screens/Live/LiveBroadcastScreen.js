@@ -82,6 +82,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
   const [soldToUser, setSoldToUser] = useState(null);
+  const [isCommentFocused, setIsCommentFocused] = useState(false);
 
   useEffect(() => {
       KeepAwake.activate();
@@ -565,12 +566,16 @@ console.log('activeListing?.id', activeListing?.id);
                 )}
               />
               <TextInput
-                  style={styles.commentInput}
+                  style={[styles.commentInput, isCommentFocused && styles.commentInputFocused]}
                   placeholder="Comment"
                   placeholderTextColor="#fff"
                   value={newComment}
                   onChangeText={setNewComment}
                   onSubmitEditing={handleSendComment}
+                  onFocus={() => setIsCommentFocused(true)}
+                  onBlur={() => setIsCommentFocused(false)}
+                  multiline
+                  blurOnSubmit={true}
                 />
   
             </View>
@@ -691,6 +696,10 @@ const baseFont = {
 };
 
 const styles = StyleSheet.create({
+  commentInputFocused: {
+    height: 80, // Or another height that fits multiple lines
+    textAlignVertical: 'top', // Align text to the top
+  },
   loadingOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

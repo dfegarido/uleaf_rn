@@ -94,6 +94,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
   const [soldToUser, setSoldToUser] = useState(null);
+  const [isCommentFocused, setIsCommentFocused] = useState(false);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -735,12 +736,16 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   )}
                 />
                 <TextInput
-                    style={styles.commentInput}
+                    style={[styles.commentInput, isCommentFocused && styles.commentInputFocused]}
                     placeholder="Comment"
                     placeholderTextColor="#fff"
                     value={newComment}
                     onChangeText={setNewComment}
                     onSubmitEditing={handleSendComment}
+                    onFocus={() => setIsCommentFocused(true)}
+                    onBlur={() => setIsCommentFocused(false)}
+                    multiline
+                    blurOnSubmit={true}
                   />
             </View>
           </View>
@@ -1128,6 +1133,10 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     borderRadius: 12,
     color: '#FFF',
+  },
+  commentInputFocused: {
+    height: 80, // Or another height that fits multiple lines
+    textAlignVertical: 'top', // Align text to the top
   },
   sideActions: {
     flexDirection: 'column',
