@@ -18,8 +18,6 @@ import {
   FlatList,
   Image,
   Modal,
-  PermissionsAndroid,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -332,22 +330,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           return;
       }
 
-      if (Platform.OS === 'android') {
-        const permissions = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        ]);
-      
-        if (
-          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] !== 'granted' ||
-          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== 'granted'
-        ) {
-          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
-          navigation.goBack();
-          return;
-        }
-      }
-      
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
