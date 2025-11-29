@@ -10,6 +10,7 @@ import { calculateCheckoutShippingJoinerApi } from '../../../../components/Api/c
 import { validateDiscountCodeApi } from '../../../../components/Api/discountApi';
 import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileApi';
 import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
+import { getActiveFlightDatesApi } from '../../../../components/Api/getActiveFlightDatesApi';
 import { roundToCents } from '../../../../utils/money';
 
 /**
@@ -335,6 +336,7 @@ export const useCheckoutController = () => {
         quantity: quantity,
         selectedPotSize: selectedPotSize,
         plantCode: plantCode || plantData.plantCode,
+        listingId: plantData.listingId || plantData.id || null, // Preserve listingId for discount validation
         totalAmount: totalAmount,
         // Extract flight date from multiple possible locations
         plantFlightDate: plantData.plantFlightDate || plantData.flightDate || plantData.listingDetails?.plantFlightDate,
@@ -363,6 +365,9 @@ export const useCheckoutController = () => {
         country: plantData.country || plantData.listingDetails?.country || 'TH',
         shippingMethod: plantData.shippingMethod || 'Plant / UPS Ground Shipping',
         hasAirCargo: plantData.hasAirCargo || plantData.listingDetails?.hasAirCargo || false,
+        // Store genus and species explicitly for discount validation
+        genus: plantData.genus || plantData.listingDetails?.genus || '',
+        species: plantData.species || plantData.listingDetails?.species || '',
         // Ensure id exists for key prop in PlantList
         id: plantData.id || plantData.plantCode || `plant-${Date.now()}`,
       };
@@ -468,6 +473,7 @@ export const useCheckoutController = () => {
           quantity: cartItem.quantity,
           selectedPotSize: cartItem.selectedPotSize,
           plantCode: cartItem.plantCode,
+          listingId: cartItem.listingId || null, // Preserve listingId for discount validation
           totalAmount: cartItem.totalAmount || (cartItem.price || cartItem.listingDetails?.price || 0) * (cartItem.quantity || 1),
           flightDates: flightDates,
           // Ensure all needed fields are present for PlantItemComponent
@@ -484,6 +490,23 @@ export const useCheckoutController = () => {
           country: cartItem.country || cartItem.listingDetails?.country || 'TH',
           shippingMethod: cartItem.shippingMethod || 'Plant / UPS Ground Shipping',
           hasAirCargo: cartItem.hasAirCargo || cartItem.listingDetails?.hasAirCargo || false,
+          // Store genus and species explicitly for discount validation
+          // Note: listingDetails is spread above, so species might already be at root level
+          // But we explicitly set it to ensure it's always present
+          genus: cartItem.genus || cartItem.listingDetails?.genus || '',
+          species: cartItem.species || cartItem.listingDetails?.species || (() => {
+            // If species is still not found, try to parse from name
+            const name = cartItem.name || cartItem.listingDetails?.title || cartItem.listingDetails?.name || '';
+            if (name) {
+              const nameParts = name.trim().split(/\s+/);
+              if (nameParts.length >= 2) {
+                // For names like "ALOCASIA AMAZONICA RESERVED FOR ST-GA"
+                // The species is everything after the first word (genus)
+                return nameParts.slice(1).join(' ').trim();
+              }
+            }
+            return '';
+          })(),
           // Ensure id exists for key prop
           id: cartItem.id || cartItem.plantCode || `cart-${index}`,
         };
@@ -577,6 +600,7 @@ export const useCheckoutController = () => {
         quantity: cartItem.quantity,
         selectedPotSize: cartItem.selectedPotSize,
         plantCode: product?.plantCode || cartItem.plantCode,
+        listingId: cartItem.listingId || product?.listingId || null, // Preserve listingId for discount validation
         totalAmount: cartItem.totalAmount || (product?.price || cartItem.price || cartItem.listingDetails?.price || 0) * (cartItem.quantity || 1),
         flightDates: flightDates, // Ensure flightDates is preserved
         // Ensure all needed fields are present for PlantItemComponent
@@ -593,6 +617,9 @@ export const useCheckoutController = () => {
         country: product?.country || cartItem.country || cartItem.listingDetails?.country || 'TH',
         shippingMethod: product?.shippingMethod || cartItem.shippingMethod || 'Plant / UPS Ground Shipping',
         hasAirCargo: product?.hasAirCargo || cartItem.hasAirCargo || product?.listingDetails?.hasAirCargo || cartItem.listingDetails?.hasAirCargo || false,
+        // Store genus and species explicitly for discount validation
+        genus: product?.genus || cartItem.genus || product?.listingDetails?.genus || cartItem.listingDetails?.genus || '',
+        species: product?.species || cartItem.species || product?.listingDetails?.species || cartItem.listingDetails?.species || '',
         // Ensure id exists for key prop
         id: cartItem.id || product?.id || cartItem.plantCode || product?.plantCode || `item-${Date.now()}`,
       };
@@ -736,6 +763,10 @@ export const useCheckoutController = () => {
     const isBuyXGetYDiscount = appliedDiscount.discountDetails?.type === 'buyXGetY';
     const buyXGetYDiscountAmount = isBuyXGetYDiscount ? codeDiscount : 0;
 
+    // Check if Event Gift discount is applied
+    const isEventGiftDiscount = appliedDiscount.discountDetails?.type === 'eventGift' || appliedDiscount.discountDetails?.type === 'eventGiftFixed';
+    const eventGiftDiscountAmount = isEventGiftDiscount ? codeDiscount : 0;
+
     return {
       subtotal: roundToCents(subtotal),
       discount: roundToCents(totalDiscount),
@@ -743,6 +774,8 @@ export const useCheckoutController = () => {
       shippingDiscount: roundToCents(shippingDiscount),
       freeShippingDiscount: roundToCents(freeShippingDiscount),
       isFreeShippingDiscount: appliedDiscount.discountDetails?.type === 'freeShipping',
+      eventGiftDiscount: roundToCents(eventGiftDiscountAmount),
+      isEventGiftDiscount: isEventGiftDiscount,
       buyXGetYDiscount: roundToCents(buyXGetYDiscountAmount),
       isBuyXGetYDiscount: isBuyXGetYDiscount,
       shipping: roundToCents(shippingTotal),
@@ -772,15 +805,20 @@ export const useCheckoutController = () => {
   }, [plantItems]);
 
   // Flight date options - generate Saturdays with Thailand-specific rule
-  const flightDateOptions = useMemo(() => {
-    console.log('🔍 [flightDateOptions] Starting generation...', {
+  // State to hold flight date options from API
+  const [flightDateOptions, setFlightDateOptions] = useState([]);
+  const [isLoadingFlightDates, setIsLoadingFlightDates] = useState(false);
+
+  // Calculate the starting Saturday based on existing logic
+  const calculateStartingSaturday = useCallback(() => {
+    console.log('🔍 [calculateStartingSaturday] Starting calculation...', {
       plantItemsLength: plantItems.length,
       isThailandPlant,
     });
 
     if (!plantItems.length) {
-      console.log('⚠️ [flightDateOptions] No plantItems, returning empty array');
-      return [];
+      console.log('⚠️ [calculateStartingSaturday] No plantItems, returning null');
+      return null;
     }
 
     let startSaturday;
@@ -943,42 +981,89 @@ export const useCheckoutController = () => {
       console.log('🔍 [flightDateOptions] Next Saturday from start date:', startSaturday.toISOString());
     }
 
-    // Generate 3 Saturday options starting from the startSaturday
-    const options = [];
+    // Return the starting Saturday as ISO date string
+    const year = startSaturday.getFullYear();
+    const month = String(startSaturday.getMonth() + 1).padStart(2, '0');
+    const day = String(startSaturday.getDate()).padStart(2, '0');
+    const iso = `${year}-${month}-${day}`;
+
+    console.log('✅ [calculateStartingSaturday] Calculated starting Saturday:', iso);
+    return iso;
+  }, [plantItems, isThailandPlant, lockedFlightDate, parseFlightDate, getNextSaturday]);
+
+  // Fetch active flight dates from API
+  useEffect(() => {
+    const fetchActiveFlightDates = async () => {
+      const startDateISO = calculateStartingSaturday();
+      
+      if (!startDateISO) {
+        console.log('⚠️ [fetchActiveFlightDates] No start date calculated, skipping API call');
+        setFlightDateOptions([]);
+        return;
+      }
+
+      try {
+        setIsLoadingFlightDates(true);
+        console.log('📅 [fetchActiveFlightDates] Calling API with start date:', startDateISO);
+
+        const response = await getActiveFlightDatesApi(startDateISO, 3);
+
+        if (response.success && response.data?.activeDates) {
+          const activeDates = response.data.activeDates;
+          console.log('✅ [fetchActiveFlightDates] Received active dates:', activeDates);
+          setFlightDateOptions(activeDates);
+        } else {
+          console.error('❌ [fetchActiveFlightDates] API returned no active dates');
+          // Fallback: generate 3 consecutive Saturdays as before
+          const fallbackOptions = generateFallbackOptions(startDateISO);
+          setFlightDateOptions(fallbackOptions);
+        }
+      } catch (error) {
+        console.error('❌ [fetchActiveFlightDates] Error fetching active dates:', error);
+        // Fallback: generate 3 consecutive Saturdays as before
+        const fallbackOptions = generateFallbackOptions(startDateISO);
+        setFlightDateOptions(fallbackOptions);
+      } finally {
+        setIsLoadingFlightDates(false);
+      }
+    };
+
+    fetchActiveFlightDates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plantItems.length, isThailandPlant, lockedFlightDate]);
+
+  // Fallback function to generate 3 consecutive Saturdays (old logic)
+  const generateFallbackOptions = useCallback((startDateISO) => {
+    console.log('🔄 [generateFallbackOptions] Generating fallback options from:', startDateISO);
     
-    console.log('🔍 [flightDateOptions] Generating Saturday options...');
+    const [year, month, day] = startDateISO.split('-').map(Number);
+    const startSaturday = new Date(year, month - 1, day);
+    
+    const options = [];
     for (let i = 0; i < 3; i++) {
       const saturday = new Date(startSaturday);
       saturday.setDate(startSaturday.getDate() + (i * 7));
       
-      // Include all Saturdays (past, current, future) - all should be clickable
-      // Use local date components to avoid timezone issues with toISOString()
-      const year = saturday.getFullYear();
-      const month = String(saturday.getMonth() + 1).padStart(2, '0');
-      const day = String(saturday.getDate()).padStart(2, '0');
-      const iso = `${year}-${month}-${day}`;
+      const y = saturday.getFullYear();
+      const m = String(saturday.getMonth() + 1).padStart(2, '0');
+      const d = String(saturday.getDate()).padStart(2, '0');
+      const iso = `${y}-${m}-${d}`;
       const label = formatDateLabel(saturday);
       const key = normalizeFlightKey(label);
       
-      const option = {
+      options.push({
         date: label,
         iso: iso,
         key: key,
         label: label,
         displayLabel: label,
         value: label,
-      };
-      
-      options.push(option);
-      console.log(`✅ [flightDateOptions] Generated option ${i}:`, option);
+      });
     }
-
-    console.log('🎯 [flightDateOptions] Final options array:', options);
-    console.log('🎯 [flightDateOptions] Options count:', options.length);
-    console.log('🎯 [flightDateOptions] First suggested Saturday:', options[0]?.iso);
-
+    
+    console.log('✅ [generateFallbackOptions] Generated fallback options:', options);
     return options;
-  }, [plantItems, isThailandPlant, lockedFlightDate, normalizeFlightKey, formatFlightDateToISO, parseFlightDate, getNextSaturday, formatDateLabel]);
+  }, [formatDateLabel, normalizeFlightKey]);
 
   // Flight lock info
   const flightLockInfo = useMemo(() => {
@@ -2275,6 +2360,86 @@ export const useCheckoutController = () => {
                      (item.name && typeof item.name === 'string' ? item.name.split(' ')[0] : '') ||
                      '';
 
+        // Get species - try multiple sources including original cartItems
+        // Priority: item.species > item.listingDetails?.species > originalCartItem.species > originalCartItem.listingDetails?.species > productData > parse from name
+        let species = item.species || 
+                      item.listingDetails?.species || 
+                      '';
+        
+        // If species not found, try to get from original cartItems (deep check)
+        if (!species && cartItems && cartItems.length > 0) {
+          const originalCartItem = cartItems.find(ci => ci?.plantCode === item.plantCode);
+          if (originalCartItem) {
+            // Check multiple possible locations in the cart item
+            species = originalCartItem.species || 
+                     originalCartItem.listingDetails?.species ||
+                     (originalCartItem.listingDetails && typeof originalCartItem.listingDetails === 'object' ? originalCartItem.listingDetails.species : '') ||
+                     '';
+            
+            // Log for debugging
+            if (species) {
+              console.log(`💳 [handleApplyDiscount] Found species for ${item.plantCode} from originalCartItem:`, species);
+            } else {
+              console.log(`💳 [handleApplyDiscount] Species not found in originalCartItem for ${item.plantCode}. Structure:`, {
+                hasSpecies: !!originalCartItem.species,
+                hasListingDetails: !!originalCartItem.listingDetails,
+                listingDetailsKeys: originalCartItem.listingDetails ? Object.keys(originalCartItem.listingDetails) : []
+              });
+            }
+          }
+        }
+        
+        // Also check productData if available
+        if (!species && productData && productData.length > 0) {
+          const originalProduct = productData.find(p => p?.plantCode === item.plantCode);
+          if (originalProduct) {
+            species = originalProduct.species || 
+                     originalProduct.listingDetails?.species || 
+                     '';
+            if (species) {
+              console.log(`💳 [handleApplyDiscount] Found species for ${item.plantCode} from productData:`, species);
+            }
+          }
+        }
+        
+        // If still not found, try to parse from name (format: "Genus species" or "GENUS SPECIES ...")
+        if (!species && item.name && typeof item.name === 'string') {
+          const nameParts = item.name.trim().split(/\s+/);
+          if (nameParts.length >= 2) {
+            // For names like "ALOCASIA AMAZONICA RESERVED FOR ST-GA"
+            // The species is everything after the first word (genus)
+            // So we take all parts from index 1 onwards
+            species = nameParts.slice(1).join(' ').trim();
+            console.log(`💳 [handleApplyDiscount] Parsed species from name for ${item.plantCode}:`, species);
+          }
+        }
+        
+        // Also try parsing from title if name didn't work
+        if (!species && item.title && typeof item.title === 'string') {
+          const titleParts = item.title.trim().split(/\s+/);
+          if (titleParts.length >= 2) {
+            species = titleParts.slice(1).join(' ').trim();
+            console.log(`💳 [handleApplyDiscount] Parsed species from title for ${item.plantCode}:`, species);
+          }
+        }
+        
+        // Final fallback: ensure species is at least an empty string (never undefined or null)
+        if (!species) {
+          species = '';
+          console.warn(`⚠️ [handleApplyDiscount] Species not found for ${item.plantCode}. Item structure:`, {
+            hasSpecies: !!item.species,
+            hasListingDetails: !!item.listingDetails,
+            listingDetailsSpecies: item.listingDetails?.species,
+            name: item.name,
+            title: item.title,
+            cartItemsLength: cartItems?.length || 0,
+            productDataLength: productData?.length || 0
+          });
+        }
+        
+        // Normalize species: ensure it's a string and trim it
+        species = typeof species === 'string' ? species.trim() : String(species || '').trim();
+
         // Get country - try multiple sources
         const country = item.country || 
                        item.listingDetails?.country || 
@@ -2291,23 +2456,92 @@ export const useCheckoutController = () => {
                           item.listingDetails?.sellerCode || 
                           '';
 
+        // Get listingId - try multiple sources
+        let listingId = null;
+        if (item.listingId) {
+          listingId = item.listingId;
+        } else if (cartItems && cartItems.length > 0) {
+          const originalCartItem = cartItems.find(ci => ci?.plantCode === item.plantCode);
+          if (originalCartItem) {
+            listingId = originalCartItem.listingId || null;
+          }
+        }
+        // Also check productData if available
+        if (!listingId && productData && productData.length > 0) {
+          const originalProduct = productData.find(p => p?.plantCode === item.plantCode);
+          if (originalProduct) {
+            listingId = originalProduct.listingId || null;
+          }
+        }
+
         const cartItem = {
           plantCode: item.plantCode,
+          listingId: listingId, // Include listingId for discount validation
           quantity: item.quantity || 1,
           price: price,
           listingType: listingType,
           country: country,
           genus: genus,
+          species: species || '', // Ensure species is always a string, never undefined
           sellerCode: sellerCode,
         };
 
-        console.log(`💳 [handleApplyDiscount] Prepared cart item for ${item.plantCode}:`, cartItem);
+        // Log detailed information about species extraction
+        const speciesSource = item.species ? 'item.species' : 
+                        item.listingDetails?.species ? 'item.listingDetails.species' :
+                        cartItems.find(ci => ci?.plantCode === item.plantCode)?.species ? 'originalCartItem.species' :
+                        cartItems.find(ci => ci?.plantCode === item.plantCode)?.listingDetails?.species ? 'originalCartItem.listingDetails.species' :
+                        productData?.find(p => p?.plantCode === item.plantCode)?.species ? 'productData.species' :
+                        productData?.find(p => p?.plantCode === item.plantCode)?.listingDetails?.species ? 'productData.listingDetails.species' :
+                        item.name ? 'parsed from name' : 'not found';
+        
+        console.log(`💳 [handleApplyDiscount] Prepared cart item for ${item.plantCode}:`, {
+          ...cartItem,
+          speciesSource,
+          debugInfo: {
+            itemHasSpecies: !!item.species,
+            itemSpeciesValue: item.species,
+            itemHasListingDetails: !!item.listingDetails,
+            itemListingDetailsSpecies: item.listingDetails?.species,
+            originalCartItemHasSpecies: !!cartItems.find(ci => ci?.plantCode === item.plantCode)?.species,
+            originalCartItemListingDetailsSpecies: cartItems.find(ci => ci?.plantCode === item.plantCode)?.listingDetails?.species,
+            itemName: item.name
+          }
+        });
 
         return cartItem;
       }).filter(item => item !== null); // Remove any null items
 
       console.log('💳 [handleApplyDiscount] Validating discount code:', discountCode);
       console.log('💳 [handleApplyDiscount] Plant items count:', plantItems.length);
+      console.log('💳 [handleApplyDiscount] Sample plantItem structure:', plantItems[0] ? {
+        plantCode: plantItems[0].plantCode,
+        hasSpecies: !!plantItems[0].species,
+        species: plantItems[0].species,
+        speciesType: typeof plantItems[0].species,
+        hasListingDetails: !!plantItems[0].listingDetails,
+        listingDetailsSpecies: plantItems[0].listingDetails?.species,
+        name: plantItems[0].name,
+        genus: plantItems[0].genus
+      } : 'No plantItems');
+      console.log('💳 [handleApplyDiscount] Sample cartItem structure:', cartItems[0] ? {
+        plantCode: cartItems[0].plantCode,
+        hasSpecies: !!cartItems[0].species,
+        species: cartItems[0].species,
+        hasListingDetails: !!cartItems[0].listingDetails,
+        listingDetailsSpecies: cartItems[0].listingDetails?.species,
+        listingDetailsKeys: cartItems[0].listingDetails ? Object.keys(cartItems[0].listingDetails) : [],
+        name: cartItems[0].name
+      } : 'No cartItems');
+      
+      // Log each cart item's species before sending
+      console.log('💳 [handleApplyDiscount] Cart items species check:', cartItemsForDiscount.map(ci => ({
+        plantCode: ci.plantCode,
+        species: ci.species,
+        speciesType: typeof ci.species,
+        speciesLength: ci.species ? ci.species.length : 0
+      })));
+      
       console.log('💳 [handleApplyDiscount] Cart items for discount:', JSON.stringify(cartItemsForDiscount, null, 2));
 
       if (!cartItemsForDiscount || cartItemsForDiscount.length === 0) {

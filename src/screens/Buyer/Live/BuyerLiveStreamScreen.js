@@ -18,22 +18,26 @@ import {
   FlatList,
   Image,
   Modal,
+  NativeEventEmitter,
+  NativeModules,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import {
   ChannelProfileType,
   ClientRoleType,
   createAgoraRtcEngine,
-  RtcSurfaceView
+  RtcSurfaceView,
+  RtcTextureView,
 } from 'react-native-agora';
 import KeepAwake from 'react-native-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
+import PIPIcon from '../../../assets/icons/greydark/picture-in-picture.svg';
 import CaretDown from '../../../assets/icons/white/caret-down.svg';
 import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
 import CaretUp from '../../../assets/icons/white/caret-up.svg';
@@ -54,15 +58,18 @@ import {
   updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
+import { useFloatingPlayer } from '../../../contexts/FloatingPlayerContext';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import GuideModal from './GuideModal'; // Import the new modal
 import ShopModal from './ShopModal';
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
+  const { showFloatingPlayer, isVisible: floatingPlayerVisible, markStreamEnded } = useFloatingPlayer();
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
   const [remoteUid, setRemoteUid] = useState(null);
+  const isEnteringFloatingMode = useRef(false);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -244,11 +251,104 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     await removeViewerFromLiveSession(sessionId);
   }
 
-  const goBack = async () => {
+ const goBack = async () => {
     setIsLoading(true);
     await removeViewers();
-    setIsLoading(false);
-    navigation.goBack();
+    
+    // Stop PiP mode if active (iOS)
+    if (Platform.OS === 'ios' && inPiP && PipModule?.stopPip) {
+      try {
+        await PipModule.stopPip();
+        console.log('Stopped PiP mode on iOS');
+      } catch (err) {
+        console.warn('Failed to stop PiP:', err);
+      }
+    }
+    
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Live');
+    }
+  }
+
+  const { PipModule } = NativeModules;
+  const [showOverlays, setShowOverlays] = useState(true);
+  const [inPiP, setInPiP] = useState(false);
+
+  useEffect(() => {
+    // Listen to native PiP mode changes
+    let subscription = null;
+    try {
+      if (Platform.OS === 'ios') {
+        // iOS uses NativeEventEmitter
+        if (PipModule) {
+          const eventEmitter = new NativeEventEmitter(PipModule);
+          subscription = eventEmitter.addListener('onPipModeChanged', (isInPiP) => {
+            console.log('PiP mode changed (iOS):', isInPiP);
+            setInPiP(Boolean(isInPiP));
+            // On iOS, we don't hide overlays since there's no video PiP
+          });
+        }
+      } else {
+        // Android uses DeviceEventEmitter
+        const { DeviceEventEmitter } = require('react-native');
+        subscription = DeviceEventEmitter.addListener('onPipModeChanged', (isInPiP) => {
+          console.log('PiP mode changed (Android):', isInPiP);
+          setInPiP(Boolean(isInPiP));
+          // When entering PiP, keep overlays hidden; when exiting, restore
+          setShowOverlays(!isInPiP);
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to subscribe to PiP events', e);
+    }
+
+    return () => {
+      if (subscription) subscription.remove();
+    };
+  }, [PipModule]);
+
+  const enterPip = async () => {
+    // Universal floating mini player (works on both iOS and Android)
+    try {
+      console.log('Activating floating mini player');
+      
+      if (!remoteUid || !rtcEngineRef.current) {
+        Alert.alert('Not Ready', 'Please wait for the video to load.');
+        return;
+      }
+
+      // Set flag to prevent engine cleanup
+      isEnteringFloatingMode.current = true;
+
+      // Prepare stream data for floating player
+      const streamInfo = {
+        sessionId,
+        broadcasterId: brodcasterId,
+        title: activeListing ? `${activeListing.genus || ''} ${activeListing.species || 'Live Stream'}`.trim() : 'Live Stream',
+        viewerCount: liveStats?.viewerCount || 0,
+      };
+
+      // Show the floating player
+      showFloatingPlayer(streamInfo, rtcEngineRef.current, remoteUid);
+      
+      console.log('Floating mini player activated successfully');
+      
+      // Navigate away from live screen AFTER a small delay
+      setTimeout(() => {
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('Live');
+        }
+      }, 100);
+      
+    } catch (err) {
+      isEnteringFloatingMode.current = false;
+      console.warn('Failed to activate floating mini player:', err);
+      Alert.alert('Error', 'Failed to activate mini player');
+    }
   }
 
   const fetchToken = async () => {
@@ -398,7 +498,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           setRemoteUid(null);
           setSessionEnded(true);
           setViewerCount((prev) => Math.max(prev - 1, 0));
-          navigation.navigate('Live');
+          if (floatingPlayerVisible) {
+            console.log('Marking floating player stream as ended');
+            markStreamEnded();
+          } else {
+            navigation.navigate('Live');
+          }
         },
         onRemoteVideoStateChanged: (uid, state, reason, elapsed) => {
           
@@ -459,6 +564,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     startAgora();
 
     return () => {
+      if (isEnteringFloatingMode.current) {
+        console.log('Skipping engine cleanup - entering floating mode');
+        isEnteringFloatingMode.current = false;
+        return;
+      }
+
       const engine = rtcEngineRef.current;
       if (engine) {
         console.log('Leaving channel and releasing Agora engine');
@@ -466,6 +577,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         engine.unregisterEventHandler();
         engine.release();
         rtcEngineRef.current = null;
+      }
+
+      // Stop PiP mode if active (iOS cleanup)
+      if (Platform.OS === 'ios' && inPiP && PipModule?.stopPip) {
+        PipModule.stopPip().catch(err => console.warn('Failed to stop PiP on cleanup:', err));
       }
     };
   }, [token, appId, channelName]);
@@ -527,7 +643,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setIsLoading(true);
       const plantDatas = await loadPlantDetails(item);
       const discountsData = await getDiscountedPrice(item, plantDatas);
-
+      await enterPip();
       setTimeout(() => {
         setIsLoading(false);  
             const data = {
@@ -544,9 +660,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               totalAmount: discountsData.unitPrice * 1,
               isLive: true,
             };
-            
             navigation.navigate('CheckoutScreen', data);
-      }, 3000);
+      }, 1000);
     } catch (error) {
       console.log('error', error);
       setIsLoading(false);
@@ -626,15 +741,27 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
      
       <View style={styles.stream}>
         {joined && remoteUid ? (
-          <RtcSurfaceView
-            style={styles.video}
-            canvas={{
-              uid: remoteUid,
-              renderMode: 1, // FIT mode
-              mirrorMode: 0  // No mirror
-            }}
-            zOrderMediaOverlay={true}
-          />
+          Platform.OS === 'ios' ? (
+              <RtcSurfaceView
+                style={styles.video}
+                canvas={{
+                  uid: remoteUid,
+                  renderMode: 1, // FIT mode
+                  mirrorMode: 0  // No mirror
+                }}
+                zOrderMediaOverlay={true}
+              />
+            ) : (
+              <RtcTextureView
+                style={styles.video}
+                canvas={{
+                  uid: remoteUid,
+                  renderMode: 1, // FIT mode
+                  mirrorMode: 0  // No mirror
+                }}
+                zOrderMediaOverlay={true}
+              />
+            )
         ) : (
           <View style={styles.connectingContainer}>
             <ActivityIndicator size="large" color="#FFFFFF" />
@@ -648,13 +775,17 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       </View>
       
       {/* Only show UI components when stream is active */}
-      {joined && remoteUid && (
+      {showOverlays && joined && remoteUid && (
         <>
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
                     <BackSolidIcon width={24} height={24} />
             </TouchableOpacity>
             <View style={styles.topAction}>
+              <TouchableOpacity style={styles.guide} onPress={() => enterPip()}>
+                    <PIPIcon width={19} height={19} />
+                    <Text style={styles.guideText}></Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
                     <GuideIcon width={19} height={19} />
                     <Text style={styles.guideText}>Guide</Text>
@@ -952,6 +1083,7 @@ const styles = StyleSheet.create({
     gap: 8,
     width: 178,
     height: 34,
+    marginRight: 35
   },
   guide: {
     flexDirection: 'row',

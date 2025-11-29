@@ -22,6 +22,7 @@ import NetInfo from '@react-native-community/netinfo';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import Svg, { Path } from 'react-native-svg';
 import { getBuyerOrdersApi, submitFlightChangeRequestApi, getFlightChangeRequestsApi } from '../../../components/Api/orderManagementApi';
+import { getActiveFlightDatesApi } from '../../../components/Api/getActiveFlightDatesApi';
 
 // Dropdown Icon Component
 const DropdownIcon = () => (
@@ -49,6 +50,8 @@ const AddRequestChangePlantFlightScreen = () => {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [submitting, setSubmitting] = useState(false);
   const [showNoticeModal, setShowNoticeModal] = useState(false);
+  const [activeFlightDates, setActiveFlightDates] = useState([]);
+  const [loadingActiveDates, setLoadingActiveDates] = useState(false);
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -96,9 +99,13 @@ const AddRequestChangePlantFlightScreen = () => {
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+      const isSaturday = date.getDay() === 6;
       const isAllowed = isDateAllowed(date);
       const isSelected = newFlightDate && 
         new Date(newFlightDate).toDateString() === date.toDateString();
+      
+      // A Saturday is shown but grayed out if it's not in the allowed dates list
+      const isInactiveSaturday = isSaturday && !isAllowed && activeFlightDates.length > 0;
 
       days.push(
         <TouchableOpacity
@@ -106,7 +113,8 @@ const AddRequestChangePlantFlightScreen = () => {
           style={[
             styles.calendarDayCell,
             isSelected && styles.calendarSelectedDay,
-            !isAllowed && styles.calendarDisabledDay
+            !isAllowed && styles.calendarDisabledDay,
+            isInactiveSaturday && styles.calendarInactiveSaturday
           ]}
           onPress={() => {
             if (isAllowed) {
@@ -124,7 +132,8 @@ const AddRequestChangePlantFlightScreen = () => {
           <Text style={[
             styles.calendarDayText,
             isSelected && styles.calendarSelectedDayText,
-            !isAllowed && styles.calendarDisabledDayText
+            !isAllowed && styles.calendarDisabledDayText,
+            isInactiveSaturday && styles.calendarInactiveSaturdayText
           ]}>
             {day}
           </Text>
@@ -315,43 +324,76 @@ const AddRequestChangePlantFlightScreen = () => {
     }
   };
 
-  // Calculate allowed dates (3 Saturdays after 1 week of current flight date)
-  const getAllowedDates = () => {
-    if (!selectedFlight || !selectedFlight.flightDateObj) {
-      return [];
+  // Fetch active flight dates from API when a flight is selected
+  const fetchActiveFlightDates = async (currentFlightDateObj) => {
+    if (!currentFlightDateObj) {
+      console.log('⚠️ No flight date provided, skipping active dates fetch');
+      return;
     }
 
-    const currentFlightDate = new Date(selectedFlight.flightDateObj);
-    
-    // Add 1 week to current flight date
-    const oneWeekLater = new Date(currentFlightDate);
-    oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-    
-    // Find the next Saturday (including oneWeekLater if it's already a Saturday)
-    const dayOfWeek = oneWeekLater.getDay(); // 0 = Sunday, 6 = Saturday
-    let daysUntilSaturday;
-    
-    if (dayOfWeek === 6) {
-      // If oneWeekLater is already a Saturday, use it
-      daysUntilSaturday = 0;
-    } else {
-      // Find days until the next Saturday
-      daysUntilSaturday = 6 - dayOfWeek;
+    try {
+      setLoadingActiveDates(true);
+      
+      const currentFlightDate = new Date(currentFlightDateObj);
+      
+      // Add 1 week to current flight date
+      const oneWeekLater = new Date(currentFlightDate);
+      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+      
+      // Find the next Saturday (including oneWeekLater if it's already a Saturday)
+      const dayOfWeek = oneWeekLater.getDay(); // 0 = Sunday, 6 = Saturday
+      let daysUntilSaturday;
+      
+      if (dayOfWeek === 6) {
+        // If oneWeekLater is already a Saturday, use it
+        daysUntilSaturday = 0;
+      } else {
+        // Find days until the next Saturday
+        daysUntilSaturday = 6 - dayOfWeek;
+      }
+      
+      // First selectable Saturday
+      const firstSaturday = new Date(oneWeekLater);
+      firstSaturday.setDate(oneWeekLater.getDate() + daysUntilSaturday);
+      
+      // Format as YYYY-MM-DD for API
+      const year = firstSaturday.getFullYear();
+      const month = String(firstSaturday.getMonth() + 1).padStart(2, '0');
+      const day = String(firstSaturday.getDate()).padStart(2, '0');
+      const startDateISO = `${year}-${month}-${day}`;
+      
+      console.log('📅 Fetching active flight dates starting from:', startDateISO);
+      
+      // Call API to get active flight dates
+      const response = await getActiveFlightDatesApi(startDateISO, 3);
+      
+      if (response.success && response.data?.activeDates) {
+        const activeDates = response.data.activeDates;
+        console.log('✅ Received active flight dates:', activeDates);
+        
+        // Convert ISO dates to Date objects for comparison
+        const activeDateObjects = activeDates.map(dateObj => {
+          const [y, m, d] = dateObj.iso.split('-').map(Number);
+          return new Date(y, m - 1, d);
+        });
+        
+        setActiveFlightDates(activeDateObjects);
+      } else {
+        console.error('❌ API returned no active dates');
+        setActiveFlightDates([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching active flight dates:', error);
+      // On error, fallback to showing all Saturdays (old behavior)
+      setActiveFlightDates([]);
+    } finally {
+      setLoadingActiveDates(false);
     }
-    
-    // First selectable Saturday
-    const firstSaturday = new Date(oneWeekLater);
-    firstSaturday.setDate(oneWeekLater.getDate() + daysUntilSaturday);
-    
-    // Second Saturday is 1 week after the first
-    const secondSaturday = new Date(firstSaturday);
-    secondSaturday.setDate(secondSaturday.getDate() + 7);
-    
-    // Third Saturday is 1 week after the second
-    const thirdSaturday = new Date(secondSaturday);
-    thirdSaturday.setDate(thirdSaturday.getDate() + 7);
-    
-    return [firstSaturday, secondSaturday, thirdSaturday];
+  };
+
+  // Calculate allowed dates from active flight dates
+  const getAllowedDates = () => {
+    return activeFlightDates;
   };
 
   const isDateAllowed = (date) => {
@@ -367,10 +409,26 @@ const AddRequestChangePlantFlightScreen = () => {
       return;
     }
     
-    // Set calendar month to show the first allowed date
+    if (loadingActiveDates) {
+      Alert.alert('Please Wait', 'Loading available flight dates...');
+      return;
+    }
+    
     const allowedDates = getAllowedDates();
+    
+    if (allowedDates.length === 0) {
+      Alert.alert(
+        'No Available Dates',
+        'No active flight dates are available within the next year. Please contact support for assistance.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    // Set calendar month to show the first allowed date
     if (allowedDates.length > 0) {
-      setCalendarMonth(new Date(allowedDates[0]));
+      const firstDate = allowedDates[0];
+      setCalendarMonth(new Date(firstDate.getFullYear(), firstDate.getMonth(), 1));
     }
     
     setShowDatePicker(true);
@@ -657,9 +715,10 @@ const AddRequestChangePlantFlightScreen = () => {
                     <View style={styles.calendarNav}>
                       <TouchableOpacity 
                         onPress={() => {
-                          const newMonth = new Date(calendarMonth);
-                          newMonth.setMonth(newMonth.getMonth() - 1);
-                          setCalendarMonth(newMonth);
+                          setCalendarMonth(prevMonth => {
+                            const newMonth = new Date(prevMonth.getFullYear(), prevMonth.getMonth() - 1, 1);
+                            return newMonth;
+                          });
                         }}
                         style={styles.calendarNavButton}
                       >
@@ -670,9 +729,10 @@ const AddRequestChangePlantFlightScreen = () => {
                       </Text>
                       <TouchableOpacity 
                         onPress={() => {
-                          const newMonth = new Date(calendarMonth);
-                          newMonth.setMonth(newMonth.getMonth() + 1);
-                          setCalendarMonth(newMonth);
+                          setCalendarMonth(prevMonth => {
+                            const newMonth = new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 1);
+                            return newMonth;
+                          });
                         }}
                         style={styles.calendarNavButton}
                       >
@@ -724,6 +784,8 @@ const AddRequestChangePlantFlightScreen = () => {
                           onPress={() => {
                             setSelectedFlight(flight);
                             setShowFlightPicker(false);
+                            // Fetch active flight dates for the selected flight
+                            fetchActiveFlightDates(flight.flightDateObj);
                           }}
                         >
                           <View style={styles.flightInfo}>
@@ -1236,6 +1298,14 @@ const styles = StyleSheet.create({
   },
   calendarDisabledDayText: {
     color: '#C4C4C4',
+  },
+  calendarInactiveSaturday: {
+    backgroundColor: '#F5F5F5',
+    opacity: 0.6,
+  },
+  calendarInactiveSaturdayText: {
+    color: '#999999',
+    textDecorationLine: 'line-through',
   },
   calendarEmptyDay: {
     fontSize: 14,

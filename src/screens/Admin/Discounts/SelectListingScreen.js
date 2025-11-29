@@ -13,6 +13,7 @@ const SelectListingScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { selectedListings: initialSelected = [] } = route.params || {};
+  const [listingType, setListingType] = useState('regular'); // 'regular' or 'live'
   const [listingOptions, setListingOptions] = useState([]);
   const [listingSearch, setListingSearch] = useState('');
   const [listingLoading, setListingLoading] = useState(false);
@@ -44,26 +45,108 @@ const SelectListingScreen = () => {
     }
   };
 
+  // Load regular listings
   useEffect(() => {
-    const loadListings = async () => {
+    // Immediately set loading state and clear listings when type changes
+    setListingLoading(true);
+    setListingOptions([]);
+
+    let isMounted = true; // Flag to prevent state updates if component unmounts or type changes
+
+    const loadRegularListings = async () => {
       try {
-        setListingLoading(true);
         const net = await NetInfo.fetch();
         if (!net.isConnected || !net.isInternetReachable) {
-          setListingLoading(false);
+          if (isMounted) {
+            setListingLoading(false);
+          }
           return;
         }
         const res = await getAdminListingsApi({ limit: 100, page: 1 });
         const listings = res?.data?.listings || [];
-        setListingOptions(listings);
+        if (isMounted && listingType === 'regular') {
+          setListingOptions(listings);
+          setListingLoading(false);
+        }
       } catch (e) {
-        setListingOptions([]);
-      } finally {
-        setListingLoading(false);
+        console.error('Error loading regular listings:', e);
+        if (isMounted && listingType === 'regular') {
+          setListingOptions([]);
+          setListingLoading(false);
+        }
       }
     };
-    loadListings();
-  }, []);
+
+    // Load live sale listings
+    const loadLiveSaleListings = async () => {
+      try {
+        const net = await NetInfo.fetch();
+        if (!net.isConnected || !net.isInternetReachable) {
+          if (isMounted) {
+            setListingLoading(false);
+          }
+          return;
+        }
+        
+        // Query listings directly with status 'Live' instead of going through sessions
+        // This will get all live sale listings regardless of session status
+        console.log('Fetching live sale listings with status "Live"');
+        const res = await getAdminListingsApi({ 
+          status: 'Live', 
+          limit: 100, 
+          page: 1 
+        });
+        
+        if (!isMounted || listingType !== 'live') {
+          // Component unmounted or type changed, clear loading and exit
+          setListingLoading(false);
+          return;
+        }
+
+        if (res?.success && res?.data?.listings) {
+          const listings = res.data.listings || [];
+          // All listings with status 'Live' are live sale listings
+          // The getAdminListingsApi may not return sessionId in the response,
+          // but if status is 'Live', they are live sale listings
+          console.log(`Found ${listings.length} live sale listings with status 'Live'`);
+          console.log('Sample listing keys:', listings[0] ? Object.keys(listings[0]) : 'No listings');
+          console.log('Sample listing sessionId:', listings[0]?.sessionId || 'Not in response');
+          
+          if (isMounted && listingType === 'live') {
+            setListingOptions(listings);
+            setListingLoading(false);
+          }
+        } else {
+          console.log('No live sale listings found or API error:', {
+            success: res?.success,
+            hasData: !!res?.data,
+            listingsCount: res?.data?.listings?.length || 0
+          });
+          if (isMounted && listingType === 'live') {
+            setListingOptions([]);
+            setListingLoading(false);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading live sale listings:', e);
+        if (isMounted && listingType === 'live') {
+          setListingOptions([]);
+          setListingLoading(false);
+        }
+      }
+    };
+
+    if (listingType === 'regular') {
+      loadRegularListings();
+    } else {
+      loadLiveSaleListings();
+    }
+
+    // Cleanup function to prevent state updates after unmount or type change
+    return () => {
+      isMounted = false;
+    };
+  }, [listingType]);
 
   const handleApply = () => {
     // Get return screen name from route params, or fallback to default
@@ -83,11 +166,37 @@ const SelectListingScreen = () => {
   };
 
   const filteredListings = listingOptions.filter(listing => {
-    const search = listingSearch.toLowerCase();
-    return !search || 
-      (listing.plantCode || '').toLowerCase().includes(search) ||
-      (listing.plantName || '').toLowerCase().includes(search) ||
-      ((listing.genus || '') + ' ' + (listing.species || '')).toLowerCase().includes(search);
+    const search = listingSearch.toLowerCase().trim();
+    if (!search) return true;
+    
+    // Get variation data (first variation if exists)
+    const v0 = listing.variations && listing.variations.length ? listing.variations[0] : {};
+    
+    // Search in plant code
+    const plantCode = (listing.plantCode || '').toLowerCase();
+    if (plantCode.includes(search)) return true;
+    
+    // Search in plant name (if exists)
+    const plantName = (listing.plantName || '').toLowerCase();
+    if (plantName.includes(search)) return true;
+    
+    // Search in genus
+    const genus = (listing.genus || v0.genus || '').toLowerCase();
+    if (genus.includes(search)) return true;
+    
+    // Search in species
+    const species = (listing.species || v0.species || '').toLowerCase();
+    if (species.includes(search)) return true;
+    
+    // Search in genus + species combination
+    const genusSpecies = `${genus} ${species}`.trim();
+    if (genusSpecies.includes(search)) return true;
+    
+    // Search in variegation
+    const variegation = (listing.variegation || v0.variegation || '').toLowerCase();
+    if (variegation.includes(search)) return true;
+    
+    return false;
   });
 
   // Skeleton Loading Component
@@ -190,6 +299,26 @@ const SelectListingScreen = () => {
         </View>
       </View>
 
+      {/* Toggle Segment */}
+      <View style={styles.segmentContainer}>
+        <TouchableOpacity
+          style={[styles.segmentButton, listingType === 'regular' && styles.segmentButtonActive]}
+          onPress={() => setListingType('regular')}
+        >
+          <Text style={[styles.segmentButtonText, listingType === 'regular' && styles.segmentButtonTextActive]}>
+            Regular Listings
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segmentButton, listingType === 'live' && styles.segmentButtonActive]}
+          onPress={() => setListingType('live')}
+        >
+          <Text style={[styles.segmentButtonText, listingType === 'live' && styles.segmentButtonTextActive]}>
+            Live Sale Listings
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Content */}
       <ScrollView
         style={styles.scrollView}
@@ -210,7 +339,7 @@ const SelectListingScreen = () => {
             <Text style={styles.emptyText}>No listings found</Text>
           </View>
         ) : (
-          filteredListings.map((listing) => {
+          filteredListings.map((listing, index) => {
             const isSelected = selectedListings.some(l => l.id === listing.id);
             const v0 = listing.variations && listing.variations.length ? listing.variations[0] : {};
             const imageUri = listing.imagePrimary || listing.image || v0.imagePrimary || v0.image;
@@ -220,7 +349,7 @@ const SelectListingScreen = () => {
             const species = listing.species || '';
             const variegation = listing.variegation || v0.variegation || '';
             const size = listing.potSize || v0.potSize || '';
-            const listingType = listing.listingType || v0.listingType || '';
+            const itemListingType = listing.listingType || v0.listingType || '';
             const discountPercent = listing.discountPercent || v0.discountPercent;
             const price = listing.usdPrice ?? v0.usdPrice ?? 0;
             const originalPrice = listing.originalPrice || v0.originalPrice;
@@ -286,7 +415,7 @@ const SelectListingScreen = () => {
             }
             
             return (
-              <View key={listing.id} style={styles.listingCard}>
+              <View key={listing.id || listing.plantCode || `listing-${index}`} style={styles.listingCard}>
                 {/* Plant Card */}
                 <View style={styles.plantCard}>
                   {/* Image with checkbox */}
@@ -364,9 +493,14 @@ const SelectListingScreen = () => {
                     
                     {/* Type + Discount */}
                     <View style={styles.badgeRow}>
-                      {listingType && (
+                      {listingType === 'live' && (
+                        <View style={styles.liveSaleBadge}>
+                          <Text style={styles.liveSaleBadgeText}>LIVE SALE</Text>
+                        </View>
+                      )}
+                      {itemListingType && listingType !== 'live' && (
                         <View style={styles.listingTypeBadge}>
-                          <Text style={styles.listingTypeText}>{listingType}</Text>
+                          <Text style={styles.listingTypeText}>{itemListingType}</Text>
                         </View>
                       )}
                       {discountPercent && (
@@ -445,6 +579,37 @@ const styles = StyleSheet.create({
     gap: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E4E7E9',
+  },
+  segmentContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E7E9',
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F5F6F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentButtonActive: {
+    backgroundColor: '#539461',
+  },
+  segmentButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#647276',
+  },
+  segmentButtonTextActive: {
+    color: '#FFFFFF',
   },
   backButton: {
     padding: 4,
@@ -662,6 +827,24 @@ const styles = StyleSheet.create({
   listingTypeText: {
     fontFamily: 'Inter',
     fontWeight: '600',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#FFFFFF',
+  },
+  liveSaleBadge: {
+    paddingHorizontal: 8,
+    paddingTop: 1,
+    paddingBottom: 1,
+    backgroundColor: '#E7522F',
+    borderRadius: 6,
+    minHeight: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  liveSaleBadgeText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
     fontSize: 12,
     lineHeight: 17,
     color: '#FFFFFF',

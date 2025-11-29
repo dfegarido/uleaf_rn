@@ -15,9 +15,10 @@ import {API_ENDPOINTS} from '../../config/apiConfig';
  * @param {string} discountData.startTime - Start time (HH:MM AM/PM)
  * @param {string} [discountData.endDate] - End date (MM/DD/YYYY)
  * @param {string} [discountData.endTime] - End time (HH:MM AM/PM)
- * @param {string} discountData.appliesText - Applies to: 'Specific listing type', 'Specific genus', 'Specific country', 'Specific garden', 'Specific listing'
+ * @param {string} discountData.appliesText - Applies to: 'Specific listing type', 'Specific genus', 'Specific specie', 'Specific country', 'Specific garden', 'Specific listing'
  * @param {Array<string>} [discountData.selectedListingTypes] - Selected listing types
  * @param {Array<string>} [discountData.selectedGenus] - Selected genus
+ * @param {Array<string>} [discountData.selectedSpecies] - Selected species
  * @param {Array<string>} [discountData.selectedCountries] - Selected countries
  * @param {Array<string>} [discountData.selectedGardens] - Selected gardens (with IDs)
  * @param {Array<string>} [discountData.selectedListings] - Selected listing IDs
@@ -58,6 +59,7 @@ export const createDiscountApi = async (discountData) => {
       appliesTo: discountData.appliesText,
       listingTypes: discountData.selectedListingTypes || [],
       genus: discountData.selectedGenus || [],
+      species: discountData.selectedSpecies || [],
       countries: discountData.selectedCountries || [],
       gardens: discountData.selectedGardens?.map(g => typeof g === 'object' ? g.id : g) || [],
       listingIds: discountData.selectedListings || [],
@@ -105,7 +107,19 @@ export const createDiscountApi = async (discountData) => {
       } catch (e) {
         errorData = { error: await response.text() };
       }
-      const errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      
+      // Handle backend error format - check for errors array first
+      let errorMessage;
+      if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        errorMessage = errorData.errors.join('. ');
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      } else {
+        errorMessage = `HTTP error! status: ${response.status}`;
+      }
+      
       console.error('API Error Response:', {
         status: response.status,
         statusText: response.statusText,
@@ -166,6 +180,7 @@ export const updateDiscountApi = async (discountId, discountData) => {
       appliesTo: discountData.appliesText,
       listingTypes: discountData.selectedListingTypes || [],
       genus: discountData.selectedGenus || [],
+      species: discountData.selectedSpecies || [],
       countries: discountData.selectedCountries || [],
       gardens: discountData.selectedGardens?.map(g => typeof g === 'object' ? g.id : g) || [],
       listingIds: discountData.selectedListings || [],
@@ -211,7 +226,13 @@ export const updateDiscountApi = async (discountId, discountData) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      // Backend returns errors as an array, or single error/message
+      let errorMessage;
+      if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        errorMessage = errorData.errors.join(', ');
+      } else {
+        errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      }
       throw new Error(errorMessage);
     }
 
@@ -321,11 +342,13 @@ export const validateDiscountCodeApi = async (code, cartItems, buyerId) => {
       code: code.trim().toUpperCase(),
       cartItems: cartItems.map(item => ({
         plantCode: item.plantCode,
+        listingId: item.listingId || null, // Include listingId for discount validation
         quantity: item.quantity || 1,
         price: item.price || item.unitPrice || 0,
         listingType: item.listingType,
         country: item.country || item.plantSourceCountry,
         genus: item.genus,
+        species: item.species || '', // Include species field for discount validation
         sellerCode: item.sellerCode,
       })),
       ...(buyerId && { buyerId }),

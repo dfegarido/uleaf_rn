@@ -99,7 +99,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       } else {
         setIsLive(false);
         setIsLoading(false);
-        navigation.goBack();
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('Live');
+        }
       }
   }
 
@@ -116,7 +120,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             },
             { 
               text: "No",
-              onPress: () => navigation.goBack()
+              onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Live')
             },
             { 
               text: "Cancel",

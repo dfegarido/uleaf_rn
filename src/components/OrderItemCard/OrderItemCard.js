@@ -285,7 +285,9 @@ const OrderItemCard = ({
             </Text>
             {activeTab !== 'Pay to Board' && (
               <View style={styles.priceRow}>
-                <Text style={styles.price}>{price}</Text>
+                {activeTab !== 'Ready to Fly' && (
+                  <Text style={styles.price}>{price}</Text>
+                )}
                 <Text style={styles.quantity}>{quantity}x</Text>
               </View>
             )}

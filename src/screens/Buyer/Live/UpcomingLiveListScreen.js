@@ -116,7 +116,13 @@ const UpcomingLiveListScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('LiveScreen');
+          }
+        }}>
           <BackSolidIcon width={24} height={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Upcoming Live Sales and Purges</Text>

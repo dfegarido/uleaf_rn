@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback, Dimensions, KeyboardAvoidingView, Platform, Alert, Keyboard, Image } from 'react-native';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback, Dimensions, KeyboardAvoidingView, Platform, Alert, Keyboard, Image, InteractionManager } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
@@ -14,6 +14,7 @@ import FlagTH from '../../../assets/country-flags/TH.svg';
 import FlagID from '../../../assets/country-flags/ID.svg';
 import FlagPH from '../../../assets/country-flags/PH.svg';
 import { getAllPlantGenusApi } from '../../../components/Api/dropdownApi';
+import { getSpeciesFromListingsApi } from '../../../components/Api/getSpeciesFromListingsApi';
 
 const countryNameToCode = {
   Thailand: 'TH',
@@ -70,6 +71,11 @@ const BuyXGetY = () => {
   const [selectedGenus, setSelectedGenus] = useState([]);
   const [genusSearch, setGenusSearch] = useState('');
   const [genusLoading, setGenusLoading] = useState(false);
+  const [showSpeciesSheet, setShowSpeciesSheet] = useState(false);
+  const [speciesOptions, setSpeciesOptions] = useState([]);
+  const [selectedSpecies, setSelectedSpecies] = useState([]);
+  const [speciesSearch, setSpeciesSearch] = useState('');
+  const [speciesLoading, setSpeciesLoading] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
   const [countryOptions, setCountryOptions] = useState([]);
   const [selectedCountries, setSelectedCountries] = useState([]);
@@ -187,6 +193,57 @@ const BuyXGetY = () => {
     };
     loadGenus();
   }, [showGenusSheet]);
+
+  useEffect(() => {
+    if (!showSpeciesSheet) return;
+    
+    // Reset search immediately when modal opens
+    setSpeciesSearch('');
+    
+    // Defer API call to allow modal to render first
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      const loadSpecies = async () => {
+        try {
+          setSpeciesLoading(true);
+          const net = await NetInfo.fetch();
+          if (!net.isConnected || !net.isInternetReachable) {
+            setSpeciesLoading(false);
+            return;
+          }
+          // Fetch all species (no genus filter)
+          const res = await getSpeciesFromListingsApi();
+        console.log('📊 getSellSpeciesApi response:', {
+          success: res?.success,
+          hasData: !!res?.data,
+          dataType: Array.isArray(res?.data) ? 'array' : typeof res?.data,
+          dataLength: Array.isArray(res?.data) ? res.data.length : 'not array',
+        });
+        if (res?.success && Array.isArray(res.data)) {
+          // The new API returns a simple array of species names (already deduplicated)
+          // Just filter out empty strings and sort
+          const speciesList = res.data
+            .filter(s => s && typeof s === 'string' && s.trim().length > 0)
+            .map(s => s.trim());
+          console.log('📊 Processed species list length:', speciesList.length);
+          setSpeciesOptions(speciesList.sort((a, b) => a.localeCompare(b)));
+        } else {
+          console.warn('📊 Unexpected species response format:', res);
+          setSpeciesOptions([]);
+        }
+      } catch (e) {
+        console.error('Failed to load species:', e);
+        setSpeciesOptions([]);
+      } finally {
+          setSpeciesLoading(false);
+        }
+      };
+      loadSpecies();
+    });
+    
+    return () => {
+      interaction.cancel();
+    };
+  }, [showSpeciesSheet]);
 
   useEffect(() => {
     const loadCountries = async () => {
@@ -686,6 +743,7 @@ const BuyXGetY = () => {
                 style={styles.secondaryBtn}
                 onPress={() => {
                   if (appliesText === 'Specific genus') setShowGenusSheet(true);
+                  else if (appliesText === 'Specific specie') setShowSpeciesSheet(true);
                   else if (appliesText === 'Specific country') setShowCountrySheet(true);
                   else if (appliesText === 'Specific garden') setShowGardenSheet(true);
                   else if (appliesText === 'Specific listing') {
@@ -700,7 +758,7 @@ const BuyXGetY = () => {
                   <Path fillRule="evenodd" clipRule="evenodd" d="M12 3C12.4142 3 12.75 3.33579 12.75 3.75V11.25H20.25C20.6642 11.25 21 11.5858 21 12C21 12.4142 20.6642 12.75 20.25 12.75H12.75V20.25C12.75 20.6642 12.4142 21 12 21C11.5858 21 11.25 20.6642 11.25 20.25V12.75H3.75C3.33579 12.75 3 12.4142 3 12C3 11.5858 3.33579 11.25 3.75 11.25H11.25V3.75C11.25 3.33579 11.5858 3 12 3Z" fill="#FFFFFF"/>
                 </Svg>
                 <Text style={styles.secondaryBtnText}>
-                  {appliesText === 'Specific genus' ? 'Add genus' : appliesText === 'Specific country' ? 'Add country' : appliesText === 'Specific garden' ? 'Add garden' : appliesText === 'Specific listing' ? 'Add listing' : 'Add listing type'}
+                  {appliesText === 'Specific genus' ? 'Add genus' : appliesText === 'Specific specie' ? 'Add specie' : appliesText === 'Specific country' ? 'Add country' : appliesText === 'Specific garden' ? 'Add garden' : appliesText === 'Specific listing' ? 'Add listing' : 'Add listing type'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -725,6 +783,20 @@ const BuyXGetY = () => {
               <View key={`${g}-${idx}`} style={styles.appliesCard}>
                 <Text style={styles.appliesCardText}>{g}</Text>
                 <TouchableOpacity onPress={() => setSelectedGenus(prev => prev.filter(item => item !== g))}>
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                    <Path fillRule="evenodd" clipRule="evenodd" d="M4.71967 4.71967C5.01256 4.42678 5.48744 4.42678 5.78033 4.71967L12 10.9393L18.2197 4.71967C18.5126 4.42678 18.9874 4.42678 19.2803 4.71967C19.5732 5.01256 19.5732 5.48744 19.2803 5.78033L13.0607 12L19.2803 18.2197C19.5732 18.5126 19.5732 18.9874 19.2803 19.2803C18.9874 19.5732 18.5126 19.5732 18.2197 19.2803L12 13.0607L5.78033 19.2803C5.48744 19.5732 5.01256 19.5732 4.71967 19.2803C4.42678 18.9874 4.42678 18.5126 4.71967 18.2197L10.9393 12L4.71967 5.78033C4.42678 5.48744 4.42678 5.01256 4.71967 4.71967Z" fill="#7F8D91"/>
+                  </Svg>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+        {!!selectedSpecies.length && appliesText === 'Specific specie' && (
+          <View style={styles.appliesListWrap}>
+            {selectedSpecies.map((s, idx) => (
+              <View key={`${s}-${idx}`} style={styles.appliesCard}>
+                <Text style={styles.appliesCardText}>{s}</Text>
+                <TouchableOpacity onPress={() => setSelectedSpecies(prev => prev.filter(item => item !== s))}>
                   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                     <Path fillRule="evenodd" clipRule="evenodd" d="M4.71967 4.71967C5.01256 4.42678 5.48744 4.42678 5.78033 4.71967L12 10.9393L18.2197 4.71967C18.5126 4.42678 18.9874 4.42678 19.2803 4.71967C19.5732 5.01256 19.5732 5.48744 19.2803 5.78033L13.0607 12L19.2803 18.2197C19.5732 18.5126 19.5732 18.9874 19.2803 19.2803C18.9874 19.5732 18.5126 19.5732 18.2197 19.2803L12 13.0607L5.78033 19.2803C5.48744 19.5732 5.01256 19.5732 4.71967 19.2803C4.42678 18.9874 4.42678 18.5126 4.71967 18.2197L10.9393 12L4.71967 5.78033C4.42678 5.48744 4.42678 5.01256 4.71967 4.71967Z" fill="#7F8D91"/>
                   </Svg>
@@ -1273,6 +1345,7 @@ const BuyXGetY = () => {
                   appliesText,
                   selectedListingTypes,
                   selectedGenus,
+                  selectedSpecies,
                   selectedCountries,
                   selectedGardens,
                   selectedListings: selectedListings.map(l => l.id),
@@ -1677,6 +1750,12 @@ const BuyXGetY = () => {
                 </View>
                 <View style={styles.typeDivider} />
                 <View style={styles.typeRowWrapper}>
+                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific specie'); setShowAppliesSheet(false); }}>
+                    <Text style={styles.typeRowText}>Specific specie</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.typeDivider} />
+                <View style={styles.typeRowWrapper}>
                   <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific country'); setShowAppliesSheet(false); }}>
                     <Text style={styles.typeRowText}>Specific country</Text>
                   </TouchableOpacity>
@@ -1972,6 +2051,110 @@ const BuyXGetY = () => {
                         <Text style={styles.genusClearText}>Clear</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.genusApplyBtn} onPress={() => setShowGenusSheet(false)}>
+                        <Text style={styles.genusApplyText}>Apply</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </SafeAreaView>
+                </KeyboardAvoidingView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+      {/* Species modal (bottom sheet) */}
+      <Modal transparent visible={showSpeciesSheet} onRequestClose={() => setShowSpeciesSheet(false)} animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowSpeciesSheet(false)}>
+          <View style={styles.fullscreenOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.genusSheetWrapper}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={80} style={{flex: 1}}>
+                  <SafeAreaView style={{flex: 1}}>
+                    {/* Header */}
+                    <View style={styles.genusHeader}>
+                      <Text style={styles.genusTitle}>Add Specie</Text>
+                      <TouchableOpacity onPress={() => setShowSpeciesSheet(false)}>
+                        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                          <Path fillRule="evenodd" clipRule="evenodd" d="M4.71967 4.71967C5.01256 4.42678 5.48744 4.42678 5.78033 4.71967L12 10.9393L18.2197 4.71967C18.5126 4.42678 18.9874 4.42678 19.2803 4.71967C19.5732 5.01256 19.5732 5.48744 19.2803 5.78033L13.0607 12L19.2803 18.2197C19.5732 18.5126 19.5732 18.9874 19.2803 19.2803C18.9874 19.5732 18.5126 19.5732 18.2197 19.2803L12 13.0607L5.78033 19.2803C5.48744 19.5732 5.01256 19.5732 4.71967 19.2803C4.42678 18.9874 4.42678 18.5126 4.71967 18.2197L10.9393 12L4.71967 5.78033C4.42678 5.48744 4.42678 5.01256 4.71967 4.71967Z" fill="#7F8D91"/>
+                        </Svg>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Content Area */}
+                    <View style={styles.genusContentContainer}>
+                      {/* Search Bar */}
+                      <View style={styles.inputRow}> 
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Search specie"
+                          placeholderTextColor="#647276"
+                          value={speciesSearch}
+                          onChangeText={setSpeciesSearch}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                      </View>
+
+                      {/* Scrollable List */}
+                      <ScrollView 
+                        style={styles.genusListContainer}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {speciesLoading && (
+                          <>
+                            {[...Array(8)].map((_, idx) => (
+                              <View key={`species-skel-${idx}`} style={styles.genusRow}>
+                                <View style={styles.genusRowLeft}>
+                                  <View style={styles.genusSkeletonText} />
+                                </View>
+                                <View style={styles.genusRowRight}>
+                                  <View style={styles.genusSkeletonCheckbox} />
+                                </View>
+                              </View>
+                            ))}
+                          </>
+                        )}
+                        {!speciesLoading && (() => {
+                          const filtered = speciesOptions.filter(label => label.toLowerCase().includes(speciesSearch.toLowerCase()));
+                          console.log('📊 Rendering species items - Total:', speciesOptions.length, 'Filtered:', filtered.length);
+                          return filtered;
+                        })().map((label, idx) => {
+                          const selected = selectedSpecies.includes(label);
+                          return (
+                            <TouchableOpacity
+                              key={`${label}-${idx}`}
+                              style={styles.genusRow}
+                              activeOpacity={0.7}
+                              onPress={() => {
+                                setSelectedSpecies(prev => selected ? prev.filter(i => i !== label) : [...prev, label]);
+                              }}
+                            >
+                              <View style={styles.genusRowLeft}>
+                                <Text style={styles.typeRowText} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+                              </View>
+                              <View style={styles.genusRowRight}>
+                                <View style={[styles.checkboxSquare, selected ? styles.checkboxSquareSelected : styles.checkboxSquareDefault]}>
+                                  {selected && (
+                                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                                      <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </Svg>
+                                  )}
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {!speciesLoading && speciesOptions.filter(label => label.toLowerCase().includes(speciesSearch.toLowerCase())).length === 0 && (
+                          <Text style={{padding: 20, color: '#7F8D91'}}>No results</Text>
+                        )}
+                      </ScrollView>
+                    </View>
+
+                    {/* Action Buttons */}
+                    <View style={[styles.genusActions, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+                      <TouchableOpacity style={styles.genusClearBtn} onPress={() => setSelectedSpecies([])}>
+                        <Text style={styles.genusClearText}>Clear</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.genusApplyBtn} onPress={() => setShowSpeciesSheet(false)}>
                         <Text style={styles.genusApplyText}>Apply</Text>
                       </TouchableOpacity>
                     </View>
@@ -2605,8 +2788,8 @@ const styles = StyleSheet.create({
   genusListContainer: { flex: 1, marginTop: 16 },
   genusListContentContainer: { paddingHorizontal: 24, paddingBottom: 8 },
   genusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48, paddingLeft: 0, paddingRight: 0 },
-  genusRowLeft: { flexDirection: 'row', alignItems: 'center' },
-  genusRowRight: { flexDirection: 'row', alignItems: 'center' },
+  genusRowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, flexShrink: 1, paddingRight: 12 },
+  genusRowRight: { flexDirection: 'row', alignItems: 'center', flexShrink: 0 },
   genusHint: { fontFamily: 'Inter', fontWeight: '500', fontSize: 14, lineHeight: 20, color: '#647276', marginRight: 8 },
   checkboxSquare: { width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   checkboxSquareSelected: { backgroundColor: '#539461' },

@@ -211,7 +211,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
           <IconTile title="Payouts">
             <PayoutsIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Schedule">
+          <IconTile title="Schedule" onPress={() => navigation.navigate('Schedule')}>
             <ScheduleIcon width={48} height={48} />
           </IconTile>
           <IconTile 
