@@ -81,6 +81,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isJoinListExpanded, setJoinListExpanded] = useState(false);
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [soldToUser, setSoldToUser] = useState(null);
   const [isCommentFocused, setIsCommentFocused] = useState(false);
 
@@ -171,6 +172,31 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
+  // Effect to handle permissions on mount
+  useEffect(() => {
+    const requestPermissions = async () => {
+      if (Platform.OS === 'android') {
+        const permissions = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+
+        if (
+          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] === 'granted' &&
+          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === 'granted'
+        ) {
+          setPermissionsGranted(true);
+        } else {
+          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
+          navigation.goBack();
+        }
+      } else {
+        setPermissionsGranted(true); // For iOS, assume permissions are handled by Info.plist
+      }
+    };
+    requestPermissions();
+  }, [navigation]);
+
   const handleSwitchCamera = () => {
     if (rtcEngineRef.current) {
       console.log('🔄 Switching camera...');
@@ -196,31 +222,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     const cleanup = () => {
       rtcEngineRef.current?.leaveChannel();
       rtcEngineRef.current?.release();
+      rtcEngineRef.current = null;
     };
 
     const startBroadcast = async () => {
-      
-      // Do not proceed if the token is not yet available.
-      if (!token) {
-        console.log('Waiting for token...');
-        return;
-      }
-
-      if (Platform.OS === 'android') {
-        const permissions = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        ]);
-
-        if (
-          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] !== 'granted' ||
-          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== 'granted'
-        ) {
-          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
-          navigation.goBack();
-          return;
-        }
-      }
 
       // If an engine instance already exists, release it first.
       if (rtcEngineRef.current) {
@@ -270,12 +275,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       rtcEngineRef.current = rtc;
     };
 
-    startBroadcast();
+    if (token && permissionsGranted) {
+      startBroadcast();
+    }
 
     return () => {
       cleanup();
     };
-  }, [token, channelName, appId]); // Re-run this effect if the token or channelName changes.
+  }, [token, channelName, appId, permissionsGranted]); // Re-run this effect if the token or channelName changes.
 
   useEffect(() => {
     if (!sessionId) return;
