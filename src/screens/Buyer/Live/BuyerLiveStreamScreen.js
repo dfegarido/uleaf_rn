@@ -50,6 +50,7 @@ import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import {
   addViewerToLiveSession,
+  generateAgoraToken,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,
   updateLiveSessionStatusApi
@@ -332,12 +333,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       }
 
       if (Platform.OS === 'android') {
-        if (!token) {
-          console.log('Waiting for token...');
-          return;
-        }
-
-
         const permissions = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.CAMERA,
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
