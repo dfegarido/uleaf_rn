@@ -1,13 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import {
   addDoc,
   collection,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
-  where
+  where,
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
@@ -15,45 +17,52 @@ import {
   Alert,
   FlatList,
   Image,
-  NativeModules,
+  Modal,
   NativeEventEmitter,
-  PermissionsAndroid,
-  Platform,
+  NativeModules,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import {
   ChannelProfileType,
   ClientRoleType,
   createAgoraRtcEngine,
   RtcSurfaceView,
-  RtcTextureView
+  RtcTextureView,
 } from 'react-native-agora';
+import KeepAwake from 'react-native-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
-import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import PIPIcon from '../../../assets/icons/greydark/picture-in-picture.svg';
+import CaretDown from '../../../assets/icons/white/caret-down.svg';
+import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
+import CaretUp from '../../../assets/icons/white/caret-up.svg';
 import ActiveLoveIcon from '../../../assets/live-icon/active-love.svg';
+import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
+import NoteIcon from '../../../assets/live-icon/notes.svg';
+import ShopIcon from '../../../assets/live-icon/shopv3.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { useFloatingPlayer } from '../../../contexts/FloatingPlayerContext';
 import {
   addViewerToLiveSession,
   generateAgoraToken,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,
-  updateLiveSessionStatusApi,
+  updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
+import { useFloatingPlayer } from '../../../contexts/FloatingPlayerContext';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import GuideModal from './GuideModal'; // Import the new modal
+import ShopModal from './ShopModal';
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const { showFloatingPlayer, isVisible: floatingPlayerVisible, markStreamEnded } = useFloatingPlayer();
@@ -80,9 +89,19 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [plantDataCountry, setPlantDataCountry] = useState(null);
   const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
   const [isGuideModalVisible, setIsGuideModalVisible] = useState(false);
+  const [isShopModalVisible, setIsShopModalVisible] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null);
   const [brodcasterId, setBrodcasterId] = useState(route.params?.broadcasterId);
   const [plantData, setPlantData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [buyerPendingPayment, setBuyerPendingPayment] = useState(false);
+  const [showStickyNote, setShowStickyNote] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
+  const [isJoinListExpanded, setJoinListExpanded] = useState(false);
+  const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
+  const [lastJoinedUser, setLastJoinedUser] = useState(null);
+  const [soldToUser, setSoldToUser] = useState(null);
+  const [isCommentFocused, setIsCommentFocused] = useState(false);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -90,7 +109,23 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       const orderCollectionRef = collection(db, 'order');
       
       const q = query(orderCollectionRef, where('buyerUid', '==' , currentUserInfo?.uid || null), where('listingId', '==' , activeListing?.id || null));
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedOrders = [];
+        querySnapshot.forEach((doc) => {
+          fetchedOrders.push({ id: doc.id, ...doc.data() });
+        });
+        setBuyerPendingPayment(fetchedOrders[0] || {});
+      });
+      
+      return () => unsubscribe();
+  }, [sessionId, activeListing]);
+
+  useEffect(() => {
+      if (!sessionId) return;
   
+      const orderCollectionRef = collection(db, 'order');
+      
+      const q = query(orderCollectionRef, where('listingId', '==' , activeListing?.id || null));
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const fetchedOrders = [];
         querySnapshot.forEach((doc) => {
@@ -100,11 +135,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       });
       
       return () => unsubscribe();
-    }, [sessionId, activeListing]);
+  }, [sessionId, activeListing]);
 
 
-  const getDiscountedPrice = () => {
-    const priceData = activeListing;
+  const getDiscountedPrice = async (item=null, plantDatas=null) => {
+    const priceData = item || activeListing;
     
     // Preferred fields per spec
     const original = parseFloat(priceData.originalPrice ?? priceData.usdPrice ?? 0) || 0;
@@ -126,9 +161,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     setUnitPrice(unitPrice);
 
     // Ensure plantData has a country code
-    const plantDataWithCountry = { ...plantData };
+    const plantDataWithCountry = plantDatas ? { ...plantDatas } : { ...plantData };
     // If country is missing, try to determine it from currency
-
+    let country = null;
     if (!plantDataWithCountry.country) {
       const mapCurrencyToCountry = (localCurrency) => {
         if (!localCurrency) return 'ID'; // Default to Indonesia
@@ -144,11 +179,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             return 'ID'; // Default to Indonesia
         }
       };
-        
-      plantDataWithCountry.country = mapCurrencyToCountry(plantDataWithCountry.localCurrency);
+      country = await mapCurrencyToCountry(plantDataWithCountry.localCurrency);
+      plantDataWithCountry.country = country;
     }
-
     setPlantDataCountry(plantDataWithCountry)
+    return {
+      country,
+      unitPrice
+    }
   };
 
     // Effect for fetching comments
@@ -176,10 +214,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setNewComment(''); // Clear input after sending
       try {
         const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+        
         await addDoc(commentsCollectionRef, {
           message: commentToSend,
-          name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
-          avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
+          name: `${currentUserInfo.username}`,
+          avatar: profilePhotoUrl || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
           uid: currentUserInfo.uid,
           createdAt: serverTimestamp(),
         });
@@ -205,14 +244,15 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }
 
   const addViewers = async () => {
-    await addViewerToLiveSession(sessionId);
+    await addViewerToLiveSession(sessionId, profilePhotoUrl);
   }
 
   const removeViewers = async () => {
     await removeViewerFromLiveSession(sessionId);
   }
 
-  const goBack = async () => {
+ const goBack = async () => {
+    setIsLoading(true);
     await removeViewers();
     
     // Stop PiP mode if active (iOS)
@@ -313,8 +353,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   const fetchToken = async () => {
       try {
+        const buyerAvatar = await AsyncStorage.getItem('profilePhotoUrl');
+        setProfilePhotoUrl(buyerAvatar);
+
         const response = await generateAgoraToken(channelName);
-        console.log('Fetched token response:', response);
+        // console.log('Fetched token response:', response);
         
         setToken(response.token);
         setAppId(response.appId);
@@ -355,7 +398,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     return () => unsubscribe();
   }, [sessionId, brodcasterId]);
 
-   useEffect(() => {
+  useEffect(() => {
      if (!sessionId) return;
  
      console.log(`Setting up snapshot listener for live session: ${sessionId}`);
@@ -366,6 +409,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
          const data = doc.data();
          console.log('Live session data updated:', data);
          setLiveStats(data);
+
+         const joinNotifications = data?.joiners || [];
+        
+         setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
+         setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null)
        } else {
          console.log('Live session document does not exist.');
        }
@@ -378,22 +426,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   useEffect(() => {
     fetchToken();
     const startAgora = async () => {
-      if (Platform.OS === 'android') {
-        const permissions = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        ]);
-      
-        if (
-          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] !== 'granted' ||
-          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== 'granted'
-        ) {
-          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
-          navigation.goBack();
+      if (!token) {
+          console.log('Waiting for token...');
           return;
-        }
       }
-      
+
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
@@ -422,7 +459,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         profile: 0, // Standard
         scenario: 1 // Game Streaming
       });
-      setNewComment('Joined 👋');
+      setNewComment('');
       rtc.registerEventHandler({
         onJoinChannelSuccess: (connection, elapsed) => {
           console.log('✅ Joined Channel as viewer:', connection, 'Elapsed:', elapsed);
@@ -461,8 +498,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           setRemoteUid(null);
           setSessionEnded(true);
           setViewerCount((prev) => Math.max(prev - 1, 0));
-          
-          // If in floating mode, mark stream as ended instead of navigating
           if (floatingPlayerVisible) {
             console.log('Marking floating player stream as ended');
             markStreamEnded();
@@ -529,7 +564,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     startAgora();
 
     return () => {
-      // Don't cleanup if entering floating mode
       if (isEnteringFloatingMode.current) {
         console.log('Skipping engine cleanup - entering floating mode');
         isEnteringFloatingMode.current = false;
@@ -544,7 +578,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         engine.release();
         rtcEngineRef.current = null;
       }
-      
+
       // Stop PiP mode if active (iOS cleanup)
       if (Platform.OS === 'ios' && inPiP && PipModule?.stopPip) {
         PipModule.stopPip().catch(err => console.warn('Failed to stop PiP on cleanup:', err));
@@ -579,15 +613,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         }
   }, [comments]); // This effect runs whenever 'messages' array changes
 
-  const loadPlantDetails = async () => {
+  const loadPlantDetails = async (item=null) => {
       try {
-  
         let netState = await NetInfo.fetch();
         if (!netState.isConnected || !netState.isInternetReachable) {
           throw new Error('No internet connection.');
         }
   
-        const res = await retryAsync(() => getPlantDetailApi(activeListing.plantCode), 3, 1000);
+        const res = await retryAsync(() => getPlantDetailApi(item?.plantCode || activeListing.plantCode), 3, 1000);
   
         if (!res?.success) {
           throw new Error(res?.error || 'Failed to load plant details');
@@ -595,31 +628,100 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         // Extract the nested data object from the response
         
         setPlantData(res.data);
-         getDiscountedPrice();
+        getDiscountedPrice();
+
+        return res.data;
       } catch (error) {
+        setIsLoading(false);
         Alert.alert('Error', error.message);
       }
   };
 
-  const buyNow = async () => {
-    removeViewers();
-    navigation.navigate('CheckoutScreen', {
-            fromBuyNow: true,
-            plantData: {
-              ...plantDataCountry,
-              flightDate: plantData.flightDate || plantData.cargoDate || null,
-              cargoDate: plantData ? plantData.cargoDate : null,
-            },
-            selectedPotSize: plantData ? plantData.potSize : null,
-            quantity: 1,
-            plantCode: plantData ? plantData.plantCode : null,
-            totalAmount: unitPrice * 1,
-            isLive: true,
-          });
+  const buyNow = async (item) => {
+    // removeViewers();
+    try {
+      setIsLoading(true);
+      const plantDatas = await loadPlantDetails(item);
+      const discountsData = await getDiscountedPrice(item, plantDatas);
+      await enterPip();
+      setTimeout(() => {
+        setIsLoading(false);  
+            const data = {
+              fromBuyNow: true,
+              plantData: {
+                ...plantDatas,
+                country: discountsData.country,
+                flightDate: plantDatas.flightDate || plantDatas.cargoDate || null,
+                cargoDate: plantDatas ? plantDatas.cargoDate : null,
+              },
+              selectedPotSize: plantDatas ? plantDatas.potSize : null,
+              quantity: 1,
+              plantCode: plantDatas ? plantDatas.plantCode : null,
+              totalAmount: discountsData.unitPrice * 1,
+              isLive: true,
+            };
+            navigation.navigate('CheckoutScreen', data);
+      }, 1000);
+    } catch (error) {
+      console.log('error', error);
+      setIsLoading(false);
+    }
+    
   }
 
+  // Effect to fetch order for the active listing
+  useEffect(() => {
+    if (!activeListing?.id) {
+      setSoldToUser(null); // Reset when there's no active listing
+      return;
+    }
+  
+    const orderCollectionRef = collection(db, 'order');
+    const q = query(orderCollectionRef, where('listingId', '==', activeListing.id), where('status', '==', 'Ready to Fly'));
+  
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const orderData = querySnapshot.docs[0].data();
+
+        const buyerQuery = query(
+                          collection(db, 'buyer'),
+                          where('uid', '==', orderData.buyerUid)
+        );
+        const buyerSnapshot = await getDocs(buyerQuery);
+        if (!buyerSnapshot.empty) {
+          const buyerData = buyerSnapshot.docs[0].data();
+          setSoldToUser(`@${buyerData.username}`); 
+        } else {
+          setSoldToUser(null); // Buyer not found
+        }
+      } else {
+        setSoldToUser(null); // No pending payment order found
+      }
+    });
+    return () => unsubscribe();
+  }, [activeListing]);
+
+  // Effect to keep the screen awake during the live stream
+  useEffect(() => {
+    KeepAwake.activate();
+    return () => KeepAwake.deactivate();
+  }, [joined, remoteUid]);
+
+  const handleBuyFromShop = (item) => {
+    // Logic to handle buying an item from the shop modal
+    setIsShopModalVisible(false);
+    buyNow(item);
+    
+  };
   return (
      <SafeAreaView style={styles.container}>
+      {isLoading && (
+                      <Modal transparent animationType="fade">
+                        <View style={styles.loadingOverlay}>
+                          <ActivityIndicator size="large" color="#699E73" />
+                        </View>
+                      </Modal>
+                    )}
        <CheckoutLiveModal
           isVisible={isPlantDetailLiveModalVisible}
           onClose={() => setPlantDetailLiveModalVisible(false)}
@@ -636,13 +738,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             totalAmount: unitPrice * 1,
           }}
       />
-      <GuideModal
-        isVisible={isGuideModalVisible}
-        onClose={() => setIsGuideModalVisible(false)}
-      />
+     
       <View style={styles.stream}>
-          {joined && remoteUid ? (
-            Platform.OS === 'ios' ? (
+        {joined && remoteUid ? (
+          Platform.OS === 'ios' ? (
               <RtcSurfaceView
                 style={styles.video}
                 canvas={{
@@ -663,7 +762,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 zOrderMediaOverlay={true}
               />
             )
-          ) : (
+        ) : (
           <View style={styles.connectingContainer}>
             <ActivityIndicator size="large" color="#FFFFFF" />
             <Text style={styles.connectingText}>
@@ -676,134 +775,230 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       </View>
       
       {/* Only show UI components when stream is active */}
-      {joined && remoteUid && (
+      {showOverlays && joined && remoteUid && (
         <>
-          {/* Top bar (hidden in PiP) */}
-          {showOverlays && (
-            <View style={styles.topBar}>
-              <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
-                <BackSolidIcon width={24} height={24} color="#333" />
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
+                    <BackSolidIcon width={24} height={24} />
+            </TouchableOpacity>
+            <View style={styles.topAction}>
+              <TouchableOpacity style={styles.guide} onPress={() => enterPip()}>
+                    <PIPIcon width={19} height={19} />
+                    <Text style={styles.guideText}></Text>
               </TouchableOpacity>
-              <View style={styles.topAction}>
-                <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
-                  <GuideIcon width={19} height={19} />
-                  <Text style={styles.guideText}>Guide</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.pipButton} onPress={() => enterPip()}>
-                  <Text style={styles.pipText}>Mini</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.liveViewer}>
-                  <ViewersIcon width={24} height={24} />
-                  <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
+                    <GuideIcon width={19} height={19} />
+                    <Text style={styles.guideText}>Guide</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.liveViewer}>
+                    <ViewersIcon width={24} height={24} />
+                    <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
 
-          {/* Sticky note */}
-          {showOverlays && liveStats?.stickyNote && (
+          {showStickyNote && (
             <View style={styles.stickyNoteContainer}>
+              <Text style={styles.stickyNoteTitle}>Notes</Text>
+              <TouchableOpacity onPress={() => setShowStickyNote(false)} style={styles.stickyNoteCloseButton}>
+                <CloseIcon width={16} height={16} color="#333" />
+              </TouchableOpacity>
               <ScrollView showsVerticalScrollIndicator={true}>
-                <Text style={styles.stickyNoteText}>{liveStats.stickyNote}</Text>
+                <Text style={styles.stickyNoteText}>{liveStats?.stickyNote || ''}</Text>
               </ScrollView>
             </View>
           )}
-
-          {/* Main action area (comments, side actions, shop) */}
-          {showOverlays && (
-            <View style={styles.actionBar}>
-              <View style={styles.social}>
-                <View style={styles.comments}>
-                  <FlatList
-                    ref={flatListRef}
-                    data={comments}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <View style={styles.commentRow}>
-                        <Image source={{ uri: item.avatar }} style={styles.avatar} />
-                        <View style={styles.commentContent}>
-                          <Text style={styles.chatName}>{item.name}</Text>
-                          <Text style={styles.chatMessage}>{item.message}</Text>
-                        </View>
-                      </View>
+          
+      <View style={styles.actionBar}>
+        <View style={styles.social}>
+              <View style={styles.leftColumn}>
+                {lastJoinedUser && (
+                  <View style={styles.joinNotificationContainer}>
+                    <TouchableOpacity
+                      style={styles.joinNotificationHeader}
+                      onPress={() => setJoinListExpanded(!isJoinListExpanded)}>
+                      {isJoinListExpanded && (<Text style={styles.joinNotificationText}>
+                          Viewers who joined
+                      </Text>)}
+                      {!isJoinListExpanded &&(<View style={styles.joinedRow}>
+                            <Image source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
+                            <View style={styles.joinedContent}>
+                              <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
+                              <Text style={styles.joinedMessage}>👋 joined</Text>
+                            </View>
+                      </View>)}
+                      {isJoinListExpanded ? <CaretUp width={12} height={12} color="#fff" /> : <CaretDown width={12} height={12} color="#fff" />}
+                    </TouchableOpacity>
+                    {isJoinListExpanded && (
+                      <FlatList
+                        data={uniqueJoinedUsers}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                          // <Text style={styles.joinNotificationText}>
+                          //   {item.displayName} joined 👋
+                          // </Text>
+                        
+                           <View style={styles.commentRow}>
+                            <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+                            <View style={styles.commentContent}>
+                              <Text style={styles.chatName}>{item.displayName}</Text>
+                              <Text style={styles.chatMessage}>👋 joined</Text>
+                            </View>
+                          </View>
+                        )}
+                        style={styles.joinList}
+                      />
                     )}
-                  />
-                  <TextInput
-                    style={styles.commentInput}
+                  </View>
+                )}
+              <View style={styles.comments}>
+                <FlatList
+                  ref={flatListRef}
+                  data={comments}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.commentRow}>
+                      <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                      <View style={styles.commentContent}>
+                        <Text style={styles.chatName}>{item.name}</Text>
+                        <Text style={styles.chatMessage}>{item.message}</Text>
+                      </View>
+                    </View>
+                  )}
+                />
+                <TextInput
+                    style={[styles.commentInput, isCommentFocused && styles.commentInputFocused]}
                     placeholder="Comment"
-                    placeholderTextColor="#888"
+                    placeholderTextColor="#fff"
                     value={newComment}
                     onChangeText={setNewComment}
                     onSubmitEditing={handleSendComment}
+                    onFocus={() => setIsCommentFocused(true)}
+                    onBlur={() => setIsCommentFocused(false)}
+                    multiline
+                    blurOnSubmit={true}
                   />
-                </View>
-
-                <View style={styles.sideActions}>
-                  {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (
-                    <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                      <ActiveLoveIcon />
-                      <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                      <LoveIcon />
-                      <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              {/* Shop / listing */}
-              {activeListing ? (
-                <View style={styles.shop}>
-                  <View style={styles.plant}>
-                    <View style={styles.plantDetails}>
-                      <View style={styles.plantName}>
-                        <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
-                        <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
-                      </View>
-                      <View style={styles.price}>
-                        <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.shipping}>
-                      <View style={styles.shippingType}>
-                        <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
-                      </View>
-                      <View style={styles.shipDays}>
-                        <TruckIcon width={24} height={24} />
-                        <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
-                      </View>
-                    </View>
+            </View>
+          </View>
+          {/* <View style={styles.comments}>
+            <FlatList
+              ref={flatListRef}
+              data={comments}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.commentRow}>
+                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                  <View style={styles.commentContent}>
+                    <Text style={styles.chatName}>{item.name}</Text>
+                    <Text style={styles.chatMessage}>{item.message}</Text>
                   </View>
-
-                  <View style={styles.actionButton}>
-                    {orderStatus === 'pending_payment' && (
-                      <TouchableOpacity onPress={() => {}} style={styles.actionButtonTouch}>
-                        <Text style={styles.actionText}>Pending Payment</Text>
-                      </TouchableOpacity>
-                    )}
-                    {orderStatus === 'Ready to Fly' && (
-                      <TouchableOpacity onPress={() => {}} style={styles.actionButtonTouch}>
-                        <Text style={styles.actionText}>Already Brought</Text>
-                      </TouchableOpacity>
-                    )}
-                    {!orderStatus && (
-                      <TouchableOpacity onPress={() => buyNow()} style={styles.actionButtonTouch}>
-                        <Text style={styles.actionText}>Buy Now</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.shop}>
-                  <Text style={{ ...baseFont, fontSize: 16, color: '#FFF' }}>No active listing</Text>
                 </View>
               )}
+            />
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Comment"
+              placeholderTextColor="#fff"
+              value={newComment}
+              onChangeText={setNewComment}
+              onSubmitEditing={handleSendComment}
+            />
+
+          </View> */}
+          <View style={styles.sideActions}>
+              {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                <ActiveLoveIcon />
+                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+              </TouchableOpacity>) : 
+              (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                <LoveIcon />
+                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+              </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setShowStickyNote(!showStickyNote)} style={styles.sideAction}>
+                <NoteIcon width={32} height={32} />
+                <Text style={styles.sideActionNotesText}>Notes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sideAction} onPress={() => setIsShopModalVisible(true)}>
+                 <ShopIcon width={32} height={32} />
+                <Text style={styles.sideActionNotesText}>Shop</Text>
+              </TouchableOpacity>
+
+             
+          </View>
+        </View>
+        {soldToUser && (
+          <View style={styles.soldToContainer}>
+            <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
+          </View>
+        )}
+        {activeListing && (<View style={styles.shop}>
+            <View style={styles.plant}>
+              <View style={styles.plantDetails}>
+                <View style={styles.plantName}>
+                  <Text style={styles.name}>{activeListing.genus}</Text>
+                  <Text style={styles.name}>{activeListing.species}</Text>
+                  <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
+                </View>
+                <View style={styles.price}>
+                  <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
+                  {/* Discount logic can be added here if available in data */}
+                      {/* <View style={styles.discount}>
+                        <Text style={styles.discountText}>33% OFF</Text>
+                      </View> */}
+                </View>
+                
+              </View>
+              <View style={styles.shipping}>
+                  <View style={styles.shippingType}>
+                    <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
+                  </View>
+                  <View style={styles.shipDays}>
+                    <TruckIcon width={24} height={24} />
+                    <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
+                  </View>
+                </View>
             </View>
-          )}
+            <View style={styles.actionButton}>
+              {buyerPendingPayment?.status === 'pending_payment' && (
+                <TouchableOpacity onPress={() => {
+                }} style={styles.actionButtonTouch}>
+                  <Text style={styles.actionText}>Pending Payment</Text>
+                </TouchableOpacity>
+              )} 
+
+              {orderStatus === 'Ready to Fly' && (
+                <TouchableOpacity onPress={() => {
+                }} style={styles.waitingButtonTouch}>
+                  <Text style={styles.actionText}>Awaiting new item</Text>
+                </TouchableOpacity>
+              )} 
+
+              {!orderStatus && (
+               <TouchableOpacity onPress={() => {
+                  buyNow(activeListing);
+                }} style={styles.actionButtonTouch}>
+                  <Text style={styles.actionText}>Buy Now</Text>
+                </TouchableOpacity>
+              )} 
+            </View>
+        </View>)}
+        {!activeListing && (<View style={styles.shop}>
+                      <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
+                    </View>)}
+          </View>
         </>
       )}
+       <GuideModal
+        isVisible={isGuideModalVisible}
+        onClose={() => setIsGuideModalVisible(false)}
+      />
+      <ShopModal
+        isVisible={isShopModalVisible}
+        onClose={() => setIsShopModalVisible(false)}
+        broadcasterId={brodcasterId}
+        onBuyNow={handleBuyFromShop}
+      />
     </SafeAreaView>
   );
 };
@@ -817,11 +1012,31 @@ const baseFont = {
 };
 
 const styles = StyleSheet.create({
+  stickyNoteTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    fontFamily: 'Inter-Bold',
+    marginBottom: 8,
+    paddingRight: 30, // Ensure title doesn't overlap with close button
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sideActionNotesText: {
+    ...baseFont,
+    fontWeight: '600',
+    fontSize: 10,
+    marginTop: 4,
+  },
   container: { 
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingTop: 48,
+    paddingTop: 1,
     paddingBottom: 34,
     backgroundColor: '#000',
   },
@@ -849,7 +1064,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
-    gap: 12,
+    gap: 2,
     width: 375,
     height: 58,
     alignSelf: 'center',
@@ -868,6 +1083,7 @@ const styles = StyleSheet.create({
     gap: 8,
     width: 178,
     height: 34,
+    marginRight: 35
   },
   guide: {
     flexDirection: 'row',
@@ -904,20 +1120,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
   },
-  pipButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    height: 34,
-    backgroundColor: '#2E2E2E',
-    borderRadius: 12,
-    marginHorizontal: 6,
-  },
-  pipText: {
-    ...baseFont,
-    fontWeight: '600',
-    fontSize: 14,
-  },
   actionBar: {
     flexDirection: 'column',
     alignItems: 'flex-end',
@@ -935,6 +1137,49 @@ const styles = StyleSheet.create({
     width: 359,
     height: 253,
   },
+  soldToContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: -50,
+  },
+  soldToText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  leftColumn: {
+    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    height: '100%',
+    marginTop: 250,
+  },
+  joinNotificationContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
+    maxHeight: 180,
+  },
+  joinNotificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  joinNotificationText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Inter',
+    paddingVertical: 2,
+  },
+  joinList: {
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
   comments: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
@@ -948,9 +1193,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    width: 260,
-    height: 41,
-    marginVertical: 15,
+    width: '100%',
+    // marginBottom: 16,
+  },
+    joinedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    width: '90%',
+  },
+  joinedContent: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    width: 118,
+  },
+  joinedName: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#FFF',
+  },
+  joinedMessage: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 22,
+    flexWrap: 'wrap',
+    color: '#fff',
+    height: 'auto',
   },
   avatar: {
     width: 24,
@@ -964,19 +1236,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 2,
     width: 228,
-    height: 41,
   },
   chatName: {
     ...baseFont,
     fontWeight: '500',
     fontSize: 12,
     lineHeight: 17,
+    color: '#fff',
   },
   chatMessage: {
     ...baseFont,
     fontWeight: '500',
-    fontSize: 16,
+    fontSize: 13,
     lineHeight: 22,
+    flexWrap: 'wrap',
+    color: '#fff',
+    height: 'auto',
   },
   commentInput: {
     flexDirection: 'row',
@@ -989,6 +1264,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
+    color: '#FFF',
+  },
+  commentInputFocused: {
+    height: 80, // Or another height that fits multiple lines
+    textAlignVertical: 'top', // Align text to the top
   },
   sideActions: {
     flexDirection: 'column',
@@ -1010,7 +1290,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     width: 359,
-    height: 182,
+    height: 210,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 16,
   },
@@ -1036,7 +1316,7 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 13,
     lineHeight: 24,
   },
   variegation: {
@@ -1085,6 +1365,7 @@ const styles = StyleSheet.create({
   shipping: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 28,
@@ -1114,12 +1395,13 @@ const styles = StyleSheet.create({
   shipText: {
     ...baseFont,
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 11,
     lineHeight: 20,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 48,
@@ -1133,6 +1415,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#539461',
     borderRadius: 12,
   },
+  waitingButtonTouch: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
+    width: 327,
+    height: 48,
+    backgroundColor: '#bdc5bfff',
+    borderRadius: 12,
+  },
   actionText: {
     ...baseFont,
     fontWeight: '600',
@@ -1143,23 +1434,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 140,
     right: 10,
-    maxHeight: 150,
-    width: '45%', // Occupy a portion of the right side
-    backgroundColor: 'rgba(255, 249, 196, 0.9)', // Yellowish sticky note color
+    maxHeight: 200,
+    width: '60%', // Occupy a portion of the right side
+    backgroundColor: '#FFE7E2', // Yellowish sticky note color
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E9D5A1',
+    borderColor: '#e7c2bbff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    transform: [{ rotate: '2deg' }], // Slight rotation for effect
+    zIndex: 10,
+    // transform: [{ rotate: '2deg' }], // Slight rotation for effect
   },
   stickyNoteText: {
     color: '#333',
     fontSize: 14,
     fontFamily: 'Inter',
+  },
+  stickyNoteCloseButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 12,
+    padding: 4,
   },
 });

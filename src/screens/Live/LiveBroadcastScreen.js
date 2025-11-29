@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -33,11 +34,14 @@ import {
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
-import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import BackSolidIcon from '../../assets/icons/white/caret-left-regular.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
 import MicOffIcon from '../../assets/live-icon/muted.svg';
 import MicOnIcon from '../../assets/live-icon/unmuted.svg';
 
+import KeepAwake from 'react-native-keep-awake';
+import CaretDown from '../../assets/icons/white/caret-down.svg';
+import CaretUp from '../../assets/icons/white/caret-up.svg';
 import NoteIcon from '../../assets/live-icon/notes.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
@@ -74,7 +78,18 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isLive, setIsLive] = useState(false);
   const flatListRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [isJoinListExpanded, setJoinListExpanded] = useState(false);
+  const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
+  const [lastJoinedUser, setLastJoinedUser] = useState(null);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [soldToUser, setSoldToUser] = useState(null);
+  const [isCommentFocused, setIsCommentFocused] = useState(false);
+
+  useEffect(() => {
+      KeepAwake.activate();
+      return () => KeepAwake.deactivate();
+  }, [joined]);
+
   const updateLiveStatus = async (newStatus) => {
     setIsLoading(true);
     const response = await updateLiveSessionStatusApi(sessionId, newStatus);
@@ -122,7 +137,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   const fetchToken = async () => {
     try {
+
       const response = await generateAgoraToken(channelName);
+     
       console.log('Fetched token response:', response);
       
       setToken(response.token);
@@ -159,6 +176,31 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
+  // Effect to handle permissions on mount
+  useEffect(() => {
+    const requestPermissions = async () => {
+      if (Platform.OS === 'android') {
+        const permissions = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+
+        if (
+          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] === 'granted' &&
+          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === 'granted'
+        ) {
+          setPermissionsGranted(true);
+        } else {
+          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
+          navigation.goBack();
+        }
+      } else {
+        setPermissionsGranted(true); // For iOS, assume permissions are handled by Info.plist
+      }
+    };
+    requestPermissions();
+  }, [navigation]);
+
   const handleSwitchCamera = () => {
     if (rtcEngineRef.current) {
       console.log('🔄 Switching camera...');
@@ -184,35 +226,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     const cleanup = () => {
       rtcEngineRef.current?.leaveChannel();
       rtcEngineRef.current?.release();
+      rtcEngineRef.current = null;
     };
 
     const startBroadcast = async () => {
-      
-      // Do not proceed if the token is not yet available.
-      if (!token) {
-        console.log('Waiting for token...');
-        return;
-      }
-
-      if (Platform.OS === 'android') {
-        const permissions = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        ]);
-
-        if (
-          permissions[PermissionsAndroid.PERMISSIONS.CAMERA] !== 'granted' ||
-          permissions[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== 'granted'
-        ) {
-          Alert.alert('Permissions required', 'Camera and microphone permissions are required to start a broadcast.');
-          if (navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('Live');
-          }
-          return;
-        }
-      }
 
       // If an engine instance already exists, release it first.
       if (rtcEngineRef.current) {
@@ -262,28 +279,34 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       rtcEngineRef.current = rtc;
     };
 
-    startBroadcast();
+    if (token && permissionsGranted) {
+      startBroadcast();
+    }
 
     return () => {
       cleanup();
     };
-  }, [token, channelName, appId]); // Re-run this effect if the token or channelName changes.
+  }, [token, channelName, appId, permissionsGranted]); // Re-run this effect if the token or channelName changes.
 
   useEffect(() => {
     if (!sessionId) return;
 
-    console.log(`Setting up snapshot listener for live session: ${sessionId}`);
     const sessionDocRef = doc(db, 'live', sessionId);
 
     const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
         setSessionDetails(data);
-        console.log('Live session data updated:', data);
         setLiveStats({
           viewerCount: data.viewerCount || 0,
           likeCount: data.likeCount || 0,
         });
+
+        const joinNotifications = data?.joiners || [];
+        
+        setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
+        setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null)
+
         setStickyNoteText(data.stickyNote || '');
       } else {
         console.log('Live session document does not exist.');
@@ -325,10 +348,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
     try {
       const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
+      
       await addDoc(commentsCollectionRef, {
         message: commentToSend,
-        name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`,
-        avatar: currentUserInfo.profileImage || `https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x`, // Fallback avatar
+        name: `${currentUserInfo.gardenOrCompanyName}`,
+        avatar: currentUserInfo?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
         uid: currentUserInfo.uid,
         createdAt: serverTimestamp(),
       });
@@ -346,6 +370,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
     setStickyNoteModalVisible(true);
   };
+
+    const formatViewersLikes = (data) => {
+      // Use 'en-US' locale, compact notation, and 0-1 fraction digits
+      const formatter = new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 1
+      });
+
+      return formatter.format(data);
+    }
 
   const handleSaveStickyNote = async () => {
     if (!sessionId) return;
@@ -376,7 +410,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
  //get active listing
   useEffect(() => {
       if (!sessionId) return;
-  
+
       const listingsCollectionRef = collection(db, 'listing');
       const q = query(
         listingsCollectionRef,
@@ -397,6 +431,40 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   
       return () => unsubscribe();
   }, [sessionId]);
+
+  // Effect to fetch order for the active listing
+  useEffect(() => {
+    if (!activeListing?.id) {
+      setSoldToUser(null); // Reset when there's no active listing
+      return;
+    }
+console.log('activeListing?.id', activeListing?.id);
+
+    const orderCollectionRef = collection(db, 'order');
+    const q = query(orderCollectionRef, where('listingId', '==', activeListing.id), where('status', '==', 'Ready to Fly'));
+
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const orderData = querySnapshot.docs[0].data();
+        
+        const buyerQuery = query(
+                          collection(db, 'buyer'),
+                          where('uid', '==', orderData.buyerUid)
+        );
+        const buyerSnapshot = await getDocs(buyerQuery);
+        if (!buyerSnapshot.empty) {
+          const buyerData = buyerSnapshot.docs[0].data();
+          
+          setSoldToUser(`@${buyerData.username}`); 
+        } else {
+          setSoldToUser(null); // Buyer not found
+        }
+      } else {
+        setSoldToUser(null); // No pending payment order found
+      }
+    });
+    return () => unsubscribe();
+  }, [activeListing]);
 
   return (
        <SafeAreaView style={styles.container}>
@@ -435,7 +503,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           <>
             <View style={styles.topBar}>
               <TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.backButton}>
-                      <BackSolidIcon width={24} height={24} color="#333" />
+                      <BackSolidIcon width={24} height={24} />
               </TouchableOpacity>
               <View style={styles.topAction}>
                 <TouchableOpacity style={styles.guide} onPress={handleMuteToggle}>
@@ -446,13 +514,53 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.liveViewer}>
                       <ViewersIcon width={24} height={24} />
-                      <Text style={styles.liveViewerText}>{liveStats.viewerCount}</Text>
+                      <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
             
         <View style={styles.actionBar}>
           <View style={styles.social}>
+            <View style={styles.leftColumn}>
+              {lastJoinedUser && (
+                <View style={styles.joinNotificationContainer}>
+                  <TouchableOpacity
+                    style={styles.joinNotificationHeader}
+                    onPress={() => setJoinListExpanded(!isJoinListExpanded)}>
+                    {isJoinListExpanded && (<Text style={styles.joinNotificationText}>
+                        Viewers who joined
+                    </Text>)}
+                    {!isJoinListExpanded &&(<View style={styles.joinedRow}>
+                          <Image source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
+                          <View style={styles.joinedContent}>
+                            <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
+                            <Text style={styles.joinedMessage}>👋 joined</Text>
+                          </View>
+                    </View>)}
+                    {isJoinListExpanded ? <CaretUp width={12} height={12} color="#fff" /> : <CaretDown width={12} height={12} color="#fff" />}
+                  </TouchableOpacity>
+                  {isJoinListExpanded && (
+                    <FlatList
+                      data={uniqueJoinedUsers}
+                      keyExtractor={(item) => item.id}
+                      renderItem={({ item }) => (
+                        // <Text style={styles.joinNotificationText}>
+                        //   {item.displayName} joined 👋
+                        // </Text>
+                 
+                         <View style={styles.commentRow}>
+                          <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+                          <View style={styles.commentContent}>
+                            <Text style={styles.chatName}>{item.displayName}</Text>
+                            <Text style={styles.chatMessage}>👋 joined</Text>
+                          </View>
+                        </View>
+                      )}
+                      style={styles.joinList}
+                    />
+                  )}
+                </View>
+              )}
             <View style={styles.comments}>
               <FlatList
                 ref={flatListRef}
@@ -469,19 +577,24 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 )}
               />
               <TextInput
-                  style={styles.commentInput}
+                  style={[styles.commentInput, isCommentFocused && styles.commentInputFocused]}
                   placeholder="Comment"
-                  placeholderTextColor="#888"
+                  placeholderTextColor="#fff"
                   value={newComment}
                   onChangeText={setNewComment}
                   onSubmitEditing={handleSendComment}
+                  onFocus={() => setIsCommentFocused(true)}
+                  onBlur={() => setIsCommentFocused(false)}
+                  multiline
+                  blurOnSubmit={true}
                 />
   
+            </View>
             </View>
             <View style={styles.sideActions}>
                 <TouchableOpacity style={styles.sideAction}>
                   <LoveIcon />
-                  <Text style={styles.sideActionText}>{liveStats.likeCount}</Text>
+                  <Text style={styles.sideActionText}>{formatViewersLikes(liveStats?.likeCount || 0)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
                   <NoteIcon width={32} height={32} />
@@ -489,12 +602,18 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
             </View>
           </View>
+          {soldToUser && (
+            <View style={styles.soldToContainer}>
+              <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
+            </View>
+          )}
           {activeListing && (
             <View style={styles.shop}>
                 <View style={styles.plant}>
                   <View style={styles.plantDetails}>
                     <View style={styles.plantName}>
-                      <Text style={styles.name}>{activeListing.genus} {activeListing.species}</Text>
+                      <Text style={styles.name}>{activeListing.genus}</Text>
+                      <Text style={styles.name}>{activeListing.species}</Text>
                       <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
                     </View>
                     <View style={styles.price}>
@@ -557,7 +676,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           onRequestClose={() => setStickyNoteModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <View style={styles.stickyNoteModalContainer}>
-              <Text style={styles.modalTitle}>Note</Text>
+              <Text style={styles.modalTitle}>Notes</Text>
               <TextInput
                 style={styles.stickyNoteInput}
                 placeholder="Write a notes for your viewers..."
@@ -588,6 +707,10 @@ const baseFont = {
 };
 
 const styles = StyleSheet.create({
+  commentInputFocused: {
+    height: 80, // Or another height that fits multiple lines
+    textAlignVertical: 'top', // Align text to the top
+  },
   loadingOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -605,7 +728,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingTop: 8,
+    paddingTop: 1,
     paddingBottom: 34,
     backgroundColor: '#000',
   },
@@ -633,7 +756,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
-    gap: 12,
+    gap: 2,
     width: 375,
     height: 58,
     alignSelf: 'center',
@@ -706,6 +829,49 @@ const styles = StyleSheet.create({
     width: 359,
     height: 353,
   },
+  soldToContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: -50,
+  },
+  soldToText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  leftColumn: {
+    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    height: '100%',
+    marginTop: 250,
+  },
+  joinNotificationContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
+    maxHeight: 180,
+  },
+  joinNotificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  joinNotificationText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Inter',
+    paddingVertical: 2,
+  },
+  joinList: {
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
   comments: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
@@ -713,15 +879,41 @@ const styles = StyleSheet.create({
     gap: 16,
     width: 260,
     height: 453,
-    paddingBottom: 163
+    paddingBottom: 213
   },
   commentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    width: 260,
-    height: 41,
-    marginVertical: 15,
+    width: '100%',
+  },
+  joinedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    width: '90%',
+  },
+  joinedContent: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    width: 118,
+  },
+  joinedName: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#FFF',
+  },
+  joinedMessage: {
+    ...baseFont,
+    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 22,
+    flexWrap: 'wrap',
+    color: '#fff',
+    height: 'auto',
   },
   avatar: {
     width: 24,
@@ -735,20 +927,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 2,
     width: 228,
-    height: 41,
   },
   chatName: {
     ...baseFont,
     fontWeight: '500',
     fontSize: 12,
     lineHeight: 17,
+    color: '#FFF',
   },
   chatMessage: {
     ...baseFont,
     fontWeight: '500',
-    fontSize: 16,
+    fontSize: 13,
     lineHeight: 22,
-    color: '#FFF',
+    flexWrap: 'wrap',
+    color: '#fff',
+    height: 'auto',
   },
   commentInput: {
     flexDirection: 'row',
@@ -761,6 +955,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
+    color: '#FFF',
   },
   sideActions: {
     flexDirection: 'column',
@@ -794,7 +989,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     width: 359,
-    height: 182,
+    height: 210,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 16,
   },
@@ -820,7 +1015,7 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 13,
     lineHeight: 24,
   },
   variegation: {
@@ -863,6 +1058,7 @@ const styles = StyleSheet.create({
   shipping: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 28,
@@ -898,6 +1094,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginTop: 22,
     gap: 8,
     width: 327,
     height: 48,
@@ -959,7 +1156,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
     elevation: 8,
-    transform: [{ rotate: '-2deg' }], // Slight rotation for effect
+    // transform: [{ rotate: '-2deg' }], // Slight rotation for effect
   },
   modalTitle: {
     fontSize: 20,

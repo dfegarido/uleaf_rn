@@ -4,8 +4,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { db } from '../../../firebase';
 import { useUnreadMessageCount } from '../../hooks/useUnreadMessageCount';
 
 // Import buyer screens
@@ -20,18 +22,18 @@ import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 import RequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import AccountInformationScreen from '../../screens/Buyer/Profile/AccountInformationScreen';
 import AddNewAddressScreen from '../../screens/Buyer/Profile/AddNewAddressScreen';
+import AddRequestChangePlantFlightScreen from '../../screens/Buyer/Profile/AddRequestChangePlantFlightScreen';
 import AddressBookScreen from '../../screens/Buyer/Profile/AddressBookScreen';
 import BuyerProfileScreen from '../../screens/Buyer/Profile/BuyerProfileScreen';
 import InviteFriendsScreen from '../../screens/Buyer/Profile/InviteFriendsScreen';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
+import RequestChangePlantFlightScreen from '../../screens/Buyer/Profile/RequestChangePlantFlightScreen';
 import MyShippingBuddiesRouter from '../../screens/Buyer/Profile/ShippingBuddies/MyShippingBuddiesRouter';
 import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
 import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScreen';
-import RequestChangePlantFlightScreen from '../../screens/Buyer/Profile/RequestChangePlantFlightScreen';
-import AddRequestChangePlantFlightScreen from '../../screens/Buyer/Profile/AddRequestChangePlantFlightScreen';
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 import ScreenPlantDetailPurge from '../../screens/Buyer/Shop/ScreenPlantDetailPurge';
@@ -65,6 +67,61 @@ import { ScreenOrders } from '../../screens/Buyer/Orders';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+// Animated Live Icon Component
+const AnimatedLiveIcon = ({ focused, size }) => {
+  const [isLive, setIsLive] = useState(false);
+  const blinkAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const liveCollectionRef = collection(db, 'live');
+    const q = query(liveCollectionRef, where('status', '==', 'live'));
+
+    const unsubscribe = onSnapshot(q, snapshot => {
+      setIsLive(!snapshot.empty);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blinkAnim, {
+          toValue: 0.2,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(blinkAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    if (isLive && !focused) {
+      animation.start();
+    } else {
+      animation.stop();
+      blinkAnim.setValue(1);
+    }
+
+    return () => animation.stop();
+  }, [isLive, focused, blinkAnim]);
+
+  if (isLive) {
+    return ( 
+    <Animated.View style={{ opacity: blinkAnim }}>
+      <LiveIconSelected width={size} height={size} />
+    </Animated.View>
+    );
+  }
+
+  return (
+    <LiveIcon width={size} height={size} />
+  );
+};
 
 // Placeholder component for Live tab
 const LivePlaceholder = () => (
@@ -325,12 +382,7 @@ function BuyerTabs() {
         },
         tabBarIcon: ({color, size, focused}) => {
           switch (route.name) {
-            case 'Live':
-              return focused ? (
-                <LiveIconSelected width={size} height={size} />
-              ) : (
-                <LiveIcon width={size} height={size} />
-              );
+            case 'Live': return <AnimatedLiveIcon focused={focused} size={size} />;
             case 'Cart':
               return focused ? (
                 <CartIconSelected width={size} height={size} />
