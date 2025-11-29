@@ -1,4 +1,4 @@
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   FlatList,
@@ -29,17 +29,55 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
       where('status', '==', 'Live'),
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       const listings = [];
       querySnapshot.forEach((doc) => {
         listings.push({ id: doc.id, ...doc.data() });
       });
 
       // Separate into all and sold
-      const sold = listings.filter(item => item.availableQty === 0);
       const unSold = listings.filter(item => item.availableQty !== 0);
+      const soldItems = listings.filter(item => item.availableQty === 0);
+
+      // Asynchronously fetch buyer info for sold items
+      const soldWithBuyerInfo = await Promise.all(
+        soldItems.map(async (item) => {
+          try {
+            // 1. Fetch order info from 'order' collection
+            
+            const orderQuery = query(
+              collection(db, 'order'),
+              where('listingId', '==', item.id),
+              where('status', '==', 'Ready to Fly')
+            );
+            const orderSnapshot = await getDocs(orderQuery);
+
+            if (!orderSnapshot.empty) {
+              const orderData = orderSnapshot.docs[0].data();
+              // 2. Use buyerInfo from the order
+              if (orderData.buyerUid) {
+                
+                const buyerQuery = query(
+                  collection(db, 'buyer'),
+                  where('uid', '==', orderData.buyerUid)
+                );
+                const buyerSnapshot = await getDocs(buyerQuery);
+                if (!buyerSnapshot.empty) {
+                  const buyerData = buyerSnapshot.docs[0].data();
+                  return { ...item, buyerUsername: buyerData.username };
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching buyer info for sold item:", error);
+          }
+          // Return item without buyer info if anything fails
+          return item;
+        })
+      );
+
       setAllListings(unSold);
-      setSoldListings(sold);
+      setSoldListings(soldWithBuyerInfo);
     });
 
     return () => unsubscribe();

@@ -4,11 +4,12 @@ import {
   addDoc,
   collection,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
-  where
+  where,
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
@@ -130,8 +131,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }, [sessionId, activeListing]);
 
 
-  const getDiscountedPrice = () => {
-    const priceData = activeListing;
+  const getDiscountedPrice = async (item=null, plantDatas=null) => {
+    const priceData = item || activeListing;
     
     // Preferred fields per spec
     const original = parseFloat(priceData.originalPrice ?? priceData.usdPrice ?? 0) || 0;
@@ -153,9 +154,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     setUnitPrice(unitPrice);
 
     // Ensure plantData has a country code
-    const plantDataWithCountry = { ...plantData };
+    const plantDataWithCountry = plantDatas ? { ...plantDatas } : { ...plantData };
     // If country is missing, try to determine it from currency
-
+    let country = null;
     if (!plantDataWithCountry.country) {
       const mapCurrencyToCountry = (localCurrency) => {
         if (!localCurrency) return 'ID'; // Default to Indonesia
@@ -171,11 +172,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             return 'ID'; // Default to Indonesia
         }
       };
-        
-      plantDataWithCountry.country = mapCurrencyToCountry(plantDataWithCountry.localCurrency);
+      country = await mapCurrencyToCountry(plantDataWithCountry.localCurrency);
+      plantDataWithCountry.country = country;
     }
-
     setPlantDataCountry(plantDataWithCountry)
+    return {
+      country,
+      unitPrice
+    }
   };
 
     // Effect for fetching comments
@@ -252,14 +256,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         const buyerAvatar = await AsyncStorage.getItem('profilePhotoUrl');
         setProfilePhotoUrl(buyerAvatar);
 
-        // const response = await generateAgoraToken(channelName);
+        const response = await generateAgoraToken(channelName);
         // console.log('Fetched token response:', response);
-        const response = {
-        token: '007eJxTYAg/aK+8/e7n5znqCzvDGDbWz/9m+fraN0nWRdYa0hv/bD2pwGBkaGlsbG5samlqbmZiYG5kmWpunmpgmWiQZGCUZp5myBCnmdkQyMiw024eAyMUgvjsDJk5qYlpoYYMDADJvR/B',
-        channelName: 'ileafU1',
-        appId: '7212620b0b054407926d0a3dc9c69100',
-        agoraUid: ''
-      }
         
         setToken(response.token);
         setAppId(response.appId);
@@ -521,15 +519,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         }
   }, [comments]); // This effect runs whenever 'messages' array changes
 
-  const loadPlantDetails = async () => {
+  const loadPlantDetails = async (item=null) => {
       try {
-  
         let netState = await NetInfo.fetch();
         if (!netState.isConnected || !netState.isInternetReachable) {
           throw new Error('No internet connection.');
         }
   
-        const res = await retryAsync(() => getPlantDetailApi(activeListing.plantCode), 3, 1000);
+        const res = await retryAsync(() => getPlantDetailApi(item?.plantCode || activeListing.plantCode), 3, 1000);
   
         if (!res?.success) {
           throw new Error(res?.error || 'Failed to load plant details');
@@ -537,27 +534,46 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         // Extract the nested data object from the response
         
         setPlantData(res.data);
-         getDiscountedPrice();
+        getDiscountedPrice();
+
+        return res.data;
       } catch (error) {
+        setIsLoading(false);
         Alert.alert('Error', error.message);
       }
   };
 
-  const buyNow = async () => {
+  const buyNow = async (item) => {
     // removeViewers();
-    navigation.navigate('CheckoutScreen', {
-            fromBuyNow: true,
-            plantData: {
-              ...plantDataCountry,
-              flightDate: plantData.flightDate || plantData.cargoDate || null,
-              cargoDate: plantData ? plantData.cargoDate : null,
-            },
-            selectedPotSize: plantData ? plantData.potSize : null,
-            quantity: 1,
-            plantCode: plantData ? plantData.plantCode : null,
-            totalAmount: unitPrice * 1,
-            isLive: true,
-          });
+    try {
+      setIsLoading(true);
+      const plantDatas = await loadPlantDetails(item);
+      const discountsData = await getDiscountedPrice(item, plantDatas);
+
+      setTimeout(() => {
+        setIsLoading(false);  
+            const data = {
+              fromBuyNow: true,
+              plantData: {
+                ...plantDatas,
+                country: discountsData.country,
+                flightDate: plantDatas.flightDate || plantDatas.cargoDate || null,
+                cargoDate: plantDatas ? plantDatas.cargoDate : null,
+              },
+              selectedPotSize: plantDatas ? plantDatas.potSize : null,
+              quantity: 1,
+              plantCode: plantDatas ? plantDatas.plantCode : null,
+              totalAmount: discountsData.unitPrice * 1,
+              isLive: true,
+            };
+            
+            navigation.navigate('CheckoutScreen', data);
+      }, 3000);
+    } catch (error) {
+      console.log('error', error);
+      setIsLoading(false);
+    }
+    
   }
 
   // Effect to fetch order for the active listing
@@ -570,10 +586,21 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     const orderCollectionRef = collection(db, 'order');
     const q = query(orderCollectionRef, where('listingId', '==', activeListing.id), where('status', '==', 'Ready to Fly'));
   
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       if (!querySnapshot.empty) {
         const orderData = querySnapshot.docs[0].data();
-        setSoldToUser((orderData?.buyerInfo?.firstName || '')+ ' ' + (orderData?.buyerInfo?.lastName || '')); // Assuming buyerUsername is in the order
+
+        const buyerQuery = query(
+                          collection(db, 'buyer'),
+                          where('uid', '==', orderData.buyerUid)
+        );
+        const buyerSnapshot = await getDocs(buyerQuery);
+        if (!buyerSnapshot.empty) {
+          const buyerData = buyerSnapshot.docs[0].data();
+          setSoldToUser(`@${buyerData.username}`); 
+        } else {
+          setSoldToUser(null); // Buyer not found
+        }
       } else {
         setSoldToUser(null); // No pending payment order found
       }
@@ -589,8 +616,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   const handleBuyFromShop = (item) => {
     // Logic to handle buying an item from the shop modal
-    console.log('Buying item from shop:', item);
-    // You can navigate to checkout or show another modal here
+    setIsShopModalVisible(false);
+    buyNow(item);
+    
   };
   return (
      <SafeAreaView style={styles.container}>
@@ -835,7 +863,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
               {!orderStatus && (
                <TouchableOpacity onPress={() => {
-                  buyNow();
+                  buyNow(activeListing);
                 }} style={styles.actionButtonTouch}>
                   <Text style={styles.actionText}>Buy Now</Text>
                 </TouchableOpacity>

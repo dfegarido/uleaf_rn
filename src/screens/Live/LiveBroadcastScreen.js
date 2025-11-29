@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -131,13 +132,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const fetchToken = async () => {
     try {
 
-      // const response = await generateAgoraToken(channelName);
-      const response = {
-        token: '007eJxTYAg/aK+8/e7n5znqCzvDGDbWz/9m+fraN0nWRdYa0hv/bD2pwGBkaGlsbG5samlqbmZiYG5kmWpunmpgmWiQZGCUZp5myBCnmdkQyMiw024eAyMUgvjsDJk5qYlpoYYMDADJvR/B',
-        channelName: 'ileafU1',
-        appId: '7212620b0b054407926d0a3dc9c69100',
-        agoraUid: ''
-      }
+      const response = await generateAgoraToken(channelName);
+     
       console.log('Fetched token response:', response);
       
       setToken(response.token);
@@ -430,14 +426,27 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       setSoldToUser(null); // Reset when there's no active listing
       return;
     }
+console.log('activeListing?.id', activeListing?.id);
 
     const orderCollectionRef = collection(db, 'order');
     const q = query(orderCollectionRef, where('listingId', '==', activeListing.id), where('status', '==', 'Ready to Fly'));
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       if (!querySnapshot.empty) {
         const orderData = querySnapshot.docs[0].data();
-        setSoldToUser((orderData?.buyerInfo?.firstName || '')+ ' ' + (orderData?.buyerInfo?.lastName || '')); // Assuming buyerUsername is in the order
+        
+        const buyerQuery = query(
+                          collection(db, 'buyer'),
+                          where('uid', '==', orderData.buyerUid)
+        );
+        const buyerSnapshot = await getDocs(buyerQuery);
+        if (!buyerSnapshot.empty) {
+          const buyerData = buyerSnapshot.docs[0].data();
+          
+          setSoldToUser(`@${buyerData.username}`); 
+        } else {
+          setSoldToUser(null); // Buyer not found
+        }
       } else {
         setSoldToUser(null); // No pending payment order found
       }
