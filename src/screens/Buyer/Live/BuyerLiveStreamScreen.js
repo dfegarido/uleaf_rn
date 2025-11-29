@@ -43,6 +43,7 @@ import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
 import LoveIcon from '../../../assets/live-icon/love.svg';
 import NoteIcon from '../../../assets/live-icon/notes.svg';
+import ShopIcon from '../../../assets/live-icon/shopv3.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
@@ -770,6 +771,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 <NoteIcon width={32} height={32} />
                 <Text style={styles.sideActionNotesText}>Notes</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowStickyNote(!showStickyNote)} style={styles.sideAction}>
+                 <ShopIcon width={32} height={32} />
+                <Text style={styles.sideActionNotesText}>Shop</Text>
+              </TouchableOpacity>
+
+             
           </View>
         </View>
         {soldToUser && (
