@@ -97,7 +97,7 @@ RCT_EXPORT_METHOD(enterPip:(RCTPromiseResolveBlock)resolve
   [nowPlayingInfo setObject:@"Plant Live Stream" forKey:MPMediaItemPropertyAlbumTitle];
   
   // Set playback info
-  [nowPlayingInfo setObject:@(MPNowPlayingInfoMediaTypeLiveStreaming) forKey:MPNowPlayingInfoPropertyMediaType];
+  [nowPlayingInfo setObject:@(MPNowPlayingInfoMediaTypeVideo) forKey:MPNowPlayingInfoPropertyMediaType];
   [nowPlayingInfo setObject:@(1.0) forKey:MPNowPlayingInfoPropertyPlaybackRate];
   
   // Apply the metadata

@@ -509,7 +509,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.24;
+				MARKETING_VERSION = 1.0.25;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -539,8 +539,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.24;
-				"MARKETING_VERSION[sdk=iphoneos*]" = 1.0.24;
+				MARKETING_VERSION = 1.0.25;
+				"MARKETING_VERSION[sdk=iphoneos*]" = 1.0.25;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

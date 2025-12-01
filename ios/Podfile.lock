@@ -2715,6 +2715,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-keep-awake (4.0.0):
+    - React
   - react-native-netinfo (11.4.1):
     - React-Core
   - react-native-pager-view (6.9.1):
@@ -3242,6 +3244,7 @@ DEPENDENCIES:
   - react-native-agora (from `../node_modules/react-native-agora`)
   - react-native-document-picker (from `../node_modules/react-native-document-picker`)
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
+  - react-native-keep-awake (from `../node_modules/react-native-keep-awake`)
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../node_modules/react-native-pager-view`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
@@ -3392,6 +3395,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-document-picker"
   react-native-image-picker:
     :path: "../node_modules/react-native-image-picker"
+  react-native-keep-awake:
+    :path: "../node_modules/react-native-keep-awake"
   react-native-netinfo:
     :path: "../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
@@ -3541,6 +3546,7 @@ SPEC CHECKSUMS:
   react-native-agora: cba0f0525f2d2925de3520c8f2bbfb0ca7343684
   react-native-document-picker: 302837be22e5e557340d1d510bddb1c658bd4475
   react-native-image-picker: be58a7b0ebe9202cdcd745ea1aef9cf816cd71c3
+  react-native-keep-awake: 21ff40767cde4bd81021ffee12480aee4b5b91bb
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-pager-view: 662c0686f41113096013df6393c4bf7b010c1cf6
   react-native-safe-area-context: df9763c5de6fa38883028e243a0b60123acb8858
