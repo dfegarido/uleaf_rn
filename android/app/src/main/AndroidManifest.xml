@@ -17,9 +17,11 @@
     
     <!-- Foreground service permission for live video streaming -->
     <!-- Only FOREGROUND_SERVICE_CAMERA is needed for Agora live broadcasting -->
+    <!-- This permission is required for live video streaming when the app is in the background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     
     <!-- Explicitly remove unwanted foreground service permissions added by dependencies -->
+    <!-- These are NOT needed - we only use FOREGROUND_SERVICE_CAMERA for live broadcasting -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" tools:node="remove" />
