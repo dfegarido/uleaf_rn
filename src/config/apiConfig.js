@@ -1,6 +1,5 @@
 // API Configuration for local and production environments
-// import {LOCAL_BASE_URL as ENV_LOCAL_BASE_URL} from '@env';
-const ENV_LOCAL_BASE_URL = null;
+import {LOCAL_BASE_URL as ENV_LOCAL_BASE_URL} from '@env';
 
 // Automatically detect environment based on __DEV__ flag and NODE_ENV
 // This prevents accidentally using local API in production builds
@@ -12,8 +11,8 @@ const isProduction = __DEV__ === false || process.env.NODE_ENV === 'production';
 // Use local API only in development mode
 // In production builds, __DEV__ is always false, so this will always be false
 // Note: This is a const, but can be overridden via setApiEnvironment for runtime switching (dev only)
-// FORCE local API in development mo de (__DEV__ === true)
-let USE_LOCAL_API = __DEV__ === false;
+// FORCE local API in development mode (__DEV__ === true)
+let USE_LOCAL_API = __DEV__ === true;
 
 // Safety check: If somehow USE_LOCAL_API is true in a production build, force it to false
 // This prevents the issue where local API is accidentally used in production
