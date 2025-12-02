@@ -95,14 +95,23 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
     <View style={styles.plantCard}>
       <View>
         <Image source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
-        {!(plant?.packingData?.boxNumber) && <View style={styles.checkboxContainer}>
+        {plant?.leafTrailStatus === 'packed' && (
+          <View style={styles.packedBadgeContainer}>
+            <View style={styles.packedBadge}>
+              <Text style={styles.packedBadgeText}>PACKED</Text>
+            </View>
+          </View>
+        )}
+        {!(plant?.packingData?.boxNumber) && (
+          <View style={styles.checkboxContainer}>
              <CheckBox
                 checked={isSelected}
                 onToggle={onCheckPress}
                 containerStyle={{padding: 0, margin: 0}}
                 checkedColor="#539461"
             />
-        </View>}
+          </View>
+        )}
       </View>
       <View style={styles.plantDetails}>
         <View>
@@ -569,6 +578,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     color: '#393D40',
+  },
+  packedBadgeContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+  },
+  packedBadge: {
+    backgroundColor: '#FFE7E2',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  packedBadgeText: {
+    color: '#E7522F',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });
 
