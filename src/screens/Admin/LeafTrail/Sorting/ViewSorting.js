@@ -90,7 +90,6 @@ const DeliveryDetails = ({ details }) => (
 );
 
 const PlantCard = ({ plant, openTagAs }) => {
-
   const setTags = () => {
     let status = {isMissing: true, isDamaged: true};
     if (plant.leafTrailStatus === "missing") {
@@ -102,33 +101,47 @@ const PlantCard = ({ plant, openTagAs }) => {
   }
   
   return (
-    <View style={styles.card}>
-        <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
-        <View style={styles.details}>
-            <View>
-                <View style={styles.cardRow}>
-                    <View style={styles.plantNameRow}>
-                      <Text style={styles.code}>{plant.plantCode}</Text>
-                      <QuestionMarkTooltip />
-                    </View>
-                    <View style={styles.countryContainer}>
-                        <Text style={styles.countryText}>{plant.country}</Text>
-                        <CountryFlagIcon code={plant.countryCode} width={24} height={16} />
-                        <TouchableOpacity onPress={setTags}>
-                          <Options />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                <Text style={styles.plantName}>{plant.genus} {plant.species}</Text>
-                <Text style={styles.subtext}>{plant.variegation} • {plant.size}</Text>
+    <View>
+      {plant?.isJoinerOrder && (
+        <View style={styles.joinerUserRow}>
+          <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+          <View>
+            <View style={styles.joinerUserNameRow}>
+              <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
+              <Text style={styles.joinerUserHandle}>@{plant?.joinerInfo?.joinerUsername || ''}</Text>
             </View>
-            <View style={styles.cardRow}>
-                <View style={plant?.listingType ? styles.typeChip : styles.typeChipNoBackground}>
-                    <Text style={styles.typeText}>{plant.listingType}</Text>
-                </View>
-                <Text style={styles.quantity}>{plant.quantity}X</Text>
-            </View>
+            <Text style={styles.joinerUserRole}>Joiner</Text>
+          </View>
         </View>
+      )}
+      <View style={styles.card}>
+          <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+          <View style={styles.details}>
+              <View>
+                  <View style={styles.cardRow}>
+                      <View style={styles.plantNameRow}>
+                        <Text style={styles.code}>{plant.plantCode}</Text>
+                        <QuestionMarkTooltip />
+                      </View>
+                      <View style={styles.countryContainer}>
+                          <Text style={styles.countryText}>{plant.country}</Text>
+                          <CountryFlagIcon code={plant.countryCode} width={24} height={16} />
+                          <TouchableOpacity onPress={setTags}>
+                            <Options />
+                          </TouchableOpacity>
+                      </View>
+                  </View>
+                  <Text style={styles.plantName}>{plant.genus} {plant.species}</Text>
+                  <Text style={styles.subtext}>{plant.variegation} • {plant.size}</Text>
+              </View>
+              <View style={styles.cardRow}>
+                  <View style={plant?.listingType ? styles.typeChip : styles.typeChipNoBackground}>
+                      <Text style={styles.typeText}>{plant.listingType}</Text>
+                  </View>
+                  <Text style={styles.quantity}>{plant.quantity}X</Text>
+              </View>
+          </View>
+      </View>
     </View>
 )};
 
@@ -145,8 +158,20 @@ const MishapPlantCard = ({ plant, openTagAs }) => {
   }
   
   return (
-    <View style={styles.listSection}>
+    <View>
         <Text style={styles.mishapStatus}>{plant.leafTrailStatus}</Text>
+      {plant?.isJoinerOrder && (
+        <View style={styles.joinerUserRow}>
+          <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+          <View>
+            <View style={styles.joinerUserNameRow}>
+              <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
+              <Text style={styles.joinerUserHandle}>@{plant?.joinerInfo?.joinerUsername || ''}</Text>
+            </View>
+            <Text style={styles.joinerUserRole}>Joiner</Text>
+          </View>
+        </View>
+      )}
       <View style={styles.card}>
           <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
           <View style={styles.details}>
@@ -462,6 +487,41 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12,
     flexDirection: 'row', gap: 12,
+  },
+  joinerUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 6,
+  },
+  joinerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#539461',
+  },
+  joinerUserNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  joinerUserName: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#202325',
+  },
+  joinerUserHandle: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#7F8D91',
+  },
+  joinerUserRole: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#647276',
   },
   plantImage: { width: 96, height: 128, borderRadius: 8 },
   details: { flex: 1, justifyContent: 'space-between' },
