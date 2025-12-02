@@ -1,5 +1,5 @@
 // API Configuration for local and production environments
-import {LOCAL_BASE_URL as ENV_LOCAL_BASE_URL} from '@env';
+import { LOCAL_BASE_URL as ENV_LOCAL_BASE_URL } from '@env';
 
 // Automatically detect environment based on __DEV__ flag and NODE_ENV
 // This prevents accidentally using local API in production builds

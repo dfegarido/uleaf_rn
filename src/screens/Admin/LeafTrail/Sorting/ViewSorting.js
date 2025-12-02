@@ -41,7 +41,7 @@ const UserProfile = ({ user }) => (
     <Image source={{ uri: user.avatar }} style={styles.avatar} />
     <View>
       <Text style={styles.name}>{user.name}</Text>
-      <Text style={styles.username}>{user.username}</Text>
+      <Text style={styles.username}>@{user.username}</Text>
     </View>
   </View>
 );
@@ -236,8 +236,6 @@ const MissingPlantsTab = ({itemDetails, openTagAs}) => (
 
 // --- Main Screen Component ---
 const SortingDetailsScreen = ({ navigation, route }) => {
-  // const itemDetails = route?.params?.item || {};
-  console.log('route?.params?.item', route?.params?.item);
   
   const [index, setIndex] = useState(0);
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
@@ -246,7 +244,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [sortedPlantsCount, setsortedPlantsCount] = useState(itemDetails?.sortedPlantsCount || 0);
 
   const [routes, setRoutes] = useState([
-    { key: 'received', title: 'Received Plants', count: receivedPlantsCount },
+    { key: 'received', title: 'For Sorting Plants', count: receivedPlantsCount },
     { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
     { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
   ]);
@@ -275,7 +273,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
     if (response.success) {
       setItemDetails(response)
       setRoutes([
-         { key: 'received', title: 'Received Plants', count: response.receivedPlantsCount },
+         { key: 'received', title: 'For Sorting Plants', count: response.receivedPlantsCount },
          { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
          { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
        ])

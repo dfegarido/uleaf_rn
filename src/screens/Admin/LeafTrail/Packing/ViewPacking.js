@@ -61,7 +61,7 @@ const UserInfo = ({ user }) => (
     <View style={styles.userDetails}>
       <View style={styles.userNameRow}>
         <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.userHandle}>{user.username}</Text>
+        <Text style={styles.userHandle}>@{user.username}</Text>
       </View>
       <Text style={styles.userRole}>{user.role}</Text>
     </View>
