@@ -82,8 +82,71 @@ console.log('shippedData', shippedData);
     creditRequestStatus?.hasRequest || 
     fullOrderData?.creditRequests?.some((req) => req.plantCode === plantCode);
 
+  const getShiftedNYDate = () => {
+    const now = new Date();
+    const timeZone = 'America/New_York';
+
+    // 1. Define the formatter to get the individual parts in NY time
+    // IMPORTANT: use hour12: false to get 24h format for easier parsing
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false, 
+    });
+
+    // 2. Get the parts (returns an array of objects like {type: 'year', value: '2023'})
+    const parts = formatter.formatToParts(now);
+
+    // 3. Convert array to an easier object map
+    const partMap = {};
+    parts.forEach(p => {
+        if (p.type !== 'literal') {
+          partMap[p.type] = p.value;
+        }
+    });
+
+    // 4. Build a standard ISO string (YYYY-MM-DDTHH:mm:ss)
+    // Note: We do NOT add a 'Z' or timezone offset at the end. 
+    // This tricks the browser into thinking this is local time.
+    const fakeISOString = `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour}:${partMap.minute}:${partMap.second}`;
+
+    // 5. Create the shifted date object
+    const shiftedDate = new Date(fakeISOString);
+
+    return shiftedDate;
+  }  
+
   const handleRequestCredit = () => {
     // Prevent action if a request has already been made
+    // add a condition here that check if the order is out of 24-hour window to file a claim use these data to compute deliveryDate plus deliveryTime use also the timezone of 'America/New_York' EasternDateTime {shippedData: {"deliveryDate": "2025-11-20", "deliveryTime": "19:30", "isDelayedUPSDelivery": true}}
+
+    if (shippedData?.deliveryDate && shippedData?.deliveryTime) {
+      // Construct a date string that is more likely to be parsed correctly
+      const deliveryDateTimeString = `${shippedData.deliveryDate}T${shippedData.deliveryTime}:00`;
+      
+      // Create a date object assuming the time is in 'America/New_York'
+      // We format it to a string that represents the local time in that timezone
+      const deliveryDateTime = new Date(deliveryDateTimeString);
+      
+
+      const deliveryTimeInMs = deliveryDateTime.getTime();
+      const myNYDate = getShiftedNYDate();
+      const nowInMs = myNYDate.getTime();
+      
+      // Calculate the difference in hours
+      const hoursSinceDelivery = (nowInMs - deliveryTimeInMs) / (1000 * 60 * 60);
+      console.log('hoursSinceDelivery', hoursSinceDelivery);
+      
+      if (hoursSinceDelivery > 24) {
+        Alert.alert('Claim Window Closed', 'Sorry, but the 24-hour window to file a claim has already passed.');
+        return;
+      }
+    }
     if (shippedData?.isDelayedUPSDelivery) {
       Alert.alert('We’re sorry,', 'but this order is ineligible for a claim because UPS delivery was delayed.');
       return;
