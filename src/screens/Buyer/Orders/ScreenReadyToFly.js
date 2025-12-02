@@ -1,19 +1,16 @@
-import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
-import {useNavigation, useRoute} from '@react-navigation/native';
-import {useState, useEffect, useCallback} from 'react';
-import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
-import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
-import {useAuth} from '../../../auth/AuthProvider';
+import { useRoute } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
+import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import { useAuth } from '../../../auth/AuthProvider';
+import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 
 const READY_TO_FLY_LIMIT = 200;
 
@@ -61,7 +58,7 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       if (!response.success) {
         throw new Error(response.error || 'Failed to load orders');
       }
-
+      
       // New API returns a flattened plants[] array where each plant contains its order metadata
       const plantsData = response.data?.data?.plants || [];
       console.log('📦 Loaded Ready to Fly plant records:', plantsData.length, 'plants');
@@ -153,6 +150,7 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     };
 
     return {
+      leafTrailHistory: orderMeta?.leafTrailHistory || {},
       status: orderMeta.status || 'Ready to Fly',
       // Use the flightDateFormatted from the plant record first, then order metadata
       airCargoDate: plant.flightDateFormatted || orderMeta.flightDateFormatted || plant.flightDate || 'TBD',
