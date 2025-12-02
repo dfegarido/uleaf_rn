@@ -58,6 +58,7 @@ import { retryAsync } from '../../../utils/utils';
 // };
 
 const TABS = {
+  allOrders: 'All Orders',
   forDelivery: 'For Delivery',
   inventoryForHub: 'Inventory For Hub',
   receivedScanned: 'Received Scanned',
@@ -66,11 +67,29 @@ const TABS = {
   damaged: 'Damaged',
 };
 
-const PlantCard = React.memo(({ item, index }) => (
+const PlantCard = React.memo(({ item, index, activeTab }) => {
+  console.log('activeTab', activeTab);
+  
+  let leafTrailStatus = item.leafTrailStatus;
+
+  if (leafTrailStatus === 'forReceiving') {
+    leafTrailStatus = 'forDelivery';
+  }
+
+  const formatCamelCase = (camelCaseString) => {
+    if (!camelCaseString) return '';
+
+    const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
+
+    return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
+  }
+  return (
   <View style={styles.card}>
     <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
     <View style={styles.cardContent}>
-      <Text style={styles.cardText}>{index + 1}.</Text>
+      <Text style={styles.cardText}>{index + 1}.{activeTab === 'allOrders' && (
+             <Text style={styles.bold}>{formatCamelCase(leafTrailStatus)}</Text>)}
+      </Text>
       <Text style={styles.plantName} numberOfLines={5}>{item.genus} {item.species}</Text>
       <Text style={styles.cardText}><Text style={styles.bold}>Trx #:</Text> {item.transactionNumber}</Text>
       <Text style={styles.cardText}><Text style={styles.bold}>Code:</Text> {item.plantCode}</Text>
@@ -85,7 +104,7 @@ const PlantCard = React.memo(({ item, index }) => (
       <Text style={styles.cardText}><Text style={styles.bold}>Country:</Text> {item.country}</Text>
     </View>
   </View>
-));
+)});
 
 const OrderScreen = ({navigation}) => {
   const {userInfo} = useContext(AuthContext);
@@ -351,7 +370,7 @@ const OrderScreen = ({navigation}) => {
       </View>
       <FlatList
         data={orders}
-        renderItem={({ item, index }) => <PlantCard item={item} index={index} />}
+        renderItem={({ item, index }) => <PlantCard item={item} index={index} activeTab={activeTab} />}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}

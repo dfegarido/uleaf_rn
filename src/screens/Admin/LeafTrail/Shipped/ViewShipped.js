@@ -22,6 +22,7 @@ import MapPinIcon from '../../../../assets/admin-icons/map-pin.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import { addLeafTrailShippingDetails, getOrdersByTrackingNumber } from '../../../../components/Api/getAdminLeafTrail';
+import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
 const Header = ({ title, navigation }) => (
@@ -51,7 +52,7 @@ const TrackingInfo = ({ trackingNumber, label }) => (
   </View>
 );
 
-const DeliveryDateTimeInput = ({ deliveryDate, setDeliveryDate, deliveryTime, setDeliveryTime, onSave, isLoading }) => {
+const DeliveryDateTimeInput = ({ setIsDelayed, isDelayed, deliveryDate, setDeliveryDate, deliveryTime, setDeliveryTime, onSave, isLoading }) => {
     const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
     const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
 
@@ -98,7 +99,16 @@ const DeliveryDateTimeInput = ({ deliveryDate, setDeliveryDate, deliveryTime, se
                 onCancel={hideTimePicker}
                 minimumDate={new Date()}
             />
-            
+
+            {/* add a checkbox here label is "Delayed UPS Delivery" */}
+            <View style={styles.checkboxRow}>
+                <CheckBox
+                    isChecked={isDelayed}
+                    onToggle={() => setIsDelayed(!isDelayed)}
+                    checkedColor="#539461"
+                />
+                <Text style={styles.checkboxLabel}>Delayed UPS Delivery</Text>
+            </View>
             <TouchableOpacity style={styles.saveButton} onPress={onSave} disabled={isLoading}>
                 {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>{deliveryDate && deliveryTime ? 'Update' : 'Add'}</Text>}
             </TouchableOpacity>
@@ -112,7 +122,7 @@ const UserInfo = ({ user }) => (
     <View style={styles.userDetails}>
       <View style={styles.userNameRow}>
         <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.userHandle}>{user.username}</Text>
+        <Text style={styles.userHandle}>@{user.username}</Text>
       </View>
       <Text style={styles.userRole}>{user.role}</Text>
     </View>
@@ -167,6 +177,18 @@ const BoxSpecs = ({ boxNumber, dimensions, weight }) => (
 const PlantCard = ({ plant }) => {
   return (
   <View style={styles.plantCardContainer}>
+    {plant?.isJoinerOrder && (
+      <View style={styles.joinerUserRow}>
+        <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+        <View>
+          <View style={styles.joinerUserNameRow}>
+            <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
+            <Text style={styles.joinerUserHandle}>@{plant?.joinerInfo?.joinerUsername || ''}</Text>
+          </View>
+          <Text style={styles.joinerUserRole}>Joiner</Text>
+        </View>
+      </View>
+    )}
     <View style={styles.plantCard}>
       <View>
         <Image source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
@@ -207,6 +229,7 @@ const ViewShippedScreen = ({ navigation, route }) => {
   const [shippedDetails, setShippedDetails] = useState(item);
   const [deliveryDate, setDeliveryDate] = useState(item?.deliveryDate || null);
   const [deliveryTime, setDeliveryTime] = useState(item?.deliveryTime || null);
+  const [isDelayed, setIsDelayed] = useState(item?.isDelayedUPSDelivery || false);
 
   const fetchData = async () => {
       setIsLoading(true);
@@ -233,7 +256,7 @@ const ViewShippedScreen = ({ navigation, route }) => {
     setIsSaving(true);
     try {
         const orderIds = plantList.map(p => p.id);
-        const response = await addLeafTrailShippingDetails({ orderIds, deliveryDate, deliveryTime });
+        const response = await addLeafTrailShippingDetails({ orderIds, deliveryDate, deliveryTime, isDelayed });
         if (response.success) {
             setShippedDetails(prev => ({...prev, deliveryDate, deliveryTime}));
             Alert.alert("Success", "Delivery details updated successfully.");
@@ -268,6 +291,8 @@ const ViewShippedScreen = ({ navigation, route }) => {
             setDeliveryDate={setDeliveryDate}
             deliveryTime={deliveryTime}
             setDeliveryTime={setDeliveryTime}
+            isDelayed={isDelayed}
+            setIsDelayed={setIsDelayed}
             onSave={handleSaveDeliveryDetails}
             isLoading={isSaving}
         />
@@ -347,6 +372,16 @@ const styles = StyleSheet.create({
   placeholderText: { flex: 1, fontFamily: 'Inter', fontSize: 16, color: '#647276' },
   saveButton: { backgroundColor: '#539461', borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
   saveButtonText: { color: '#FFFFFF', fontFamily: 'Inter', fontWeight: '600', fontSize: 16 },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkboxLabel: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    color: '#647276',
+  },
   deliveryDetailsSection: { backgroundColor: '#F5F6F6', paddingVertical: 16, gap: 12 },
   sectionTitle: { fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325', paddingHorizontal: 15 },
   userCard: { flexDirection: 'row', alignItems: 'flex-start', padding: 12, gap: 12, backgroundColor: '#FFFFFF', borderRadius: 12 },
@@ -384,6 +419,41 @@ const styles = StyleSheet.create({
   typeChip: { backgroundColor: '#202325', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   typeText: { color: '#FFFFFF', fontFamily: 'Inter', fontWeight: '600', fontSize: 12 },
   quantity: { fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#393D40' },
+  joinerUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 6,
+  },
+  joinerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#539461',
+  },
+  joinerUserNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  joinerUserName: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#202325',
+  },
+  joinerUserHandle: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#7F8D91',
+  },
+  joinerUserRole: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#647276',
+  },
 });
 
 export default ViewShippedScreen;

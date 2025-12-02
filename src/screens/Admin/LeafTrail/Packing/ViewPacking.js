@@ -61,7 +61,7 @@ const UserInfo = ({ user }) => (
     <View style={styles.userDetails}>
       <View style={styles.userNameRow}>
         <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.userHandle}>{user.username}</Text>
+        <Text style={styles.userHandle}>@{user.username}</Text>
       </View>
       <Text style={styles.userRole}>{user.role}</Text>
     </View>
@@ -91,18 +91,40 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
   }
   
   return (
+
   <View style={styles.plantCardContainer}>
+    {plant?.isJoinerOrder && (
+      <View style={styles.joinerUserRow}>
+        <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+        <View>
+          <View style={styles.joinerUserNameRow}>
+            <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
+            <Text style={styles.joinerUserHandle}>@{plant?.joinerInfo?.joinerUsername || ''}</Text>
+          </View>
+          <Text style={styles.joinerUserRole}>Joiner</Text>
+        </View>
+      </View>
+    )}
     <View style={styles.plantCard}>
       <View>
         <Image source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
-        {!(plant?.packingData?.boxNumber) && <View style={styles.checkboxContainer}>
+        {plant?.leafTrailStatus === 'packed' && (
+          <View style={styles.packedBadgeContainer}>
+            <View style={styles.packedBadge}>
+              <Text style={styles.packedBadgeText}>PACKED</Text>
+            </View>
+          </View>
+        )}
+        {!(plant?.packingData?.boxNumber) && (
+          <View style={styles.checkboxContainer}>
              <CheckBox
                 checked={isSelected}
                 onToggle={onCheckPress}
                 containerStyle={{padding: 0, margin: 0}}
                 checkedColor="#539461"
             />
-        </View>}
+          </View>
+        )}
       </View>
       <View style={styles.plantDetails}>
         <View>
@@ -569,6 +591,60 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     color: '#393D40',
+  },
+  packedBadgeContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+  },
+  packedBadge: {
+    backgroundColor: '#FFE7E2',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  packedBadgeText: {
+    color: '#E7522F',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  joinerUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 6,
+  },
+  joinerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#539461',
+  },
+  joinerUserNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  joinerUserName: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#202325',
+  },
+  joinerUserHandle: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#7F8D91',
+  },
+  joinerUserRole: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#647276',
   },
 });
 

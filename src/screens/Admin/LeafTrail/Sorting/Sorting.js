@@ -28,7 +28,7 @@ const ListItem = ({ item, navigation}) => (
         <View style={styles.content}>
           <View style={styles.nameRow}>
             <Text style={styles.nameText}>{item.name}</Text>
-            <Text style={styles.usernameText}>{item.username}</Text>
+            <Text style={styles.usernameText}>@{item.username}</Text>
           </View>
           <View style={styles.quantityRow}>
             <View style={styles.quantitySection}>
@@ -120,7 +120,7 @@ const SortingScreen = ({navigation}) => {
           <>
             {/* 👇 Corrected: Added the FilterBar here */}
             <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
-            <Text style={styles.countText}>{sortingData?.total || 0} box(es)</Text>
+            <Text style={styles.countText}>{sortingData?.total || 0} receiver(s)</Text>
           </>
         }
         ItemSeparatorComponent={() => <View style={{ height: 6 }} />}

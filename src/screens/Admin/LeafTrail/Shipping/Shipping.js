@@ -61,7 +61,7 @@ const ShippingListItem = ({ item, navigation }) => (
           <View>
             <View style={styles.userNameRow}>
               <Text style={styles.userName}>{item.name}</Text>
-              <Text style={styles.userHandle}>{item.username}</Text>
+              <Text style={styles.userHandle}>@{item.username}</Text>
             </View>
             <Text style={styles.userRole}>Receiver</Text>
           </View>
