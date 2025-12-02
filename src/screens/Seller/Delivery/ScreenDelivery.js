@@ -650,7 +650,8 @@ const ScreenDelivery = ({navigation}) => {
         "receivedScanned": 0,
         "receivedUnscanned": 0,
         "missing": 0,
-        "casualty": 0
+        "casualty": 0,
+        "allOrders": 0
   });
 
   const orderCounts = async () => {
@@ -834,13 +835,16 @@ const ScreenDelivery = ({navigation}) => {
                   <Text style={{color: '#202325', fontSize: 16}}>
                     For Delivery
                   </Text>
-                  <Text style={{color: '#202325', fontSize: 28}}>
-                    {ordersCount.forDelivery || 0} 
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    }}>
+                    <Text style={{color: '#202325', fontSize: 28}}>{ordersCount.forDelivery || 0} </Text>
                     <RightIcon
                       width={20}
                       height={20}
-                      style={{marginTop: 10, marginRight: 10, marginLeft: 50}}></RightIcon>
-                  </Text>
+                      style={{marginTop: 10, marginRight: 10}}></RightIcon>
+                  </View>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={openModal}
@@ -962,7 +966,7 @@ const ScreenDelivery = ({navigation}) => {
               </TouchableOpacity>
             </View>
 
-                        <View
+            <View
               style={{
                 flexDirection: 'row',
               }}>
@@ -983,6 +987,29 @@ const ScreenDelivery = ({navigation}) => {
                   }}>
                   <Text style={{color: '#FF5247', fontSize: 28}}>
                     {ordersCount.casualty || 0}
+                  </Text>
+                  <RightIcon
+                    width={20}
+                    height={20}
+                    style={{marginTop: 10, marginRight: 10}}></RightIcon>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ScreenForDelivery', {orderType: 'allOrders'})}
+                style={{
+                  flexDirection: 'column',
+                  width: '50%',
+                  paddingVertical: 10,
+                  paddingLeft: 10,
+                }}>
+                <Text style={{color: '#202325', fontSize: 16}}>All Orders</Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                  }}>
+                  <Text style={{color: '#000', fontSize: 28}}>
+                    {ordersCount.allOrders || 0}
                   </Text>
                   <RightIcon
                     width={20}

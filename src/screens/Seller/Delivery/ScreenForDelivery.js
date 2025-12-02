@@ -42,17 +42,34 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 
-const PlantCard = ({ plant, index, openTagAs }) => {
+const PlantCard = ({ orderType, plant, index, openTagAs }) => {
+  let leafTrailStatus = plant.leafTrailStatus;
+
+  if (leafTrailStatus === 'forReceiving') {
+    leafTrailStatus = 'forDelivery';
+  }
+
   const setTags = () => {
     openTagAs(plant.id)
   }
+  console.log();
 
+  const formatCamelCase = (camelCaseString) => {
+    if (!camelCaseString) return '';
+
+    const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
+
+    return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
+  }
+  
   return (
   <View style={styles.plantCardContainer}>
     <Text style={styles.countryText}>{index + 1}.</Text>
     <View style={styles.plantCard}>
       <View>
         <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+        {orderType === 'allOrders' && (
+          <Text style={styles.plantCode}>{formatCamelCase(leafTrailStatus)}</Text>)}
       </View>
       <View style={styles.plantDetails}>
         <View>
@@ -104,7 +121,6 @@ const ListFooter = ({ isLoadingMore, hasMore, noPlants }) => {
 
 const ScreenForDelivery = ({navigation, route}) => {
   const { orderType = 'forDelivery'} = route.params;
-  console.log('orderType', orderType);
   
   const insets = useSafeAreaInsets();
   const {userInfo} = useContext(AuthContext);
@@ -393,7 +409,7 @@ const ScreenForDelivery = ({navigation, route}) => {
 
       <FlatList
         data={forDeliveryData}
-        renderItem={({ item, index }) => <PlantCard openTagAs={openTagAs} plant={item} index={index} />}
+        renderItem={({ item, index }) => <PlantCard orderType={orderType} openTagAs={openTagAs} plant={item} index={index} />}
         keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
         ListHeaderComponent={
           <View style={styles.listHeaderTitleContainer}>
