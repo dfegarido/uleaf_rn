@@ -24,6 +24,7 @@ const UserInformation = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
+  const [isBuyerTypeModalVisible, setIsBuyerTypeModalVisible] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   
   // Available countries (Buyers are US only)
@@ -41,7 +42,8 @@ const UserInformation = () => {
     gardenOrCompanyName: user?.gardenOrCompanyName || '',
     firstName: '',
     lastName: '',
-    contactNumber: user?.contactNumber || user?.phone || ''
+    contactNumber: user?.contactNumber || user?.phone || '',
+    buyerType: user?.buddy_type || user?.buyerType || '' // Read from buddy_type field in Firestore
   });
   
   // Form editing mode
@@ -119,6 +121,9 @@ const UserInformation = () => {
     if (!lastName) lastName = extractedLastName;
   }
 
+  // Check if user is a buyer (check both role and rawRole for compatibility)
+  const isBuyer = user?.role?.toLowerCase() === 'buyer' || user?.rawRole?.toLowerCase() === 'buyer';
+
   // Set editable fields initial values from user data
   useEffect(() => {
     if (user) {
@@ -137,7 +142,8 @@ const UserInformation = () => {
         gardenOrCompanyName: user.gardenOrCompanyName || '',
         firstName: firstName || '',
         lastName: lastName || '',
-        contactNumber: user.contactNumber || user.phone || ''
+        contactNumber: user.contactNumber || user.phone || '',
+        buyerType: user.buddy_type || user.buyerType || '' // Read from buddy_type field in Firestore
       });
     }
   }, [user]);
@@ -165,6 +171,11 @@ const UserInformation = () => {
         lastName: editableFields.lastName,
         contactNumber: editableFields.contactNumber
       };
+      
+      // Only include buyerType if user is a buyer
+      if (isBuyer) {
+        requestData.buyerType = editableFields.buyerType || '';
+      }
       
       console.log('Updating user profile:', requestData);
       
@@ -250,6 +261,15 @@ const UserInformation = () => {
       countryCode: country.code // Store the code for API calls
     }));
     setIsCountryModalVisible(false);
+  };
+
+  // Handle buyer type selection
+  const handleBuyerTypeSelect = (buyerType) => {
+    setEditableFields(prev => ({
+      ...prev,
+      buyerType: buyerType
+    }));
+    setIsBuyerTypeModalVisible(false);
   };
 
   // Handle account status toggle
@@ -478,7 +498,7 @@ const UserInformation = () => {
           </View>
           
           {/* Garden/Company Name - Only show for non-Buyer roles */}
-          {user.role !== 'Buyer' && user.role !== 'buyer' && (
+          {!isBuyer && (
             <View style={styles.formRow}>
               <Text style={styles.formLabel}>Garden / company name <Text style={styles.requiredStar}>*</Text></Text>
               {isEditing ? (
@@ -543,6 +563,27 @@ const UserInformation = () => {
               <Text style={styles.formValue}>{editableFields.contactNumber || 'Not provided'}</Text>
             )}
           </View>
+          
+          {/* Buyer Type - Only show for buyers */}
+          {isBuyer && (
+            <View style={styles.formRow}>
+              <Text style={styles.formLabel}>Buyer Type</Text>
+              {isEditing ? (
+                <TouchableOpacity 
+                  style={styles.textField}
+                  onPress={() => setIsBuyerTypeModalVisible(true)}
+                >
+                  <Text style={{ color: editableFields.buyerType ? '#1F2937' : '#647276' }}>
+                    {editableFields.buyerType ? editableFields.buyerType.charAt(0).toUpperCase() + editableFields.buyerType.slice(1) : 'Select buyer type (optional)'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.formValue}>
+                  {editableFields.buyerType ? editableFields.buyerType.charAt(0).toUpperCase() + editableFields.buyerType.slice(1) : 'Not set'}
+                </Text>
+              )}
+            </View>
+          )}
           
           {/* Email Address */}
           <View style={styles.formRow}>
@@ -633,6 +674,63 @@ const UserInformation = () => {
                   )}
                 </TouchableOpacity>
               ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Buyer Type Selection Modal */}
+      <Modal
+        visible={isBuyerTypeModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsBuyerTypeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Buyer Type</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setIsBuyerTypeModalVisible(false)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView>
+              {/* Option to clear buyer type */}
+              <TouchableOpacity
+                style={styles.countryOption}
+                onPress={() => handleBuyerTypeSelect('')}
+              >
+                <Text style={styles.countryName}>None (Clear)</Text>
+                {!editableFields.buyerType && (
+                  <CheckedBoxIcon width={24} height={24} />
+                )}
+              </TouchableOpacity>
+              
+              {/* Receiver option */}
+              <TouchableOpacity
+                style={styles.countryOption}
+                onPress={() => handleBuyerTypeSelect('receiver')}
+              >
+                <Text style={styles.countryName}>Receiver</Text>
+                {editableFields.buyerType === 'receiver' && (
+                  <CheckedBoxIcon width={24} height={24} />
+                )}
+              </TouchableOpacity>
+              
+              {/* Joiner option */}
+              <TouchableOpacity
+                style={styles.countryOption}
+                onPress={() => handleBuyerTypeSelect('joiner')}
+              >
+                <Text style={styles.countryName}>Joiner</Text>
+                {editableFields.buyerType === 'joiner' && (
+                  <CheckedBoxIcon width={24} height={24} />
+                )}
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
