@@ -124,6 +124,18 @@ const BoxSpecs = ({ dimensions, weight }) => (
 const PlantCard = ({ plant }) => {
   return (
   <View style={styles.plantCardContainer}>
+    {plant?.isJoinerOrder && (
+      <View style={styles.joinerUserRow}>
+        <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+        <View>
+          <View style={styles.joinerUserNameRow}>
+            <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
+            <Text style={styles.joinerUserHandle}>@{plant?.joinerInfo?.joinerUsername || ''}</Text>
+          </View>
+          <Text style={styles.joinerUserRole}>Joiner</Text>
+        </View>
+      </View>
+    )}
     <View style={styles.plantCard}>
       <View>
         <Image source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
@@ -339,6 +351,41 @@ const styles = StyleSheet.create({
   typeChip: { backgroundColor: '#202325', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   typeText: { color: '#FFFFFF', fontFamily: 'Inter', fontWeight: '600', fontSize: 12 },
   quantity: { fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#393D40' },
+  joinerUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 6,
+  },
+  joinerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#539461',
+  },
+  joinerUserNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  joinerUserName: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#202325',
+  },
+  joinerUserHandle: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#7F8D91',
+  },
+  joinerUserRole: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#647276',
+  },
 });
 
 export default ViewShippingScreen;

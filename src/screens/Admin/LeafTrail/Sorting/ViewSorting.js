@@ -236,6 +236,7 @@ const ReceivedPlantsTab = ({itemDetails, openTagAs}) => (
     keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
+    ItemSeparatorComponent={() => <View style={{height: 6}} />}
   />
 );
 
@@ -246,6 +247,7 @@ const SortedPlantsTab = ({itemDetails, openTagAs}) => (
     keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
+    ItemSeparatorComponent={() => <View style={{height: 6}} />}
   />
 );
 
@@ -256,6 +258,7 @@ const MissingPlantsTab = ({itemDetails, openTagAs}) => (
     keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
+    ItemSeparatorComponent={() => <View style={{height: 6}} />}
   />
 );
 
