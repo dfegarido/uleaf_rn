@@ -743,6 +743,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
+  // Shipping Credit Note styles
+  shippingCreditNoteContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  shippingCreditNoteIcon: {
+    marginRight: 8,
+    marginTop: 1,
+  },
+  shippingCreditNoteIconText: {
+    fontSize: 16,
+  },
+  shippingCreditNoteText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: '#1E40AF',
+  },
   // Skeleton styles
   skeletonText: {
     height: 16,

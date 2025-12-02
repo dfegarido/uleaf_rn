@@ -584,6 +584,18 @@ const OrderSummary = ({
             </Text>
           </View>
         </View>
+
+        {/* Shipping Credit Note - Display when remaining credit is added to account */}
+        {orderSummary.shippingCreditNote && (
+          <View style={styles.shippingCreditNoteContainer}>
+            <View style={styles.shippingCreditNoteIcon}>
+              <Text style={styles.shippingCreditNoteIconText}>💳</Text>
+            </View>
+            <Text style={styles.shippingCreditNoteText}>
+              {orderSummary.shippingCreditNote}
+            </Text>
+          </View>
+        )}
       </View>
     </>
   );

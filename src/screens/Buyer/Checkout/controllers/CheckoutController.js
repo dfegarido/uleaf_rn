@@ -675,6 +675,9 @@ export const useCheckoutController = () => {
     const backendShippingCreditsDiscount = shippingCalculation?.shippingCreditsDiscount || 0;
     const shippingTotal = backendFinalShippingCost || (backendTotalShippingCost - backendShippingCreditsDiscount);
     
+    // Get shipping credit note from backend (displayed when remaining credit is added to account)
+    const shippingCreditNote = shippingCalculation?.shippingCreditNote || '';
+    
     // For display purposes, use backend's finalTotal if available (it accounts for all credits)
     // Otherwise calculate: subtotal + shipping (already has credits applied)
     const backendFinalTotal = shippingCalculation?.finalTotal;
@@ -791,6 +794,7 @@ export const useCheckoutController = () => {
       creditsApplied: roundToCents(creditsApplied),
       finalShippingCost: roundToCents(backendFinalShippingCost),
       totalShippingCost: roundToCents(backendTotalShippingCost),
+      shippingCreditNote: shippingCreditNote, // Customer message about remaining shipping credit
     };
   }, [plantItems, shippingCalculation, quantityBreakdown, leafPointsEnabled, plantCreditsEnabled, leafPoints, plantCredits, normalizeListingType, appliedDiscount]);
 
@@ -1666,47 +1670,71 @@ export const useCheckoutController = () => {
               });
               
               if (flightDate) {
-                // Check if current date is within the cutoff period (7 days before flight)
-                // Only lock if order is still within the ordering window
-                const existingFlightDate = typeof flightDate === 'string' ? new Date(flightDate) :
-                                           (flightDate?._seconds ? new Date(flightDate._seconds * 1000) :
-                                           (flightDate instanceof Date ? flightDate : null));
-
-                if (existingFlightDate && !isNaN(existingFlightDate.getTime())) {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-
-                  // Calculate cutoff date: 7 days before the existing flight date
-                  const cutoffDate = new Date(existingFlightDate);
-                  cutoffDate.setDate(existingFlightDate.getDate() - 7);
-                  cutoffDate.setHours(0, 0, 0, 0);
-
-                  const isWithinCutoff = today <= cutoffDate;
-
-                  console.log('📅 [checkExistingOrders] Cutoff date check:', {
-                    existingFlightDate: existingFlightDate.toISOString().split('T')[0],
-                    cutoffDate: cutoffDate.toISOString().split('T')[0],
-                    today: today.toISOString().split('T')[0],
-                    isWithinCutoff,
-                    message: isWithinCutoff
-                      ? 'Within cutoff - buyer can still add to this shipment'
-                      : 'Past cutoff - buyer must select new flight date'
-                  });
-
-                  // If past cutoff date, don't lock - allow buyer to select new flight dates
-                  if (!isWithinCutoff) {
-                    console.log('✅ [checkExistingOrders] Past cutoff date - NOT locking flight dates');
-                    setDisablePlantFlightSelection(false);
-                    setLockedFlightDate(null);
-                    setLockedFlightKey(null);
-                    if (!isCancelled) {
-                      setCheckingOrders(false);
-                    }
-                    return;
-                  }
-
-                  console.log('🔒 [checkExistingOrders] Within cutoff - proceeding with flight date lock logic');
+                // PRIORITY CHECK: Verify if the order cutoff date has passed
+                // Cutoff date = flight date - 7 days
+                // If today > cutoff date, buyer must select NEW flight date (don't lock)
+                // If today <= cutoff date, buyer can still add to this shipment (lock it)
+                
+                // Parse the existing flight date
+                let existingFlightDate = null;
+                if (typeof flightDate === 'string') {
+                  // Try ISO format first (YYYY-MM-DD)
+                  existingFlightDate = new Date(flightDate + 'T00:00:00');
+                } else if (flightDate?._seconds) {
+                  // Firestore timestamp
+                  existingFlightDate = new Date(flightDate._seconds * 1000);
+                } else if (flightDate instanceof Date) {
+                  existingFlightDate = new Date(flightDate);
                 }
+
+                // Validate the date was parsed successfully
+                if (!existingFlightDate || isNaN(existingFlightDate.getTime())) {
+                  console.warn('⚠️ [checkExistingOrders] Could not parse flight date:', flightDate);
+                  // If we can't parse the date, allow selection to be safe
+                  setDisablePlantFlightSelection(false);
+                  setLockedFlightDate(null);
+                  setLockedFlightKey(null);
+                  if (!isCancelled) {
+                    setCheckingOrders(false);
+                  }
+                  return;
+                }
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                // Calculate cutoff date: 7 days before the flight date
+                const cutoffDate = new Date(existingFlightDate);
+                cutoffDate.setDate(existingFlightDate.getDate() - 7);
+                cutoffDate.setHours(0, 0, 0, 0);
+
+                // Check if we're still within the ordering window
+                const isWithinCutoff = today <= cutoffDate;
+
+                console.log('📅 [checkExistingOrders] CUTOFF DATE CHECK (PRIORITY):', {
+                  existingFlightDate: existingFlightDate.toISOString().split('T')[0],
+                  cutoffDate: cutoffDate.toISOString().split('T')[0],
+                  today: today.toISOString().split('T')[0],
+                  isWithinCutoff,
+                  decision: isWithinCutoff
+                    ? '✅ Within cutoff → Lock flight date (buyer adds to existing shipment)'
+                    : '🔓 Past cutoff → Allow selection (buyer must pick new date)'
+                });
+
+                // If past cutoff date, ALWAYS allow buyer to select new flight date
+                if (!isWithinCutoff) {
+                  console.log('🔓 [checkExistingOrders] Past cutoff date → Allowing new flight date selection');
+                  setDisablePlantFlightSelection(false);
+                  setLockedFlightDate(null);
+                  setLockedFlightKey(null);
+                  if (!isCancelled) {
+                    setCheckingOrders(false);
+                  }
+                  return;
+                }
+
+                // If within cutoff, proceed with flight date locking logic
+                console.log('🔒 [checkExistingOrders] Within cutoff → Proceeding with flight date lock logic');
 
                 // Get current flight options to compare with existing order
                 const currentFlightOptions = flightDateOptionsRef.current;
