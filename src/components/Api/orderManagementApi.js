@@ -1,5 +1,5 @@
-import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
-import {API_ENDPOINTS} from '../../config/apiConfig';
+import { API_ENDPOINTS } from '../../config/apiConfig';
+import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 
 /**
  * Submit a flight change request

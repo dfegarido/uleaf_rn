@@ -1,23 +1,20 @@
-import React from 'react';
-import {View, Text, StyleSheet, Modal, TouchableWithoutFeedback} from 'react-native';
-import {useNavigation, useRoute} from '@react-navigation/native';
-import {useState, useEffect, useContext} from 'react';
-import {ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
-import AvatarIcon from '../../../assets/images/avatar.svg';
+import NetInfo from '@react-native-community/netinfo';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import CloseIcon from '../../../assets/icons/greylight/x-regular.svg';
-import {searchBuyersApi} from '../../../components/Api/searchBuyersApi';
-import {useAuth} from '../../../auth/AuthProvider';
-import NetInfo from '@react-native-community/netinfo';
+import { useAuth } from '../../../auth/AuthProvider';
+import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
 
 // Import the separate screen components
-import ScreenReadyToFly from './ScreenReadyToFly';
-import ScreenPlantsAreHome from './ScreenPlantsAreHome';
 import ScreenJourneyMishap from './ScreenJourneyMishap';
 import ScreenPayToBoard from './ScreenPayToBoard';
+import ScreenPlantsAreHome from './ScreenPlantsAreHome';
+import ScreenReadyToFly from './ScreenReadyToFly';
 
 // Header height constant for safe area calculations
 const HEADER_HEIGHT = 140;

@@ -1,19 +1,16 @@
-import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
-import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
-import {useState, useEffect, useCallback} from 'react';
-import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
-import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
-import {getBuyerOrdersApi} from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
-import {useAuth} from '../../../auth/AuthProvider';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
+import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import { useAuth } from '../../../auth/AuthProvider';
+import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
+import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import Toast from '../../../components/Toast/Toast';
 
 const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
@@ -273,6 +270,7 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
     };
 
     return {
+      shippedData: order?.shippedData || {},
       status: 'Plants are Home',
       airCargoDate: plant.flightDateFormatted || order.flightDateFormatted || order.cargoDateFormatted || 'TBD',
       countryCode: getCountryCode(plant),

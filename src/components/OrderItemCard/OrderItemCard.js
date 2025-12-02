@@ -1,11 +1,10 @@
+import { useNavigation } from '@react-navigation/native';
+import moment from 'moment';
 import React from 'react';
-import {View, Text, Image, StyleSheet, TouchableOpacity} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 // Import your calendar icon and flag icon as needed
-import CalendarIcon from '../../assets/icons/greylight/calendar-blank-regular.svg'; // Adjust path as needed
-import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg'; // Replace with Thailand flag SVG if available
 import DefaultPlaneIcon from '../../assets/buyer-icons/plane-gray.svg'; // Import default plane icon
-import { getOrderDetailApi } from '../Api/orderManagementApi';
+import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg'; // Replace with Thailand flag SVG if available
 
 const OrderItemCard = ({
   status = 'Ready to Fly',
@@ -34,6 +33,11 @@ const OrderItemCard = ({
   optimisticCreditRequest = false, // Optimistic state for credit requests (from Plants are Home)
 }) => {
   const navigation = useNavigation();
+
+  const leafTrailHistory = fullOrderData?.leafTrailHistory || {};
+  const shippedData = fullOrderData?.shippedData || {};
+  
+console.log('shippedData', shippedData);
 
   // Create plant data object for utility function
   const plantData = {
@@ -78,8 +82,75 @@ const OrderItemCard = ({
     creditRequestStatus?.hasRequest || 
     fullOrderData?.creditRequests?.some((req) => req.plantCode === plantCode);
 
+  const getShiftedNYDate = () => {
+    const now = new Date();
+    const timeZone = 'America/New_York';
+
+    // 1. Define the formatter to get the individual parts in NY time
+    // IMPORTANT: use hour12: false to get 24h format for easier parsing
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false, 
+    });
+
+    // 2. Get the parts (returns an array of objects like {type: 'year', value: '2023'})
+    const parts = formatter.formatToParts(now);
+
+    // 3. Convert array to an easier object map
+    const partMap = {};
+    parts.forEach(p => {
+        if (p.type !== 'literal') {
+          partMap[p.type] = p.value;
+        }
+    });
+
+    // 4. Build a standard ISO string (YYYY-MM-DDTHH:mm:ss)
+    // Note: We do NOT add a 'Z' or timezone offset at the end. 
+    // This tricks the browser into thinking this is local time.
+    const fakeISOString = `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour}:${partMap.minute}:${partMap.second}`;
+
+    // 5. Create the shifted date object
+    const shiftedDate = new Date(fakeISOString);
+
+    return shiftedDate;
+  }  
+
   const handleRequestCredit = () => {
     // Prevent action if a request has already been made
+    // add a condition here that check if the order is out of 24-hour window to file a claim use these data to compute deliveryDate plus deliveryTime use also the timezone of 'America/New_York' EasternDateTime {shippedData: {"deliveryDate": "2025-11-20", "deliveryTime": "19:30", "isDelayedUPSDelivery": true}}
+
+    if (shippedData?.deliveryDate && shippedData?.deliveryTime) {
+      // Construct a date string that is more likely to be parsed correctly
+      const deliveryDateTimeString = `${shippedData.deliveryDate}T${shippedData.deliveryTime}:00`;
+      
+      // Create a date object assuming the time is in 'America/New_York'
+      // We format it to a string that represents the local time in that timezone
+      const deliveryDateTime = new Date(deliveryDateTimeString);
+      
+
+      const deliveryTimeInMs = deliveryDateTime.getTime();
+      const myNYDate = getShiftedNYDate();
+      const nowInMs = myNYDate.getTime();
+      
+      // Calculate the difference in hours
+      const hoursSinceDelivery = (nowInMs - deliveryTimeInMs) / (1000 * 60 * 60);
+      console.log('hoursSinceDelivery', hoursSinceDelivery);
+      
+      if (hoursSinceDelivery > 24) {
+        Alert.alert('Claim Window Closed', 'Sorry, but the 24-hour window to file a claim has already passed.');
+        return;
+      }
+    }
+    if (shippedData?.isDelayedUPSDelivery) {
+      Alert.alert('We’re sorry,', 'but this order is ineligible for a claim because UPS delivery was delayed.');
+      return;
+    }
     if (hasCreditRequest) {
       console.log('Credit request already submitted for this item.');
       return;
@@ -254,7 +325,7 @@ const OrderItemCard = ({
           <View style={styles.plantFlightDate}>
             <View style={styles.flightContent}>
               <PlaneIcon width={24} height={24} />
-              <Text style={styles.flightDateText}>Plant Flight {plantData?.plantFlightDate || airCargoDate || 'N/A'}</Text>
+              <Text style={styles.flightDateText}>Plant Flights {plantData?.plantFlightDate || airCargoDate || 'N/A'}</Text>
             </View>
             <View style={styles.countrySection}>
               <Text style={styles.countryText}>{countryCode}</Text>
@@ -264,6 +335,37 @@ const OrderItemCard = ({
         </View>
       )}
 
+      {(activeTab === 'Ready to Fly' &&<View style={{display: 'flex', flexDirection: 'column'}}>
+            {leafTrailHistory?.received?.dateReceived && 
+              (<View style={{display: 'flex', flexDirection: 'row'}}>
+                  <Text style={styles.leafTrailStatusLabel}>Received at the hub: </Text>
+                  <Text style={styles.leafTrailStatusText}>
+                    {moment(leafTrailHistory?.received?.dateReceived?._seconds ? 
+                    (leafTrailHistory.received.dateReceived._seconds * 1000) : leafTrailHistory.received.dateReceived).format('MMM DD, YYYY hh:mmA')}
+                  </Text>
+                </View>
+              )}
+
+            {leafTrailHistory?.packed?.datePacked && 
+              (<View style={{display: 'flex', flexDirection: 'row'}}>
+                  <Text style={styles.leafTrailStatusLabel}>Packed at the hub: </Text>
+                  <Text style={styles.leafTrailStatusText}>
+                    {moment(leafTrailHistory?.packed?.datePacked?._seconds ? 
+                (leafTrailHistory.packed.datePacked._seconds * 1000) : leafTrailHistory.packed.datePacked).format('MMM DD, YYYY hh:mmA')}
+                  </Text>
+                </View>
+            )}
+              
+            {leafTrailHistory?.inTransit?.upsTrackingNumber && 
+              (<View style={{display: 'flex', flexDirection: 'row'}}>
+                  <Text style={styles.leafTrailStatusLabel}>In Transit (UPS Tracking Number): </Text>
+                  <Text style={styles.leafTrailStatusText}>
+                    {leafTrailHistory.inTransit.upsTrackingNumber}
+                  </Text>
+                </View>
+              )}    
+      </View>)}
+
       {/* Main Card */}
       <View style={[
         styles.card,
@@ -271,13 +373,16 @@ const OrderItemCard = ({
       ]}>
         {/* Main Content */}
         <View style={styles.contentRow}>
-          <Image
-            source={
-              resolvedImageUri ? { uri: resolvedImageUri } : (typeof image === 'object' ? image : null)
-            }
-            style={styles.plantImage}
-            resizeMode="cover"
-          />
+          <View style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
+             <Image
+              source={
+                resolvedImageUri ? { uri: resolvedImageUri } : (typeof image === 'object' ? image : null)
+              }
+              style={styles.plantImage}
+              resizeMode="cover"
+            />
+          </View>
+         
           <View style={styles.infoCol}>
             <Text style={styles.plantName}>{plantName}</Text>
             <Text style={styles.variety}>
@@ -323,6 +428,17 @@ const OrderItemCard = ({
 };
 
 const styles = StyleSheet.create({
+  leafTrailStatusText: { 
+    fontFamily: 'Inter', 
+    fontSize: 12, 
+    color: '#647276' 
+  },
+  leafTrailStatusLabel: { 
+    fontFamily: 'Inter', 
+    fontSize: 13, 
+    color: '#202325' ,
+    fontWeight: 'bold',
+  },
   statusContainer: {
     backgroundColor: '#F5F6F6',
     paddingVertical: 10,
