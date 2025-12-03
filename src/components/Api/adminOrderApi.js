@@ -68,6 +68,7 @@ export const getAdminOrdersApi = async (filters = {}) => {
     if (filters.garden) queryParams.append('garden', filters.garden);
     if (filters.buyer) queryParams.append('buyer', filters.buyer);
     if (filters.receiver) queryParams.append('receiver', filters.receiver);
+    if (filters.joiner) queryParams.append('joiner', filters.joiner);
     if (filters.dateRange) {
       if (filters.dateRange.from) {
         const fromISO = filters.dateRange.from.toISOString().split('T')[0]; // Just the date part
@@ -87,6 +88,9 @@ export const getAdminOrdersApi = async (filters = {}) => {
 
     console.log('Admin Orders API - Fetching from URL:', url);
     console.log('Admin Orders API - Filters:', filters);
+    if (filters.joiner) {
+      console.log('Admin Orders API - Joiner filter being sent:', filters.joiner);
+    }
 
     const response = await fetch(url, {
       method: 'GET',

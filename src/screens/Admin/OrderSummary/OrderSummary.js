@@ -22,6 +22,7 @@ import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
 import GardenFilter from '../../../components/Admin/gardenFilter';
 import BuyerFilter from '../../../components/Admin/buyerFilter';
 import ReceiverFilter from '../../../components/Admin/receiverFilter';
+import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
 import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
 import OrderTableSkeleton from './OrderTableSkeleton';
@@ -74,6 +75,7 @@ const filterTabs = [
   { label: 'Garden', rightIcon: DownIcon },
   { label: 'Buyer', rightIcon: DownIcon },
   { label: 'Receiver', rightIcon: DownIcon },
+  { label: 'Joiner', rightIcon: DownIcon },
   { label: 'Plant Flight', rightIcon: DownIcon },
   { label: 'Date Range', rightIcon: DownIcon },
 ];
@@ -116,6 +118,7 @@ const OrderSummary = ({navigation}) => {
     garden: null,
     buyer: null,
     receiver: null,
+    joiner: null,
     dateRange: null,
     plantFlight: [],
   });
@@ -146,6 +149,9 @@ const OrderSummary = ({navigation}) => {
 
   const [receiverModalVisible, setReceiverModalVisible] = useState(false);
   const [receiverOptionsState, setReceiverOptionsState] = useState([]);
+
+  const [joinerModalVisible, setJoinerModalVisible] = useState(false);
+  const [joinerOptionsState, setJoinerOptionsState] = useState([]);
 
   const [dateRangeModalVisible, setDateRangeModalVisible] = useState(false);
 
@@ -348,8 +354,13 @@ const OrderSummary = ({navigation}) => {
       buyerFirstName: (order.buyerInfo?.firstName || '').toString() || '—',
       buyerLastName: (order.buyerInfo?.lastName || '').toString() || '',
       buyerUsername: (order.buyerInfo?.username || '').toString() || '',
-      receiverName: (order.deliveryDetails?.receiverName || '').toString() || '—',
-      receiverUsername: (order.deliveryDetails?.receiverUsername || '').toString() || '',
+      // For joiner orders, get receiver from receiverInfo; otherwise from deliveryDetails
+      receiverName: (order.isJoinerOrder && order.receiverInfo 
+        ? `${order.receiverInfo.receiverFirstName || ''} ${order.receiverInfo.receiverLastName || ''}`.trim()
+        : order.deliveryDetails?.receiverName || '').toString() || '—',
+      receiverUsername: (order.isJoinerOrder && order.receiverInfo?.receiverUsername
+        ? order.receiverInfo.receiverUsername
+        : order.deliveryDetails?.receiverUsername || '').toString() || '',
       plantFlight: safeFormatDate(order.flightDate, order.flightDateFormatted) || '—',
     };
   };
@@ -365,6 +376,12 @@ const OrderSummary = ({navigation}) => {
         console.log('Plant Flight Filter Active:', JSON.stringify(selectedFilters.plantFlight));
       }
 
+      // Debug joiner filter
+      if (selectedFilters.joiner) {
+        console.log('Joiner Filter Active:', selectedFilters.joiner);
+      }
+      console.log('All selected filters before API call:', JSON.stringify(selectedFilters));
+
       const response = await getAdminOrdersApi({
         status: activeTab,
         limit: 50,
@@ -377,6 +394,7 @@ const OrderSummary = ({navigation}) => {
         garden: selectedFilters.garden || undefined,
         buyer: selectedFilters.buyer || undefined,
         receiver: selectedFilters.receiver || undefined,
+        joiner: selectedFilters.joiner || undefined,
         dateRange: selectedFilters.dateRange || undefined,
         plantFlight: selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0 
           ? (Array.isArray(selectedFilters.plantFlight) ? selectedFilters.plantFlight.join(',') : selectedFilters.plantFlight)
@@ -508,53 +526,134 @@ const OrderSummary = ({navigation}) => {
           console.warn('Failed to set buyer options', e?.message || e);
         }
 
-        // Build receiver options from the current page orders
+        // Use receiver options from backend response (includes all receivers from filtered orders, not just current page)
+        // Fallback to deriving from current page if backend doesn't provide receivers
         try {
-          const receiversMap = new Map();
-          if (Array.isArray(response.orders)) {
-            response.orders.forEach((order, index) => {
-              // Debug first order to see structure
-              if (index === 0) {
-                console.log('Sample order deliveryDetails:', order.deliveryDetails);
-                console.log('Sample order receiver fields:', {
-                  receiverId: order.receiverId,
-                  hubReceiverId: order.hubReceiverId,
-                  deliveryDetailsReceiverId: order.deliveryDetails?.receiverId,
-                  deliveryDetailsReceiverUid: order.deliveryDetails?.receiverUid,
-                  deliveryDetailsReceiverName: order.deliveryDetails?.receiverName,
-                });
-                console.log('Sample order flightDate:', order.flightDate);
-                console.log('Sample order flightDate type:', typeof order.flightDate);
-                console.log('Sample order createdAt:', order.createdAt);
-                console.log('Sample order createdAt type:', typeof order.createdAt);
-              }
-              
-              if (order.deliveryDetails) {
-                // Try multiple possible receiver ID fields
-                const receiverId = order.deliveryDetails.receiverId || 
-                                 order.deliveryDetails.receiverUid ||
-                                 order.receiverId ||
-                                 order.hubReceiverId;
-                const receiverName = order.deliveryDetails.receiverName || '';
-                const receiverAvatar = order.deliveryDetails.receiverAvatar || 
-                                     order.deliveryDetails.receiverProfileImage || 
-                                     'https://via.placeholder.com/40';
-                
-                if (receiverId && receiverName && !receiversMap.has(receiverId)) {
-                  receiversMap.set(receiverId, {
-                    id: receiverId,
-                    name: receiverName,
-                    avatar: receiverAvatar,
+          if (response.receivers && Array.isArray(response.receivers)) {
+            // Use complete receiver list from backend
+            setReceiverOptionsState(response.receivers);
+            console.log('Using receivers from backend response:', {
+              count: response.receivers.length,
+              sample: response.receivers.slice(0, 10).map(r => ({
+                id: r.id,
+                name: r.name,
+                hasAvatar: !!(r.avatar && r.avatar.trim())
+              }))
+            });
+          } else {
+            // Fallback: derive from current page orders (backward compatibility)
+            const receiversMap = new Map();
+            if (Array.isArray(response.orders)) {
+              response.orders.forEach((order, index) => {
+                // Debug first order to see structure
+                if (index === 0) {
+                  console.log('Sample order deliveryDetails:', order.deliveryDetails);
+                  console.log('Sample order receiverInfo:', order.receiverInfo);
+                  console.log('Sample order receiver fields:', {
+                    receiverId: order.receiverId,
+                    hubReceiverId: order.hubReceiverId,
+                    deliveryDetailsReceiverId: order.deliveryDetails?.receiverId,
+                    deliveryDetailsReceiverUid: order.deliveryDetails?.receiverUid,
+                    deliveryDetailsReceiverName: order.deliveryDetails?.receiverName,
+                    receiverInfoReceiverUid: order.receiverInfo?.receiverUid,
+                    receiverInfoReceiverFirstName: order.receiverInfo?.receiverFirstName,
+                    receiverInfoReceiverLastName: order.receiverInfo?.receiverLastName,
+                    isJoinerOrder: order.isJoinerOrder,
                   });
                 }
-              }
-            });
+                
+                // For joiner orders, check receiverInfo first
+                if (order.isJoinerOrder && order.receiverInfo?.receiverUid) {
+                  const receiverId = order.receiverInfo.receiverUid;
+                  const receiverName = `${order.receiverInfo.receiverFirstName || ''} ${order.receiverInfo.receiverLastName || ''}`.trim();
+                  const receiverAvatar = 'https://via.placeholder.com/40';
+                  
+                  if (receiverId && receiverName && !receiversMap.has(receiverId)) {
+                    receiversMap.set(receiverId, {
+                      id: receiverId,
+                      name: receiverName,
+                      avatar: receiverAvatar,
+                    });
+                  }
+                }
+                
+                // Also check deliveryDetails (for regular orders and as fallback)
+                if (order.deliveryDetails) {
+                  // Try multiple possible receiver ID fields
+                  const receiverId = order.deliveryDetails.receiverId || 
+                                   order.deliveryDetails.receiverUid ||
+                                   order.receiverId ||
+                                   order.hubReceiverId;
+                  const receiverName = order.deliveryDetails.receiverName || '';
+                  const receiverAvatar = order.deliveryDetails.receiverAvatar || 
+                                       order.deliveryDetails.receiverProfileImage || 
+                                       'https://via.placeholder.com/40';
+                  
+                  if (receiverId && receiverName && !receiversMap.has(receiverId)) {
+                    receiversMap.set(receiverId, {
+                      id: receiverId,
+                      name: receiverName,
+                      avatar: receiverAvatar,
+                    });
+                  }
+                }
+              });
+            }
+            const uniqueReceivers = Array.from(receiversMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+            setReceiverOptionsState(uniqueReceivers);
+            console.warn('Backend did not provide receivers, falling back to current page extraction');
           }
-          const uniqueReceivers = Array.from(receiversMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-          console.log('Extracted receivers:', uniqueReceivers.length, uniqueReceivers);
-          setReceiverOptionsState(uniqueReceivers);
         } catch (e) {
-          console.warn('Failed to derive receiver options from orders', e?.message || e);
+          console.warn('Failed to set receiver options', e?.message || e);
+        }
+
+        // Use joiner options from backend response (includes all joiners from filtered orders, not just current page)
+        // Fallback to deriving from current page if backend doesn't provide joiners
+        try {
+          if (response.joiners && Array.isArray(response.joiners)) {
+            // Use complete joiner list from backend
+            setJoinerOptionsState(response.joiners);
+            console.log('Using joiners from backend response:', {
+              count: response.joiners.length,
+              sample: response.joiners.slice(0, 10).map(j => ({
+                id: j.id,
+                name: j.name,
+                hasAvatar: !!(j.avatar && j.avatar.trim())
+              }))
+            });
+          } else {
+            // Fallback: derive from current page orders (backward compatibility)
+            const joinersMap = new Map();
+            if (Array.isArray(response.orders)) {
+              response.orders.forEach(order => {
+                // Only extract joiners from joiner orders
+                if (order.isJoinerOrder && order.buyerUid) {
+                  const joinerId = order.buyerUid;
+                  const joinerName = `${order.buyerInfo?.firstName || ''} ${order.buyerInfo?.lastName || ''}`.trim() ||
+                                    order.joinerInfo?.joinerFirstName && order.joinerInfo?.joinerLastName
+                                      ? `${order.joinerInfo.joinerFirstName} ${order.joinerInfo.joinerLastName}`.trim()
+                                      : '';
+                  const joinerAvatar = order.buyerInfo?.avatar || 
+                                     order.buyerInfo?.profileImage || 
+                                     order.joinerInfo?.profilePhotoUrl ||
+                                     'https://via.placeholder.com/40';
+                  
+                  if (joinerId && joinerName && !joinersMap.has(joinerId)) {
+                    joinersMap.set(joinerId, {
+                      id: joinerId,
+                      name: joinerName,
+                      avatar: joinerAvatar,
+                    });
+                  }
+                }
+              });
+            }
+            const uniqueJoiners = Array.from(joinersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+            setJoinerOptionsState(uniqueJoiners);
+            console.warn('Backend did not provide joiners, falling back to current page extraction');
+          }
+        } catch (e) {
+          console.warn('Failed to set joiner options', e?.message || e);
         }
 
         // Use flightDates from backend response (includes all flightDates from filtered orders, not just current page)
@@ -715,6 +814,7 @@ const OrderSummary = ({navigation}) => {
   const handleFilterTabPress = (filterLabel) => {
     // If filter is already active, reset it instead of opening modal
     if (isFilterActive(filterLabel)) {
+      console.log(`Filter "${filterLabel}" is active, resetting it`);
       handleResetFilter(filterLabel);
       return;
     }
@@ -741,6 +841,9 @@ const OrderSummary = ({navigation}) => {
     } else if (filterLabel === 'Receiver') {
       console.log('Opening Receiver Modal', receiverOptionsState);
       setReceiverModalVisible(true);
+    } else if (filterLabel === 'Joiner') {
+      console.log('Opening Joiner Modal', joinerOptionsState);
+      setJoinerModalVisible(true);
     } else if (filterLabel === 'Date Range') {
       setDateRangeModalVisible(true);
     } else if (filterLabel === 'Plant Flight') {
@@ -774,6 +877,10 @@ const OrderSummary = ({navigation}) => {
         break;
       case 'Receiver':
         setSelectedFilters((prev) => ({ ...prev, receiver: null }));
+        break;
+      case 'Joiner':
+        setSelectedFilters((prev) => ({ ...prev, joiner: null }));
+        setJoinerModalVisible(false);
         break;
       case 'Date Range':
         setSelectedFilters((prev) => ({ ...prev, dateRange: null }));
@@ -859,6 +966,18 @@ const OrderSummary = ({navigation}) => {
   const handleReceiverSelect = (receiverId) => {
     setSelectedFilters((prev) => ({ ...prev, receiver: receiverId }));
     setReceiverModalVisible(false);
+    setCurrentPage(1);
+  };
+
+  // Joiner handlers
+  const handleJoinerSelect = (joinerId) => {
+    console.log('Joiner selected:', joinerId);
+    setSelectedFilters((prev) => {
+      const updated = { ...prev, joiner: joinerId };
+      console.log('Updated filters with joiner:', updated);
+      return updated;
+    });
+    setJoinerModalVisible(false);
     setCurrentPage(1);
   };
 
@@ -977,6 +1096,8 @@ const OrderSummary = ({navigation}) => {
         return selectedFilters.buyer !== null;
       case 'Receiver':
         return selectedFilters.receiver !== null;
+      case 'Joiner':
+        return selectedFilters.joiner !== null;
       case 'Date Range':
         return selectedFilters.dateRange !== null;
       case 'Plant Flight':
@@ -1207,6 +1328,19 @@ const OrderSummary = ({navigation}) => {
             setCurrentPage(1);
           }}
           receivers={receiverOptionsState}
+        />
+
+        {/* Joiner Modal */}
+        <JoinerFilter
+          isVisible={joinerModalVisible}
+          onClose={() => setJoinerModalVisible(false)}
+          onSelectJoiner={handleJoinerSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, joiner: null }));
+            setJoinerModalVisible(false);
+            setCurrentPage(1);
+          }}
+          joiners={joinerOptionsState}
         />
 
         {/* Date Range Modal */}

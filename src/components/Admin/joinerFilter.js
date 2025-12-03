@@ -16,8 +16,8 @@ import {
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 
-const ReceiverItem = ({ name, avatarUrl, onSelect }) => (
-  <TouchableOpacity style={styles.receiverItemContainer} onPress={onSelect}>
+const JoinerItem = ({ name, avatarUrl, onSelect }) => (
+  <TouchableOpacity style={styles.joinerItemContainer} onPress={onSelect}>
     {/* Avatar */}
     <View style={styles.avatarWrapper}>
       <View style={styles.avatarContainer}>
@@ -27,23 +27,23 @@ const ReceiverItem = ({ name, avatarUrl, onSelect }) => (
 
     {/* Details */}
     <View style={styles.detailsContainer}>
-      <Text style={styles.receiverName}>{name}</Text>
+      <Text style={styles.joinerName}>{name}</Text>
     </View>
   </TouchableOpacity>
 );
 
-const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receivers = [] }) => {
+const JoinerFilter = ({ isVisible, onClose, onSelectJoiner, onReset, joiners = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const scrollRef = React.useRef(null);
 
-  // Filter receivers based on the search query
-  const filteredReceivers = receivers.filter(receiver => {
-    const name = receiver.name || '';
+  // Filter joiners based on the search query
+  const filteredJoiners = joiners.filter(joiner => {
+    const name = joiner.name || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase())
   });
 
-  const handleSelect = (receiver) => {
-    onSelectReceiver(receiver?.id || null);
+  const handleSelect = (joiner) => {
+    onSelectJoiner(joiner?.id || null);
     onClose();
   };
 
@@ -61,7 +61,7 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receive
       onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+          <TouchableWithoutFeedback>
             <View style={styles.actionSheetContainer}>
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -70,7 +70,7 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receive
                 <SafeAreaView style={styles.safeAreaContainer} edges={['top', 'left', 'right', 'bottom']}>
                 {/* Title */}
                 <View style={styles.titleContainer}>
-                  <Text style={styles.titleText}>Receiver</Text>
+                  <Text style={styles.titleText}>Joiner</Text>
                   
                   {/* Close */}
                   <TouchableOpacity 
@@ -118,33 +118,29 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receive
                     ref={scrollRef}
                     style={styles.listsContainer} 
                     showsVerticalScrollIndicator={false}
-                    nestedScrollEnabled={true}
-                    scrollEnabled={true}
-                    bounces={true}
-                    alwaysBounceVertical={false}
                     contentContainerStyle={[
                       styles.listsContentContainer,
-                      filteredReceivers.length === 0 && styles.listsContentContainerEmpty
+                      filteredJoiners.length === 0 && styles.listsContentContainerEmpty
                     ]}
                   >
-                    {filteredReceivers.length === 0 ? (
+                    {filteredJoiners.length === 0 ? (
                       <View style={styles.emptyStateContainer}>
-                        <Text style={styles.emptyStateText}>No receivers found</Text>
+                        <Text style={styles.emptyStateText}>No joiners found</Text>
                         <Text style={styles.emptyStateSubtext}>
-                          {searchQuery ? 'Try adjusting your search' : 'No receiver data available for these orders'}
+                          {searchQuery ? 'Try adjusting your search' : 'No joiner data available for these orders'}
                         </Text>
                       </View>
                     ) : (
-                      filteredReceivers.map((receiver, index) => (
-                        <View key={receiver.id}>
+                      filteredJoiners.map((joiner, index) => (
+                        <View key={joiner.id}>
                           {/* Social / Option User List */}
-                          <ReceiverItem
-                            name={receiver.name}
-                            avatarUrl={receiver.avatar}
-                            onSelect={() => handleSelect(receiver)}
+                          <JoinerItem
+                            name={joiner.name}
+                            avatarUrl={joiner.avatar}
+                            onSelect={() => handleSelect(joiner)}
                           />
                           {/* Divider */}
-                          {index < filteredReceivers.length - 1 && (
+                          {index < filteredJoiners.length - 1 && (
                             <View style={styles.dividerWrapper}>
                               <View style={styles.divider} />
                             </View>
@@ -192,7 +188,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  // Filter: Receiver
+  // Filter: Joiner
   filterContainer: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
@@ -256,15 +252,15 @@ const styles = StyleSheet.create({
   // Content
   contentContainer: {
     flexDirection: 'column',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 24,
     gap: 8,
     width: '100%',
-    flex: 1,
+    height: 415,
+    flex: 0,
     alignSelf: 'stretch',
-    minHeight: 415,
   },
   // Search Field
   searchFieldContainer: {
@@ -312,7 +308,8 @@ const styles = StyleSheet.create({
   // Lists
   listsContainer: {
     width: '100%',
-    flex: 1,
+    height: 343,
+    flex: 0,
     alignSelf: 'stretch',
   },
   listsContentContainer: {
@@ -350,7 +347,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // Social / Option User List
-  receiverItemContainer: {
+  joinerItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 0,
@@ -401,7 +398,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   // Text
-  receiverName: {
+  joinerName: {
     width: '100%',
     height: 22,
     fontFamily: 'Inter',
@@ -507,8 +504,25 @@ const styles = StyleSheet.create({
   safeAreaContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    justifyContent: 'space-between',
+  },
+  // System / Home Indicator
+  homeIndicator: {
+    width: '100%',
+    height: 34,
+    backgroundColor: '#FFFFFF',
+    flex: 0,
+  },
+  // Gesture Bar
+  gestureBar: {
+    position: 'absolute',
+    width: 148,
+    height: 5,
+    left: '50%',
+    marginLeft: -74,
+    bottom: 8,
+    backgroundColor: '#202325',
+    borderRadius: 100,
   },
 });
 
-export default ReceiverFilter;
+export default JoinerFilter;
