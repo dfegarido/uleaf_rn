@@ -12,27 +12,26 @@ import {
   where,
 } from 'firebase/firestore';
 import moment from 'moment';
-import React, {useContext, useEffect, useState} from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
   Image,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import {db} from '../../../firebase';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { db } from '../../../firebase';
+import CreateChat from '../../assets/iconchat/new-chat.svg';
+import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import { AuthContext } from '../../auth/AuthProvider';
+import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
+import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
-import CreateChat from '../../assets/iconchat/new-chat.svg';
-import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
-import {AuthContext} from '../../auth/AuthProvider';
-import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
-import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 
 const MessagesScreen = ({navigation}) => {
   const insets = useSafeAreaInsets();

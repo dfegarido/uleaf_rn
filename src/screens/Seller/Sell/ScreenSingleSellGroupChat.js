@@ -62,7 +62,7 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route}) => {
+const ScreenSingleSellGroupChat = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -367,14 +367,11 @@ const ScreenSingleSellLive = ({navigation, route}) => {
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status: isPurge ? 'Purge' : 'Live',
+        status: 'groupChatListing',
         publishType: 'Publish Now',
         isActiveLiveListing: !withActiveLiveListing,
+        chatId: id || chatId ,
       };
-
-      if (isPurge) {
-        data.sessionId = sessionId;
-      }
 
       const response = await postSellSinglePlantApi(data);
 
@@ -387,13 +384,14 @@ const ScreenSingleSellLive = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
       setLoading(false);
+      routeParams.listingId = response.listingId;
       Alert.alert(
         "Success",
         "Listing published successfully!",
         [
           { 
             text: "Ok",
-            onPress: () => isPurge ? navigation.goBack() : navigation.navigate('Sell')
+            onPress: () => navigation.navigate('ChatScreen', routeParams)
           },
         ]
       );
@@ -407,13 +405,18 @@ const ScreenSingleSellLive = ({navigation, route}) => {
   // Publish now
 
   // Details
+  console.log('route?.params', route?.params);
+  const routeParams = route?.params || {}
+  const {
+    chatId = '',
+    id = '',
+  } = routeParams;
+  
   const {
     plantCode = '',
     availableQty,
     status,
     publishType,
-    isPurge = false,
-    sessionId = ''
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -565,11 +568,8 @@ const ScreenSingleSellLive = ({navigation, route}) => {
   // Show success alert
 
   const goBack = () => {
-    setLoading(true);
-    navigation.goBack();
-    setLoading(false);
-  }   
-
+    navigation.goBack()
+  }
 
   return (
     <KeyboardAvoidingView 
@@ -601,7 +601,7 @@ const ScreenSingleSellLive = ({navigation, route}) => {
           <LeftIcon width={20} height={20} />
         </TouchableOpacity>
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
-          {isPurge ? 'Purge Single Plant': 'Live Single Plant'}
+          {'Chat Single Plant'}
         </Text>
         {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
@@ -904,4 +904,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ScreenSingleSellLive;
+export default ScreenSingleSellGroupChat;

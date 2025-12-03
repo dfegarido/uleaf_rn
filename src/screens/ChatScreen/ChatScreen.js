@@ -13,15 +13,14 @@ import {
   where
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
-import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -30,6 +29,9 @@ const ChatScreen = ({navigation, route}) => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   
   const routeParams = route?.params || {};
+
+  const [listingId, setListingId] = useState(routeParams.listingId || null);
+
   const avatarUrl = routeParams.avatarUrl || '';
   const chatType = routeParams.type || 'private'; // Get chat type: 'group' or 'private'
   const name = routeParams.name || routeParams.title || '';
@@ -244,7 +246,9 @@ const ChatScreen = ({navigation, route}) => {
   };
 
   // Send a message: create message doc and update chat metadata
-  const sendMessage = async (text) => {
+  const sendMessage = async (text, isListing = false, listingId = null) => {
+    console.log('zxcvzvzcvzxcvzxcv', listingId);
+    
     if (!id) {
       return;
     }
@@ -263,11 +267,13 @@ const ChatScreen = ({navigation, route}) => {
         senderId: currentUserUid || null,
         text: text.trim(),
         timestamp: Timestamp.now(),
+        isListing,
+        listingId,
       };
 
       // Add message to messages collection
       await addDoc(collection(db, 'messages'), newMsg);
-
+      setListingId(null);
       // Mark chat lastMessage and update timestamp, mark unread for other participants
       const otherParticipantIds = Array.isArray(participantIds)
         ? participantIds.filter(pid => pid && pid !== currentUserUid)
@@ -286,6 +292,10 @@ const ChatScreen = ({navigation, route}) => {
       // ignore send errors
     }
   };
+
+  // if (routeParams.listingId) {
+  //   sendMessage(routeParams.listingId, true, routeParams.listingId);
+  // }
 
   // Helper function to detect plant-related conversation
   const isPlantRelatedConversation = () => {
@@ -661,7 +671,7 @@ const ChatScreen = ({navigation, route}) => {
             )}
             {chatType === 'group' ? (
               <View style={styles.userInfoText}>
-                <Text style={styles.title} numberOfLines={1}>{displayName || 'Chat'}</Text>
+                <Text style={styles.title} numberOfLines={1}>a{displayName || 'Chat'}</Text>
                 <Text style={styles.subtitle}>
                   {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
                 </Text>
@@ -673,6 +683,14 @@ const ChatScreen = ({navigation, route}) => {
               </View>
             )}
           </TouchableOpacity>
+          {chatType === 'group' && (
+            <TouchableOpacity
+              style={styles.addListingButton}
+              onPress={() => navigation.navigate('ScreenSingleSellGroupChat', routeParams)}
+            >
+              <Text style={styles.addListingButtonText}>Add Listing</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       {/* Chat Messages */}
@@ -694,6 +712,7 @@ const ChatScreen = ({navigation, route}) => {
           data={messages}
           keyExtractor={(item, index) => item.id || `message-${index}`}
           renderItem={({ item, index }) => {
+            
             if (!item) return null;
             if (item.type === 'date') return <DateSeparator text={item.text} />;
 
@@ -784,6 +803,7 @@ const ChatScreen = ({navigation, route}) => {
               }
             }
 
+            // if item.isListing === true create a small card of the plant details 
             return (
               <ChatBubble
                 text={item.text || 'Empty message'}
@@ -907,7 +927,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#e0e0e0',
   },
+  addListingButton: {
+    backgroundColor: '#539461',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  addListingButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
 });
 
 export default ChatScreen;
-
