@@ -1,10 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
-import AvatarIcon from '../../assets/images/avatar.svg';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import ListingMessage from '../../screens/ChatScreen/ListingMessage';
 
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 
-const ChatBubble = ({text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup }) => {
+const ChatBubble = ({ listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup }) => {
   // Show sender name for group chats, not from current user, only on first message of group
   const shouldShowSenderName = isGroupChat && !isMe && senderName && isFirstInGroup;
 
@@ -72,7 +72,10 @@ const ChatBubble = ({text, isMe, showAvatar, senderName, senderAvatarUrl, isGrou
             // Add left margin for receiver messages to align with avatar position (avatar width 25 + margin 10 = 35)
             !isMe && !showAvatar && { marginLeft: 35 }
           ]}>
-          <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>
+          {!isListing && <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>}
+          {isListing && (
+            <ListingMessage listingId={listingId} navigation={navigation} />
+          )}
         </View>
       </View>
     </View>

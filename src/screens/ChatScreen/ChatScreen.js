@@ -21,6 +21,7 @@ import { AuthContext } from '../../auth/AuthProvider';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
+import ListingMessage from './ListingMessage';
 
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -247,8 +248,6 @@ const ChatScreen = ({navigation, route}) => {
 
   // Send a message: create message doc and update chat metadata
   const sendMessage = async (text, isListing = false, listingId = null) => {
-    console.log('zxcvzvzcvzxcvzxcv', listingId);
-    
     if (!id) {
       return;
     }
@@ -293,6 +292,7 @@ const ChatScreen = ({navigation, route}) => {
     }
   };
 
+  // routeParams.listingId
   // if (routeParams.listingId) {
   //   sendMessage(routeParams.listingId, true, routeParams.listingId);
   // }
@@ -671,7 +671,7 @@ const ChatScreen = ({navigation, route}) => {
             )}
             {chatType === 'group' ? (
               <View style={styles.userInfoText}>
-                <Text style={styles.title} numberOfLines={1}>a{displayName || 'Chat'}</Text>
+                <Text style={styles.title} numberOfLines={1}>{displayName || 'Chat'}</Text>
                 <Text style={styles.subtitle}>
                   {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
                 </Text>
@@ -729,6 +729,9 @@ const ChatScreen = ({navigation, route}) => {
             
             // Show avatar only on the last message of a group (for non-me messages)
             const showAvatar = !isMe && isLastInGroup;
+            // if (item.isListing === true && item.listingId) {
+            //   return <ListingMessage listingId={item.listingId} navigation={navigation} />;
+            // }
             
             // Get sender name and avatar for group chats - show on first message of group
             // For private chats, get the other participant's avatar
@@ -803,9 +806,9 @@ const ChatScreen = ({navigation, route}) => {
               }
             }
 
-            // if item.isListing === true create a small card of the plant details 
             return (
               <ChatBubble
+                renderItem={({ data: item }) => <ListingMessage listingId={item.listingId} navigation={navigation} />}
                 text={item.text || 'Empty message'}
                 isMe={isMe}
                 showAvatar={showAvatar}
@@ -814,6 +817,9 @@ const ChatScreen = ({navigation, route}) => {
                 isGroupChat={chatType === 'group'}
                 isFirstInGroup={isFirstInGroup}
                 isLastInGroup={isLastInGroup}
+                isListing={item.isListing}
+                listingId={item.listingId}
+                navigation={navigation}
               />
             );
           }}
