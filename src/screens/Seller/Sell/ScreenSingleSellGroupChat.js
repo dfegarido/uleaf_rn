@@ -38,7 +38,16 @@ import { retryAsync } from '../../../utils/utils';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { db } from '../../../../firebase';
 
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  doc,
+  Timestamp,
+  updateDoc
+} from 'firebase/firestore';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -62,7 +71,7 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route}) => {
+const ScreenSingleSellGroupChat = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -324,6 +333,46 @@ const ScreenSingleSellLive = ({navigation, route}) => {
   };
   // Form validation
 
+   const sendMessage = async (id, text, isListing = false, listingId = null) => {
+    if (!id) {
+      return;
+    }
+    
+    if (!text || !text.trim()) return;
+    
+    try {
+      const newMsg = {
+        chatId: id,
+        senderId: currentUserUid || null,
+        text: text.trim(),
+        timestamp: Timestamp.now(),
+        isListing,
+        listingId,
+      };
+
+      // Add message to messages collection
+      await addDoc(collection(db, 'messages'), newMsg);
+      // Mark chat lastMessage and update timestamp, mark unread for other participants
+      const otherParticipantIds = Array.isArray(participantIds)
+        ? participantIds.filter(pid => pid && pid !== currentUserUid)
+        : [];
+
+      try {
+        await updateDoc(doc(db, 'chats', id), {
+          lastMessage: newMsg.text,
+          timestamp: Timestamp.now(),
+          unreadBy: arrayUnion(...otherParticipantIds),
+        });
+      } catch (err) {
+        // ignore update failures
+        console.error('sendMessage', error);
+      }
+    } catch (error) {
+      // ignore send errors
+      console.error('sendMessage', error);
+    }
+  };
+
   // Publish now
   const onPressPublish = async () => {
     const errors = validateForm();
@@ -367,14 +416,11 @@ const ScreenSingleSellLive = ({navigation, route}) => {
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status: isPurge ? 'Purge' : 'Live',
+        status: 'GroupChatListing',
         publishType: 'Publish Now',
         isActiveLiveListing: !withActiveLiveListing,
+        chatId: id || chatId,
       };
-
-      if (isPurge) {
-        data.sessionId = sessionId;
-      }
 
       const response = await postSellSinglePlantApi(data);
 
@@ -387,13 +433,17 @@ const ScreenSingleSellLive = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
       setLoading(false);
+      routeParams.listingId = response.listingId;
+      if (response?.success) {
+        await sendMessage(id || chatId, 'New Listing', true, response.listingId);
+      }
       Alert.alert(
         "Success",
         "Listing published successfully!",
         [
           { 
             text: "Ok",
-            onPress: () => isPurge ? navigation.goBack() : navigation.navigate('Sell')
+            onPress: () => navigation.navigate('ChatScreen', routeParams)
           },
         ]
       );
@@ -407,13 +457,20 @@ const ScreenSingleSellLive = ({navigation, route}) => {
   // Publish now
 
   // Details
+  const routeParams = route?.params || {};
+  
+  const {
+    chatId = '',
+    id = '',
+    currentUserUid = null,
+    participantIds = null,
+  } = routeParams;
+  
   const {
     plantCode = '',
     availableQty,
     status,
     publishType,
-    isPurge = false,
-    sessionId = ''
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -565,11 +622,8 @@ const ScreenSingleSellLive = ({navigation, route}) => {
   // Show success alert
 
   const goBack = () => {
-    setLoading(true);
-    navigation.goBack();
-    setLoading(false);
-  }   
-
+    navigation.goBack()
+  }
 
   return (
     <KeyboardAvoidingView 
@@ -601,7 +655,7 @@ const ScreenSingleSellLive = ({navigation, route}) => {
           <LeftIcon width={20} height={20} />
         </TouchableOpacity>
         <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
-          {isPurge ? 'Purge Single Plant': 'Live Single Plant'}
+          {'Chat Single Plant'}
         </Text>
         {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
           <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
@@ -904,4 +958,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ScreenSingleSellLive;
+export default ScreenSingleSellGroupChat;

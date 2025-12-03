@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import {
   addDoc,
   arrayUnion,
@@ -12,16 +13,15 @@ import {
   updateDoc,
   where
 } from 'firebase/firestore';
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
-import BrowseMorePlants from '../../components/BrowseMorePlants/BrowseMorePlants';
 
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -30,6 +30,7 @@ const ChatScreen = ({navigation, route}) => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   
   const routeParams = route?.params || {};
+
   const avatarUrl = routeParams.avatarUrl || '';
   const chatType = routeParams.type || 'private'; // Get chat type: 'group' or 'private'
   const name = routeParams.name || routeParams.title || '';
@@ -38,15 +39,23 @@ const ChatScreen = ({navigation, route}) => {
   const participants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
-  
+
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+  console.log('userInfouserInfo', userInfo);
   
   // Check if current user is a buyer (only buyers can request to join public groups)
   const isBuyer =
     userInfo?.user?.userType === 'buyer' ||
     userInfo?.data?.userType === 'buyer' ||
     userInfo?.userType === 'buyer';
+
+  // If seller is invited but not a member, redirect to settings
+  const isSeller = 
+    userInfo?.user?.userType === 'supplier' || 
+    userInfo?.data?.userType === 'supplier' ||
+    userInfo?.userType === 'supplier';  
+  const canChatListing = userInfo?.canChatListing || false;
   
   // Make sure participants is an array and has at least one element
   // For group chats, we want to show the group name
@@ -244,7 +253,7 @@ const ChatScreen = ({navigation, route}) => {
   };
 
   // Send a message: create message doc and update chat metadata
-  const sendMessage = async (text) => {
+  const sendMessage = async (text, isListing = false, listingId = null) => {
     if (!id) {
       return;
     }
@@ -263,11 +272,12 @@ const ChatScreen = ({navigation, route}) => {
         senderId: currentUserUid || null,
         text: text.trim(),
         timestamp: Timestamp.now(),
+        isListing,
+        listingId,
       };
 
       // Add message to messages collection
       await addDoc(collection(db, 'messages'), newMsg);
-
       // Mark chat lastMessage and update timestamp, mark unread for other participants
       const otherParticipantIds = Array.isArray(participantIds)
         ? participantIds.filter(pid => pid && pid !== currentUserUid)
@@ -325,7 +335,7 @@ const ChatScreen = ({navigation, route}) => {
 
   // Check if user is member and if group is public
   // Redirect buyers to settings if they're not members of a public group
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const checkMembershipAndPublicStatus = async () => {
       if (!id || chatType !== 'group' || !currentUserUid) {
         setIsMember(true); // Default to member for private chats
@@ -358,12 +368,6 @@ const ChatScreen = ({navigation, route}) => {
             });
             return;
           }
-          
-          // If seller is invited but not a member, redirect to settings
-          const isSeller = 
-            userInfo?.user?.userType === 'supplier' || 
-            userInfo?.data?.userType === 'supplier' ||
-            userInfo?.userType === 'supplier';
           
           if (!userIsMember && isPublic && isSeller) {
             const invitedUsers = Array.isArray(chatData.invitedUsers) ? chatData.invitedUsers : [];
@@ -412,9 +416,9 @@ const ChatScreen = ({navigation, route}) => {
     };
 
     checkMembershipAndPublicStatus();
-  }, [id, chatType, currentUserUid, isBuyer, navigation, name]);
+  }, [id, chatType, currentUserUid, isBuyer, navigation, name]));
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!id) {
       setMessages([]);
       setLoading(false);
@@ -461,7 +465,7 @@ const ChatScreen = ({navigation, route}) => {
       setMessages([]);
       setLoading(false);
     }
-  }, [id]);
+  }, [id]));
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -673,6 +677,14 @@ const ChatScreen = ({navigation, route}) => {
               </View>
             )}
           </TouchableOpacity>
+          {(isSeller && canChatListing && chatType === 'group') && (
+            <TouchableOpacity
+              style={styles.addListingButton}
+              onPress={() => navigation.navigate('ScreenSingleSellGroupChat', {...routeParams, currentUserUid, participantIds})}
+            >
+              <Text style={styles.addListingButtonText}>Add Listing</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       {/* Chat Messages */}
@@ -694,6 +706,7 @@ const ChatScreen = ({navigation, route}) => {
           data={messages}
           keyExtractor={(item, index) => item.id || `message-${index}`}
           renderItem={({ item, index }) => {
+            
             if (!item) return null;
             if (item.type === 'date') return <DateSeparator text={item.text} />;
 
@@ -710,6 +723,9 @@ const ChatScreen = ({navigation, route}) => {
             
             // Show avatar only on the last message of a group (for non-me messages)
             const showAvatar = !isMe && isLastInGroup;
+            // if (item.isListing === true && item.listingId) {
+            //   return <ListingMessage listingId={item.listingId} navigation={navigation} />;
+            // }
             
             // Get sender name and avatar for group chats - show on first message of group
             // For private chats, get the other participant's avatar
@@ -794,6 +810,10 @@ const ChatScreen = ({navigation, route}) => {
                 isGroupChat={chatType === 'group'}
                 isFirstInGroup={isFirstInGroup}
                 isLastInGroup={isLastInGroup}
+                isListing={item.isListing}
+                listingId={item.listingId}
+                navigation={navigation}
+                isBuyer={isBuyer}
               />
             );
           }}
@@ -907,7 +927,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#e0e0e0',
   },
+  addListingButton: {
+    backgroundColor: '#539461',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  addListingButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
 });
 
 export default ChatScreen;
-

@@ -74,6 +74,7 @@ import {
   ScreenGrowersSell,
   ScreenSell,
   ScreenSingleSell,
+  ScreenSingleSellGroupChat,
   ScreenSingleSellLive,
   ScreenWholesaleSell,
 } from '../../screens/Seller/Sell';
@@ -466,6 +467,31 @@ const MainStack = () => {
         options={({navigation}) => ({
           headerShown: false, // Ensure the header is shown
           title: 'Single Plant', // Optionally hide the header title
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right', // Screen transition animation
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.canGoBack() ? navigation.goBack() : null
+              }>
+              <BackSolidIcon width={20} height={20} />
+            </TouchableOpacity>
+          ),
+          headerStyle: {
+            elevation: 0, // For Android
+            shadowOpacity: 0, // For iOS
+            borderBottomWidth: 0, // For iOS
+          },
+          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
+        })}
+      />
+      
+      <Stack.Screen
+        name="ScreenSingleSellGroupChat"
+        component={ScreenSingleSellGroupChat}
+        options={({navigation}) => ({
+          headerShown: false, // Ensure the header is shown
+          title: 'Live Plant', // Optionally hide the header title
           headerTitleAlign: 'center',
           animation: 'slide_from_right', // Screen transition animation
           headerLeft: () => (
