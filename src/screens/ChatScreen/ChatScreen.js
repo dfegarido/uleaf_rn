@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import {
   addDoc,
   arrayUnion,
@@ -12,7 +13,7 @@ import {
   updateDoc,
   where
 } from 'firebase/firestore';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
@@ -334,7 +335,7 @@ const ChatScreen = ({navigation, route}) => {
 
   // Check if user is member and if group is public
   // Redirect buyers to settings if they're not members of a public group
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const checkMembershipAndPublicStatus = async () => {
       if (!id || chatType !== 'group' || !currentUserUid) {
         setIsMember(true); // Default to member for private chats
@@ -415,9 +416,9 @@ const ChatScreen = ({navigation, route}) => {
     };
 
     checkMembershipAndPublicStatus();
-  }, [id, chatType, currentUserUid, isBuyer, navigation, name]);
+  }, [id, chatType, currentUserUid, isBuyer, navigation, name]));
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!id) {
       setMessages([]);
       setLoading(false);
@@ -464,7 +465,7 @@ const ChatScreen = ({navigation, route}) => {
       setMessages([]);
       setLoading(false);
     }
-  }, [id]);
+  }, [id]));
 
   // Auto-scroll when messages change
   useEffect(() => {
