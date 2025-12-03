@@ -21,7 +21,6 @@ import { AuthContext } from '../../auth/AuthProvider';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
-import ListingMessage from './ListingMessage';
 
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -31,8 +30,6 @@ const ChatScreen = ({navigation, route}) => {
   
   const routeParams = route?.params || {};
 
-  const [listingId, setListingId] = useState(routeParams.listingId || null);
-
   const avatarUrl = routeParams.avatarUrl || '';
   const chatType = routeParams.type || 'private'; // Get chat type: 'group' or 'private'
   const name = routeParams.name || routeParams.title || '';
@@ -41,15 +38,23 @@ const ChatScreen = ({navigation, route}) => {
   const participants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
-  
+
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+  console.log('userInfouserInfo', userInfo);
   
   // Check if current user is a buyer (only buyers can request to join public groups)
   const isBuyer =
     userInfo?.user?.userType === 'buyer' ||
     userInfo?.data?.userType === 'buyer' ||
     userInfo?.userType === 'buyer';
+
+  // If seller is invited but not a member, redirect to settings
+  const isSeller = 
+    userInfo?.user?.userType === 'supplier' || 
+    userInfo?.data?.userType === 'supplier' ||
+    userInfo?.userType === 'supplier';  
+  const canChatListing = userInfo?.canChatListing || false;
   
   // Make sure participants is an array and has at least one element
   // For group chats, we want to show the group name
@@ -272,7 +277,6 @@ const ChatScreen = ({navigation, route}) => {
 
       // Add message to messages collection
       await addDoc(collection(db, 'messages'), newMsg);
-      setListingId(null);
       // Mark chat lastMessage and update timestamp, mark unread for other participants
       const otherParticipantIds = Array.isArray(participantIds)
         ? participantIds.filter(pid => pid && pid !== currentUserUid)
@@ -291,11 +295,6 @@ const ChatScreen = ({navigation, route}) => {
       // ignore send errors
     }
   };
-
-  // routeParams.listingId
-  // if (routeParams.listingId) {
-  //   sendMessage(routeParams.listingId, true, routeParams.listingId);
-  // }
 
   // Helper function to detect plant-related conversation
   const isPlantRelatedConversation = () => {
@@ -368,12 +367,6 @@ const ChatScreen = ({navigation, route}) => {
             });
             return;
           }
-          
-          // If seller is invited but not a member, redirect to settings
-          const isSeller = 
-            userInfo?.user?.userType === 'supplier' || 
-            userInfo?.data?.userType === 'supplier' ||
-            userInfo?.userType === 'supplier';
           
           if (!userIsMember && isPublic && isSeller) {
             const invitedUsers = Array.isArray(chatData.invitedUsers) ? chatData.invitedUsers : [];
@@ -683,10 +676,10 @@ const ChatScreen = ({navigation, route}) => {
               </View>
             )}
           </TouchableOpacity>
-          {chatType === 'group' && (
+          {(isSeller && canChatListing && chatType === 'group') && (
             <TouchableOpacity
               style={styles.addListingButton}
-              onPress={() => navigation.navigate('ScreenSingleSellGroupChat', routeParams)}
+              onPress={() => navigation.navigate('ScreenSingleSellGroupChat', {...routeParams, currentUserUid, participantIds})}
             >
               <Text style={styles.addListingButtonText}>Add Listing</Text>
             </TouchableOpacity>
@@ -808,7 +801,6 @@ const ChatScreen = ({navigation, route}) => {
 
             return (
               <ChatBubble
-                renderItem={({ data: item }) => <ListingMessage listingId={item.listingId} navigation={navigation} />}
                 text={item.text || 'Empty message'}
                 isMe={isMe}
                 showAvatar={showAvatar}
@@ -820,6 +812,7 @@ const ChatScreen = ({navigation, route}) => {
                 isListing={item.isListing}
                 listingId={item.listingId}
                 navigation={navigation}
+                isBuyer={isBuyer}
               />
             );
           }}

@@ -38,7 +38,16 @@ import { retryAsync } from '../../../utils/utils';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { db } from '../../../../firebase';
 
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  doc,
+  Timestamp,
+  updateDoc
+} from 'firebase/firestore';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -324,6 +333,46 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
   };
   // Form validation
 
+   const sendMessage = async (id, text, isListing = false, listingId = null) => {
+    if (!id) {
+      return;
+    }
+    
+    if (!text || !text.trim()) return;
+    
+    try {
+      const newMsg = {
+        chatId: id,
+        senderId: currentUserUid || null,
+        text: text.trim(),
+        timestamp: Timestamp.now(),
+        isListing,
+        listingId,
+      };
+
+      // Add message to messages collection
+      await addDoc(collection(db, 'messages'), newMsg);
+      // Mark chat lastMessage and update timestamp, mark unread for other participants
+      const otherParticipantIds = Array.isArray(participantIds)
+        ? participantIds.filter(pid => pid && pid !== currentUserUid)
+        : [];
+
+      try {
+        await updateDoc(doc(db, 'chats', id), {
+          lastMessage: newMsg.text,
+          timestamp: Timestamp.now(),
+          unreadBy: arrayUnion(...otherParticipantIds),
+        });
+      } catch (err) {
+        // ignore update failures
+        console.error('sendMessage', error);
+      }
+    } catch (error) {
+      // ignore send errors
+      console.error('sendMessage', error);
+    }
+  };
+
   // Publish now
   const onPressPublish = async () => {
     const errors = validateForm();
@@ -367,10 +416,10 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
         localPrice: localPrice ? parseFloat(localPrice) : null,
         approximateHeight:
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
-        status: 'groupChatListing',
+        status: 'GroupChatListing',
         publishType: 'Publish Now',
         isActiveLiveListing: !withActiveLiveListing,
-        chatId: id || chatId ,
+        chatId: id || chatId,
       };
 
       const response = await postSellSinglePlantApi(data);
@@ -385,6 +434,9 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
       // await submitListing(data);
       setLoading(false);
       routeParams.listingId = response.listingId;
+      if (response?.success) {
+        await sendMessage(id || chatId, 'New Listing', true, response.listingId);
+      }
       Alert.alert(
         "Success",
         "Listing published successfully!",
@@ -405,11 +457,13 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
   // Publish now
 
   // Details
-  console.log('route?.params', route?.params);
-  const routeParams = route?.params || {}
+  const routeParams = route?.params || {};
+  
   const {
     chatId = '',
     id = '',
+    currentUserUid = null,
+    participantIds = null,
   } = routeParams;
   
   const {

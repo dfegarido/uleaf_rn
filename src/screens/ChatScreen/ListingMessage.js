@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
 
-const ListingMessage = ({ listingId, navigation }) => {
+const ListingMessage = ({ isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,10 +66,10 @@ const ListingMessage = ({ listingId, navigation }) => {
           {listing.genus} {listing.species}
         </Text>
         <Text style={styles.price}>${listing.localPrice?.toFixed(2)}</Text>
-        {!isSoldOut && (
+        {(!isSoldOut && isBuyer) && (
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={() => navigation.navigate('ScreenPlantDetail', { plantCode: listing.plantCode || listing.id })}
+            onPress={() => navigation.navigate('ScreenPlantDetail', { plantCode: listing.plantCode })}
           >
             <Text style={styles.primaryButtonText}>Buy Now</Text>
           </TouchableOpacity>
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E4E7E9',
     overflow: 'hidden',
-    maxWidth: 200,
+    width: 200,
     marginVertical: 4,
   },
   loadingContainer: {
