@@ -316,15 +316,21 @@ const ScreenOrder = ({navigation}) => {
   };
 
   const handleSearchSubmitRange = (startDate, endDate) => {
-    const formattedStart = startDate
-      ? new Date(startDate).toISOString().slice(0, 10)
-      : '';
-    const formattedEnd = endDate
-      ? new Date(endDate).toISOString().slice(0, 10)
-      : '';
+    // Fix timezone issue: format date in local timezone, not UTC
+    const formatLocalDate = (date) => {
+      if (!date) return '';
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const formattedStart = formatLocalDate(startDate);
+    const formattedEnd = formatLocalDate(endDate);
 
     console.log('📦 Orders Date Range Filter Applied:', {
-      originalDates: { start: startDate, end: endDate },
+      originalDates: { start: startDate?.toString(), end: endDate?.toString() },
       formattedDates: { start: formattedStart, end: formattedEnd },
       dateRange: formattedStart && formattedEnd ? 
         `${formattedStart} to ${formattedEnd}` : 

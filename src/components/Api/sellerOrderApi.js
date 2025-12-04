@@ -1,4 +1,5 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const updateOrderSellerScanned = async (data) => {
   try {
@@ -65,12 +66,20 @@ export const getOrderForReceiving = async (filters = {sort: 'desc'}) => {
     let cleanedParams = null;
     if (filters) {
       cleanedParams = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value != null)
+        Object.entries(filters).filter(([_, value]) => value != null && value !== '')
       );
     }
-    console.log('token', token);
     
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getOrderForReceiving${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    const url = `${API_ENDPOINTS.GET_ORDER_FOR_RECEIVING}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    
+    console.log('🌐 [API] getOrderForReceiving called:', {
+      filters: cleanedParams,
+      baseUrl: API_ENDPOINTS.GET_ORDER_FOR_RECEIVING,
+      fullUrl: url,
+      fullParams: new URLSearchParams(cleanedParams).toString(),
+      isLocal: url.includes('localhost') || url.includes('127.0.0.1')
+    });
+    
     const response = await fetch(
       url,
       {

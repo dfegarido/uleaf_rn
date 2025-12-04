@@ -254,6 +254,7 @@ const generateEndpoints = () => ({
 
   // Order APIs
   GET_ORDERS: `${getBaseUrl()}/getOrders`,
+  GET_ORDER_FOR_RECEIVING: `${getBaseUrl()}/getOrderForReceiving`,
   GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
   GET_BUYER_ORDERS_GROUPED: `${getBaseUrl()}/getBuyerOrdersGrouped`,
   GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,

@@ -15,6 +15,7 @@ import AvatarIcon from '../../../assets/images/avatar.svg';
 import LiveIcon from '../../../assets/images/live.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import OrderActionSheet from './components/OrderActionSheet';
+import SkeletonList from './components/OrderCardSkeleton';
 
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
@@ -129,10 +130,11 @@ const OrderScreen = ({navigation}) => {
   const [sortOptions, setSortOptions] = useState([]);
   const [listingTypeOptions, setListingTypeOptions] = useState([]);
 
-  const applyFilters = () => {
+  const applyFilters = (overrideFilters = {}) => {
+    console.log('🔄 [Frontend] Applying filters - clearing old data', overrideFilters);
     setLastDoc(null);
     setOrders([]);
-    fetchOrders(true);
+    fetchOrders(true, overrideFilters);
   };
 
   const handleFilterView = () => {
@@ -141,11 +143,53 @@ const OrderScreen = ({navigation}) => {
   };
 
   const handleSearchSubmitRange = (startDate, endDate) => {
-    const formattedStart = startDate ? new Date(startDate).toISOString().slice(0, 10) : '';
-    const formattedEnd = endDate ? new Date(endDate).toISOString().slice(0, 10) : '';
+    // Fix timezone issue: format date in local timezone, not UTC
+    const formatLocalDate = (date) => {
+      if (!date) return '';
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const formattedStart = formatLocalDate(startDate);
+    const formattedEnd = formatLocalDate(endDate);
+    
+    console.log('📅 [Frontend] Date Range Selected:', {
+      originalDates: { 
+        start: startDate?.toString(), 
+        end: endDate?.toString() 
+      },
+      formattedDates: { 
+        start: formattedStart, 
+        end: formattedEnd 
+      },
+      willApplyFilter: true
+    });
+    
+    // Update state for visual indicators
     setReusableStartDate(formattedStart);
     setReusableEndDate(formattedEnd);
-    applyFilters();
+    
+    // Pass dates directly to avoid state timing issues
+    applyFilters({
+      startDate: formattedStart,
+      endDate: formattedEnd
+    });
+    
+    setShowSheet(false);
+  };
+
+  const handleResetDateRange = () => {
+    console.log('🔄 [Frontend] Resetting date range filter');
+    setReusableStartDate('');
+    setReusableEndDate('');
+    // Pass empty dates directly to clear filter
+    applyFilters({
+      startDate: '',
+      endDate: ''
+    });
     setShowSheet(false);
   };
 
@@ -187,7 +231,7 @@ const OrderScreen = ({navigation}) => {
   }, []);
 
 
-  const fetchOrders = useCallback(async (isNewSearch = false) => {
+  const fetchOrders = useCallback(async (isNewSearch = false, overrideFilters = {}) => {
     if (loading || (loadingMore && !isNewSearch)) return;
 
     if (isNewSearch) {
@@ -196,12 +240,14 @@ const OrderScreen = ({navigation}) => {
       setLoadingMore(true);
     }
 
+    console.log('🔧 [Frontend] fetchOrders called with overrideFilters:', overrideFilters);
+
     // This is the filter logic you provided
     let filters = {
       orderType: activeTab,
       listingType: reusableListingType.join(','),
-      startDate: reusableStartDate,
-      endDate: reusableEndDate,
+      startDate: overrideFilters.startDate !== undefined ? overrideFilters.startDate : reusableStartDate,
+      endDate: overrideFilters.endDate !== undefined ? overrideFilters.endDate : reusableEndDate,
       lastDocument: isNewSearch ? null : lastDoc,
     };
 
@@ -209,25 +255,62 @@ const OrderScreen = ({navigation}) => {
       filters.search = search;
     }
     if (reusableSort) {
-      filters.sort = reusableSort === 'Oldest' ? 'asc' : 'desc';
+      // Newest = descending (most recent first), Oldest = ascending (oldest first)
+      filters.sort = reusableSort === 'Newest' ? 'desc' : 'asc';
+      console.log('📊 [Frontend] Sort applied:', {
+        userSelected: reusableSort,
+        sortDirection: filters.sort,
+        meaning: filters.sort === 'desc' ? 'Newest first' : 'Oldest first'
+      });
     }
     if (reusableListingType.length === 0) {
       delete filters.listingType;
     }
-    if (!reusableStartDate) {
+    // Check filters object values, not state (to respect overrideFilters)
+    if (!filters.startDate) {
       delete filters.startDate;
     }
-    if (!reusableEndDate) {
+    if (!filters.endDate) {
       delete filters.endDate;
     }
     if (!filters.lastDocument) {
       delete filters.lastDocument;
     }
 
+    console.log('🌐 [Frontend] Calling API with filters:', {
+      tab: TABS[activeTab] || activeTab,
+      orderType: filters.orderType,
+      filters: {
+        dateRange: filters.startDate && filters.endDate ? 
+          `${filters.startDate} to ${filters.endDate}` : 'None',
+        listingType: filters.listingType || 'All',
+        search: filters.search || 'None',
+        sort: filters.sort || 'Default'
+      },
+      hasDateRange: !!(filters.startDate && filters.endDate),
+      hasListingType: !!filters.listingType,
+      hasSearch: !!filters.search,
+      isNewSearch
+    });
+
     try {
       const response = await getOrderForReceiving(filters);
+      
+      console.log('✅ [Frontend] API Response received:', {
+        totalOrders: response?.total || 0,
+        ordersInPage: response?.data?.length || 0,
+        hasNextPage: !!response?.lastDocument,
+        firstOrderDate: response?.data?.[0]?.createdAt || 'N/A',
+        lastOrderDate: response?.data?.[response?.data?.length - 1]?.createdAt || 'N/A'
+      });
       if (response && response.data) {
-        setOrders(prevOrders => isNewSearch ? response.data : [...prevOrders, ...response.data]);
+        if (isNewSearch) {
+          console.log('🆕 [Frontend] New search - replacing all orders with', response.data.length, 'orders');
+          setOrders(response.data);
+        } else {
+          console.log('➕ [Frontend] Loading more - appending', response.data.length, 'orders');
+          setOrders(prevOrders => [...prevOrders, ...response.data]);
+        }
         setLastDoc(response.lastDocument);
         setTotalCounts(response.total || 0);
       }
@@ -263,7 +346,10 @@ const OrderScreen = ({navigation}) => {
   };
 
   const renderEmpty = () => {
-    if (loading) return null;
+    if (loading) {
+      // Show skeleton loading when initial loading
+      return <SkeletonList count={5} />;
+    }
     return <Text style={styles.emptyText}>No orders found.</Text>;
   };
 
@@ -283,14 +369,32 @@ const OrderScreen = ({navigation}) => {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onPressFilter('DATERANGE')}
-            style={styles.filterButton}>
-            <Text style={globalStyles.textSMGreyDark}>Date Range</Text>
+            style={[
+              styles.filterButton,
+              (reusableStartDate && reusableEndDate) && styles.filterButtonActive
+            ]}>
+            <Text style={[
+              globalStyles.textSMGreyDark,
+              (reusableStartDate && reusableEndDate) && styles.filterTextActive
+            ]}>
+              Date Range
+              {(reusableStartDate && reusableEndDate) && ' ✓'}
+            </Text>
             <DownIcon width={20} height={20}></DownIcon>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onPressFilter('LISTINGTYPE')}
-            style={styles.filterButton}>
-            <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
+            style={[
+              styles.filterButton,
+              (reusableListingType.length > 0) && styles.filterButtonActive
+            ]}>
+            <Text style={[
+              globalStyles.textSMGreyDark,
+              (reusableListingType.length > 0) && styles.filterTextActive
+            ]}>
+              Listing Type
+              {(reusableListingType.length > 0) && ` (${reusableListingType.length})`}
+            </Text>
             <DownIcon width={20} height={20}></DownIcon>
           </TouchableOpacity>
         </ScrollView>
@@ -368,24 +472,25 @@ const OrderScreen = ({navigation}) => {
           </View>
         </View>
       </View>
-      <FlatList
-        data={orders}
-        renderItem={({ item, index }) => <PlantCard item={item} index={index} activeTab={activeTab} />}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        contentContainerStyle={styles.listContentContainer}
-        stickyHeaderIndices={[0]} // Makes the header (including tabs) sticky
-      />
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
+      {loading && orders.length === 0 ? (
+        // Show skeleton loading for initial load
+        <View style={styles.container}>
+          {renderHeader()}
+          <SkeletonList count={5} />
+        </View>
+      ) : (
+        <FlatList
+          data={orders}
+          renderItem={({ item, index }) => <PlantCard item={item} index={index} activeTab={activeTab} />}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          contentContainerStyle={styles.listContentContainer}
+          stickyHeaderIndices={[0]} // Makes the header (including tabs) sticky
+        />
       )}
       <OrderActionSheet
         code={code}
@@ -399,6 +504,7 @@ const OrderScreen = ({navigation}) => {
         listingTypeChange={setReusableListingType}
         handleSearchSubmit={handleFilterView}
         handleSearchSubmitRange={handleSearchSubmitRange}
+        handleResetDateRange={handleResetDateRange}
       />
     </SafeAreaView>
   );
@@ -485,7 +591,16 @@ header: {
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4, 
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  filterButtonActive: {
+    borderColor: '#539461',
+    backgroundColor: '#F2F7F3',
+  },
+  filterTextActive: {
+    color: '#539461',
+    fontWeight: '600',
   },
   tabScrollContainer: {
     backgroundColor: '#fff',

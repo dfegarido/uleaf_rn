@@ -29,6 +29,7 @@ const OrderActionSheet = ({
   listingTypeChange,
   handleSearchSubmit,
   handleSearchSubmitRange,
+  handleResetDateRange,
 }) => {
   const resetListingTypeSelection = () => {
     console.log('📦 Orders Listing Type Filter Reset:', {
@@ -412,8 +413,14 @@ const OrderActionSheet = ({
               }}>
               <TouchableOpacity
                 onPress={() => {
+                  console.log('🔄 [Frontend] Date Range Reset Button Pressed');
+                  // Clear local calendar state
                   setStartDate(null);
                   setEndDate(null);
+                  // Call parent reset handler to clear filter and fetch all orders
+                  if (handleResetDateRange) {
+                    handleResetDateRange();
+                  }
                 }}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
@@ -430,8 +437,12 @@ const OrderActionSheet = ({
                   console.log('📦 Orders Date Range Filter Applied - View Button Pressed');
                   handleSearchSubmitRange(startDate, endDate);
                   onClose();
-                }}>
-                <View style={globalStyles.primaryButton}>
+                }}
+                disabled={!startDate || !endDate}>
+                <View style={[
+                  globalStyles.primaryButton,
+                  (!startDate || !endDate) && {backgroundColor: '#CDD3D4'}
+                ]}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
                     View
