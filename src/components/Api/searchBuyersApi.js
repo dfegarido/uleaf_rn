@@ -1,4 +1,5 @@
 import {API_ENDPOINTS} from '../../config/apiConfig';
+import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
 // Search for buyers by name, email, or username
 export const searchBuyersApi = async (searchParams) => {
@@ -13,6 +14,8 @@ export const searchBuyersApi = async (searchParams) => {
       throw new Error('Search query must be at least 2 characters long');
     }
 
+    const token = await getStoredAuthToken();
+
     const params = new URLSearchParams({
       query: query.trim(),
       userType: 'buyer',
@@ -23,7 +26,8 @@ export const searchBuyersApi = async (searchParams) => {
     const response = await fetch(`${API_ENDPOINTS.SEARCH_USER}?${params}`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
       }
     });
 

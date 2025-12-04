@@ -492,7 +492,13 @@ const AmountOffPlantsPercentage = () => {
         
         // Remove duplicates based on ID
         const uniqueBuyers = Array.from(new Map(allBuyers.map(b => [b.id, b])).values());
-        setBuyerOptions(uniqueBuyers);
+        // Sort buyers alphabetically by name
+        const sortedBuyers = uniqueBuyers.sort((a, b) => {
+          const nameA = (a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.username || '').toLowerCase();
+          const nameB = (b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.username || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        setBuyerOptions(sortedBuyers);
       } catch (e) {
         console.error('Failed to load buyers:', e);
         setBuyerOptions([]);
@@ -596,7 +602,13 @@ const AmountOffPlantsPercentage = () => {
             username: b.username || b.email || '',
             avatar: b.profileImage || b.avatarUrl || null,
           }));
-          setBuyerOptions(normalized);
+          // Sort buyers alphabetically by name
+          const sortedBuyers = normalized.sort((a, b) => {
+            const nameA = (a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.username || '').toLowerCase();
+            const nameB = (b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.username || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+          setBuyerOptions(sortedBuyers);
         } else if (q.length === 0) {
           // When search is cleared, reload the initial buyer list
           setBuyerLoading(true);
@@ -635,7 +647,13 @@ const AmountOffPlantsPercentage = () => {
               rawRole: (b.role || b.rawRole || '').toString().toLowerCase(),
             })).filter(x => x.id && (x.rawRole === 'buyer' || x.rawRole === 'buyers'));
           }
-          setBuyerOptions(normalized);
+          // Sort buyers alphabetically by name
+          const sortedBuyers = normalized.sort((a, b) => {
+            const nameA = (a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.username || '').toLowerCase();
+            const nameB = (b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.username || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+          setBuyerOptions(sortedBuyers);
           setBuyerLoading(false);
         }
       } catch (error) {
@@ -647,7 +665,7 @@ const AmountOffPlantsPercentage = () => {
         setBuyerLoading(false);
         }
       }
-    }, 800);
+    }, 300);
     return () => {
       if (buyerSearchDebounceRef.current) {
         clearTimeout(buyerSearchDebounceRef.current);
@@ -1846,7 +1864,8 @@ const AmountOffPlantsPercentage = () => {
         <TouchableWithoutFeedback onPress={() => setShowAppliesSheet(false)}>
           <View style={styles.fullscreenOverlay}>
             <TouchableWithoutFeedback>
-              <View style={[styles.appliesSheetContainer, {position: 'absolute', left: (SCREEN.width - 340) / 2, top: appliesSheetTop}] }>
+              <View style={styles.appliesSheetContainer}>
+                <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 <View style={styles.typeRowWrapper}>
                   <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific listing type'); setShowAppliesSheet(false); }}>
                     <Text style={styles.typeRowText}>Specific listing type</Text>
@@ -1882,6 +1901,7 @@ const AmountOffPlantsPercentage = () => {
                     <Text style={styles.typeRowText}>Specific listing</Text>
                   </TouchableOpacity>
                 </View>
+                </ScrollView>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -2896,7 +2916,7 @@ const styles = StyleSheet.create({
   typeRowText: { fontFamily: 'Inter', fontWeight: '500', fontSize: 16, lineHeight: 22, color: '#393D40' },
   typeDivider: { width: 340, height: 1, backgroundColor: '#E4E7E9' },
   typeSheetContainer: { width: 340, height: 121, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
-  appliesSheetContainer: { width: 340, height: 268, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
+  appliesSheetContainer: { width: 340, maxHeight: 400, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden', alignSelf: 'center' },
   countrySheetContainer: { width: 340, height: 170, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden', alignSelf: 'center' },
   // Genus bottom sheet
   genusSheetWrapper: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: 620, height: '80%', width: '100%' },

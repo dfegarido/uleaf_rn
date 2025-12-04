@@ -898,7 +898,7 @@ const EditDiscount = () => {
         setBuyerLoading(false);
         }
       }
-    }, 800);
+    }, 300);
     return () => {
       if (buyerSearchDebounceRef.current) {
         clearTimeout(buyerSearchDebounceRef.current);
