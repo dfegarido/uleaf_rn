@@ -16,21 +16,38 @@ import {
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 
-const ReceiverItem = ({ name, avatarUrl, onSelect }) => (
-  <TouchableOpacity style={styles.receiverItemContainer} onPress={onSelect}>
-    {/* Avatar */}
-    <View style={styles.avatarWrapper}>
-      <View style={styles.avatarContainer}>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-      </View>
-    </View>
+const ReceiverItem = ({ name, avatarUrl, onSelect }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const validAvatarUrl = avatarUrl && avatarUrl.trim() ? avatarUrl.trim() : 'https://via.placeholder.com/40';
 
-    {/* Details */}
-    <View style={styles.detailsContainer}>
-      <Text style={styles.receiverName}>{name}</Text>
-    </View>
-  </TouchableOpacity>
-);
+  return (
+    <TouchableOpacity style={styles.receiverItemContainer} onPress={onSelect}>
+      {/* Avatar */}
+      <View style={styles.avatarWrapper}>
+        <View style={styles.avatarContainer}>
+          {!imageError && validAvatarUrl ? (
+            <Image 
+              source={{ uri: validAvatarUrl }} 
+              style={styles.avatar}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarPlaceholderText}>
+                {name ? name.charAt(0).toUpperCase() : '?'}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Details */}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.receiverName}>{name || 'Unknown Receiver'}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receivers = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,13 +78,13 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receive
       onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+          <TouchableWithoutFeedback>
             <View style={styles.actionSheetContainer}>
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={80}
               >
-                <SafeAreaView style={styles.safeAreaContainer} edges={['top', 'left', 'right', 'bottom']}>
+                <SafeAreaView>
                 {/* Title */}
                 <View style={styles.titleContainer}>
                   <Text style={styles.titleText}>Receiver</Text>
@@ -160,7 +177,15 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receive
                   {/* Button View */}
                   <TouchableOpacity 
                     style={styles.buttonView} 
-                    onPress={onClose}
+                    onPress={() => {
+                      // "View All" should clear the receiver filter and show all orders
+                      if (onReset && typeof onReset === 'function') {
+                        onReset();
+                      } else {
+                        // Fallback to just closing if onReset is not provided
+                        onClose();
+                      }
+                    }}
                     activeOpacity={0.7}
                   >
                     {/* Text */}
@@ -173,10 +198,7 @@ const ReceiverFilter = ({ isVisible, onClose, onSelectReceiver, onReset, receive
                 </SafeAreaView>
               </KeyboardAvoidingView>
 
-              {/* System / Home Indicator */}
-              <View style={styles.homeIndicator}>
-                <View style={styles.gestureBar} />
-              </View>
+           
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -256,15 +278,15 @@ const styles = StyleSheet.create({
   // Content
   contentContainer: {
     flexDirection: 'column',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 24,
     gap: 8,
     width: '100%',
-    flex: 1,
+    height: 415,
+    flex: 0,
     alignSelf: 'stretch',
-    minHeight: 415,
   },
   // Search Field
   searchFieldContainer: {
@@ -312,7 +334,8 @@ const styles = StyleSheet.create({
   // Lists
   listsContainer: {
     width: '100%',
-    flex: 1,
+    height: 343,
+    flex: 0,
     alignSelf: 'stretch',
   },
   listsContentContainer: {
@@ -389,6 +412,18 @@ const styles = StyleSheet.create({
     borderColor: '#539461',
     borderRadius: 1000,
     flex: 0,
+  },
+  // avatar placeholder
+  avatarPlaceholder: {
+    backgroundColor: '#E4E7E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholderText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#647276',
   },
   // Details
   detailsContainer: {
@@ -504,10 +539,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 0,
   },
-  safeAreaContainer: {
-    flex: 1,
+  // System / Home Indicator
+  homeIndicator: {
+    width: '100%',
+    height: 34,
     backgroundColor: '#FFFFFF',
-    justifyContent: 'space-between',
+    flex: 0,
+  },
+  // Gesture Bar
+  gestureBar: {
+    position: 'absolute',
+    width: 148,
+    height: 5,
+    left: '50%',
+    marginLeft: -74,
+    bottom: 8,
+    backgroundColor: '#202325',
+    borderRadius: 100,
   },
 });
 

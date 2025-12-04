@@ -460,7 +460,8 @@ const AmountOffPlants = () => {
         <TouchableWithoutFeedback onPress={() => setShowAppliesSheet(false)}>
           <View style={styles.fullscreenOverlay}>
             <TouchableWithoutFeedback>
-              <View style={[styles.appliesSheetContainer, {position: 'absolute', left: (SCREEN.width - 340) / 2, top: appliesSheetTop}] }>
+              <View style={styles.appliesSheetContainer}>
+                <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 <View style={styles.typeRowWrapper}>
                   <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesValue('Specific listing type'); setShowAppliesSheet(false); }}>
                     <Text style={styles.typeRowText}>Specific listing type</Text>
@@ -490,6 +491,7 @@ const AmountOffPlants = () => {
                     <Text style={styles.typeRowText}>Specific listing</Text>
                   </TouchableOpacity>
                 </View>
+                </ScrollView>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -913,7 +915,7 @@ const styles = StyleSheet.create({
   typeRowText: { fontFamily: 'Inter', fontWeight: '500', fontSize: 16, lineHeight: 22, color: '#393D40' },
   typeDivider: { width: 340, height: 1, backgroundColor: '#E4E7E9' },
   fullscreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
-  appliesSheetContainer: { width: 340, height: 268, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
+  appliesSheetContainer: { width: 340, maxHeight: 400, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden', alignSelf: 'center' },
   prefixBox: {
     minHeight: 48, height: 48, borderWidth: 1, borderColor: '#CDD3D4', borderRadius: 12,
     borderTopRightRadius: 0, borderBottomRightRadius: 0, paddingHorizontal: 16,

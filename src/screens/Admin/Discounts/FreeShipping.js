@@ -406,7 +406,13 @@ const FreeShipping = () => {
             rawRole: (b.role || b.rawRole || '').toString().toLowerCase(),
           })).filter(x => x.id && (x.rawRole === 'buyer' || x.rawRole === 'buyers'));
         }
-        setBuyerOptions(normalized);
+        // Sort buyers alphabetically by name
+        const sortedBuyers = normalized.sort((a, b) => {
+          const nameA = (a.name || a.username || '').toLowerCase();
+          const nameB = (b.name || b.username || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        setBuyerOptions(sortedBuyers);
       } catch (e) {
         setBuyerOptions([]);
       } finally {
@@ -494,7 +500,13 @@ const FreeShipping = () => {
             name: [b.firstName, b.lastName].filter(Boolean).join(' ') || b.username || b.email || 'Unknown',
             avatar: b.profileImage || b.avatarUrl || null,
           }));
-          setBuyerOptions(normalized);
+          // Sort buyers alphabetically by name
+          const sortedBuyers = normalized.sort((a, b) => {
+            const nameA = (a.name || a.username || '').toLowerCase();
+            const nameB = (b.name || b.username || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+          setBuyerOptions(sortedBuyers);
         } else if (q.length === 0) {
           setBuyerOptions([]);
           setBuyerLoading(false);
@@ -509,7 +521,7 @@ const FreeShipping = () => {
       } finally {
         setBuyerLoading(false);
       }
-    }, 800);
+    }, 300);
     return () => {
       if (buyerSearchDebounceRef.current) {
         clearTimeout(buyerSearchDebounceRef.current);
@@ -1610,7 +1622,8 @@ const FreeShipping = () => {
         <TouchableWithoutFeedback onPress={() => setShowAppliesSheet(false)}>
           <View style={styles.fullscreenOverlay}>
             <TouchableWithoutFeedback>
-              <View style={[styles.appliesSheetContainer, {position: 'absolute', left: (SCREEN.width - 340) / 2, top: appliesSheetTop}] }>
+              <View style={styles.appliesSheetContainer}>
+                <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 <View style={styles.typeRowWrapper}>
                   <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific listing type'); setShowAppliesSheet(false); }}>
                     <Text style={styles.typeRowText}>Specific listing type</Text>
@@ -1646,6 +1659,7 @@ const FreeShipping = () => {
                     <Text style={styles.typeRowText}>Specific listing</Text>
                   </TouchableOpacity>
                 </View>
+                </ScrollView>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -2625,7 +2639,7 @@ const styles = StyleSheet.create({
   typeRowText: { fontFamily: 'Inter', fontWeight: '500', fontSize: 16, lineHeight: 22, color: '#393D40' },
   typeDivider: { width: 340, height: 1, backgroundColor: '#E4E7E9' },
   typeSheetContainer: { width: 340, height: 121, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
-  appliesSheetContainer: { width: 340, height: 268, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
+  appliesSheetContainer: { width: 340, maxHeight: 400, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden', alignSelf: 'center' },
   countrySheetContainer: { width: 340, height: 170, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden', alignSelf: 'center' },
   // Genus bottom sheet
   genusSheetWrapper: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: 620, height: '80%', width: '100%' },

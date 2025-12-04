@@ -94,6 +94,7 @@ const TABLE_COLUMNS = [
   {key: 'garden', label: 'Garden & Seller', width: 200},
   {key: 'buyer', label: 'Buyer', width: 200},
   {key: 'receiver', label: 'Receiver', width: 200},
+  {key: 'joiner', label: 'Joiner', width: 200},
   {key: 'plantFlight', label: 'Plant Flight', width: 140},
 ];
 
@@ -361,6 +362,23 @@ const OrderSummary = ({navigation}) => {
       receiverUsername: (order.isJoinerOrder && order.receiverInfo?.receiverUsername
         ? order.receiverInfo.receiverUsername
         : order.deliveryDetails?.receiverUsername || '').toString() || '',
+      // Joiner info (only for joiner orders)
+      joinerFirstName: (order.isJoinerOrder && order.joinerInfo?.joinerFirstName 
+        ? order.joinerInfo.joinerFirstName 
+        : order.isJoinerOrder && order.buyerInfo?.firstName 
+          ? order.buyerInfo.firstName 
+          : '').toString() || '—',
+      joinerLastName: (order.isJoinerOrder && order.joinerInfo?.joinerLastName
+        ? order.joinerInfo.joinerLastName
+        : order.isJoinerOrder && order.buyerInfo?.lastName
+          ? order.buyerInfo.lastName
+          : '').toString() || '',
+      joinerUsername: (order.isJoinerOrder && order.joinerInfo?.joinerUsername
+        ? order.joinerInfo.joinerUsername
+        : order.isJoinerOrder && order.buyerInfo?.username
+          ? order.buyerInfo.username
+          : '').toString() || '',
+      isJoinerOrder: order.isJoinerOrder || false,
       plantFlight: safeFormatDate(order.flightDate, order.flightDateFormatted) || '—',
     };
   };
@@ -562,38 +580,23 @@ const OrderSummary = ({navigation}) => {
                   });
                 }
                 
-                // For joiner orders, check receiverInfo first
-                if (order.isJoinerOrder && order.receiverInfo?.receiverUid) {
+                // Only extract receivers from receiverInfo field (actual plant recipients)
+                if (order.receiverInfo?.receiverUid) {
                   const receiverId = order.receiverInfo.receiverUid;
                   const receiverName = `${order.receiverInfo.receiverFirstName || ''} ${order.receiverInfo.receiverLastName || ''}`.trim();
-                  const receiverAvatar = 'https://via.placeholder.com/40';
-                  
-                  if (receiverId && receiverName && !receiversMap.has(receiverId)) {
-                    receiversMap.set(receiverId, {
-                      id: receiverId,
-                      name: receiverName,
-                      avatar: receiverAvatar,
-                    });
-                  }
-                }
-                
-                // Also check deliveryDetails (for regular orders and as fallback)
-                if (order.deliveryDetails) {
-                  // Try multiple possible receiver ID fields
-                  const receiverId = order.deliveryDetails.receiverId || 
-                                   order.deliveryDetails.receiverUid ||
-                                   order.receiverId ||
-                                   order.hubReceiverId;
-                  const receiverName = order.deliveryDetails.receiverName || '';
-                  const receiverAvatar = order.deliveryDetails.receiverAvatar || 
-                                       order.deliveryDetails.receiverProfileImage || 
+                  const receiverAvatar = order.receiverInfo.receiverAvatar || 
+                                       order.receiverInfo.receiverProfileImage || 
                                        'https://via.placeholder.com/40';
+                  const receiverUsername = order.receiverInfo.receiverUsername || '';
+                  const receiverEmail = order.receiverInfo.receiverEmail || '';
                   
                   if (receiverId && receiverName && !receiversMap.has(receiverId)) {
                     receiversMap.set(receiverId, {
                       id: receiverId,
                       name: receiverName,
                       avatar: receiverAvatar,
+                      username: receiverUsername,
+                      email: receiverEmail,
                     });
                   }
                 }
@@ -1564,6 +1567,24 @@ const OrderSummary = ({navigation}) => {
                         {order.receiverUsername ? (
                           <Text style={styles.usernameText}>{order.receiverUsername}</Text>
                         ) : null}
+                      </View>
+                    </View>
+
+                    {/* Joiner */}
+                    <View style={[styles.tableCell, {width: 200}]}>
+                      <View style={styles.userInfoContainer}>
+                        {order.isJoinerOrder ? (
+                          <>
+                            <Text style={styles.userPrimaryText}>
+                              {order.joinerFirstName} {order.joinerLastName}
+                            </Text>
+                            {order.joinerUsername ? (
+                              <Text style={styles.usernameText}>{order.joinerUsername}</Text>
+                            ) : null}
+                          </>
+                        ) : (
+                          <Text style={styles.userPrimaryText}>—</Text>
+                        )}
                       </View>
                     </View>
 
