@@ -812,7 +812,7 @@ const FlightDate = ({ navigation }) => {
                     orders={schedule.orders || []}
                     onPress={() => {
                       navigation.navigate('FlightDateOrders', {
-                        date: schedule.date,
+                        date: schedule.date instanceof Date ? schedule.date.toISOString() : schedule.date,
                         orders: schedule.orders || [],
                         requests: schedule.requests || [],
                       });

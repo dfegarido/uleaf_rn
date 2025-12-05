@@ -321,9 +321,14 @@ const BuyerProfileScreen = (props) => {
       // Fetch buddy count - check if user is receiver or joiner
       let buddyCount = 0;
       try {
-        // First, check if user is a receiver (has joiners)
-        const buddyRequestsResult = await retryAsync(() => getBuddyRequestsApi(), 2, 1000);
-        console.log('[BuyerProfileScreen] getBuddyRequestsApi result:', JSON.stringify(buddyRequestsResult, null, 2));
+        // Skip if user is not logged in (e.g., after logout)
+        if (!isLoggedIn) {
+          console.log('[BuyerProfileScreen] Skipping buddy requests - user not logged in');
+          buddyCount = 0;
+        } else {
+          // First, check if user is a receiver (has joiners)
+          const buddyRequestsResult = await retryAsync(() => getBuddyRequestsApi(), 2, 1000);
+          console.log('[BuyerProfileScreen] getBuddyRequestsApi result:', JSON.stringify(buddyRequestsResult, null, 2));
         
         if (buddyRequestsResult?.success && buddyRequestsResult?.data?.joiners && buddyRequestsResult.data.joiners.length > 0) {
           // User is a receiver - count all joiners (pending, approved, pending_cancel)
@@ -339,6 +344,7 @@ const BuyerProfileScreen = (props) => {
             buddyCount = 1;
             console.log('[BuyerProfileScreen] User is joiner, buddyCount:', buddyCount);
           }
+        }
         }
       } catch (error) {
         console.log('[BuyerProfileScreen] Error fetching buddy count:', error);
