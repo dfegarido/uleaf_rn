@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ScrollView,
   Modal,
   StyleSheet,
   Text,
@@ -136,58 +137,56 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.container}>
-        <Text style={styles.label}>Live Title</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter a catchy title"
-          placeholderTextColor="#000"
-          value={title}
-          onChangeText={setTitle}
-        />
-
-
-        {isPurge && (<>
-          <Text style={styles.label}>Duration (in minutes)</Text>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
+          <Text style={styles.label}>Live Title</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g., 60"
-            placeholderTextColor="#888"
-            value={duration}
-            onChangeText={setDuration}
-            keyboardType="numeric"
+            placeholder="Enter a catchy title"
+            placeholderTextColor="#000"
+            value={title}
+            onChangeText={setTitle}
           />
-        </>)}
 
-      <Text style={styles.label}>{isPurge ? 'Purge' : 'Live'} Date & Time</Text>
-          <TouchableOpacity onPress={showDatePicker} style={styles.input}>
-          <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()}</Text>
-      </TouchableOpacity>
 
-      <DateTimePickerModal
-        isVisible={isDatePickerVisible}
-        mode="datetime"
-        onConfirm={handleConfirmDate}
-        onCancel={hideDatePicker}
-        date={purgeDateTime}
-        minimumDate={new Date()}
-      />
+          {isPurge && (<>
+            <Text style={styles.label}>Duration (in minutes)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., 60"
+              placeholderTextColor="#888"
+              value={duration}
+              onChangeText={setDuration}
+              keyboardType="numeric"
+            />
+          </>)}
 
-        <Text style={styles.label}>Cover Photo</Text>
-        <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
-          {coverPhoto ? (
-            <Image source={{ uri: coverPhoto.uri }} style={styles.coverImage} />
-          ) : (
-            <>
-              <UploadIcon width={48} height={48} />
-              <Text style={styles.imagePickerText}>Upload Cover Photo</Text>
-              <Text style={styles.imagePickerSubText}>Tap to select an image</Text>
-            </>
-          )}
+        <Text style={styles.label}>{isPurge ? 'Purge' : 'Live'} Date & Time</Text>
+            <TouchableOpacity onPress={showDatePicker} style={styles.input}>
+            <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()}</Text>
         </TouchableOpacity>
-      </View>
 
-      <View style={{flex: 1}} />
+        <DateTimePickerModal
+          isVisible={isDatePickerVisible}
+          mode="datetime"
+          onConfirm={handleConfirmDate}
+          onCancel={hideDatePicker}
+          date={purgeDateTime}
+          minimumDate={new Date()}
+        />
+
+          <Text style={styles.label}>Cover Photo</Text>
+          <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
+            {coverPhoto ? (
+              <Image source={{ uri: coverPhoto.uri }} style={styles.coverImage} />
+            ) : (
+              <>
+                <UploadIcon width={48} height={48} />
+                <Text style={styles.imagePickerText}>Upload Cover Photo</Text>
+                <Text style={styles.imagePickerSubText}>Tap to select an image</Text>
+              </>
+            )}
+          </TouchableOpacity>
+      </ScrollView>
 
       <View style={styles.footer}>
         {!isPurge && (<TouchableOpacity style={styles.goLiveButton} onPress={() => handleGoLive('live')}>
@@ -213,7 +212,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   headerTitle: { fontSize: 20, fontWeight: 'bold' },
-  container: { flex: 1, padding: 20 },
+  scrollView: { flex: 1 },
+  container: { padding: 20, paddingBottom: 40 },
   label: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8 },
   input: {
     borderWidth: 1,
