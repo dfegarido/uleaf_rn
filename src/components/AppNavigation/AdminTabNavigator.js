@@ -247,6 +247,9 @@ function AdminTabs() {
       {/* Schedule */}
       <Stack.Screen name="Schedule" options={{headerShown: false}} component={require('../../screens/Admin/Schedule/Schedule').default} />
       
+      {/* Generate Invoice */}
+      <Stack.Screen name="GenerateInvoice" options={{headerShown: false}} component={require('../../screens/Admin/Home/GenerateInvoice').default} />
+      
       {/* Taxonomy Screens */}
       <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />
       <Stack.Screen name="EditTaxonomy" options={{headerShown: false}} component={EditTaxonomy} />

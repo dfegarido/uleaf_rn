@@ -236,6 +236,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
           <IconTile title="Generate QR" onPress={() => navigation.navigate('GenerateQR')}>
             <GenerateQrIcon width={48} height={48} />
           </IconTile>
+          <IconTile title="Generate Invoice" onPress={() => navigation.navigate('GenerateInvoice')}>
+            <OrderSummaryIcon width={48} height={48} />
+          </IconTile>
         </View>
       </View>
     );
