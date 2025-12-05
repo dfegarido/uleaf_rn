@@ -43,7 +43,7 @@ import { useNavigation } from '@react-navigation/native';
 const ShippingCreditsIcon = ({width = 24, height = 24, fill = "white"}) => (
   <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M18.7499 13.5H11.5593L13.6602 11.3991C14.4198 11.7816 15.2567 11.9855 16.1071 11.9953C16.9631 11.9976 17.803 11.7633 18.5343 11.3184C20.758 9.97218 21.9496 6.85593 21.7218 2.98218C21.7111 2.7987 21.6334 2.62554 21.5034 2.49558C21.3734 2.36562 21.2003 2.2879 21.0168 2.27718C17.143 2.04937 14.0268 3.24093 12.6796 5.46468C11.803 6.91312 11.7805 8.6625 12.599 10.3397L11.2499 11.6887L10.1052 10.5441C10.6677 9.30187 10.6274 8.01281 9.97492 6.93656C8.95585 5.25 6.6196 4.35093 3.7246 4.52062C3.54144 4.53154 3.36863 4.60922 3.23888 4.73896C3.10914 4.86871 3.03145 5.04152 3.02054 5.22468C2.84991 8.11875 3.74991 10.455 5.43741 11.475C6.00197 11.8197 6.65094 12.0014 7.31241 12C7.91252 11.994 8.50444 11.8601 9.04866 11.6072L10.1896 12.75L9.4396 13.5H5.24991C5.051 13.5 4.86024 13.579 4.71958 13.7197C4.57893 13.8603 4.49991 14.0511 4.49991 14.25C4.49991 14.4489 4.57893 14.6397 4.71958 14.7803C4.86024 14.921 5.051 15 5.24991 15H6.14898L7.38742 20.5753C7.45969 20.9094 7.64465 21.2085 7.91128 21.4223C8.17791 21.6362 8.50998 21.7519 8.85179 21.75H15.149C15.4907 21.7516 15.8226 21.6358 16.0891 21.4219C16.3557 21.2081 16.5408 20.9092 16.6134 20.5753L17.8518 15H18.7499C18.9488 15 19.1396 14.921 19.2802 14.7803C19.4209 14.6397 19.4999 14.4489 19.4999 14.25C19.4999 14.0511 19.4209 13.8603 19.2802 13.7197C19.1396 13.579 18.9488 13.5 18.7499 13.5Z"
+      d="M23.9466 10.9688L22.6341 7.6875C22.5227 7.40973 22.3304 7.17184 22.0821 7.00467C21.8339 6.83751 21.5412 6.74878 21.2419 6.75H18V6C18 5.80109 17.921 5.61032 17.7803 5.46967C17.6397 5.32902 17.4489 5.25 17.25 5.25H3C2.60218 5.25 2.22064 5.40804 1.93934 5.68934C1.65804 5.97064 1.5 6.35218 1.5 6.75V17.25C1.5 17.6478 1.65804 18.0294 1.93934 18.3107C2.22064 18.592 2.60218 18.75 3 18.75H4.59375C4.75898 19.3953 5.13428 19.9673 5.66048 20.3757C6.18669 20.7842 6.83387 21.0059 7.5 21.0059C8.16613 21.0059 8.81331 20.7842 9.33952 20.3757C9.86572 19.9673 10.241 19.3953 10.4062 18.75H15.0938C15.259 19.3953 15.6343 19.9673 16.1605 20.3757C16.6867 20.7842 17.3339 21.0059 18 21.0059C18.6661 21.0059 19.3133 20.7842 19.8395 20.3757C20.3657 19.9673 20.741 19.3953 20.9062 18.75H22.5C22.8978 18.75 23.2794 18.592 23.5607 18.3107C23.842 18.0294 24 17.6478 24 17.25V11.25C24.0001 11.1537 23.982 11.0583 23.9466 10.9688ZM7.5 19.5C7.20333 19.5 6.91332 19.412 6.66665 19.2472C6.41997 19.0824 6.22771 18.8481 6.11418 18.574C6.00065 18.2999 5.97094 17.9983 6.02882 17.7074C6.0867 17.4164 6.22956 17.1491 6.43934 16.9393C6.64912 16.7296 6.91639 16.5867 7.20736 16.5288C7.49834 16.4709 7.79994 16.5006 8.07403 16.6142C8.34811 16.7277 8.58238 16.92 8.7472 17.1666C8.91203 17.4133 9 17.7033 9 18C9 18.3978 8.84196 18.7794 8.56066 19.0607C8.27936 19.342 7.89782 19.5 7.5 19.5ZM3 12.75V6.75H16.5V12.75H3ZM18 19.5C17.7033 19.5 17.4133 19.412 17.1666 19.2472C16.92 19.0824 16.7277 18.8481 16.6142 18.574C16.5006 18.2999 16.4709 17.9983 16.5288 17.7074C16.5867 17.4164 16.7296 17.1491 16.9393 16.9393C17.1491 16.7296 17.4164 16.5867 17.7074 16.5288C17.9983 16.4709 18.2999 16.5006 18.574 16.6142C18.8481 16.7277 19.0824 16.92 19.2472 17.1666C19.412 17.4133 19.5 17.7033 19.5 18C19.5 18.3978 19.342 18.7794 19.0607 19.0607C18.7794 19.342 18.3978 19.5 18 19.5ZM18 10.5V8.25H21.2419L22.1419 10.5H18Z"
       fill={fill}
     />
   </Svg>
@@ -296,6 +296,28 @@ const BuyerProfileScreen = (props) => {
         return;
       }
 
+      // Fetch buyer profile to get credits (don't rely on data state variable)
+      let profileData = null;
+      try {
+        console.log('[BuyerProfileScreen] Fetching profile for credits...');
+        const profileResult = await retryAsync(() => getBuyerProfileApi(), 2, 1000);
+        console.log('[BuyerProfileScreen] Profile result:', {
+          success: profileResult?.success,
+          hasLeafPoints: profileResult?.leafPoints !== undefined,
+          hasPlantCredits: profileResult?.plantCredits !== undefined,
+          hasShippingCredits: profileResult?.shippingCredits !== undefined,
+          leafPoints: profileResult?.leafPoints,
+          plantCredits: profileResult?.plantCredits,
+          shippingCredits: profileResult?.shippingCredits,
+        });
+        
+        if (profileResult?.success) {
+          profileData = profileResult;
+        }
+      } catch (error) {
+        console.log('[BuyerProfileScreen] Error fetching profile for stats:', error);
+      }
+
       // Fetch buddy count - check if user is receiver or joiner
       let buddyCount = 0;
       try {
@@ -325,15 +347,16 @@ const BuyerProfileScreen = (props) => {
       
       console.log('[BuyerProfileScreen] Final buddyCount:', buddyCount);
 
-      // Get points from buyer profile data
-      const leafPoints = data?.leafPoints || 0;
-      const plantCredits = data?.plantCredits || 0;
-      const shippingCredits = data?.shippingCredits || 0;
+      // Get points from fetched profile data (not from state)
+      const leafPoints = profileData?.leafPoints || 0;
+      const plantCredits = profileData?.plantCredits || 0;
+      const shippingCredits = profileData?.shippingCredits || 0;
 
       console.log('[BuyerProfileScreen] Points from profile:', {
         leafPoints,
         plantCredits,
-        shippingCredits
+        shippingCredits,
+        source: 'Fresh API call'
       });
 
       setProfileStats({
@@ -516,7 +539,6 @@ const BuyerProfileScreen = (props) => {
               title="My Plant Credits"
               value={profileStats.plantCredits.toString()}
               color="#6B4EFF"
-              hasArrow
               icon={<PlantCreditsIcon width={24} height={24} fill="#FFFFFF" />}
               isPlantCredits={true}
             />
@@ -524,7 +546,6 @@ const BuyerProfileScreen = (props) => {
               title="My Shipping Credits"
               value={profileStats.shippingCredits.toString()}
               color="#48A7F8"
-              hasArrow
               icon={<ShippingCreditsIcon width={24} height={24} fill="#FFFFFF" />}
             />
           </ScrollView>
