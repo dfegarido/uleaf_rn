@@ -9,6 +9,7 @@ import {
 import DownIcon from '../../assets/icons/greylight/caret-down-regular.svg';
 import SortIcon from '../../assets/icons/greylight/sort-arrow-regular.svg';
 import BuyerFilter from './buyerFilter';
+import OrderReceiverFilter from './orderReceiverFilter';
 import CountryFilter from './countryFilter';
 import GardenFilter from './gardenFilter';
 import PlantFlightFilter from './plantFlightFilter';
@@ -16,6 +17,8 @@ import ReceiverFilter from './receiverFilter';
 import ScanOptions from './scan';
 import SellerFilter from './sellerFilter';
 import SortOptions from './sort';
+import { globalStyles } from '../../assets/styles/styles';
+import OrderActionSheet from '../../screens/Seller/Order/components/OrderActionSheet';
 
 const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
   const [filters, setFilters] = useState({
@@ -35,7 +38,12 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
   const [isGardenVisible, setGardenVisible] = useState(false);
   const [isSellerVisible, setSellerVisible] = useState(false);
   const [isBuyerVisible, setBuyerVisible] = useState(false);
+  const [isOrderReceiverVisible, setOrderReceiverVisible] = useState(false);
   const [isReceiverVisible, setReceiverVisible] = useState(false);
+  const [reusableStartDate, setReusableStartDate] = useState('');
+  const [reusableEndDate, setReusableEndDate] = useState('');
+  const [code, setCode] = useState(null);
+  const [showSheet, setShowSheet] = useState(false);
 
   const onSortPress = (selectedSort) => {
     const updatedFilters = { ...filters, sort: selectedSort === 'Newest' ? 'desc' : 'asc' };
@@ -93,6 +101,71 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     }
   }
 
+  const onSelectOrderReceiver = (orderReceiver) => {
+    const updatedFilters = { ...filters, receiverUid: orderReceiver };  
+    setFilters(updatedFilters);
+    if (onFilterChange) {
+      onFilterChange(updatedFilters);
+    }
+  }
+
+  const handleSearchSubmitRange = (startDate, endDate) => {
+    // Fix timezone issue: format date in local timezone, not UTC
+    const formatLocalDate = (date) => {
+      if (!date) return '';
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const formattedStart = formatLocalDate(startDate);
+    const formattedEnd = formatLocalDate(endDate);
+    
+    console.log('📅 [Frontend] Date Range Selected:', {
+      originalDates: { 
+        start: startDate?.toString(), 
+        end: endDate?.toString() 
+      },
+      formattedDates: { 
+        start: formattedStart, 
+        end: formattedEnd 
+      },
+      willApplyFilter: true
+    });
+    
+    // Update state for visual indicators
+    setReusableStartDate(formattedStart);
+    setReusableEndDate(formattedEnd);
+    
+    const updatedFilters = { ...filters, startDate: formattedStart, endDate: formattedEnd };  
+    setFilters(updatedFilters);
+    if (onFilterChange) {
+      onFilterChange(updatedFilters);
+    }
+    
+    setShowSheet(false);
+  };
+
+  const handleResetDateRange = () => {
+    console.log('🔄 [Frontend] Resetting date range filter');
+    setReusableStartDate('');
+    setReusableEndDate('');
+    // Pass empty dates directly to clear filter
+    const updatedFilters = { ...filters, startDate: formattedStart, endDate: formattedEnd };  
+    setFilters(updatedFilters);
+    if (onFilterChange) {
+      onFilterChange(updatedFilters);
+    }
+    setShowSheet(false);
+  };
+
+  const onPressFilter = (pressCode) => {
+    setCode(pressCode);
+    setShowSheet(true);
+  };
+
   const onSelectReceiver = (receiver) => {
     const updatedFilters = { ...filters, hubReceiverUserName: receiver };  
     setFilters(updatedFilters);
@@ -114,6 +187,18 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
             <DownIcon />
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          onPress={() => onPressFilter('DATERANGE')}
+          style={[
+            styles.filterButton,
+            (reusableStartDate && reusableEndDate) && styles.filterButtonActive
+          ]}>
+          <Text style={styles.filterButtonText}>
+            Date Range
+            {(reusableStartDate && reusableEndDate) && ' ✓'}
+          </Text>
+          <DownIcon width={20} height={20}></DownIcon>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.filterButton} onPress={() => setFlightVisible(true)}>
           <Text style={styles.filterButtonText}>Plant Flight</Text>
           <DownIcon />
@@ -134,8 +219,12 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
           <Text style={styles.filterButtonText}>Buyer</Text>
           <DownIcon />
         </TouchableOpacity>
+        <TouchableOpacity style={styles.filterButton} onPress={() => setOrderReceiverVisible(true)}>
+          <Text style={styles.filterButtonText}>Order Receiver</Text>
+          <DownIcon />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.filterButton} onPress={() => setReceiverVisible(true)}>
-          <Text style={styles.filterButtonText}>Receiver</Text>
+          <Text style={styles.filterButtonText}>Hub Staff</Text>
           <DownIcon />
         </TouchableOpacity>
       </ScrollView>
@@ -186,11 +275,26 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         buyers={adminFilters?.buyer || []}
       />
 
+      <OrderReceiverFilter
+        isVisible={isOrderReceiverVisible}
+        onClose={() => setOrderReceiverVisible(false)}
+        onSelectOrderReceiver={onSelectOrderReceiver}
+        orderReceivers={adminFilters?.buyerReceiver || []}
+      />
+
       <ReceiverFilter
         isVisible={isReceiverVisible}
         onClose={() => setReceiverVisible(false)}
         onSelectReceiver={onSelectReceiver}
         receivers={adminFilters?.receiver || []}
+      />
+
+      <OrderActionSheet
+        code={code}
+        visible={showSheet}
+        onClose={() => setShowSheet(false)}
+        handleSearchSubmitRange={handleSearchSubmitRange}
+        handleResetDateRange={handleResetDateRange}
       />
     </View>
   )
