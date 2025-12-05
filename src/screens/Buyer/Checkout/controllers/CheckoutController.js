@@ -687,31 +687,56 @@ export const useCheckoutController = () => {
     const freeShippingDiscount = shippingCalculation?.freeShippingDiscount || 0;
     const totalDiscount = shippingDiscount + codeDiscount + freeShippingDiscount;
     
+    // Calculate credits/points deductions (only if toggles are enabled)
+    const leafPointsDeduction = leafPointsEnabled ? leafPoints : 0;
+    const plantCreditsDeduction = plantCreditsEnabled ? plantCredits : 0;
+    const shippingCreditsDeduction = shippingCreditsEnabled ? shippingCredits : 0;
+    const totalCreditsDeduction = leafPointsDeduction + plantCreditsDeduction + shippingCreditsDeduction;
+
     // Calculate final total - ensure it never goes negative
     let finalTotal;
     if (backendFinalTotal !== undefined) {
-      // Backend's finalTotal includes: subtotal + shipping - userCredits
-      // It does NOT include discount codes, so we need to subtract the discount code amount
-      // But ensure the result is never negative
-      finalTotal = Math.max(0, backendFinalTotal - codeDiscount);
+      // Backend's finalTotal includes: subtotal + shipping (with promotional shipping credits like $150 promo)
+      // It does NOT include:
+      //   - Discount codes (need to subtract)
+      //   - User credits/points (leafPoints, plantCredits, shippingCredits - need to subtract here)
+      // This is to avoid double deduction (backend + frontend)
+      // Ensure the result is never negative (minimum $1)
+      finalTotal = Math.max(1, backendFinalTotal - codeDiscount - totalCreditsDeduction);
     } else {
-      // Calculate from components: subtotal + shipping - all discounts
-      finalTotal = Math.max(0, subtotal + shippingTotal - totalDiscount);
+      // Fallback: Calculate from components: subtotal + shipping - all discounts - credits
+      finalTotal = Math.max(1, subtotal + shippingTotal - totalDiscount - totalCreditsDeduction);
     }
     
     // Debug logging for shipping calculation matching
-    console.log('🔍 [orderSummary] Shipping calculation check:', {
-      backendFinalShippingCost,
-      backendTotalShippingCost,
-      backendShippingCreditsDiscount,
-      shippingTotal,
-      backendFinalTotal,
-      subtotal,
-      calculatedFinalTotal: subtotal + shippingTotal - totalDiscount,
-      finalTotal,
-      codeDiscount,
-      appliedDiscountState: appliedDiscount,
-      shippingDiscount,
+    console.log('🔍 [orderSummary] Final total calculation:', {
+      step1_backend: {
+        backendFinalTotal,
+        note: 'Subtotal + Shipping (includes $150 promo if qualified)'
+      },
+      step2_discounts: {
+        codeDiscount,
+        shippingDiscount,
+        freeShippingDiscount,
+        totalDiscount,
+      },
+      step3_userCredits: {
+        leafPoints: leafPointsDeduction,
+        plantCredits: plantCreditsDeduction,
+        shippingCredits: shippingCreditsDeduction,
+        total: totalCreditsDeduction,
+        note: 'User points deducted HERE (frontend), not in backend'
+      },
+      step4_finalTotal: {
+        calculation: `${backendFinalTotal} - ${codeDiscount} - ${totalCreditsDeduction} = ${finalTotal}`,
+        finalTotal,
+      },
+      breakdown: {
+        subtotal,
+        shippingTotal,
+        backendFinalShippingCost,
+        backendShippingCreditsDiscount,
+      }
     });
     
     // Log if discount should be visible
@@ -760,7 +785,8 @@ export const useCheckoutController = () => {
     });
     const airBaseCargoCreditApplied = shippingCalculation?.appliedAirBaseCredit || 0;
     // Use the values already extracted above (backendShippingCreditsDiscount, backendFinalShippingCost, backendTotalShippingCost)
-    const creditsApplied = (leafPointsEnabled ? leafPoints : 0) + (plantCreditsEnabled ? plantCredits : 0);
+    // Calculate total credits applied (all three types)
+    const creditsApplied = totalCreditsDeduction;
 
     // Check if Buy X Get Y discount is applied
     const isBuyXGetYDiscount = appliedDiscount.discountDetails?.type === 'buyXGetY';
@@ -796,7 +822,7 @@ export const useCheckoutController = () => {
       totalShippingCost: roundToCents(backendTotalShippingCost),
       shippingCreditNote: shippingCreditNote, // Customer message about remaining shipping credit
     };
-  }, [plantItems, shippingCalculation, quantityBreakdown, leafPointsEnabled, plantCreditsEnabled, leafPoints, plantCredits, normalizeListingType, appliedDiscount]);
+  }, [plantItems, shippingCalculation, quantityBreakdown, leafPointsEnabled, plantCreditsEnabled, shippingCreditsEnabled, leafPoints, plantCredits, shippingCredits, normalizeListingType, appliedDiscount]);
 
   // Check if all plants are from Thailand
   const isThailandPlant = useMemo(() => {
@@ -1235,19 +1261,20 @@ export const useCheckoutController = () => {
         return plantItem;
       });
 
-      // Calculate total userCredits as a number (API expects a number)
-      const totalUserCredits = (leafPointsEnabled ? (leafPoints || 0) : 0) +
-                               (plantCreditsEnabled ? (plantCredits || 0) : 0) +
-                               (shippingCreditsEnabled ? (shippingCredits || 0) : 0);
-
-      console.log('💳 [fetchShippingCalculation] User credits:', {
+      // IMPORTANT: Do NOT pass user credits (leafPoints, plantCredits, shippingCredits) to shipping calculator
+      // The shipping calculator's userCredits parameter is for PROMOTIONAL shipping credits only (e.g., $150 promo)
+      // User point deductions are handled on the FRONTEND in orderSummary calculation to avoid double deduction
+      console.log('💳 [fetchShippingCalculation] User credits (handled on frontend):', {
         leafPointsEnabled,
         leafPoints,
         plantCreditsEnabled,
         plantCredits,
         shippingCreditsEnabled,
         shippingCredits,
-        totalUserCredits,
+        totalCredits: (leafPointsEnabled ? leafPoints : 0) + 
+                      (plantCreditsEnabled ? plantCredits : 0) + 
+                      (shippingCreditsEnabled ? shippingCredits : 0),
+        note: 'Credits are deducted in orderSummary calculation, not in shipping calculator'
       });
 
       // Prepare free shipping discount info if a freeShipping discount is applied
@@ -1261,19 +1288,20 @@ export const useCheckoutController = () => {
       }
 
       // Use joiner shipping API if user is an approved joiner
+      // Pass 0 for userCredits - user points are deducted on frontend to avoid double deduction
       const result = isJoinerApproved
         ? await calculateCheckoutShippingJoinerApi(
             plants, 
             selectedFlightDate.iso, 
             upsNextDayEnabled, 
-            totalUserCredits,
+            0, // userCredits: 0 (user points deducted on frontend)
             freeShippingDiscount
           )
         : await calculateCheckoutShippingApi(
             plants, 
             selectedFlightDate.iso, 
             upsNextDayEnabled, 
-            totalUserCredits,
+            0, // userCredits: 0 (user points deducted on frontend)
             freeShippingDiscount
           );
 
@@ -2193,20 +2221,38 @@ export const useCheckoutController = () => {
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
+        console.log('💳 [CheckoutController] Loading user profile and credits...');
         const profileResult = await getBuyerProfileApi();
-        if (profileResult && profileResult.success && profileResult.data) {
-          const profile = profileResult.data;
-          setLeafPoints(profile.referralPointsBalance || 0);
-          setPlantCredits(profile.plantCredits || 0);
-          setShippingCredits(profile.shippingCredits || 0);
+        console.log('💳 [CheckoutController] Profile result:', {
+          success: profileResult?.success,
+          hasData: !!profileResult?.data,
+          leafPoints: profileResult?.leafPoints,
+          plantCredits: profileResult?.plantCredits,
+          shippingCredits: profileResult?.shippingCredits,
+          referralPointsBalance: profileResult?.referralPointsBalance,
+        });
+
+        // Backend returns data at root level, not in a 'data' property
+        if (profileResult && profileResult.success) {
+          // Use profileResult directly (data is at root level)
+          setLeafPoints(profileResult.referralPointsBalance || profileResult.leafPoints || 0);
+          setPlantCredits(profileResult.plantCredits || 0);
+          setShippingCredits(profileResult.shippingCredits || 0);
+          
+          console.log('✅ [CheckoutController] Credits loaded:', {
+            leafPoints: profileResult.referralPointsBalance || profileResult.leafPoints || 0,
+            plantCredits: profileResult.plantCredits || 0,
+            shippingCredits: profileResult.shippingCredits || 0,
+          });
         } else {
           // If no profile data, set defaults
+          console.log('⚠️ [CheckoutController] No profile data, setting defaults to 0');
           setLeafPoints(0);
           setPlantCredits(0);
           setShippingCredits(0);
         }
       } catch (error) {
-        console.error('Error loading user profile:', error);
+        console.error('❌ [CheckoutController] Error loading user profile:', error);
         // Set defaults on error
         setLeafPoints(0);
         setPlantCredits(0);

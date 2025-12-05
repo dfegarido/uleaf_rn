@@ -183,6 +183,7 @@ const CheckoutScreen = () => {
     shippingCalculation,
     leafPoints,
     plantCredits,
+    shippingCredits,
     upsNextDayEnabled,
     leafPointsEnabled,
     plantCreditsEnabled,
@@ -311,6 +312,7 @@ const CheckoutScreen = () => {
           shippingCreditsEnabled={shippingCreditsEnabled}
           leafPoints={leafPoints}
           plantCredits={plantCredits}
+          shippingCredits={shippingCredits}
           onToggleLeafPoints={toggleLeafPoints}
           onTogglePlantCredits={togglePlantCredits}
           onToggleShippingCredits={toggleShippingCredits}

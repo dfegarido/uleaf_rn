@@ -134,6 +134,9 @@ const styles = StyleSheet.create({
   discountAmount: {
     color: '#23C16B', // Green color for discount amount
   },
+  creditsAmount: {
+    color: '#FF5247', // Red color for credits applied
+  },
   shippingCreditsNotification: {
     backgroundColor: '#F0FDF4',
     borderRadius: 8,
@@ -426,27 +429,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     lineHeight: 22,
-    color: '#393D40',
+    color: '#FF5247', // Red when ON (applied to calculation)
     width: 30,
   },
   toggleOffLabel: {
     fontSize: 16,
     fontWeight: '500',
     lineHeight: 22,
-    color: '#393D40',
+    color: '#9CA3AF', // Gray when OFF (not applied)
     width: 30,
   },
   toggleOnNumber: {
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 22,
-    color: '#393D40',
+    color: '#FF5247', // Red when ON (applied to calculation)
   },
   toggleOffNumber: {
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 22,
-    color: '#393D40',
+    color: '#9CA3AF', // Gray when OFF (not applied)
   },
   switchContainer: {
     flexDirection: 'row',

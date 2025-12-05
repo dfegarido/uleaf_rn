@@ -325,10 +325,21 @@ const BuyerProfileScreen = (props) => {
       
       console.log('[BuyerProfileScreen] Final buddyCount:', buddyCount);
 
+      // Get points from buyer profile data
+      const leafPoints = data?.leafPoints || 0;
+      const plantCredits = data?.plantCredits || 0;
+      const shippingCredits = data?.shippingCredits || 0;
+
+      console.log('[BuyerProfileScreen] Points from profile:', {
+        leafPoints,
+        plantCredits,
+        shippingCredits
+      });
+
       setProfileStats({
-        leafPoints: 0,
-        plantCredits: 0,
-        shippingCredits: 0,
+        leafPoints: leafPoints,
+        plantCredits: plantCredits,
+        shippingCredits: shippingCredits,
         buddyRequests: buddyCount,
       });
     } catch (error) {

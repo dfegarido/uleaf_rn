@@ -23,6 +23,7 @@ const OrderSummary = ({
   shippingCreditsEnabled = false,
   leafPoints = 0,
   plantCredits = 0,
+  shippingCredits = 0, // Added shippingCredits prop
   onToggleLeafPoints = () => {},
   onTogglePlantCredits = () => {},
   onToggleShippingCredits = () => {},
@@ -149,7 +150,7 @@ const OrderSummary = ({
           {orderSummary.creditsApplied > 0 && (
             <View style={styles.subtotalRow}>
               <Text style={styles.subtotalLabel}>Credits Applied</Text>
-              <Text style={styles.subtotalNumber}>
+              <Text style={[styles.subtotalNumber, styles.creditsAmount]}>
                 -{formatCurrencyFull(orderSummary.creditsApplied)}
               </Text>
             </View>
@@ -439,9 +440,7 @@ const OrderSummary = ({
                         ? styles.toggleOnNumber
                         : styles.toggleOffNumber
                     }>
-                    {leafPointsEnabled
-                      ? formatCurrencyFull(leafPoints)
-                      : formatCurrencyFull(0)}
+                    {formatCurrencyFull(leafPoints)}
                   </Text>
                 </View>
                 <View
@@ -490,9 +489,7 @@ const OrderSummary = ({
                         ? styles.toggleOnNumber
                         : styles.toggleOffNumber
                     }>
-                    {plantCreditsEnabled
-                      ? formatCurrencyFull(plantCredits)
-                      : formatCurrencyFull(0)}
+                    {formatCurrencyFull(plantCredits)}
                   </Text>
                 </View>
                 <View
@@ -541,9 +538,7 @@ const OrderSummary = ({
                         ? styles.toggleOnNumber
                         : styles.toggleOffNumber
                     }>
-                    {shippingCreditsEnabled
-                      ? formatCurrencyFull(orderSummary.shippingCreditsDiscount)
-                      : formatCurrencyFull(0)}
+                    {formatCurrencyFull(shippingCredits)}
                   </Text>
                 </View>
                 <View
