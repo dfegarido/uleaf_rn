@@ -112,6 +112,7 @@ export const getAdminLeafTrailFilters = async (statuses = null) => {
     if (statuses) {
       url = url + '?statuses=' + statuses
     }
+    console.log('urlurl', url);
     
     const response = await fetch(
       url,
