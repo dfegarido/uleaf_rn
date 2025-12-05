@@ -2759,6 +2759,7 @@ export const useCheckoutController = () => {
     try {
       // Map plantItems to productData format expected by backend
       const productData = plantItems.map(item => ({
+        cartItemId: item.cartItemId || item.id, // Include cart item ID for selective deletion
         plantCode: item.plantCode,
         quantity: item.quantity || 1,
         potSize: item.selectedPotSize || item.potSize || item.listingDetails?.potSize || null,
