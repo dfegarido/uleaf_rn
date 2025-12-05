@@ -195,9 +195,19 @@ const BuyerGettingToKnow = () => {
         {/* Continue button at bottom */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={[globalStyles.primaryButton, {marginBottom: 8}]}
-            onPress={handleContinue}>
-            <Text style={globalStyles.primaryButtonText}>Continue</Text>
+            style={[
+              globalStyles.primaryButton,
+              {marginBottom: 8},
+              (!firstName.trim() || !lastName.trim() || !contactNumber.trim() || !email.trim()) && styles.disabledButton,
+            ]}
+            onPress={handleContinue}
+            disabled={!firstName.trim() || !lastName.trim() || !contactNumber.trim() || !email.trim()}>
+            <Text style={[
+              globalStyles.primaryButtonText,
+              (!firstName.trim() || !lastName.trim() || !contactNumber.trim() || !email.trim()) && styles.disabledButtonText,
+            ]}>
+              Continue
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -270,6 +280,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
     backgroundColor: '#fff',
+  },
+  disabledButton: {
+    backgroundColor: '#E5E7EB',
+    opacity: 0.6,
+  },
+  disabledButtonText: {
+    color: '#9CA3AF',
   },
 });
 

@@ -18,8 +18,9 @@ import InputBox from '../../components/Input/InputBox';
 import InfoIcon from '../../assets/buyer-icons/information.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCitiesByStateApi } from '../../components/Api';
 // Backend API for location data from dropdown_state collection
-import { getUSStatesSimple, getStatesFromBackend, getStateCitiesSimple, getAllUSCitiesSimple } from '../../components/Api/geoDbApi';
+import { getUSStatesSimple, getStatesFromBackend, getAllUSCitiesSimple } from '../../components/Api/geoDbApi';
 
 // Restricted states and territories configuration
 const RESTRICTED_LOCATIONS = {
@@ -104,6 +105,11 @@ const BuyerSignupLocation = () => {
   const [city, setCity] = useState('');
   const [zip, setZip] = useState('');
   const [address, setAddress] = useState('');
+  
+  // Address autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [autoFilledFromAddress, setAutoFilledFromAddress] = useState(false);
+  const addressTimeoutRef = useRef(null);
   
   // States and cities from public API
   const [states, setStates] = useState([]);
@@ -305,8 +311,8 @@ const BuyerSignupLocation = () => {
         citiesOffsetRef.current = 0;
       }
       
-      // Load cities from GeoDB API
-      const response = await getStateCitiesSimple(selectedStateData.isoCode, 5, currentOffset);
+      // Load cities from cached backend API (faster and no rate limits)
+      const response = await getCitiesByStateApi(selectedStateData.isoCode, 50, currentOffset, '');
       
       if (response.success && response.cities && response.cities.length > 0) {
         // Extract just city names and remove duplicates
@@ -331,14 +337,14 @@ const BuyerSignupLocation = () => {
         }
         
         // Update pagination state
-        const newOffset = currentOffset + 5;
+        const newOffset = currentOffset + 50;
         setCitiesOffset(newOffset);
         citiesOffsetRef.current = newOffset;
         setCitiesHasMore(response.hasMore);
         
-        console.log(`✅ Successfully loaded ${cityNames.length} unique cities for ${selectedStateData.name} (total: ${isLoadMore ? 'appended' : cityNames.length}, hasMore: ${response.hasMore})`);
+        console.log(`✅ Successfully loaded ${cityNames.length} unique cities for ${selectedStateData.name} (cached: ${response.cached}, hasMore: ${response.hasMore})`);
       } else {
-        console.log(`⚠️ No cities found for ${selectedStateData.name} from GeoDB API`);
+        console.log(`⚠️ No cities found for ${selectedStateData.name}`);
         
         if (!isLoadMore) {
           // Provide option to enter manually
@@ -347,7 +353,7 @@ const BuyerSignupLocation = () => {
         }
       }
     } catch (error) {
-      console.error('❌ Error loading cities from GeoDB API:', error.message);
+      console.error('❌ Error loading cities:', error.message);
       console.log('📝 Providing manual entry option for cities');
       
       if (!isLoadMore) {
@@ -380,7 +386,7 @@ const BuyerSignupLocation = () => {
     await loadCities(true);
   }, [citiesHasMore, loadingMoreCities, selectedStateData, loadCities]);
 
-  // Handle city search (manual server-side search)
+  // Handle city search (auto-search with backend caching)
   const handleCitySearch = useCallback(async (searchText) => {
     if (!selectedStateData) {
       console.log('⚠️ No state selected, cannot search cities');
@@ -394,10 +400,10 @@ const BuyerSignupLocation = () => {
       
       console.log(`🔍 Searching cities in ${selectedStateData.name} with query: "${searchText}"`);
       
-      // Fetch cities with search query (namePrefix parameter)
-      const response = await getStateCitiesSimple(
-        selectedStateData.isoCode, 
-        10,  // GeoDB API plan limit
+      // Use cached backend endpoint instead of external API
+      const response = await getCitiesByStateApi(
+        selectedStateData.isoCode,
+        50, // Higher limit for better UX (backend is cached)
         0,   // Reset offset
         searchText  // Search query
       );
@@ -410,7 +416,7 @@ const BuyerSignupLocation = () => {
         setCities(filteredCities);
         setCitiesHasMore(response.hasMore);
         
-        console.log(`✅ Search complete: ${filteredCities.length} cities found`);
+        console.log(`✅ Search complete: ${filteredCities.length} cities found ${response.cached ? '(cached)' : '(fresh)'}`);
       } else {
         console.log(`⚠️ No cities found for search: "${searchText}"`);
         setCities([]);
@@ -424,6 +430,157 @@ const BuyerSignupLocation = () => {
       setCitiesLoading(false);
     }
   }, [selectedStateData]);
+
+  // Handle address input with autocomplete (using Nominatim - FREE!)
+  const handleAddressChange = useCallback((text) => {
+    setAddress(text);
+    setAutoFilledFromAddress(false); // Reset auto-fill flag when manually typing
+    
+    // Clear previous timeout
+    if (addressTimeoutRef.current) {
+      clearTimeout(addressTimeoutRef.current);
+    }
+    
+    // Only search if text is long enough
+    if (text.length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+    
+    // Debounce address search
+    addressTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Using Nominatim (OpenStreetMap) - FREE, no API key needed!
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `q=${encodeURIComponent(text)}&` +
+          `format=json&` +
+          `addressdetails=1&` +
+          `countrycodes=us&` +
+          `limit=5`,
+          {
+            headers: {
+              'User-Agent': 'iLeafU-App/1.0' // Required by Nominatim
+            }
+          }
+        );
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          // Transform Nominatim results to our format
+          const suggestions = data.map(item => ({
+            place_id: item.place_id,
+            description: item.display_name,
+            address: item.address,
+            lat: item.lat,
+            lon: item.lon
+          }));
+          setAddressSuggestions(suggestions);
+        } else {
+          setAddressSuggestions([]);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching address suggestions:', error);
+        setAddressSuggestions([]);
+      }
+    }, 800); // Nominatim prefers longer delays (max 1 request/sec)
+  }, []);
+
+  // Handle selecting an address suggestion (Nominatim format)
+  const handleSelectSuggestion = useCallback((suggestion) => {
+    try {
+      console.log('📍 Selected suggestion:', suggestion);
+      console.log('📍 Address components:', suggestion.address);
+      
+      // Nominatim already provides address components in the result
+      const addr = suggestion.address;
+      
+      // Extract address components from Nominatim response
+      // Nominatim can have various field names, so we check multiple options
+      const houseNumber = addr.house_number || '';
+      const road = addr.road || addr.street || '';
+      
+      // City can be in multiple fields
+      const cityName = addr.city || 
+                       addr.town || 
+                       addr.village || 
+                       addr.municipality || 
+                       addr.county || '';
+      
+      // State
+      const stateName = addr.state || '';
+      
+      // Zip code
+      const zipCode = addr.postcode || '';
+      
+      // Build street address
+      let streetAddress = '';
+      if (houseNumber && road) {
+        streetAddress = `${houseNumber} ${road}`.trim();
+      } else if (road) {
+        streetAddress = road;
+      } else {
+        // Fallback: extract first part of display name (before first comma)
+        const parts = suggestion.description.split(',');
+        streetAddress = parts[0].trim();
+      }
+      
+      console.log('🏠 Parsed address:', {
+        streetAddress,
+        cityName,
+        stateName,
+        zipCode
+      });
+      
+      // Set address field
+      setAddress(streetAddress);
+      
+      // Auto-fill state and find matching state data for city dropdown
+      if (stateName) {
+        console.log('🗺️ Setting state:', stateName);
+        setState(stateName);
+        
+        // Find the state data object for city dropdown to work
+        const stateData = states.find(s => 
+          s.name.toLowerCase() === stateName.toLowerCase() ||
+          s.isoCode === addr.state_code
+        );
+        
+        if (stateData) {
+          setSelectedStateData(stateData);
+          console.log('✅ State data set for city dropdown:', stateData.name);
+        } else {
+          console.log('⚠️ State data not found in states list:', stateName);
+        }
+      }
+      
+      // Auto-fill city
+      if (cityName) {
+        console.log('🏙️ Setting city:', cityName);
+        setCity(cityName);
+      }
+      
+      // Auto-fill zip
+      if (zipCode) {
+        console.log('📮 Setting zip:', zipCode);
+        setZip(zipCode);
+      }
+      
+      // Mark as auto-filled
+      setAutoFilledFromAddress(true);
+      
+      // Clear suggestions
+      setAddressSuggestions([]);
+      
+      console.log('✅ Address auto-filled successfully!');
+    } catch (error) {
+      console.error('❌ Error parsing address:', error);
+      // Fallback: set the full description as address
+      const parts = suggestion.description.split(',');
+      setAddress(parts[0].trim());
+      setAddressSuggestions([]);
+    }
+  }, [states]);
 
   const handleContinue = async () => {
     setCheckingLocation(true);
@@ -499,11 +656,40 @@ const BuyerSignupLocation = () => {
           <View style={styles.infoBox}>
             <InfoIcon width={20} height={20} style={styles.infoBoxIcon} />
             <Text style={styles.infoBoxText}>
-              Our green marketplace blooms just for buyers in the continental United States. Accounts won’t grow beyond this region.
+              Our green marketplace blooms just for buyers in the continental United States. Accounts won't grow beyond this region.
             </Text>
           </View>
 
-          {/* State dropdown */}
+          {/* Address Line - First field */}
+          <Text style={styles.label}>
+            Address Line<Text style={{color: '#FF5247'}}>*</Text>
+          </Text>
+          <InputBox
+            placeholder="Street address, apt, suite, unit, etc."
+            value={address}
+            setValue={handleAddressChange}
+          />
+          {addressSuggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+              <ScrollView 
+                style={styles.suggestionsScrollView}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
+              >
+                {addressSuggestions.map((suggestion, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.suggestionItem}
+                    onPress={() => handleSelectSuggestion(suggestion)}
+                  >
+                    <Text style={styles.suggestionText}>{suggestion.description}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* State - Auto-populated from address, can be changed */}
           <Text style={styles.label}>
             State<Text style={{color: '#FF5247'}}>*</Text>
           </Text>
@@ -514,16 +700,16 @@ const BuyerSignupLocation = () => {
               const sel = states.find(s => s.name === selectedName);
               setState(selectedName);
               setSelectedStateData(sel);
-              setCity(''); // Reset city when state changes
+              setCity(''); // Reset city when state changes manually
             }}
-            placeholder={statesLoading ? "Loading US states..." : "Select..."}
+            placeholder={state ? state : (statesLoading ? "Loading US states..." : "Select or type address above...")}
             disabled={statesLoading}
             onLoadMore={loadMoreStates}
             hasMore={statesHasMore}
             loadingMore={loadingMoreStates}
           />
 
-          {/* City dropdown */}
+          {/* City - Auto-populated from address, can be changed */}
           <Text style={styles.label}>
             City<Text style={{color: '#FF5247'}}>*</Text>
           </Text>
@@ -532,13 +718,15 @@ const BuyerSignupLocation = () => {
             selectedOption={city}
             onSelect={setCity}
             placeholder={
-              citiesLoading 
-                ? "Loading cities..." 
-                : selectedStateData 
-                  ? "Select..." 
-                  : "Select state first"
+              city 
+                ? city // Show auto-filled city
+                : citiesLoading 
+                  ? "Loading cities..." 
+                  : selectedStateData 
+                    ? "Select or type address above..." 
+                    : "Type address above or select state"
             }
-            disabled={!selectedStateData || citiesLoading}
+            disabled={citiesLoading}
             onLoadMore={loadMoreCities}
             hasMore={citiesHasMore}
             loadingMore={loadingMoreCities}
@@ -547,22 +735,15 @@ const BuyerSignupLocation = () => {
           />
 
           {/* Zip code */}
-          <Text style={styles.label}>Zip code</Text>
+          <Text style={styles.label}>
+            Zip code<Text style={{color: '#FF5247'}}>*</Text>
+          </Text>
           <InputBox
-            placeholder=""
+            placeholder="Auto-filled from address"
             value={zip}
             setValue={setZip}
             isNumeric={true}
-          />
-
-          {/* Address Line */}
-          <Text style={styles.label}>
-            Address Line<Text style={{color: '#FF5247'}}>*</Text>
-          </Text>
-          <InputBox
-            placeholder="Street address, apt, suite, unit, etc."
-            value={address}
-            setValue={setAddress}
+            editable={!autoFilledFromAddress}
           />
 
           {/* Spacer */}
@@ -572,9 +753,19 @@ const BuyerSignupLocation = () => {
         {/* Continue button at bottom */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={[globalStyles.primaryButton, {marginBottom: 8}]}
-            onPress={handleContinue}>
-            <Text style={globalStyles.primaryButtonText}>Continue</Text>
+            style={[
+              globalStyles.primaryButton,
+              {marginBottom: 8},
+              (!state || !city || !zip || !address) && styles.disabledButton,
+            ]}
+            onPress={handleContinue}
+            disabled={!state || !city || !zip || !address}>
+            <Text style={[
+              globalStyles.primaryButtonText,
+              (!state || !city || !zip || !address) && styles.disabledButtonText,
+            ]}>
+              Continue
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -650,10 +841,44 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
+  suggestionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    marginTop: -8,
+    marginBottom: 8,
+    maxHeight: 200,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  suggestionsScrollView: {
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: '#374151',
+  },
   bottomBar: {
     paddingHorizontal: 24,
     paddingBottom: 24,
     backgroundColor: '#fff',
+  },
+  disabledButton: {
+    backgroundColor: '#E5E7EB',
+    opacity: 0.6,
+  },
+  disabledButtonText: {
+    color: '#9CA3AF',
   },
 });
 

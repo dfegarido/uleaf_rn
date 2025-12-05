@@ -60,9 +60,11 @@ const OptionRow = memo(({item, selected, onToggle, optionStyle, boxStyle, checkS
       onPress={() => onToggle(item.value)}
       activeOpacity={0.7}
     >
-      <Text style={[globalStyles.textMDGreyDark, labelStyle]} numberOfLines={1}>
-        {item.label}
-      </Text>
+      <View style={styles.labelWrapper}>
+        <Text style={[globalStyles.textMDGreyDark, styles.labelText, labelStyle]} numberOfLines={1}>
+          {item.label}
+        </Text>
+      </View>
       <View style={[styles.checkBox, boxStyle]}>
         {selected && (
           <View style={[styles.checked, checkStyle]} />
@@ -82,6 +84,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  labelWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 20, // Match checkbox height for proper alignment
+  },
+  labelText: {
+    lineHeight: 20, // Explicit line height for iOS alignment
+    includeFontPadding: false, // Remove extra padding on Android
+    textAlignVertical: 'center', // Vertical center on Android
   },
   checkBox: {
     height: 20,

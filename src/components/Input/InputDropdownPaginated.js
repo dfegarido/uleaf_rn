@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useRef, useMemo} from 'react';
+import React, {useState, useCallback, useRef, useMemo, useEffect} from 'react';
 import {
   View,
   Text,
@@ -24,10 +24,13 @@ const InputDropdownPaginated = ({
   loadingMore = false, // Whether currently loading more items
   onSearch = null, // Optional: Function to call for server-side search
   enableServerSearch = false, // Whether to use server-side search instead of client-side filtering
+  autoSearch = true, // Whether to auto-search as user types (default: true for better UX)
+  searchDebounceMs = 500, // Debounce delay in milliseconds (default: 500ms)
 }) => {
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const loadingRef = useRef(false); // Prevent duplicate calls
+  const searchTimeoutRef = useRef(null); // For debouncing auto-search
 
   const handleSelect = option => {
     onSelect(option);
@@ -48,6 +51,38 @@ const InputDropdownPaginated = ({
       onSearch(searchQuery);
     }
   }, [enableServerSearch, onSearch, searchQuery]);
+
+  // Auto-search effect: Trigger search automatically as user types (with debounce)
+  useEffect(() => {
+    if (!enableServerSearch || !autoSearch || !onSearch) {
+      return; // Only for server-side search with auto-search enabled
+    }
+
+    // Clear any pending search timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // If search query is empty, trigger search immediately to show all results
+    if (!searchQuery.trim()) {
+      console.log('🔄 Search cleared - loading all cities');
+      onSearch('');
+      return;
+    }
+
+    // Debounce: Wait for user to stop typing before searching
+    searchTimeoutRef.current = setTimeout(() => {
+      console.log(`🔍 Auto-search triggered for: "${searchQuery}"`);
+      onSearch(searchQuery);
+    }, searchDebounceMs);
+
+    // Cleanup timeout on unmount or when dependencies change
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, enableServerSearch, autoSearch, onSearch, searchDebounceMs]);
 
   // Filter options based on search query (client-side only)
   const filteredOptions = useMemo(() => {
@@ -161,8 +196,8 @@ const InputDropdownPaginated = ({
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-                {/* Manual Search Button for server-side search - inside input */}
-                {enableServerSearch && (
+                {/* Manual Search Button for server-side search - only show if auto-search is disabled */}
+                {enableServerSearch && !autoSearch && (
                   <TouchableOpacity
                     style={styles.searchIconButton}
                     onPress={handleSearchExecute}

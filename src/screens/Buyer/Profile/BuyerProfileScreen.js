@@ -36,6 +36,7 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import TrashIcon from '../../../assets/icons/red/trash.svg';
 import PlantIcon from '../../../assets/icons/greydark/plant-regular.svg';
+import PlaneIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import { useNavigation } from '@react-navigation/native';
 
 // Custom Shipping Credits Icon Component (from Figma SVG)
@@ -575,7 +576,7 @@ const BuyerProfileScreen = (props) => {
           />
 
           <MenuItem
-            icon={<PlantIcon width={24} height={24} fill="#556065" />}
+            icon={<PlaneIcon width={24} height={24} fill="#556065" />}
             title="Request to Change Plant Flight"
             onPress={() => navigation.navigate('RequestChangePlantFlightScreen')}
           />

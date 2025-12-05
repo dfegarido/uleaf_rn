@@ -124,10 +124,16 @@ const BuyerSignup = () => {
             globalStyles.primaryButton,
             styles.continueBtn,
             {marginBottom: 8},
+            selected.length === 0 && styles.disabledButton,
           ]}
           onPress={handleContinue}
           disabled={selected.length === 0}>
-          <Text style={globalStyles.primaryButtonText}>Continue</Text>
+          <Text style={[
+            globalStyles.primaryButtonText,
+            selected.length === 0 && styles.disabledButtonText,
+          ]}>
+            Continue
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleLogin}
@@ -188,6 +194,13 @@ const styles = StyleSheet.create({
   continueBtn: {
     marginTop: 12,
     marginBottom: 16,
+  },
+  disabledButton: {
+    backgroundColor: '#E5E7EB',
+    opacity: 0.6,
+  },
+  disabledButtonText: {
+    color: '#9CA3AF',
   },
   loginLinkContainer: {
     alignItems: 'center',

@@ -3,10 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { createAddressBookEntryApi, updateAddressBookEntryApi } from '../../../components/Api';
+import { createAddressBookEntryApi, updateAddressBookEntryApi, getCitiesByStateApi } from '../../../components/Api';
 import InputDropdownPaginated from '../../../components/Input/InputDropdownPaginated';
 // Backend API for location data from dropdown_state collection
-import { getStatesFromBackend, getStateCitiesSimple } from '../../../components/Api/geoDbApi';
+import { getStatesFromBackend } from '../../../components/Api/geoDbApi';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 
 // Restricted states and territories configuration
@@ -98,6 +98,11 @@ const UpdateAddressScreen = () => {
   const [zipCode, setZipCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [addressId, setAddressId] = useState(null);
+  
+  // Address autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [autoFilledFromAddress, setAutoFilledFromAddress] = useState(false);
+  const addressTimeoutRef = useRef(null);
   
   // States and cities from GeoDB API
   const [states, setStates] = useState([]);
@@ -250,8 +255,8 @@ const UpdateAddressScreen = () => {
         citiesOffsetRef.current = 0;
       }
       
-      // Load cities from GeoDB API
-      const response = await getStateCitiesSimple(selectedStateData.isoCode, 5, currentOffset);
+      // Load cities from cached backend API (faster and no rate limits)
+      const response = await getCitiesByStateApi(selectedStateData.isoCode, 50, currentOffset, '');
       
       if (response.success && response.cities && response.cities.length > 0) {
         // Extract just city names and remove duplicates
@@ -276,14 +281,14 @@ const UpdateAddressScreen = () => {
         }
         
         // Update pagination state
-        const newOffset = currentOffset + 5;
+        const newOffset = currentOffset + 50;
         setCitiesOffset(newOffset);
         citiesOffsetRef.current = newOffset;
         setCitiesHasMore(response.hasMore);
         
-        console.log(`✅ Successfully loaded ${filteredCities.length} filtered cities for ${selectedStateData.name} (original: ${cityNames.length}, hasMore: ${response.hasMore})`);
+        console.log(`✅ Successfully loaded ${filteredCities.length} filtered cities for ${selectedStateData.name} (cached: ${response.cached}, hasMore: ${response.hasMore})`);
       } else {
-        console.log(`⚠️ No cities found for ${selectedStateData.name} from GeoDB API`);
+        console.log(`⚠️ No cities found for ${selectedStateData.name}`);
         
         if (!isLoadMore) {
           setCities(['Enter city manually']);
@@ -291,7 +296,7 @@ const UpdateAddressScreen = () => {
         }
       }
     } catch (error) {
-      console.error('❌ Error loading cities from GeoDB API:', error.message);
+      console.error('❌ Error loading cities:', error.message);
       console.log('📝 Providing manual entry option for cities');
       
       if (!isLoadMore) {
@@ -323,7 +328,112 @@ const UpdateAddressScreen = () => {
     await loadCities(true);
   }, [citiesHasMore, loadingMoreCities, selectedStateData, loadCities]);
 
-  // Handle city search (manual server-side search)
+  // Handle address input with autocomplete (using Nominatim - FREE!)
+  const handleAddressChange = useCallback((text) => {
+    setStreet(text);
+    setAutoFilledFromAddress(false);
+    
+    if (addressTimeoutRef.current) {
+      clearTimeout(addressTimeoutRef.current);
+    }
+    
+    if (text.length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+    
+    addressTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `q=${encodeURIComponent(text)}&` +
+          `format=json&` +
+          `addressdetails=1&` +
+          `countrycodes=us&` +
+          `limit=5`,
+          {
+            headers: {
+              'User-Agent': 'iLeafU-App/1.0'
+            }
+          }
+        );
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          const suggestions = data.map(item => ({
+            place_id: item.place_id,
+            description: item.display_name,
+            address: item.address,
+            lat: item.lat,
+            lon: item.lon
+          }));
+          setAddressSuggestions(suggestions);
+        } else {
+          setAddressSuggestions([]);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching address suggestions:', error);
+        setAddressSuggestions([]);
+      }
+    }, 800);
+  }, []);
+
+  // Handle selecting an address suggestion (Nominatim format)
+  const handleSelectSuggestion = useCallback((suggestion) => {
+    try {
+      console.log('📍 Selected suggestion:', suggestion);
+      const addr = suggestion.address;
+      
+      const houseNumber = addr.house_number || '';
+      const road = addr.road || addr.street || '';
+      const cityName = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+      const stateName = addr.state || '';
+      const zipCodeValue = addr.postcode || '';
+      
+      let streetAddress = '';
+      if (houseNumber && road) {
+        streetAddress = `${houseNumber} ${road}`.trim();
+      } else if (road) {
+        streetAddress = road;
+      } else {
+        const parts = suggestion.description.split(',');
+        streetAddress = parts[0].trim();
+      }
+      
+      setStreet(streetAddress);
+      
+      if (stateName) {
+        setState(stateName);
+        const stateData = states.find(s => 
+          s.name.toLowerCase() === stateName.toLowerCase() ||
+          s.isoCode === addr.state_code
+        );
+        if (stateData) {
+          setSelectedStateData(stateData);
+        }
+      }
+      
+      if (cityName) {
+        setCity(cityName);
+      }
+      
+      if (zipCodeValue) {
+        setZipCode(zipCodeValue);
+      }
+      
+      setAutoFilledFromAddress(true);
+      setAddressSuggestions([]);
+      
+      console.log('✅ Address auto-filled successfully!');
+    } catch (error) {
+      console.error('❌ Error parsing address:', error);
+      const parts = suggestion.description.split(',');
+      setStreet(parts[0].trim());
+      setAddressSuggestions([]);
+    }
+  }, [states]);
+
+  // Handle city search (auto-search with backend caching)
   const handleCitySearch = useCallback(async (searchText) => {
     if (!selectedStateData) {
       console.log('⚠️ No state selected, cannot search cities');
@@ -337,10 +447,10 @@ const UpdateAddressScreen = () => {
       
       console.log(`🔍 Searching cities in ${selectedStateData.name} with query: "${searchText}"`);
       
-      // Fetch cities with search query (namePrefix parameter)
-      const response = await getStateCitiesSimple(
-        selectedStateData.isoCode, 
-        10,  // GeoDB API plan limit
+      // Use cached backend endpoint instead of external API
+      const response = await getCitiesByStateApi(
+        selectedStateData.isoCode,
+        50, // Higher limit for better UX (backend is cached)
         0,   // Reset offset
         searchText  // Search query
       );
@@ -353,7 +463,7 @@ const UpdateAddressScreen = () => {
         setCities(filteredCities);
         setCitiesHasMore(response.hasMore);
         
-        console.log(`✅ Search complete: ${filteredCities.length} cities found`);
+        console.log(`✅ Search complete: ${filteredCities.length} cities found ${response.cached ? '(cached)' : '(fresh)'}`);
       } else {
         console.log(`⚠️ No cities found for search: "${searchText}"`);
         setCities([]);
@@ -507,7 +617,45 @@ const UpdateAddressScreen = () => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Form Container */}
         <View style={styles.formContainer}>
-          {/* State */}
+          {/* Address Line - First with autocomplete */}
+          <View style={styles.addressLineSection}>
+            <View style={styles.addressFieldWrap}>
+              <Text style={styles.inputLabel}>Address Line<Text style={{color: '#E53935'}}>*</Text></Text>
+              <View style={styles.addressInputWrapper}>
+                <View style={styles.textField}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Type to search address..."
+                    placeholderTextColor="#647276"
+                    value={street}
+                    onChangeText={handleAddressChange}
+                  />
+                </View>
+                {addressSuggestions.length > 0 && (
+                  <View style={styles.suggestionsContainer}>
+                    <ScrollView 
+                      style={styles.suggestionsScrollView}
+                      keyboardShouldPersistTaps="handled"
+                      nestedScrollEnabled={true}
+                    >
+                      {addressSuggestions.map((suggestion, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.suggestionItem}
+                          onPress={() => handleSelectSuggestion(suggestion)}
+                        >
+                          <Text style={styles.suggestionText}>{suggestion.description}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.helperText}>Street address, apartment, suite, unit, building, floor, etc.</Text>
+            </View>
+          </View>
+
+          {/* State - Auto-populated */}
           <View style={styles.inputSection}>
             <View style={styles.inputFieldWrap}>
               <Text style={styles.inputLabel}>
@@ -527,7 +675,7 @@ const UpdateAddressScreen = () => {
                     setCity('');
                   }
                 }}
-                placeholder={statesLoading ? "Loading US states..." : "Select..."}
+                placeholder={state || (statesLoading ? "Loading US states..." : "Select or type address...")}
                 disabled={statesLoading}
                 onLoadMore={loadMoreStates}
                 hasMore={statesHasMore}
@@ -536,7 +684,7 @@ const UpdateAddressScreen = () => {
             </View>
           </View>
           
-          {/* City */}
+          {/* City - Auto-populated */}
           <View style={styles.inputSection}>
             <View style={styles.inputFieldWrap}>
               <Text style={styles.inputLabel}>
@@ -547,13 +695,13 @@ const UpdateAddressScreen = () => {
                 selectedOption={city}
                 onSelect={setCity}
                 placeholder={
-                  citiesLoading 
+                  city || (citiesLoading 
                     ? "Loading cities..." 
                     : selectedStateData 
-                      ? "Select..." 
-                      : "Select state first"
+                      ? "Select or type address..." 
+                      : "Type address or select state")
                 }
-                disabled={!selectedStateData || citiesLoading}
+                disabled={citiesLoading}
                 onLoadMore={loadMoreCities}
                 hasMore={citiesHasMore}
                 loadingMore={loadingMoreCities}
@@ -563,14 +711,16 @@ const UpdateAddressScreen = () => {
             </View>
           </View>
 
-          {/* Zip Code */}
+          {/* Zip Code - Auto-populated */}
           <View style={styles.inputSection}>
             <View style={styles.inputFieldWrap}>
-              <Text style={styles.inputLabel}>Zip Code</Text>
+              <Text style={styles.inputLabel}>
+                Zip Code<Text style={{color: '#FF5247'}}>*</Text>
+              </Text>
               <View style={styles.textField}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Zip code"
+                  placeholder="Auto-filled from address"
                   placeholderTextColor="#9AA0A0"
                   value={zipCode}
                   onChangeText={setZipCode}
@@ -579,23 +729,6 @@ const UpdateAddressScreen = () => {
                   maxLength={10}
                 />
               </View>
-            </View>
-          </View>
-
-          {/* Address Line */}
-          <View style={styles.addressLineSection}>
-            <View style={styles.addressFieldWrap}>
-              <Text style={styles.inputLabel}>Address Line<Text style={{color: '#E53935'}}>*</Text></Text>
-              <View style={styles.textField}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter street address"
-                  placeholderTextColor="#647276"
-                  value={street}
-                  onChangeText={setStreet}
-                />
-              </View>
-              <Text style={styles.helperText}>Street address, apartment, suite, unit, building, floor, etc.</Text>
             </View>
           </View>
 
@@ -684,6 +817,7 @@ const styles = StyleSheet.create({
     height: 540,
     alignSelf: 'center',
     flexGrow: 0,
+    overflow: 'visible', // Allow suggestions to overflow
   },
   inputSection: {
     flexDirection: 'column',
@@ -728,6 +862,8 @@ const styles = StyleSheet.create({
     height: 150,
     alignSelf: 'stretch',
     flexGrow: 0,
+    zIndex: 9999, // Ensure entire section is on top
+    overflow: 'visible', // Don't clip suggestions
   },
   addressFieldWrap: {
     flexDirection: 'column',
@@ -739,6 +875,13 @@ const styles = StyleSheet.create({
     height: 126,
     alignSelf: 'stretch',
     flexGrow: 0,
+    zIndex: 9999, // Match parent z-index
+    overflow: 'visible', // Don't clip suggestions
+  },
+  addressInputWrapper: {
+    position: 'relative',
+    width: '100%',
+    zIndex: 9999, // Very high z-index to appear above all other elements
   },
   textField: {
     position: 'relative',
@@ -791,6 +934,36 @@ const styles = StyleSheet.create({
     color: '#647276',
     flex: 1,
     flexGrow: 1,
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 48, // Position right below the input (input height = 48px)
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    maxHeight: 200,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 999, // Very high elevation (Android)
+    overflow: 'hidden',
+    zIndex: 9999, // Maximum z-index to appear on top of everything
+  },
+  suggestionsScrollView: {
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: '#374151',
   },
   dropdownIconContainer: {
     position: 'absolute',

@@ -293,6 +293,7 @@ const generateEndpoints = () => ({
   // Public (unauthenticated) location endpoints
   PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
   PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
+  GET_CITIES_BY_STATE: `${getBaseUrl()}/getCitiesByState`,
   
   // User related endpoints
   SEARCH_USER: `${getBaseUrl()}/searchUser`,

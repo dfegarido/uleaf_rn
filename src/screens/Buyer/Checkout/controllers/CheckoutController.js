@@ -2012,7 +2012,7 @@ export const useCheckoutController = () => {
               const addr = receiverData.shippingAddressData;
               setDeliveryDetails({
                 address: {
-                  street: addr.street || '',
+                  street: addr.street || addr.streetAddress || addr.address || '',
                   city: addr.city || '',
                   state: addr.state || '',
                   zipCode: addr.zipCode || '',
@@ -2170,7 +2170,7 @@ export const useCheckoutController = () => {
           if (defaultAddress) {
             setDeliveryDetails({
               address: {
-                street: defaultAddress.street || '',
+                street: defaultAddress.street || defaultAddress.streetAddress || defaultAddress.address || '',
                 city: defaultAddress.city || '',
                 state: defaultAddress.state || '',
                 zipCode: defaultAddress.zipCode || '',

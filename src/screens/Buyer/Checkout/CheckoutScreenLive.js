@@ -1685,7 +1685,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         setDeliveryDetails({
           ...deliveryDetails,
           address: {
-            street: selectedAddress.streetAddress,
+            street: selectedAddress.streetAddress || selectedAddress.street || selectedAddress.address || '',
             city: selectedAddress.city,
             state: selectedAddress.state,
             zipCode: selectedAddress.postalCode,
