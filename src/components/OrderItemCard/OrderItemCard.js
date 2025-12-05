@@ -390,7 +390,7 @@ console.log('shippedData', shippedData);
             </Text>
             {activeTab !== 'Pay to Board' && (
               <View style={styles.priceRow}>
-                {activeTab !== 'Ready to Fly' && (
+                {activeTab !== 'Ready to Fly' && activeTab !== 'Plants are Home' && activeTab !== 'Journey Mishap' && (
                   <Text style={styles.price}>{price}</Text>
                 )}
                 <Text style={styles.quantity}>{quantity}x</Text>

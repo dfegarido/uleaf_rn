@@ -9,7 +9,7 @@ import {
   Alert,
   Animated,
 } from 'react-native';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import {getOrderDetailApi} from '../../../components/Api/orderManagementApi';
 
@@ -65,8 +65,9 @@ const OrderDetailsScreen = () => {
     });
   }, [orderData, activeTab]);
   
-  useEffect(() => {
-    const loadOrderDetails = async () => {
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadOrderDetails = async () => {
       // Helper function to parse various date formats
       const parseDate = (dateValue) => {
         if (!dateValue) return null;
@@ -283,8 +284,20 @@ const OrderDetailsScreen = () => {
               creditRequestStatus: plantRecord?.creditRequestStatus || { hasRequest: false, requests: [], latestRequest: null },
 
               ...(activeTab === 'Journey Mishap' && {
-                totalCreditRequests: detailedOrder.creditRequests?.length || plantRecord?.creditRequestStatus?.requests?.length || 0,
-                creditRequests: detailedOrder.creditRequests || plantRecord?.creditRequestStatus?.requests || [],
+                totalCreditRequests: (() => {
+                  console.log('🔍 API Path - Extracting credit requests:', {
+                    hasDetailedOrderCreditRequests: !!detailedOrder.creditRequests,
+                    detailedOrderCreditRequestsLength: detailedOrder.creditRequests?.length || 0,
+                    detailedOrderCreditRequests: detailedOrder.creditRequests,
+                    hasPlantRecordCreditStatus: !!plantRecord?.creditRequestStatus,
+                    plantRecordHasRequest: plantRecord?.creditRequestStatus?.hasRequest,
+                    plantRecordRequestsLength: plantRecord?.creditRequestStatus?.requests?.length || 0,
+                    plantRecordRequests: plantRecord?.creditRequestStatus?.requests,
+                  });
+                  return detailedOrder.creditRequests?.length || plantRecord?.creditRequestStatus?.requests?.length || 0;
+                })(),
+                // Use plantRecord.creditRequestStatus.requests if detailedOrder.creditRequests is empty
+                creditRequests: (detailedOrder.creditRequests?.length > 0 ? detailedOrder.creditRequests : plantRecord?.creditRequestStatus?.requests) || [],
                 hasActiveCreditRequests: (detailedOrder.creditRequests?.length || plantRecord?.creditRequestStatus?.requests?.length) > 0
               })
             };
@@ -317,6 +330,19 @@ const OrderDetailsScreen = () => {
         const realOrder = orderData.fullOrderData;
         const product = realOrder.products?.[0];
         const plantDetails = product?.plantDetails;
+        
+        // Debug logging for Journey Mishap
+        if (activeTab === 'Journey Mishap') {
+          console.log('🔍 Journey Mishap Order Data Debug:', {
+            hasRealOrderCreditRequests: !!realOrder.creditRequests,
+            realOrderCreditRequestsLength: realOrder.creditRequests?.length || 0,
+            realOrderCreditRequests: realOrder.creditRequests,
+            hasProductCreditStatus: !!product?.creditRequestStatus,
+            productCreditStatusRequests: product?.creditRequestStatus?.requests,
+            orderDataKeys: Object.keys(orderData).slice(0, 20),
+            realOrderKeys: Object.keys(realOrder).slice(0, 30)
+          });
+        }
         
         const transformedOrder = {
         // Order level data
@@ -372,7 +398,18 @@ const OrderDetailsScreen = () => {
           hasRequest: false,
           requests: [],
           latestRequest: null
-        }
+        },
+
+        // Add Journey Mishap specific fields if activeTab is Journey Mishap
+        ...(activeTab === 'Journey Mishap' && {
+          totalCreditRequests: realOrder.creditRequests?.length || product?.creditRequestStatus?.requests?.length || 0,
+          // Use product.creditRequestStatus.requests if realOrder.creditRequests is empty
+          creditRequests: (realOrder.creditRequests?.length > 0 ? realOrder.creditRequests : product?.creditRequestStatus?.requests) || [],
+          hasActiveCreditRequests: (realOrder.creditRequests?.length || product?.creditRequestStatus?.requests?.length) > 0
+        }),
+
+        // Store full order data for reference
+        _fullDetailedOrder: realOrder
       };
       
       setOrder(transformedOrder);
@@ -457,10 +494,11 @@ const OrderDetailsScreen = () => {
     }
     
     setLoading(false);
-    };
+      };
 
-    loadOrderDetails();
-  }, [orderData]);
+      loadOrderDetails();
+    }, [orderData])
+  );
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -903,8 +941,8 @@ const OrderDetailsScreen = () => {
 
                 {/* Price + Quantity */}
                 <View style={styles.priceQuantityRow}>
-                  {/* Hide price for Ready to Fly orders */}
-                  {activeTab !== 'Ready to Fly' && (
+                  {/* Hide price for Ready to Fly, Plants are Home, and Journey Mishap orders */}
+                  {activeTab !== 'Ready to Fly' && activeTab !== 'Plants are Home' && activeTab !== 'Journey Mishap' && (
                     <Text style={styles.priceText}>{order.plant.price}</Text>
                   )}
                   <View style={styles.quantityContainer}>
@@ -916,6 +954,13 @@ const OrderDetailsScreen = () => {
                 {/* Request Credit Button - Only show for Plants are Home */}
                 {activeTab === 'Plants are Home' && (
                   <View style={styles.requestCreditContainer}>
+                    {/* Debug logging for credit request status */}
+                    {console.log('🔍 Credit Request Status Check:', {
+                      hasRequest: order?.creditRequestStatus?.hasRequest,
+                      creditRequestStatus: order?.creditRequestStatus,
+                      plantCode: order?.plant?.code,
+                      orderKeys: order ? Object.keys(order).slice(0, 10) : 'none'
+                    })}
                     <TouchableOpacity 
                       style={[
                         styles.requestCreditButton,
@@ -985,37 +1030,17 @@ const OrderDetailsScreen = () => {
           </View>
         )}
 
-        {/* Shipping Details */}
-        <View style={styles.shippingDetails}>
-          {/* Title */}
-          <View style={styles.sectionTitle}>
-            <Text style={styles.sectionTitleText}>Shipping Details</Text>
-          </View>
+        {/* Shipping Details - Hidden for Journey Mishap */}
+        {activeTab !== 'Journey Mishap' && (
+          <View style={styles.shippingDetails}>
+            {/* Title */}
+            <View style={styles.sectionTitle}>
+              <Text style={styles.sectionTitleText}>Shipping Details</Text>
+            </View>
 
-          {/* Details */}
-          <View style={styles.shippingDetailsContent}>
-            {/* Conditional content based on activeTab */}
-            {activeTab === 'Journey Mishap' ? (
-              <>
-                {/* Plant Price */}
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Plant Price</Text>
-                  <View style={styles.detailValueSimple}>
-                    <Text style={styles.plantPriceText}>
-                      {order.plant?.price || 'N/A'}
-                    </Text>
-                  </View>
-                </View>
-                {/* Shipping Cost */}
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Shipping Cost</Text>
-                  <View style={styles.detailValueSimple}>
-                    <Text style={styles.detailValueText}>$0</Text>
-                  </View>
-                </View>
-              </>
-            ) : (
-              /* Tracking Number */
+            {/* Details */}
+            <View style={styles.shippingDetailsContent}>
+              {/* Tracking Number */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Tracking Number</Text>
                 <View style={styles.detailValue}>
@@ -1026,9 +1051,72 @@ const OrderDetailsScreen = () => {
                   </TouchableOpacity>
                 </View>
               </View>
-            )}
+            </View>
           </View>
-        </View>
+        )}
+
+        {/* Credit Request Details - Only show for Journey Mishap */}
+        {console.log('🔍 Journey Mishap Credit Request Check:', {
+          activeTab,
+          isJourneyMishap: activeTab === 'Journey Mishap',
+          hasCreditRequests: !!order.creditRequests,
+          creditRequestsLength: order.creditRequests?.length || 0,
+          orderKeys: order ? Object.keys(order).slice(0, 20) : 'none',
+          fullOrderData: order._fullDetailedOrder ? 'Present' : 'Missing',
+          creditRequests: order.creditRequests,
+        })}
+        {activeTab === 'Journey Mishap' && order.creditRequests && order.creditRequests.length > 0 && (
+          <View style={styles.creditRequestDetails}>
+            {/* Title */}
+            <View style={styles.sectionTitle}>
+              <Text style={styles.sectionTitleText}>Credit Request Details</Text>
+            </View>
+
+            {/* Details */}
+            <View style={styles.creditRequestDetailsContent}>
+              {/* Issue Type */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Issue Type</Text>
+                <View style={styles.detailValueSimple}>
+                  <Text style={styles.detailValueText}>
+                    {order.creditRequests[0]?.issueType || 'Unknown Issue'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description */}
+              {order.creditRequests[0]?.description && (
+                <View style={styles.descriptionRow}>
+                  <Text style={styles.detailLabel}>Description</Text>
+                  <View style={styles.descriptionContent}>
+                    <Text style={styles.descriptionText}>
+                      {order.creditRequests[0].description}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Request Status */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status</Text>
+                <View style={styles.detailValueSimple}>
+                  <Text style={[
+                    styles.detailValueText,
+                    order.creditRequests[0]?.status === 'pending' && styles.statusPending,
+                    order.creditRequests[0]?.status === 'approved' && styles.statusApproved,
+                    order.creditRequests[0]?.status === 'rejected' && styles.statusRejected
+                  ]}>
+                    {order.creditRequests[0]?.status === 'pending' ? 'Pending Review' :
+                     order.creditRequests[0]?.status === 'approved' ? 'Approved' :
+                     order.creditRequests[0]?.status === 'rejected' ? 'Rejected' :
+                     order.creditRequests[0]?.status === 'processed' ? 'Completed' :
+                     'Pending'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Delivery Details */}
         <View style={styles.deliveryDetails}>
@@ -1526,6 +1614,42 @@ const styles = StyleSheet.create({
   },
   shippingDetailsContent: {
     gap: 0,
+  },
+
+  // Credit Request Details
+  creditRequestDetails: {
+    paddingHorizontal: 15,
+    paddingTop: 16,
+    paddingBottom: 20,
+    gap: 8,
+    backgroundColor: '#FFF',
+  },
+  creditRequestDetailsContent: {
+    gap: 12,
+  },
+  descriptionRow: {
+    gap: 8,
+  },
+  descriptionContent: {
+    paddingTop: 4,
+  },
+  descriptionText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#647276',
+  },
+  statusPending: {
+    color: '#F59E0B',
+    fontWeight: '600',
+  },
+  statusApproved: {
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  statusRejected: {
+    color: '#EF4444',
+    fontWeight: '600',
   },
 
   // Delivery Details
