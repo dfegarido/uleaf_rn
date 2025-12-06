@@ -672,11 +672,6 @@ const UpdateScheduleModal = ({
       return false;
     }
 
-    if (d <= today) {
-      setErrorText('Date must be in the future');
-      return false;
-    }
-
     // Check if it's a Saturday
     if (d.getDay() !== 6) {
       setErrorText('Date must be a Saturday');

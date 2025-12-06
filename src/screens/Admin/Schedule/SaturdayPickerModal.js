@@ -76,14 +76,11 @@ const SaturdayPickerModal = ({ visible, onClose, onSelectDate, initialDate = new
   };
 
   // Check if a date is after the minimum date (old flight date)
+  // Updated to allow past dates - only checks against minDate if provided
   const isAfterMinDate = (date) => {
     if (!minDate) {
-      // If no minDate provided, check if after today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const compareDate = new Date(date);
-      compareDate.setHours(0, 0, 0, 0);
-      return compareDate > today;
+      // If no minDate provided, allow all dates (including past dates)
+      return true;
     }
     
     // Parse minDate (YYYY-MM-DD format)
@@ -94,10 +91,11 @@ const SaturdayPickerModal = ({ visible, onClose, onSelectDate, initialDate = new
     const compareDate = new Date(date);
     compareDate.setHours(0, 0, 0, 0);
     
-    return compareDate > min;
+    // Allow dates that are different from minDate (can be before or after)
+    return compareDate.getTime() !== min.getTime();
   };
 
-  // Check if a date is selectable (Saturday after minDate)
+  // Check if a date is selectable (Saturday, and different from minDate if provided)
   const isSelectableDate = (date) => {
     return isSaturday(date) && isAfterMinDate(date);
   };
@@ -233,8 +231,8 @@ const SaturdayPickerModal = ({ visible, onClose, onSelectDate, initialDate = new
               <View style={styles.hintContainer}>
                 <Text style={styles.hintText}>
                   {minDate 
-                    ? `Only Saturdays after ${formatDisplayDate(minDate)} can be selected`
-                    : 'Only future Saturdays can be selected'
+                    ? `Select any Saturday (must be different from ${formatDisplayDate(minDate)})`
+                    : 'Select any Saturday'
                   }
                 </Text>
               </View>
