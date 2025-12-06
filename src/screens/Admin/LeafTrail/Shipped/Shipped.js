@@ -53,7 +53,9 @@ const ShippedListItem = ({ item, navigation }) => (
         <View style={styles.flightDetailsRow}>
           <AirplaneIcon />
           <Text style={styles.detailsText}>
-            Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate ? moment(item.flightDate).format('MMM DD, YYYY') : 'Date TBD'}</Text>
+            Plant Flight <Text style={{ fontWeight: 'bold' }}>
+              {moment(item.flightDate).isValid() ? moment(item?.flightDate?._seconds ? (item.flightDate._seconds * 1000) : item?.flightDate).format('MMM DD, YYYY') : item.flightDate}
+              </Text>
           </Text>
         </View>
         <View style={styles.userRow}>

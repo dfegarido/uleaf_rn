@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   // User Profile
   userContainer: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15,
-    paddingVertical: 12, marginTop: 106,
+    paddingVertical: 12, marginTop: 50,
   },
   avatar: {
     width: 64, height: 64, borderRadius: 32,

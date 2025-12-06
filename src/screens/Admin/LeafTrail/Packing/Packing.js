@@ -15,6 +15,7 @@ import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
+import moment from 'moment';
 import { getAdminLeafTrailFilters, getAdminLeafTrailPacking } from '../../../../components/Api/getAdminLeafTrail';
 
 const PackingListItem = ({ item, navigation }) => (
@@ -35,7 +36,9 @@ const PackingListItem = ({ item, navigation }) => (
       <View style={styles.detailsContainer}>
           <View style={styles.flightDetailsRow}>
               <AirplaneIcon />
-              <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDate}</Text></Text>
+              <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>
+                {moment(item.flightDate).isValid() ? moment(item?.flightDate?._seconds ? (item.flightDate._seconds * 1000) : item?.flightDate).format('MMM DD, YYYY') : item.flightDate}
+                </Text></Text>
           </View>
           <View style={styles.userRow}>
               <Image source={{ uri: item.avatar }} style={styles.userAvatar} />

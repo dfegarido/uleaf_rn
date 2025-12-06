@@ -283,7 +283,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
           </View>
           <ShippingInfo
             upsShipping={packingDetails.upsShippingDate ? moment(packingDetails.upsShippingDate).format('MMM DD, YYYY') : 'Date TBD'}
-            plantFlight={packingDetails.flightDate ? moment(packingDetails.flightDate).format('MMM DD, YYYY') : 'Date TBD'}
+            plantFlight={moment(packingDetails.flightDate).isValid() ? moment(packingDetails?.flightDate?._seconds ? (packingDetails.flightDate._seconds * 1000) : packingDetails?.flightDate).format('MMM DD, YYYY') : packingDetails.flightDate}
           />
         </View>
 
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     color: '#202325',
   },
   scrollContent: {
-    paddingTop: 106, // Height of the header
+    paddingTop: 40, // Height of the header
     paddingBottom: 34,
   },
   trayInfoContainer: {

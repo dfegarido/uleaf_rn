@@ -102,7 +102,9 @@ const ShippingInfo = ({ upsShipping, plantFlight }) => (
     </View>
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>Plant Flight</Text>
-      <Text style={styles.infoValue}>{plantFlight}</Text>
+      <Text style={styles.infoValue}>
+        {moment(plantFlight).isValid() ? moment(plantFlight?._seconds ? (plantFlight._seconds * 1000) : plantFlight).format('MMM DD, YYYY') : plantFlight}
+      </Text>
     </View>
   </View>
 );
@@ -300,7 +302,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 48, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#FFFFFF', height: 106, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   headerTitle: { fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325' },
-  scrollContent: { paddingTop: 106, paddingBottom: 34 },
+  scrollContent: { paddingTop: 40, paddingBottom: 34 },
   boxInfoContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12 },
   boxIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#48A7F8', justifyContent: 'center', alignItems: 'center' },
   boxDetails: { flex: 1, gap: 4 },
