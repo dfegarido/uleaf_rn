@@ -1252,12 +1252,14 @@ const GenerateQR = ({navigation}) => {
                               }
                               style={styles.qrCodeImage}
                             />
-                            <Text style={styles.plantCode} numberOfLines={2}>
-                              {item.plantCode || 'N/A'}
-                            </Text>
                             {item.createdAt && (
                               <Text style={styles.orderDate} numberOfLines={1}>
                                 {formatGeneratedDate(item.createdAt)}
+                              </Text>
+                            )}
+                            {item.plantCode && (
+                              <Text style={styles.plantCode} numberOfLines={1}>
+                                {item.plantCode}
                               </Text>
                             )}
                             {(item.genus || item.species) && (
@@ -1268,11 +1270,6 @@ const GenerateQR = ({navigation}) => {
                             {item.gardenOrCompanyName && (
                               <Text style={styles.garden} numberOfLines={1}>
                                 {item.gardenOrCompanyName}
-                              </Text>
-                            )}
-                            {item.sellerName && (
-                              <Text style={styles.seller} numberOfLines={1}>
-                                {item.sellerName}
                               </Text>
                             )}
                             {item.receiverInfo && (
@@ -1464,6 +1461,18 @@ const styles = StyleSheet.create({
     lineHeight: 7,
     textAlign: 'center',
     color: '#202325',
+    alignSelf: 'stretch',
+    flex: 0,
+    marginTop: 0,
+    paddingHorizontal: 1,
+  },
+  plantCode: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 5.5,
+    lineHeight: 7,
+    textAlign: 'center',
+    color: '#FF6B35',
     alignSelf: 'stretch',
     flex: 0,
     marginTop: 0,

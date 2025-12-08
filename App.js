@@ -32,12 +32,14 @@ const App = () => {
   const checkAppVersion = async () => {
     try {
       const response = await getAppVersionApi();
+      console.log('response', response.data?.data);
       if (response.success && response.data?.data) {
         const { minimumVersion, currentVersion, forceUpdate, updateUrl, message } = response.data.data;
         
         // Compare version numbers
         if (isVersionUpdateRequired(appVersion, minimumVersion)) {
           console.log('Update required. Update URLs:', updateUrl);
+          console.log('Force update:', forceUpdate);
           setUpdateInfo({
             updateUrl,
             message: message || 'A new version of the app is available. Please update to continue.',
@@ -45,7 +47,8 @@ const App = () => {
           
           // If force update is enabled, show the screen
           if (forceUpdate) {
-            setShowUpdateScreen(false);
+            console.log('🚨 Force update enabled - showing update screen');
+            setShowUpdateScreen(true);
           } else {
             // Optional update - store info for later
             console.log('Update available:', currentVersion);
@@ -91,9 +94,18 @@ const App = () => {
     clearExpiredImageCache();
   }, []);
 
+  // Debug logging - must be before any early returns (Rules of Hooks)
+  useEffect(() => {
+    console.log('🔍 Update screen state:', {
+      showUpdateScreen,
+      hasUpdateInfo: !!updateInfo,
+      updateInfo,
+    });
+  }, [showUpdateScreen, updateInfo]);
+
   // Show update screen if update is required
   if (showUpdateScreen && updateInfo) {
-    console.log('Showing update screen with info:', updateInfo);
+    console.log('✅ Showing update screen with info:', updateInfo);
     return <UpdateRequiredScreen updateUrl={updateInfo.updateUrl} message={updateInfo.message} />;
   }
 

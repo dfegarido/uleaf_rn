@@ -2787,6 +2787,15 @@ export const useCheckoutController = () => {
           total: orderSummary.finalTotal || 0,
           discount: orderSummary.discount || 0,
           creditsApplied: orderSummary.creditsApplied || 0,
+          // Include shipping breakdown for order document storage
+          shippingTotal: orderSummary.baseUpsShipping || 0,
+          upsNextDayUpgrade: orderSummary.upsNextDayUpgradeCost || 0,
+          regularAirCargoTotal: orderSummary.airBaseCargo || 0,
+          wholesaleAirCargoTotal: orderSummary.wholesaleAirCargo || 0,
+          shippingCreditsDiscount: orderSummary.shippingCreditsDiscount || 0,
+          totalShippingCost: orderSummary.totalShippingCost || 0,
+          finalShippingCost: orderSummary.finalShippingCost || 0,
+          remainingShippingCredit: orderSummary.shippingCreditNote ? (shippingCalculation?.remainingShippingCredit || 0) : 0,
         },
         // Include discount information to track usage
         ...(appliedDiscount.discountId && appliedDiscount.amount > 0 && {

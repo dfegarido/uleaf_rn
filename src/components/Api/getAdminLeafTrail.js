@@ -1,4 +1,5 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
   try {
@@ -11,7 +12,7 @@ export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailReceiving${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_RECEIVING}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
     
     const response = await fetch(
       url,
@@ -41,7 +42,7 @@ export const updateLeafTrailStatus = async (orderId, status) => {
   try {
     const token = await getStoredAuthToken();
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/updateLeafTrailStatus`
+    const url = API_ENDPOINTS.UPDATE_LEAF_TRAIL_STATUS
     
     const response = await fetch(
       url,
@@ -78,7 +79,7 @@ export const getAdminScanQr = async (filters, leafTrailStatus) => {
       filters.leafTrailStatus = leafTrailStatus
     }
     const urlParam = new URLSearchParams(filters).toString()
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminScanQr?${urlParam}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_SCAN_QR}?${urlParam}`
     
     const response = await fetch(
       url,
@@ -107,7 +108,7 @@ export const getAdminScanQr = async (filters, leafTrailStatus) => {
 export const getAdminLeafTrailFilters = async (statuses = null) => {
   try {
     const token = await getStoredAuthToken();
-    let url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminFilters`
+    let url = API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_FILTERS
 
     if (statuses) {
       url = url + '?statuses=' + statuses
@@ -149,7 +150,7 @@ export const getAdminLeafTrailSorting = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailSorting${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SORTING}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
   
     const response = await fetch(
       url,
@@ -180,7 +181,7 @@ export const addLeafTrailBoxNumber = async (data) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailBoxNumber',
+      API_ENDPOINTS.ADD_LEAF_TRAIL_BOX_NUMBER,
       {
         method: 'POST', 
         headers: {
@@ -209,7 +210,7 @@ export const addSortingTrayNumber = async (data) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafSortTray',
+      API_ENDPOINTS.ADD_LEAF_SORT_TRAY,
       {
         method: 'POST', 
         headers: {
@@ -244,7 +245,7 @@ export const getAdminLeafTrailPacking = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailPacking${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_PACKING}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
     
     const response = await fetch(
       url,
@@ -275,7 +276,7 @@ export const getOrdersBySortingTray = async (trayNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersBySortingTray?sortingTrayNumber=' + trayNumber,
+      `${API_ENDPOINTS.GET_ORDERS_BY_SORTING_TRAY}?sortingTrayNumber=${trayNumber}`,
       {
         method: 'GET', 
         headers: {
@@ -303,7 +304,7 @@ export const getOrdersByBoxNumber = async (boxNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersByBoxNumber?boxNumber=' + boxNumber,
+      `${API_ENDPOINTS.GET_ORDERS_BY_BOX_NUMBER}?boxNumber=${boxNumber}`,
       {
         method: 'GET', 
         headers: {
@@ -331,7 +332,7 @@ export const getOrdersByTrackingNumber = async (trackingNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getOrdersByTrackingNumber?trackingNumber=' + trackingNumber,
+      `${API_ENDPOINTS.GET_ORDERS_BY_TRACKING_NUMBER}?trackingNumber=${trackingNumber}`,
       {
         method: 'GET', 
         headers: {
@@ -359,7 +360,7 @@ export const addLeafTrailTrackingNumber = async (data) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailTrackingNumber',
+      API_ENDPOINTS.ADD_LEAF_TRAIL_TRACKING_NUMBER,
       {
         method: 'POST', 
         headers: {
@@ -394,7 +395,7 @@ export const getAdminLeafTrailShipping = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailShipping${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SHIPPING}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
 
     const response = await fetch(
       url,
@@ -431,7 +432,7 @@ export const getAdminLeafTrailShipped = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminLeafTrailShipped${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SHIPPED}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
     console.log('url', url);
 
     const response = await fetch(
@@ -463,7 +464,7 @@ export const addLeafTrailShippingDetails = async (data) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/addLeafTrailShippingDetails',
+      API_ENDPOINTS.ADD_LEAF_TRAIL_SHIPPING_DETAILS,
       {
         method: 'POST', 
         headers: {

@@ -7,7 +7,7 @@ export const updateOrderSellerScanned = async (data) => {
     if ((typeof data) === 'string') {      
       data = JSON.parse(data)
     }
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/updateOrderSellerScanned`;
+    const url = API_ENDPOINTS.UPDATE_ORDER_SELLER_SCANNED;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -34,7 +34,7 @@ export const getSellerOrderCounts = async () => {
   try {
     const token = await getStoredAuthToken();
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getSellerOrderCounts`
+    const url = API_ENDPOINTS.GET_SELLER_ORDER_COUNTS;
     
     const response = await fetch(
       url,
@@ -108,7 +108,7 @@ export const updateOrderLeafTrailStatus = async (orderId, status) => {
   try {
     const token = await getStoredAuthToken();
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/updateOrderLeafTrailStatus`
+    const url = API_ENDPOINTS.UPDATE_ORDER_LEAF_TRAIL_STATUS;
     
     const response = await fetch(
       url,

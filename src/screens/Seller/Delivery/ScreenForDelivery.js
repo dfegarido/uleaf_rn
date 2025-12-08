@@ -31,7 +31,8 @@ import {
   getSortApi
 } from '../../../components/Api';
 
-import { getOrderForReceiving, updateOrderLeafTrailStatus } from '../../../components/Api/sellerOrderApi';
+import { getOrderForReceiving } from '../../../components/Api/sellerOrderApi';
+import { updateLeafTrailStatus } from '../../../components/Api/getAdminLeafTrail';
 
 
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -240,7 +241,7 @@ const ScreenForDelivery = ({navigation, route}) => {
       console.log('orderId', orderId);
       setLoading(true);
         setTagAsVisible(!isTagAsVisible);
-        const response = await updateOrderLeafTrailStatus(orderId, status);
+        const response = await updateLeafTrailStatus(orderId, status);
         console.log('response', response);
         if (response.success) {
           setLoading(false)

@@ -261,6 +261,11 @@ const generateEndpoints = () => ({
   GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
   GENERATE_INVOICE: `${getBaseUrl()}/generateInvoice`,
   
+  // Seller Order APIs
+  UPDATE_ORDER_SELLER_SCANNED: `${getBaseUrl()}/updateOrderSellerScanned`,
+  GET_SELLER_ORDER_COUNTS: `${getBaseUrl()}/getSellerOrderCounts`,
+  UPDATE_ORDER_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateOrderLeafTrailStatus`,
+  
   // System APIs
   CHECK_MAINTENANCE: `${getBaseUrl()}/checkMaintenance`,
   SET_MAINTENANCE: `${getBaseUrl()}/setMaintenance`,
@@ -317,6 +322,23 @@ const generateEndpoints = () => ({
   UPDATE_FLIGHT_DATE_STATUS: `${getBaseUrl()}/updateFlightDateStatus`,
   UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getBaseUrl()}/updateFlightDateForSchedule`,
   GET_ACTIVE_FLIGHT_DATES: `${getBaseUrl()}/getActiveFlightDates`,
+
+  // Leaf Trail endpoints
+  UPDATE_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateLeafTrailStatus`,
+  GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getBaseUrl()}/getAdminLeafTrailReceiving`,
+  GET_ADMIN_LEAF_TRAIL_SORTING: `${getBaseUrl()}/getAdminLeafTrailSorting`,
+  GET_ADMIN_LEAF_TRAIL_PACKING: `${getBaseUrl()}/getAdminLeafTrailPacking`,
+  GET_ADMIN_LEAF_TRAIL_SHIPPING: `${getBaseUrl()}/getAdminLeafTrailShipping`,
+  GET_ADMIN_LEAF_TRAIL_SHIPPED: `${getBaseUrl()}/getAdminLeafTrailShipped`,
+  GET_ADMIN_LEAF_TRAIL_FILTERS: `${getBaseUrl()}/getAdminFilters`,
+  GET_ADMIN_SCAN_QR: `${getBaseUrl()}/getAdminScanQr`,
+  ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
+  ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
+  GET_ORDERS_BY_SORTING_TRAY: `${getBaseUrl()}/getOrdersBySortingTray`,
+  GET_ORDERS_BY_BOX_NUMBER: `${getBaseUrl()}/getOrdersByBoxNumber`,
+  GET_ORDERS_BY_TRACKING_NUMBER: `${getBaseUrl()}/getOrdersByTrackingNumber`,
+  ADD_LEAF_TRAIL_TRACKING_NUMBER: `${getBaseUrl()}/addLeafTrailTrackingNumber`,
+  ADD_LEAF_TRAIL_SHIPPING_DETAILS: `${getBaseUrl()}/addLeafTrailShippingDetails`,
 
   // Delivery Export endpoint
   DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,
