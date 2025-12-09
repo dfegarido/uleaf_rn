@@ -34,7 +34,6 @@ import {
   RtcSurfaceView,
   RtcTextureView,
 } from 'react-native-agora';
-import BraintreeDropIn from 'react-native-braintree-dropin-ui';
 import KeepAwake from 'react-native-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
@@ -55,8 +54,7 @@ import {
   addViewerToLiveSession,
   generateAgoraToken,
   removeViewerFromLiveSession,
-  createBraintreeTransactionApi, // New API helper
-  generateBraintreeClientTokenApi, // New API helper
+  toggleLoveLiveSession,
   updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
@@ -671,54 +669,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     
   }
 
-  const handleVenmoPayment = async (item, unitPrice) => {
-    try {
-      // 1. Get Braintree client token from your backend
-      const tokenResponse = await generateBraintreeClientTokenApi();
-      if (!tokenResponse.token) {
-        throw new Error('Failed to get payment token.');
-      }
-
-      // 2. Show Braintree Drop-in UI to get a payment nonce
-      const result = await BraintreeDropIn.show({
-        clientToken: tokenResponse.token,
-        // We only want Venmo for this flow
-        venmoSwitch: true, 
-        // Other options can be disabled if you only want Venmo
-        paypalSwitch: false,
-        cardDisabled: true,
-        // Vaulting is requested on the server, but we can prompt the user
-        vaultManager: true, 
-      });
-
-      const { nonce } = result;
-      if (!nonce) {
-        Alert.alert('Payment Canceled', 'The payment process was canceled.');
-        return;
-      }
-
-      // 3. Send nonce to your server to create the transaction
-      setIsLoading(true);
-      const transactionResponse = await createBraintreeTransactionApi({
-        paymentMethodNonce: nonce,
-        amount: unitPrice.toFixed(2),
-        listingId: item.id,
-        storeInVault: true, // Always try to vault the payment method
-      });
-
-      if (transactionResponse.success) {
-        Alert.alert('Payment Successful!', `Transaction ID: ${transactionResponse.transactionId}`);
-        // The backend should have updated the order status.
-        // The onSnapshot listener for the order will automatically update the UI.
-      }
-    } catch (error) {
-      console.error('Venmo payment error:', error);
-      Alert.alert('Payment Error', error.message || 'An unknown error occurred during payment.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Effect to fetch order for the active listing
   useEffect(() => {
     if (!activeListing?.id) {
@@ -1026,7 +976,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
               {!orderStatus && (
                <TouchableOpacity onPress={() => {
-                  handleVenmoPayment(activeListing, unitPrice);
+                  buyNow(activeListing);
                 }} style={styles.actionButtonTouch}>
                   <Text style={styles.actionText}>Buy Now</Text>
                 </TouchableOpacity>
