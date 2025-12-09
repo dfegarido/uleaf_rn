@@ -186,7 +186,8 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
             minScale={0.5}
             maxScale={3}
             enableSwipeDown={true} // Allow swiping down to close
-            onSwipeDown={() => setImageModalVisible(false)}>
+            onSwipeDown={() => setImageModalVisible(false)}
+            onClick={() => setImageModalVisible(false)}>
             <Image
               source={{ uri: listing.imagePrimary }}
               style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
