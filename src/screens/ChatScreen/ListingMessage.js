@@ -1,7 +1,8 @@
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal, TouchableWithoutFeedback } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
 import { db } from '../../../firebase';
+import ImageZoom from 'react-native-image-pan-zoom';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
 import EditIcon from '../../assets/icons/greydark/note-edit.svg';
 import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
@@ -170,21 +171,29 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
         transparent={true}
         onRequestClose={() => setImageModalVisible(false)}
       >
-        <TouchableWithoutFeedback onPress={() => setImageModalVisible(false)}>
-          <View style={styles.fullScreenImageContainer}>
-            <TouchableOpacity
-              style={styles.fullScreenImageCloseButton}
-              onPress={() => setImageModalVisible(false)}
-            >
-              <CloseIcon width={24} height={24} color="#fff" />
-            </TouchableOpacity>
+        <View style={styles.fullScreenImageContainer}>
+          <TouchableOpacity
+            style={styles.fullScreenImageCloseButton}
+            onPress={() => setImageModalVisible(false)}
+          >
+            <CloseIcon width={24} height={24} color="#fff" />
+          </TouchableOpacity>
+          <ImageZoom
+            cropWidth={Dimensions.get('window').width}
+            cropHeight={Dimensions.get('window').height}
+            imageWidth={Dimensions.get('window').width}
+            imageHeight={Dimensions.get('window').height}
+            minScale={0.5}
+            maxScale={3}
+            enableSwipeDown={true} // Allow swiping down to close
+            onSwipeDown={() => setImageModalVisible(false)}>
             <Image
               source={{ uri: listing.imagePrimary }}
-              style={styles.fullScreenImage}
+              style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
               resizeMode="contain"
             />
-          </View>
-        </TouchableWithoutFeedback>
+          </ImageZoom>
+        </View>
       </Modal>
     </>
   );
