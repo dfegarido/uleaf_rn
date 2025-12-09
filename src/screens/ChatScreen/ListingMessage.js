@@ -1,5 +1,5 @@
 import { doc, getDoc } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
 import { db } from '../../../firebase';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
@@ -11,6 +11,8 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
+  const pressInTimeout = useRef(null);
+  const isLongPress = useRef(false);
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -70,6 +72,31 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
     );
   };
 
+  const handlePressIn = () => {
+    // When the user presses down, start a timer.
+    pressInTimeout.current = setTimeout(() => {
+      // If the timer completes (user is holding), show the modal and flag it as a long press.
+      setImageModalVisible(true);
+      isLongPress.current = true;
+    }, 200); // 200ms delay to distinguish from a tap.
+  };
+
+  const handlePressOut = () => {
+    // When the user releases their finger...
+    clearTimeout(pressInTimeout.current); // Always clear the timer.
+    if (isLongPress.current) {
+      // If it was a long press (peek), close the modal.
+      setImageModalVisible(false);
+      isLongPress.current = false; // Reset the flag.
+    }
+  };
+
+  const handlePress = () => {
+    // This only fires on a short tap because the long press is handled above.
+    // Open the modal and let it stay open.
+    setImageModalVisible(true);
+  };
+
   if (loading) {
     return (
       <View style={[styles.card, styles.loadingContainer]}>
@@ -93,7 +120,11 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
     <>
       <View style={styles.card}>
         <View style={styles.imageContainer}>
-          <TouchableOpacity onLongPress={() => setImageModalVisible(true)}>
+          <TouchableOpacity
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            onPress={handlePress}
+            activeOpacity={0.8}>
             <Image source={{ uri: listing.imagePrimary }} style={styles.image} />
             {isSoldOut && (
               <View style={styles.soldBadge}>
@@ -104,7 +135,7 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
         </View>
         <View style={styles.detailsContainer}>
           <View style={styles.titleContainer}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={styles.title}>
               {listing.genus} {listing.species}
             </Text>
             {isSeller && (
@@ -118,6 +149,9 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
               </View>
             )}
           </View>
+           <Text style={styles.title}>
+              {listing.variegation}
+            </Text>
           <Text style={styles.price}>${listing.usdPrice}</Text>        
           {(!isSoldOut && isBuyer) && (
             <TouchableOpacity
@@ -214,8 +248,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '400',
     color: '#000',
     flex: 1, // Allow title to take up available space
     marginRight: 8,
