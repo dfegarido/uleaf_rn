@@ -1,6 +1,6 @@
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal, TouchableWithoutFeedback } from 'react-native';
 import { db } from '../../../firebase';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
 import EditIcon from '../../assets/icons/greydark/note-edit.svg';
@@ -170,19 +170,21 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
         transparent={true}
         onRequestClose={() => setImageModalVisible(false)}
       >
-        <View style={styles.fullScreenImageContainer}>
-          <TouchableOpacity
-            style={styles.fullScreenImageCloseButton}
-            onPress={() => setImageModalVisible(false)}
-          >
-            <CloseIcon width={24} height={24} color="#fff" />
-          </TouchableOpacity>
-          <Image
-            source={{ uri: listing.imagePrimary }}
-            style={styles.fullScreenImage}
-            resizeMode="contain"
-          />
-        </View>
+        <TouchableWithoutFeedback onPress={() => setImageModalVisible(false)}>
+          <View style={styles.fullScreenImageContainer}>
+            <TouchableOpacity
+              style={styles.fullScreenImageCloseButton}
+              onPress={() => setImageModalVisible(false)}
+            >
+              <CloseIcon width={24} height={24} color="#fff" />
+            </TouchableOpacity>
+            <Image
+              source={{ uri: listing.imagePrimary }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </>
   );
