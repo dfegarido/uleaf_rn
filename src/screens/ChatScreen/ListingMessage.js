@@ -247,13 +247,12 @@ const styles = StyleSheet.create({
   fullScreenImage: {
     width: '100%',
     height: '100%',
-    zIndex: 2,
   },
   fullScreenImageCloseButton: {
     position: 'absolute',
-    top: 60, // Adjust as needed for safe area
+    top: 50, // Using a value that works well with safe areas
     right: 20,
-    zIndex: 1,
+    zIndex: 10, // Increased zIndex to ensure it's on top
     padding: 10,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 20,
