@@ -1,9 +1,12 @@
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
+import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
+import EditIcon from '../../assets/icons/greydark/note-edit.svg';
+import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
 
-const ListingMessage = ({ isBuyer, listingId, navigation }) => {
+const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +34,39 @@ const ListingMessage = ({ isBuyer, listingId, navigation }) => {
 
     fetchListing();
   }, [listingId]);
+
+  const handleEdit = () => {
+    if (!listing) return;
+    // Navigate to the edit screen, passing the listing's plantCode
+    navigation.navigate('ScreenEditListing', { plantCode: listing.plantCode });
+  };
+
+  const handleDelete = () => {
+    if (!listing) return;
+    Alert.alert(
+      "Delete Listing",
+      "Are you sure you want to delete this listing? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await postListingDeleteApi(listing.plantCode);
+              setListing(null);
+              setLoading(false);
+              Alert.alert("Success", "Listing has been deleted.");
+            } catch (error) {
+              setLoading(false)
+              Alert.alert("Error", "Failed to delete listing. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   if (loading) {
     return (
@@ -62,10 +98,22 @@ const ListingMessage = ({ isBuyer, listingId, navigation }) => {
         )}
       </View>
       <View style={styles.detailsContainer}>
-        <Text style={styles.title} numberOfLines={2}>
-          {listing.genus} {listing.species}
-        </Text>
-        <Text style={styles.price}>${listing.localPrice?.toFixed(2)}</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title} numberOfLines={2}>
+            {listing.genus} {listing.species}
+          </Text>
+          {isSeller && (
+            <View style={styles.sellerActions}>
+              <TouchableOpacity onPress={handleEdit} style={styles.iconButton}>
+                <EditIcon width={16} height={16} color="#666" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={styles.iconButton}>
+                <TrashIcon width={16} height={16} color="#E7522F" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+        <Text style={styles.price}>${listing.usdPrice}</Text>        
         {(!isSoldOut && isBuyer) && (
           <TouchableOpacity
             style={styles.primaryButton}
@@ -132,11 +180,26 @@ const styles = StyleSheet.create({
   detailsContainer: {
     padding: 12,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
   title: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
     color: '#000',
+    flex: 1, // Allow title to take up available space
+    marginRight: 8,
+  },
+  sellerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   price: {
     fontSize: 16,

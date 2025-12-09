@@ -814,6 +814,7 @@ const ChatScreen = ({navigation, route}) => {
                 listingId={item.listingId}
                 navigation={navigation}
                 isBuyer={isBuyer}
+                isSeller={isSeller}
               />
             );
           }}
