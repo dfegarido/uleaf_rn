@@ -1,14 +1,16 @@
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
 import { db } from '../../../firebase';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
 import EditIcon from '../../assets/icons/greydark/note-edit.svg';
 import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
+import CloseIcon from '../../assets/live-icon/close-x.svg'; // Assuming this icon is available
 
 const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isImageModalVisible, setImageModalVisible] = useState(false);
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -88,42 +90,67 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
   // const isSoldOut = true;
 
   return (
-    <View style={styles.card}>
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: listing.imagePrimary }} style={styles.image} />
-        {isSoldOut && (
-          <View style={styles.soldBadge}>
-            <Text style={styles.soldBadgeText}>SOLD</Text>
+    <>
+      <View style={styles.card}>
+        <View style={styles.imageContainer}>
+          <TouchableOpacity onLongPress={() => setImageModalVisible(true)}>
+            <Image source={{ uri: listing.imagePrimary }} style={styles.image} />
+            {isSoldOut && (
+              <View style={styles.soldBadge}>
+                <Text style={styles.soldBadgeText}>SOLD</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+        <View style={styles.detailsContainer}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title} numberOfLines={2}>
+              {listing.genus} {listing.species}
+            </Text>
+            {isSeller && (
+              <View style={styles.sellerActions}>
+                <TouchableOpacity onPress={handleEdit} style={styles.iconButton}>
+                  <EditIcon width={16} height={16} color="#666" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDelete} style={styles.iconButton}>
+                  <TrashIcon width={16} height={16} color="#E7522F" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-        )}
-      </View>
-      <View style={styles.detailsContainer}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title} numberOfLines={2}>
-            {listing.genus} {listing.species}
-          </Text>
-          {isSeller && (
-            <View style={styles.sellerActions}>
-              <TouchableOpacity onPress={handleEdit} style={styles.iconButton}>
-                <EditIcon width={16} height={16} color="#666" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} style={styles.iconButton}>
-                <TrashIcon width={16} height={16} color="#E7522F" />
-              </TouchableOpacity>
-            </View>
+          <Text style={styles.price}>${listing.usdPrice}</Text>        
+          {(!isSoldOut && isBuyer) && (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => navigation.navigate('ScreenPlantDetail', { plantCode: listing.plantCode })}
+            >
+              <Text style={styles.primaryButtonText}>Buy Now</Text>
+            </TouchableOpacity>
           )}
         </View>
-        <Text style={styles.price}>${listing.usdPrice}</Text>        
-        {(!isSoldOut && isBuyer) && (
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => navigation.navigate('ScreenPlantDetail', { plantCode: listing.plantCode })}
-          >
-            <Text style={styles.primaryButtonText}>Buy Now</Text>
-          </TouchableOpacity>
-        )}
       </View>
-    </View>
+
+      {/* Full-screen image modal */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.fullScreenImageContainer}>
+          <TouchableOpacity
+            style={styles.fullScreenImageCloseButton}
+            onPress={() => setImageModalVisible(false)}
+          >
+            <CloseIcon width={24} height={24} color="#fff" />
+          </TouchableOpacity>
+          <Image
+            source={{ uri: listing.imagePrimary }}
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -210,6 +237,26 @@ const styles = StyleSheet.create({
   errorText: {
     padding: 12,
     color: 'red',
+  },
+  fullScreenImageContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)', // Dark overlay
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+    zIndex: 2,
+  },
+  fullScreenImageCloseButton: {
+    position: 'absolute',
+    top: 60, // Adjust as needed for safe area
+    right: 20,
+    zIndex: 1,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
   },
 });
 
