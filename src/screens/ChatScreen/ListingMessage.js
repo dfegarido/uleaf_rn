@@ -43,7 +43,7 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
   const handleEdit = () => {
     if (!listing) return;
     // Navigate to the edit screen, passing the listing's plantCode
-    navigation.navigate('ScreenEditListing', { plantCode: listing.plantCode });
+    navigation.navigate('ScreenSingleSell', { plantCode: listing.plantCode, isGroupChatListing: true });
   };
 
   const handleDelete = () => {
