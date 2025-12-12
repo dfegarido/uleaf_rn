@@ -53,6 +53,7 @@ import {
   getVariegationApi,
   searchPlantsApi,
 } from '../../../components/Api';
+import { browsePlantsByGenusApi } from '../../../components/Api/listingBrowseApi';
 import {
   getAcclimationIndexApi,
   getCountryApi,
@@ -430,41 +431,123 @@ const ScreenShop = ({navigation}) => {
     }
   };
 
+  // Fallback function to load static genus images
+  const loadStaticGenusImages = () => {
+    const staticGenus = [
+      { key: 'alocasia', label: 'Alocasia', src: alocasiaImage },
+      { key: 'anthurium', label: 'Anthurium', src: anthuriumImage },
+      { key: 'begonia', label: 'Begonia', src: begoniaImage },
+      { key: 'hoya', label: 'Hoya', src: hoyaImage },
+      { key: 'monstera', label: 'Monstera', src: monsteraImage },
+      { key: 'scindapsus', label: 'Scindapsus', src: scindapsusImage },
+      { key: 'syngonium', label: 'Syngonium', src: syngoniumImage },
+      { key: 'philodendron', label: 'Philodendron', src: philodendronImage },
+      { key: 'others', label: 'Others', src: othersImage },
+    ];
+
+    // Map to dynamicGenusData shape expected by UI
+    const mapped = staticGenus.map(g => ({
+      src: g.src,
+      label: g.label,
+      genusName: g.label,
+      plantCount: null,
+      speciesCount: null,
+      priceRange: null,
+      representativeImage: null,
+      representativeImageWebp: null,
+    }));
+
+    // Ensure Others last
+    const sorted = mapped.sort((a,b)=>{
+      const ao = a.label.toLowerCase()==='others';
+      const bo = b.label.toLowerCase()==='others';
+      if (ao && !bo) return 1; if (!ao && bo) return -1; return 0;
+    });
+    setDynamicGenusData(sorted);
+  };
+
+  // Helper function to capitalize first letter
+  const capitalizeFirst = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
   const loadBrowseGenusData = async () => {
-    // Local, static genus set (no API).
     try {
       setLoadingGenusData(true);
-      const staticGenus = [
-        { key: 'alocasia', label: 'Alocasia', src: alocasiaImage },
-        { key: 'anthurium', label: 'Anthurium', src: anthuriumImage },
-        { key: 'begonia', label: 'Begonia', src: begoniaImage },
-        { key: 'hoya', label: 'Hoya', src: hoyaImage },
-        { key: 'monstera', label: 'Monstera', src: monsteraImage },
-        { key: 'scindapsus', label: 'Scindapsus', src: scindapsusImage },
-        { key: 'syngonium', label: 'Syngonium', src: syngoniumImage },
-        { key: 'philodendron', label: 'Philodendron', src: philodendronImage },
-        { key: 'others', label: 'Others', src: othersImage },
-      ];
+      
+      // Check network connectivity with tolerant check
+      // On some emulators/devices, isInternetReachable can be null even when connected
+      let netState;
+      try {
+        netState = await NetInfo.fetch();
+      } catch (netErr) {
+        console.warn('[loadBrowseGenusData] NetInfo.fetch failed, proceeding to API call', netErr);
+        netState = { isConnected: true, isInternetReachable: null };
+      }
+      
+      // Use a tolerant check for network availability
+      // Prefer isInternetReachable when defined, otherwise fall back to isConnected
+      const isNetworkAvailable = (state) => {
+        if (!state) return false;
+        if (typeof state.isInternetReachable === 'boolean') {
+          return state.isInternetReachable;
+        }
+        return !!state.isConnected;
+      };
+      
+      if (!isNetworkAvailable(netState)) {
+        console.warn('[loadBrowseGenusData] No internet connection, using static images');
+        loadStaticGenusImages();
+        return;
+      }
 
-      // Map to dynamicGenusData shape expected by UI (omit API-only fields)
-      const mapped = staticGenus.map(g => ({
-        src: g.src,
-        label: g.label,
-        genusName: g.label,
-        plantCount: null,
-        speciesCount: null,
-        priceRange: null,
-        representativeImage: null,
-        representativeImageWebp: null,
-      }));
+      // Call API to get dynamic genus images (highest price plant per genus)
+      const response = await retryAsync(() => browsePlantsByGenusApi({
+        limit: 20, // Get all genera
+        sortBy: 'genus',
+        sortOrder: 'asc'
+      }), 3, 1000);
 
-      // Ensure Others last
-      const sorted = mapped.sort((a,b)=>{
-        const ao = a.label.toLowerCase()==='others';
-        const bo = b.label.toLowerCase()==='others';
-        if (ao && !bo) return 1; if (!ao && bo) return -1; return 0;
-      });
-      setDynamicGenusData(sorted);
+      if (response.success && response.data && response.data.genusGroups) {
+        const genusGroups = response.data.genusGroups;
+        
+        // Map API response to UI format
+        const mapped = genusGroups.map(group => {
+          // Use WebP image if available, fallback to original, then static
+          const imageUrl = group.representativeImageWebp || group.representativeImage;
+          
+          return {
+            src: imageUrl || null, // Will use static fallback in render if null
+            label: capitalizeFirst(group.genus),
+            genusName: capitalizeFirst(group.genus),
+            plantCount: group.plantCount || 0,
+            speciesCount: group.speciesCount || 0,
+            priceRange: group.priceRange || null,
+            representativeImage: group.representativeImage,
+            representativeImageWebp: group.representativeImageWebp,
+            highestPrice: group.highestPrice || 0,
+            highestPricePlant: group.highestPricePlant || null
+          };
+        });
+
+        // Ensure "Others" is last
+        const sorted = mapped.sort((a,b)=>{
+          const ao = a.label.toLowerCase()==='others';
+          const bo = b.label.toLowerCase()==='others';
+          if (ao && !bo) return 1; if (!ao && bo) return -1; return 0;
+        });
+        
+        setDynamicGenusData(sorted);
+      } else {
+        // API call failed or returned no data, use static images
+        console.warn('[loadBrowseGenusData] API call failed or no data, using static images');
+        loadStaticGenusImages();
+      }
+    } catch (error) {
+      console.error('[loadBrowseGenusData] Error loading genus data:', error);
+      // Fallback to static images on error
+      loadStaticGenusImages();
     } finally {
       setLoadingGenusData(false);
     }
@@ -1262,38 +1345,77 @@ const ScreenShop = ({navigation}) => {
             ))
           ) : dynamicGenusData.length > 0 ? (
             // Static local genus data
-            dynamicGenusData.map((item, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={{
-                  width: '30%',
-                  marginBottom: 18,
-                  alignItems: 'center',
-                  position: 'relative',
-                }}
-                onPress={() => onGenusPress(item.genusName)}>
-                <Image
-                  source={item.src || genus1}
+            dynamicGenusData.map((item, idx) => {
+              // Get static fallback based on genus name
+              const getStaticFallback = () => {
+                const genusLower = item.label.toLowerCase();
+                const staticMap = {
+                  'alocasia': alocasiaImage,
+                  'anthurium': anthuriumImage,
+                  'begonia': begoniaImage,
+                  'hoya': hoyaImage,
+                  'monstera': monsteraImage,
+                  'scindapsus': scindapsusImage,
+                  'syngonium': syngoniumImage,
+                  'philodendron': philodendronImage,
+                  'others': othersImage,
+                };
+                return staticMap[genusLower] || genus1;
+              };
+
+              // Determine image source: remote URL or local require()
+              let imageSource;
+              const staticFallback = getStaticFallback();
+              
+              if (typeof item.src === 'string' && (item.src.startsWith('http') || item.src.startsWith('https'))) {
+                // Remote URL from API
+                imageSource = { uri: item.src };
+              } else if (item.src) {
+                // Local require() (static image)
+                imageSource = item.src;
+              } else {
+                // No image, use static fallback
+                imageSource = staticFallback;
+              }
+
+              return (
+                <TouchableOpacity
+                  key={idx}
                   style={{
-                    width: 110,
-                    height: 110,
-                    borderRadius: 12,
-                    marginBottom: 6,
+                    width: '30%',
+                    marginBottom: 18,
+                    alignItems: 'center',
+                    position: 'relative',
                   }}
-                  resizeMode="cover"
-                />
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '800',
-                    color: '#393D40',
-                    textAlign: 'center',
-                    textTransform: 'capitalize',
-                  }}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))
+                  onPress={() => onGenusPress(item.genusName)}>
+                  <Image
+                    source={imageSource}
+                    style={{
+                      width: 110,
+                      height: 110,
+                      borderRadius: 12,
+                      marginBottom: 6,
+                    }}
+                    resizeMode="cover"
+                    onError={() => {
+                      // If remote image fails, we could update state to use fallback
+                      // For now, just log the error
+                      console.warn(`[ScreenShop] Failed to load image for ${item.label}:`, item.src);
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '800',
+                      color: '#393D40',
+                      textAlign: 'center',
+                      textTransform: 'capitalize',
+                    }}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
           ) : (
             // Show error state when no data is available
             <View
