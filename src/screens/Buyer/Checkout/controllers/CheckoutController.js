@@ -12,6 +12,7 @@ import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileAp
 import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
 import { getActiveFlightDatesApi } from '../../../../components/Api/getActiveFlightDatesApi';
 import { roundToCents } from '../../../../utils/money';
+import { createAndCapturePaypalOrder } from '../../../../components/Api/paymentApi';
 
 /**
  * CheckoutController - Handles all business logic for CheckoutScreen
@@ -121,6 +122,9 @@ export const useCheckoutController = () => {
   const [receiverFlightDate, setReceiverFlightDate] = useState(null);
   const [disableAddressSelection, setDisableAddressSelection] = useState(false);
   const [disableFlightSelection, setDisableFlightSelection] = useState(false);
+
+  const [vaultedPaymentId, setVaultedPaymentId] = useState(null);
+  const [vaultedPaymentUsername, setVaultedPaymentUsername] = useState(null);
 
   // Animation refs
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -2238,6 +2242,8 @@ export const useCheckoutController = () => {
           setLeafPoints(profileResult.referralPointsBalance || profileResult.leafPoints || 0);
           setPlantCredits(profileResult.plantCredits || 0);
           setShippingCredits(profileResult.shippingCredits || 0);
+          setVaultedPaymentId(profileResult?.paypalPaymentSource?.id || null);
+          setVaultedPaymentUsername(profileResult?.paypalPaymentSource?.details?.venmo?.user_name || null);
           
           console.log('✅ [CheckoutController] Credits loaded:', {
             leafPoints: profileResult.referralPointsBalance || profileResult.leafPoints || 0,
@@ -2837,7 +2843,31 @@ export const useCheckoutController = () => {
         setTransactionNum(transactionNumber);
         
         // Redirect to payment page (same as Pay to Board flow)
-        if (transactionNumber && orderTotal > 0) {
+        
+        if (transactionNumber && orderTotal > 0 && vaultedPaymentId) {
+          setLoading(true);
+          const paymentResponse = await createAndCapturePaypalOrder({
+            amount: String(0.02),
+            ileafuOrderId: 'TXN1762690660039632',
+            vaultedPaymentId,
+          });
+          setLoading(false);
+          if (paymentResponse.success) {
+            Alert.alert('Success', 'Order placed successfully!', [
+              { text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }
+            ]);
+          }
+
+          if (!paymentResponse.success) {
+            Alert.alert(
+              'Payment Error',
+              paymentResponse.error || 'Payment failed. Please try again or contact support.',
+              [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
+            );
+          }
+            
+        } else if (transactionNumber && orderTotal > 0) {
+          
           const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
           
           console.log('💳 [handleCheckout] Redirecting to payment:', paymentUrl);
@@ -2848,7 +2878,7 @@ export const useCheckoutController = () => {
             Alert.alert(
               'Payment Error',
               'Unable to open payment page. Please try again or contact support.',
-              [{ text: 'OK', onPress: () => isLive ? navigation.goBack() : navigation.navigate('Orders') }]
+              [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
             );
           });
           
@@ -2860,7 +2890,7 @@ export const useCheckoutController = () => {
         } else {
           // If transaction number or total is missing, show success alert then navigate
           Alert.alert('Success', 'Order placed successfully!', [
-            { text: 'OK', onPress: () => navigation.navigate('Orders') }
+            { text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }
           ]);
         }
       } else {
@@ -2905,6 +2935,10 @@ export const useCheckoutController = () => {
     flightDateOptions,
     flightLockInfo,
     orderCutoffDate,
+
+    //savedPaymentDetails
+    vaultedPaymentUsername,
+    vaultedPaymentId,
 
     // Actions
     setCargoDate,

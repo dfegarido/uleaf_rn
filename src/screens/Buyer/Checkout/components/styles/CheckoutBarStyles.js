@@ -88,6 +88,42 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#E5E7EB',
   },
+  venmoButton: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 12,
+      backgroundColor: '#0074DE', // Venmo Blue
+      borderRadius: 12,
+      flex: 1,
+  },
+  venmoButtonDisabled: {
+      backgroundColor: '#A9B3B7', // A muted gray for the disabled state
+  },
+  venmoButtonContent: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+  },
+  venmoFirstLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  venmoButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: 'bold',
+      marginRight: 8,
+      fontStyle: 'italic',
+  },
+  venmoUsernameText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '500',
+      marginLeft: 0,
+      marginTop: 4,
+  },
 });
 
 export default styles;

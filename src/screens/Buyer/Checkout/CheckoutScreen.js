@@ -200,6 +200,10 @@ const CheckoutScreen = () => {
     flightLockInfo,
     orderCutoffDate,
 
+    //savedPaymentDetails
+    vaultedPaymentUsername,
+    vaultedPaymentId,
+
     // Actions
     setCargoDate,
     setSelectedFlightDate,
@@ -337,6 +341,8 @@ const CheckoutScreen = () => {
         loading={loading || isCalculatingShipping}
         selectedFlightDateIso={selectedFlightDate?.iso}
         onCheckoutPress={handleCheckout}
+        vaultedPaymentId={vaultedPaymentId}
+        vaultedPaymentUsername={vaultedPaymentUsername}
       />
       
       {/* Loading Modal */}
