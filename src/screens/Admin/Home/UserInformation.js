@@ -164,8 +164,8 @@ const UserInformation = () => {
       // Prepare request data
       const requestData = {
         userId: user.id || user.userId,
-        // Send the 2-letter country code (PH, TH, ID) to the API
-        country: editableFields.countryCode || getCountryCodeFromName(editableFields.country),
+        // Send the full country name (e.g., "Philippines", "Thailand") to the API
+        country: editableFields.country || getFullCountryName(editableFields.countryCode),
         gardenOrCompanyName: editableFields.gardenOrCompanyName,
         firstName: editableFields.firstName,
         lastName: editableFields.lastName,
