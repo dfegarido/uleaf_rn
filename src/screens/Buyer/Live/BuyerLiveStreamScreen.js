@@ -853,6 +853,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 )}
               <View style={styles.comments}>
                 <FlatList
+                  style={{backgroundColor: 'rgba(0, 0, 0, 0.4)', borderRadius: 16}}
                   ref={flatListRef}
                   data={comments}
                   keyExtractor={(item) => item.id}
@@ -950,9 +951,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 
               </View>
               <View style={styles.shipping}>
-                  <View style={styles.shippingType}>
-                    <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
-                  </View>
                   <View style={styles.shipDays}>
                     <TruckIcon width={24} height={24} />
                     <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
@@ -1187,13 +1185,15 @@ const styles = StyleSheet.create({
     gap: 16,
     width: 260,
     height: 453,
-    paddingBottom: 213
+    paddingBottom: 213,
+    
   },
   commentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
     width: '100%',
+    
     // marginBottom: 16,
   },
     joinedRow: {
@@ -1265,10 +1265,14 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     borderRadius: 12,
     color: '#FFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    borderRadius: 16
   },
   commentInputFocused: {
     height: 80, // Or another height that fits multiple lines
     textAlignVertical: 'top', // Align text to the top
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    borderRadius: 16
   },
   sideActions: {
     flexDirection: 'column',
