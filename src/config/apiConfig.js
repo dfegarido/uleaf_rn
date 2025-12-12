@@ -281,6 +281,7 @@ const generateEndpoints = () => ({
   GET_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getJourneyMishapData`,
   GET_ADMIN_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getAdminJourneyMishapData`,
   UPDATE_JOURNEY_MISHAP_STATUS: `${getBaseUrl()}/updateJourneyMishapStatus`,
+  EXPORT_BUYER_ORDERS: `${getBaseUrl()}/exportBuyerOrders`,
   
   // Dropdown APIs
   GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,

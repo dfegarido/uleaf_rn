@@ -1,14 +1,16 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import { useAuth } from '../../../auth/AuthProvider';
-import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
+import { getBuyerOrdersApi, exportBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
+import RNFS from 'react-native-fs';
+import FileViewer from 'react-native-file-viewer';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import Toast from '../../../components/Toast/Toast';
@@ -32,6 +34,7 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const browseMorePlantsRef = React.useRef(null);
   
   // Optimistic credit requests state - tracks plantCode+orderId combinations
@@ -466,6 +469,38 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
     await loadOrders(false, true);
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      setExporting(true);
+      console.log('📊 Exporting Plants are Home orders to Excel...');
+
+      const response = await exportBuyerOrdersApi({
+        status: 'delivered'
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to generate Excel file');
+      }
+
+      setExporting(false);
+      
+      // Show success message
+      Alert.alert(
+        '📧 Email Sent!',
+        `Your Excel report has been sent to:\n${response.sentTo}\n\nReport contains:\n• ${response.plantCount} plants\n• ${response.transactionCount} transactions\n\nPlease check your email inbox.`,
+        [{ text: 'OK' }]
+      );
+
+    } catch (error) {
+      console.error('Error exporting orders:', error);
+      setExporting(false);
+      Alert.alert(
+        'Export Failed', 
+        error.message || 'Failed to export orders. Please try again.'
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {loading ? (
@@ -525,6 +560,25 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
                 style={styles.retryButton} 
                 onPress={() => loadOrders()}>
                 <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Export Button */}
+          {orders.length > 0 && !error && (
+            <View style={styles.exportContainer}>
+              <TouchableOpacity 
+                style={[styles.exportButton, exporting && styles.exportButtonDisabled]}
+                onPress={handleExportToExcel}
+                disabled={exporting}
+              >
+                {exporting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.exportButtonText}>📧 Email Excel Report</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -650,6 +704,30 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontFamily: 'Inter',
     textAlign: 'center',
+  },
+  exportContainer: {
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+  },
+  exportButton: {
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 48,
+  },
+  exportButtonDisabled: {
+    backgroundColor: '#A0C4A8',
+    opacity: 0.7,
+  },
+  exportButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#FFFFFF',
   },
 });
 

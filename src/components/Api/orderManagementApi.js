@@ -958,3 +958,57 @@ export const updateJourneyMishapStatusApi = async (params = {}) => {
     };
   }
 };
+
+/**
+ * Export Buyer Orders to Excel (sends via email)
+ * @param {Object} params - Query parameters
+ * @param {string} params.status - Order status (required): 'Ready to Fly' or 'delivered'
+ * @returns {Promise<Object>} Excel file response
+ */
+export const exportBuyerOrdersApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    if (!params.status) {
+      throw new Error('status is required');
+    }
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('status', params.status);
+    
+    const url = `${API_ENDPOINTS.EXPORT_BUYER_ORDERS}?${queryParams.toString()}`;
+    console.log('📊 Exporting buyer orders:', params);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log('✅ Excel file sent via email successfully');
+    
+    return {
+      success: data.success || true,
+      message: data.message || 'Excel file sent to your email',
+      sentTo: data.sentTo || '',
+      filename: data.filename || '',
+      plantCount: data.plantCount || 0,
+      transactionCount: data.transactionCount || 0,
+    };
+  } catch (error) {
+    console.error('❌ Export buyer orders API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while exporting orders',
+    };
+  }
+};
