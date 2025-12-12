@@ -828,3 +828,133 @@ export const getJourneyMishapDataApi = async (params = {}) => {
     };
   }
 };
+
+/**
+ * Get All Journey Mishap Data for Admin
+ * Fetches ALL journey mishap requests (not filtered by buyer) with comprehensive linked data
+ * Admin-only endpoint
+ * @param {Object} params - Query parameters
+ * @param {number} params.limit - Number of records to fetch (default: 100)
+ * @param {number} params.offset - Offset for pagination (default: 0)
+ * @param {string} params.status - Filter by credit request status (pending, approved, rejected)
+ * @param {string} params.issueType - Filter by issue type (missing, damaged, dead_on_arrival)
+ * @param {string} params.orderId - Filter by specific order ID
+ * @param {string} params.plantCode - Filter by specific plant code
+ * @param {string} params.startDate - Filter by request date range start
+ * @param {string} params.endDate - Filter by request date range end
+ * @returns {Promise<Object>} Journey Mishap data response with linked order and listing details
+ */
+export const getAdminJourneyMishapDataApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    // Set default parameters
+    const defaultParams = {
+      limit: 100,
+      offset: 0,
+      includeOrderDetails: true,
+      includeListingDetails: true,
+      includePlantDetails: true,
+      ...params
+    };
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(defaultParams).forEach(key => {
+      if (defaultParams[key] !== undefined && defaultParams[key] !== null) {
+        queryParams.append(key, defaultParams[key].toString());
+      }
+    });
+    
+    console.log('🚀 Admin fetching Journey Mishap data with params:', defaultParams);
+    
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_ADMIN_JOURNEY_MISHAP_DATA}?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log('✅ Admin Journey Mishap data received:', {
+      totalRecords: data.data?.totalRecords || 0,
+      creditRequestsCount: data.data?.creditRequests?.length || 0,
+      hasOrderDetails: data.data?.creditRequests?.[0]?.orderDetails ? true : false,
+      hasListingDetails: data.data?.creditRequests?.[0]?.listingDetails ? true : false,
+      hasBuyerInfo: data.data?.creditRequests?.[0]?.buyerInfo ? true : false,
+    });
+    
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('❌ Get Admin Journey Mishap data API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching Journey Mishap data',
+    };
+  }
+};
+
+/**
+ * Update Journey Mishap Status (Admin only)
+ * @param {Object} params - Request parameters
+ * @param {string} params.creditRequestId - Credit request ID (required)
+ * @param {string} params.status - Status: 'approved' or 'rejected' (required)
+ * @param {string} params.reviewNotes - Optional review notes
+ * @returns {Promise<Object>} Update response
+ */
+export const updateJourneyMishapStatusApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    if (!params.creditRequestId || !params.status) {
+      throw new Error('creditRequestId and status are required');
+    }
+    
+    const url = API_ENDPOINTS.UPDATE_JOURNEY_MISHAP_STATUS;
+    console.log('🔄 Updating journey mishap status:', params);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log('✅ Journey mishap status updated successfully');
+    
+    return {
+      success: data.success || true,
+      message: data.message || 'Status updated successfully',
+      data: data.data || {},
+    };
+  } catch (error) {
+    console.error('❌ Update journey mishap status API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while updating status',
+    };
+  }
+};

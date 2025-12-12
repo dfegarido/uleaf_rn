@@ -44,6 +44,7 @@ import UserManagementIcon from '../../../assets/admin-icons/user-management.svg'
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getAdminFlightChangeRequestsApi } from '../../../components/Api/adminOrderApi';
+import { getAdminJourneyMishapDataApi } from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
 
 
@@ -102,15 +103,19 @@ const QuickLinkCard = ({title, icon, badgeCount, onPress}) => {
   );
 };
 
-const BusinessPerformance = ({ navigation }) => {
+const BusinessPerformance = ({ navigation, pendingWildgoneCount = 0 }) => {
     return (
       <View style={styles.sectionContainer}>
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Business Performance</Text>
         <View style={styles.cardRow}>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
-            <View style={styles.badge}>
-              <Text style={[globalStyles.textXSWhite, {fontWeight: '700'}]}>9</Text>
-            </View>
+          <TouchableOpacity 
+            style={[globalStyles.cardLightAccent, styles.card]}
+            onPress={() => navigation.navigate('SalesReport')}>
+            {pendingWildgoneCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={[globalStyles.textXSWhite, {fontWeight: '700'}]}>{pendingWildgoneCount}</Text>
+              </View>
+            )}
             <SalesReportIcon width={40} height={40} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Sales Report</Text>
           </TouchableOpacity>
@@ -272,11 +277,37 @@ const LeafTrailGreenhouse = ({navigation}) => {
 const Home = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const [pendingWildgoneCount, setPendingWildgoneCount] = useState(0);
 
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60; // Standard admin tab bar height
   const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+
+  // Fetch pending wildgone count when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchPendingWildgoneCount = async () => {
+        try {
+          const response = await getAdminJourneyMishapDataApi({
+            limit: 100,
+            offset: 0,
+          });
+
+          if (response.success && response.data?.data) {
+            const creditRequests = response.data.data.creditRequests || [];
+            // Count only pending requests
+            const pendingCount = creditRequests.filter(req => req.status === 'pending').length;
+            setPendingWildgoneCount(pendingCount);
+          }
+        } catch (error) {
+          console.error('Error fetching pending wildgone count:', error);
+        }
+      };
+
+      fetchPendingWildgoneCount();
+    }, [])
+  );
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
@@ -299,7 +330,7 @@ const Home = () => {
             />
           </View>
         </View>
-        <BusinessPerformance navigation={navigation} />
+        <BusinessPerformance navigation={navigation} pendingWildgoneCount={pendingWildgoneCount} />
         <LeafTrailGreenhouse navigation={navigation} />
         <BehindTheJungle />
         <NewsEventsRewards />

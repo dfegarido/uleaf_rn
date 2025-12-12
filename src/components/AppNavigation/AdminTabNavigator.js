@@ -64,6 +64,9 @@ import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 import { ChatScreen } from '../../screens/ChatScreen';
 import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
+import SalesReport from '../../screens/Admin/SalesReport/SalesReport';
+import JourneyMishapDetail from '../../screens/Admin/SalesReport/JourneyMishapDetail';
+import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -218,6 +221,9 @@ function AdminTabs() {
      <Stack.Screen name="LeafTrailPackingAdminScreen" options={{headerShown: false}} component={PackingScreen} />
      <Stack.Screen name="LeafTrailScanQRAdminScreen" options={{headerShown: false}} component={ScanQRScreen} />
      <Stack.Screen name="LeafTrailReceivingScreenAdminScreen" options={{headerShown: false}} component={ReceivingScreen} />
+     <Stack.Screen name="SalesReport" options={{headerShown: false}} component={SalesReport} />
+     <Stack.Screen name="JourneyMishapDetail" options={{headerShown: false}} component={JourneyMishapDetail} />
+     <Stack.Screen name="InvoiceViewScreen" options={{headerShown: false}} component={InvoiceViewScreen} />
      <Stack.Screen name="UserManagement" options={{headerShown: false}} component={UserManagement}/>
       <Stack.Screen name="JungleAccess" options={{headerShown: false}} component={JungleAccess}/>
       <Stack.Screen name="AddAdmin" options={{headerShown: false}} component={AddAdmin}/>
