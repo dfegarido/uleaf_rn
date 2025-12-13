@@ -42,6 +42,10 @@ const StatusBadge = ({statusCode}) => {
       badgeStyle = styles.expired;
       text = 'Live';
       break;
+    case 'GroupChatListing':
+      badgeStyle = styles.expired;
+      text = 'Group Chat Listing';
+      break;
     case 'SetToActive':
       badgeStyle = styles.scheduled;
       text = 'ToActive';

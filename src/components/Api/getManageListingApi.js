@@ -40,7 +40,6 @@ export const getManageListingApi = async (
     params.append('pinTag', pinTag ?? false);
     params.append('nextPageToken', nextPageToken ?? '');
 
-    console.log(params.toString());
 
     const response = await fetch(
       `${API_ENDPOINTS.SEARCH_LISTING}?${params.toString()}`,
@@ -57,8 +56,9 @@ export const getManageListingApi = async (
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
+    const data = await response.json();
 
-    return await response.json();
+    return data;
   } catch (error) {
     // console.error('getManageListingApi error:', error.message);
     throw error;
