@@ -937,6 +937,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
   };
 
   // Handle join request for buyers
+  // Auto-approve: Create join request with status 'approved' and add user to group immediately
   const handleJoinRequest = async () => {
     if (!chatId || !currentUserUid || !isPublic || isMember || !isBuyer) return;
 
@@ -958,37 +959,67 @@ const ChatSettingsScreen = ({navigation, route}) => {
                         userInfo?.user?.profilePhotoUrl || 
                         '';
       
-      // Check if request already exists
-      const joinRequestsRef = collection(db, 'chats', chatId, 'joinRequests');
-      const existingRequestQuery = query(
-        joinRequestsRef,
-        where('userId', '==', currentUserUid),
-        where('status', '==', 'pending')
-      );
-      const existingSnapshot = await getDocs(existingRequestQuery);
-      
-      if (!existingSnapshot.empty) {
-        Alert.alert('Info', 'You already have a pending join request for this group.');
-        setHasPendingRequest(true);
-        setRequestingJoin(false);
-        return;
+      // Check if user is already a member (double-check)
+      const chatDocRef = doc(db, 'chats', chatId);
+      const chatDocSnap = await getDoc(chatDocRef);
+      if (chatDocSnap.exists()) {
+        const chatData = chatDocSnap.data();
+        const memberIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
+        if (memberIds.includes(currentUserUid)) {
+          setIsMember(true);
+          setHasPendingRequest(false);
+          setRequestingJoin(false);
+          Alert.alert('Info', 'You are already a member of this group.');
+          return;
+        }
       }
       
-      // Create join request
-      const joinRequest = {
+      // Prepare new participant object
+      const newParticipant = {
+        uid: currentUserUid,
+        name: userName,
+        avatarUrl: userAvatar,
+      };
+      
+      // Add user to group participants and create approved join request in one batch
+      await updateDoc(chatDocRef, {
+        participants: arrayUnion(newParticipant),
+        participantIds: arrayUnion(currentUserUid),
+      });
+      
+      // Create join request record with status 'approved' (for tracking)
+      const joinRequestsRef = collection(db, 'chats', chatId, 'joinRequests');
+      const approvedJoinRequest = {
         userId: currentUserUid,
         userName: userName,
         userAvatar: userAvatar,
-        status: 'pending',
+        status: 'approved',
         requestedAt: Timestamp.now(),
+        reviewedAt: Timestamp.now(),
+        reviewedBy: 'auto-approved',
+        autoApproved: true,
       };
       
-      await addDoc(joinRequestsRef, joinRequest);
-      setHasPendingRequest(true);
-      Alert.alert('Success', 'Your join request has been submitted. An admin will review it.');
+      await addDoc(joinRequestsRef, approvedJoinRequest);
+      
+      // Update local state
+      setIsMember(true);
+      setHasPendingRequest(false);
+      
+      // Refresh participants list
+      const updatedChatDocSnap = await getDoc(chatDocRef);
+      if (updatedChatDocSnap.exists()) {
+        const updatedChatData = updatedChatDocSnap.data();
+        const updatedParticipants = Array.isArray(updatedChatData.participants) 
+          ? updatedChatData.participants 
+          : [];
+        setParticipants(updatedParticipants);
+      }
+      
+      Alert.alert('Success', 'You have successfully joined the group!');
     } catch (error) {
-      console.log('Error submitting join request:', error);
-      Alert.alert('Error', 'Failed to submit join request. Please try again.');
+      console.log('Error joining group:', error);
+      Alert.alert('Error', 'Failed to join group. Please try again.');
     } finally {
       setRequestingJoin(false);
     }
