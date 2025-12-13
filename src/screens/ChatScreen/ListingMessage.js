@@ -18,7 +18,7 @@ import {
   getDoc,
   or
 } from 'firebase/firestore';
-import CloseIcon from '../../assets/live-icon/close-x.svg'; // Assuming this icon is available
+import CloseIcon from '../../assets/icons/white/x-regular.svg'; // Assuming this icon is available
 
 const ListingMessage = ({ currentUserUid, isSeller=false, isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
