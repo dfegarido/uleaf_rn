@@ -11,7 +11,8 @@ import {
   Vibration,
   View,
   Modal,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -24,9 +25,11 @@ import {
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { getAdminScanQr } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminScanQr, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
+import OptionsIcon from '../../../../assets/admin-icons/options.svg';
+import TagAsOptions from './TagAs';
 
 const DetailRow = ({ label, value, valueBold = false }) => (
   <View style={styles.detailRow}>
@@ -62,6 +65,8 @@ const ScanQRScreen = ({ navigation, route }) => {
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const pressInTimeout = useRef(null);
   const isLongPress = useRef(false);
+  const [isTagAsVisible, setTagAsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // --- Side Effect: Request Camera Permission ---
   useEffect(() => {
@@ -134,6 +139,26 @@ const ScanQRScreen = ({ navigation, route }) => {
     // Open the modal and let it stay open.
     setImageModalVisible(true);
   };
+
+  const openTagAs = () => {
+    setTagAsVisible(!isTagAsVisible);
+  }
+
+  const setTagAs = async (status) => {
+      setIsLoading(true);
+      setTagAsVisible(!isTagAsVisible);
+      const response = await updateLeafTrailStatus(plantData?.orderId || null, status);
+      if (response.success) {
+        setPlantData(null)
+        setLatestScannedData(null)
+        setButtomData('scan')
+        setIsLoading(false)
+        Alert.alert('Success', 'Order status updated successfully!');
+      } else {
+        setIsLoading(false)
+        Alert.alert('Error', error.message);
+      }
+    }
 
   if (device == null) {
     return (
@@ -270,6 +295,18 @@ const ScanQRScreen = ({ navigation, route }) => {
                 </View>
               </Modal>
 
+              <TagAsOptions visible={isTagAsVisible}
+                setTagAs={setTagAs}
+                onClose={() => setTagAsVisible(false)}/>
+
+              {isLoading && (
+                        <Modal transparent animationType="fade">
+                          <View style={styles.loadingOverlay}>
+                            <ActivityIndicator size="large" color="#699E73" />
+                          </View>
+                        </Modal>
+                      )}
+
               {/* Plant Card Section */}
               <View style={styles.plantListSection}>
                 <View style={styles.plantCard}>
@@ -293,6 +330,9 @@ const ScanQRScreen = ({ navigation, route }) => {
                                     <Text style={styles.plantCountryText}>{plantData?.countryCode || ''}</Text>
                                     <CountryFlagIcon code={plantData?.countryCode || ''} width={24} height={16} />
                                 </View>
+                                <TouchableOpacity onPress={openTagAs}>
+                                                            <OptionsIcon />
+                                                          </TouchableOpacity>
                             </View>
                             <Text style={styles.plantGenus}>{plantData?.genus || ''}</Text>
                             <View style={styles.plantVariegationSize}>
@@ -335,6 +375,12 @@ const ScanQRScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   fullScreenImageContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.9)', // Dark overlay
