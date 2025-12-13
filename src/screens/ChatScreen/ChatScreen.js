@@ -815,6 +815,7 @@ const ChatScreen = ({navigation, route}) => {
                 navigation={navigation}
                 isBuyer={isBuyer}
                 isSeller={isSeller}
+                currentUserUid={currentUserUid}
               />
             );
           }}
