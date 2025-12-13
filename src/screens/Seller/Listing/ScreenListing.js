@@ -65,6 +65,10 @@ const FilterTabs = [
     badgeCount: '',
   },
   {
+    filterKey: 'Group Chat Listing',
+    badgeCount: '',
+  },
+  {
     filterKey: 'Inactive',
     badgeCount: '',
   },
@@ -97,6 +101,10 @@ const FilterLiveTabs = [
   },
   {
     filterKey: 'Live',
+    badgeCount: '',
+  },
+  {
+    filterKey: 'Group Chat Listing',
     badgeCount: '',
   },
   {
@@ -212,6 +220,8 @@ const ScreenListing = ({navigation}) => {
       apiStatus = 'Scheduled';
     } else if (status === 'Expired') {
       apiStatus = 'Expired';
+    }  else if (status === 'Group Chat Listing') {
+      apiStatus = 'GroupChatListing';
     }
     
     console.log('📊 Status mapping:', { 
@@ -447,6 +457,7 @@ const ScreenListing = ({navigation}) => {
       const isOutOfStockTab = activeTab === 'Out of Stock';
       const isActiveTab = activeTab === 'Active';
       const isLiveTab = activeTab === 'Live';
+      const isGroupChatListing = activeTab === 'Group Chat Listing';
 
       const normalizedSortValue = (() => {
         if (!reusableSort) return '';
@@ -553,6 +564,10 @@ const ScreenListing = ({navigation}) => {
           const isLiveStatus = (listing.status || '').trim() === 'Live';
           // const isActiveLive = listing.isActiveLiveListing === true;
           return isLiveStatus;
+        }
+
+        if (activeTab === 'Group Chat Listing') {
+          return listing._displayStatus === 'GroupChatListing';
         }
 
         return true;
@@ -669,6 +684,7 @@ const ScreenListing = ({navigation}) => {
         !isOutOfStockTab &&
         !isActiveTab &&
         !isLiveTab &&
+        !isGroupChatListing &&
         typeof response?.total === 'number';
 
       let computedTotal;
