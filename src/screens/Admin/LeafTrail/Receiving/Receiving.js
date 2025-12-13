@@ -1,5 +1,5 @@
 import moment from 'moment';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -10,8 +10,10 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    Dimensions,
     View
 } from 'react-native';
+import ImageZoom from 'react-native-image-pan-zoom';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { TabBar, TabView } from 'react-native-tab-view';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
@@ -23,9 +25,39 @@ import ScreenHeader from '../../../../components/Admin/header';
 import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
+import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs }) => {
+      const [isImageModalVisible, setImageModalVisible] = useState(false);
+      const pressInTimeout = useRef(null);
+      const isLongPress = useRef(false);
+    
+        const handlePressIn = () => {
+        // When the user presses down, start a timer.
+        pressInTimeout.current = setTimeout(() => {
+        // If the timer completes (user is holding), show the modal and flag it as a long press.
+        setImageModalVisible(true);
+        isLongPress.current = true;
+        }, 200); // 200ms delay to distinguish from a tap.
+    };
+
+    const handlePressOut = () => {
+        // When the user releases their finger...
+        clearTimeout(pressInTimeout.current); // Always clear the timer.
+        if (isLongPress.current) {
+        // If it was a long press (peek), close the modal.
+        setImageModalVisible(false);
+        isLongPress.current = false; // Reset the flag.
+        }
+    };
+
+    const handlePress = () => {
+        // This only fires on a short tap because the long press is handled above.
+        // Open the modal and let it stay open.
+        setImageModalVisible(true);
+    };
+
     const setTags = () => {
         let status = {isMissing: true, isDamaged: true};
         if (item.leafTrailStatus === "missing") {
@@ -80,8 +112,46 @@ const PlantListItem = ({ item, type, openTagAs }) => {
                 </View>
             </View>
         )}
+
+        <Modal
+            visible={isImageModalVisible}
+            transparent={true}
+            onRequestClose={() => setImageModalVisible(false)}
+          >
+            <View style={styles.fullScreenImageContainer}>
+              <TouchableOpacity
+                style={styles.fullScreenImageCloseButton}
+                onPress={() => setImageModalVisible(false)}
+              >
+                <CloseIcon width={24} height={24} fill="#fff" />
+              </TouchableOpacity>
+              <ImageZoom
+                cropWidth={Dimensions.get('window').width}
+                cropHeight={Dimensions.get('window').height}
+                imageWidth={Dimensions.get('window').width}
+                imageHeight={Dimensions.get('window').height}
+                minScale={0.5}
+                maxScale={3}
+                enableSwipeDown={true} // Allow swiping down to close
+                onSwipeDown={() => setImageModalVisible(false)}
+                onClick={() => setImageModalVisible(false)}>
+                <Image
+                  source={{ uri: item.plantImage || '' }}
+                  style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
+                  resizeMode="contain"
+                />
+              </ImageZoom>
+            </View>
+          </Modal>
+        
         <View style={styles.cardContainer}>
-            <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+             <TouchableOpacity
+                  onPressIn={handlePressIn}
+                  onPressOut={handlePressOut}
+                  onPress={handlePress}
+                  activeOpacity={0.8}>
+                    <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+            </TouchableOpacity>
             <View style={styles.cardDetails}>
                 <View>
                     <View style={styles.codeRow}>
@@ -412,6 +482,25 @@ export default ReceivingScreen;
 
 // --- STYLES ---
 const styles = StyleSheet.create({
+    fullScreenImageContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)', // Dark overlay
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    fullScreenImage: {
+        width: '100%',
+        height: '100%',
+    },
+    fullScreenImageCloseButton: {
+        position: 'absolute',
+        top: 50, // Using a value that works well with safe areas
+        right: 20,
+        zIndex: 10, // Increased zIndex to ensure it's on top
+        padding: 10,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: 20,
+    },
     loadingOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.25)',

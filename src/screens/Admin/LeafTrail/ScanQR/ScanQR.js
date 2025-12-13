@@ -1,15 +1,20 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Image,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
+  ActivityIndicator,
   Text,
   TouchableOpacity,
   Vibration,
-  View
+  View,
+  Modal,
+  Dimensions,
+  Alert
 } from 'react-native';
+import ImageZoom from 'react-native-image-pan-zoom';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   Camera,
@@ -20,8 +25,11 @@ import {
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { getAdminScanQr } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminScanQr, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
+import OptionsIcon from '../../../../assets/admin-icons/options.svg';
+import TagAsOptions from './TagAs';
 
 const DetailRow = ({ label, value, valueBold = false }) => (
   <View style={styles.detailRow}>
@@ -51,9 +59,14 @@ const ScanQRScreen = ({ navigation, route }) => {
   const device = useCameraDevice('back');
   const [latestScannedData, setLatestScannedData] = useState(null);
   const [buttomData, setButtomData] = useState("scan");
-  const [isScanning, setIsScanning] = useState(true);
-  const [plantData, setPlantData] = useState({});
+  const [isScanning, setIsScanning] = useState(false);
+  const [plantData, setPlantData] = useState();
   const { leafTrailStatus=null } = route.params || {};
+  const [isImageModalVisible, setImageModalVisible] = useState(false);
+  const pressInTimeout = useRef(null);
+  const isLongPress = useRef(false);
+  const [isTagAsVisible, setTagAsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // --- Side Effect: Request Camera Permission ---
   useEffect(() => {
@@ -63,29 +76,89 @@ const ScanQRScreen = ({ navigation, route }) => {
   const codeScanner = useCodeScanner({
     codeTypes: ['qr', 'ean-13'],
     onCodeScanned: useCallback(async (codes) => {
-      if (!isScanning) {
+      let filters = codes[0].value;
+      if ((typeof filters) === 'string') {      
+        filters = JSON.parse(filters)
+      }
+      if (isScanning && latestScannedData === (filters.orderId + filters.plantCode)) {
         return;
       }
 
-      setIsScanning(false);
+      setIsScanning(true);
+      setButtomData('loading');
 
       try {
         if (codes.length > 0 && codes[0]?.value) {
-          setLatestScannedData(codes[0].value);
-          const response = await getAdminScanQr(latestScannedData, leafTrailStatus);
+          console.log('codes[0].valuecodes[0].value', typeof codes[0].value);
+
+          if (!(filters?.orderId) || !(filters?.plantCode)) {
+            throw new Error('Invalid QR Code Data');
+          }
+          
+          setLatestScannedData(filters.orderId + filters.plantCode);
+          const response = await getAdminScanQr(filters, leafTrailStatus, isScanning);
+
           setPlantData(response);
           setButtomData('success');
           Vibration.vibrate();
+          setTimeout(() => {
+            setIsScanning(false);
+          }, 5000);
         }
       } catch (error) {
         setButtomData('invalid');
       } finally {
         setTimeout(() => {
-          setIsScanning(true);
+          setIsScanning(false);
         }, 5000);
       }
     }),
   });
+
+    const handlePressIn = () => {
+    // When the user presses down, start a timer.
+    pressInTimeout.current = setTimeout(() => {
+      // If the timer completes (user is holding), show the modal and flag it as a long press.
+      setImageModalVisible(true);
+      isLongPress.current = true;
+    }, 200); // 200ms delay to distinguish from a tap.
+  };
+
+  const handlePressOut = () => {
+    // When the user releases their finger...
+    clearTimeout(pressInTimeout.current); // Always clear the timer.
+    if (isLongPress.current) {
+      // If it was a long press (peek), close the modal.
+      setImageModalVisible(false);
+      isLongPress.current = false; // Reset the flag.
+    }
+  };
+
+  const handlePress = () => {
+    // This only fires on a short tap because the long press is handled above.
+    // Open the modal and let it stay open.
+    setImageModalVisible(true);
+  };
+
+  const openTagAs = () => {
+    setTagAsVisible(!isTagAsVisible);
+  }
+
+  const setTagAs = async (status) => {
+      setIsLoading(true);
+      setTagAsVisible(!isTagAsVisible);
+      const response = await updateLeafTrailStatus(plantData?.orderId || null, status);
+      if (response.success) {
+        setPlantData(null)
+        setLatestScannedData(null)
+        setButtomData('scan')
+        setIsLoading(false)
+        Alert.alert('Success', 'Order status updated successfully!');
+      } else {
+        setIsLoading(false)
+        Alert.alert('Error', error.message);
+      }
+    }
 
   if (device == null) {
     return (
@@ -138,6 +211,20 @@ const ScanQRScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {buttomData === 'loading' && (
+          <View style={styles.bottomSheet}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.titleText}>Scanning...</Text>
+            </View>
+            <View style={styles.noteContainer}>
+              <ActivityIndicator size="small" color="#647276" style={{ marginBottom: 8 }} />
+              <Text style={styles.noteText}>
+                This won’t take long.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {buttomData === 'invalid' && (
           <View style={styles.bottomSheet}>
             <View style={styles.titleContainer}>
@@ -164,12 +251,12 @@ const ScanQRScreen = ({ navigation, route }) => {
               <View style={styles.detailsSection}>
                 <View style={styles.mutationRow}>
                     <Text style={styles.mutationLabel}>Status:</Text>
-                    <Text style={styles.mutationText}>{plantData.leafTrailStatus}</Text>
+                    <Text style={styles.mutationText}>{plantData?.leafTrailStatus || ''}</Text>
                 </View>
                 <View style={styles.invoiceRow}>
                     <Text style={styles.invoiceLabel}>Transaction Number:</Text>
                     <View style={styles.invoiceCode}>
-                        <Text style={styles.invoiceNumber}>{plantData.transactionNumber}</Text>
+                        <Text style={styles.invoiceNumber}>{plantData?.transactionNumber || ''}</Text>
                         <TouchableOpacity>
                             <CopyIcon />
                         </TouchableOpacity>
@@ -177,36 +264,88 @@ const ScanQRScreen = ({ navigation, route }) => {
                 </View>
               </View>
 
+              <Modal
+                visible={isImageModalVisible}
+                transparent={true}
+                onRequestClose={() => setImageModalVisible(false)}
+              >
+                <View style={styles.fullScreenImageContainer}>
+                  <TouchableOpacity
+                    style={styles.fullScreenImageCloseButton}
+                    onPress={() => setImageModalVisible(false)}
+                  >
+                    <CloseIcon width={24} height={24} fill="#fff" />
+                  </TouchableOpacity>
+                  <ImageZoom
+                    cropWidth={Dimensions.get('window').width}
+                    cropHeight={Dimensions.get('window').height}
+                    imageWidth={Dimensions.get('window').width}
+                    imageHeight={Dimensions.get('window').height}
+                    minScale={0.5}
+                    maxScale={3}
+                    enableSwipeDown={true} // Allow swiping down to close
+                    onSwipeDown={() => setImageModalVisible(false)}
+                    onClick={() => setImageModalVisible(false)}>
+                    <Image
+                      source={{ uri: plantData?.plantImage || '' }}
+                      style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
+                      resizeMode="contain"
+                    />
+                  </ImageZoom>
+                </View>
+              </Modal>
+
+              <TagAsOptions visible={isTagAsVisible}
+                setTagAs={setTagAs}
+                onClose={() => setTagAsVisible(false)}/>
+
+              {isLoading && (
+                        <Modal transparent animationType="fade">
+                          <View style={styles.loadingOverlay}>
+                            <ActivityIndicator size="large" color="#699E73" />
+                          </View>
+                        </Modal>
+                      )}
+
               {/* Plant Card Section */}
               <View style={styles.plantListSection}>
                 <View style={styles.plantCard}>
-                    <Image source={{uri: plantData.plantImage}} style={styles.plantImage} />
+                  <TouchableOpacity
+                              onPressIn={handlePressIn}
+                              onPressOut={handlePressOut}
+                              onPress={handlePress}
+                              activeOpacity={0.8}>
+                    <Image source={{uri: plantData?.plantImage || ''}} style={styles.plantImage} />
+                              </TouchableOpacity>
                     <View style={styles.plantDetails}>
                         <View style={styles.plantNameSection}>
                             <View style={styles.plantCodeCountry}>
                                 <View style={styles.plantCodeContainer}>
-                                    <Text style={styles.plantCodeNumber}>{plantData.plantCode}</Text>
+                                    <Text style={styles.plantCodeNumber}>{plantData?.plantCode || ''}</Text>
                                     <TouchableOpacity>
                                         <QuestionMarkTooltip />
                                     </TouchableOpacity>
                                 </View>
                                 <View style={styles.plantCountryContainer}>
-                                    <Text style={styles.plantCountryText}>{plantData.countryCode}</Text>
-                                    <CountryFlagIcon code={plantData.countryCode} width={24} height={16} />
+                                    <Text style={styles.plantCountryText}>{plantData?.countryCode || ''}</Text>
+                                    <CountryFlagIcon code={plantData?.countryCode || ''} width={24} height={16} />
                                 </View>
+                                <TouchableOpacity onPress={openTagAs}>
+                                                            <OptionsIcon />
+                                                          </TouchableOpacity>
                             </View>
-                            <Text style={styles.plantGenus}>{plantData.genus}</Text>
+                            <Text style={styles.plantGenus}>{plantData?.genus || ''}</Text>
                             <View style={styles.plantVariegationSize}>
-                                <Text style={styles.plantLabel}>{plantData.variegation}</Text>
+                                <Text style={styles.plantLabel}>{plantData?.variegation || ''}</Text>
                                 <View style={styles.dividerDot} />
-                                <Text style={styles.plantSizeText}>{plantData.size}</Text>
+                                <Text style={styles.plantSizeText}>{plantData?.size || ''}</Text>
                             </View>
                         </View>
                         <View style={styles.plantTypeQuantity}>
                             <View style={styles.listingTypeChip}>
-                                <Text style={styles.listingTypeLabel}>{plantData.type}</Text>
+                                <Text style={styles.listingTypeLabel}>{plantData?.type || ''}</Text>
                             </View>
-                            <Text style={styles.quantityText}>x{plantData.quantity}</Text>
+                            <Text style={styles.quantityText}>x{plantData?.quantity || ''}</Text>
                         </View>
                     </View>
                 </View>
@@ -216,8 +355,8 @@ const ScanQRScreen = ({ navigation, route }) => {
               <View style={styles.transactionSection}>
                 <Text style={styles.sectionTitle}>Transaction Details</Text>
                 <View style={styles.transactionDetailsContainer}>
-                  <DetailRow label="Plant Flight" value={plantData.transactionDetails?.plantFlight || ''} valueBold />
-                  <DetailRow label="Order Date" value={plantData.transactionDetails?.orderDate || ''} valueBold />
+                  <DetailRow label="Plant Flight" value={plantData?.transactionDetails?.plantFlight || ''} valueBold />
+                  <DetailRow label="Order Date" value={plantData?.transactionDetails?.orderDate || ''} valueBold />
                 </View>
               </View>
 
@@ -236,6 +375,31 @@ const ScanQRScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImageContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)', // Dark overlay
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullScreenImageCloseButton: {
+    position: 'absolute',
+    top: 50, // Using a value that works well with safe areas
+    right: 20,
+    zIndex: 10, // Increased zIndex to ensure it's on top
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+  },
   displayNone: {
     display: 'none'
   },

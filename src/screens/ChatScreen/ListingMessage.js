@@ -1,4 +1,3 @@
-import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
 import { db } from '../../../firebase';
@@ -6,14 +5,69 @@ import ImageZoom from 'react-native-image-pan-zoom';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
 import EditIcon from '../../assets/icons/greydark/note-edit.svg';
 import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
-import CloseIcon from '../../assets/live-icon/close-x.svg'; // Assuming this icon is available
+import {
+  addDoc,
+  collection,
+  doc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+  getDoc,
+  or
+} from 'firebase/firestore';
+import CloseIcon from '../../assets/icons/white/x-regular.svg'; // Assuming this icon is available
 
-const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
+const ListingMessage = ({ currentUserUid, isSeller=false, isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const pressInTimeout = useRef(null);
   const isLongPress = useRef(false);
+
+  const [soldTo, setSoldTo] = useState(null);
+
+  useEffect(() => {
+      if (!listingId) return;
+    
+      const orderCollectionRef = collection(db, 'order');
+        
+      const q = query(orderCollectionRef, where('listingId', '==' , listingId), where('status', '==' , 'Ready to Fly'));
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedOrders = [];
+        querySnapshot.forEach((doc) => {
+          fetchedOrders.push({ id: doc.id, ...doc.data() });
+        });
+
+          const orderData = fetchedOrders[0] || {};
+          
+          if (orderData?.isJoinerOrder) {
+             setSoldTo(orderData?.joinerInfo?.joinerUsername || 'Unknown Buyer');
+          } else {
+            const buyerUid = orderData?.buyerUid;
+            if (buyerUid) {
+              const buyerCollectionRef = collection(db, 'buyer');
+              const buyerDocRef = doc(buyerCollectionRef, buyerUid);
+              getDoc(buyerDocRef).then((buyerDoc) => {
+                if (buyerDoc.exists()) {
+                  const buyerData = buyerDoc.data();
+                  setSoldTo(buyerData.username || 'Unknown Buyer');
+                } else {
+                  setSoldTo('Unknown Buyer');
+                }
+              }).catch((error) => {
+                console.error('Error fetching buyer data:', error);
+                setSoldTo('Unknown Buyer');
+              });
+            }
+          }
+          
+        });
+        
+      return () => unsubscribe();
+  }, [listingId]);
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -98,6 +152,8 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
     setImageModalVisible(true);
   };
 
+  let isSoldOut = listing?.availableQty === 0;
+
   if (loading) {
     return (
       <View style={[styles.card, styles.loadingContainer]}>
@@ -114,9 +170,6 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
     );
   }
 
-  const isSoldOut = listing.availableQty === 0;
-  // const isSoldOut = true;
-
   return (
     <>
       <View style={styles.card}>
@@ -130,6 +183,7 @@ const ListingMessage = ({ isSeller=false, isBuyer, listingId, navigation }) => {
             {isSoldOut && (
               <View style={styles.soldBadge}>
                 <Text style={styles.soldBadgeText}>SOLD</Text>
+                <Text style={styles.soldToText}>{soldTo ? `@${soldTo} claimed in a heartbeat! It is boarding your next Plant Flight.` : ''}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -249,6 +303,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 20,
+  },
+  soldToText: {
+    color: '#fff',
+    fontSize: 12,
   },
   detailsContainer: {
     padding: 12,
