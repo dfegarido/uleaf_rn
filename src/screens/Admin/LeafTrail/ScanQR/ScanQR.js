@@ -5,6 +5,7 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
+  ActivityIndicator,
   Text,
   TouchableOpacity,
   Vibration,
@@ -51,8 +52,8 @@ const ScanQRScreen = ({ navigation, route }) => {
   const device = useCameraDevice('back');
   const [latestScannedData, setLatestScannedData] = useState(null);
   const [buttomData, setButtomData] = useState("scan");
-  const [isScanning, setIsScanning] = useState(true);
-  const [plantData, setPlantData] = useState({});
+  const [isScanning, setIsScanning] = useState(false);
+  const [plantData, setPlantData] = useState();
   const { leafTrailStatus=null } = route.params || {};
 
   // --- Side Effect: Request Camera Permission ---
@@ -63,25 +64,40 @@ const ScanQRScreen = ({ navigation, route }) => {
   const codeScanner = useCodeScanner({
     codeTypes: ['qr', 'ean-13'],
     onCodeScanned: useCallback(async (codes) => {
-      if (!isScanning) {
+      let filters = codes[0].value;
+      if ((typeof filters) === 'string') {      
+        filters = JSON.parse(filters)
+      }
+      if (isScanning && latestScannedData === (filters.orderId + filters.plantCode)) {
         return;
       }
 
-      setIsScanning(false);
+      setIsScanning(true);
+      setButtomData('loading');
 
       try {
         if (codes.length > 0 && codes[0]?.value) {
-          setLatestScannedData(codes[0].value);
-          const response = await getAdminScanQr(latestScannedData, leafTrailStatus);
+          console.log('codes[0].valuecodes[0].value', typeof codes[0].value);
+
+          if (!(filters?.orderId) || !(filters?.plantCode)) {
+            throw new Error('Invalid QR Code Data');
+          }
+          
+          setLatestScannedData(filters.orderId + filters.plantCode);
+          const response = await getAdminScanQr(filters, leafTrailStatus, isScanning);
+
           setPlantData(response);
           setButtomData('success');
           Vibration.vibrate();
+          setTimeout(() => {
+            setIsScanning(false);
+          }, 5000);
         }
       } catch (error) {
         setButtomData('invalid');
       } finally {
         setTimeout(() => {
-          setIsScanning(true);
+          setIsScanning(false);
         }, 5000);
       }
     }),
@@ -138,6 +154,20 @@ const ScanQRScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {buttomData === 'loading' && (
+          <View style={styles.bottomSheet}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.titleText}>Scanning...</Text>
+            </View>
+            <View style={styles.noteContainer}>
+              <ActivityIndicator size="small" color="#647276" style={{ marginBottom: 8 }} />
+              <Text style={styles.noteText}>
+                This won’t take long.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {buttomData === 'invalid' && (
           <View style={styles.bottomSheet}>
             <View style={styles.titleContainer}>
@@ -164,12 +194,12 @@ const ScanQRScreen = ({ navigation, route }) => {
               <View style={styles.detailsSection}>
                 <View style={styles.mutationRow}>
                     <Text style={styles.mutationLabel}>Status:</Text>
-                    <Text style={styles.mutationText}>{plantData.leafTrailStatus}</Text>
+                    <Text style={styles.mutationText}>{plantData?.leafTrailStatus || ''}</Text>
                 </View>
                 <View style={styles.invoiceRow}>
                     <Text style={styles.invoiceLabel}>Transaction Number:</Text>
                     <View style={styles.invoiceCode}>
-                        <Text style={styles.invoiceNumber}>{plantData.transactionNumber}</Text>
+                        <Text style={styles.invoiceNumber}>{plantData?.transactionNumber || ''}</Text>
                         <TouchableOpacity>
                             <CopyIcon />
                         </TouchableOpacity>
@@ -180,33 +210,33 @@ const ScanQRScreen = ({ navigation, route }) => {
               {/* Plant Card Section */}
               <View style={styles.plantListSection}>
                 <View style={styles.plantCard}>
-                    <Image source={{uri: plantData.plantImage}} style={styles.plantImage} />
+                    <Image source={{uri: plantData?.plantImage || ''}} style={styles.plantImage} />
                     <View style={styles.plantDetails}>
                         <View style={styles.plantNameSection}>
                             <View style={styles.plantCodeCountry}>
                                 <View style={styles.plantCodeContainer}>
-                                    <Text style={styles.plantCodeNumber}>{plantData.plantCode}</Text>
+                                    <Text style={styles.plantCodeNumber}>{plantData?.plantCode || ''}</Text>
                                     <TouchableOpacity>
                                         <QuestionMarkTooltip />
                                     </TouchableOpacity>
                                 </View>
                                 <View style={styles.plantCountryContainer}>
-                                    <Text style={styles.plantCountryText}>{plantData.countryCode}</Text>
-                                    <CountryFlagIcon code={plantData.countryCode} width={24} height={16} />
+                                    <Text style={styles.plantCountryText}>{plantData?.countryCode || ''}</Text>
+                                    <CountryFlagIcon code={plantData?.countryCode || ''} width={24} height={16} />
                                 </View>
                             </View>
-                            <Text style={styles.plantGenus}>{plantData.genus}</Text>
+                            <Text style={styles.plantGenus}>{plantData?.genus || ''}</Text>
                             <View style={styles.plantVariegationSize}>
-                                <Text style={styles.plantLabel}>{plantData.variegation}</Text>
+                                <Text style={styles.plantLabel}>{plantData?.variegation || ''}</Text>
                                 <View style={styles.dividerDot} />
-                                <Text style={styles.plantSizeText}>{plantData.size}</Text>
+                                <Text style={styles.plantSizeText}>{plantData?.size || ''}</Text>
                             </View>
                         </View>
                         <View style={styles.plantTypeQuantity}>
                             <View style={styles.listingTypeChip}>
-                                <Text style={styles.listingTypeLabel}>{plantData.type}</Text>
+                                <Text style={styles.listingTypeLabel}>{plantData?.type || ''}</Text>
                             </View>
-                            <Text style={styles.quantityText}>x{plantData.quantity}</Text>
+                            <Text style={styles.quantityText}>x{plantData?.quantity || ''}</Text>
                         </View>
                     </View>
                 </View>
@@ -216,8 +246,8 @@ const ScanQRScreen = ({ navigation, route }) => {
               <View style={styles.transactionSection}>
                 <Text style={styles.sectionTitle}>Transaction Details</Text>
                 <View style={styles.transactionDetailsContainer}>
-                  <DetailRow label="Plant Flight" value={plantData.transactionDetails?.plantFlight || ''} valueBold />
-                  <DetailRow label="Order Date" value={plantData.transactionDetails?.orderDate || ''} valueBold />
+                  <DetailRow label="Plant Flight" value={plantData?.transactionDetails?.plantFlight || ''} valueBold />
+                  <DetailRow label="Order Date" value={plantData?.transactionDetails?.orderDate || ''} valueBold />
                 </View>
               </View>
 

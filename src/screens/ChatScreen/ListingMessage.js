@@ -42,7 +42,6 @@ const ListingMessage = ({ currentUserUid, isSeller=false, isBuyer, listingId, na
         });
 
           const orderData = fetchedOrders[0] || {};
-          console.log('orderDataorderData', orderData);
           
           if (orderData?.isJoinerOrder) {
              setSoldTo(orderData?.joinerInfo?.joinerUsername || 'Unknown Buyer');

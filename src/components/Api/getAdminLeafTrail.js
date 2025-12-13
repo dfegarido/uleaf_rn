@@ -67,8 +67,11 @@ export const updateLeafTrailStatus = async (orderId, status) => {
   }
 };
 
-export const getAdminScanQr = async (filters, leafTrailStatus) => {
+export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = false) => {
   try {
+    if (isScanning) {
+      return;
+    }
     const token = await getStoredAuthToken();
 
     if ((typeof filters) === 'string') {      
@@ -92,12 +95,13 @@ export const getAdminScanQr = async (filters, leafTrailStatus) => {
       },
     );
 
+    const json = await response.json();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
+      const errorMessage = json.error || json.message || `Error ${response.status}`;
+      throw new Error(errorMessage);
     }
 
-    const json = await response.json();
     return json;
   } catch (error) {
     console.error('getAdminScanQr error:', error.message);
@@ -162,13 +166,14 @@ export const getAdminLeafTrailSorting = async (filters = {sort: 'desc'}) => {
         },
       },
     );
-
+    const data = await response.json();
+    
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    const json = await response.json();
+    const json = data;
     return json;
   } catch (error) {
     console.error('getAdminLeafTrailSorting error:', error.message);
