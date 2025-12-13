@@ -7,19 +7,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 
 const GuideModal = ({ isVisible, onClose }) => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       animationType="slide" // Keep slide animation
-      transparent={true}   // Make modal transparent to control background
+      transparent={false}
       visible={isVisible}
       onRequestClose={onClose}>
-      {/* This overlay ensures the background is white and pushes content down */}
-      <View style={styles.modalOverlay}>
-        <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.backButton}>
               <BackSolidIcon width={24} height={24} color="#393D40" />
@@ -163,17 +163,12 @@ plant. Missing Plant: A plant that never arrives or is lost in transit — eligi
                 ILeafU's Customer Support team.</Text>
             </View> */}
           </ScrollView>
-        </SafeAreaView>
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: '#FFFFFF', // Set the background color here
-  },
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',

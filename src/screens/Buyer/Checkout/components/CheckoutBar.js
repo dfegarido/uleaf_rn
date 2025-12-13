@@ -1,14 +1,28 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import CaretDownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
+import VenmoLogoIcon from '../../../../assets/buyer-icons/venmo-logo.svg';
 import { formatCurrencyFull } from '../../../../utils/formatCurrency';
 import styles from './styles/CheckoutBarStyles';
 
 /**
  * Fixed checkout bar shown at the bottom of the Checkout screen
  */
-const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightDateIso, onCheckoutPress }) => {
+const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightDateIso, onCheckoutPress, vaultedPaymentId, vaultedPaymentUsername}) => {
   const isDisabled = loading || !selectedFlightDateIso;
+
+  const maskUsername = (username) => {
+    if (!username || username.length < 3) {
+      return ''; // Don't show for very short or empty usernames
+    }
+    const firstChar = username[0];
+    const secondChar = username[1];
+    const lastChar = username.slice(-1);
+    const secondToTheLastChar = username.slice(-2, -1);
+    // Show first and last char, with up to 8 asterisks in between
+    const middle = '*'.repeat(Math.min(username.length - 2, 8));
+    return `@${firstChar}${secondChar}${middle}${secondToTheLastChar}${lastChar}`;
+  };
 
   return (
     <View style={styles.checkoutBar}>
@@ -29,18 +43,45 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
         </View>
 
         <TouchableOpacity
-          style={[styles.placeOrderButton, isDisabled && styles.placeOrderButtonDisabled]}
-          onPress={onCheckoutPress}
+          style={[
+            vaultedPaymentId ? styles.venmoButton : styles.placeOrderButton,
+            isDisabled && (vaultedPaymentId ? styles.venmoButtonDisabled : styles.placeOrderButtonDisabled)
+          ]}
+          // onPress={onCheckoutPress}
+          onPress={() => {
+            Alert.alert('Are you sure?', '', [
+                  {
+                    text: 'No',
+                    onPress: () => {
+                      return null;
+                    },
+                    style: 'cancel'
+                  },
+                  {
+                    text: 'Yes',
+                    onPress: () => {
+                      onCheckoutPress();
+                    },
+                  },
+                ])
+            }}
           disabled={isDisabled}
         >
           <View style={styles.buttonText}>
             {loading ? (
               <View style={styles.buttonSkeleton} />
+            ) : vaultedPaymentId ? (
+              <View style={styles.venmoButtonContent}>
+                <View style={styles.venmoFirstLine}>
+                  <Text style={styles.venmoButtonText}>Pay with </Text>
+                  <VenmoLogoIcon width={51} height={13} fill={!isDisabled ? '#FFFFFF' : '#008CFF'} />
+                </View>
+                {vaultedPaymentUsername && (
+                  <Text style={styles.venmoUsernameText}>{maskUsername(vaultedPaymentUsername)}</Text>
+                )}
+              </View>
             ) : (
-              <Text 
-                style={isDisabled ? styles.buttonLabelDisabled : styles.buttonLabel}
-                numberOfLines={1}
-              >
+              <Text style={isDisabled ? styles.buttonLabelDisabled : styles.buttonLabel} numberOfLines={1}>
                 Place Order
               </Text>
             )}
@@ -52,5 +93,3 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
 };
 
 export default CheckoutBar;
-
-

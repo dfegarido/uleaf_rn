@@ -181,16 +181,15 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
     <View style={styles.card}>
       <Image source={{uri: item.imagePrimary}} style={styles.cardImage} />
       <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
+        <Text style={styles.cardTitle} numberOfLines={6}>
           {item.genus} {item.species}
         </Text>
-        <Text style={styles.cardDetails}>
+        <Text style={styles.cardDetails} numberOfLines={6}>
           {item.variegation} · {item.potSize}
         </Text>
       </View>
       <View style={styles.cardFooter}>
         <Text style={styles.cardPrice}>${item.usdPrice}</Text>
-        <Text style={styles.cardStock}>{item.availableQty} pcs</Text>
       </View>
     </View>
   );

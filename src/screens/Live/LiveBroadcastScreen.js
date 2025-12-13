@@ -565,6 +565,7 @@ console.log('activeListing?.id', activeListing?.id);
               <FlatList
                 ref={flatListRef}
                 data={comments}
+                style={{backgroundColor: 'rgba(0, 0, 0, 0.4)', borderRadius: 16}}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <View style={styles.commentRow}>
@@ -626,9 +627,6 @@ console.log('activeListing?.id', activeListing?.id);
                     
                   </View>
                   <View style={styles.shipping}>
-                      <View style={styles.shippingType}>
-                        <Text style={styles.shippingDetails}>{activeListing.listingType}</Text>
-                      </View>
                       <View style={styles.shipDays}>
                         <TruckIcon width={24} height={24} />
                         {/* Shipping info can be added if available */}
@@ -710,6 +708,8 @@ const styles = StyleSheet.create({
   commentInputFocused: {
     height: 80, // Or another height that fits multiple lines
     textAlignVertical: 'top', // Align text to the top
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    borderRadius: 16
   },
   loadingOverlay: {
     flex: 1,
@@ -956,6 +956,8 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     borderRadius: 12,
     color: '#FFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    borderRadius: 16
   },
   sideActions: {
     flexDirection: 'column',
@@ -1015,14 +1017,14 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 24,
   },
   variegation: {
     ...baseFont,
     color: '#CDD3D4',
     fontWeight: '500',
-    fontSize: 16,
+    fontSize: 12,
     lineHeight: 22,
   },
   price: {
@@ -1171,7 +1173,7 @@ const styles = StyleSheet.create({
     borderWidth: 0, // Remove border
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
+    fontSize: 13,
     textAlignVertical: 'top',
     marginBottom: 20,
     color: '#333',

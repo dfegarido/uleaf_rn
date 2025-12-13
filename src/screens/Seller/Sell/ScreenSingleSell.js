@@ -315,7 +315,7 @@ const ScreenSingleSell = ({navigation, route}) => {
 
     if (!selectedGenus) errors.push('Genus is required.');
     if (!selectedSpecies) errors.push('Species is required.');
-    if (!selectedVariegation) errors.push('Variegation is required.');
+    if (!isGroupChatListing && !selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
     if (images.length === 0) errors.push('At least one image is required.');
@@ -519,6 +519,7 @@ const ScreenSingleSell = ({navigation, route}) => {
     availableQty,
     status,
     publishType,
+    isGroupChatListing = false,
   } = route?.params ?? {};
 
   useEffect(() => {

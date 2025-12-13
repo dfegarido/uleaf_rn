@@ -88,3 +88,41 @@ export const capturePaymentApi = async (captureData) => {
     };
   }
 };
+
+export const createAndCapturePaypalOrder = async (captureData) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/createAndCapturePaypalOrder',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(captureData),
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.message || 'An error occurred while capturing payment',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('createAndCapturePaypalOrder API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while capturing payment',
+    };
+  }
+};

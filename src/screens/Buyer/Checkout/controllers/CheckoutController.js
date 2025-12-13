@@ -12,11 +12,12 @@ import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileAp
 import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
 import { getActiveFlightDatesApi } from '../../../../components/Api/getActiveFlightDatesApi';
 import { roundToCents } from '../../../../utils/money';
+import { createAndCapturePaypalOrder } from '../../../../components/Api/paymentApi';
 
 /**
  * CheckoutController - Handles all business logic for CheckoutScreen
  */
-export const useCheckoutController = () => {
+export const useCheckoutController = (props) => {
   console.log('🚀 [CheckoutController] ===== CONTROLLER INITIALIZED =====');
   console.log('🔍 [CheckoutController] About to set up hooks and state...');
 
@@ -24,7 +25,7 @@ export const useCheckoutController = () => {
   const route = useRoute();
 
   // Get parameters from navigation
-  const routeParams = route.params || {};
+  const routeParams = props || route.params || {};
   console.log('📥 [CheckoutController] Received route params:', {
     hasParams: !!route.params,
     routeParamsKeys: Object.keys(routeParams),
@@ -42,6 +43,7 @@ export const useCheckoutController = () => {
     plantCode = null,
     totalAmount = 0,
     isLive = false,
+    onClose,
   } = routeParams;
 
   console.log('📥 [CheckoutController] Extracted params:', {
@@ -121,6 +123,9 @@ export const useCheckoutController = () => {
   const [receiverFlightDate, setReceiverFlightDate] = useState(null);
   const [disableAddressSelection, setDisableAddressSelection] = useState(false);
   const [disableFlightSelection, setDisableFlightSelection] = useState(false);
+
+  const [vaultedPaymentId, setVaultedPaymentId] = useState(null);
+  const [vaultedPaymentUsername, setVaultedPaymentUsername] = useState(null);
 
   // Animation refs
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -2074,6 +2079,8 @@ export const useCheckoutController = () => {
           setLeafPoints(profileResult.referralPointsBalance || profileResult.leafPoints || 0);
           setPlantCredits(profileResult.plantCredits || 0);
           setShippingCredits(profileResult.shippingCredits || 0);
+          setVaultedPaymentId(profileResult?.paypalPaymentSource?.id || null);
+          setVaultedPaymentUsername(profileResult?.paypalPaymentSource?.details?.venmo?.user_name || null);
           
           console.log('✅ [CheckoutController] Credits loaded:', {
             leafPoints: profileResult.referralPointsBalance || profileResult.leafPoints || 0,
@@ -2673,8 +2680,74 @@ export const useCheckoutController = () => {
         setTransactionNum(transactionNumber);
         
         // Redirect to payment page (same as Pay to Board flow)
-        if (transactionNumber && orderTotal > 0) {
-          const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
+        const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
+        if (transactionNumber && orderTotal > 0 && vaultedPaymentId) {
+          setLoading(true);
+          // const paymentResponse = await createAndCapturePaypalOrder({
+          //   amount: String(0.02),
+          //   ileafuOrderId: 'TXN1762690660039632',
+          //   vaultedPaymentId,
+          // });
+          const paymentResponse = await createAndCapturePaypalOrder({
+            amount: String(orderTotal),
+            ileafuOrderId: transactionNumber,
+            vaultedPaymentId,
+          });
+          setLoading(false);
+          if (paymentResponse.success) {
+            Alert.alert('Success', 'Order placed successfully!', [
+              { 
+                text: 'OK', 
+                onPress: () => {
+                  if (isLive && onClose) {
+                    onClose();
+                  } else if (!isLive) {
+                    navigation.navigate('Orders');
+                  }
+                }
+              }
+            ]);
+          }
+
+          if (!paymentResponse.success) {
+            if (paymentResponse.error === 'Failed to create/capturing order') {
+              Alert.alert(
+                'Payment Error',
+                'Payment failed. Please try again or contact support.',
+                [
+                  { text: 'Retry Payment', onPress: () =>  
+                    Linking.openURL(paymentUrl).catch(err => {
+                      console.error('❌ [handleCheckout] Failed to open payment URL:', err);
+                      Alert.alert(
+                        'Payment Error',
+                        'Unable to open payment page. Please try again or contact support.',
+                        [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
+                      );
+                    })
+                  },
+                  {
+                    text: 'Cancel',
+                    onPress: () => {
+                      if (isLive && onClose) {
+                        onClose();
+                      } else if (!isLive) {
+                        navigation.navigate('Orders');
+                      }
+                    },
+                    style: 'cancel',
+                  }
+                ]
+              );
+            } else {
+              Alert.alert(
+                'Payment Error',
+                paymentResponse.error || 'Payment failed. Please try again or contact support.',
+                [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
+              );
+            }
+          }
+            
+        } else if (transactionNumber && orderTotal > 0) {
           
           console.log('💳 [handleCheckout] Redirecting to payment:', paymentUrl);
           
@@ -2684,19 +2757,32 @@ export const useCheckoutController = () => {
             Alert.alert(
               'Payment Error',
               'Unable to open payment page. Please try again or contact support.',
-              [{ text: 'OK', onPress: () => isLive ? navigation.goBack() : navigation.navigate('Orders') }]
+              [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
             );
           });
           
           // Navigate to Orders screen after opening payment URL
           // Small delay to ensure payment URL opens first
           setTimeout(() => {
-            navigation.navigate('Orders');
+            if (isLive && onClose) {
+              onClose();
+            } else if (!isLive) {
+              navigation.navigate('Orders');
+            }
           }, 500);
         } else {
           // If transaction number or total is missing, show success alert then navigate
           Alert.alert('Success', 'Order placed successfully!', [
-            { text: 'OK', onPress: () => navigation.navigate('Orders') }
+            { 
+              text: 'OK', 
+              onPress: () => {
+                if (isLive && onClose) {
+                  onClose();
+                } else if (!isLive) {
+                  navigation.navigate('Orders');
+                }
+              }
+            }
           ]);
         }
       } else {
@@ -2741,6 +2827,10 @@ export const useCheckoutController = () => {
     flightDateOptions,
     flightLockInfo,
     orderCutoffDate,
+
+    //savedPaymentDetails
+    vaultedPaymentUsername,
+    vaultedPaymentId,
 
     // Actions
     setCargoDate,

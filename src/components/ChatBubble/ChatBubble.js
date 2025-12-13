@@ -4,7 +4,7 @@ import ListingMessage from '../../screens/ChatScreen/ListingMessage';
 
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 
-const ChatBubble = ({ isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup }) => {
+const ChatBubble = ({ isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup }) => {
   // Show sender name for group chats, not from current user, only on first message of group
   const shouldShowSenderName = isGroupChat && !isMe && senderName && isFirstInGroup;
   
@@ -74,7 +74,7 @@ const ChatBubble = ({ isBuyer=false, listingId, isListing = false, navigation, t
           ]}>
           {!isListing && <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>}
           {isListing && (
-            <ListingMessage isBuyer={isBuyer} listingId={listingId} navigation={navigation} />
+            <ListingMessage isSeller={isSeller} isBuyer={isBuyer} listingId={listingId} navigation={navigation} />
           )}
         </View>
       </View>
