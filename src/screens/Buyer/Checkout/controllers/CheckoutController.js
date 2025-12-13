@@ -2641,9 +2641,10 @@ export const useCheckoutController = (props) => {
           remainingShippingCredit: orderSummary.shippingCreditNote ? (shippingCalculation?.remainingShippingCredit || 0) : 0,
         },
         // Include discount information to track usage
-        ...(appliedDiscount.discountId && appliedDiscount.amount > 0 && {
+        // Always send discountCode if discountId exists (even if amount is 0, e.g., for freeShipping)
+        ...(appliedDiscount.discountId && {
           discountId: appliedDiscount.discountId,
-          discountCode: appliedDiscount.code,
+          discountCode: appliedDiscount.code || discountCode.trim().toUpperCase(),
         }),
       };
 
