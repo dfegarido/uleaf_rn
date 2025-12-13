@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import CaretDownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
 import VenmoLogoIcon from '../../../../assets/buyer-icons/venmo-logo.svg';
 import { formatCurrencyFull } from '../../../../utils/formatCurrency';
@@ -47,7 +47,24 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
             vaultedPaymentId ? styles.venmoButton : styles.placeOrderButton,
             isDisabled && (vaultedPaymentId ? styles.venmoButtonDisabled : styles.placeOrderButtonDisabled)
           ]}
-          onPress={onCheckoutPress}
+          // onPress={onCheckoutPress}
+          onPress={() => {
+            Alert.alert('Are you sure?', '', [
+                  {
+                    text: 'No',
+                    onPress: () => {
+                      return null;
+                    },
+                    style: 'cancel'
+                  },
+                  {
+                    text: 'Yes',
+                    onPress: () => {
+                      onCheckoutPress();
+                    },
+                  },
+                ])
+            }}
           disabled={isDisabled}
         >
           <View style={styles.buttonText}>

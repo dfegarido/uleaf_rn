@@ -1017,14 +1017,14 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 24,
   },
   variegation: {
     ...baseFont,
     color: '#CDD3D4',
     fontWeight: '500',
-    fontSize: 16,
+    fontSize: 12,
     lineHeight: 22,
   },
   price: {
@@ -1173,7 +1173,7 @@ const styles = StyleSheet.create({
     borderWidth: 0, // Remove border
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
+    fontSize: 13,
     textAlignVertical: 'top',
     marginBottom: 20,
     color: '#333',

@@ -5,6 +5,7 @@ import {useState, useEffect, useCallback} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import VenmoLogoIcon from '../../../assets/buyer-icons/venmo-logo.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
@@ -17,6 +18,8 @@ import {paymentPaypalVenmoUrl} from '../../../../config';
 import {Linking} from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {useAuth} from '../../../auth/AuthProvider';
+import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
+import { createAndCapturePaypalOrder } from '../../../components/Api/paymentApi';
 
 const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const navigation = useNavigation();
@@ -40,6 +43,26 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const browseMorePlantsRef = React.useRef(null);
   const [expandedTransactions, setExpandedTransactions] = useState(new Set());
   const [payingTransaction, setPayingTransaction] = useState(null);
+  const [vaultedPaymentId, setVaultedPaymentId] = useState(null);
+  const [vaultedPaymentUsername, setVaultedPaymentUsername] = useState(null);
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profileResult = await getBuyerProfileApi();
+        // Backend returns data at root level, not in a 'data' property
+        if (profileResult && profileResult.success) {
+          // Use profileResult directly (data is at root level)
+          setVaultedPaymentId(profileResult?.paypalPaymentSource?.id || null);
+          setVaultedPaymentUsername(profileResult?.paypalPaymentSource?.details?.venmo?.user_name || null);
+        } 
+      } catch (error) {
+        console.error('❌ [loadUserProfile] Error loading user profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   // Apply plant owner filter
   const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
@@ -303,18 +326,78 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     
     setPayingTransaction(transactionNumber);
     
-    try {
-      // Navigate to Orders screen
-      navigation.navigate('Orders');
-      
+    try {      
       // Redirect to PayPal/Venmo payment page for existing transaction
       // No need to create a new transaction - just pay for the existing one
-      setTimeout(() => {
-        console.log('💳 Opening payment page for existing order:', transactionNumber);
-        Linking.openURL(
-          `${paymentPaypalVenmoUrl}?amount=${total}&ileafuOrderId=${transactionNumber}`,
-        );
-      }, 500);
+      if (transactionNumber && total > 0 && vaultedPaymentId) {
+          setLoading(true);
+          const paymentResponse = await createAndCapturePaypalOrder({
+            amount: String(total),
+            ileafuOrderId: transactionNumber,
+            vaultedPaymentId,
+          });
+          // const paymentResponse = await createAndCapturePaypalOrder({
+          //   amount: String(0.02),
+          //   ileafuOrderId: 'TXN1762690660039632',
+          //   vaultedPaymentId,
+          // });
+          setLoading(false);
+          if (paymentResponse.success) {
+            Alert.alert('Success', 'Order placed successfully!', [
+              { 
+                text: 'OK', 
+                onPress: () => {
+                  navigation.navigate('Orders');
+                }
+              }
+            ]);
+          }
+      
+        if (!paymentResponse.success) {
+          if (paymentResponse.error === 'Failed to create/capturing order') {
+              Alert.alert(
+                'Payment Error',
+                'Payment failed. Please try again or contact support.',
+                [
+                  { text: 'Retry Payment', onPress: () =>  
+                    Linking.openURL(`${paymentPaypalVenmoUrl}?amount=${total}&ileafuOrderId=${transactionNumber}`).catch(err => {
+                      console.error('❌ [handleCheckout] Failed to open payment URL:', err);
+                      Alert.alert(
+                        'Payment Error',
+                        'Unable to open payment page. Please try again or contact support.',
+                        [{ text: 'OK', onPress: () => navigation.navigate('Orders') }]
+                      );
+                    })
+                  },
+                  {
+                    text: 'Cancel',
+                    onPress: () => {
+                      navigation.navigate('Orders');
+                    },
+                    style: 'cancel',
+                  }
+                ]
+              );
+            } else {
+              Alert.alert(
+                'Payment Error',
+                paymentResponse.error || 'Payment failed. Please try again or contact support.',
+                [{ text: 'OK' }]
+              );
+            }
+        }
+          
+      } else {
+        navigation.navigate('Orders');
+
+        setTimeout(() => {
+          console.log('💳 Opening payment page for existing order:', transactionNumber);
+          Linking.openURL(
+            `${paymentPaypalVenmoUrl}?amount=${total}&ileafuOrderId=${transactionNumber}`,
+          );
+        }, 500);
+      }
+      
     } catch (error) {
       console.error('❌ Payment error:', error);
       Alert.alert(
@@ -344,6 +427,19 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const handleLoadMore = async () => {
     if (loadingMore) return;
     await loadOrders(false, true);
+  };
+
+  const maskUsername = (username) => {
+    if (!username || username.length < 3) {
+      return ''; // Don't show for very short or empty usernames
+    }
+    const firstChar = username[0];
+    const secondChar = username[1];
+    const lastChar = username.slice(-1);
+    const secondToTheLastChar = username.slice(-2, -1);
+    // Show first and last char, with up to 8 asterisks in between
+    const middle = '*'.repeat(Math.min(username.length - 2, 8));
+    return `@${firstChar}${secondChar}${middle}${secondToTheLastChar}${lastChar}`;
   };
 
   return (
@@ -445,9 +541,25 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
                         />
                       </View>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    {!vaultedPaymentId && (<TouchableOpacity
                       style={styles.payButton}
-                      onPress={() => handlePayTransaction(group)}
+                      onPress={() => {
+                        Alert.alert('Are you sure?', [
+                              {
+                                text: 'Yes',
+                                onPress: () => {
+                                  handlePayTransaction(group);
+                                },
+                              },
+                              {
+                                text: 'No',
+                                onPress: () => {
+                                  return null;
+                                },
+                                style: 'cancel'
+                              }
+                            ])
+                        }}
                       activeOpacity={0.7}
                       disabled={payingTransaction === group.transactionNumber}
                     >
@@ -456,7 +568,47 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
                       ) : (
                         <Text style={styles.payButtonText}>Pay ${total.toFixed(2)}</Text>
                       )}
-                    </TouchableOpacity>
+                    </TouchableOpacity>)}
+
+                    {vaultedPaymentId && (<TouchableOpacity
+                      style={styles.payButton}
+                      onPress={() => {
+                        Alert.alert('Are you sure?', '', [
+                              {
+                                text: 'No',
+                                onPress: () => {
+                                  return null;
+                                },
+                                style: 'cancel'
+                              },
+                              {
+                                text: 'Yes',
+                                onPress: () => {
+                                  handlePayTransaction(group);
+                                },
+                              },
+                            ])
+                        }}
+                      activeOpacity={0.7}
+                      disabled={payingTransaction === group.transactionNumber}
+                    >
+                      {payingTransaction === group.transactionNumber ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <View style={styles.venmoButtonContent}>
+                          <View style={styles.venmoFirstLine}>
+                            <Text style={styles.venmoButtonText}>Pay ${total.toFixed(2)} with </Text>
+                            <VenmoLogoIcon width={51} height={13} />
+                          </View>
+                          {vaultedPaymentUsername && (
+                            <View style={styles.venmoFirstLine}>
+                              <Text style={styles.venmoUsernameText}> {maskUsername(vaultedPaymentUsername)}</Text>
+                            </View>
+                          )}
+                        </View>
+                        // <Text style={styles.payButtonText}>Pay ${total.toFixed(2)}</Text>
+                      )}
+                    </TouchableOpacity>)}
                   </View>
                   
                   {isExpanded && group.plants && group.plants.length > 0 && (
@@ -517,6 +669,42 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
 };
 
 const styles = StyleSheet.create({
+  venmoButton: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 12,
+      backgroundColor: '#0074DE', // Venmo Blue
+      borderRadius: 12,
+      flex: 1,
+  },
+  venmoButtonDisabled: {
+      backgroundColor: '#A9B3B7', // A muted gray for the disabled state
+  },
+  venmoButtonContent: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+  },
+  venmoFirstLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  venmoButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: 'bold',
+      marginRight: 8,
+      fontStyle: 'italic',
+  },
+  venmoUsernameText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '500',
+      marginLeft: 0,
+      marginTop: 4,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

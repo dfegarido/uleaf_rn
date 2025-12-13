@@ -137,8 +137,8 @@ const LivePurgeScreen = ({navigation, route}) => {
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card} onPress={() => item.availableQty === 0 ? null : goToPlantDetails(item.plantCode)} >
-      <View>
+    <View style={styles.card}>
+      <TouchableOpacity onPress={() => item.availableQty === 0 ? null : goToPlantDetails(item.plantCode)}>
         <View>
           <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
           {item.availableQty === 0 && (
@@ -148,19 +148,25 @@ const LivePurgeScreen = ({navigation, route}) => {
           )}
         </View>
         <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
+          <Text style={styles.cardTitle} numberOfLines={6}>
             {item.genus} {item.species}
           </Text>
-          <Text style={styles.cardDetails}>
+          <Text style={styles.cardDetails} numberOfLines={6}>
             {item.variegation} · {item.potSize}
           </Text>
         </View>
         <View style={styles.cardFooter}>
           <Text style={styles.cardPrice}>${item.usdPrice}</Text>
-          <Text style={styles.cardStock}>{item.availableQty} pcs</Text>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={[styles.buyButton, item.availableQty === 0 && styles.disabledButton]}
+        onPress={() => item.availableQty === 0 ? null : goToPlantDetails(item.plantCode)}
+        disabled={item.availableQty === 0}
+      >
+        <Text style={styles.buyButtonText}>{item.availableQty === 0 ? 'Sold' : 'Buy Now'}</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -281,5 +287,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
     textTransform: 'uppercase',
+  },
+  buyButton: {
+    backgroundColor: '#539461',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginBottom: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#A9A9A9',
+  },
+  buyButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });

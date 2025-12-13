@@ -17,7 +17,7 @@ import { createAndCapturePaypalOrder } from '../../../../components/Api/paymentA
 /**
  * CheckoutController - Handles all business logic for CheckoutScreen
  */
-export const useCheckoutController = () => {
+export const useCheckoutController = (props) => {
   console.log('🚀 [CheckoutController] ===== CONTROLLER INITIALIZED =====');
   console.log('🔍 [CheckoutController] About to set up hooks and state...');
 
@@ -25,7 +25,7 @@ export const useCheckoutController = () => {
   const route = useRoute();
 
   // Get parameters from navigation
-  const routeParams = route.params || {};
+  const routeParams = props || route.params || {};
   console.log('📥 [CheckoutController] Received route params:', {
     hasParams: !!route.params,
     routeParamsKeys: Object.keys(routeParams),
@@ -43,6 +43,7 @@ export const useCheckoutController = () => {
     plantCode = null,
     totalAmount = 0,
     isLive = false,
+    onClose,
   } = routeParams;
 
   console.log('📥 [CheckoutController] Extracted params:', {
@@ -2843,32 +2844,74 @@ export const useCheckoutController = () => {
         setTransactionNum(transactionNumber);
         
         // Redirect to payment page (same as Pay to Board flow)
-        
+        const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
         if (transactionNumber && orderTotal > 0 && vaultedPaymentId) {
           setLoading(true);
+          // const paymentResponse = await createAndCapturePaypalOrder({
+          //   amount: String(0.02),
+          //   ileafuOrderId: 'TXN1762690660039632',
+          //   vaultedPaymentId,
+          // });
           const paymentResponse = await createAndCapturePaypalOrder({
-            amount: String(0.02),
-            ileafuOrderId: 'TXN1762690660039632',
+            amount: String(orderTotal),
+            ileafuOrderId: transactionNumber,
             vaultedPaymentId,
           });
           setLoading(false);
           if (paymentResponse.success) {
             Alert.alert('Success', 'Order placed successfully!', [
-              { text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }
+              { 
+                text: 'OK', 
+                onPress: () => {
+                  if (isLive && onClose) {
+                    onClose();
+                  } else if (!isLive) {
+                    navigation.navigate('Orders');
+                  }
+                }
+              }
             ]);
           }
 
           if (!paymentResponse.success) {
-            Alert.alert(
-              'Payment Error',
-              paymentResponse.error || 'Payment failed. Please try again or contact support.',
-              [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
-            );
+            if (paymentResponse.error === 'Failed to create/capturing order') {
+              Alert.alert(
+                'Payment Error',
+                'Payment failed. Please try again or contact support.',
+                [
+                  { text: 'Retry Payment', onPress: () =>  
+                    Linking.openURL(paymentUrl).catch(err => {
+                      console.error('❌ [handleCheckout] Failed to open payment URL:', err);
+                      Alert.alert(
+                        'Payment Error',
+                        'Unable to open payment page. Please try again or contact support.',
+                        [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
+                      );
+                    })
+                  },
+                  {
+                    text: 'Cancel',
+                    onPress: () => {
+                      if (isLive && onClose) {
+                        onClose();
+                      } else if (!isLive) {
+                        navigation.navigate('Orders');
+                      }
+                    },
+                    style: 'cancel',
+                  }
+                ]
+              );
+            } else {
+              Alert.alert(
+                'Payment Error',
+                paymentResponse.error || 'Payment failed. Please try again or contact support.',
+                [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
+              );
+            }
           }
             
         } else if (transactionNumber && orderTotal > 0) {
-          
-          const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
           
           console.log('💳 [handleCheckout] Redirecting to payment:', paymentUrl);
           
@@ -2885,12 +2928,25 @@ export const useCheckoutController = () => {
           // Navigate to Orders screen after opening payment URL
           // Small delay to ensure payment URL opens first
           setTimeout(() => {
-            navigation.navigate('Orders');
+            if (isLive && onClose) {
+              onClose();
+            } else if (!isLive) {
+              navigation.navigate('Orders');
+            }
           }, 500);
         } else {
           // If transaction number or total is missing, show success alert then navigate
           Alert.alert('Success', 'Order placed successfully!', [
-            { text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }
+            { 
+              text: 'OK', 
+              onPress: () => {
+                if (isLive && onClose) {
+                  onClose();
+                } else if (!isLive) {
+                  navigation.navigate('Orders');
+                }
+              }
+            }
           ]);
         }
       } else {

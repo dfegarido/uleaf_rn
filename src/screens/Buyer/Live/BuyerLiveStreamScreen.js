@@ -61,6 +61,7 @@ import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { useFloatingPlayer } from '../../../contexts/FloatingPlayerContext';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
+import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
 import GuideModal from './GuideModal'; // Import the new modal
 import ShopModal from './ShopModal';
 
@@ -102,6 +103,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
   const [soldToUser, setSoldToUser] = useState(null);
   const [isCommentFocused, setIsCommentFocused] = useState(false);
+  const [checkOutData, setCheckOutData] = useState({});
+  const [isLiveShopCheckoutVisible, setIsLiveShopCheckoutVisible] = useState(false);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -643,7 +646,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setIsLoading(true);
       const plantDatas = await loadPlantDetails(item);
       const discountsData = await getDiscountedPrice(item, plantDatas);
-      await enterPip();
+      //await enterPip();
       setTimeout(() => {
         setIsLoading(false);  
             const data = {
@@ -660,7 +663,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               totalAmount: discountsData.unitPrice * 1,
               isLive: true,
             };
-            navigation.navigate('CheckoutScreen', data);
+            setCheckOutData(data);
+            setIsLiveShopCheckoutVisible(true);
+            //navigation.navigate('CheckoutScreen', data);
       }, 1000);
     } catch (error) {
       console.log('error', error);
@@ -713,6 +718,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     buyNow(item);
     
   };
+
+  const gotoPayToBoard = async () => {
+    setIsLoading(true);
+    await enterPip();
+    navigation.navigate('Orders', { initialTab: 'Pay to Board' });
+  }
+
   return (
      <SafeAreaView style={styles.container}>
       {isLoading && (
@@ -725,18 +737,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
        <CheckoutLiveModal
           isVisible={isPlantDetailLiveModalVisible}
           onClose={() => setPlantDetailLiveModalVisible(false)}
-          listingDetails={{
-            fromBuyNow: true,
-            plantData: {
-              ...plantDataCountry,
-              flightDate: activeListing ? activeListing.flightDate : null,
-              cargoDate: activeListing ? activeListing.cargoDate : null,
-            },
-            selectedPotSize: activeListing ? activeListing.potSize : null,
-            quantity: 1,
-            plantCode: activeListing ? activeListing.plantCode : null,
-            totalAmount: unitPrice * 1,
-          }}
+          listingDetails={checkOutData}
       />
      
       <View style={styles.stream}>
@@ -786,10 +787,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                     <PIPIcon width={19} height={19} />
                     <Text style={styles.guideText}></Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
-                    <GuideIcon width={19} height={19} />
+              {/* <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
+                    <GuideIcon width={19} height={19} fill="#FFFFFF" />
                     <Text style={styles.guideText}>Guide</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
               <TouchableOpacity style={styles.liveViewer}>
                     <ViewersIcon width={24} height={24} />
                     <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
@@ -806,6 +807,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               <ScrollView showsVerticalScrollIndicator={true}>
                 <Text style={styles.stickyNoteText}>{liveStats?.stickyNote || ''}</Text>
               </ScrollView>
+              <View style={styles.stickyNoteFooter}>
+                <TouchableOpacity style={styles.stickyNoteGuideButton} onPress={() => setIsGuideModalVisible(true)}>
+                  <GuideIcon style={{backgroundColor: '#539461', borderRadius: 12}} width={16} height={16} />
+                  <Text style={styles.stickyNoteGuideText}>Shop guidelines</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
           
@@ -959,8 +966,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             </View>
             <View style={styles.actionButton}>
               {buyerPendingPayment?.status === 'pending_payment' && (
-                <TouchableOpacity onPress={() => {
-                }} style={styles.actionButtonTouch}>
+                <TouchableOpacity onPress={() => {gotoPayToBoard()}} style={styles.actionButtonTouch}>
                   <Text style={styles.actionText}>Pending Payment</Text>
                 </TouchableOpacity>
               )} 
@@ -997,6 +1003,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         broadcasterId={brodcasterId}
         onBuyNow={handleBuyFromShop}
       />
+
+      <LiveShopCheckoutModal
+        isVisible={isLiveShopCheckoutVisible}
+        onClose={() => setIsLiveShopCheckoutVisible(false)}
+        listingDetails={checkOutData}
+      />
+      
     </SafeAreaView>
   );
 };
@@ -1079,9 +1092,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    width: 178,
+    width: 78,
     height: 34,
-    marginRight: 35
+    marginRight: 54,
+   
   },
   guide: {
     flexDirection: 'row',
@@ -1320,14 +1334,14 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 24,
   },
   variegation: {
     ...baseFont,
     color: '#CDD3D4',
     fontWeight: '500',
-    fontSize: 16,
+    fontSize: 12,
     lineHeight: 22,
   },
   price: {
@@ -1455,7 +1469,7 @@ const styles = StyleSheet.create({
   },
   stickyNoteText: {
     color: '#333',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Inter',
   },
   stickyNoteCloseButton: {
@@ -1466,5 +1480,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: 12,
     padding: 4,
+  },
+  stickyNoteFooter: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+    flexDirection: 'row',
+  },
+  stickyNoteGuideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stickyNoteGuideText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#539461',
+    fontFamily: 'Inter',
   },
 });
