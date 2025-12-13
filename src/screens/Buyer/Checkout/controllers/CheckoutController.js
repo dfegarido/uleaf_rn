@@ -1455,102 +1455,58 @@ export const useCheckoutController = () => {
       const flightDate = pendingFlightDateRef.current;
       pendingFlightDateRef.current = null;
       
-      // Perform the comparison now that we have options
-      const firstSuggestedOption = flightDateOptions
-        .filter(opt => opt.iso)
-        .sort((a, b) => a.iso.localeCompare(b.iso))[0];
+      // Since we have an existing order (we're re-checking), disable selection and use existing order's flight date
+      // Note: Cutoff check was already done in the main check, so we assume we're within cutoff here
+      console.log('🔒 [Re-check Existing Orders] Disabling selection and locking to existing order date');
       
+      setDisablePlantFlightSelection(true);
+      setLockedFlightDate(flightDate);
+      setLockedFlightKey(normalizeFlightKey(flightDate));
+      
+      // Find and auto-select the matching flight option
       const existingOrderIso = formatFlightDateToISO(flightDate, new Date().getFullYear());
       
-      if (existingOrderIso && firstSuggestedOption?.iso) {
-        // Compare ISO dates as strings (format: "YYYY-MM-DD")
-        const dateComparison = existingOrderIso.localeCompare(firstSuggestedOption.iso);
-        
-        // Thailand: disable if existing <= firstSuggested
-        // Non-Thailand: disable only if existing >= firstSuggested
-        const shouldDisableAll = isThailandPlant 
-          ? dateComparison <= 0
-          : dateComparison >= 0;
-        
-        console.log('🔒 [Re-check Existing Orders] Decision:', {
-          existingOrderIso,
-          firstSuggestedIso: firstSuggestedOption.iso,
-          isThailandPlant,
-          comparison: isThailandPlant 
-            ? `${existingOrderIso} <= ${firstSuggestedOption.iso}`
-            : `${existingOrderIso} >= ${firstSuggestedOption.iso}`,
-          localeCompareResult: dateComparison,
-          shouldDisableAll,
-          rule: isThailandPlant 
-            ? 'Thailand: disable if existing <= firstSuggested'
-            : 'Non-Thailand: disable if existing >= firstSuggested',
-        });
-        
-        console.log('🔒 [Re-check Existing Orders] Setting disablePlantFlightSelection to:', shouldDisableAll);
-        setDisablePlantFlightSelection(shouldDisableAll);
-        setLockedFlightDate(flightDate);
-        setLockedFlightKey(normalizeFlightKey(flightDate));
-        
-        if (shouldDisableAll) {
-          console.log('🚫 [Re-check Existing Orders] ✅ DISABLING all 3 flight selections');
-          const flightOption = flightDateOptions.find(option => 
-            option.key === normalizeFlightKey(flightDate) || option.iso === existingOrderIso
-          );
-          
-          if (flightOption) {
-            setSelectedFlightDate(flightOption);
-            if (flightOption.iso) {
-              setCargoDate(flightOption.iso);
-            }
-            // Trigger shipping calculation after auto-selecting date
-            console.log('🔄 [Re-check Existing Orders] Triggering shipping calculation for auto-selected date');
-            setTimeout(() => {
-              if (isCalculatingRef.current === false) {
-                lastCalculationParamsRef.current = null; // Clear to force recalculation
-              }
-            }, 100);
-          } else if (firstSuggestedOption) {
-            // Fallback to first suggested option
-            setSelectedFlightDate(firstSuggestedOption);
-            if (firstSuggestedOption.iso) {
-              setCargoDate(firstSuggestedOption.iso);
-            }
-            // Trigger shipping calculation
-            console.log('🔄 [Re-check Existing Orders] Triggering shipping calculation for auto-selected first option');
-            setTimeout(() => {
-              if (isCalculatingRef.current === false) {
-                lastCalculationParamsRef.current = null;
-              }
-            }, 100);
-          }
-        } else {
-          console.log('✅ [Re-check Existing Orders] Enabling all 3 flight selections');
-          const flightOption = flightDateOptions.find(option => 
-            option.key === normalizeFlightKey(flightDate) || option.iso === existingOrderIso
-          );
-          
-          if (flightOption) {
-            setSelectedFlightDate(flightOption);
-            if (flightOption.iso) {
-              setCargoDate(flightOption.iso);
-            }
-            // Trigger shipping calculation after auto-selecting date
-            console.log('🔄 [Re-check Existing Orders] Triggering shipping calculation for auto-selected enabled date');
-            setTimeout(() => {
-              if (isCalculatingRef.current === false) {
-                lastCalculationParamsRef.current = null; // Clear to force recalculation
-              }
-            }, 100);
-          }
+      const flightOption = flightDateOptions.find(option => {
+        if (option.iso === existingOrderIso) return true;
+        if (option.key === normalizeFlightKey(flightDate)) return true;
+        return false;
+      });
+      
+      if (flightOption) {
+        console.log('✅ [Re-check Existing Orders] Auto-selecting existing order flight date:', flightOption);
+        setSelectedFlightDate(flightOption);
+        if (flightOption.iso) {
+          setCargoDate(flightOption.iso);
         }
+        // Trigger shipping calculation after auto-selecting date
+        console.log('🔄 [Re-check Existing Orders] Triggering shipping calculation for auto-selected date');
+        setTimeout(() => {
+          if (isCalculatingRef.current === false) {
+            lastCalculationParamsRef.current = null; // Clear to force recalculation
+          }
+        }, 100);
       } else {
-        console.log('⚠️ [Re-check Existing Orders] Cannot compare - missing ISO dates');
-        setDisablePlantFlightSelection(true);
-        setLockedFlightDate(flightDate);
-        setLockedFlightKey(normalizeFlightKey(flightDate));
+        // Fallback to first suggested option if exact match not found
+        const firstSuggestedOption = flightDateOptions
+          .filter(opt => opt.iso)
+          .sort((a, b) => a.iso.localeCompare(b.iso))[0];
+        
+        if (firstSuggestedOption) {
+          console.log('⚠️ [Re-check Existing Orders] Exact match not found, using first suggested option as fallback');
+          setSelectedFlightDate(firstSuggestedOption);
+          if (firstSuggestedOption.iso) {
+            setCargoDate(firstSuggestedOption.iso);
+          }
+          // Trigger shipping calculation
+          setTimeout(() => {
+            if (isCalculatingRef.current === false) {
+              lastCalculationParamsRef.current = null;
+            }
+          }, 100);
+        }
       }
     }
-  }, [flightDateOptions, formatFlightDateToISO, normalizeFlightKey, isThailandPlant]);
+    }, [flightDateOptions, formatFlightDateToISO, normalizeFlightKey]);
 
   console.log('🔍 [CheckoutController] About to define useFocusEffect for checkExistingOrders...');
 
@@ -1631,33 +1587,23 @@ export const useCheckoutController = () => {
           });
           
           if (ordersArray.length > 0) {
-            // Filter for orders with status "Ready to Fly" AND deliveryStatus "Pending"
-            // This means the order exists and is ready but delivery is still pending
+            // Filter for orders with status "Ready to Fly"
+            // Only check status, not deliveryStatus (Ready to Fly orders may have deliveryStatus: null)
             console.log('🔍 [checkExistingOrders] Filtering orders - checking each order:');
 
             const readyToFlyOrders = ordersArray.filter((order, index) => {
               const status = (order.status || order.orderStatus || '').trim().toLowerCase();
-              const isReadyToFly = status === 'ready to fly' || status === 'readytofly' || status.includes('ready') && status.includes('fly');
-
-              // Check if delivery status is Pending
-              const deliveryStatus = (order.deliveryStatus || '').trim().toLowerCase();
-              const isPending = deliveryStatus === 'pending';
-
-              const passesFilter = isReadyToFly && isPending;
+              const isReadyToFly = status === 'ready to fly' || status === 'readytofly' || (status.includes('ready') && status.includes('fly'));
 
               console.log(`  Order ${index + 1}:`, {
                 id: order.id || order.transactionNumber,
-                status: order.status,
+                status: order.status || order.orderStatus,
                 statusLower: status,
-                deliveryStatus: order.deliveryStatus,
-                deliveryStatusLower: deliveryStatus,
                 isReadyToFly,
-                isPending,
-                passesFilter,
-                flightDate: order.flightDate,
+                flightDate: order.flightDate || order.cargoDate,
               });
 
-              return passesFilter;
+              return isReadyToFly;
             });
 
             console.log('✈️ [checkExistingOrders] Ready to Fly orders with Pending delivery:', {
@@ -1698,10 +1644,10 @@ export const useCheckoutController = () => {
               });
               
               if (flightDate) {
-                // PRIORITY CHECK: Verify if the order cutoff date has passed
-                // Cutoff date = flight date - 7 days
-                // If today > cutoff date, buyer must select NEW flight date (don't lock)
-                // If today <= cutoff date, buyer can still add to this shipment (lock it)
+                // CUTOFF DATE LOGIC:
+                // Cutoff date = flight date - 7 days at 11:59 PM ET
+                // If cutoff date < current date ET: User can select new flight date (enable selection)
+                // If cutoff date >= current date ET: Flight selector disabled, use existing order's flight date
                 
                 // Parse the existing flight date
                 let existingFlightDate = null;
@@ -1728,29 +1674,37 @@ export const useCheckoutController = () => {
                   return;
                 }
 
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
+                // Get current date in Eastern Time (America/New_York) as YYYY-MM-DD string
+                const now = new Date();
+                const nowETString = now.toLocaleDateString('en-CA', { 
+                  timeZone: 'America/New_York'
+                }); // en-CA gives YYYY-MM-DD format
+                
+                // Calculate cutoff date: 7 days before flight date
+                // Get flight date as YYYY-MM-DD string
+                const flightDateString = existingFlightDate.toISOString().split('T')[0];
+                
+                // Calculate cutoff date by subtracting 7 days
+                const cutoffDateObj = new Date(existingFlightDate);
+                cutoffDateObj.setDate(existingFlightDate.getDate() - 7);
+                const cutoffDateString = cutoffDateObj.toISOString().split('T')[0];
 
-                // Calculate cutoff date: 7 days before the flight date
-                const cutoffDate = new Date(existingFlightDate);
-                cutoffDate.setDate(existingFlightDate.getDate() - 7);
-                cutoffDate.setHours(0, 0, 0, 0);
+                // Compare date strings: if current ET date > cutoff date, we've passed the cutoff
+                // cutoff date < current date ET means we've passed the cutoff
+                const isPastCutoff = cutoffDateString < nowETString;
 
-                // Check if we're still within the ordering window
-                const isWithinCutoff = today <= cutoffDate;
-
-                console.log('📅 [checkExistingOrders] CUTOFF DATE CHECK (PRIORITY):', {
-                  existingFlightDate: existingFlightDate.toISOString().split('T')[0],
-                  cutoffDate: cutoffDate.toISOString().split('T')[0],
-                  today: today.toISOString().split('T')[0],
-                  isWithinCutoff,
-                  decision: isWithinCutoff
-                    ? '✅ Within cutoff → Lock flight date (buyer adds to existing shipment)'
-                    : '🔓 Past cutoff → Allow selection (buyer must pick new date)'
+                console.log('📅 [checkExistingOrders] CUTOFF DATE CHECK:', {
+                  existingFlightDate: flightDateString,
+                  cutoffDate: cutoffDateString,
+                  currentDateET: nowETString,
+                  isPastCutoff,
+                  decision: isPastCutoff
+                    ? '✅ Past cutoff → Allow new flight date selection'
+                    : '🔒 Before cutoff → Lock to existing flight date'
                 });
 
-                // If past cutoff date, ALWAYS allow buyer to select new flight date
-                if (!isWithinCutoff) {
+                // If past cutoff date, allow buyer to select new flight date
+                if (isPastCutoff) {
                   console.log('🔓 [checkExistingOrders] Past cutoff date → Allowing new flight date selection');
                   setDisablePlantFlightSelection(false);
                   setLockedFlightDate(null);
@@ -1761,203 +1715,85 @@ export const useCheckoutController = () => {
                   return;
                 }
 
-                // If within cutoff, proceed with flight date locking logic
-                console.log('🔒 [checkExistingOrders] Within cutoff → Proceeding with flight date lock logic');
+                // If before cutoff (within cutoff period), disable selection and use existing order's flight date
+                console.log('🔒 [checkExistingOrders] Before cutoff → Disabling selection and locking to existing order date');
 
-                // Get current flight options to compare with existing order
+                // Disable selection when within cutoff (existing order exists and cutoff hasn't passed)
+                // Set this IMMEDIATELY so UI is disabled even if flight options aren't ready yet
+                console.log('🔒 [checkExistingOrders] SETTING disablePlantFlightSelection to TRUE');
+                setDisablePlantFlightSelection(true);
+                setLockedFlightDate(flightDate);
+                setLockedFlightKey(normalizeFlightKey(flightDate));
+                
+                console.log('🔒 [checkExistingOrders] State set:', {
+                  disablePlantFlightSelection: true,
+                  lockedFlightDate: flightDate,
+                  lockedFlightKey: normalizeFlightKey(flightDate),
+                });
+
+                // Get current flight options to find matching option
                 const currentFlightOptions = flightDateOptionsRef.current;
 
                 if (currentFlightOptions && currentFlightOptions.length > 0) {
-                  // For Thailand rule: compare with FIRST suggested Saturday (index 0)
-                  // For non-Thailand: compare with earliest option (same logic but clearer naming)
-                  const firstSuggestedOption = currentFlightOptions
-                    .filter(opt => opt.iso)
-                    .sort((a, b) => a.iso.localeCompare(b.iso))[0];
+                  // Convert existing order flight date to ISO format
+                  const existingOrderIso = formatFlightDateToISO(flightDate, new Date().getFullYear());
 
-                  // Convert existing order flight date to ISO for comparison
-                  // Use the same year as the first suggested option to ensure consistent comparison
-                  const firstSuggestedYear = firstSuggestedOption?.iso ?
-                    parseInt(firstSuggestedOption.iso.split('-')[0]) :
-                    new Date().getFullYear();
-                  const existingOrderIso = formatFlightDateToISO(flightDate, firstSuggestedYear);
-
-                  console.log('📅 [checkExistingOrders] Comparing dates:', {
+                  console.log('🔒 [checkExistingOrders] Looking for matching flight option:', {
                     existingOrderDate: flightDate,
                     existingOrderIso: existingOrderIso,
-                    firstSuggestedIso: firstSuggestedOption?.iso,
-                    firstSuggestedLabel: firstSuggestedOption?.label,
-                    firstSuggestedYear,
-                    isThailandPlant,
-                    allFlightOptions: currentFlightOptions.map(o => ({ iso: o.iso, label: o.label })),
+                    flightDateOptionsCount: currentFlightOptions.length,
                   });
 
-                  // Rule:
-                  // For Thailand plants: If existing order date <= first suggested Saturday: disable all 3
-                  // For Non-Thailand plants: Only disable if existing order date is on or AFTER the first suggested (existing >= firstSuggested)
-                  // Otherwise: enable all 3
-                  if (existingOrderIso && firstSuggestedOption?.iso) {
-                    // Compare ISO dates as strings (format: "YYYY-MM-DD")
-                    const dateComparison = existingOrderIso.localeCompare(firstSuggestedOption.iso);
-                    
-                    // Thailand: disable if existing <= firstSuggested (user must use existing order date)
-                    // Non-Thailand: disable only if existing >= firstSuggested (existing order prevents selecting future dates)
-                    const shouldDisableAll = isThailandPlant 
-                      ? dateComparison <= 0  // Thailand: existing <= firstSuggested means disable all
-                      : dateComparison >= 0; // Non-Thailand: existing >= firstSuggested means disable all
-                    
-                    console.log('🔢 [checkExistingOrders] Date comparison details:', {
-                      existingOrderIso,
-                      firstSuggestedIso: firstSuggestedOption.iso,
-                      isThailandPlant,
-                      comparison: isThailandPlant 
-                        ? `${existingOrderIso} <= ${firstSuggestedOption.iso}`
-                        : `${existingOrderIso} >= ${firstSuggestedOption.iso}`,
-                      localeCompareResult: dateComparison,
-                      shouldDisableAll,
-                      rule: isThailandPlant 
-                        ? 'Thailand: disable if existing <= firstSuggested'
-                        : 'Non-Thailand: disable if existing >= firstSuggested',
-                    });
-                    
-                    console.log('🔒 [checkExistingOrders] Decision:', {
-                      existingOrderDate: flightDate,
-                      existingOrderIso: existingOrderIso,
-                      firstSuggestedIso: firstSuggestedOption.iso,
-                      firstSuggestedLabel: firstSuggestedOption.label,
-                      comparison: `${existingOrderIso} <= ${firstSuggestedOption.iso}`,
-                      comparisonResult: existingOrderIso <= firstSuggestedOption.iso,
-                      shouldDisableAll,
-                      rule: 'If existing order <= first suggested Saturday, disable all 3',
-                    });
-                    
-                    console.log('🔒 [checkExistingOrders] Setting disablePlantFlightSelection to:', shouldDisableAll);
-                    setDisablePlantFlightSelection(shouldDisableAll);
-                    
-                    // Also set lockedFlightDate and lockedFlightKey for reference
-                    setLockedFlightDate(flightDate);
-                    setLockedFlightKey(normalizeFlightKey(flightDate));
-                    
-                    if (shouldDisableAll) {
-                      console.log('🚫 [checkExistingOrders] ✅ DISABLING all 3 flight selections - existing order date is <= first suggested Saturday');
-                      // Auto-select the existing order's date if it matches one of the options
-                      // Try multiple matching strategies to find the right flight option
-                      let flightOption = currentFlightOptions.find(option => {
-                        if (option.iso === existingOrderIso) return true;
-                        if (option.key === normalizeFlightKey(flightDate)) return true;
-                        // Try partial match on date parts
-                        if (existingOrderIso && option.iso) {
-                          const existingParts = existingOrderIso.split('-');
-                          const optionParts = option.iso.split('-');
-                          if (existingParts.length === 3 && optionParts.length === 3) {
-                            // Match year-month-day
-                            return existingParts[0] === optionParts[0] && 
-                                   existingParts[1] === optionParts[1] && 
-                                   existingParts[2] === optionParts[2];
-                          }
-                        }
-                        return false;
-                      });
-                      
-                      console.log('🔍 [checkExistingOrders] Looking for matching flight option:', {
-                        flightDate,
-                        existingOrderIso,
-                        normalizedKey: normalizeFlightKey(flightDate),
-                        foundOption: !!flightOption,
-                        flightOption,
-                        allOptions: currentFlightOptions.map(o => ({ iso: o.iso, key: o.key, label: o.label })),
-                      });
-                      
-                      if (flightOption) {
-                        console.log('✅ [checkExistingOrders] Auto-selecting first order flight date:', flightOption);
-                        setSelectedFlightDate(flightOption);
-                        if (flightOption.iso) {
-                          setCargoDate(flightOption.iso);
-                        }
-                        // Force trigger shipping calculation after auto-selecting disabled date
-                        console.log('🔄 [checkExistingOrders] Triggering shipping calculation for auto-selected disabled date');
-                        setTimeout(() => {
-                          if (isCalculatingRef.current === false) {
-                            lastCalculationParamsRef.current = null; // Clear to force recalculation
-                          }
-                        }, 100);
-                      } else {
-                        // If no exact match found, use first suggested option as fallback
-                        // But still try to create a flight date object from the first order's date
-                        console.log('⚠️ [checkExistingOrders] No exact match found, attempting to use first order date');
-                        if (firstSuggestedOption) {
-                          // Try to create a flight option from the first order's date if possible
-                          const formattedDate = formatFlightDateToISO(flightDate, new Date().getFullYear());
-                          if (formattedDate) {
-                            // Try to find any option that matches the date parts
-                            const dateMatch = currentFlightOptions.find(opt => {
-                              if (!opt.iso || !formattedDate) return false;
-                              return opt.iso === formattedDate;
-                            });
-                            if (dateMatch) {
-                              console.log('✅ [checkExistingOrders] Found date match, selecting:', dateMatch);
-                              setSelectedFlightDate(dateMatch);
-                              if (dateMatch.iso) {
-                                setCargoDate(dateMatch.iso);
-                              }
-                            } else {
-                              // Fallback to first suggested option
-                              console.log('⚠️ [checkExistingOrders] Using first suggested option as fallback');
-                              setSelectedFlightDate(firstSuggestedOption);
-                              if (firstSuggestedOption.iso) {
-                                setCargoDate(firstSuggestedOption.iso);
-                              }
-                            }
-                          } else {
-                            // Last resort: use first suggested option
-                            setSelectedFlightDate(firstSuggestedOption);
-                            if (firstSuggestedOption.iso) {
-                              setCargoDate(firstSuggestedOption.iso);
-                            }
-                          }
-                          // Force trigger shipping calculation
-                          console.log('🔄 [checkExistingOrders] Triggering shipping calculation for auto-selected option');
-                          setTimeout(() => {
-                            if (isCalculatingRef.current === false) {
-                              lastCalculationParamsRef.current = null;
-                            }
-                          }, 100);
-                        }
-                      }
-                    } else {
-                      console.log('✅ [checkExistingOrders] Enabling all 3 flight selections - existing order date is > first suggested Saturday');
-                      // Enable all selections - user can choose any date
-                      // Auto-select the existing order's flight date if it's available
-                      const flightOption = currentFlightOptions.find(option => 
-                        option.key === normalizeFlightKey(flightDate) || option.iso === existingOrderIso
-                      );
-                      
-                      if (flightOption) {
-                        console.log('🎯 [checkExistingOrders] Auto-selecting existing order flight date:', flightOption);
-                        setSelectedFlightDate(flightOption);
-                        if (flightOption.iso) {
-                          setCargoDate(flightOption.iso);
-                        }
-                        // Trigger shipping calculation after auto-selecting date
-                        console.log('🔄 [checkExistingOrders] Triggering shipping calculation for auto-selected date');
-                        setTimeout(() => {
-                          if (isCalculatingRef.current === false) {
-                            lastCalculationParamsRef.current = null; // Clear to force recalculation
-                          }
-                        }, 100);
+                  // Find matching flight option for the existing order's date
+                  const flightOption = currentFlightOptions.find(option => {
+                    if (option.iso === existingOrderIso) return true;
+                    if (option.key === normalizeFlightKey(flightDate)) return true;
+                    // Try partial match on date parts
+                    if (existingOrderIso && option.iso) {
+                      const existingParts = existingOrderIso.split('-');
+                      const optionParts = option.iso.split('-');
+                      if (existingParts.length === 3 && optionParts.length === 3) {
+                        // Match year-month-day
+                        return existingParts[0] === optionParts[0] && 
+                               existingParts[1] === optionParts[1] && 
+                               existingParts[2] === optionParts[2];
                       }
                     }
+                    return false;
+                  });
+
+                  if (flightOption) {
+                    console.log('✅ [checkExistingOrders] Auto-selecting existing order flight date:', flightOption);
+                    setSelectedFlightDate(flightOption);
+                    if (flightOption.iso) {
+                      setCargoDate(flightOption.iso);
+                    }
+                    // Trigger shipping calculation after auto-selecting date
+                    console.log('🔄 [checkExistingOrders] Triggering shipping calculation for auto-selected date');
+                    setTimeout(() => {
+                      if (isCalculatingRef.current === false) {
+                        lastCalculationParamsRef.current = null; // Clear to force recalculation
+                      }
+                    }, 100);
                   } else {
-                    // Fallback: if we can't compare, disable all for safety
-                    console.log('⚠️ [checkExistingOrders] Cannot compare dates - disabling all selections for safety');
-                    console.log('⚠️ [checkExistingOrders] Missing data:', {
-                      hasExistingOrderIso: !!existingOrderIso,
-                      existingOrderIso,
-                      hasFirstSuggestedIso: !!firstSuggestedOption?.iso,
-                      firstSuggestedIso: firstSuggestedOption?.iso,
-                    });
-                    setDisablePlantFlightSelection(true);
-                    setLockedFlightDate(flightDate);
-                    setLockedFlightKey(normalizeFlightKey(flightDate));
+                    // If no exact match found, use first suggested option as fallback
+                    const firstSuggestedOption = currentFlightOptions
+                      .filter(opt => opt.iso)
+                      .sort((a, b) => a.iso.localeCompare(b.iso))[0];
+                    
+                    if (firstSuggestedOption) {
+                      console.log('⚠️ [checkExistingOrders] No exact match found, using first suggested option as fallback:', firstSuggestedOption);
+                      setSelectedFlightDate(firstSuggestedOption);
+                      if (firstSuggestedOption.iso) {
+                        setCargoDate(firstSuggestedOption.iso);
+                      }
+                      // Trigger shipping calculation
+                      setTimeout(() => {
+                        if (isCalculatingRef.current === false) {
+                          lastCalculationParamsRef.current = null;
+                        }
+                      }, 100);
+                    }
                   }
                 } else {
                   // No flight options available yet - wait for them to be calculated
@@ -2005,7 +1841,7 @@ export const useCheckoutController = () => {
         console.log('🎯 [useFocusEffect-checkOrders] Cleanup function called');
         isCancelled = true;
       };
-    }, [formatFlightDateToISO, normalizeFlightKey, isThailandPlant]) // Dependencies for useCallback
+    }, [formatFlightDateToISO, normalizeFlightKey]) // Dependencies for useCallback
   ); // End of useFocusEffect
 
   // Load delivery details

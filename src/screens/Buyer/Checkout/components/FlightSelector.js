@@ -79,40 +79,15 @@ const FlightSelector = ({
   const handleFlightSelection = (option) => {
     console.log('🛫 [FlightSelector] handleFlightSelection called with option:', option);
     
-    // If disabled for joiner, don't allow selection
-    if (disableFlightSelection) {
-      console.log('⚠️ [FlightSelector] Flight selection disabled for joiner');
+    // PRIORITY CHECK 1: If disabled for existing order (disablePlantFlightSelection), don't allow selection
+    if (disablePlantFlightSelection) {
+      console.log('⚠️ [FlightSelector] Flight selection disabled - existing order requires same flight date');
       return;
     }
     
-    const optionKey = normalizeFlightKey(option.value) || normalizeFlightKey(option.label);
-    console.log('🔍 [FlightSelector] optionKey calculated:', optionKey);
-    
-    // Determine if this option is locked
-    // If disablePlantFlightSelection is true, ALL options are disabled (existing order date <= earliest option)
-    // If disablePlantFlightSelection is false but lockedFlightDate exists, allow selection
-    let isLocked = false;
-    
-    // If disablePlantFlightSelection is true, all options are locked
-    if (disablePlantFlightSelection) {
-      isLocked = true;
-      console.log('🔍 [FlightSelector] Option locked - all selections disabled (existing order <= earliest option)');
-    } else if (lockedFlightDate) {
-      // If disablePlantFlightSelection is false, existing order date > earliest option
-      // In this case, all options should be enabled (no locking)
-      isLocked = false;
-      console.log('🔍 [FlightSelector] Option enabled - all selections enabled (existing order > earliest option)');
-    }
-    
-    const isEffectivelyLocked = isLocked || disablePlantFlightSelection || disableFlightSelection;
-    console.log('🔍 [FlightSelector] isEffectivelyLocked:', isEffectivelyLocked, {
-      isLocked,
-      disablePlantFlightSelection,
-      disableFlightSelection,
-    });
-    
-    if (isEffectivelyLocked) {
-      console.log('⚠️ [FlightSelector] Option is locked, returning early');
+    // PRIORITY CHECK 2: If disabled for joiner, don't allow selection
+    if (disableFlightSelection) {
+      console.log('⚠️ [FlightSelector] Flight selection disabled for joiner');
       return;
     }
     
