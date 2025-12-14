@@ -545,11 +545,20 @@ const OrderSummary = ({navigation}) => {
         }
 
         // Use receiver options from backend response (includes all receivers from filtered orders, not just current page)
+        // Combine with buyers to show both in the Receiver filter
         // Fallback to deriving from current page if backend doesn't provide receivers
         try {
+          let receivers = [];
+          let buyers = [];
+          
+          // Get buyers from backend response
+          if (response.buyers && Array.isArray(response.buyers)) {
+            buyers = response.buyers;
+          }
+          
           if (response.receivers && Array.isArray(response.receivers)) {
             // Use complete receiver list from backend
-            setReceiverOptionsState(response.receivers);
+            receivers = response.receivers;
             console.log('Using receivers from backend response:', {
               count: response.receivers.length,
               sample: response.receivers.slice(0, 10).map(r => ({
@@ -602,20 +611,55 @@ const OrderSummary = ({navigation}) => {
                 }
               });
             }
-            const uniqueReceivers = Array.from(receiversMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-            setReceiverOptionsState(uniqueReceivers);
+            receivers = Array.from(receiversMap.values());
             console.warn('Backend did not provide receivers, falling back to current page extraction');
           }
+          
+          // Combine buyers and receivers, removing duplicates based on ID
+          const combinedMap = new Map();
+          
+          // Add all receivers first
+          receivers.forEach(receiver => {
+            if (receiver.id && receiver.name) {
+              combinedMap.set(receiver.id, receiver);
+            }
+          });
+          
+          // Add all buyers (won't overwrite if ID already exists)
+          buyers.forEach(buyer => {
+            if (buyer.id && buyer.name && !combinedMap.has(buyer.id)) {
+              combinedMap.set(buyer.id, buyer);
+            }
+          });
+          
+          // Convert to array and sort alphabetically
+          const combinedList = Array.from(combinedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+          setReceiverOptionsState(combinedList);
+          
+          console.log('Combined receivers and buyers:', {
+            receiversCount: receivers.length,
+            buyersCount: buyers.length,
+            combinedCount: combinedList.length
+          });
         } catch (e) {
           console.warn('Failed to set receiver options', e?.message || e);
         }
 
         // Use joiner options from backend response (includes all joiners from filtered orders, not just current page)
+        // Combine with buyers to show both in the Joiner filter
         // Fallback to deriving from current page if backend doesn't provide joiners
         try {
+          let joiners = [];
+          let buyers = [];
+          
+          // Get buyers from backend response
+          if (response.buyers && Array.isArray(response.buyers)) {
+            buyers = response.buyers;
+          }
+          
           if (response.joiners && Array.isArray(response.joiners)) {
             // Use complete joiner list from backend
-            setJoinerOptionsState(response.joiners);
+            joiners = response.joiners;
             console.log('Using joiners from backend response:', {
               count: response.joiners.length,
               sample: response.joiners.slice(0, 10).map(j => ({
@@ -651,10 +695,36 @@ const OrderSummary = ({navigation}) => {
                 }
               });
             }
-            const uniqueJoiners = Array.from(joinersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-            setJoinerOptionsState(uniqueJoiners);
+            joiners = Array.from(joinersMap.values());
             console.warn('Backend did not provide joiners, falling back to current page extraction');
           }
+          
+          // Combine buyers and joiners, removing duplicates based on ID
+          const combinedMap = new Map();
+          
+          // Add all joiners first
+          joiners.forEach(joiner => {
+            if (joiner.id && joiner.name) {
+              combinedMap.set(joiner.id, joiner);
+            }
+          });
+          
+          // Add all buyers (won't overwrite if ID already exists)
+          buyers.forEach(buyer => {
+            if (buyer.id && buyer.name && !combinedMap.has(buyer.id)) {
+              combinedMap.set(buyer.id, buyer);
+            }
+          });
+          
+          // Convert to array and sort alphabetically
+          const combinedList = Array.from(combinedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+          setJoinerOptionsState(combinedList);
+          
+          console.log('Combined joiners and buyers:', {
+            joinersCount: joiners.length,
+            buyersCount: buyers.length,
+            combinedCount: combinedList.length
+          });
         } catch (e) {
           console.warn('Failed to set joiner options', e?.message || e);
         }
@@ -1563,9 +1633,15 @@ const OrderSummary = ({navigation}) => {
                     {/* Receiver */}
                     <View style={[styles.tableCell, {width: 200}]}>
                       <View style={styles.userInfoContainer}>
-                        <Text style={styles.userPrimaryText}>{order.receiverName}</Text>
-                        {order.receiverUsername ? (
+                        <Text style={styles.userPrimaryText}>
+                          {order.receiverName && order.receiverName !== '—' 
+                            ? order.receiverName 
+                            : `${order.buyerFirstName} ${order.buyerLastName}`.trim()}
+                        </Text>
+                        {(order.receiverName && order.receiverName !== '—' && order.receiverUsername) ? (
                           <Text style={styles.usernameText}>{order.receiverUsername}</Text>
+                        ) : (!order.receiverName || order.receiverName === '—') && order.buyerUsername ? (
+                          <Text style={styles.usernameText}>{order.buyerUsername}</Text>
                         ) : null}
                       </View>
                     </View>
@@ -1576,14 +1652,25 @@ const OrderSummary = ({navigation}) => {
                         {order.isJoinerOrder ? (
                           <>
                             <Text style={styles.userPrimaryText}>
-                              {order.joinerFirstName} {order.joinerLastName}
+                              {order.joinerFirstName && order.joinerFirstName !== '—'
+                                ? `${order.joinerFirstName} ${order.joinerLastName}`.trim()
+                                : `${order.buyerFirstName} ${order.buyerLastName}`.trim()}
                             </Text>
-                            {order.joinerUsername ? (
+                            {(order.joinerFirstName && order.joinerFirstName !== '—' && order.joinerUsername) ? (
                               <Text style={styles.usernameText}>{order.joinerUsername}</Text>
+                            ) : (!order.joinerFirstName || order.joinerFirstName === '—') && order.buyerUsername ? (
+                              <Text style={styles.usernameText}>{order.buyerUsername}</Text>
                             ) : null}
                           </>
                         ) : (
-                          <Text style={styles.userPrimaryText}>—</Text>
+                          <>
+                            <Text style={styles.userPrimaryText}>
+                              {`${order.buyerFirstName} ${order.buyerLastName}`.trim()}
+                            </Text>
+                            {order.buyerUsername ? (
+                              <Text style={styles.usernameText}>{order.buyerUsername}</Text>
+                            ) : null}
+                          </>
                         )}
                       </View>
                     </View>

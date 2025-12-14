@@ -2495,41 +2495,43 @@ const EditDiscount = () => {
           <View style={styles.fullscreenOverlay}>
             <TouchableWithoutFeedback>
               <View style={[styles.appliesSheetContainer, {position: 'absolute', left: (SCREEN.width - 340) / 2, top: appliesSheetTop}]}>
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific listing type'); setShowAppliesSheet(false); }}>
-                    <Text style={styles.typeRowText}>Specific listing type</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.typeDivider} />
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific genus'); setShowAppliesSheet(false); }}>
-                    <Text style={styles.typeRowText}>Specific genus</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.typeDivider} />
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific specie'); setShowAppliesSheet(false); }}>
-                    <Text style={styles.typeRowText}>Specific specie</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.typeDivider} />
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific country'); setShowAppliesSheet(false); }}>
-                    <Text style={styles.typeRowText}>Specific country</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.typeDivider} />
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific garden'); setShowAppliesSheet(false); }}>
-                    <Text style={styles.typeRowText}>Specific garden</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.typeDivider} />
-                <View style={styles.typeRowWrapper}>
-                  <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific listing'); setShowAppliesSheet(false); }}>
-                    <Text style={styles.typeRowText}>Specific listing</Text>
-                  </TouchableOpacity>
-                </View>
+                <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+                  <View style={styles.typeRowWrapper}>
+                    <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific listing type'); setShowAppliesSheet(false); }}>
+                      <Text style={styles.typeRowText}>Specific listing type</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.typeDivider} />
+                  <View style={styles.typeRowWrapper}>
+                    <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific genus'); setShowAppliesSheet(false); }}>
+                      <Text style={styles.typeRowText}>Specific genus</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.typeDivider} />
+                  <View style={styles.typeRowWrapper}>
+                    <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific specie'); setShowAppliesSheet(false); }}>
+                      <Text style={styles.typeRowText}>Specific specie</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.typeDivider} />
+                  <View style={styles.typeRowWrapper}>
+                    <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific country'); setShowAppliesSheet(false); }}>
+                      <Text style={styles.typeRowText}>Specific country</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.typeDivider} />
+                  <View style={styles.typeRowWrapper}>
+                    <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific garden'); setShowAppliesSheet(false); }}>
+                      <Text style={styles.typeRowText}>Specific garden</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.typeDivider} />
+                  <View style={styles.typeRowWrapper}>
+                    <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setAppliesText('Specific listing'); setShowAppliesSheet(false); }}>
+                      <Text style={styles.typeRowText}>Specific listing</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -3518,10 +3520,11 @@ const styles = StyleSheet.create({
   },
   appliesSheetContainer: {
     width: 340,
-    height: 268,
+    maxHeight: 400,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     overflow: 'hidden',
+    alignSelf: 'center',
   },
   countrySheetContainer: {
     width: 340,
