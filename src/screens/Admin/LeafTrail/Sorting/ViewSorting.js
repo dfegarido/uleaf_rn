@@ -20,9 +20,11 @@ import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { addSortingTrayNumber, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
+import { addSortingTrayNumber, updateLeafTrailStatus, updatePlantsToSorted } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
+import CheckBox from '../../../../components/CheckBox/CheckBox';
+import SelectionModal from './SelectionModal';
 
 const Header = ({ title, navigation }) => (
   <View style={styles.headerContainer}>
@@ -89,7 +91,7 @@ const DeliveryDetails = ({ details }) => (
     </View>
 );
 
-const PlantCard = ({ plant, openTagAs }) => {
+const PlantCard = ({ plant, openTagAs, isSelected, onSelect, forSorting=false}) => {
   const setTags = () => {
     let status = {isMissing: true, isDamaged: true};
     if (plant.leafTrailStatus === "missing") {
@@ -99,7 +101,12 @@ const PlantCard = ({ plant, openTagAs }) => {
     }
     openTagAs(status, plant.id)
   }
-  
+
+  const onCheckPress = () => {
+    onSelect(plant.id);
+  }
+
+
   return (
     <View>
       {plant?.isJoinerOrder && (
@@ -115,7 +122,27 @@ const PlantCard = ({ plant, openTagAs }) => {
         </View>
       )}
       <View style={styles.card}>
-          <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+          <View>
+            <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+            {(plant?.leafTrailStatus === 'Sorted') && (
+                      <View style={styles.packedBadgeContainer}>
+                        <View style={styles.packedBadge}>
+                          <Text style={styles.packedBadgeText}>
+                              {plant?.isSortScanned ? "Scanned" : "Unscanned"}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+            {forSorting && (<View style={styles.checkboxContainer}>
+              <CheckBox
+                  checked={isSelected}
+                  onToggle={onCheckPress}
+                  containerStyle={{padding: 0, margin: 0}}
+                  checkedColor="#539461"
+              />
+            </View>)}
+          </View>
+          
           <View style={styles.details}>
               <View>
                   <View style={styles.cardRow}>
@@ -124,7 +151,7 @@ const PlantCard = ({ plant, openTagAs }) => {
                         <QuestionMarkTooltip />
                       </View>
                       <View style={styles.countryContainer}>
-                          <Text style={styles.countryText}>{plant.country}</Text>
+                          <Text style={styles.countryText}>{plant.countryCode}</Text>
                           <CountryFlagIcon code={plant.countryCode} width={24} height={16} />
                           <TouchableOpacity onPress={setTags}>
                             <Options />
@@ -229,10 +256,10 @@ const CustomTabBar = ({ navigationState, jumpTo }) => (
 );
 
 // --- Tab Scenes ---
-const ReceivedPlantsTab = ({itemDetails, openTagAs}) => (
+const ReceivedPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSelectPlant}) => (
   <FlatList
     data={itemDetails}
-    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} />}
+    renderItem={({ item }) => <PlantCard isSelected={selectedPlants.includes(item.id)} onSelect={handleSelectPlant} forSorting={true} plant={item} openTagAs={openTagAs} />}
     keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
@@ -285,6 +312,8 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [forShipping, setForShipping] = useState(false);
   const [orderId, setOrderId] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPlants, setSelectedPlants] = useState([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   const openTagAs = (status, id) => {
     setIsMissing(status.isMissing);
@@ -314,11 +343,26 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       Alert.alert('Error', error.message);
     }
   }
+
+  const handleSelectPlant = (plantId) => {
+    const newSelection = selectedPlants.includes(plantId)
+        ? selectedPlants.filter(id => id !== plantId)
+        : [...selectedPlants, plantId];
+
+    setSelectedPlants(newSelection);
+    
+    if (newSelection.length > 0 && !isSelectionMode) {
+        setIsSelectionMode(true);
+    } else if (newSelection.length === 0 && isSelectionMode) {
+        setIsSelectionMode(false);
+    }
+
+  };
   
   const renderScene = ({ route }) => {
     switch (route.key) {
       case 'received':
-        return <ReceivedPlantsTab itemDetails={receivedPlantsData || []} openTagAs={openTagAs} />;
+        return <ReceivedPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={receivedPlantsData || []} openTagAs={openTagAs} />;
       case 'missing':
         return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
       case 'sorted':
@@ -349,6 +393,31 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setIsLoading(false);
       Alert.alert('Error', error.message || '');
     }
+  }
+
+  const handleSelectAll = () => {
+    if (selectedPlants.length === receivedPlantsData.length) {
+      setSelectedPlants([]);
+    } else {
+      // Select all
+      setSelectedPlants(receivedPlantsData.map(p => p.id));
+    }
+    
+  }
+
+  const sort = async () => {
+    setIsLoading(true);
+
+    const response = await updatePlantsToSorted({orderIds: selectedPlants})
+        if (response.success) {
+          setIsLoading(false);
+          Alert.alert('Success');
+          navigation.goBack();
+        } else {
+          setIsLoading(false);
+          Alert.alert('Error', error.message);
+        }
+
   }
 
   return (
@@ -389,12 +458,41 @@ const SortingDetailsScreen = ({ navigation, route }) => {
             </View>
           </Modal>
         )}
+        <SelectionModal
+          visible={isSelectionMode}
+          onClose={() => { setIsSelectionMode(false); setSelectedPlants([]); }}
+          plants={receivedPlantsData || []}
+          selectedPlants={selectedPlants}
+          onSelectPlant={handleSelectPlant}
+          onSelectAll={handleSelectAll}
+          openTagAs={openTagAs}
+          sort={sort}
+        />
     </SafeAreaView>
   );
 };
 
 // --- Styles for All Components ---
 const styles = StyleSheet.create({
+  packedBadgeContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+  },
+  packedBadge: {
+    backgroundColor: '#FFE7E2',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  packedBadgeText: {
+    color: '#E7522F',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 12,
+  },
   loadingOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -542,6 +640,12 @@ const styles = StyleSheet.create({
   typeChipNoBackground: {
     borderRadius: 6,
     paddingHorizontal: 8, paddingVertical: 2,
+  },
+  checkboxContainer: {
+    position: 'absolute',
+    top: 1,
+    left: 2,
+    backgroundColor: 'transparent',
   },
   typeText: { color: '#FFFFFF', fontFamily: 'Inter', fontWeight: '600', fontSize: 12 },
   quantity: { fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#393D40' },
