@@ -155,7 +155,7 @@ export const getAdminLeafTrailSorting = async (filters = {sort: 'desc'}) => {
     }
 
     const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SORTING}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
-  
+
     const response = await fetch(
       url,
       {
@@ -166,8 +166,7 @@ export const getAdminLeafTrailSorting = async (filters = {sort: 'desc'}) => {
         },
       },
     );
-    const data = await response.json();
-    
+    const data =  await response.json();
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
@@ -235,6 +234,35 @@ export const addSortingTrayNumber = async (data) => {
     return json;
   } catch (error) {
     console.error('addSortingTrayNumber error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
+export const updatePlantsToSorted = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      API_ENDPOINTS.UPDATE_PLANTS_TO_SORTED,
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('updatePlantsToSorted error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
