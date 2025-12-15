@@ -82,6 +82,7 @@ const ShippingInfo = ({ upsShipping, plantFlight }) => (
 );
 
 const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
+  
   const setTags = () => {
     openTagAs(plant?.packingData?.boxNumber || null, plant.id)
   }
@@ -283,7 +284,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
           </View>
           <ShippingInfo
             upsShipping={packingDetails.upsShippingDate ? moment(packingDetails.upsShippingDate).format('MMM DD, YYYY') : 'Date TBD'}
-            plantFlight={packingDetails.flightDate ? moment(packingDetails.flightDate).format('MMM DD, YYYY') : 'Date TBD'}
+            plantFlight={packingDetails.flightDate || 'Date TBD'}
           />
         </View>
 
@@ -372,7 +373,7 @@ const styles = StyleSheet.create({
     color: '#202325',
   },
   scrollContent: {
-    paddingTop: 106, // Height of the header
+    paddingTop: 40, // Height of the header
     paddingBottom: 34,
   },
   trayInfoContainer: {
