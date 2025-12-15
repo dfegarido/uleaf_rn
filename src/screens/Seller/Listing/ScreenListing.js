@@ -389,7 +389,11 @@ const ScreenListing = ({navigation}) => {
       }
 
       if (!response) {
-        const tokenForPage = tokensCopy[desiredPage - 1] || '';
+        let tokenForPage = tokensCopy[desiredPage - 1] || '';
+
+        if (desiredPage === 1 && activeTab === 'Group Chat Listing') {
+          tokenForPage = null;
+        }
         response = await fetchPageWithToken(tokenForPage);
       }
 
@@ -567,7 +571,8 @@ const ScreenListing = ({navigation}) => {
         }
 
         if (activeTab === 'Group Chat Listing') {
-          return listing._displayStatus === 'GroupChatListing';
+          const isGroupChatListingStatus = (listing.status || '').trim() === 'GroupChatListing';
+          return isGroupChatListingStatus;
         }
 
         return true;
