@@ -46,9 +46,7 @@ const ListItem = ({ item, navigation}) => (
         <View style={styles.detailsContent}>
           {/* <Icon name="sprout-outline" size={24} color="#556065" /> */}
           <AirplaneIcon width={20} height={20} color="#556065"/>
-          <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{ item.flightDate
-                      ? moment(item.flightDate).format('MMM DD, YYYY')
-                      : 'Date TBD' }</Text></Text>
+          <Text style={styles.detailsText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{ item.flightDateFormatted || 'Date TBD' }</Text></Text>
         </View>
       </View>
     </View>

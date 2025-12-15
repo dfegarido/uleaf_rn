@@ -312,7 +312,7 @@ const ViewShippedScreen = ({ navigation, route }) => {
           </View>
           <ShippingInfo
             upsShipping={shippedDetails.upsShippingDate ? moment(shippedDetails.upsShippingDate).format('MMM DD, YYYY') : 'Date TBD'}
-            plantFlight={shippedDetails.flightDate ? moment(shippedDetails.flightDate).format('MMM DD, YYYY') : 'Date TBD'}
+            plantFlight={shippedDetails.flightDateFormatted || 'Date TBD'}
           />
         </View>
 
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 48, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#FFFFFF', height: 106, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   headerTitle: { fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325' },
-  scrollContent: { paddingTop: 106, paddingBottom: 34 },
+  scrollContent: { paddingTop: 40, paddingBottom: 34 },
   trackingInfoContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12 },
   trackingIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#6B4EFF', justifyContent: 'center', alignItems: 'center' },
   trackingDetails: { flex: 1, gap: 4 },

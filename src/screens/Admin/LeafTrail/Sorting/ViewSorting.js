@@ -83,9 +83,7 @@ const DeliveryDetails = ({ details }) => (
             </View>
             <View style={styles.infoRow}>
                 <Text style={styles.label}>Plant Flight</Text>
-                <Text style={styles.value}>{ details.flightDate
-                                      ? moment(details.flightDate).format('MMM DD, YYYY')
-                                      : 'Date TBD' }</Text>
+                <Text style={styles.value}>{ details.flightDateFormatted || 'Date TBD' }</Text>
             </View>
         </View>
     </View>
@@ -431,7 +429,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
           avatar: itemDetails?.avatar || '',
         }} />
         <GreenhouseInputs itemDetails={itemDetails} addTrayNumber={addTrayNumber}/>
-        <DeliveryDetails details={{upsFlight: itemDetails?.upsShippingDate || '', flightDate: itemDetails?.flightDate || '' }} />
+        <DeliveryDetails details={{upsFlight: itemDetails?.upsShippingDate || '', flightDateFormatted: itemDetails?.flightDateFormatted || '' }} />
       </ScrollView>
 
       {/* The TabView is positioned absolutely to float over the ScrollView */}
@@ -515,7 +513,7 @@ const styles = StyleSheet.create({
   // User Profile
   userContainer: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15,
-    paddingVertical: 12, marginTop: 106,
+    paddingVertical: 12, marginTop: 50,
   },
   avatar: {
     width: 64, height: 64, borderRadius: 32,
