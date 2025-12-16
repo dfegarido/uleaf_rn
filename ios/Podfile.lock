@@ -3187,6 +3187,27 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNShare (12.2.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNSVG (12.5.1):
     - React-Core
   - SocketRocket (0.7.0)
@@ -3285,6 +3306,7 @@ DEPENDENCIES:
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
+  - RNShare (from `../node_modules/react-native-share`)
   - RNSVG (from `../node_modules/react-native-svg`)
   - VisionCamera (from `../node_modules/react-native-vision-camera`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
@@ -3477,6 +3499,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../node_modules/react-native-screens"
+  RNShare:
+    :path: "../node_modules/react-native-share"
   RNSVG:
     :path: "../node_modules/react-native-svg"
   VisionCamera:
@@ -3588,6 +3612,7 @@ SPEC CHECKSUMS:
   RNGestureHandler: ae56ec9557e0569b3f83c220e3bc5e1f55cb76d6
   RNReanimated: bb4b511960917fda89270ed1316072d1f63f2ffa
   RNScreens: b2a3d58e4ab03eb485bf59307977921f2b0a6fc9
+  RNShare: 555f377695035947a5c2f02e07e8e8cf7b86c9b3
   RNSVG: d7cb8bd34550cf4c4fc7edd7ac627905e2b71f3f
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
   VisionCamera: 30b358b807324c692064f78385e9a732ce1bebfe
