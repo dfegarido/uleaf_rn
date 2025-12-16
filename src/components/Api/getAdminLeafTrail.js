@@ -1,6 +1,42 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 
+export const exportAllOrdersToCsv = async (filters = {sort: 'desc'}) => {
+  try {
+    const token = await getStoredAuthToken();
+    
+    let cleanedParams = null;
+    if (filters) {
+      cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+    }
+
+    const url = `${API_ENDPOINTS.EXPORT_ALL_ORDERS_TO_CSV}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    
+    const response = await fetch(
+      url,
+      {
+        method: 'GET', 
+        headers: {
+          'Accept': 'text/csv',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error('exportAllOrdersToCsv error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
 export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();

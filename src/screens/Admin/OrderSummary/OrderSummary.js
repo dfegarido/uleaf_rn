@@ -4,13 +4,17 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import ScreenHeader from '../../../components/Admin/header';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -18,6 +22,8 @@ import { getAdminOrdersApi } from '../../../components/Api/adminOrderApi';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
 import { getAllPlantGenusApi, getListingTypeApi } from '../../../components/Api/dropdownApi';
 import { getVariegationApi } from '../../../components/Api/getVariegationApi';
+import { API_ENDPOINTS } from '../../../config/apiConfig';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
 import GardenFilter from '../../../components/Admin/gardenFilter';
 import BuyerFilter from '../../../components/Admin/buyerFilter';
@@ -381,6 +387,127 @@ const OrderSummary = ({navigation}) => {
       isJoinerOrder: order.isJoinerOrder || false,
       plantFlight: safeFormatDate(order.flightDate, order.flightDateFormatted) || '—',
     };
+  };
+
+  const downloadCsv = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 1. Map Status to backend format
+      const statusMapping = {
+        'readyToFly': 'Ready to Fly',
+        'completed': 'delivered',
+        'wildgone': 'cancelled'
+      };
+      const mappedStatus = statusMapping[activeTab] || activeTab;
+
+      // 2. Map Sort to backend fields
+      let sortField = undefined;
+      let sortDirection = undefined;
+      if (selectedFilters.sort) {
+        const sortMapping = {
+          'latest': { field: 'createdAt', direction: 'desc' },
+          'oldest': { field: 'createdAt', direction: 'asc' },
+          'priceLow': { field: 'price', direction: 'asc' },
+          'priceHigh': { field: 'price', direction: 'desc' }
+        };
+        const mappedSort = sortMapping[selectedFilters.sort];
+        if (mappedSort) {
+          sortField = mappedSort.field;
+          sortDirection = mappedSort.direction;
+        }
+      }
+
+      const filters = {
+        status: mappedStatus,
+        sortField,
+        sortDirection,
+        search: searchTerm.trim() || undefined,
+        genus: Array.isArray(selectedFilters.genus) ? selectedFilters.genus.join(',') : selectedFilters.genus,
+        variegation: Array.isArray(selectedFilters.variegation) ? selectedFilters.variegation.join(',') : selectedFilters.variegation,
+        listingType: Array.isArray(selectedFilters.listingType) ? selectedFilters.listingType.join(',') : selectedFilters.listingType,
+        garden: selectedFilters.garden || undefined,
+        buyer: selectedFilters.buyer || undefined,
+        receiver: selectedFilters.receiver || undefined,
+        joiner: selectedFilters.joiner || undefined,
+        dateFrom: selectedFilters.dateRange?.from ? selectedFilters.dateRange.from.toISOString().split('T')[0] : undefined,
+        dateTo: selectedFilters.dateRange?.to ? selectedFilters.dateRange.to.toISOString().split('T')[0] : undefined,
+        plantFlight: selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0
+          ? (Array.isArray(selectedFilters.plantFlight) ? selectedFilters.plantFlight.join(',') : selectedFilters.plantFlight)
+          : undefined,
+      };
+
+      const cleanedParams = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value != null)
+      );
+
+      const url = `${API_ENDPOINTS.EXPORT_ALL_ORDERS_TO_CSV}?${new URLSearchParams(cleanedParams).toString()}`;
+      const token = await getStoredAuthToken();
+
+      const date = new Date();
+      const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}_${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
+      const fileName = `orders_export_${dateStr}.csv`;
+      
+      let destinationPath;
+      if (Platform.OS === 'android') {
+        destinationPath = `${RNFS.DownloadDirectoryPath}/${fileName}`;
+      } else {
+        destinationPath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+      }
+
+      const options = {
+        fromUrl: url,
+        toFile: destinationPath,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'text/csv',
+        },
+      };
+
+      console.log('Downloading CSV with options:', options);
+
+      const response = RNFS.downloadFile(options);
+      const result = await response.promise;
+
+      console.log('Download result:', result);
+
+      if (result.statusCode === 200) {
+        if (result.bytesWritten === 0) {
+          throw new Error('Downloaded file is empty (0 bytes).');
+        }
+
+        if (Platform.OS === 'android') {
+          Alert.alert('Success', `File downloaded to Downloads folder:\n${fileName}`);
+        } else {
+          await Share.open({
+            url: `file://${destinationPath}`,
+            type: 'text/csv',
+            title: 'Export Orders',
+            filename: fileName,
+            failOnCancel: false,
+          });
+        }
+      } else {
+        // Try to read error message from the file if possible
+        let errorMessage = `Failed to export CSV. Status code: ${result.statusCode}`;
+        try {
+          const errorContent = await RNFS.readFile(destinationPath, 'utf8');
+          if (errorContent) {
+            errorMessage += `\nServer response: ${errorContent.substring(0, 200)}`;
+          }
+        } catch (e) {
+          // ignore read error
+        }
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      setError(error.message);
+      Alert.alert('Error', `Failed to download CSV: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Fetch orders data
@@ -1170,6 +1297,8 @@ const OrderSummary = ({navigation}) => {
             }
           }}
           searchActive={searchVisible}
+          downloadCsv={true}
+          onDownloadCsv={() => downloadCsv()}
           searchValue={searchTerm}
           onSearchChange={(text) => setSearchTerm(text || '')}
           onSearchSubmit={() => {
@@ -2070,5 +2199,3 @@ const styles = StyleSheet.create({
     color: '#647276',
   },
 });
-
-

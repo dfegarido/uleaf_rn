@@ -7,6 +7,7 @@ import {
     View,
 } from 'react-native';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
+import DownloadIcon from '../../assets/admin-icons/download.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import SearchIcon from '../../assets/icons/greylight/magnifying-glass-regular';
 
@@ -22,6 +23,8 @@ const ScreenHeader = ({
     onSearchSubmit,
     inputRef,
     searchPlaceholder='Search',
+    downloadCsv=false,
+    onDownloadCsv,
 }) => {
     return (
         <View style={styles.header}>
@@ -44,25 +47,31 @@ const ScreenHeader = ({
                 />
             )}
 
-            {scarQr && !searchActive && (
-                <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
-                    <ScanQrIcon />
-                </TouchableOpacity>
-            )}
+            <View style={styles.rightActions}>
+                {downloadCsv && !searchActive && (
+                    <TouchableOpacity style={styles.headerAction} onPress={onDownloadCsv}>
+                        <DownloadIcon />
+                    </TouchableOpacity>
+                )}
 
-            {search && !searchActive && (
-                <TouchableOpacity style={styles.headerAction} onPress={onSearchPress}>
-                    <SearchIcon />
-                </TouchableOpacity>
-            )}
+                {scarQr && !searchActive && (
+                    <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
+                        <ScanQrIcon />
+                    </TouchableOpacity>
+                )}
 
-            {search && searchActive && (
-                <TouchableOpacity style={styles.headerAction} onPress={onSearchSubmit}>
-                    <SearchIcon />
-                </TouchableOpacity>
-            )}
+                {search && !searchActive && (
+                    <TouchableOpacity style={styles.headerAction} onPress={onSearchPress}>
+                        <SearchIcon />
+                    </TouchableOpacity>
+                )}
 
-            {!search && !searchActive && !scarQr && (<View></View>)}
+                {search && searchActive && (
+                    <TouchableOpacity style={styles.headerAction} onPress={onSearchSubmit}>
+                        <SearchIcon />
+                    </TouchableOpacity>
+                )}
+            </View>
         </View>
     );
 };
@@ -92,6 +101,11 @@ const styles = StyleSheet.create({
         fontFamily: 'Inter',
         fontSize: 14,
         color: '#202325',
+    },
+    rightActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     headerAction: {
         width: 40,
