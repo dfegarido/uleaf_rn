@@ -230,5 +230,20 @@ fi
       Pod::UI.warn("[post_install] Failed to relax non-modular include settings: #{e.message}")
     end
 
+    # Ensure dSYM generation is enabled for all pod targets
+    # This helps with crash symbolication, though pre-built frameworks like Agora may not have dSYMs
+    begin
+      installer.pods_project.targets.each do |t|
+        t.build_configurations.each do |config|
+          # Enable dSYM generation for Release builds
+          if config.name == 'Release'
+            config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+          end
+        end
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to enable dSYM generation: #{e.message}")
+    end
+
   end
 end
