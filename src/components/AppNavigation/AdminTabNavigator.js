@@ -67,6 +67,7 @@ import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 import SalesReport from '../../screens/Admin/SalesReport/SalesReport';
 import JourneyMishapDetail from '../../screens/Admin/SalesReport/JourneyMishapDetail';
 import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
+import OrderSummary from '../../screens/Admin/OrderSummary/OrderSummary';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -243,7 +244,7 @@ function AdminTabs() {
       <Stack.Screen name="AdminDiscountEdit" options={{headerShown: false}} component={EditDiscount} />
       <Stack.Screen name="AdminDiscountSelectListing" options={{headerShown: false}} component={SelectListingScreen} />
       {/* Order Summary */}
-      <Stack.Screen name="OrderSummary" options={{headerShown: false}} component={require('../../screens/Admin/OrderSummary/OrderSummary').default} />
+      <Stack.Screen name="OrderSummary" options={{headerShown: false}} component={OrderSummary} />
       
       {/* Flight Date */}
       <Stack.Screen name="FlightDate" options={{headerShown: false}} component={require('../../screens/Admin/FlightDate/FlightDate').default} />

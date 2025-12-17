@@ -27,6 +27,60 @@ import DownloadIcon from '../../../assets/icons/accent/download.svg';
 import SearchIcon from '../../../assets/admin-icons/search.svg';
 import CloseIcon from '../../../assets/admin-icons/x.svg';
 import ArrowDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
+import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
+import BuyerFilter from '../../../components/Admin/buyerFilter';
+import JoinerFilter from '../../../components/Admin/joinerFilter';
+import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
+import TransactionFilter from '../../../components/Admin/transactionFilter';
+
+// Skeleton loader component for QR codes
+const QRCodeSkeleton = () => {
+  const itemWidth = 80;
+  const itemHeight = 170;
+  const rowSpacing = 10;
+  const numItems = 16; // 4x4 grid
+  const containerWidth = Dimensions.get('window').width - 48;
+  const spacing = (containerWidth - (itemWidth * 4)) / 3;
+
+  return (
+    <View style={styles.pageContainer}>
+      <View style={styles.contentWrapper}>
+        <View style={[styles.qrListContainer, { height: (4 * itemHeight) + (3 * rowSpacing) + 10 }]}>
+          {Array.from({ length: numItems }).map((_, index) => {
+            const row = Math.floor(index / 4);
+            const col = index % 4;
+            const left = col * (itemWidth + spacing);
+            const top = row * (itemHeight + rowSpacing);
+            
+            return (
+              <View 
+                key={index}
+                style={[
+                  styles.qrItemContainer,
+                  {
+                    left: left,
+                    top: top,
+                    height: itemHeight,
+                  }
+                ]}
+              >
+                <View style={styles.skeletonItem}>
+                  <View style={styles.skeletonQR} />
+                  <View style={styles.skeletonLine} />
+                  <View style={styles.skeletonLineShort} />
+                  <View style={styles.skeletonLine} />
+                  <View style={styles.skeletonLineShort} />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+};
 
 // Seller Selection Modal Component
 const SellerSelectionModal = ({ isVisible, onClose, onSelectSeller, sellers, loading }) => {
@@ -166,6 +220,27 @@ const GenerateQR = ({navigation}) => {
   const [showSellerModal, setShowSellerModal] = useState(false);
   const [sortOrder] = useState('newest'); // Always sort newest first
 
+  // Filter states
+  const [selectedFilters, setSelectedFilters] = useState({
+    createdDate: null, // Date range for created date
+    flightDate: [], // Array of flight dates
+    buyer: null,
+    transaction: null, // Transaction number (string)
+    joiner: null,
+  });
+
+  // Filter modal states
+  const [createdDateModalVisible, setCreatedDateModalVisible] = useState(false);
+  const [flightDateModalVisible, setFlightDateModalVisible] = useState(false);
+  const [buyerModalVisible, setBuyerModalVisible] = useState(false);
+  const [transactionModalVisible, setTransactionModalVisible] = useState(false);
+  const [joinerModalVisible, setJoinerModalVisible] = useState(false);
+
+  // Filter options from API response
+  const [buyerOptions, setBuyerOptions] = useState([]);
+  const [joinerOptions, setJoinerOptions] = useState([]);
+  const [flightDateOptions, setFlightDateOptions] = useState([]);
+
   // Function to handle email sending
   const handleSendEmail = async () => {
     try {
@@ -178,11 +253,42 @@ const GenerateQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      // Build URL with seller filter if selected
-      let url = API_ENDPOINTS.QR_GENERATOR;
+      // Build URL with seller filter and other filters
+      const queryParams = new URLSearchParams();
       if (selectedSeller && selectedSeller.uid) {
-        url += `?sellerUid=${encodeURIComponent(selectedSeller.uid)}`;
+        queryParams.append('sellerUid', selectedSeller.uid);
       }
+      
+      // Add filter parameters
+      if (selectedFilters.createdDate) {
+        if (selectedFilters.createdDate.from) {
+          // Set time to start of day (00:00:00)
+          const fromDate = new Date(selectedFilters.createdDate.from);
+          fromDate.setHours(0, 0, 0, 0);
+          queryParams.append('createdDateFrom', fromDate.toISOString());
+        }
+        if (selectedFilters.createdDate.to) {
+          // Set time to end of day (23:59:59)
+          const toDate = new Date(selectedFilters.createdDate.to);
+          toDate.setHours(23, 59, 59, 999);
+          queryParams.append('createdDateTo', toDate.toISOString());
+        }
+      }
+      if (selectedFilters.flightDate && Array.isArray(selectedFilters.flightDate) && selectedFilters.flightDate.length > 0) {
+        queryParams.append('flightDate', selectedFilters.flightDate.join(','));
+      }
+      if (selectedFilters.buyer) {
+        queryParams.append('buyer', selectedFilters.buyer);
+      }
+      if (selectedFilters.transaction) {
+        queryParams.append('transaction', selectedFilters.transaction);
+      }
+      if (selectedFilters.joiner) {
+        queryParams.append('joiner', selectedFilters.joiner);
+      }
+      
+      const queryString = queryParams.toString();
+      const url = queryString ? `${API_ENDPOINTS.QR_GENERATOR}?${queryString}` : API_ENDPOINTS.QR_GENERATOR;
 
       const response = await fetch(url, {
         method: 'GET',
@@ -307,11 +413,50 @@ const GenerateQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      // Build URL with seller filter if selected
-      let url = API_ENDPOINTS.QR_GENERATOR_ORDERS;
+      // Build URL with seller filter and other filters
+      const queryParams = new URLSearchParams();
       if (selectedSeller && selectedSeller.uid) {
-        url += `?sellerUid=${encodeURIComponent(selectedSeller.uid)}`;
+        queryParams.append('sellerUid', selectedSeller.uid);
       }
+      
+      // Add filter parameters
+      if (selectedFilters.createdDate) {
+        if (selectedFilters.createdDate.from) {
+          // Set time to start of day (00:00:00)
+          const fromDate = new Date(selectedFilters.createdDate.from);
+          fromDate.setHours(0, 0, 0, 0);
+          const dateFrom = fromDate.toISOString();
+          queryParams.append('createdDateFrom', dateFrom);
+          console.log('📅 QR Generator - Date From:', dateFrom, 'Original:', selectedFilters.createdDate.from);
+        }
+        if (selectedFilters.createdDate.to) {
+          // Set time to end of day (23:59:59)
+          const toDate = new Date(selectedFilters.createdDate.to);
+          toDate.setHours(23, 59, 59, 999);
+          const dateTo = toDate.toISOString();
+          queryParams.append('createdDateTo', dateTo);
+          console.log('📅 QR Generator - Date To:', dateTo, 'Original:', selectedFilters.createdDate.to);
+        }
+      }
+      if (selectedFilters.flightDate && Array.isArray(selectedFilters.flightDate) && selectedFilters.flightDate.length > 0) {
+        queryParams.append('flightDate', selectedFilters.flightDate.join(','));
+      }
+      if (selectedFilters.garden) {
+        queryParams.append('garden', selectedFilters.garden);
+      }
+      if (selectedFilters.buyer) {
+        queryParams.append('buyer', selectedFilters.buyer);
+      }
+      if (selectedFilters.transaction) {
+        queryParams.append('transaction', selectedFilters.transaction);
+      }
+      if (selectedFilters.joiner) {
+        queryParams.append('joiner', selectedFilters.joiner);
+      }
+      
+      const queryString = queryParams.toString();
+      const url = queryString ? `${API_ENDPOINTS.QR_GENERATOR_ORDERS}?${queryString}` : API_ENDPOINTS.QR_GENERATOR_ORDERS;
+      console.log('🌐 QR Generator - Fetching from URL:', url);
 
       const response = await fetch(url, {
         method: 'GET',
@@ -320,6 +465,8 @@ const GenerateQR = ({navigation}) => {
           'Content-Type': 'application/json',
         },
       });
+
+      console.log('🔍 QR Generator - Response status:', response.status);
 
       if (!response.ok) {
         // Handle 404 specifically for no orders found
@@ -332,6 +479,11 @@ const GenerateQR = ({navigation}) => {
       }
 
       const data = await response.json();
+      console.log('📦 QR Generator - API Response:', {
+        ordersCount: data?.data?.length || data?.orders?.length || 0,
+        hasData: !!data,
+        filters: selectedFilters
+      });
       
       // Check if API response indicates no orders
       if (!data.success && data.error && data.error.includes('No orders found')) {
@@ -340,6 +492,18 @@ const GenerateQR = ({navigation}) => {
         return; // Don't show alert, just set the error state
       }
       
+      // Extract filter options from API response
+      if (data.buyers && Array.isArray(data.buyers)) {
+        setBuyerOptions(data.buyers);
+      }
+      if (data.joiners && Array.isArray(data.joiners)) {
+        setJoinerOptions(data.joiners);
+      }
+      if (data.flightDates && Array.isArray(data.flightDates)) {
+        const filteredFlightDates = data.flightDates.filter(date => date !== '2001-11-08');
+        setFlightDateOptions(filteredFlightDates);
+      }
+
       // Transform API data to match the expected format
       const transformedData = transformApiData(data);
 
@@ -384,7 +548,7 @@ const GenerateQR = ({navigation}) => {
     } finally {
       setLoading(false);
     }
-  }, [selectedSeller, sortOrder, sortQRCodesByDate]);
+  }, [selectedSeller, selectedFilters, sortOrder, sortQRCodesByDate]);
 
   // Transform API data to match the UI structure
   const transformApiData = (apiData) => {
@@ -822,6 +986,115 @@ const GenerateQR = ({navigation}) => {
     setSelectedSeller(null);
   }, []);
 
+  // Filter handlers
+  const handleCreatedDateSelect = useCallback((dateRange) => {
+    setSelectedFilters((prev) => ({ ...prev, createdDate: dateRange }));
+    setCreatedDateModalVisible(false);
+  }, []);
+
+  const handleFlightDateSelect = useCallback((flightDates) => {
+    setSelectedFilters((prev) => ({ ...prev, flightDate: flightDates }));
+    setFlightDateModalVisible(false);
+  }, []);
+
+  const handleBuyerSelect = useCallback((buyerId) => {
+    setSelectedFilters((prev) => ({ ...prev, buyer: buyerId }));
+    setBuyerModalVisible(false);
+  }, []);
+
+  const handleTransactionSelect = useCallback((transaction) => {
+    setSelectedFilters((prev) => ({ ...prev, transaction }));
+    setTransactionModalVisible(false);
+  }, []);
+
+  const handleJoinerSelect = useCallback((joinerId) => {
+    setSelectedFilters((prev) => ({ ...prev, joiner: joinerId }));
+    setJoinerModalVisible(false);
+  }, []);
+
+  // Helper to check if filter is active
+  const isFilterActive = (filterLabel) => {
+    switch (filterLabel) {
+      case 'Created Date':
+        return selectedFilters.createdDate !== null;
+      case 'Flight Date':
+        return selectedFilters.flightDate !== null && selectedFilters.flightDate.length > 0;
+      case 'Buyer':
+        return selectedFilters.buyer !== null;
+      case 'Transaction':
+        return selectedFilters.transaction !== null && selectedFilters.transaction.trim() !== '';
+      case 'Joiner':
+        return selectedFilters.joiner !== null;
+      default:
+        return false;
+    }
+  };
+
+  // Filter tabs configuration
+  const filterTabs = [
+    { label: 'Created Date', leftIcon: SortIcon, rightIcon: DownIcon },
+    { label: 'Flight Date', rightIcon: DownIcon },
+    { label: 'Buyer', rightIcon: DownIcon },
+    { label: 'Transaction', rightIcon: DownIcon },
+    { label: 'Joiner', rightIcon: DownIcon },
+  ];
+
+  // Filter Tab component
+  const FilterTab = ({ filter }) => {
+    const isActive = isFilterActive(filter.label);
+    
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          if (filter.label === 'Created Date') {
+            setCreatedDateModalVisible(true);
+          } else if (filter.label === 'Flight Date') {
+            setFlightDateModalVisible(true);
+          } else if (filter.label === 'Buyer') {
+            setBuyerModalVisible(true);
+          } else if (filter.label === 'Transaction') {
+            setTransactionModalVisible(true);
+          } else if (filter.label === 'Joiner') {
+            setJoinerModalVisible(true);
+          }
+        }}
+        style={{
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: isActive ? '#23C16B' : '#CDD3D4',
+          backgroundColor: isActive ? '#E8F5E9' : '#FFFFFF',
+          padding: 8,
+          marginTop: 5,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+        activeOpacity={0.7}
+      >
+        {filter.leftIcon && (
+          <filter.leftIcon
+            width={20}
+            height={20}
+            style={{ marginRight: 4 }}
+          />
+        )}
+        <Text style={{
+          fontSize: 14,
+          fontWeight: isActive ? '600' : '500',
+          color: isActive ? '#23C16B' : '#393D40'
+        }}>
+          {filter.label}
+        </Text>
+        {filter.rightIcon && (
+          <filter.rightIcon
+            width={20}
+            height={20}
+            style={{ marginLeft: 4 }}
+          />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
   // Function to sort QR codes by order date
   const sortQRCodesByDate = useCallback((pages, order) => {
     if (!pages || pages.length === 0) return pages;
@@ -939,6 +1212,13 @@ const GenerateQR = ({navigation}) => {
       setLoading(false);
     }
   }, [selectedSeller, fetchQRCodeData]);
+
+  // Refetch QR codes when filters change
+  React.useEffect(() => {
+    if (selectedSeller) {
+      fetchQRCodeData();
+    }
+  }, [selectedFilters, fetchQRCodeData]);
 
   const formatGeneratedDate = (dateInput) => {
     if (!dateInput) return 'Unknown';
@@ -1068,13 +1348,32 @@ const GenerateQR = ({navigation}) => {
           loading={loadingSellers}
         />
 
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4CAF50" />
-          <Text style={styles.loadingText}>Loading QR codes...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+        {/* Filter Tabs */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, paddingVertical: 4 }}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+            paddingHorizontal: 10,
+          }}
+        >
+        {filterTabs.map((filter) => (
+          <FilterTab key={filter.label} filter={filter} />
+        ))}
+      </ScrollView>
+
+      {/* Skeleton Loader */}
+      <View style={styles.mainContent}>
+        <ScrollView contentContainerStyle={styles.flatListContent}>
+          <QRCodeSkeleton />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
 
   if (error || qrCodeData.length === 0) {
     return (
@@ -1112,6 +1411,23 @@ const GenerateQR = ({navigation}) => {
           sellers={sellers}
           loading={loadingSellers}
         />
+
+        {/* Filter Tabs */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, paddingVertical: 4 }}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+            paddingHorizontal: 10,
+          }}
+        >
+          {filterTabs.map((filter) => (
+            <FilterTab key={filter.label} filter={filter} />
+          ))}
+        </ScrollView>
 
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
@@ -1174,6 +1490,23 @@ const GenerateQR = ({navigation}) => {
         sellers={sellers}
         loading={loadingSellers}
       />
+
+      {/* Filter Tabs */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, paddingVertical: 4 }}
+        contentContainerStyle={{
+          flexDirection: 'row',
+          gap: 10,
+          alignItems: 'flex-start',
+          paddingHorizontal: 10,
+        }}
+      >
+        {filterTabs.map((filter) => (
+          <FilterTab key={filter.label} filter={filter} />
+        ))}
+      </ScrollView>
       
       {/* Send Email Button */}
       <View style={styles.emailButtonContainer}>
@@ -1192,16 +1525,6 @@ const GenerateQR = ({navigation}) => {
           )}
         </TouchableOpacity>
       </View>
-
-      {/* Date Generated - Single display at top */}
-      {qrCodeData.length > 0 && qrCodeData[0] && (
-        <View style={styles.topDateContainer}>
-          <Text style={styles.dateLabel}>Date generated:</Text>
-          <Text style={styles.dateText}>
-            {formatGeneratedDate(qrCodeData[0].createdAt)}
-          </Text>
-        </View>
-      )}
 
       {/* Main Content Area */}
       <View style={styles.mainContent}>
@@ -1299,6 +1622,62 @@ const GenerateQR = ({navigation}) => {
           }}
         />
       </View>
+
+      {/* Filter Modals */}
+      <DateRangeFilter
+        isVisible={createdDateModalVisible}
+        onClose={() => setCreatedDateModalVisible(false)}
+        onSelectDateRange={handleCreatedDateSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, createdDate: null }));
+          setCreatedDateModalVisible(false);
+        }}
+      />
+
+      <PlantFlightFilter
+        isVisible={flightDateModalVisible}
+        onClose={() => setFlightDateModalVisible(false)}
+        flightDates={flightDateOptions}
+        selectedValues={selectedFilters.flightDate || []}
+        onSelectFlight={handleFlightDateSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, flightDate: [] }));
+          setFlightDateModalVisible(false);
+        }}
+      />
+
+      <BuyerFilter
+        isVisible={buyerModalVisible}
+        onClose={() => setBuyerModalVisible(false)}
+        onSelectBuyer={handleBuyerSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, buyer: null }));
+          setBuyerModalVisible(false);
+        }}
+        buyers={buyerOptions}
+      />
+
+      <TransactionFilter
+        isVisible={transactionModalVisible}
+        onClose={() => setTransactionModalVisible(false)}
+        onSelectTransaction={handleTransactionSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, transaction: null }));
+          setTransactionModalVisible(false);
+        }}
+        currentTransaction={selectedFilters.transaction || ''}
+      />
+
+      <JoinerFilter
+        isVisible={joinerModalVisible}
+        onClose={() => setJoinerModalVisible(false)}
+        onSelectJoiner={handleJoinerSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, joiner: null }));
+          setJoinerModalVisible(false);
+        }}
+        joiners={joinerOptions}
+      />
     </SafeAreaView>
   );
 };
@@ -1354,29 +1733,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-  },
-  topDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  dateLabel: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 10,
-    lineHeight: 12,
-    color: '#202325',
-    marginRight: 4,
-  },
-  dateText: {
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 10,
-    lineHeight: 12,
-    color: '#202325',
   },
   mainContent: {
     flex: 1,
@@ -1749,5 +2105,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#647276',
     textAlign: 'center',
+  },
+  // Skeleton loader styles
+  skeletonItem: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 0,
+    gap: 4,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    width: '100%',
+    height: '95%',
+    borderRadius: 4,
+  },
+  skeletonQR: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonLine: {
+    width: '80%',
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  skeletonLineShort: {
+    width: '60%',
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginTop: 2,
   },
 });

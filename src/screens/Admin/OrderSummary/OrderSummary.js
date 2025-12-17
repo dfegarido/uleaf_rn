@@ -14,7 +14,14 @@ import {
   Alert,
 } from 'react-native';
 import RNFS from 'react-native-fs';
-import Share from 'react-native-share';
+let Share;
+try {
+  const ShareModule = require('react-native-share');
+  Share = ShareModule.default || ShareModule;
+} catch (e) {
+  console.warn('react-native-share not available:', e);
+  Share = null;
+}
 import ScreenHeader from '../../../components/Admin/header';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -480,13 +487,17 @@ const OrderSummary = ({navigation}) => {
         if (Platform.OS === 'android') {
           Alert.alert('Success', `File downloaded to Downloads folder:\n${fileName}`);
         } else {
-          await Share.open({
-            url: `file://${destinationPath}`,
-            type: 'text/csv',
-            title: 'Export Orders',
-            filename: fileName,
-            failOnCancel: false,
-          });
+          if (Share) {
+            await Share.open({
+              url: `file://${destinationPath}`,
+              type: 'text/csv',
+              title: 'Export Orders',
+              filename: fileName,
+              failOnCancel: false,
+            });
+          } else {
+            Alert.alert('Success', `File downloaded to Documents folder:\n${fileName}`);
+          }
         }
       } else {
         // Try to read error message from the file if possible

@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
+import CaretLeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
+import CaretRightIcon from '../../assets/icons/greylight/caret-right-regular.svg';
 
 // Format date from ISO (YYYY-MM-DD) to readable format (MMM DD, YYYY)
 const formatFlightDate = (isoDate) => {
@@ -31,23 +33,22 @@ const formatFlightDate = (isoDate) => {
   }
 };
 
-const FlightDateItem = ({ date, formattedDate, onToggle, isSelected }) => (
-  <TouchableOpacity 
-    style={[styles.flightDateItemContainer, isSelected && styles.flightDateItemActive]}
-    onPress={onToggle}
-    activeOpacity={0.7}
-  >
-    <Text style={[styles.flightDateText, isSelected && styles.flightDateTextActive]}>
-      {formattedDate}
-    </Text>
-    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-      {isSelected && (
-        <View style={styles.checkboxInner}>
-          <Text style={styles.checkmark}>✓</Text>
-        </View>
-      )}
-    </View>
-  </TouchableOpacity>
+// Convert date to ISO format (YYYY-MM-DD)
+const toISODateString = (date) => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const SelectedDateChip = ({ date, onRemove }) => (
+  <View style={styles.selectedChip}>
+    <Text style={styles.selectedChipText}>{formatFlightDate(date)}</Text>
+    <TouchableOpacity onPress={() => onRemove(date)} style={styles.chipCloseButton}>
+      <Text style={styles.chipCloseText}>×</Text>
+    </TouchableOpacity>
+  </View>
 );
 
 const PlantFlightFilter = ({ 
@@ -58,55 +59,88 @@ const PlantFlightFilter = ({
   flightDates = [], 
   selectedValues = [] 
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
   const [draftSelection, setDraftSelection] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const scrollRef = React.useRef(null);
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                      'July', 'August', 'September', 'October', 'November', 'December'];
 
   // Memoize selectedValues to prevent unnecessary effect runs
   const memoizedSelectedValues = useMemo(() => {
     return Array.isArray(selectedValues)
       ? selectedValues.filter(v => typeof v === 'string' && v.trim().length > 0)
       : [];
-  }, [Array.isArray(selectedValues) ? selectedValues.join(',') : '']); // Only recompute if the actual values change
+  }, [Array.isArray(selectedValues) ? selectedValues.join(',') : '']);
 
   // Initialize draft selection when modal opens
   useEffect(() => {
     if (isVisible) {
-      // Safely initialize draft - only include string values (dates)
       setDraftSelection(memoizedSelectedValues);
+      // Set current month to the first selected date or current month
+      if (memoizedSelectedValues.length > 0) {
+        const firstDate = new Date(memoizedSelectedValues[0] + 'T00:00:00');
+        if (!isNaN(firstDate.getTime())) {
+          setCurrentMonth(new Date(firstDate.getFullYear(), firstDate.getMonth(), 1));
+        }
+      }
     }
   }, [isVisible, memoizedSelectedValues]);
 
-  // Filter flightDates based on the search query
-  const filteredFlightDates = flightDates.filter(date => {
-    if (!date) return false;
-    const formatted = formatFlightDate(date);
-    return formatted.toLowerCase().includes(searchQuery.toLowerCase()) || 
-           date.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    return new Date(year, month + 1, 0).getDate();
+  };
 
-  const handleToggle = (date) => {
-    // Ensure date is a valid string before toggling
-    if (!date || typeof date !== 'string' || !date.trim()) {
-      console.warn('Invalid date value in handleToggle:', date);
-      return;
-    }
+  const getFirstDayOfMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    return new Date(year, month, 1).getDay();
+  };
+
+  const handlePreviousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const handleDateSelect = (day) => {
+    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const dateISO = toISODateString(selectedDate);
+    
     setDraftSelection(prev => {
-      // Ensure prev only contains strings
       const safePrev = prev.filter(d => typeof d === 'string' && d.trim().length > 0);
-      if (safePrev.includes(date)) {
-        return safePrev.filter(d => d !== date);
+      if (safePrev.includes(dateISO)) {
+        return safePrev.filter(d => d !== dateISO);
       } else {
-        return [...safePrev, date];
+        return [...safePrev, dateISO];
       }
     });
   };
 
+  const isDateSelected = (day) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const dateISO = toISODateString(date);
+    return draftSelection.includes(dateISO);
+  };
+
+  const isDateAvailable = (day) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const dateISO = toISODateString(date);
+    // Check if this date exists in the flightDates array
+    return flightDates.includes(dateISO);
+  };
+
+  const handleRemoveDate = (dateToRemove) => {
+    setDraftSelection(prev => prev.filter(d => d !== dateToRemove));
+  };
+
   const handleView = () => {
-    // Commit draft selections - parent will handle the actual filter update
     if (onSelectFlight && typeof onSelectFlight === 'function') {
       const values = Array.isArray(draftSelection) ? draftSelection : [];
-      // Ensure we only pass strings (dates), not objects or events
       const safeValues = values.filter(v => typeof v === 'string' && v.trim().length > 0);
       onSelectFlight(safeValues);
     }
@@ -118,8 +152,66 @@ const PlantFlightFilter = ({
     if (onReset && typeof onReset === 'function') {
       onReset();
     }
-    onClose();
   };
+
+  const renderCalendar = () => {
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+
+    // Day headers
+    const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayHeaders.forEach((header) => {
+      days.push(
+        <View key={`header-${header}`} style={styles.dayHeaderCell}>
+          <Text style={styles.dayHeaderText}>{header}</Text>
+        </View>
+      );
+    });
+
+    // Empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(
+        <View key={`empty-${i}`} style={styles.dayCell}>
+          <Text style={styles.emptyDay}></Text>
+        </View>
+      );
+    }
+
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isSelected = isDateSelected(day);
+      const isAvailable = isDateAvailable(day);
+      
+      days.push(
+        <TouchableOpacity
+          key={`day-${day}`}
+          style={[
+            styles.dayCell,
+            isSelected && styles.selectedDayCell,
+            !isAvailable && styles.disabledDayCell,
+          ]}
+          onPress={() => handleDateSelect(day)}
+          disabled={!isAvailable}
+        >
+          <Text style={[
+            styles.dayText,
+            isSelected && styles.selectedDayText,
+            !isAvailable && styles.disabledDayText,
+          ]}>
+            {day}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return days;
+  };
+
+  // Sort draft selection by date
+  const sortedSelection = [...draftSelection].sort((a, b) => {
+    return new Date(a) - new Date(b);
+  });
 
   return (
     <Modal
@@ -139,7 +231,7 @@ const PlantFlightFilter = ({
                 <SafeAreaView style={{flex: 1}}>
                 {/* Title */}
                 <View style={styles.titleContainer}>
-                  <Text style={styles.titleText}>Plant Flight</Text>
+                  <Text style={styles.titleText}>Plant Flight Dates</Text>
                   
                   {/* Close */}
                   <TouchableOpacity 
@@ -148,88 +240,65 @@ const PlantFlightFilter = ({
                     activeOpacity={0.7}
                   >
                     <CloseIcon width={24} height={24} style={styles.closeIcon} />
-          </TouchableOpacity>
-        </View>
+                  </TouchableOpacity>
+                </View>
 
                 {/* Content */}
-                <View style={styles.contentContainer}>
-                  {/* Search Field */}
-                  <View style={styles.searchFieldContainer}>
-                    <SearchIcon width={24} height={24} />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Search"
-                      placeholderTextColor="#647276"
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      onFocus={() => {
-                        setTimeout(() => {
-                          try {
-                            if (scrollRef && scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
-                              scrollRef.current.scrollTo({ y: 0, animated: true });
-                            }
-                          } catch (e) {
-                            // ignore
-                          }
-                        }, 120);
-                      }}
-                      caretColor="#539461"
-                      selectionColor="#539461"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      allowFontScaling={false}
-                      editable={true}
-                    />
-          </View>
+                <ScrollView 
+                  ref={scrollRef}
+                  style={styles.contentContainer}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Selected Dates Section */}
+                  {sortedSelection.length > 0 && (
+                    <View style={styles.selectedSection}>
+                      <Text style={styles.selectedLabel}>
+                        Selected Dates ({sortedSelection.length})
+                      </Text>
+                      <View style={styles.selectedChipsContainer}>
+                        {sortedSelection.map((date) => (
+                          <SelectedDateChip 
+                            key={date} 
+                            date={date} 
+                            onRemove={handleRemoveDate}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  )}
 
-                  {/* Lists */}
-                  <ScrollView 
-                    ref={scrollRef}
-                    style={styles.listsContainer} 
-                    showsVerticalScrollIndicator={true}
-                    contentContainerStyle={[
-                      styles.listsContentContainer,
-                      (flightDates.length === 0 || filteredFlightDates.length === 0) && styles.listsContentContainerEmpty
-                    ]}
-                  >
-                    {flightDates.length === 0 ? (
-                      <View style={styles.emptyStateContainer}>
-                        <Text style={styles.emptyStateText}>No flight dates available</Text>
-                        <Text style={styles.emptyStateSubtext}>
-                          No flight date data found in the order collection. Please ensure orders have flight dates.
-                        </Text>
-                      </View>
-                    ) : filteredFlightDates.length === 0 ? (
-                      <View style={styles.emptyStateContainer}>
-                        <Text style={styles.emptyStateText}>No flight dates found</Text>
-                        <Text style={styles.emptyStateSubtext}>
-                          Try adjusting your search query
-                        </Text>
-                      </View>
-                    ) : (
-                      filteredFlightDates.map((date, index) => {
-                        const formattedDate = formatFlightDate(date);
-                        const isSelected = draftSelection.includes(date);
-                        return (
-                          <View key={date}>
-                            <FlightDateItem
-                              date={date}
-                              formattedDate={formattedDate}
-                              onToggle={() => handleToggle(date)}
-                              isSelected={isSelected}
-                            />
-                            {/* Divider */}
-                            {index < filteredFlightDates.length - 1 && (
-                              <View style={styles.dividerWrapper}>
-                                <View style={styles.divider} />
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })
-                    )}
-                  </ScrollView>
-                </View>
+                  {/* Divider */}
+                  {sortedSelection.length > 0 && <View style={styles.divider} />}
+
+                  {/* Calendar Header */}
+                  <View style={styles.calendarHeader}>
+                    <TouchableOpacity 
+                      style={styles.monthArrow}
+                      onPress={handlePreviousMonth}
+                    >
+                      <CaretLeftIcon width={24} height={24} />
+                    </TouchableOpacity>
+                    <Text style={styles.monthYearText}>
+                      {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                    </Text>
+                    <TouchableOpacity 
+                      style={styles.monthArrow}
+                      onPress={handleNextMonth}
+                    >
+                      <CaretRightIcon width={24} height={24} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Calendar Grid */}
+                  <View style={styles.calendarGrid}>
+                    {renderCalendar()}
+                  </View>
+
+                  {/* Helper Text */}
+                  <Text style={styles.helperText}>
+                    Only dates with existing orders are selectable. You can select multiple dates.
+                  </Text>
+                </ScrollView>
 
                 {/* Action */}
                 <View style={styles.actionContainer}>
@@ -240,7 +309,7 @@ const PlantFlightFilter = ({
                     activeOpacity={0.7}
                   >
                     <Text style={styles.resetButtonText}>Reset</Text>
-            </TouchableOpacity>
+                  </TouchableOpacity>
                   {/* Button View */}
                   <TouchableOpacity 
                     style={styles.buttonView} 
@@ -248,8 +317,8 @@ const PlantFlightFilter = ({
                     activeOpacity={0.7}
                   >
                     <Text style={styles.buttonText}>View</Text>
-            </TouchableOpacity>
-          </View>
+                  </TouchableOpacity>
+                </View>
 
                 </SafeAreaView>
               </KeyboardAvoidingView>
@@ -272,8 +341,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: 620,
-    height: '80%',
+    maxHeight: 700,
+    height: '85%',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -304,121 +373,134 @@ const styles = StyleSheet.create({
     height: 24,
   },
   contentContainer: {
-    flexDirection: 'column',
-    paddingVertical: 8,
-    paddingHorizontal: 24,
     width: '100%',
     flex: 1,
-    alignSelf: 'stretch',
+    paddingHorizontal: 24,
   },
-  searchFieldContainer: {
+  selectedSection: {
+    paddingVertical: 16,
+  },
+  selectedLabel: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#647276',
+    marginBottom: 12,
+  },
+  selectedChipsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 48,
+    flexWrap: 'wrap',
     gap: 8,
   },
-  textInput: {
-    flex: 1,
+  selectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F3EA',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
+    gap: 8,
+  },
+  selectedChipText: {
     fontFamily: 'Inter',
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#14632A',
+  },
+  chipCloseButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#14632A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipCloseText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#FFFFFF',
+    lineHeight: 18,
+  },
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E4E7E9',
+    marginVertical: 8,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  monthArrow: {
+    padding: 8,
+  },
+  monthYearText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
     fontSize: 16,
     color: '#202325',
-    height: '100%',
   },
-  listsContainer: {
-    width: '100%',
-    marginTop: 16,
-    flex: 1,
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 4,
+    paddingBottom: 16,
   },
-  listsContentContainer: {
-    paddingBottom: 8,
-  },
-  listsContentContainerEmpty: {
-    flexGrow: 1,
+  dayHeaderCell: {
+    width: '14.28%', // 7 days in a week
+    aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 4,
   },
-  emptyStateContainer: {
-    alignItems: 'center',
+  dayHeaderText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 12,
+    color: '#647276',
+  },
+  dayCell: {
+    width: '14.28%', // 7 days in a week
+    aspectRatio: 1,
     justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 24,
+    alignItems: 'center',
+    padding: 4,
   },
-  emptyStateText: {
+  selectedDayCell: {
+    backgroundColor: '#539461',
+    borderRadius: 12,
+  },
+  dayText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 16,
     color: '#393D40',
-    marginBottom: 8,
-    textAlign: 'center',
   },
-  emptyStateSubtext: {
+  selectedDayText: {
+    color: '#FFFFFF',
+  },
+  emptyDay: {
+    height: 22,
+  },
+  disabledDayCell: {
+    opacity: 0.3,
+  },
+  disabledDayText: {
+    color: '#CDD3D4',
+  },
+  helperText: {
     fontFamily: 'Inter',
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: 13,
     color: '#647276',
     textAlign: 'center',
-  },
-  flightDateItemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 12,
-    paddingHorizontal: 0,
-    minHeight: 48,
-  },
-  flightDateItemActive: {
-    backgroundColor: '#EFF9F0',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-  },
-  flightDateText: {
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#202325',
-    flex: 1,
-  },
-  flightDateTextActive: {
-    color: '#14632A',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#CDD3D4',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  checkboxSelected: {
-    borderColor: '#23C16B',
-    backgroundColor: '#23C16B',
-  },
-  checkboxInner: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  dividerWrapper: {
-    paddingVertical: 8,
-    paddingHorizontal: 0,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E4E7E9',
+    paddingHorizontal: 16,
   },
   actionContainer: {
     flexDirection: 'row',

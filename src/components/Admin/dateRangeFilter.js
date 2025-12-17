@@ -39,7 +39,13 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
   };
 
   const handleNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    const today = new Date();
+    // Don't allow navigating to future months
+    if (nextMonth.getFullYear() < today.getFullYear() || 
+        (nextMonth.getFullYear() === today.getFullYear() && nextMonth.getMonth() <= today.getMonth())) {
+      setCurrentMonth(nextMonth);
+    }
   };
 
   const formatDateDisplay = (date) => {
@@ -49,6 +55,13 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
 
   const handleDateSelect = (day) => {
     const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Prevent selecting future dates
+    if (selectedDate > today) {
+      return;
+    }
     
     if (selectingFrom) {
       setFromDate(selectedDate);
@@ -70,6 +83,14 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
     if (fromDate) {
       const newDate = new Date(fromDate);
       newDate.setDate(newDate.getDate() + days);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Prevent adjusting to future dates
+      if (newDate > today) {
+        return;
+      }
+      
       setFromDate(newDate);
       // Reset "to" date if it becomes invalid
       if (toDate && newDate > toDate) {
@@ -82,6 +103,14 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
     if (toDate) {
       const newDate = new Date(toDate);
       newDate.setDate(newDate.getDate() + days);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Prevent adjusting to future dates
+      if (newDate > today) {
+        return;
+      }
+      
       // Make sure "to" date doesn't go before "from" date
       if (fromDate && newDate >= fromDate) {
         setToDate(newDate);
@@ -118,6 +147,20 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
            (toDate && dateStr === toDate.toDateString());
   };
 
+  const isFutureDate = (day) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date > today;
+  };
+
+  const isNextMonthDisabled = () => {
+    const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    const today = new Date();
+    return nextMonth.getFullYear() > today.getFullYear() || 
+           (nextMonth.getFullYear() === today.getFullYear() && nextMonth.getMonth() > today.getMonth());
+  };
+
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentMonth);
     const firstDay = getFirstDayOfMonth(currentMonth);
@@ -136,19 +179,23 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
     for (let day = 1; day <= daysInMonth; day++) {
       const isSelected = isDateSelected(day);
       const inRange = isDateInRange(day);
+      const isFuture = isFutureDate(day);
       days.push(
         <TouchableOpacity
           key={`day-${day}`}
           style={[
             styles.dayCell, 
             inRange && styles.dayInRange,
-            isSelected && styles.selectedDayCell
+            isSelected && styles.selectedDayCell,
+            isFuture && styles.disabledDayCell
           ]}
           onPress={() => handleDateSelect(day)}
+          disabled={isFuture}
         >
           <Text style={[
             styles.dayText, 
-            (isSelected || inRange) && styles.selectedDayText
+            (isSelected || inRange) && styles.selectedDayText,
+            isFuture && styles.disabledDayText
           ]}>
             {day}
           </Text>
@@ -264,10 +311,11 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
                   {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
                 </Text>
                 <TouchableOpacity 
-                  style={styles.monthArrow}
+                  style={[styles.monthArrow, isNextMonthDisabled() && styles.monthArrowDisabled]}
                   onPress={handleNextMonth}
+                  disabled={isNextMonthDisabled()}
                 >
-                  <CaretRightIcon width={24} height={24} />
+                  <CaretRightIcon width={24} height={24} fill={isNextMonthDisabled() ? '#CDD3D4' : undefined} />
                 </TouchableOpacity>
               </View>
 
@@ -489,6 +537,15 @@ const styles = StyleSheet.create({
   },
   emptyDay: {
     height: 22,
+  },
+  disabledDayCell: {
+    opacity: 0.3,
+  },
+  disabledDayText: {
+    color: '#CDD3D4',
+  },
+  monthArrowDisabled: {
+    opacity: 0.3,
   },
   // Action Container
   actionContainer: {
