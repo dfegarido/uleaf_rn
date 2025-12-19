@@ -440,7 +440,7 @@ const OrderScreen = ({navigation}) => {
               placeholder={'Search I Leaf U'}
             /> */}
             <InputSearch
-              placeholder="Search transaction number"
+              placeholder="Search ileafU"
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearchSubmit}

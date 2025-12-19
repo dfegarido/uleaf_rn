@@ -359,15 +359,19 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         const buyerAvatar = await AsyncStorage.getItem('profilePhotoUrl');
         setProfilePhotoUrl(buyerAvatar);
 
-        const response = await generateAgoraToken(channelName);
+        const response = await generateAgoraToken(sessionId);
         // console.log('Fetched token response:', response);
-        
-        setToken(response.token);
-        setAppId(response.appId);
-        setChannelName(response.channelName);
-        
+
+        if (response.token && response.appId && response.channelName) {
+          setToken(response.token);
+          setAppId(response.appId);
+          setChannelName(response.channelName);
+        } else {
+          throw new Error(response.error || 'Invalid token response from server');
+        }
       } catch (error) {
         console.error('Error fetching token:', error);
+        setError(error.message);
       }
  };
 
@@ -427,10 +431,15 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
    }, [sessionId]);
 
   useEffect(() => {
-    fetchToken();
+    if (sessionId) {
+      fetchToken();
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
     const startAgora = async () => {
-      if (!token) {
-          console.log('Waiting for token...');
+      if (!token || !appId || !channelName) {
+          console.log('Waiting for token, appId, and channelName...');
           return;
       }
 
