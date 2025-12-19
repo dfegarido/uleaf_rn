@@ -137,18 +137,23 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   const fetchToken = async () => {
     try {
-
-      const response = await generateAgoraToken(channelName);
+      // The channel name for the session is the sessionId
+      const response = await generateAgoraToken(sessionId);
      
       console.log('Fetched token response:', response);
       
-      setToken(response.token);
-      setAppId(response.appId);
-      setChannelName(response.channelName);
-      setUid(response.agoraUid);
+      if (response.token && response.appId && response.channelName) {
+        setToken(response.token);
+        setAppId(response.appId);
+        setChannelName(response.channelName);
+        setUid(response.agoraUid);
+      } else {
+        throw new Error(response.error || 'Invalid token response from server');
+      }
       
     } catch (error) {
       console.error('Error fetching token:', error);
+      setError(error.message);
     }
   };
 
@@ -160,12 +165,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       // you would make an API call to get a fresh token
       console.log('⚠️ Token expired, fetching new token');
       
-      const response = await generateAgoraToken(channelName, uid);
-            console.log('Fetched token response:', response);
-      setToken(response.token);
-      setAppId(response.appId);
-      setChannelName(response.channelName);
-      setUid(response.agoraUid);
+      const response = await generateAgoraToken(sessionId, uid);
+      console.log('Fetched token response:', response);
+      if (response.token) {
+        setToken(response.token);
+      }
       // Rejoin channel with the new token
       if (rtcEngineRef.current) {
         console.log('🔄 Rejoining channel with new token');
@@ -230,6 +234,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
 
     const startBroadcast = async () => {
+      if (!token || !appId || !channelName) {
+        console.log('Waiting for token, appId, channelName, and uid...');
+        return;
+      }
 
       // If an engine instance already exists, release it first.
       if (rtcEngineRef.current) {
@@ -265,12 +273,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         },
       });
       rtc.enableVideo();
-      rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
-      rtc.setupLocalVideo({ uid: 0, renderMode: 1 });
+      rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster); // Set role before joining
+      rtc.setupLocalVideo({ uid: 0, renderMode: 1 }); // Use uid 0 for local video
       rtc.startPreview();
       
       console.log('🔴 Starting broadcast with token:', token.substring(0, 20) + '...');
       console.log('🔄 Channel name:', channelName);
+      console.log('🔄 UID:', uid);
       
       // Join the channel
       rtc.joinChannel(token, channelName, 0, {});
@@ -286,7 +295,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     return () => {
       cleanup();
     };
-  }, [token, channelName, appId, permissionsGranted]); // Re-run this effect if the token or channelName changes.
+  }, [token, appId, channelName, permissionsGranted, sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -480,7 +489,7 @@ console.log('activeListing?.id', activeListing?.id);
             <RtcSurfaceView
               style={styles.video}
               canvas={{
-                uid: 0,
+                uid: 0, // Use uid 0 to render the local user's video
                 renderMode: 1, // FIT mode
                 mirrorMode: 0  // No mirror
               }}
