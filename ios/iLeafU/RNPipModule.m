@@ -1,7 +1,5 @@
 #import "RNPipModule.h"
 #import <AVKit/AVKit.h>
-#import <AVFoundation/AVFoundation.h>
-#import <MediaPlayer/MediaPlayer.h>
 
 @interface RNPipModule ()
 @property (nonatomic, assign) BOOL isInPiPMode;
@@ -19,26 +17,7 @@ RCT_EXPORT_MODULE(PipModule);
   self = [super init];
   if (self) {
     _isInPiPMode = NO;
-
-    // Configure audio session for background playback
-    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
-    NSError *error = nil;
-
-    // Use playback category to allow audio to continue in background
-    [audioSession setCategory:AVAudioSessionCategoryPlayback
-                         mode:AVAudioSessionModeVoiceChat  // Use voice chat mode for lower latency
-                      options:AVAudioSessionCategoryOptionMixWithOthers | AVAudioSessionCategoryOptionAllowBluetooth | AVAudioSessionCategoryOptionAllowBluetoothA2DP
-                        error:&error];
-    if (error) {
-      NSLog(@"[RNPipModule] Error setting audio session category: %@", error);
-    }
-
-    [audioSession setActive:YES error:&error];
-    if (error) {
-      NSLog(@"[RNPipModule] Error activating audio session: %@", error);
-    }
-
-    NSLog(@"[RNPipModule] Initialized with background audio support");
+    NSLog(@"[RNPipModule] Initialized");
   }
   return self;
 }
@@ -51,86 +30,20 @@ RCT_EXPORT_METHOD(enterPip:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
   dispatch_async(dispatch_get_main_queue(), ^{
-    NSLog(@"[RNPipModule] enterPip called - enabling background audio mode for iOS");
+    NSLog(@"[RNPipModule] enterPip called - PiP mode not supported on iOS (background audio removed)");
 
-    // For iOS, we enable background audio mode
-    // The audio will continue when the app is backgrounded
-    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
-    NSError *error = nil;
-
-    // Ensure audio session is active
-    [audioSession setActive:YES error:&error];
-    if (error) {
-      NSLog(@"[RNPipModule] Error activating audio session: %@", error);
-      reject(@"audio_session_error", error.localizedDescription, error);
-      return;
-    }
-
-    // Configure Now Playing Info for lock screen and control center
-    [self setupNowPlayingInfo];
+    // Background audio has been removed per App Store requirements
+    // This method is kept for compatibility but does not enable background audio
     
-    // Enable remote control events (headphone controls, control center)
-    [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
-
-    // Mark that we're in "PiP mode" (background audio mode for iOS)
-    self.isInPiPMode = YES;
-    [self sendEventWithName:@"onPipModeChanged" body:@(YES)];
-
-    NSLog(@"[RNPipModule] Background audio mode enabled with media controls");
+    self.isInPiPMode = NO;
+    [self sendEventWithName:@"onPipModeChanged" body:@(NO)];
 
     resolve(@{
       @"status": @"success",
       @"platform": @"ios",
-      @"mode": @"background_audio",
-      @"message": @"Audio will continue playing when you minimize or background the app"
+      @"mode": @"not_supported",
+      @"message": @"Background audio is not supported on iOS"
     });
-  });
-}
-
-// Setup Now Playing Info for lock screen and control center
-- (void)setupNowPlayingInfo {
-  NSMutableDictionary *nowPlayingInfo = [NSMutableDictionary dictionary];
-  
-  // Set basic info
-  [nowPlayingInfo setObject:@"Live Stream" forKey:MPMediaItemPropertyTitle];
-  [nowPlayingInfo setObject:@"iLeafU Live" forKey:MPMediaItemPropertyArtist];
-  [nowPlayingInfo setObject:@"Plant Live Stream" forKey:MPMediaItemPropertyAlbumTitle];
-  
-  // Set playback info
-  [nowPlayingInfo setObject:@(MPNowPlayingInfoMediaTypeVideo) forKey:MPNowPlayingInfoPropertyMediaType];
-  [nowPlayingInfo setObject:@(1.0) forKey:MPNowPlayingInfoPropertyPlaybackRate];
-  
-  // Apply the metadata
-  [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:nowPlayingInfo];
-  
-  NSLog(@"[RNPipModule] Now Playing info configured for lock screen");
-}
-
-RCT_EXPORT_METHOD(updateNowPlaying:(NSDictionary *)info)
-{
-  dispatch_async(dispatch_get_main_queue(), ^{
-    NSMutableDictionary *nowPlayingInfo = [[[MPNowPlayingInfoCenter defaultCenter] nowPlayingInfo] mutableCopy];
-    if (!nowPlayingInfo) {
-      nowPlayingInfo = [NSMutableDictionary dictionary];
-    }
-    
-    // Update title if provided
-    if (info[@"title"]) {
-      [nowPlayingInfo setObject:info[@"title"] forKey:MPMediaItemPropertyTitle];
-    }
-    
-    // Update artist/broadcaster name if provided
-    if (info[@"artist"]) {
-      [nowPlayingInfo setObject:info[@"artist"] forKey:MPMediaItemPropertyArtist];
-    }
-    
-    // Update viewer count or other info
-    if (info[@"album"]) {
-      [nowPlayingInfo setObject:info[@"album"] forKey:MPMediaItemPropertyAlbumTitle];
-    }
-    
-    [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:nowPlayingInfo];
-    NSLog(@"[RNPipModule] Now Playing info updated: %@", info);
   });
 }
 
@@ -148,10 +61,6 @@ RCT_EXPORT_METHOD(stopPip:(RCTPromiseResolveBlock)resolve
   dispatch_async(dispatch_get_main_queue(), ^{
     NSLog(@"[RNPipModule] stopPip called");
 
-    // Clean up media controls
-    [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:nil];
-    [[UIApplication sharedApplication] endReceivingRemoteControlEvents];
-    
     self.isInPiPMode = NO;
     [self sendEventWithName:@"onPipModeChanged" body:@(NO)];
 
@@ -162,12 +71,12 @@ RCT_EXPORT_METHOD(stopPip:(RCTPromiseResolveBlock)resolve
 RCT_EXPORT_METHOD(isPipSupported:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
-  // iOS supports background audio mode for live streaming
+  // Background audio has been removed per App Store requirements
   resolve(@{
-    @"supported": @(YES),
+    @"supported": @(NO),
     @"platform": @"ios",
-    @"mode": @"background_audio",
-    @"note": @"iOS will continue audio playback when app is backgrounded"
+    @"mode": @"not_supported",
+    @"note": @"Background audio is not supported on iOS"
   });
 }
 
@@ -188,8 +97,7 @@ RCT_EXPORT_METHOD(initNativeEngine:(NSString *)appId)
 }
 
 - (void)dealloc {
-  // Deactivate audio session when module is deallocated
-  [[AVAudioSession sharedInstance] setActive:NO error:nil];
+  // Cleanup
 }
 
 @end
