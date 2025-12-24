@@ -39,6 +39,7 @@ const ChatScreen = ({navigation, route}) => {
   const participants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
@@ -433,7 +434,7 @@ const ChatScreen = ({navigation, route}) => {
       const q = query(
         collection(db, 'messages'),
         where('chatId', '==', id),
-        orderBy('timestamp', 'asc')
+        orderBy('timestamp', 'desc')
       );
 
       const unsubscribe = onSnapshot(
@@ -468,11 +469,11 @@ const ChatScreen = ({navigation, route}) => {
   }, [id]));
 
   // Auto-scroll when messages change
-  useEffect(() => {
-    if (flatListRef?.current && messages.length > 0) {
-      flatListRef.current.scrollToEnd({ animated: false });
-    }
-  }, [messages]);
+  // useEffect(() => {
+  //   if (flatListRef?.current && messages.length > 0) {
+  //     flatListRef.current.scrollToEnd({ animated: false });
+  //   }
+  // }, [messages]);
 
   // Fetch latest names and avatars for all participants from Firestore
   useEffect(() => {
@@ -702,6 +703,7 @@ const ChatScreen = ({navigation, route}) => {
         </View>
       ) : (
         <FlatList
+          inverted
           ref={flatListRef}
           data={messages}
           keyExtractor={(item, index) => item.id || `message-${index}`}
@@ -821,18 +823,19 @@ const ChatScreen = ({navigation, route}) => {
           }}
           contentContainerStyle={{ paddingVertical: 10, paddingBottom: safeBottomPadding + 16 }}
           style={{ flex: 1 }}
-          onContentSizeChange={() => {
-            setTimeout(() => {
-              if (flatListRef?.current && messages.length > 0) {
-                flatListRef?.current.scrollToEnd({ animated: true });
-              }
-            }, 100);
-          }}
-          onLayout={() => {
-            if (flatListRef?.current && messages.length > 0) {
-              flatListRef?.current.scrollToEnd({ animated: false });
-            }
-          }}
+          // onContentSizeChange={() => {
+          //   setTimeout(() => {
+          //     if (flatListRef?.current && messages.length > 0 && !loaded) {
+          //       flatListRef?.current.scrollToEnd({ animated: true });
+          //       setLoaded(true);
+          //     }
+          //   }, 1000);
+          // }}
+          // onLayout={() => {
+          //   if (flatListRef?.current && messages.length > 0) {
+          //     flatListRef?.current.scrollToEnd({ animated: false });
+          //   }
+          // }}
         />
       )}
 

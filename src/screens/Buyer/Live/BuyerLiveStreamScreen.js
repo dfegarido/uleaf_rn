@@ -663,7 +663,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               plantData: {
                 ...plantDatas,
                 country: discountsData.country,
-                flightDate: plantDatas.flightDate || plantDatas.cargoDate || null,
+                flightDate: plantDatas?.flightDate || plantDatas?.cargoDate || null,
                 cargoDate: plantDatas ? plantDatas.cargoDate : null,
               },
               selectedPotSize: plantDatas ? plantDatas.potSize : null,

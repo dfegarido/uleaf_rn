@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Alert, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Animated, Platform } from 'react-native';
 import styles from './styles/FlightSelectorStyles';
 
 /**
  * Flight selector component with locking UX for checkout screen
  */
 const FlightSelector = ({
+  isLive=false,
   lockedFlightDate,
   flightDateOptions = [],
   selectedFlightDate,
@@ -60,6 +61,11 @@ const FlightSelector = ({
       return '';
     }
   };
+
+  const isAndroid = () => {
+    return Platform.OS === 'android';
+  };
+
 
   // Format order cutoff date for display with timezone
   const formatCutoffDate = (date) => {
@@ -169,12 +175,12 @@ const FlightSelector = ({
                   outputRange: ['#EDEFF0', '#F6F7F8', '#EDEFF0'],
                 });
                 return (
-                  <Animated.View key={i} style={[styles.optionCard, styles.skeletonCard, {backgroundColor: bg}]} />
+                  <Animated.View key={i} style={[isAndroid() && isLive ? styles.optionCardAndroidLive : styles.optionCard, styles.skeletonCard, {backgroundColor: bg}]} />
                 );
               })
             ) : (
               flightDateOptions.length === 0 ? (
-                <View style={styles.optionCard}>
+                <View style={isAndroid() && isLive ? styles.optionCardAndroidLive : styles.optionCard}>
                   <Text style={styles.optionText}>No flight dates available</Text>
                 </View>
               ) : (
@@ -202,7 +208,7 @@ const FlightSelector = ({
                   <TouchableOpacity
                     key={index}
                     style={[
-                      styles.optionCard,
+                      isAndroid() && isLive ? styles.optionCardAndroidLive : styles.optionCard,
                       selectedFlightDate?.iso === option.iso
                         ? styles.selectedOptionCard
                         : styles.unselectedOptionCard,

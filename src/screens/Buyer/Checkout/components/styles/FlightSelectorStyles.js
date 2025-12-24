@@ -85,6 +85,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E5E7EB',
   },
+  optionCardAndroidLive: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
   selectedOptionCard: {
     backgroundColor: '#F0FDF4',
     borderColor: '#059669',
