@@ -367,9 +367,9 @@ const ChatSettingsScreen = ({navigation, route}) => {
           if (userSnap.exists()) {
             const data = userSnap.data();
             
-            // Get name - try multiple possible fields
-            const name = data?.fullName ||
-                        `${data?.firstName || ''} ${data?.lastName || ''}`.trim() ||
+            // Get name - use username instead of firstName/lastName
+            const name = data?.username ||
+                        data?.gardenOrCompanyName ||
                         data?.name ||
                         data?.email ||
                         request.userName || // Fallback to stored name
@@ -463,10 +463,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 if (userSnap.exists()) {
                   const data = userSnap.data();
                   
-                  // Get latest name
-                  const firstName = data?.firstName || '';
-                  const lastName = data?.lastName || '';
-                  const latestName = `${firstName} ${lastName}`.trim() || data?.gardenOrCompanyName || data?.name || '';
+                  // Get latest name - use username instead of firstName/lastName
+                  const latestName = data?.username || data?.gardenOrCompanyName || data?.name || data?.email || '';
                   
                   // Get latest avatar URL
                   const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;
@@ -578,7 +576,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
             if (buyerData && buyerData.success && buyerData.results) {
               const buyerResults = buyerData.results.map(user => ({
                 id: user.id,
-                name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+                name: user.username || user.email || 'Unknown',
                 email: user.email || '',
                 avatarUrl: user.profileImage || '',
                 userType: user.userType || 'buyer'
@@ -607,7 +605,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
             if (supplierData && supplierData.success && supplierData.results) {
               const supplierResults = supplierData.results.map(user => ({
                 id: user.id,
-                name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+                name: user.username || user.email || 'Unknown',
                 email: user.email || '',
                 avatarUrl: user.profileImage || '',
                 userType: user.userType || 'supplier'
@@ -638,10 +636,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
         
         // Process search results if available
         if (data && data.success && data.results) {
-          // Map search results
+          // Map search results - use username instead of firstName/lastName
           const searchResults = data.results.map(user => ({
             id: user.id,
-            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+            name: user.username || user.email || 'Unknown',
             email: user.email || '',
             avatarUrl: user.profileImage || '',
             userType: user.userType || userTypeToSearch
@@ -659,10 +657,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
         const adminData = await listAdminsApi(adminFilters);
         
         if (adminData && adminData.success && Array.isArray(adminData.data)) {
-          // Apply client-side search filter for admins
+          // Apply client-side search filter for admins - use username instead of firstName/lastName
           let admins = adminData.data.map(admin => ({
             id: admin.adminId || admin.id || admin.uid,
-            name: admin.fullName || `${admin.firstName || ''} ${admin.lastName || ''}`.trim() || admin.email || 'Unknown',
+            name: admin.username || admin.email || 'Unknown',
             email: admin.email || '',
             avatarUrl: admin.profileImage || admin.profilePhotoUrl || '',
             userType: admin.role || 'admin'
@@ -705,7 +703,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
           
           return {
             id: user.id,
-            name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+            name: user.name || user.username || user.email || 'Unknown',
             avatarUrl: avatarUrl,
             uid: user.id,
             email: user.email || '',
@@ -944,11 +942,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
     try {
       setRequestingJoin(true);
       
-      // Get user info for the request
-      const userName = userInfo?.data?.fullName || 
-                      userInfo?.user?.fullName || 
-                      `${userInfo?.data?.firstName || ''} ${userInfo?.data?.lastName || ''}`.trim() ||
-                      `${userInfo?.user?.firstName || ''} ${userInfo?.user?.lastName || ''}`.trim() ||
+      // Get user info for the request - use username instead of firstName/lastName
+      const userName = userInfo?.data?.username || 
+                      userInfo?.user?.username || 
+                      userInfo?.username ||
                       userInfo?.data?.email ||
                       userInfo?.user?.email ||
                       'Unknown User';
@@ -1043,11 +1040,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
             try {
               setAcceptingInvitation(true);
               
-              // Get user info
-              const userName = userInfo?.data?.fullName || 
-                              userInfo?.user?.fullName || 
-                              `${userInfo?.data?.firstName || ''} ${userInfo?.data?.lastName || ''}`.trim() ||
-                              `${userInfo?.user?.firstName || ''} ${userInfo?.user?.lastName || ''}`.trim() ||
+              // Get user info - use username instead of firstName/lastName
+              const userName = userInfo?.data?.username || 
+                              userInfo?.user?.username || 
+                              userInfo?.username ||
                               userInfo?.data?.email ||
                               userInfo?.user?.email ||
                               'Unknown User';

@@ -43,11 +43,9 @@ const MessagesScreen = ({navigation}) => {
   
   const {userInfo} = useContext(AuthContext);
   // Handle admin API response structure: userInfo.data.* or regular userInfo.user.* or flat userInfo.*
-  const userFirstName = userInfo?.data?.firstName || userInfo?.user?.firstName || userInfo?.firstName || '';
-  const userLastName = userInfo?.data?.lastName || userInfo?.user?.lastName || userInfo?.lastName || '';
-  const userFullName = userFirstName || userLastName 
-    ? `${userFirstName} ${userLastName}`.trim()
-    : 'User';
+  // Use username instead of firstName/lastName
+  const userName = userInfo?.data?.username || userInfo?.user?.username || userInfo?.username || 
+                   userInfo?.data?.email || userInfo?.user?.email || userInfo?.email || 'User';
   
   // Check if user is an admin
   const isAdmin = userInfo?.data?.role === 'admin' || userInfo?.data?.role === 'sub_admin' || userInfo?.role === 'admin' || userInfo?.role === 'sub_admin';
@@ -73,8 +71,10 @@ const MessagesScreen = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   // Map of uid -> image source (either {uri: ...} or local numeric require)
   const [avatarMap, setAvatarMap] = useState({});
+  // Map of uid -> username (fetched from Firestore)
+  const [usernameMap, setUsernameMap] = useState({});
 
-  // Fetch avatars from buyer, admin, and supplier collections for given chats' participant UIDs
+  // Fetch avatars and usernames from buyer, admin, and supplier collections for given chats' participant UIDs
   async function fetchAvatarsForChats(chats = []) {
     try {
       if (!Array.isArray(chats) || chats.length === 0) return;
@@ -98,12 +98,14 @@ const MessagesScreen = ({navigation}) => {
 
       if (uidsToFetch.size === 0) return;
 
-      // Fetch each user doc from buyer, admin, or supplier collections and update avatarMap
-      const updates = {};
+      // Fetch each user doc from buyer, admin, or supplier collections and update avatarMap and usernameMap
+      const avatarUpdates = {};
+      const usernameUpdates = {};
+      
       for (const uid of uidsToFetch) {
         try {
-          // Skip if we already have this avatar in the map
-          if (avatarMap[uid]) {
+          // Skip if we already have this user's data in both maps
+          if (avatarMap[uid] && usernameMap[uid]) {
             continue;
           }
 
@@ -125,24 +127,34 @@ const MessagesScreen = ({navigation}) => {
 
           if (userSnap.exists()) {
             const data = userSnap.data();
+            
+            // Get avatar
             const url = data?.profilePhotoUrl || data?.profileImage || null;
             if (url && typeof url === 'string') {
-              updates[uid] = { uri: url };
+              avatarUpdates[uid] = { uri: url };
             } else {
-              // fallback to default avatar
-              updates[uid] = DefaultAvatar;
+              avatarUpdates[uid] = DefaultAvatar;
+            }
+            
+            // Get username - prefer username, fallback to email
+            const username = data?.username || data?.email || null;
+            if (username) {
+              usernameUpdates[uid] = username;
             }
           } else {
-            updates[uid] = DefaultAvatar;
+            avatarUpdates[uid] = DefaultAvatar;
           }
         } catch (err) {
-          console.warn(`Error fetching avatar for ${uid}:`, err);
-          updates[uid] = DefaultAvatar;
+          console.warn(`Error fetching data for ${uid}:`, err);
+          avatarUpdates[uid] = DefaultAvatar;
         }
       }
 
-      if (Object.keys(updates).length > 0) {
-        setAvatarMap(prev => ({...prev, ...updates}));
+      if (Object.keys(avatarUpdates).length > 0) {
+        setAvatarMap(prev => ({...prev, ...avatarUpdates}));
+      }
+      if (Object.keys(usernameUpdates).length > 0) {
+        setUsernameMap(prev => ({...prev, ...usernameUpdates}));
       }
     } catch (err) {
       console.warn('Error in fetchAvatarsForChats:', err);
@@ -360,7 +372,7 @@ const MessagesScreen = ({navigation}) => {
           {
             uid: currentUserUid || '',
             avatarUrl: currentUserAvatar || '', // Ensure empty string if null/undefined
-            name: userFullName || 'User',
+            name: userName || 'User',
           },
           {
             uid: user.uid || '',
@@ -426,7 +438,7 @@ const MessagesScreen = ({navigation}) => {
         {
           uid: currentUserUid,
           avatarUrl: userInfo?.data?.profileImage || userInfo?.data?.profilePhotoUrl || userInfo?.profileImage || userInfo?.profilePhotoUrl || '',
-          name: userFullName,
+          name: userName,
         },
         ...selectedUsers.map(u => ({
           uid: u.uid,
@@ -574,10 +586,17 @@ const MessagesScreen = ({navigation}) => {
   // Handle both admin (nested user) and regular user structures
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
   
-  // For group chats, use the group name; for private chats, use the other participant's name
-  const displayName = chatType === 'group' 
-    ? item.name 
-    : (participants.find(p => p.uid !== currentUserUid) || participants[0])?.name;
+  // For group chats, use the group name; for private chats, use the other participant's username
+  let displayName;
+  if (chatType === 'group') {
+    displayName = item.name;
+  } else {
+    // Get the other participant
+    const otherParticipant = participants.find(p => p.uid !== currentUserUid) || participants[0];
+    const otherUid = otherParticipant?.uid;
+    // Prefer username from usernameMap (fetched from Firestore), fallback to stored name
+    displayName = (otherUid && usernameMap[otherUid]) || otherParticipant?.name;
+  }
   
   // For private chats: get the other participant's avatar
   // For group chats: get up to 4 participants' avatars (excluding current user)

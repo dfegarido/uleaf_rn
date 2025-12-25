@@ -587,22 +587,19 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
           }
           
           // Map admin results to match the expected format
-          // Preserve the role (admin or sub_admin) in userType
+          // Preserve the role (admin or sub_admin) in userType - use username instead of firstName/lastName
           let adminsWithType = adminData.data.map(admin => {
             // Preserve the role from backend: 'admin' or 'sub_admin'
             // Both are allowed for messaging, but we keep the distinction
             const adminRole = admin.role || 'admin'; // Default to 'admin' if role not specified
             const mappedAdmin = {
               id: admin.adminId || admin.id || admin.uid, // Use adminId from backend
-              firstName: admin.firstName || '',
-              lastName: admin.lastName || '',
               email: admin.email || '', // Make sure we're getting the email field
               username: admin.username || admin.email || '',
               profileImage: admin.profileImage || admin.profilePhotoUrl || '',
               userType: adminRole, // Preserve role: 'admin' or 'sub_admin'
               role: adminRole, // Also store in role field for clarity
               createdAt: admin.createdAt,
-              fullName: admin.fullName || `${admin.firstName || ''} ${admin.lastName || ''}`.trim()
             };
             
             // Debug: Log first few admins to see their data structure
@@ -622,11 +619,10 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
             return mappedAdmin;
           });
           
-          console.log(`Mapped ${adminsWithType.length} admins. Sample names:`, 
-            adminsWithType.slice(0, 5).map(a => `${a.firstName} ${a.lastName} (${a.email})`));
+          console.log(`Mapped ${adminsWithType.length} admins. Sample usernames:`, 
+            adminsWithType.slice(0, 5).map(a => `${a.username} (${a.email})`));
           
-          // Apply client-side search filter
-          // Search by fullName, firstName, lastName, and email
+          // Apply client-side search filter - search by username and email
           if (query && query.trim().length > 0) {
             const searchTerm = query.toLowerCase().trim();
             console.log(`🔍 Searching ${adminsWithType.length} admins for: "${searchTerm}"`);
@@ -637,26 +633,21 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
             
             adminsWithType = adminsWithType.filter(admin => {
               // Safely get all searchable fields, handling null/undefined
-              const firstName = String(admin.firstName || '').trim().toLowerCase();
-              const lastName = String(admin.lastName || '').trim().toLowerCase();
+              const username = String(admin.username || '').trim().toLowerCase();
               const email = String(admin.email || '').trim().toLowerCase();
-              const fullName = String(admin.fullName || `${firstName} ${lastName}`.trim()).toLowerCase();
               
-              // Search in all fields - check each field individually for better debugging
-              const matchesFullName = fullName && fullName.includes(searchTerm);
+              // Search in username and email
+              const matchesUsername = username && username.includes(searchTerm);
               const matchesEmail = email && email.includes(searchTerm);
-              const matchesFirstName = firstName && firstName.includes(searchTerm);
-              const matchesLastName = lastName && lastName.includes(searchTerm);
               
-              const matches = matchesFullName || matchesEmail || matchesFirstName || matchesLastName;
+              const matches = matchesUsername || matchesEmail;
               
               if (matches) {
-                const matchReason = matchesEmail ? 'email' : matchesFullName ? 'fullName' : matchesFirstName ? 'firstName' : 'lastName';
-                console.log(`✅ Admin match found (${matchReason}): "${admin.fullName || admin.email || 'Unknown'}" (firstName: "${admin.firstName || 'N/A'}", lastName: "${admin.lastName || 'N/A'}", email: "${admin.email || 'N/A'}")`);
+                const matchReason = matchesEmail ? 'email' : 'username';
+                console.log(`✅ Admin match found (${matchReason}): "${admin.username || admin.email || 'Unknown'}"`);
               } else {
                 // Debug: Log why it didn't match for ALL admins when searching (to help debug)
-                console.log(`❌ No match: "${admin.fullName || admin.email || 'Unknown'}" (firstName: "${admin.firstName || 'N/A'}", lastName: "${admin.lastName || 'N/A'}", email: "${admin.email || 'N/A'}") - searched: "${searchTerm}"`);
-                console.log(`   Checked: fullName="${fullName}", email="${email}", firstName="${firstName}", lastName="${lastName}"`);
+                console.log(`❌ No match: "${admin.username || admin.email || 'Unknown'}" - searched: "${searchTerm}"`);
               }
               
               return matches;
@@ -873,9 +864,8 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
               }
             }
             
-            // Build display name: prefer full name, then first+last, then garden/company name, then email
-            let displayName = user.fullName || 
-                             `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+            // Build display name: prefer username, then garden/company name, then email
+            let displayName = user.username || 
                              user.gardenOrCompanyName ||
                              user.businessName ||
                              user.companyName ||

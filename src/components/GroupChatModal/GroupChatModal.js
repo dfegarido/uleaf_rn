@@ -132,8 +132,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
             if (buyerData && buyerData.success && buyerData.results) {
               const buyerResults = buyerData.results.map(user => ({
                 id: user.id,
-                firstName: user.firstName || '',
-                lastName: user.lastName || '',
+                username: user.username || user.email || '',
                 email: user.email || '',
                 profileImage: user.profileImage || '',
                 userType: user.userType || 'buyer'
@@ -162,8 +161,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
             if (supplierData && supplierData.success && supplierData.results) {
               const supplierResults = supplierData.results.map(user => ({
                 id: user.id,
-                firstName: user.firstName || '',
-                lastName: user.lastName || '',
+                username: user.username || user.email || '',
                 email: user.email || '',
                 profileImage: user.profileImage || '',
                 userType: user.userType || 'supplier'
@@ -200,12 +198,11 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         
         const supplierData = await supplierResponse.json();
         
-        // Process supplier results if available
+        // Process supplier results if available - use username instead of firstName/lastName
         if (supplierData && supplierData.success && supplierData.results) {
           const supplierResults = supplierData.results.map(user => ({
             id: user.id,
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
+            username: user.username || user.email || '',
             email: user.email || '',
             profileImage: user.profileImage || '',
             userType: user.userType || 'supplier'
@@ -238,12 +235,11 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         
         const buyerData = await buyerResponse.json();
         
-        // Process buyer results if available
+        // Process buyer results if available - use username instead of firstName/lastName
         if (buyerData && buyerData.success && buyerData.results) {
           const buyerResults = buyerData.results.map(user => ({
             id: user.id,
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
+            username: user.username || user.email || '',
             email: user.email || '',
             profileImage: user.profileImage || '',
             userType: user.userType || 'buyer'
@@ -266,11 +262,10 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         const adminData = await listAdminsApi(adminFilters);
         
         if (adminData && adminData.success && Array.isArray(adminData.data)) {
-          // Apply client-side search filter for admins
+          // Apply client-side search filter for admins - use username instead of firstName/lastName
           let admins = adminData.data.map(admin => ({
             id: admin.adminId || admin.id || admin.uid,
-            firstName: admin.firstName || '',
-            lastName: admin.lastName || '',
+            username: admin.username || admin.email || '',
             email: admin.email || '',
             profileImage: admin.profileImage || admin.profilePhotoUrl || '',
             userType: admin.role || 'admin'
@@ -280,9 +275,9 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
           if (searchQuery) {
             const searchTerm = searchQuery.toLowerCase();
             admins = admins.filter(admin => {
-              const fullName = `${admin.firstName} ${admin.lastName}`.trim().toLowerCase();
+              const username = (admin.username || '').toLowerCase();
               const email = (admin.email || '').toLowerCase();
-              return fullName.includes(searchTerm) || email.includes(searchTerm);
+              return username.includes(searchTerm) || email.includes(searchTerm);
             });
           }
           
@@ -293,7 +288,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         // Continue without admins if fetch fails
       }
       
-      // Format all results (search results + admins)
+      // Format all results (search results + admins) - use username instead of firstName/lastName
       if (allResults.length > 0) {
         const formattedUsers = await Promise.all(allResults.map(async user => {
           let avatarUrl = AvatarImage; // Default avatar image
@@ -313,7 +308,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
           
           return {
             id: user.id,
-            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+            name: user.username || user.email || 'Unknown',
             avatarUrl: avatarUrl,
             uid: user.id,
             email: user.email || '',

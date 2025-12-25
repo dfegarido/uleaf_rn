@@ -60,16 +60,11 @@ const ChatScreen = ({navigation, route}) => {
   
   // Make sure participants is an array and has at least one element
   // For group chats, we want to show the group name
-  let displayName;
-  if (chatType === 'group') {
-    // For group chats, use the group name from params
-    displayName = name;
-  } else {
-    // For private chats, show the other participant's name
-    displayName = participants.length > 0 
-      ? (participants.find(p => p?.uid !== currentUserUid) || participants[0])?.name 
-      : name;
-  }
+  // For private chats, get the other participant's UID for looking up their username
+  const otherParticipant = chatType === 'group' 
+    ? null 
+    : (participants.find(p => p?.uid !== currentUserUid) || participants[0]);
+  const otherParticipantUid = otherParticipant?.uid;
   
   const otherUserInfo = chatType === 'group' 
     ? { name: name, avatarUrl: '' }  // Group chats use the group name
@@ -202,11 +197,10 @@ const ChatScreen = ({navigation, route}) => {
     try {
       setRequestingJoin(true);
       
-      // Get user info for the request
-      const userName = userInfo?.data?.fullName || 
-                      userInfo?.user?.fullName || 
-                      `${userInfo?.data?.firstName || ''} ${userInfo?.data?.lastName || ''}`.trim() ||
-                      `${userInfo?.user?.firstName || ''} ${userInfo?.user?.lastName || ''}`.trim() ||
+      // Get user info for the request - use username instead of firstName/lastName
+      const userName = userInfo?.data?.username || 
+                      userInfo?.user?.username || 
+                      userInfo?.username ||
                       userInfo?.data?.email ||
                       userInfo?.user?.email ||
                       'Unknown User';
@@ -528,10 +522,14 @@ const ChatScreen = ({navigation, route}) => {
                 if (userSnap.exists()) {
                   const data = userSnap.data();
                   
-                  // Get latest name
-                  const firstName = data?.firstName || '';
-                  const lastName = data?.lastName || '';
-                  const latestName = `${firstName} ${lastName}`.trim() || data?.gardenOrCompanyName || data?.name || '';
+                  // Get latest name - use username instead of firstName/lastName
+                  // Priority: username > email > gardenOrCompanyName > fullName
+                  // Explicitly avoid firstName/lastName fields
+                  const latestName = data?.username || 
+                                    data?.email || 
+                                    data?.gardenOrCompanyName || 
+                                    data?.fullName || 
+                                    '';
                   
                   // Get latest avatar URL
                   const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;
@@ -626,7 +624,7 @@ const ChatScreen = ({navigation, route}) => {
                 chatId: id, 
                 participants,
                 type: chatType,
-                name: chatType === 'group' ? name : displayName
+                name: chatType === 'group' ? name : (participantDataMap[otherParticipantUid]?.name || otherParticipant?.name || name)
               });
             }}>
             {chatType === 'group' ? (
@@ -666,14 +664,14 @@ const ChatScreen = ({navigation, route}) => {
             )}
             {chatType === 'group' ? (
               <View style={styles.userInfoText}>
-                <Text style={styles.title} numberOfLines={1}>{displayName || 'Chat'}</Text>
+                <Text style={styles.title} numberOfLines={1}>{name || 'Chat'}</Text>
                 <Text style={styles.subtitle}>
                   {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
                 </Text>
               </View>
             ) : (
               <View style={styles.userInfoText}>
-                <Text style={styles.title} numberOfLines={1}>{displayName || 'Chat'}</Text>
+                <Text style={styles.title} numberOfLines={1}>{participantDataMap[otherParticipantUid]?.name || otherParticipant?.name || name || 'Chat'}</Text>
                 <Text style={styles.subtitle}>Active now</Text>
               </View>
             )}
