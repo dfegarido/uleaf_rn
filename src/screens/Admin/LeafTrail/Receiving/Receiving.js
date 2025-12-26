@@ -437,6 +437,9 @@ const ReceivingScreen = ({navigation}) => {
             await getFilters('["forReceiving"]');
         }
         if (index === 1) {
+            await getFilters('["forReceiving"]');
+        }
+        if (index === 1) {
             await getFilters('["received"]');
         }
         if (index === 2) {
