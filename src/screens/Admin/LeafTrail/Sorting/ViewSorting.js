@@ -404,6 +404,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   }
 
   const sort = async () => {
+    setIsSelectionMode(false);
     setIsLoading(true);
 
     const response = await updatePlantsToSorted({orderIds: selectedPlants})

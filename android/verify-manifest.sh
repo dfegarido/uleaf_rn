@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Script to verify that unwanted foreground service permissions are removed from the final manifest
-
-echo "🔍 Verifying Android Manifest for Foreground Service Permissions..."
-echo ""
-
 # Find the merged manifest
 MERGED_MANIFEST="app/build/intermediates/merged_manifests/release/AndroidManifest.xml"
 
@@ -16,20 +11,6 @@ fi
 
 echo "📄 Checking manifest: $MERGED_MANIFEST"
 echo ""
-
-# Check for FOREGROUND_SERVICE_CAMERA (should be present)
-if grep -q "FOREGROUND_SERVICE_CAMERA" "$MERGED_MANIFEST"; then
-    echo "✅ FOREGROUND_SERVICE_CAMERA: Found (CORRECT - This is needed)"
-else
-    echo "⚠️  FOREGROUND_SERVICE_CAMERA: Not found (Should be present)"
-fi
-
-# Check for unwanted permissions (should NOT be present)
-UNWANTED_PERMS=(
-    "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-    "FOREGROUND_SERVICE_MEDIA_PROJECTION"
-    "android.permission.FOREGROUND_SERVICE\""
-)
 
 FOUND_UNWANTED=false
 

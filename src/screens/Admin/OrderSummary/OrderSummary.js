@@ -489,7 +489,7 @@ const OrderSummary = ({navigation}) => {
         } else {
           if (Share) {
             await Share.open({
-              url: `file://${destinationPath}`,
+              url: destinationPath, // Correct path for iOS
               type: 'text/csv',
               title: 'Export Orders',
               filename: fileName,

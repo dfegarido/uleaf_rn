@@ -37,7 +37,6 @@ import {
 import KeepAwake from 'react-native-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../../firebase';
-import PIPIcon from '../../../assets/icons/greydark/picture-in-picture.svg';
 import CaretDown from '../../../assets/icons/white/caret-down.svg';
 import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
 import CaretUp from '../../../assets/icons/white/caret-up.svg';
@@ -258,99 +257,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     setIsLoading(true);
     await removeViewers();
     
-    // Stop PiP mode if active (iOS)
-    if (Platform.OS === 'ios' && inPiP && PipModule?.stopPip) {
-      try {
-        await PipModule.stopPip();
-        console.log('Stopped PiP mode on iOS');
-      } catch (err) {
-        console.warn('Failed to stop PiP:', err);
-      }
-    }
-    
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
       navigation.navigate('Live');
-    }
-  }
-
-  const { PipModule } = NativeModules;
-  const [showOverlays, setShowOverlays] = useState(true);
-  const [inPiP, setInPiP] = useState(false);
-
-  useEffect(() => {
-    // Listen to native PiP mode changes
-    let subscription = null;
-    try {
-      if (Platform.OS === 'ios') {
-        // iOS uses NativeEventEmitter
-        if (PipModule) {
-          const eventEmitter = new NativeEventEmitter(PipModule);
-          subscription = eventEmitter.addListener('onPipModeChanged', (isInPiP) => {
-            console.log('PiP mode changed (iOS):', isInPiP);
-            setInPiP(Boolean(isInPiP));
-            // On iOS, we don't hide overlays since there's no video PiP
-          });
-        }
-      } else {
-        // Android uses DeviceEventEmitter
-        const { DeviceEventEmitter } = require('react-native');
-        subscription = DeviceEventEmitter.addListener('onPipModeChanged', (isInPiP) => {
-          console.log('PiP mode changed (Android):', isInPiP);
-          setInPiP(Boolean(isInPiP));
-          // When entering PiP, keep overlays hidden; when exiting, restore
-          setShowOverlays(!isInPiP);
-        });
-      }
-    } catch (e) {
-      console.warn('Failed to subscribe to PiP events', e);
-    }
-
-    return () => {
-      if (subscription) subscription.remove();
-    };
-  }, [PipModule]);
-
-  const enterPip = async () => {
-    // Universal floating mini player (works on both iOS and Android)
-    try {
-      console.log('Activating floating mini player');
-      
-      if (!remoteUid || !rtcEngineRef.current) {
-        Alert.alert('Not Ready', 'Please wait for the video to load.');
-        return;
-      }
-
-      // Set flag to prevent engine cleanup
-      isEnteringFloatingMode.current = true;
-
-      // Prepare stream data for floating player
-      const streamInfo = {
-        sessionId,
-        broadcasterId: brodcasterId,
-        title: activeListing ? `${activeListing.genus || ''} ${activeListing.species || 'Live Stream'}`.trim() : 'Live Stream',
-        viewerCount: liveStats?.viewerCount || 0,
-      };
-
-      // Show the floating player
-      showFloatingPlayer(streamInfo, rtcEngineRef.current, remoteUid);
-      
-      console.log('Floating mini player activated successfully');
-      
-      // Navigate away from live screen AFTER a small delay
-      setTimeout(() => {
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        } else {
-          navigation.navigate('Live');
-        }
-      }, 100);
-      
-    } catch (err) {
-      isEnteringFloatingMode.current = false;
-      console.warn('Failed to activate floating mini player:', err);
-      Alert.alert('Error', 'Failed to activate mini player');
     }
   }
 
@@ -590,11 +500,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         engine.release();
         rtcEngineRef.current = null;
       }
-
-      // Stop PiP mode if active (iOS cleanup)
-      if (Platform.OS === 'ios' && inPiP && PipModule?.stopPip) {
-        PipModule.stopPip().catch(err => console.warn('Failed to stop PiP on cleanup:', err));
-      }
     };
   }, [token, appId, channelName]);
 
@@ -655,7 +560,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setIsLoading(true);
       const plantDatas = await loadPlantDetails(item);
       const discountsData = await getDiscountedPrice(item, plantDatas);
-      //await enterPip();
       setTimeout(() => {
         setIsLoading(false);  
             const data = {
@@ -730,7 +634,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   const gotoPayToBoard = async () => {
     setIsLoading(true);
-    await enterPip();
     navigation.navigate('Orders', { initialTab: 'Pay to Board' });
   }
 
@@ -785,17 +688,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       </View>
       
       {/* Only show UI components when stream is active */}
-      {showOverlays && joined && remoteUid && (
+      {joined && remoteUid && (
         <>
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
                     <BackSolidIcon width={24} height={24} />
             </TouchableOpacity>
             <View style={styles.topAction}>
-              <TouchableOpacity style={styles.guide} onPress={() => enterPip()}>
-                    <PIPIcon width={19} height={19} />
-                    <Text style={styles.guideText}></Text>
-              </TouchableOpacity>
               {/* <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
                     <GuideIcon width={19} height={19} fill="#FFFFFF" />
                     <Text style={styles.guideText}>Guide</Text>
