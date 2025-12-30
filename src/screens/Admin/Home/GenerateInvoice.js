@@ -518,17 +518,20 @@ const GenerateInvoice = ({navigation}) => {
         return 0;
       };
       
-      // Filter to ensure only "Ready to Fly" status (double-check in case API doesn't filter correctly)
+      // Filter to exclude pending_payment orders (show all other statuses)
+      // This includes: ready to fly, delivered, completed, cancelled, etc.
       const readyToFlyOrders = allOrders.filter(order => {
         const status = (order.status || '').toLowerCase().trim();
-        const isReadyToFly = status === 'ready to fly' || status === 'ready_to_fly';
-        if (!isReadyToFly) {
-          console.log('[GenerateInvoice] Order filtered out - status:', order.status, 'Transaction:', order.transactionNumber);
+        const isPendingPayment = status === 'pending_payment' || 
+                                status === 'pending payment' || 
+                                status === 'pendingpayment';
+        if (isPendingPayment) {
+          console.log('[GenerateInvoice] Order filtered out (pending payment) - status:', order.status, 'Transaction:', order.transactionNumber);
         }
-        return isReadyToFly;
+        return !isPendingPayment;
       });
       
-      console.log('[GenerateInvoice] Ready to Fly orders after filtering:', readyToFlyOrders.length);
+      console.log('[GenerateInvoice] Paid orders (excluding pending payment) after filtering:', readyToFlyOrders.length);
       
       // Helper function to format flight date
       const formatFlightDate = (dateInput) => {
