@@ -19,8 +19,6 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
-              // Register the PipPackage so JS can trigger Android PiP
-              add(PipPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

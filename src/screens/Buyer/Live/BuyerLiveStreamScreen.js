@@ -57,7 +57,6 @@ import {
   updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
-import { useFloatingPlayer } from '../../../contexts/FloatingPlayerContext';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
@@ -65,11 +64,9 @@ import GuideModal from './GuideModal'; // Import the new modal
 import ShopModal from './ShopModal';
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
-  const { showFloatingPlayer, isVisible: floatingPlayerVisible, markStreamEnded } = useFloatingPlayer();
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
   const [remoteUid, setRemoteUid] = useState(null);
-  const isEnteringFloatingMode = useRef(false);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -420,12 +417,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           setRemoteUid(null);
           setSessionEnded(true);
           setViewerCount((prev) => Math.max(prev - 1, 0));
-          if (floatingPlayerVisible) {
-            console.log('Marking floating player stream as ended');
-            markStreamEnded();
-          } else {
-            navigation.navigate('Live');
-          }
+          navigation.navigate('Live');
         },
         onRemoteVideoStateChanged: (uid, state, reason, elapsed) => {
           
@@ -486,12 +478,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     startAgora();
 
     return () => {
-      if (isEnteringFloatingMode.current) {
-        console.log('Skipping engine cleanup - entering floating mode');
-        isEnteringFloatingMode.current = false;
-        return;
-      }
-
       const engine = rtcEngineRef.current;
       if (engine) {
         console.log('Leaving channel and releasing Agora engine');

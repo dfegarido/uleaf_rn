@@ -47,10 +47,6 @@ import { LiveBroadcastScreen } from '../../screens/Live';
 
 import MessagesScreen from '../../screens/MessagesScreen/MessagesScreen';
 
-// Import Floating Player
-import {FloatingPlayerProvider} from '../../contexts/FloatingPlayerContext';
-import FloatingPlayer from '../FloatingPlayer/FloatingPlayer';
-
 // Import tab icons (you can reuse existing icons or create new ones)
 
 import BuyerIcon from '../../assets/icontabs/buyer-tabs/buyer.svg';
@@ -162,7 +158,6 @@ function ShopStackNavigator() {
 
 function BuyerTabNavigator() {
   return (
-    <FloatingPlayerProvider>
       <Stack.Navigator>
         <Stack.Screen
           name="BuyerTabs"
@@ -342,8 +337,6 @@ function BuyerTabNavigator() {
         options={{headerShown: false}}
       />
     </Stack.Navigator>
-    <FloatingPlayer />
-    </FloatingPlayerProvider>
   );
 }
 
