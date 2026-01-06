@@ -25,6 +25,7 @@ const ScreenHeader = ({
     searchPlaceholder='Search',
     downloadCsv=false,
     onDownloadCsv,
+    downloadLoading=false,
 }) => {
     return (
         <View style={styles.header}>
@@ -49,8 +50,12 @@ const ScreenHeader = ({
 
             <View style={styles.rightActions}>
                 {downloadCsv && !searchActive && (
-                    <TouchableOpacity style={styles.headerAction} onPress={onDownloadCsv}>
-                        <DownloadIcon />
+                    <TouchableOpacity 
+                        style={[styles.headerAction, downloadLoading && styles.headerActionDisabled]} 
+                        onPress={onDownloadCsv}
+                        disabled={downloadLoading}
+                    >
+                        <DownloadIcon style={downloadLoading && { opacity: 0.5 }} />
                     </TouchableOpacity>
                 )}
 
@@ -115,6 +120,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#CDD3D4',
         borderRadius: 12,
+    },
+    headerActionDisabled: {
+        opacity: 0.5,
+        backgroundColor: '#F5F6F6',
     },
 });
 

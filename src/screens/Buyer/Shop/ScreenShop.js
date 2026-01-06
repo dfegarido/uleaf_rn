@@ -131,6 +131,7 @@ const ScreenShop = ({navigation}) => {
   // Dynamic genus data state
   const [dynamicGenusData, setDynamicGenusData] = useState([]);
   const [loadingGenusData, setLoadingGenusData] = useState(true);
+  const [failedGenusImages, setFailedGenusImages] = useState(new Set()); // Track failed genus images
   
   // Events data state
   const [eventsData, setEventsData] = useState([]);
@@ -1367,7 +1368,13 @@ const ScreenShop = ({navigation}) => {
               let imageSource;
               const staticFallback = getStaticFallback();
               
-              if (typeof item.src === 'string' && (item.src.startsWith('http') || item.src.startsWith('https'))) {
+              // Check if this specific genus image has failed before
+              const hasImageFailed = failedGenusImages.has(item.src);
+              
+              if (hasImageFailed) {
+                // Use static fallback for this genus if remote image failed
+                imageSource = staticFallback;
+              } else if (typeof item.src === 'string' && (item.src.startsWith('http') || item.src.startsWith('https'))) {
                 // Remote URL from API
                 imageSource = { uri: item.src };
               } else if (item.src) {
@@ -1398,9 +1405,11 @@ const ScreenShop = ({navigation}) => {
                     }}
                     resizeMode="cover"
                     onError={() => {
-                      // If remote image fails, we could update state to use fallback
-                      // For now, just log the error
-                      console.warn(`[ScreenShop] Failed to load image for ${item.label}:`, item.src);
+                      // If remote image fails, mark it as failed and use static fallback
+                      if (typeof item.src === 'string' && item.src.startsWith('http')) {
+                        console.warn(`[ScreenShop] Failed to load image for ${item.label}: ${item.src}. Using fallback.`);
+                        setFailedGenusImages(prev => new Set([...prev, item.src]));
+                      }
                     }}
                   />
                   <Text

@@ -100,9 +100,6 @@ const PlantItemComponent = ({
               source={{ uri: image }}
               style={{ width: 96, height: 128, borderRadius: 6 }}
               resizeMode="cover"
-              onError={(error) => {
-                console.warn('🖼️ [PlantItemComponent] Image load error for', name, ':', error.nativeEvent.error);
-              }}
             />
           ) : (
             <View style={{ width: 96, height: 128, borderRadius: 6, backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }}>

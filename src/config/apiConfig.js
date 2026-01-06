@@ -347,6 +347,10 @@ const generateEndpoints = () => ({
 
   // Delivery Export endpoint
   DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,
+  
+  // Order Export endpoints
+  EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
+  EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
 });
 
 // API Endpoints - Initially generated with default environment

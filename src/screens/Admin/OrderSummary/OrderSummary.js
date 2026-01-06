@@ -39,6 +39,7 @@ import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
 import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
 import OrderTableSkeleton from './OrderTableSkeleton';
+import Toast from '../../../components/Toast/Toast';
 
 // Skeleton component for pagination loading
 const SkeletonBox = ({ width, height, style }) => {
@@ -115,9 +116,13 @@ const OrderSummary = ({navigation}) => {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('readyToFly');
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -242,8 +247,6 @@ const OrderSummary = ({navigation}) => {
                      order.plantData?.image ||
                      (order.images && order.images.length > 0 ? order.images[0] : null) ||
                      (order.plantImages && order.plantImages.length > 0 ? order.plantImages[0] : null);
-
-    console.log('Order image URL:', imageUrl, 'for order:', order.id);
 
     // Extract price data - check multiple possible field names
     let localPrices, usdPrices;
@@ -396,10 +399,23 @@ const OrderSummary = ({navigation}) => {
     };
   };
 
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
   const downloadCsv = async () => {
+    // Show success modal immediately (optimistic approach)
+    Alert.alert(
+      'Report Generating 📊',
+      `Generating your order export...\n\nThe report will be sent to your email in a minute. Please check your inbox.`,
+      [{ text: 'OK', style: 'default' }]
+    );
+
+    // Make API call in the background
     try {
-      setLoading(true);
-      setError(null);
+      setExportLoading(true);
       
       // 1. Map Status to backend format
       const statusMapping = {
@@ -452,72 +468,34 @@ const OrderSummary = ({navigation}) => {
       const url = `${API_ENDPOINTS.EXPORT_ALL_ORDERS_TO_CSV}?${new URLSearchParams(cleanedParams).toString()}`;
       const token = await getStoredAuthToken();
 
-      const date = new Date();
-      const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}_${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
-      const fileName = `orders_export_${dateStr}.csv`;
-      
-      let destinationPath;
-      if (Platform.OS === 'android') {
-        destinationPath = `${RNFS.DownloadDirectoryPath}/${fileName}`;
-      } else {
-        destinationPath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
-      }
+      console.log('Requesting order export via email...');
 
-      const options = {
-        fromUrl: url,
-        toFile: destinationPath,
+      // Call API to generate and email the report
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'text/csv',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      };
+      });
 
-      console.log('Downloading CSV with options:', options);
+      const result = await response.json();
 
-      const response = RNFS.downloadFile(options);
-      const result = await response.promise;
-
-      console.log('Download result:', result);
-
-      if (result.statusCode === 200) {
-        if (result.bytesWritten === 0) {
-          throw new Error('Downloaded file is empty (0 bytes).');
-        }
-
-        if (Platform.OS === 'android') {
-          Alert.alert('Success', `File downloaded to Downloads folder:\n${fileName}`);
-        } else {
-          if (Share) {
-            await Share.open({
-              url: destinationPath, // Correct path for iOS
-              type: 'text/csv',
-              title: 'Export Orders',
-              filename: fileName,
-              failOnCancel: false,
-            });
-          } else {
-            Alert.alert('Success', `File downloaded to Documents folder:\n${fileName}`);
-          }
-        }
+      if (!response.ok || !result.success) {
+        // Show error toast
+        console.error('Export API error:', result.error || 'Failed to export orders');
+        showToast('Failed to generate report. Please try again.', 'error');
       } else {
-        // Try to read error message from the file if possible
-        let errorMessage = `Failed to export CSV. Status code: ${result.statusCode}`;
-        try {
-          const errorContent = await RNFS.readFile(destinationPath, 'utf8');
-          if (errorContent) {
-            errorMessage += `\nServer response: ${errorContent.substring(0, 200)}`;
-          }
-        } catch (e) {
-          // ignore read error
-        }
-        throw new Error(errorMessage);
+        // Show success toast
+        console.log(`Export successful: ${result.ordersCount} orders sent to ${result.message}`);
+        showToast(`Report sent successfully! ${result.ordersCount} orders`, 'success');
       }
     } catch (error) {
-      console.error('Error downloading CSV:', error);
-      setError(error.message);
-      Alert.alert('Error', `Failed to download CSV: ${error.message}`);
+      // Show error toast
+      console.error('Error exporting orders:', error);
+      showToast('Failed to generate report. Please try again.', 'error');
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
   };
 
@@ -1380,6 +1358,7 @@ const OrderSummary = ({navigation}) => {
           searchActive={searchVisible}
           downloadCsv={true}
           onDownloadCsv={() => downloadCsv()}
+          downloadLoading={exportLoading}
           searchValue={searchTerm}
           onSearchChange={(text) => setSearchTerm(text || '')}
           onSearchSubmit={() => {
@@ -1663,7 +1642,6 @@ const OrderSummary = ({navigation}) => {
                           source={{uri: order.imageUrl}} 
                           style={styles.plantImage}
                           resizeMode="cover"
-                          onError={(e) => console.log('Image load error:', e.nativeEvent.error, 'for URL:', order.imageUrl)}
                         />
                       ) : (
                         <View style={styles.placeholderImage}>
@@ -1883,6 +1861,15 @@ const OrderSummary = ({navigation}) => {
           </View>
         </View>
       </SafeAreaView>
+
+      {/* Toast Notification */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        duration={3000}
+        onHide={() => setToastVisible(false)}
+      />
     </SafeAreaProvider>
   );
 };
