@@ -329,6 +329,7 @@ const generateEndpoints = () => ({
   // Leaf Trail endpoints
   UPDATE_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateLeafTrailStatus`,
   GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getBaseUrl()}/getAdminLeafTrailReceiving`,
+  EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
   GET_ADMIN_LEAF_TRAIL_SORTING: `${getBaseUrl()}/getAdminLeafTrailSorting`,
   GET_ADMIN_LEAF_TRAIL_PACKING: `${getBaseUrl()}/getAdminLeafTrailPacking`,
   GET_ADMIN_LEAF_TRAIL_SHIPPING: `${getBaseUrl()}/getAdminLeafTrailShipping`,
@@ -337,6 +338,7 @@ const generateEndpoints = () => ({
   GET_ADMIN_SCAN_QR: `${getBaseUrl()}/getAdminScanQr`,
   ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
   ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
+  UPDATE_PLANTS_TO_SORTED: `${getBaseUrl()}/updatePlantsToSorted`,
   GET_ORDERS_BY_SORTING_TRAY: `${getBaseUrl()}/getOrdersBySortingTray`,
   GET_ORDERS_BY_BOX_NUMBER: `${getBaseUrl()}/getOrdersByBoxNumber`,
   GET_ORDERS_BY_TRACKING_NUMBER: `${getBaseUrl()}/getOrdersByTrackingNumber`,
