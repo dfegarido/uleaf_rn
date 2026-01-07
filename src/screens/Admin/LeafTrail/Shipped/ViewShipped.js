@@ -11,7 +11,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Platform,
 } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import BarcodeIcon from '../../../../assets/admin-icons/big-tracking.svg';
@@ -36,7 +37,7 @@ const Header = ({ title, navigation }) => (
 );
 
 const TrackingInfo = ({ trackingNumber, label }) => (
-  <View style={styles.trackingInfoContainer}>
+  <View style={Platform.OS === 'android' ? styles.trackingInfoContainer : styles.trackingInfoContainerIos}>
     <View style={styles.trackingIconCircle}>
       <BarcodeIcon />
     </View>
@@ -359,7 +360,8 @@ const styles = StyleSheet.create({
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 48, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#FFFFFF', height: 106, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   headerTitle: { fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325' },
   scrollContent: { paddingTop: 40, paddingBottom: 34 },
-  trackingInfoContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12 },
+  trackingInfoContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12, marginTop: 60 },
+  trackingInfoContainerIos: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12 },
   trackingIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#6B4EFF', justifyContent: 'center', alignItems: 'center' },
   trackingDetails: { flex: 1, gap: 4 },
   trackingNumberRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
