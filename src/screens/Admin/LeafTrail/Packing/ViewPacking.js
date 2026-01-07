@@ -11,7 +11,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Platform,
 } from 'react-native';
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
@@ -39,7 +40,7 @@ const Header = ({ title, navigation }) => (
 );
 
 const TrayInfo = ({ trayNumber, label }) => (
-  <View style={styles.trayInfoContainer}>
+  <View style={Platform.OS === 'android' ? styles.trayInfoContainer : styles.trayInfoContainerIos}>
     <View style={styles.trayIconCircle}>
       <TrayIcon width={32} height={32} />
     </View>
@@ -243,6 +244,8 @@ const ViewPackingScreen = ({ navigation, route }) => {
           setIsLoading(true)
           try {
               const response = await getOrdersBySortingTray(item.sortingTrayNumber);
+              console.log('asdfadfa', response.data);
+              
               setPlantList(response.data);
           } catch (e) {
               setError(e);
@@ -377,6 +380,14 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
   },
   trayInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    gap: 12,
+    marginTop: 60,
+  },
+  trayInfoContainerIos: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,

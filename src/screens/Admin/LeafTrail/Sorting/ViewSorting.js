@@ -12,7 +12,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Platform,
 } from 'react-native';
 import { TabView } from 'react-native-tab-view';
 import Options from '../../../../assets/admin-icons/options.svg';
@@ -39,7 +40,7 @@ const Header = ({ title, navigation }) => (
 );
 
 const UserProfile = ({ user }) => (
-  <View style={styles.userContainer}>
+  <View style={Platform.OS === 'android' ? styles.userContainer : styles.userContainerIos}>
     <Image source={{ uri: user.avatar }} style={styles.avatar} />
     <View>
       <Text style={styles.name}>{user.name}</Text>
@@ -514,7 +515,11 @@ const styles = StyleSheet.create({
   // User Profile
   userContainer: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15,
-    paddingVertical: 12, marginTop: 50,
+    paddingVertical: 12, marginTop: 100,
+  },
+  userContainerIos: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15,
+    paddingVertical: 12, marginTop: 40,
   },
   avatar: {
     width: 64, height: 64, borderRadius: 32,
