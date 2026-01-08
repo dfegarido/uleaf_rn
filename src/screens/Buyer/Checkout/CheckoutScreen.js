@@ -216,6 +216,7 @@ const CheckoutScreen = () => {
     handleApplyDiscount,
     
     // Joiner state
+    isJoinerApproved,
     disableAddressSelection,
     disableFlightSelection,
     receiverFlightDate,
@@ -320,6 +321,7 @@ const CheckoutScreen = () => {
           discountCode={discountCode}
           onDiscountCodeChange={setDiscountCode}
           onApplyDiscount={handleApplyDiscount}
+          isJoinerApproved={isJoinerApproved}
         />
         
         {/* Browse More Plants Component */}

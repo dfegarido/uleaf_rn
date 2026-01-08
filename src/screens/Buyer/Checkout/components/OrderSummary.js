@@ -30,6 +30,7 @@ const OrderSummary = ({
   discountCode = '',
   onDiscountCodeChange = () => {},
   onApplyDiscount = () => {},
+  isJoinerApproved = false, // New prop: disable UPS toggle for joiners
 }) => {
   // Debug logging for discount
   console.log('📋 [OrderSummary] Component render:', {
@@ -232,12 +233,23 @@ const OrderSummary = ({
                   <View style={styles.toggleLabel}>
                     <Text style={styles.toggleLabelText}>
                       Upgrading to UPS Next Day
+                      {isJoinerApproved && (
+                        <Text style={styles.toggleLabelTextSubtle}> (controlled by receiver)</Text>
+                      )}
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={styles.formToggle}
-                    onPress={onToggleUpsNextDay}>
-                    <View style={styles.upsToggleText}>
+                    style={[
+                      styles.formToggle,
+                      isJoinerApproved && styles.formToggleDisabled
+                    ]}
+                    onPress={isJoinerApproved ? null : onToggleUpsNextDay}
+                    disabled={isJoinerApproved}
+                    activeOpacity={isJoinerApproved ? 1 : 0.7}>
+                    <View style={[
+                      styles.upsToggleText,
+                      isJoinerApproved && { opacity: 0.5 }
+                    ]}>
                       <Text
                         style={
                           upsNextDayEnabled
@@ -263,6 +275,7 @@ const OrderSummary = ({
                       style={[
                         styles.switchContainer,
                         upsNextDayEnabled && styles.switchContainerActive,
+                        isJoinerApproved && { opacity: 0.5 }
                       ]}>
                       <View
                         style={[

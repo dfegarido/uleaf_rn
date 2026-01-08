@@ -1864,6 +1864,8 @@ export const useCheckoutController = (props) => {
           return;
         }
         console.log('[CheckoutController] Receiver request result:', receiverRequestResult);
+        console.log('[CheckoutController] Receiver data:', receiverRequestResult?.data);
+        console.log('[CheckoutController] receiverUpsNextDay value:', receiverRequestResult?.data?.receiverUpsNextDay);
         
         if (receiverRequestResult?.success && receiverRequestResult?.data?.isJoiner) {
           const receiverData = receiverRequestResult.data;
@@ -2001,6 +2003,12 @@ export const useCheckoutController = (props) => {
               } catch (error) {
                 console.error('Error parsing receiver flight date:', error);
               }
+            }
+            
+            // Set UPS Next Day based on receiver's setting (joiner inherits this)
+            if (receiverData.receiverUpsNextDay !== undefined) {
+              setUpsNextDayEnabled(receiverData.receiverUpsNextDay);
+              console.log('[CheckoutController] Joiner inheriting receiver UPS Next Day:', receiverData.receiverUpsNextDay);
             }
           } else {
             setIsJoinerApproved(false);
@@ -2177,6 +2185,11 @@ export const useCheckoutController = (props) => {
   );
 
   const toggleUpsNextDay = () => {
+    // Prevent joiner from toggling UPS Next Day (controlled by receiver)
+    if (isJoinerApproved) {
+      console.log('[CheckoutController] Joiner cannot toggle UPS Next Day - controlled by receiver');
+      return;
+    }
     setUpsNextDayEnabled(!upsNextDayEnabled);
   };
 

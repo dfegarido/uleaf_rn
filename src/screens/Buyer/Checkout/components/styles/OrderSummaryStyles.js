@@ -295,6 +295,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 22,
   },
+  toggleLabelTextSubtle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
   summaryRowLabel: {
     fontSize: 16,
     fontWeight: '500',
@@ -375,6 +381,9 @@ const styles = StyleSheet.create({
     height: 24,
     minHeight: 24,
     flexShrink: 0,
+  },
+  formToggleDisabled: {
+    opacity: 0.6,
   },
   toggleText: {
     flexDirection: 'row',
