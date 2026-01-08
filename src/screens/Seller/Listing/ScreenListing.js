@@ -224,12 +224,6 @@ const ScreenListing = ({navigation}) => {
       apiStatus = 'GroupChatListing';
     }
     
-    console.log('📊 Status mapping:', { 
-      originalStatus: status, 
-      mappedStatus: apiStatus,
-      isAll: apiStatus === 'All'
-    });
-    
     // Normalize sortBy to match backend expectations (case-sensitive)
     // Backend expects: 'Price Low To High', 'Price High To Low', 'Most Loved', or empty/default
     let normalizedSortBy = sortBy || '';
@@ -275,8 +269,6 @@ const ScreenListing = ({navigation}) => {
       }
     }
     
-    console.log('📊 Sort mapping:', { originalSort: sortBy, normalizedSort: normalizedSortBy });
-    
     // Extract values from filter objects (genus, variegation, listingType may be arrays of objects)
     const extractValues = (filterArray) => {
       if (!filterArray || !Array.isArray(filterArray)) return [];
@@ -293,20 +285,6 @@ const ScreenListing = ({navigation}) => {
 
     const effectiveLimit = limit || SELLER_LISTINGS_PAGE_SIZE;
     const effectiveToken = nextPageToken || '';
-
-    console.log('🔍 API Call Parameters:', {
-      filterMine,
-      sortBy: normalizedSortBy,
-      genus: genusValues,
-      variegation: variegationValues,
-      listingType: listingTypeValues,
-      status: apiStatus,
-      discount: discountParam,
-      limit: effectiveLimit,
-      plant,
-      pinTag,
-      nextPageToken: effectiveToken,
-    });
     
     const response = await getManageListingApi(
       filterMine,
@@ -321,14 +299,6 @@ const ScreenListing = ({navigation}) => {
       pinTag,
       effectiveToken,
     );
-
-    console.log('📦 API Response:', {
-      success: response?.success,
-      listingsCount: response?.listings?.length || 0,
-      hasListings: !!response?.listings,
-      message: response?.message,
-      nextPageToken: response?.nextPageToken,
-    });
 
     if (!response?.success) {
       throw new Error(response?.message || 'Login verification failed.');
@@ -732,13 +702,10 @@ const ScreenListing = ({navigation}) => {
             });
             totalFilteredCount = uniqueListingKeys.size;
 
-            console.log(`🔍 Active tab counting: Fetched page ${countSafety + 2}, got ${additionalListings.length} filtered listings (${newUniqueCount} unique), total so far: ${totalFilteredCount}`);
-
             if (additionalResponse?.nextPageToken) {
               countToken = additionalResponse.nextPageToken;
             } else {
               countToken = null;
-              console.log(`✅ Active tab counting: Reached end, final count: ${totalFilteredCount}`);
               break; // No more pages, we have the accurate total
             }
 
@@ -789,7 +756,6 @@ const ScreenListing = ({navigation}) => {
         if (isActiveTab) {
           // Ensure we're using the filtered count, not backend total
           computedTotal = totalFilteredCount;
-          console.log(`🔍 Active tab: Final computed total from filtered results: ${computedTotal}`);
         }
       }
 
@@ -806,7 +772,6 @@ const ScreenListing = ({navigation}) => {
           // Make sure we're using the filtered count, not any estimate
           computedTotal = totalFilteredCount;
         }
-        console.log('🔍 Active tab: Final count', computedTotal, 'from', totalFilteredCount, 'filtered results (backend total was', response?.total, ')');
       }
 
       tokensCopy[desiredPage] = nextToken;
@@ -862,7 +827,6 @@ const ScreenListing = ({navigation}) => {
   const [pinSearch, setPinSearch] = useState(false);
 
   const onPressPinSearch = paramPinSearch => {
-    console.log('🔵 Pin Search Toggle:', paramPinSearch);
     setPinSearch(paramPinSearch);
     resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -873,25 +837,12 @@ const ScreenListing = ({navigation}) => {
   const handleSearchSubmit = e => {
     const searchText = e.nativeEvent.text;
     setSearch(searchText);
-    console.log('🔍 Plant Search:', searchText);
     // trigger your search logic here
     resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
   };
 
   const handleFilterView = () => {
-    console.log('🔽 Filter Applied:', {
-      sort: reusableSort,
-      genus: reusableGenus,
-      variegation: reusableVariegation,
-      listingType: reusableListingType,
-    });
-    
-    // Verify sort value format matches backend expectations
-    if (reusableSort) {
-      console.log('🔍 Sort value before normalization:', reusableSort);
-    }
-    
     setLoading(true); // Show skeleton while applying filters
     resetPaginationState();
     setIsInitialFetchRefresh(!isInitialFetchRefresh);
@@ -979,7 +930,6 @@ const ScreenListing = ({navigation}) => {
       }
     }
 
-    console.log('✅ Loaded genus options:', localGenusData.length);
     setGenusOptions(localGenusData);
   };
 
@@ -1047,7 +997,6 @@ const ScreenListing = ({navigation}) => {
   const [activeFilterShow, setActiveFilterShow] = useState('');
 
   const onTabPressItem = ({pressTab}) => {
-    console.log('📋 Status Tab Changed:', pressTab);
     setActiveTab(pressTab);
     setIsDiscounted(false);
     resetPaginationState();
@@ -1056,7 +1005,6 @@ const ScreenListing = ({navigation}) => {
     // Handle Discounted tab - set discount flag and reset status
     if (pressTab === 'Discounted') {
       setIsDiscounted(true);
-      console.log('💰 Discount Filter Activated');
     } else {
       setIsDiscounted(false);
     }

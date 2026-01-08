@@ -33,8 +33,6 @@ export const getManageListingApi = async (
     const statusValue = status && status.trim() !== '' ? status : 'All';
     params.append('status', statusValue);
     params.append('discount', String(discount ?? ''));
-    
-    console.log('📤 getManageListingApi - Status being sent:', statusValue);
     params.append('limit', limit ?? '');
     params.append('plant', plant ?? '');
     params.append('pinTag', pinTag ?? false);
