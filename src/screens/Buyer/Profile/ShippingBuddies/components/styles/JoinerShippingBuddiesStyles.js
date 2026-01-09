@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     padding: 0,
     gap: 4,
     flex: 1,
-    height: 50,
+    minHeight: 50,
   },
   buddyName: {
     fontFamily: 'Inter',
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     color: '#202325',
-    width: 166,
-    height: 24,
+    flexShrink: 1,
+    width: '100%',
   },
   buddyUsername: {
     fontFamily: 'Inter',
@@ -118,8 +118,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: '#7F8D91',
-    flex: 1,
-    flexWrap: 'wrap',
+    flexShrink: 1,
+    width: '100%',
   },
   dividerContainer: {
     flexDirection: 'column',

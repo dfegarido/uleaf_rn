@@ -557,9 +557,16 @@ const MyShippingBuddiesScreen = () => {
       }
     } catch (error) {
       console.error('Error submitting receiver request:', error);
+      const errorMessage = error.message || 'Failed to submit receiver request. Please try again.';
+      
+      // Show user-friendly alert with appropriate title
+      const alertTitle = (errorMessage.includes('A receiver needs') || errorMessage.includes('cutoff date')) 
+        ? 'Unable to Join' 
+        : 'Error';
+      
       Alert.alert(
-        'Error',
-        error.message || 'Failed to submit receiver request. Please try again.',
+        alertTitle,
+        errorMessage,
         [{ text: 'OK' }]
       );
     } finally {

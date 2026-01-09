@@ -12,7 +12,7 @@ const styles = StyleSheet.create({
     minHeight: 154,
     alignItems: 'flex-start',
     padding: 0,
-    gap: 8,
+    gap: 16,
   },
   popover: {
     flexDirection: 'column',
@@ -33,16 +33,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 16,
-    gap: 8,
+    gap: 12,
     width: 340,
     minHeight: 82,
+  },
+  emojiIcon: {
+    fontSize: 32,
+    marginBottom: 4,
   },
   titleText: {
     width: 292,
     minHeight: 66,
     fontFamily: 'Inter',
     fontStyle: 'normal',
-    fontWeight: '600',
+    fontWeight: '500',
     fontSize: 16,
     lineHeight: 22, // 140% of 16px
     textAlign: 'center',
@@ -56,6 +60,27 @@ const styles = StyleSheet.create({
     width: 340,
     minHeight: 48,
   },
+  confirmButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    width: 340,
+    minHeight: 48,
+    marginTop: 20,
+    backgroundColor: '#393D40',
+    borderRadius: 12,
+  },
+  confirmButtonText: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 16,
+    color: '#FFFFFF',
+  },
+  // Keep legacy button styles for backward compatibility
   cancelButton: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -73,7 +98,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     lineHeight: 16,
-    color: '#393D40',
+    color: '#FFFFFF',
   },
 });
 

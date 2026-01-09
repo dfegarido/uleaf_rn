@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, Pressable, Animated } from 'react-
 import styles from './styles/ErrorModalStyles';
 
 /**
- * ErrorModal - Displays an error message in a modal popup
+ * ErrorModal - Displays a friendly reminder or message in a modal popup
  */
 const ErrorModal = ({
   visible,
@@ -41,6 +41,25 @@ const ErrorModal = ({
     opacity: opacityAnim,
   };
 
+  // Format message to be more user-friendly
+  const formatMessage = (msg) => {
+    if (!msg) return '';
+    
+    // Check for specific error messages and make them friendly
+    if (msg.includes('A receiver needs an active order') && msg.includes('cutoff date')) {
+      return 'Your receiver needs to place an order with at least 7 days before the flight date. Please ask them to order first, then you can join their shipping group!';
+    }
+    
+    if (msg.includes('A receiver needs to order something')) {
+      return 'Your receiver needs to place an order first before you can join their shipping group. Ask them to place an order, then try again!';
+    }
+    
+    // Remove "Wait a sec!" and make other messages friendlier
+    let friendlyMsg = msg.replace('Wait a sec!', '').trim();
+    
+    return friendlyMsg;
+  };
+
   return (
     <Modal
       visible={visible}
@@ -52,15 +71,16 @@ const ErrorModal = ({
           <Pressable onPress={(e) => e.stopPropagation()}>
             <View style={styles.popover}>
               <View style={styles.textContainer}>
-                <Text style={styles.titleText}>{message}</Text>
+                <Text style={styles.emojiIcon}>ℹ️</Text>
+                <Text style={styles.titleText}>{formatMessage(message)}</Text>
               </View>
             </View>
             <View style={styles.actionContainer}>
               <TouchableOpacity
-                style={styles.cancelButton}
+                style={styles.confirmButton}
                 onPress={onClose}
                 activeOpacity={0.8}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.confirmButtonText}>Got It</Text>
               </TouchableOpacity>
             </View>
           </Pressable>

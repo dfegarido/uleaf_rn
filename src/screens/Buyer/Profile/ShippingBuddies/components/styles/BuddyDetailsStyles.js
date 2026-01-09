@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     width: '100%',
-    height: 204,
+    minHeight: 324,
   },
   detailsTitleRow: {
     flexDirection: 'row',
@@ -143,11 +143,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
     width: '100%',
-    height: 160,
+    minHeight: 220,
   },
   approvedNoteBold: {
     width: 327,
-    height: 20,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '700',
@@ -155,9 +154,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#647276',
     alignSelf: 'stretch',
+    flexWrap: 'wrap',
   },
   approvedNoteText: {
-    width: 327,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '500',
@@ -165,6 +164,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#647276',
     alignSelf: 'stretch',
+    flexWrap: 'wrap',
   },
   actionContainer: {
     flexDirection: 'column',

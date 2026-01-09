@@ -69,9 +69,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 4,
-    width: 275,
-    height: 24,
+    minHeight: 24,
     alignSelf: 'stretch',
+    flexWrap: 'wrap',
   },
   joinerName: {
     fontFamily: 'Inter',
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
     color: '#202325',
-    height: 24,
+    flexShrink: 1,
   },
   joinerUsername: {
     fontFamily: 'Inter',
@@ -89,8 +89,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: '#7F8D91',
-    flex: 1,
-    flexWrap: 'wrap',
+    flexShrink: 1,
   },
   expirationDateRow: {
     flexDirection: 'row',

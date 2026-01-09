@@ -180,7 +180,7 @@ export const useShippingBuddiesController = () => {
     }
   }, [loadMyReceiverRequest, showToast]);
 
-  // Format expiration date
+  // Format expiration date (cutoff date)
   const formatExpirationDate = useCallback((dateString) => {
     if (!dateString) return null;
     try {
@@ -196,7 +196,32 @@ export const useShippingBuddiesController = () => {
       
       const month = date.toLocaleDateString('en-US', { month: 'short' });
       const day = date.getDate();
-      return `Will expire on ${month} ${day}`;
+      const year = date.getFullYear();
+      return `Will expire on ${month} ${day}, ${year}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return null;
+    }
+  }, []);
+
+  // Format flight date (with "Depart on" wording)
+  const formatFlightDate = useCallback((dateString) => {
+    if (!dateString) return null;
+    try {
+      // Handle Firestore Timestamp
+      let date;
+      if (dateString.toDate && typeof dateString.toDate === 'function') {
+        date = dateString.toDate();
+      } else if (dateString.seconds || dateString._seconds) {
+        date = new Date((dateString.seconds || dateString._seconds) * 1000);
+      } else {
+        date = new Date(dateString);
+      }
+      
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      const day = date.getDate();
+      const year = date.getFullYear();
+      return `Depart on ${month} ${day}, ${year}`;
     } catch (error) {
       console.error('Error formatting date:', error);
       return null;
@@ -341,10 +366,10 @@ export const useShippingBuddiesController = () => {
         );
         return { success: true };
       } else {
-        // Check if this is the specific error about needing orders
+        // Check if this is a user-facing error about receiver requirements
         const errorMessage = result.message || 'Failed to submit receiver request';
-        if (errorMessage.includes('A receiver needs to order something')) {
-          // Show error modal instead of alert
+        if (errorMessage.includes('A receiver needs') || errorMessage.includes('cutoff date')) {
+          // Show user-friendly modal for receiver requirement errors
           setErrorModalMessage(errorMessage);
           setErrorModalVisible(true);
           return { success: false, message: errorMessage, showErrorModal: true };
@@ -356,12 +381,14 @@ export const useShippingBuddiesController = () => {
       console.error('Error submitting receiver request:', error);
       const errorMessage = error.message || 'Failed to submit receiver request. Please try again.';
       
-      // Check if this is the specific error about needing orders
-      if (errorMessage.includes('A receiver needs to order something')) {
+      // Check if this is a user-facing error about receiver requirements
+      if (errorMessage.includes('A receiver needs') || errorMessage.includes('cutoff date')) {
+        // Show user-friendly modal for receiver requirement errors
         setErrorModalMessage(errorMessage);
         setErrorModalVisible(true);
         return { success: false, message: errorMessage, showErrorModal: true };
       } else {
+        // Show generic error alert for unexpected errors
         Alert.alert(
           'Error',
           errorMessage,
@@ -398,6 +425,7 @@ export const useShippingBuddiesController = () => {
     handleConfirmCancelRequest,
     showToast,
     formatExpirationDate,
+    formatFlightDate,
     getCurrentUserIdentifiers,
     fetchUsers,
     handleSubmitReceiverRequest,

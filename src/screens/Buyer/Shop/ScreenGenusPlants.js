@@ -125,6 +125,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
     hasAppliedFilters
   } = useFilters();
   const justFiltered = React.useRef(false);
+  const initialLoadComplete = React.useRef(false); // Track if initial load is done
 
   // Plants data state
   const [plants, setPlants] = useState([]);
@@ -391,6 +392,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('🔄 [ScreenGenusPlants] Initial mount - starting data load');
         // If coming from search, set search term and load plants immediately
         if (fromSearch && searchQuery) {
           console.log('🔍 [ScreenGenusPlants] Loading from search:', searchQuery);
@@ -431,8 +433,12 @@ const ScreenGenusPlants = ({navigation, route}) => {
           // Load plants using global filters if available, otherwise load all plants
           loadPlants(true);
         }
+        // Mark initial load as complete
+        initialLoadComplete.current = true;
+        console.log('✅ [ScreenGenusPlants] Initial data load complete');
       } catch (error) {
         console.log('Error loading initial data:', error);
+        initialLoadComplete.current = true; // Mark as complete even on error
       }
     };
 
@@ -463,6 +469,14 @@ const ScreenGenusPlants = ({navigation, route}) => {
   // Load plants when screen comes into focus - handle search query from navigation
   useFocusEffect(
     React.useCallback(() => {
+      // Skip if initial load hasn't completed yet (prevents duplicate calls on mount)
+      if (!initialLoadComplete.current) {
+        console.log('⏭️ [ScreenGenusPlants] Focus effect skipped - initial load not complete');
+        return;
+      }
+      
+      console.log('👁️ [ScreenGenusPlants] Focus effect triggered');
+      
       // Check for search query from navigation
       const currentSearchQuery = route.params?.searchQuery;
       const currentFromSearch = route.params?.fromSearch;
@@ -489,9 +503,13 @@ const ScreenGenusPlants = ({navigation, route}) => {
       if (justFiltered.current) {
         // Don't reload if we just applied filters
         justFiltered.current = false;
+        console.log('⏭️ [ScreenGenusPlants] Focus effect - just filtered, skip');
       } else if (hasAppliedFilters()) {
         // Only reload if there are applied filters from another screen
+        console.log('🔄 [ScreenGenusPlants] Focus effect - reloading with applied filters');
         loadPlants(true);
+      } else {
+        console.log('⏭️ [ScreenGenusPlants] Focus effect - no action needed');
       }
       // If no applied filters, don't auto-reload to prevent unnecessary API calls
     }, [appliedFilters, route.params]),

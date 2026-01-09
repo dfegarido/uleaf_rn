@@ -31,6 +31,7 @@ const JoinerShippingBuddiesScreen = () => {
     loadingMyRequest,
     handleCancelRequest,
     formatExpirationDate,
+    formatFlightDate,
     users,
     loadingUsers,
     searchText,
@@ -53,6 +54,7 @@ const JoinerShippingBuddiesScreen = () => {
   const [receiverUsername, setReceiverUsername] = React.useState('');
   const [selectedReceiverId, setSelectedReceiverId] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [imageError, setImageError] = React.useState(false);
 
   // Fetch users when modal opens
   React.useEffect(() => {
@@ -108,6 +110,20 @@ const JoinerShippingBuddiesScreen = () => {
     return fullName || 'Unknown User';
   };
 
+  // Reset image error when receiver request changes
+  React.useEffect(() => {
+    setImageError(false);
+    if (myReceiverRequest?.receiver) {
+      console.log('[JoinerShippingBuddies] Receiver data:', {
+        uid: myReceiverRequest.receiver.uid,
+        firstName: myReceiverRequest.receiver.firstName,
+        lastName: myReceiverRequest.receiver.lastName,
+        username: myReceiverRequest.receiver.username,
+        profileImage: myReceiverRequest.receiver.profileImage,
+      });
+    }
+  }, [myReceiverRequest]);
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
@@ -145,10 +161,22 @@ const JoinerShippingBuddiesScreen = () => {
             <View style={styles.buddyCard}>
               {/* Avatar */}
               <View style={styles.buddyAvatar}>
-                {myReceiverRequest.receiver?.profileImage ? (
+                {myReceiverRequest.receiver?.profileImage && !imageError ? (
                   <Image
                     source={{ uri: myReceiverRequest.receiver.profileImage }}
                     style={styles.buddyAvatarImage}
+                    resizeMode="cover"
+                    onError={(error) => {
+                      // If image fails to load, show initials as fallback
+                      console.log('[JoinerShippingBuddies] Failed to load receiver profile image:', {
+                        url: myReceiverRequest.receiver.profileImage,
+                        error: error.nativeEvent.error
+                      });
+                      setImageError(true);
+                    }}
+                    onLoad={() => {
+                      console.log('[JoinerShippingBuddies] Successfully loaded receiver profile image');
+                    }}
                   />
                 ) : (
                   <View style={styles.buddyAvatarPlaceholder}>
@@ -161,10 +189,10 @@ const JoinerShippingBuddiesScreen = () => {
 
               {/* Details */}
               <View style={styles.buddyDetails}>
-                <Text style={styles.buddyName}>
+                <Text style={styles.buddyName} numberOfLines={2} ellipsizeMode="tail">
                   {getDisplayName(myReceiverRequest.receiver)}
                 </Text>
-                <Text style={styles.buddyUsername}>
+                <Text style={styles.buddyUsername} numberOfLines={1} ellipsizeMode="tail">
                   @{myReceiverRequest.receiver?.username || 'unknown'}
                 </Text>
               </View>
@@ -180,6 +208,7 @@ const JoinerShippingBuddiesScreen = () => {
               <BuddyDetails
                 buddyRequest={myReceiverRequest}
                 formatExpirationDate={formatExpirationDate}
+                formatFlightDate={formatFlightDate}
                 onCancelRequest={handleCancelRequest}
               />
             ) : (

@@ -1156,7 +1156,7 @@ const ScreenShop = ({navigation}) => {
             onPress={onGrowersPress}
           />
           <InfoCard
-            title={'Wholesale\nPlants'}
+            title={'Wholesale\nPack of 10'}
             subtitle="Browse"
             IconComponent={WholesaleIcon}
             backgroundColor="#ECFCE5"

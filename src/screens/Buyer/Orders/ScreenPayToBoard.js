@@ -544,20 +544,20 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
                     {!vaultedPaymentId && (<TouchableOpacity
                       style={styles.payButton}
                       onPress={() => {
-                        Alert.alert('Are you sure?', [
-                              {
-                                text: 'Yes',
-                                onPress: () => {
-                                  handlePayTransaction(group);
-                                },
-                              },
+                        Alert.alert('Are you sure?', '', [
                               {
                                 text: 'No',
                                 onPress: () => {
                                   return null;
                                 },
                                 style: 'cancel'
-                              }
+                              },
+                              {
+                                text: 'Yes',
+                                onPress: () => {
+                                  handlePayTransaction(group);
+                                },
+                              },
                             ])
                         }}
                       activeOpacity={0.7}

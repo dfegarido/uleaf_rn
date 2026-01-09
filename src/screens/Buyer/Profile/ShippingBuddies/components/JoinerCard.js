@@ -12,6 +12,22 @@ const JoinerCard = ({
   onReject,
   formatExpirationDate,
 }) => {
+  const [imageError, setImageError] = React.useState(false);
+
+  // Reset image error when joiner changes
+  React.useEffect(() => {
+    setImageError(false);
+    if (joiner) {
+      console.log('[JoinerCard] Joiner data:', {
+        requesterUid: joiner.requesterUid,
+        firstName: joiner.firstName,
+        lastName: joiner.lastName,
+        username: joiner.username,
+        profileImage: joiner.profileImage,
+      });
+    }
+  }, [joiner]);
+
   const getInitials = () => {
     const first = joiner.firstName?.[0] || '';
     const last = joiner.lastName?.[0] || '';
@@ -34,10 +50,22 @@ const JoinerCard = ({
         {/* Avatar */}
         <View style={styles.joinerAvatarContainer}>
           <View style={styles.joinerAvatar}>
-            {joiner.profileImage ? (
+            {joiner.profileImage && !imageError ? (
               <Image
                 source={{ uri: joiner.profileImage }}
                 style={styles.joinerAvatarImage}
+                resizeMode="cover"
+                onError={(error) => {
+                  console.log('[JoinerCard] Failed to load joiner profile image:', {
+                    requesterUid: joiner.requesterUid,
+                    url: joiner.profileImage,
+                    error: error.nativeEvent.error
+                  });
+                  setImageError(true);
+                }}
+                onLoad={() => {
+                  console.log('[JoinerCard] Successfully loaded joiner profile image:', joiner.requesterUid);
+                }}
               />
             ) : (
               <View style={styles.joinerAvatarPlaceholder}>
@@ -51,8 +79,12 @@ const JoinerCard = ({
         <View style={styles.joinerContent}>
           {/* Name and Username */}
           <View style={styles.joinerNameRow}>
-            <Text style={styles.joinerName}>{getDisplayName()}</Text>
-            <Text style={styles.joinerUsername}>{getDisplayUsername()}</Text>
+            <Text style={styles.joinerName} numberOfLines={2} ellipsizeMode="tail">
+              {getDisplayName()}
+            </Text>
+            <Text style={styles.joinerUsername} numberOfLines={1} ellipsizeMode="tail">
+              {getDisplayUsername()}
+            </Text>
           </View>
 
           {/* Expiration Date (receiver's latest flight date) */}

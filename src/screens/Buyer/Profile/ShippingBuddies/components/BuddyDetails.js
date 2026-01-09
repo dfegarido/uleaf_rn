@@ -10,6 +10,7 @@ import styles from './styles/BuddyDetailsStyles';
 const BuddyDetails = ({
   buddyRequest,
   formatExpirationDate,
+  formatFlightDate,
   onCancelRequest,
 }) => {
   const navigation = useNavigation();
@@ -106,6 +107,50 @@ const BuddyDetails = ({
             </Text>
           </View>
         </View>
+
+        {/* Plant Flight Date Row */}
+        <View style={styles.detailRow}>
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M21 16V8C21 6.9 20.1 6 19 6H5C3.9 6 3 6.9 3 8V16C3 17.1 3.9 18 5 18H19C20.1 18 21 17.1 21 16ZM19 16H5V8H19V16Z"
+              fill="#556065"
+            />
+            <Path
+              d="M15.5 10.5L13 13.5L10.5 10.5L7 14.5H17L15.5 10.5Z"
+              fill="#556065"
+            />
+          </Svg>
+          <View style={styles.detailContent}>
+            <View style={styles.detailTextRow}>
+              <Text style={styles.detailData}>
+                {formatFlightDate ? formatFlightDate(buddyRequest.receiverFlightDate) : 'N/A'}
+              </Text>
+            </View>
+            <Text style={styles.detailLabel}>
+              Plant Flight Date
+            </Text>
+          </View>
+        </View>
+
+        {/* UPS Shipping Row */}
+        <View style={styles.detailRow}>
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M18 6H16C16 3.79 14.21 2 12 2C9.79 2 8 3.79 8 6H6C4.9 6 4 6.9 4 8V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8C20 6.9 19.1 6 18 6ZM12 4C13.1 4 14 4.9 14 6H10C10 4.9 10.9 4 12 4ZM18 20H6V8H8V10C8 10.55 8.45 11 9 11C9.55 11 10 10.55 10 10V8H14V10C14 10.55 14.45 11 15 11C15.55 11 16 10.55 16 10V8H18V20Z"
+              fill="#556065"
+            />
+          </Svg>
+          <View style={styles.detailContent}>
+            <View style={styles.detailTextRow}>
+              <Text style={styles.detailData}>
+                {buddyRequest.receiverUpsNextDay ? 'UPS Next Day' : 'UPS 2nd Day'}
+              </Text>
+            </View>
+            <Text style={styles.detailLabel}>
+              UPS Shipping
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Divider */}
@@ -116,13 +161,25 @@ const BuddyDetails = ({
       {/* Note Section */}
       <View style={styles.approvedNoteContainer}>
         <Text style={styles.approvedNoteBold}>
-          You can only ship to one receiver per air cargo date.
+          🤝 Shipping Buddy Rules (aka: Fly Together, Don't Tangle 🪴✈️)
         </Text>
         <Text style={styles.approvedNoteText}>
-          Once your request is approved, checkout will be limited to your assigned receiver instead of your personal address.
+          • One receiver per Plant Flight
         </Text>
         <Text style={styles.approvedNoteText}>
-          To become a receiver, your buddy or buddies must submit a receiver request using your username.
+          • Receivers can't be joiners on the same flight (no double-dipping 😉)
+        </Text>
+        <Text style={styles.approvedNoteText}>
+          • Joiners must ask + get approved before ordering
+        </Text>
+        <Text style={styles.approvedNoteText}>
+          • All plants fly on the same Plant Flight to one happy home
+        </Text>
+        <Text style={styles.approvedNoteText}>
+          • Buddy roles reset after checkout cutoff — new flight, new buddies
+        </Text>
+        <Text style={styles.approvedNoteText}>
+          • Each buyer can join one receiver per flight
         </Text>
       </View>
 
