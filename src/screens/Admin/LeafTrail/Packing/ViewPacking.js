@@ -244,7 +244,6 @@ const ViewPackingScreen = ({ navigation, route }) => {
           setIsLoading(true)
           try {
               const response = await getOrdersBySortingTray(item.sortingTrayNumber);
-              console.log('asdfadfa', response.data);
               
               setPlantList(response.data);
           } catch (e) {
