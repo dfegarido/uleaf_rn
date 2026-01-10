@@ -84,7 +84,7 @@ const DeliveryDateTimeInput = ({ setIsDelayed, isDelayed, deliveryDate, setDeliv
                 mode="date"
                 onConfirm={handleDateConfirm}
                 onCancel={hideDatePicker}
-                minimumDate={new Date()}
+                //minimumDate={new Date()}
             />
 
             <TouchableOpacity onPress={showTimePicker} style={styles.textInputWrapper}>
