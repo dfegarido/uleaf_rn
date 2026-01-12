@@ -63,6 +63,33 @@ const PlantFlightFilter = ({
   const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const scrollRef = React.useRef(null);
 
+  // Debug: Log when component receives props
+  React.useEffect(() => {
+    console.log('[PlantFlightFilter] Props updated:', {
+      isVisible,
+      flightDatesCount: flightDates.length,
+      flightDates: flightDates,
+      selectedValuesCount: selectedValues.length
+    });
+    
+    // Check specifically for Feb 28
+    const hasFeb28 = flightDates.some(date => {
+      const dateStr = date.toString();
+      return dateStr.includes('-02-28') || dateStr.includes('2025-02-28') || dateStr.includes('2026-02-28');
+    });
+    
+    if (hasFeb28) {
+      const feb28Date = flightDates.find(date => {
+        const dateStr = date.toString();
+        return dateStr.includes('-02-28');
+      });
+      console.log('[PlantFlightFilter] ✅ Feb 28 found in flightDates:', feb28Date);
+    } else {
+      console.warn('[PlantFlightFilter] ⚠️ Feb 28 NOT found in flightDates!');
+      console.log('[PlantFlightFilter] All flightDates:', flightDates);
+    }
+  }, [isVisible, flightDates, selectedValues]);
+
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                       'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -131,7 +158,19 @@ const PlantFlightFilter = ({
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     const dateISO = toISODateString(date);
     // Check if this date exists in the flightDates array
-    return flightDates.includes(dateISO);
+    const isAvailable = flightDates.includes(dateISO);
+    
+    // Debug: Log specifically for Feb 28
+    if (dateISO.includes('-02-28')) {
+      console.log('[PlantFlightFilter] 🔍 Checking Feb 28 availability:', {
+        dateISO,
+        inFlightDates: flightDates.includes(dateISO),
+        flightDatesSample: flightDates.slice(0, 5),
+        allFlightDates: flightDates
+      });
+    }
+    
+    return isAvailable;
   };
 
   const handleRemoveDate = (dateToRemove) => {

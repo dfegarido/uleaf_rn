@@ -34,6 +34,7 @@ import BuyerFilter from '../../../components/Admin/buyerFilter';
 import JoinerFilter from '../../../components/Admin/joinerFilter';
 import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
 import TransactionFilter from '../../../components/Admin/transactionFilter';
+import SellerNameFilter from '../../../components/Admin/sellerNameFilter';
 
 // Skeleton loader component for QR codes
 const QRCodeSkeleton = () => {
@@ -190,12 +191,8 @@ const SellerSelectionModal = ({ isVisible, onClose, onSelectSeller, sellers, loa
   );
 };
 
-// Custom Header with Centered Title and Seller Dropdown
-const GenerateQRHeader = ({ navigation, selectedSeller, onSellerPress }) => {
-  const sellerName = selectedSeller 
-    ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'All Sellers')
-    : 'All Sellers';
-
+// Custom Header with Centered Title
+const GenerateQRHeader = ({ navigation }) => {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -222,24 +219,50 @@ const GenerateQR = ({navigation}) => {
 
   // Filter states
   const [selectedFilters, setSelectedFilters] = useState({
+    sellerName: null, // Seller name
+    buyer: null,
     createdDate: null, // Date range for created date
     flightDate: [], // Array of flight dates
-    buyer: null,
     transaction: null, // Transaction number (string)
     joiner: null,
   });
 
   // Filter modal states
+  const [sellerNameModalVisible, setSellerNameModalVisible] = useState(false);
+  const [buyerModalVisible, setBuyerModalVisible] = useState(false);
   const [createdDateModalVisible, setCreatedDateModalVisible] = useState(false);
   const [flightDateModalVisible, setFlightDateModalVisible] = useState(false);
-  const [buyerModalVisible, setBuyerModalVisible] = useState(false);
   const [transactionModalVisible, setTransactionModalVisible] = useState(false);
   const [joinerModalVisible, setJoinerModalVisible] = useState(false);
 
   // Filter options from API response
+  const [sellerNameOptions, setSellerNameOptions] = useState([]);
   const [buyerOptions, setBuyerOptions] = useState([]);
+  const [allBuyerOptions, setAllBuyerOptions] = useState([]); // Keep original full list
   const [joinerOptions, setJoinerOptions] = useState([]);
   const [flightDateOptions, setFlightDateOptions] = useState([]);
+
+  // Debug: Track modal state changes (disabled to prevent infinite loops)
+  // React.useEffect(() => {
+  //   console.log('[GenerateQR] Modal states:', {
+  //     sellerName: sellerNameModalVisible,
+  //     buyer: buyerModalVisible,
+  //     createdDate: createdDateModalVisible,
+  //     flightDate: flightDateModalVisible,
+  //     transaction: transactionModalVisible,
+  //     joiner: joinerModalVisible,
+  //   });
+  // }, [sellerNameModalVisible, buyerModalVisible, createdDateModalVisible, flightDateModalVisible, transactionModalVisible, joinerModalVisible]);
+
+  // Debug: Track filter options (disabled to prevent infinite loops)
+  // React.useEffect(() => {
+  //   console.log('[GenerateQR] Filter options updated:', {
+  //     buyers: buyerOptions.length,
+  //     joiners: joinerOptions.length,
+  //     flightDates: flightDateOptions.length,
+  //     sellers: sellers.length,
+  //   });
+  // }, [buyerOptions, joinerOptions, flightDateOptions, sellers]);
 
   // Function to handle email sending
   const handleSendEmail = async () => {
@@ -253,13 +276,16 @@ const GenerateQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      // Build URL with seller filter and other filters
+      // Build URL with filters
       const queryParams = new URLSearchParams();
-      if (selectedSeller && selectedSeller.uid) {
-        queryParams.append('sellerUid', selectedSeller.uid);
-      }
       
       // Add filter parameters
+      if (selectedFilters.sellerName) {
+        queryParams.append('sellerName', selectedFilters.sellerName);
+      }
+      if (selectedFilters.buyer) {
+        queryParams.append('buyer', selectedFilters.buyer);
+      }
       if (selectedFilters.createdDate) {
         if (selectedFilters.createdDate.from) {
           // Set time to start of day (00:00:00)
@@ -276,9 +302,6 @@ const GenerateQR = ({navigation}) => {
       }
       if (selectedFilters.flightDate && Array.isArray(selectedFilters.flightDate) && selectedFilters.flightDate.length > 0) {
         queryParams.append('flightDate', selectedFilters.flightDate.join(','));
-      }
-      if (selectedFilters.buyer) {
-        queryParams.append('buyer', selectedFilters.buyer);
       }
       if (selectedFilters.transaction) {
         queryParams.append('transaction', selectedFilters.transaction);
@@ -390,7 +413,12 @@ const GenerateQR = ({navigation}) => {
             userType: 'supplier'
           }));
           setSellers(sellerResults);
+          setSellerNameOptions(sellerResults); // Also set sellerNameOptions for the filter
           console.log(`✅ Loaded ${sellerResults.length} sellers`);
+          console.log('[GenerateQR] Sellers sample:', sellerResults.slice(0, 3).map(s => ({
+            name: s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+            email: s.email
+          })));
         }
       }
     } catch (err) {
@@ -413,13 +441,16 @@ const GenerateQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      // Build URL with seller filter and other filters
+      // Build URL with filters
       const queryParams = new URLSearchParams();
-      if (selectedSeller && selectedSeller.uid) {
-        queryParams.append('sellerUid', selectedSeller.uid);
-      }
       
       // Add filter parameters
+      if (selectedFilters.sellerName) {
+        queryParams.append('sellerName', selectedFilters.sellerName);
+      }
+      if (selectedFilters.buyer) {
+        queryParams.append('buyer', selectedFilters.buyer);
+      }
       if (selectedFilters.createdDate) {
         if (selectedFilters.createdDate.from) {
           // Set time to start of day (00:00:00)
@@ -440,12 +471,6 @@ const GenerateQR = ({navigation}) => {
       }
       if (selectedFilters.flightDate && Array.isArray(selectedFilters.flightDate) && selectedFilters.flightDate.length > 0) {
         queryParams.append('flightDate', selectedFilters.flightDate.join(','));
-      }
-      if (selectedFilters.garden) {
-        queryParams.append('garden', selectedFilters.garden);
-      }
-      if (selectedFilters.buyer) {
-        queryParams.append('buyer', selectedFilters.buyer);
       }
       if (selectedFilters.transaction) {
         queryParams.append('transaction', selectedFilters.transaction);
@@ -494,14 +519,22 @@ const GenerateQR = ({navigation}) => {
       
       // Extract filter options from API response
       if (data.buyers && Array.isArray(data.buyers)) {
+        console.log('[GenerateQR] Buyer options loaded:', data.buyers.length, 'buyers');
         setBuyerOptions(data.buyers);
+      } else {
+        console.log('[GenerateQR] No buyer data in API response');
       }
       if (data.joiners && Array.isArray(data.joiners)) {
+        console.log('[GenerateQR] Joiner options loaded:', data.joiners.length, 'joiners');
         setJoinerOptions(data.joiners);
       }
-      if (data.flightDates && Array.isArray(data.flightDates)) {
-        const filteredFlightDates = data.flightDates.filter(date => date !== '2001-11-08');
-        setFlightDateOptions(filteredFlightDates);
+      // Refresh flight schedules from schedule API (Saturdays only, excluding canceled)
+      const activeSaturdays = await fetchFlightSchedules();
+      if (activeSaturdays.length > 0) {
+        console.log('[GenerateQR] Flight date options refreshed from schedule:', activeSaturdays.length, 'dates', activeSaturdays);
+        setFlightDateOptions(activeSaturdays);
+      } else {
+        console.warn('[GenerateQR] No active Saturday flight dates found after refresh');
       }
 
       // Transform API data to match the expected format
@@ -548,7 +581,7 @@ const GenerateQR = ({navigation}) => {
     } finally {
       setLoading(false);
     }
-  }, [selectedSeller, selectedFilters, sortOrder, sortQRCodesByDate]);
+  }, [selectedSeller, selectedFilters, sortOrder, sortQRCodesByDate, fetchFlightSchedules]);
 
   // Transform API data to match the UI structure
   const transformApiData = (apiData) => {
@@ -987,20 +1020,216 @@ const GenerateQR = ({navigation}) => {
   }, []);
 
   // Filter handlers
+  const handleSellerNameSelect = useCallback((sellerName) => {
+    setSelectedFilters((prev) => ({ ...prev, sellerName }));
+    setSellerNameModalVisible(false);
+  }, []);
+
+  const handleSellerSearch = useCallback(async (searchQuery) => {
+    try {
+      // If search query is empty or cleared, restore full list
+      if (!searchQuery || searchQuery.trim().length < 2) {
+        console.log('[GenerateQR] Seller search query empty/cleared, restoring full seller list');
+        // Restore from initial sellers if available
+        if (sellers.length > 0) {
+          setSellerNameOptions(sellers);
+        }
+        return;
+      }
+      
+      console.log('[GenerateQR] Searching sellers by name/email:', searchQuery);
+      
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (!token) {
+        console.warn('[GenerateQR] No auth token found');
+        return;
+      }
+
+      // Call search user API with supplier userType
+      // This will search across name and email fields
+      const url = `${API_ENDPOINTS.SEARCH_USER}?query=${encodeURIComponent(searchQuery)}&userType=supplier&limit=5`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('[GenerateQR] Seller search failed:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('[GenerateQR] Seller search response:', data);
+
+      // Update seller options with search results
+      if (data && data.success && data.results && Array.isArray(data.results)) {
+        // Transform to match expected seller format
+        const sellerResults = data.results.map(user => ({
+          id: user.id || user.uid,
+          uid: user.uid || user.id,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          profileImage: user.profileImage || '',
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+          userType: 'supplier'
+        }));
+        console.log('[GenerateQR] Transformed sellers:', sellerResults.length);
+        setSellerNameOptions(sellerResults);
+      } else if (data && data.users && Array.isArray(data.users)) {
+        // Handle alternative response format
+        const sellerResults = data.users.map(user => ({
+          id: user.id || user.uid,
+          uid: user.uid || user.id,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          profileImage: user.profileImage || '',
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown',
+          userType: 'supplier'
+        }));
+        console.log('[GenerateQR] Transformed sellers (alt format):', sellerResults.length);
+        setSellerNameOptions(sellerResults);
+      } else {
+        console.warn('[GenerateQR] No seller data in search response');
+        setSellerNameOptions([]);
+      }
+    } catch (error) {
+      console.error('[GenerateQR] Error searching sellers:', error);
+    }
+  }, [sellers]);
+
+  const handleBuyerSearch = useCallback(async (searchQuery) => {
+    try {
+      // If search query is empty or cleared, restore full list
+      if (!searchQuery || searchQuery.trim().length < 2) {
+        console.log('[GenerateQR] Search query empty/cleared, restoring full buyer list:', allBuyerOptions.length);
+        setBuyerOptions(allBuyerOptions);
+        return;
+      }
+      
+      console.log('[GenerateQR] Searching buyers by name/email/username:', searchQuery);
+      
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (!token) {
+        console.warn('[GenerateQR] No auth token found');
+        return;
+      }
+
+      // Call search user API with buyer role
+      // This will search across name, email, and username fields
+      const url = `${API_ENDPOINTS.SEARCH_USER}?query=${encodeURIComponent(searchQuery)}&role=buyer&limit=5`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('[GenerateQR] Buyer search failed:', response.status);
+        // Restore full list on error
+        setBuyerOptions(allBuyerOptions);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('[GenerateQR] Buyer search results:', data.users ? data.users.length : 0);
+
+      // Update buyer options with search results (but keep allBuyerOptions intact)
+      if (data.users && Array.isArray(data.users)) {
+        // Transform to match expected buyer format
+        const buyers = data.users.map(user => ({
+          id: user.uid || user.id,
+          name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          email: user.email,
+          username: user.username,
+          avatar: user.profileImage || user.avatar,
+        }));
+        console.log('[GenerateQR] Transformed buyers with email/username:', buyers.map(b => ({ name: b.name, email: b.email, username: b.username })));
+        setBuyerOptions(buyers); // Only update buyerOptions, not allBuyerOptions
+      } else {
+        // If no results, restore full list
+        setBuyerOptions(allBuyerOptions);
+      }
+    } catch (error) {
+      console.error('[GenerateQR] Error searching buyers:', error);
+      // Restore full list on error
+      setBuyerOptions(allBuyerOptions);
+    }
+  }, [allBuyerOptions]);
+
+  const handleBuyerSelect = useCallback((buyerId) => {
+    setSelectedFilters((prev) => ({ ...prev, buyer: buyerId }));
+    setBuyerModalVisible(false);
+  }, []);
+
+  // Restore full buyer list when modal opens
+  React.useEffect(() => {
+    if (buyerModalVisible) {
+      if (allBuyerOptions.length > 0) {
+        console.log('[GenerateQR] Buyer modal opened, restoring full buyer list:', allBuyerOptions.length);
+        setBuyerOptions(allBuyerOptions);
+      } else {
+        console.warn('[GenerateQR] Buyer modal opened but allBuyerOptions is empty! Buyers might not be loaded yet.');
+      }
+    }
+  }, [buyerModalVisible, allBuyerOptions.length]); // Trigger when modal opens or allBuyerOptions length changes
+
+  // Restore full seller list when modal opens
+  React.useEffect(() => {
+    if (sellerNameModalVisible) {
+      if (sellers.length > 0) {
+        console.log('[GenerateQR] Seller modal opened, restoring full seller list:', sellers.length);
+        setSellerNameOptions(sellers);
+      } else {
+        console.warn('[GenerateQR] Seller modal opened but sellers is empty! Sellers might not be loaded yet.');
+        // Try to fetch sellers if not loaded
+        fetchSellers();
+      }
+    }
+  }, [sellerNameModalVisible, sellers.length]); // Trigger when modal opens or sellers length changes
+
   const handleCreatedDateSelect = useCallback((dateRange) => {
     setSelectedFilters((prev) => ({ ...prev, createdDate: dateRange }));
     setCreatedDateModalVisible(false);
   }, []);
 
   const handleFlightDateSelect = useCallback((flightDates) => {
+    console.log('[GenerateQR] Flight dates selected:', flightDates);
     setSelectedFilters((prev) => ({ ...prev, flightDate: flightDates }));
     setFlightDateModalVisible(false);
   }, []);
 
-  const handleBuyerSelect = useCallback((buyerId) => {
-    setSelectedFilters((prev) => ({ ...prev, buyer: buyerId }));
-    setBuyerModalVisible(false);
-  }, []);
+  // Debug: Log when flight date modal opens and what dates are available
+  React.useEffect(() => {
+    if (flightDateModalVisible) {
+      console.log('[GenerateQR] 📅 Flight Date modal opened');
+      console.log('[GenerateQR] Available flight dates:', flightDateOptions.length, flightDateOptions);
+      const hasFeb28 = flightDateOptions.some(date => date.includes('-02-28'));
+      if (hasFeb28) {
+        console.log('[GenerateQR] ✅ Feb 28 is in flightDateOptions');
+      } else {
+        console.warn('[GenerateQR] ⚠️ Feb 28 is NOT in flightDateOptions!');
+        console.log('[GenerateQR] All available dates:', flightDateOptions);
+      }
+    }
+  }, [flightDateModalVisible, flightDateOptions]);
+
+  // Debug: Log when flight date modal opens (disabled to prevent infinite loops)
+  // React.useEffect(() => {
+  //   if (flightDateModalVisible) {
+  //     console.log('[GenerateQR] 📅 Flight Date modal opened with options:', flightDateOptions.length, flightDateOptions);
+  //   }
+  // }, [flightDateModalVisible, flightDateOptions]);
 
   const handleTransactionSelect = useCallback((transaction) => {
     setSelectedFilters((prev) => ({ ...prev, transaction }));
@@ -1015,12 +1244,14 @@ const GenerateQR = ({navigation}) => {
   // Helper to check if filter is active
   const isFilterActive = (filterLabel) => {
     switch (filterLabel) {
+      case 'Seller Name':
+        return selectedFilters.sellerName !== null;
+      case 'Buyer':
+        return selectedFilters.buyer !== null;
       case 'Created Date':
         return selectedFilters.createdDate !== null;
       case 'Flight Date':
         return selectedFilters.flightDate !== null && selectedFilters.flightDate.length > 0;
-      case 'Buyer':
-        return selectedFilters.buyer !== null;
       case 'Transaction':
         return selectedFilters.transaction !== null && selectedFilters.transaction.trim() !== '';
       case 'Joiner':
@@ -1030,11 +1261,24 @@ const GenerateQR = ({navigation}) => {
     }
   };
 
+  // Helper to check if any filter is selected
+  const hasAnyFilterSelected = () => {
+    return (
+      selectedFilters.sellerName !== null ||
+      selectedFilters.buyer !== null ||
+      selectedFilters.createdDate !== null ||
+      (selectedFilters.flightDate !== null && selectedFilters.flightDate.length > 0) ||
+      (selectedFilters.transaction !== null && selectedFilters.transaction.trim() !== '') ||
+      selectedFilters.joiner !== null
+    );
+  };
+
   // Filter tabs configuration
   const filterTabs = [
+    { label: 'Seller Name', rightIcon: DownIcon },
+    { label: 'Buyer', rightIcon: DownIcon },
     { label: 'Created Date', leftIcon: SortIcon, rightIcon: DownIcon },
     { label: 'Flight Date', rightIcon: DownIcon },
-    { label: 'Buyer', rightIcon: DownIcon },
     { label: 'Transaction', rightIcon: DownIcon },
     { label: 'Joiner', rightIcon: DownIcon },
   ];
@@ -1043,18 +1287,43 @@ const GenerateQR = ({navigation}) => {
   const FilterTab = ({ filter }) => {
     const isActive = isFilterActive(filter.label);
     
+    // Get display label with active filter value
+    const getDisplayLabel = () => {
+      const baseLabel = filter.label;
+      
+      if (!isActive) return baseLabel;
+      
+      switch (filter.label) {
+        case 'Seller Name':
+          return selectedFilters.sellerName ? `${baseLabel}: ${selectedFilters.sellerName}` : baseLabel;
+        case 'Transaction':
+          return selectedFilters.transaction ? `${baseLabel}: ${selectedFilters.transaction}` : baseLabel;
+        default:
+          return baseLabel;
+      }
+    };
+    
     return (
       <TouchableOpacity
         onPress={() => {
-          if (filter.label === 'Created Date') {
+          console.log('[FilterTab] Clicked filter:', filter.label);
+          if (filter.label === 'Seller Name') {
+            console.log('[FilterTab] Opening Seller Name modal');
+            setSellerNameModalVisible(true);
+          } else if (filter.label === 'Buyer') {
+            console.log('[FilterTab] Opening Buyer modal');
+            setBuyerModalVisible(true);
+          } else if (filter.label === 'Created Date') {
+            console.log('[FilterTab] Opening Created Date modal');
             setCreatedDateModalVisible(true);
           } else if (filter.label === 'Flight Date') {
+            console.log('[FilterTab] Opening Flight Date modal');
             setFlightDateModalVisible(true);
-          } else if (filter.label === 'Buyer') {
-            setBuyerModalVisible(true);
           } else if (filter.label === 'Transaction') {
+            console.log('[FilterTab] Opening Transaction modal');
             setTransactionModalVisible(true);
           } else if (filter.label === 'Joiner') {
+            console.log('[FilterTab] Opening Joiner modal');
             setJoinerModalVisible(true);
           }
         }}
@@ -1077,12 +1346,15 @@ const GenerateQR = ({navigation}) => {
             style={{ marginRight: 4 }}
           />
         )}
-        <Text style={{
-          fontSize: 14,
-          fontWeight: isActive ? '600' : '500',
-          color: isActive ? '#23C16B' : '#393D40'
-        }}>
-          {filter.label}
+        <Text 
+          style={{
+            fontSize: 14,
+            fontWeight: isActive ? '600' : '500',
+            color: isActive ? '#23C16B' : '#393D40'
+          }}
+          numberOfLines={1}
+        >
+          {getDisplayLabel()}
         </Text>
         {filter.rightIcon && (
           <filter.rightIcon
@@ -1189,36 +1461,277 @@ const GenerateQR = ({navigation}) => {
     return newPages;
   }, []);
 
+  // Function to fetch active flight schedules (Saturdays only, excluding canceled)
+  const fetchFlightSchedules = useCallback(async () => {
+    try {
+      console.log('[GenerateQR] Fetching flight schedules...');
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (!token) {
+        console.warn('[GenerateQR] No auth token found');
+        return [];
+      }
+
+      const url = API_ENDPOINTS.GET_FLIGHT_SCHEDULE;
+      console.log('[GenerateQR] Flight schedule URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('[GenerateQR] Failed to fetch flight schedules:', response.status, response.statusText);
+        return [];
+      }
+
+      const data = await response.json();
+      console.log('[GenerateQR] Flight schedules API response received');
+
+      // Get schedule data array (response structure: { success: true, data: [...] })
+      const schedules = data.data || data;
+      
+      if (!Array.isArray(schedules)) {
+        console.warn('[GenerateQR] Schedules is not an array:', typeof schedules);
+        return [];
+      }
+
+      console.log('[GenerateQR] Total schedules received:', schedules.length);
+
+      // Filter for active Saturdays only (exclude canceled)
+      const activeSaturdays = schedules
+        .map((day, index) => {
+          // Extract date first to check if it's Feb 28
+          let dateStr = day.date;
+          if (!dateStr && day.events && day.events.length > 0) {
+            dateStr = day.events[0].flightDate;
+          }
+          
+          let dateObj = null;
+          let dateKey = null;
+          if (dateStr) {
+            try {
+              dateObj = new Date(dateStr);
+              if (!isNaN(dateObj.getTime())) {
+                dateKey = dateObj.toISOString().split('T')[0];
+                // Check if this is Feb 28
+                const isFeb28 = dateKey.includes('-02-28');
+                if (isFeb28) {
+                  console.log(`[GenerateQR] 🔍 Found Feb 28 schedule at index ${index}:`, {
+                    date: dateKey,
+                    dayOfWeek: day.dayOfWeek,
+                    events: day.events,
+                    eventsCount: day.events?.length || 0
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn('[GenerateQR] Error parsing date:', dateStr, e);
+            }
+          }
+
+          // Check if day has events and if any event is active (not canceled)
+          if (!day.events || !Array.isArray(day.events) || day.events.length === 0) {
+            if (dateKey && dateKey.includes('-02-28')) {
+              console.log(`[GenerateQR] ❌ Feb 28 excluded: No events`);
+            }
+            return null;
+          }
+
+          // Check if any event is not canceled
+          const hasActiveEvent = day.events.some(event => {
+            const status = (event.status || '').toString().toLowerCase();
+            const isActive = event.isActive !== false; // Default to true
+            const notCanceled = status !== 'canceled' && status !== 'cancelled';
+            const result = notCanceled && isActive;
+            
+            if (dateKey && dateKey.includes('-02-28')) {
+              console.log(`[GenerateQR] 🔍 Feb 28 event check:`, {
+                status,
+                isActive,
+                notCanceled,
+                result
+              });
+            }
+            
+            return result;
+          });
+
+          // Verify it's a Saturday - check multiple formats and also verify by date
+          let isSaturday = false;
+          if (day.dayOfWeek) {
+            const dayOfWeekLower = day.dayOfWeek.toString().toLowerCase();
+            isSaturday = dayOfWeekLower.includes('saturday') || dayOfWeekLower.includes('sat');
+          }
+          
+          // Double-check by calculating day of week from date
+          if (dateObj && !isNaN(dateObj.getTime())) {
+            const calculatedDay = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+            if (calculatedDay === 6) {
+              isSaturday = true;
+            } else if (isSaturday && calculatedDay !== 6) {
+              console.warn(`[GenerateQR] ⚠️ DayOfWeek mismatch for ${dateKey}: dayOfWeek says Saturday but date is day ${calculatedDay}`);
+            }
+          }
+          
+          if (dateKey && dateKey.includes('-02-28')) {
+            console.log(`[GenerateQR] 🔍 Feb 28 Saturday check:`, {
+              dayOfWeek: day.dayOfWeek,
+              isSaturday,
+              hasActiveEvent,
+              willInclude: hasActiveEvent && isSaturday
+            });
+          }
+          
+          if (!hasActiveEvent || !isSaturday) {
+            return null;
+          }
+
+          return dateKey;
+        })
+        .filter(date => date !== null)
+        .sort(); // Sort dates chronologically
+
+      // Check if Feb 28 is in the final list
+      const hasFeb28 = activeSaturdays.some(date => date.includes('-02-28'));
+      if (hasFeb28) {
+        console.log(`[GenerateQR] ✅ Feb 28 is included in active Saturdays`);
+      } else {
+        console.warn(`[GenerateQR] ⚠️ Feb 28 is NOT in the final list!`);
+        console.log(`[GenerateQR] All active Saturdays:`, activeSaturdays);
+      }
+
+      console.log('[GenerateQR] ✅ Active Saturday flight dates (excluding canceled):', activeSaturdays.length, activeSaturdays);
+      return activeSaturdays;
+    } catch (error) {
+      console.error('[GenerateQR] ❌ Error fetching flight schedules:', error);
+      return [];
+    }
+  }, []);
+
+  // Function to fetch filter options without loading QR codes
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      console.log('[GenerateQR] Fetching filter options...');
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (!token) {
+        console.warn('[GenerateQR] No auth token found');
+        return;
+      }
+
+      // Fetch active flight schedules (Saturdays only, excluding canceled) from schedule API
+      const activeSaturdays = await fetchFlightSchedules();
+      if (activeSaturdays.length > 0) {
+        setFlightDateOptions(activeSaturdays);
+      } else {
+        console.warn('[GenerateQR] No active Saturday flight dates found from schedule');
+        setFlightDateOptions([]);
+      }
+
+      // Call API to get filter options (buyers, joiners) from orders
+      // Add filterOptionsOnly parameter to skip heavy order processing
+      const url = `${API_ENDPOINTS.QR_GENERATOR_ORDERS}?filterOptionsOnly=true`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('[GenerateQR] Failed to fetch filter options:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('[GenerateQR] Filter options API response received');
+
+      // Extract and set filter options
+      if (data.buyers && Array.isArray(data.buyers)) {
+        console.log('[GenerateQR] Buyer options loaded:', data.buyers.length, 'buyers');
+        setAllBuyerOptions(data.buyers); // Store full list
+        setBuyerOptions(data.buyers); // Set current options
+      } else {
+        console.log('[GenerateQR] No buyer data in API response');
+      }
+      if (data.joiners && Array.isArray(data.joiners)) {
+        console.log('[GenerateQR] Joiner options loaded:', data.joiners.length, 'joiners');
+        setJoinerOptions(data.joiners);
+      }
+    } catch (error) {
+      console.error('[GenerateQR] Error fetching filter options:', error);
+    }
+  }, [fetchFlightSchedules]);
+
+  // Track if initial load has been done to prevent infinite loops
+  const hasInitialized = React.useRef(false);
+
   useFocusEffect(
-    useCallback(() => {
+    React.useCallback(() => {
       if (Platform.OS === 'android') {
         StatusBar.setBarStyle('dark-content');
         StatusBar.setBackgroundColor('#fff');
       }
       
-      // Fetch sellers when screen comes into focus
-      fetchSellers();
-    }, [])
+      // Only initialize once when screen first mounts
+      if (!hasInitialized.current) {
+        hasInitialized.current = true;
+        
+        const initializeScreen = async () => {
+          try {
+            console.log('[GenerateQR] Initializing screen (first time only)...');
+            
+            // Fetch sellers when screen comes into focus
+            fetchSellers();
+            
+            // Fetch filter options (buyers, joiners, flight dates) without showing loading state
+            await fetchFilterOptions();
+            
+            // Set initial state to show empty screen with filters available
+            setLoading(false);
+            setQrCodeData([]);
+            
+            console.log('[GenerateQR] Screen initialization complete');
+          } catch (error) {
+            console.error('[GenerateQR] Error initializing screen:', error);
+            hasInitialized.current = false; // Reset on error so it can retry
+          }
+        };
+
+        initializeScreen();
+      } else {
+        console.log('[GenerateQR] Screen already initialized, skipping...');
+      }
+    }, []) // Empty deps - only run once
   );
 
-  // Refetch QR codes when seller changes (only if seller is selected)
-  React.useEffect(() => {
-    if (selectedSeller) {
-      fetchQRCodeData();
-    } else {
-      // Clear QR codes when no seller is selected
-      setQrCodeData([]);
-      setError(null);
-      setLoading(false);
-    }
-  }, [selectedSeller, fetchQRCodeData]);
+  // Handle Submit button click - manually trigger QR code generation
+  const handleSubmit = useCallback(async () => {
+    await fetchQRCodeData();
+  }, [fetchQRCodeData]);
 
-  // Refetch QR codes when filters change
-  React.useEffect(() => {
-    if (selectedSeller) {
-      fetchQRCodeData();
-    }
-  }, [selectedFilters, fetchQRCodeData]);
+  // Handle Reset All Filters button click - clear all filters and QR codes
+  const handleResetAllFilters = useCallback(() => {
+    setSelectedFilters({
+      sellerName: null,
+      buyer: null,
+      createdDate: null,
+      flightDate: [],
+      transaction: null,
+      joiner: null,
+    });
+    setQrCodeData([]);
+    setError(null);
+    console.log('[GenerateQR] All filters reset');
+  }, []);
+
+  // Removed auto-loading - QR codes now only load when Submit button is clicked
 
   const formatGeneratedDate = (dateInput) => {
     if (!dateInput) return 'Unknown';
@@ -1276,244 +1789,324 @@ const GenerateQR = ({navigation}) => {
     }
   };
 
-  // Show message when no seller is selected
-  if (!selectedSeller) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
-        
-        {/* Seller Selection Dropdown */}
-        <View style={styles.sellerDropdownContainer}>
-          <TouchableOpacity 
-            style={styles.sellerDropdown}
-            onPress={() => setShowSellerModal(true)}
-          >
-            <Text style={styles.sellerDropdownText} numberOfLines={1}>
-              Select Seller
-            </Text>
-            <ArrowDownIcon width={20} height={20} fill="#647276" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Seller Selection Modal */}
-        <SellerSelectionModal
-          isVisible={showSellerModal}
-          onClose={() => setShowSellerModal(false)}
-          onSelectSeller={handleSelectSeller}
-          sellers={sellers}
-          loading={loadingSellers}
-        />
-
-        <View style={styles.selectSellerContainer}>
-          <Text style={styles.selectSellerText}>Select a seller to generate QR codes</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Seller selection is now optional - removed blocking UI
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
-        
-        {/* Seller Selection Dropdown */}
-        <View style={styles.sellerDropdownContainer}>
-          <TouchableOpacity 
-            style={styles.sellerDropdown}
-            onPress={() => setShowSellerModal(true)}
-          >
-            <Text style={styles.sellerDropdownText} numberOfLines={1}>
-              {selectedSeller 
-                ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'Selected Seller')
-                : 'Select Seller'}
-            </Text>
-            <ArrowDownIcon width={20} height={20} fill="#647276" />
-          </TouchableOpacity>
-          {selectedSeller && (
-            <TouchableOpacity 
-              style={styles.clearSellerButton}
-              onPress={handleClearSeller}
-            >
-              <Text style={styles.clearSellerText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Seller Selection Modal */}
-        <SellerSelectionModal
-          isVisible={showSellerModal}
-          onClose={() => setShowSellerModal(false)}
-          onSelectSeller={handleSelectSeller}
-          sellers={sellers}
-          loading={loadingSellers}
-        />
+        <GenerateQRHeader navigation={navigation} />
 
         {/* Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, paddingVertical: 4 }}
-          contentContainerStyle={{
-            flexDirection: 'row',
-            gap: 10,
-            alignItems: 'flex-start',
-            paddingHorizontal: 10,
-          }}
-        >
-        {filterTabs.map((filter) => (
-          <FilterTab key={filter.label} filter={filter} />
-        ))}
-      </ScrollView>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{
+              flexDirection: 'row',
+              gap: 10,
+              alignItems: 'flex-start',
+            }}
+          >
+            {filterTabs.map((filter) => (
+              <FilterTab key={filter.label} filter={filter} />
+            ))}
+          </ScrollView>
+          
+          {/* Reset All Filters Button */}
+          <TouchableOpacity
+            onPress={handleResetAllFilters}
+            style={[styles.resetButton, styles.resetButtonDisabled]}
+            activeOpacity={0.7}
+            disabled={true}
+          >
+            <Text style={[styles.resetButtonText, styles.resetButtonTextDisabled]}>Reset All Filters</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Skeleton Loader */}
-      <View style={styles.mainContent}>
-        <ScrollView contentContainerStyle={styles.flatListContent}>
-          <QRCodeSkeleton />
-        </ScrollView>
-      </View>
-    </SafeAreaView>
-  );
-}
+        {/* Submit Button */}
+        <View style={styles.submitButtonContainer}>
+          <TouchableOpacity style={[styles.submitButton, styles.submitButtonDisabled]} disabled={true}>
+            <Text style={styles.submitButtonText}>Loading...</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Skeleton Loader - Only show if filters are selected */}
+        {hasAnyFilterSelected() && (
+          <View style={styles.mainContent}>
+            <ScrollView contentContainerStyle={styles.flatListContent}>
+              <QRCodeSkeleton />
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Empty State - Show if no filters selected */}
+        {!hasAnyFilterSelected() && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              No filters selected. Apply filters and click "Generate QR Codes" to start.
+            </Text>
+          </View>
+        )}
+
+        {/* Filter Modals */}
+        <SellerNameFilter
+          isVisible={sellerNameModalVisible}
+          onClose={() => setSellerNameModalVisible(false)}
+          onSelectSellerName={handleSellerNameSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, sellerName: null }));
+            setSellerNameModalVisible(false);
+          }}
+          currentSellerName={selectedFilters.sellerName || ''}
+          sellers={sellerNameOptions}
+          onSearch={handleSellerSearch}
+        />
+
+        <DateRangeFilter
+          isVisible={createdDateModalVisible}
+          onClose={() => setCreatedDateModalVisible(false)}
+          onSelectDateRange={handleCreatedDateSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, createdDate: null }));
+            setCreatedDateModalVisible(false);
+          }}
+        />
+
+        <PlantFlightFilter
+          isVisible={flightDateModalVisible}
+          onClose={() => setFlightDateModalVisible(false)}
+          flightDates={flightDateOptions}
+          selectedValues={selectedFilters.flightDate || []}
+          onSelectFlight={handleFlightDateSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, flightDate: [] }));
+            setFlightDateModalVisible(false);
+          }}
+        />
+
+        <BuyerFilter
+          isVisible={buyerModalVisible}
+          onClose={() => setBuyerModalVisible(false)}
+          onSelectBuyer={handleBuyerSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, buyer: null }));
+            setBuyerModalVisible(false);
+          }}
+          buyers={buyerOptions}
+          onSearch={handleBuyerSearch}
+        />
+
+        <TransactionFilter
+          isVisible={transactionModalVisible}
+          onClose={() => setTransactionModalVisible(false)}
+          onSelectTransaction={handleTransactionSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, transaction: null }));
+            setTransactionModalVisible(false);
+          }}
+          currentTransaction={selectedFilters.transaction || ''}
+        />
+
+        <JoinerFilter
+          isVisible={joinerModalVisible}
+          onClose={() => setJoinerModalVisible(false)}
+          onSelectJoiner={handleJoinerSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, joiner: null }));
+            setJoinerModalVisible(false);
+          }}
+          joiners={joinerOptions}
+        />
+      </SafeAreaView>
+    );
+  }
 
   if (error || qrCodeData.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
-        
-        {/* Seller Selection Dropdown */}
-        <View style={styles.sellerDropdownContainer}>
-          <TouchableOpacity 
-            style={styles.sellerDropdown}
-            onPress={() => setShowSellerModal(true)}
+        <GenerateQRHeader navigation={navigation} />
+
+        {/* Filter Tabs */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{
+              flexDirection: 'row',
+              gap: 10,
+              alignItems: 'flex-start',
+            }}
           >
-            <Text style={styles.sellerDropdownText} numberOfLines={1}>
-              {selectedSeller 
-                ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'Selected Seller')
-                : 'Select Seller'}
-            </Text>
-            <ArrowDownIcon width={20} height={20} fill="#647276" />
+            {filterTabs.map((filter) => (
+              <FilterTab key={filter.label} filter={filter} />
+            ))}
+          </ScrollView>
+          
+          {/* Reset All Filters Button */}
+          <TouchableOpacity
+            onPress={handleResetAllFilters}
+            style={styles.resetButton}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.resetButtonText}>Reset All Filters</Text>
           </TouchableOpacity>
-          {selectedSeller && (
+        </View>
+
+        {/* Submit Button */}
+        <View style={styles.submitButtonContainer}>
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Text style={styles.submitButtonText}>Generate QR Codes</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {error || 'No QR codes generated yet. Apply filters and click "Generate QR Codes" to start.'}
+          </Text>
+          {error && (
+            <TouchableOpacity style={styles.retryButton} onPress={handleSubmit}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+          {qrCodeData.length > 0 && (
             <TouchableOpacity 
-              style={styles.clearSellerButton}
-              onPress={handleClearSeller}
+              style={[styles.sendEmailButton, downloading && styles.sendEmailButtonDisabled]} 
+              onPress={handleSendEmail}
+              disabled={downloading}
             >
-              <Text style={styles.clearSellerText}>Clear</Text>
+              {downloading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <DownloadIcon width={20} height={20} fill="#FFFFFF" />
+                  <Text style={styles.sendEmailButtonText}>Send QR Codes via Email</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Seller Selection Modal */}
-        <SellerSelectionModal
-          isVisible={showSellerModal}
-          onClose={() => setShowSellerModal(false)}
-          onSelectSeller={handleSelectSeller}
-          sellers={sellers}
-          loading={loadingSellers}
+        {/* Filter Modals */}
+        <SellerNameFilter
+          isVisible={sellerNameModalVisible}
+          onClose={() => setSellerNameModalVisible(false)}
+          onSelectSellerName={handleSellerNameSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, sellerName: null }));
+            setSellerNameModalVisible(false);
+          }}
+          currentSellerName={selectedFilters.sellerName || ''}
+          sellers={sellerNameOptions}
+          onSearch={handleSellerSearch}
         />
 
-        {/* Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, paddingVertical: 4 }}
-          contentContainerStyle={{
-            flexDirection: 'row',
-            gap: 10,
-            alignItems: 'flex-start',
-            paddingHorizontal: 10,
+        <DateRangeFilter
+          isVisible={createdDateModalVisible}
+          onClose={() => setCreatedDateModalVisible(false)}
+          onSelectDateRange={handleCreatedDateSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, createdDate: null }));
+            setCreatedDateModalVisible(false);
           }}
-        >
-          {filterTabs.map((filter) => (
-            <FilterTab key={filter.label} filter={filter} />
-          ))}
-        </ScrollView>
+        />
 
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            {error || 'No QR codes available for this period'}
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchQRCodeData}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.sendEmailButton, (!selectedSeller || downloading) && styles.sendEmailButtonDisabled]} 
-            onPress={handleSendEmail}
-            disabled={!selectedSeller || downloading}
-          >
-            {downloading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <DownloadIcon width={20} height={20} fill="#FFFFFF" />
-                <Text style={styles.sendEmailButtonText}>Send QR Codes via Email</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+        <PlantFlightFilter
+          isVisible={flightDateModalVisible}
+          onClose={() => setFlightDateModalVisible(false)}
+          flightDates={flightDateOptions}
+          selectedValues={selectedFilters.flightDate || []}
+          onSelectFlight={handleFlightDateSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, flightDate: [] }));
+            setFlightDateModalVisible(false);
+          }}
+        />
+
+        <BuyerFilter
+          isVisible={buyerModalVisible}
+          onClose={() => setBuyerModalVisible(false)}
+          onSelectBuyer={handleBuyerSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, buyer: null }));
+            setBuyerModalVisible(false);
+          }}
+          buyers={buyerOptions}
+          onSearch={handleBuyerSearch}
+        />
+
+        <TransactionFilter
+          isVisible={transactionModalVisible}
+          onClose={() => setTransactionModalVisible(false)}
+          onSelectTransaction={handleTransactionSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, transaction: null }));
+            setTransactionModalVisible(false);
+          }}
+          currentTransaction={selectedFilters.transaction || ''}
+        />
+
+        <JoinerFilter
+          isVisible={joinerModalVisible}
+          onClose={() => setJoinerModalVisible(false)}
+          onSelectJoiner={handleJoinerSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, joiner: null }));
+            setJoinerModalVisible(false);
+          }}
+          joiners={joinerOptions}
+        />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <GenerateQRHeader navigation={navigation} selectedSeller={selectedSeller} onSellerPress={() => setShowSellerModal(true)} />
-      
-      {/* Seller Selection Dropdown */}
-      <View style={styles.sellerDropdownContainer}>
-        <TouchableOpacity 
-          style={styles.sellerDropdown}
-          onPress={() => setShowSellerModal(true)}
-        >
-          <Text style={styles.sellerDropdownText} numberOfLines={1}>
-            {selectedSeller 
-              ? (selectedSeller.name || `${selectedSeller.firstName || ''} ${selectedSeller.lastName || ''}`.trim() || selectedSeller.email || 'Selected Seller')
-              : 'All Sellers'}
-          </Text>
-          <ArrowDownIcon width={20} height={20} fill="#647276" />
-        </TouchableOpacity>
-        {selectedSeller && (
-          <TouchableOpacity 
-            style={styles.clearSellerButton}
-            onPress={handleClearSeller}
-          >
-            <Text style={styles.clearSellerText}>Clear</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Seller Selection Modal */}
-      <SellerSelectionModal
-        isVisible={showSellerModal}
-        onClose={() => setShowSellerModal(false)}
-        onSelectSeller={handleSelectSeller}
-        sellers={sellers}
-        loading={loadingSellers}
-      />
+      <GenerateQRHeader navigation={navigation} />
 
       {/* Filter Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, paddingVertical: 4 }}
-        contentContainerStyle={{
-          flexDirection: 'row',
-          gap: 10,
-          alignItems: 'flex-start',
-          paddingHorizontal: 10,
-        }}
-      >
-        {filterTabs.map((filter) => (
-          <FilterTab key={filter.label} filter={filter} />
-        ))}
-      </ScrollView>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0 }}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+          }}
+        >
+          {filterTabs.map((filter) => (
+            <FilterTab key={filter.label} filter={filter} />
+          ))}
+        </ScrollView>
+        
+        {/* Reset All Filters Button */}
+        <TouchableOpacity
+          onPress={handleResetAllFilters}
+          style={styles.resetButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.resetButtonText}>Reset All Filters</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Submit Button */}
+      <View style={styles.submitButtonContainer}>
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+          <Text style={styles.submitButtonText}>
+            {loading ? 'Loading...' : 'Generate QR Codes'}
+          </Text>
+        </TouchableOpacity>
+      </View>
       
       {/* Send Email Button */}
       <View style={styles.emailButtonContainer}>
         <TouchableOpacity 
-          style={[styles.sendEmailButton, (!selectedSeller || downloading) && styles.sendEmailButtonDisabled]} 
+          style={[styles.sendEmailButton, downloading && styles.sendEmailButtonDisabled]} 
           onPress={handleSendEmail}
-          disabled={!selectedSeller || downloading}
+          disabled={downloading}
         >
           {downloading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -1624,6 +2217,18 @@ const GenerateQR = ({navigation}) => {
       </View>
 
       {/* Filter Modals */}
+      <SellerNameFilter
+        isVisible={sellerNameModalVisible}
+        onClose={() => setSellerNameModalVisible(false)}
+        onSelectSellerName={handleSellerNameSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, sellerName: null }));
+          setSellerNameModalVisible(false);
+        }}
+        currentSellerName={selectedFilters.sellerName || ''}
+        sellers={sellers}
+      />
+
       <DateRangeFilter
         isVisible={createdDateModalVisible}
         onClose={() => setCreatedDateModalVisible(false)}
@@ -1711,9 +2316,54 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flex: 1,
   },
+  submitButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#23C16B',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#CDD3D4',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  resetButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resetButtonText: {
+    color: '#647276',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetButtonDisabled: {
+    opacity: 0.5,
+  },
+  resetButtonTextDisabled: {
+    color: '#CDD3D4',
+  },
   emailButtonContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 8,
   },
   sendEmailButton: {
