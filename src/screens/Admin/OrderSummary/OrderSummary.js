@@ -1655,6 +1655,7 @@ const OrderSummary = ({navigation}) => {
                       <View style={styles.orderInfoContainer}>
                         <Text style={styles.transactionNumber}>{order.transactionNumber}</Text>
                         <Text style={styles.orderDate}>Order: {order.createdAt}</Text>
+                        <Text style={styles.orderDate}>Flight Date: {order.plantFlight}</Text>
                         <Text style={styles.orderDate}>Hub Received: {order.hubReceivedDate}</Text>
                         <Text style={styles.orderDate}>Hub Packed: {order.hubPackedDate}</Text>
                       </View>
