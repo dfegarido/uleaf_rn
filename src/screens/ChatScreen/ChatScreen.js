@@ -526,9 +526,9 @@ const ChatScreen = ({navigation, route}) => {
                   // Priority: username > email > gardenOrCompanyName > fullName
                   // Explicitly avoid firstName/lastName fields
                   const latestName = data?.username || 
-                                    data?.email || 
-                                    data?.gardenOrCompanyName || 
-                                    data?.fullName || 
+                                     data?.gardenOrCompanyName || 
+                                     data?.fullName || 
+                                     data?.email || 
                                     '';
                   
                   // Get latest avatar URL
