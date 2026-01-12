@@ -105,9 +105,14 @@ const ScreenHome = ({navigation}) => {
         if (!isMounted) return;
         setLoading(true);
 
+        // Load events independently - don't wait for other endpoints
+        loadEventsData().catch(err => {
+          console.log('Events failed to load (non-blocking):', err.message);
+        });
+
+        // Load dashboard data in parallel (but events loads separately)
         await Promise.all([
           loadSalesData(),
-          loadEventsData(),
           loadDurationDropdownData(),
           loadSalesPerformanceData('Weekly'),
         ]);
@@ -145,17 +150,25 @@ const ScreenHome = ({navigation}) => {
   };
   // Sales summary
 
-  // Events
+  // Events - Independent loading state
   const [eventData, setEventData] = useState();
+  const [eventsLoading, setEventsLoading] = useState(false);
   const loadEventsData = async () => {
-    const res = await retryAsync(() => getHomeEventsApi(), 3, 1000);
+    try {
+      setEventsLoading(true);
+      const res = await retryAsync(() => getHomeEventsApi(), 3, 1000);
 
-    if (!res?.success) {
-      throw new Error(res?.message || 'Failed to load events API.');
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load events API.');
+      }
+
+      // console.log(res);
+      setEventData(res?.data);
+    } catch (error) {
+      console.log('Error loading events:', error.message);
+    } finally {
+      setEventsLoading(false);
     }
-
-    // console.log(res);
-    setEventData(res?.data);
   };
   // Events
 
@@ -557,8 +570,8 @@ const ScreenHome = ({navigation}) => {
               gap: 10,
               alignItems: 'flex-start',
             }}>
-            {loading ? (
-              // Skeleton Loading
+            {eventsLoading ? (
+              // Skeleton Loading (independent from dashboard loading)
               <>
                 <View style={{width: 316}}>
                   <View style={[styles.banner, styles.skeleton, {backgroundColor: '#e0e0e0'}]} />
