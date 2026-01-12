@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,8 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  PermissionsAndroid,
   Animated,
+  ScrollView,
 } from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -22,6 +22,9 @@ import { API_ENDPOINTS } from '../../../config/apiConfig';
 // Import icons - using a placeholder for the back arrow and email icon
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import DownloadIcon from '../../../assets/icons/accent/download.svg'; // Using download icon for email
+
+// Import filter components
+import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
 
 // Skeleton Item Component
 const SkeletonItem = ({ width, height = 20, style }) => {
@@ -121,12 +124,84 @@ const QRSkeleton = () => {
 
 const ScreenExportQR = ({navigation}) => {
   const insets = useSafeAreaInsets();
-  // Enable debug logs for QR date parsing
-  const DEBUG_QR_DATE_PARSING = true;
+  // Enable debug logs for QR date parsing (only in development)
+  const DEBUG_QR_DATE_PARSING = __DEV__;
+  
+  // Debug logging utility - only logs in development mode
+  const logDebug = (...args) => {
+    if (DEBUG_QR_DATE_PARSING) console.log(...args);
+  };
+  
   const [qrCodeData, setQrCodeData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  
+  // Filter states
+  const [selectedFilters, setSelectedFilters] = useState({
+    createdDateRange: null, // { startDate: '', endDate: '' }
+  });
+  
+  // Modal visibility states
+  const [createdDateModalVisible, setCreatedDateModalVisible] = useState(false);
+
+  // Filter handlers
+  const handleCreatedDateSelect = useCallback((dateRange) => {
+    // DateRangeFilter passes { from: Date, to: Date }
+    // Convert to ISO date strings (YYYY-MM-DD) using local date components to avoid timezone issues
+    let startDate = null;
+    let endDate = null;
+    
+    if (dateRange && dateRange.from) {
+      const fromDate = new Date(dateRange.from);
+      if (!isNaN(fromDate.getTime())) {
+        // Format as YYYY-MM-DD using local date components (not UTC)
+        const year = fromDate.getFullYear();
+        const month = String(fromDate.getMonth() + 1).padStart(2, '0');
+        const day = String(fromDate.getDate()).padStart(2, '0');
+        startDate = `${year}-${month}-${day}`;
+      }
+    }
+    
+    if (dateRange && dateRange.to) {
+      const toDate = new Date(dateRange.to);
+      if (!isNaN(toDate.getTime())) {
+        // Format as YYYY-MM-DD using local date components (not UTC)
+        const year = toDate.getFullYear();
+        const month = String(toDate.getMonth() + 1).padStart(2, '0');
+        const day = String(toDate.getDate()).padStart(2, '0');
+        endDate = `${year}-${month}-${day}`;
+      }
+    }
+    
+    setSelectedFilters(prev => ({...prev, createdDateRange: { startDate, endDate }}));
+    setCreatedDateModalVisible(false);
+  }, []);
+
+  // Reset all filters
+  const handleResetAllFilters = useCallback(() => {
+    setSelectedFilters({
+      createdDateRange: null,
+    });
+    setQrCodeData([]);
+    setError(null);
+  }, []);
+
+  // Check if any filter is selected
+  const hasAnyFilterSelected = useCallback(() => {
+    // Check createdDateRange
+    if (selectedFilters.createdDateRange && 
+        (selectedFilters.createdDateRange.startDate || selectedFilters.createdDateRange.endDate)) {
+      return true;
+    }
+    // Check other filters
+    const { createdDateRange, ...otherFilters } = selectedFilters;
+    return Object.values(otherFilters).some(value => {
+      if (!value) return false;
+      if (typeof value === 'string') return value.trim() !== '';
+      return true;
+    });
+  }, [selectedFilters]);
 
   // Function to handle email sending
   const handleSendEmail = async () => {
@@ -140,7 +215,18 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(API_ENDPOINTS.QR_GENERATOR, {
+      // Build query parameters from filters
+      const params = new URLSearchParams();
+      if (selectedFilters.createdDateRange) {
+        if (selectedFilters.createdDateRange.startDate) params.append('startDate', selectedFilters.createdDateRange.startDate);
+        if (selectedFilters.createdDateRange.endDate) params.append('endDate', selectedFilters.createdDateRange.endDate);
+      }
+
+      const url = params.toString() 
+        ? `${API_ENDPOINTS.QR_GENERATOR}?${params.toString()}`
+        : API_ENDPOINTS.QR_GENERATOR;
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -204,8 +290,17 @@ const ScreenExportQR = ({navigation}) => {
     }
   };
 
+
   // Function to fetch QR code data from API
-  const fetchQRCodeData = async () => {
+  const fetchQRCodeData = useCallback(async () => {
+    // Don't fetch if no filters are selected
+    if (!hasAnyFilterSelected()) {
+      setQrCodeData([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -217,7 +312,18 @@ const ScreenExportQR = ({navigation}) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(API_ENDPOINTS.QR_GENERATOR_ORDERS, {
+      // Build query parameters from filters
+      const params = new URLSearchParams();
+      if (selectedFilters.createdDateRange) {
+        if (selectedFilters.createdDateRange.startDate) params.append('startDate', selectedFilters.createdDateRange.startDate);
+        if (selectedFilters.createdDateRange.endDate) params.append('endDate', selectedFilters.createdDateRange.endDate);
+      }
+
+      const url = params.toString()
+        ? `${API_ENDPOINTS.QR_GENERATOR_ORDERS}?${params.toString()}`
+        : API_ENDPOINTS.QR_GENERATOR_ORDERS;
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -286,7 +392,7 @@ const ScreenExportQR = ({navigation}) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedFilters, hasAnyFilterSelected]);
 
   // Transform API data to match the UI structure
   const transformApiData = (apiData) => {
@@ -384,7 +490,7 @@ const ScreenExportQR = ({navigation}) => {
         // Prefer `orderDate` (the actual order date) first, then `dateCreated`, `createdAt`, then QR generation time
         const displayDate = order.orderDate || order.dateCreated || order.createdAt || (order.qrCode && order.qrCode.generatedAt);
         if (DEBUG_QR_DATE_PARSING) {
-          console.log('[QR DATE DEBUG] seller rawDates for order=', order.id || order.orderId, {
+          logDebug('[QR DATE DEBUG] seller rawDates for order=', order.id || order.orderId, {
             orderDate: order.orderDate,
             dateCreated: order.dateCreated,
             createdAt: order.createdAt,
@@ -437,7 +543,7 @@ const ScreenExportQR = ({navigation}) => {
                     }
                     
                     date = new Date(inferredYear, monthIndex, day);
-                    console.log(`📅 [QR Export] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
+                    logDebug(`📅 [QR Export] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
                   }
                 }
               }
@@ -473,7 +579,7 @@ const ScreenExportQR = ({navigation}) => {
         let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
         
         // Log initial flight date extraction
-        console.log('🔍 [QR Export] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
+        logDebug('🔍 [QR Export] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
           order_flightDate: order.flightDate,
           order_flightDateFormatted: order.flightDateFormatted,
           order_cargoDate: order.cargoDate,
@@ -488,7 +594,7 @@ const ScreenExportQR = ({navigation}) => {
           const productFlightDate = firstProduct.flightDate || firstProduct.flightDateFormatted || null;
           
           if (productFlightDate && !flightDate) {
-            console.log('🔍 [QR Export] Using product flightDate:', productFlightDate);
+            logDebug('🔍 [QR Export] Using product flightDate:', productFlightDate);
             flightDate = productFlightDate;
           }
         }
@@ -499,7 +605,7 @@ const ScreenExportQR = ({navigation}) => {
         const validFlightDate = formattedFlightDate ? flightDate : null;
         
         // Log flight date processing result
-        console.log('📅 [QR Export] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
+        logDebug('📅 [QR Export] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
           rawFlightDate: flightDate,
           formattedFlightDate: formattedFlightDate,
           validFlightDate: validFlightDate,
@@ -537,7 +643,7 @@ const ScreenExportQR = ({navigation}) => {
         // Fallback for older format without content wrapper
         const displayDate = order.orderDate || order.dateCreated || order.createdAt || (order.qrCode && order.qrCode.generatedAt);
         if (DEBUG_QR_DATE_PARSING) {
-          console.log('[QR DATE DEBUG] seller fallback rawDates for order=', order.id || order.orderId, {
+          logDebug('[QR DATE DEBUG] seller fallback rawDates for order=', order.id || order.orderId, {
             orderDate: order.orderDate,
             dateCreated: order.dateCreated,
             createdAt: order.createdAt,
@@ -550,7 +656,7 @@ const ScreenExportQR = ({navigation}) => {
         if (displayDate) {
           try {
             const parsedDate = parseDate(displayDate);
-            if (DEBUG_QR_DATE_PARSING) console.log('[QR DATE DEBUG] seller fallback parsedDate=', parsedDate);
+            if (DEBUG_QR_DATE_PARSING) logDebug('[QR DATE DEBUG] seller fallback parsedDate=', parsedDate);
             if (parsedDate && parsedDate instanceof Date && !isNaN(parsedDate.getTime())) {
               if (!earliestDate || parsedDate < earliestDate) {
                 earliestDate = parsedDate;
@@ -591,7 +697,7 @@ const ScreenExportQR = ({navigation}) => {
                     }
                     
                     date = new Date(inferredYear, monthIndex, day);
-                    console.log(`📅 [QR Export - Fallback] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
+                    logDebug(`📅 [QR Export - Fallback] Inferred year for "${flightDate}": ${inferredYear} -> ${date.toLocaleDateString()}`);
                   }
                 }
               }
@@ -627,7 +733,7 @@ const ScreenExportQR = ({navigation}) => {
         let flightDate = order.flightDate || order.flightDateFormatted || order.cargoDate || null;
         
         // Log initial flight date extraction (fallback format)
-        console.log('🔍 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
+        logDebug('🔍 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Initial flightDate:', {
           order_flightDate: order.flightDate,
           order_flightDateFormatted: order.flightDateFormatted,
           order_cargoDate: order.cargoDate,
@@ -642,7 +748,7 @@ const ScreenExportQR = ({navigation}) => {
           const productFlightDate = firstProduct.flightDate || firstProduct.flightDateFormatted || null;
           
           if (productFlightDate && !flightDate) {
-            console.log('🔍 [QR Export - Fallback] Using product flightDate:', productFlightDate);
+            logDebug('🔍 [QR Export - Fallback] Using product flightDate:', productFlightDate);
             flightDate = productFlightDate;
           }
         }
@@ -653,7 +759,7 @@ const ScreenExportQR = ({navigation}) => {
         const validFlightDate = formattedFlightDate ? flightDate : null;
         
         // Log flight date processing result (fallback format)
-        console.log('📅 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
+        logDebug('📅 [QR Export - Fallback] Order ID:', order.id || order.orderId, '| Plant Code:', plantCode, '| Flight Date Processing:', {
           rawFlightDate: flightDate,
           formattedFlightDate: formattedFlightDate,
           validFlightDate: validFlightDate,
@@ -686,11 +792,11 @@ const ScreenExportQR = ({navigation}) => {
     });
 
     // Log summary of all QR codes
-    console.log('📊 [QR Export] Total QR codes collected:', allQRCodes.length);
+    logDebug('📊 [QR Export] Total QR codes collected:', allQRCodes.length);
     const qrCodesWithFlightDate = allQRCodes.filter(qr => qr.flightDateFormatted).length;
     const qrCodesWithoutFlightDate = allQRCodes.filter(qr => !qr.flightDateFormatted).length;
-    console.log('📊 [QR Export] QR codes with flight date:', qrCodesWithFlightDate);
-    console.log('📊 [QR Export] QR codes without flight date:', qrCodesWithoutFlightDate);
+    logDebug('📊 [QR Export] QR codes with flight date:', qrCodesWithFlightDate);
+    logDebug('📊 [QR Export] QR codes without flight date:', qrCodesWithoutFlightDate);
     
     // If there are QR codes without flight date, use the most common flight date from others
     if (qrCodesWithoutFlightDate > 0 && qrCodesWithFlightDate > 0) {
@@ -710,15 +816,15 @@ const ScreenExportQR = ({navigation}) => {
       // Also get the raw flight date for the most common one
       const mostCommonRawFlightDate = allQRCodes.find(qr => qr.flightDateFormatted === mostCommonFlightDate)?.flightDate;
       
-      console.log('📅 [QR Export] Most common flight date:', mostCommonFlightDate, '| Raw:', mostCommonRawFlightDate);
-      console.log('📅 [QR Export] Applying to', qrCodesWithoutFlightDate, 'QR codes without flight date');
+      logDebug('📅 [QR Export] Most common flight date:', mostCommonFlightDate, '| Raw:', mostCommonRawFlightDate);
+      logDebug('📅 [QR Export] Applying to', qrCodesWithoutFlightDate, 'QR codes without flight date');
       
       // Apply the most common flight date to QR codes without flight date
       allQRCodes.forEach(qr => {
         if (!qr.flightDateFormatted) {
           qr.flightDateFormatted = mostCommonFlightDate;
           qr.flightDate = mostCommonRawFlightDate || null;
-          console.log(`📅 [QR Export] Applied flight date "${mostCommonFlightDate}" to QR code:`, qr.plantCode, qr.id);
+          logDebug(`📅 [QR Export] Applied flight date "${mostCommonFlightDate}" to QR code:`, qr.plantCode, qr.id);
         }
       });
     }
@@ -726,7 +832,7 @@ const ScreenExportQR = ({navigation}) => {
     // Log details of QR codes without flight date (after applying common date)
     const finalQRCodesWithoutFlightDate = allQRCodes.filter(qr => !qr.flightDateFormatted).length;
     if (finalQRCodesWithoutFlightDate > 0) {
-      console.log('⚠️ [QR Export] QR codes still missing flight date:', 
+      logDebug('⚠️ [QR Export] QR codes still missing flight date:', 
         allQRCodes
           .filter(qr => !qr.flightDateFormatted)
           .map(qr => ({
@@ -766,9 +872,6 @@ const ScreenExportQR = ({navigation}) => {
         StatusBar.setBarStyle('dark-content');
         StatusBar.setBackgroundColor('#fff');
       }
-      
-      // Fetch data when screen comes into focus
-      fetchQRCodeData();
     }, [])
   );
 
@@ -828,18 +931,89 @@ const ScreenExportQR = ({navigation}) => {
     }
   };
 
-  if (loading) {
+  // Helper function to check if any filter is active
+  const isFilterActive = useCallback((filterKey) => {
+    if (filterKey === 'createdDateRange') {
+      const dateRange = selectedFilters.createdDateRange;
+      return dateRange && (dateRange.startDate || dateRange.endDate);
+    }
+    const value = selectedFilters[filterKey];
+    if (!value) return false;
+    if (typeof value === 'string') return value.trim() !== '';
+    return true;
+  }, [selectedFilters]);
+
+  // Filter tab configuration
+  const filterTabs = useMemo(() => [
+    { key: 'createdDateRange', label: 'Order Date', onPress: () => setCreatedDateModalVisible(true) },
+  ], []);
+
+  // Function to render filter tabs
+  const renderFilterTabs = useMemo(() => (
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false}
+      style={styles.filterScrollView}
+      contentContainerStyle={styles.filterScrollContent}
+      scrollEnabled={true}
+      nestedScrollEnabled={true}
+    >
+      {filterTabs.map((filter) => (
+        <TouchableOpacity
+          key={filter.key}
+          style={[
+            styles.filterTab,
+            isFilterActive(filter.key) && styles.filterTabActive
+          ]}
+          onPress={filter.onPress}
+          activeOpacity={0.7}
+        >
+          <Text style={[
+            styles.filterTabText,
+            isFilterActive(filter.key) && styles.filterTabTextActive
+          ]}>
+            {filter.label}
+          </Text>
+          {isFilterActive(filter.key) && (
+            <View style={styles.filterIndicator} />
+          )}
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  ), [filterTabs, isFilterActive, selectedFilters]);
+
+  // Extracted Filter Modals component to avoid duplication
+  const FilterModals = useMemo(() => (
+    <>
+      <DateRangeFilter
+        isVisible={createdDateModalVisible}
+        onClose={() => setCreatedDateModalVisible(false)}
+        onSelectDateRange={handleCreatedDateSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, createdDateRange: null }));
+          setCreatedDateModalVisible(false);
+        }}
+      />
+    </>
+  ), [
+    createdDateModalVisible,
+    handleCreatedDateSelect,
+  ]);
+
+  if (loading && hasAnyFilterSelected()) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.content}>
-          <View style={styles.controls}>
+        <View style={styles.content} pointerEvents="box-none">
+          <View style={styles.controls} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}>
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
               <BackIcon width={24} height={24} />
             </TouchableOpacity>
             <Text style={styles.title}>Export QR Code</Text>
-            <View style={styles.navbarRight}>
+            <View style={styles.navbarRight} pointerEvents="box-none">
               <TouchableOpacity
                 style={[styles.actionButton, styles.actionButtonDisabled]}
                 disabled={true}>
@@ -848,6 +1022,26 @@ const ScreenExportQR = ({navigation}) => {
             </View>
           </View>
         </View>
+
+        {/* Filters */}
+        {renderFilterTabs}
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.submitButton, styles.submitButtonDisabled]}
+            disabled={true}
+          >
+            <Text style={styles.submitButtonText}>Generate QR Codes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.resetButton, styles.resetButtonDisabled]}
+            disabled={true}
+          >
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Date Generated Skeleton */}
         <View style={[styles.topDateContainer, { flexDirection: 'row', alignItems: 'center' }]}>
           <SkeletonItem width={80} height={12} style={{ marginRight: 4 }} />
@@ -858,22 +1052,27 @@ const ScreenExportQR = ({navigation}) => {
         <View style={styles.mainContent}>
           <QRSkeleton />
         </View>
+
+        {/* Filter Modals */}
+        {FilterModals}
       </SafeAreaView>
     );
   }
 
-  if (error || qrCodeData.length === 0) {
+  if (!loading && (error || (qrCodeData.length === 0 && hasAnyFilterSelected()))) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.content}>
-          <View style={styles.controls}>
+        <View style={styles.content} pointerEvents="box-none">
+          <View style={styles.controls} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}>
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
               <BackIcon width={24} height={24} />
             </TouchableOpacity>
             <Text style={styles.title}>Export QR Code</Text>
-            <View style={styles.navbarRight}>
+            <View style={styles.navbarRight} pointerEvents="box-none">
               <TouchableOpacity
                 style={[styles.actionButton, downloading && styles.actionButtonDisabled]}
                 onPress={handleSendEmail}
@@ -887,14 +1086,93 @@ const ScreenExportQR = ({navigation}) => {
             </View>
           </View>
         </View>
+
+        {/* Filters */}
+        {renderFilterTabs}
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            onPress={fetchQRCodeData}
+            disabled={loading}
+          >
+            <Text style={styles.submitButtonText}>Generate QR Codes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={handleResetAllFilters}
+          >
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
-            {error || 'No QR codes available for this period'}
+            {error || 'No QR codes found with the selected filters'}
           </Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchQRCodeData}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Filter Modals */}
+        {FilterModals}
+      </SafeAreaView>
+    );
+  }
+
+  // Show empty state with filters if no filters selected
+  if (!loading && qrCodeData.length === 0 && !hasAnyFilterSelected()) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* <View style={styles.content}> */}
+          <View style={styles.controls}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <BackIcon width={24} height={24} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Export QR Code</Text>
+            <View style={styles.navbarRight}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.actionButtonDisabled]}
+                disabled={true}>
+                <DownloadIcon width={24} height={24} fill="#CDD3D4" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        {/* </View> */}
+
+        {/* Filters */}
+        {renderFilterTabs}
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.submitButton]}
+            onPress={fetchQRCodeData}
+          >
+            <Text style={styles.submitButtonText}>Generate QR Codes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.resetButton, styles.resetButtonDisabled]}
+            disabled={true}
+          >
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            Select filters above and click "Generate QR Codes" to view QR codes
+          </Text>
+        </View>
+
+        {/* Filter Modals */}
+        {FilterModals}
       </SafeAreaView>
     );
   }
@@ -923,6 +1201,31 @@ const ScreenExportQR = ({navigation}) => {
             </TouchableOpacity>
           </View>
         </View>
+      </View>
+
+      {/* Filters */}
+      {renderFilterTabs}
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+          onPress={fetchQRCodeData}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitButtonText}>Generate QR Codes</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.resetButton, loading && styles.resetButtonDisabled]}
+          onPress={handleResetAllFilters}
+          disabled={loading}
+        >
+          <Text style={styles.resetButtonText}>Reset</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Date Generated - Single display at top */}
@@ -1034,6 +1337,9 @@ const ScreenExportQR = ({navigation}) => {
           }}
         />
       </View>
+
+      {/* Filter Modals */}
+      {FilterModals}
     </SafeAreaView>
   );
 };
@@ -1063,22 +1369,25 @@ const styles = StyleSheet.create({
     minHeight: 58,
     alignSelf: 'stretch',
     position: 'relative',
+    zIndex: 10,
   },
   backButton: {
-    width: 24,
-    height: 24,
-    zIndex: 0,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    marginLeft: -10, // Offset to maintain visual position
   },
   navbarRight: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
     padding: 0,
-    gap: 12,
     width: 319,
     height: 40,
     flex: 1,
-    zIndex: 1,
+    zIndex: 10,
   },
   searchButton: {
     flexDirection: 'row',
@@ -1142,6 +1451,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#202325',
     zIndex: 2,
+    pointerEvents: 'none', // Don't block touch events
   },
   mainContent: {
     flex: 1,
@@ -1241,10 +1551,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 12,
     backgroundColor: '#FFFFFF',
-  },
-  mainContent: {
-    flex: 1,
-    width: '100%',
   },
   flatListContent: {
     paddingBottom: 20, // Ensure last page has space at bottom
@@ -1432,6 +1738,99 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  filterScrollView: {
+    flexGrow: 0,
+    flexShrink: 0,
+    zIndex: 5,
+  },
+  filterScrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginRight: 8,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterTabActive: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#4CAF50',
+  },
+  filterTabText: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  filterTabTextActive: {
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
+  filterIndicator: {
+    position: 'absolute',
+    bottom: -2,
+    left: '50%',
+    marginLeft: -3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#4CAF50',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    zIndex: 5,
+  },
+  submitButton: {
+    flex: 1,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    marginRight: 6,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#B0BEC5',
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  resetButton: {
+    backgroundColor: '#F5F5F5',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    minHeight: 44,
+    marginLeft: 6,
+  },
+  resetButtonDisabled: {
+    opacity: 0.5,
+  },
+  resetButtonText: {
+    color: '#666666',
     fontSize: 16,
     fontWeight: '600',
   },
