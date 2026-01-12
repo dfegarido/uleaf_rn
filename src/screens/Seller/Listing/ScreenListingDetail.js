@@ -27,7 +27,7 @@ import ConfirmPublishNursery from './components/ConfirmPublishNursery';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
-import {formatDateMonthDayYear, testDateFormatting} from '../../../utils/formatDateMonthDayYear';
+import {formatDateMonthDayYear} from '../../../utils/formatDateMonthDayYear';
 import {Platform} from 'react-native';
 import ConfirmDelete from './components/ConfirmDelete';
 import {numberToCurrency} from '../../../utils/numberToCurrency';
@@ -145,9 +145,6 @@ const ScreenListingDetail = ({navigation, route}) => {
   // ✅ Fetch on mount
   const isFocused = useIsFocused();
   useEffect(() => {
-    // 🧪 Run cross-platform date formatting test
-    testDateFormatting();
-    
     setLoading(true);
     const fetchData = async () => {
       try {
