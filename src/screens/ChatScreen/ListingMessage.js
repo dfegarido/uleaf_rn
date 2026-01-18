@@ -152,7 +152,7 @@ const ListingMessage = ({ currentUserUid, isSeller=false, isBuyer, listingId, na
     setImageModalVisible(true);
   };
 
-  let isSoldOut = listing?.availableQty === 0;
+  let isSoldOut = listing?.availableQty <= 0;
 
   if (loading) {
     return (
