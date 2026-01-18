@@ -210,7 +210,6 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
       orderSummary,
       flightDateOptions,
       flightLockInfo,
-      orderCutoffDate,
   
       //savedPaymentDetails
       vaultedPaymentUsername,
@@ -277,7 +276,6 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
                   flightLockInfo={flightLockInfo}
                   lockedFlightKey={lockedFlightKey}
                   cargoDate={cargoDate}
-                  orderCutoffDate={orderCutoffDate}
                   onSelectFlightDate={(obj) => {
                     setSelectedFlightDate(obj);
                     if (obj.iso) {

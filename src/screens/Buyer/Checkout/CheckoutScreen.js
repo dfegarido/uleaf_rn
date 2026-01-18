@@ -195,7 +195,6 @@ const CheckoutScreen = () => {
     orderSummary,
     flightDateOptions,
     flightLockInfo,
-    orderCutoffDate,
 
     //savedPaymentDetails
     vaultedPaymentUsername,
@@ -274,7 +273,6 @@ const CheckoutScreen = () => {
           flightLockInfo={flightLockInfo}
           lockedFlightKey={lockedFlightKey}
           cargoDate={cargoDate}
-          orderCutoffDate={orderCutoffDate}
           onSelectFlightDate={(obj) => {
             setSelectedFlightDate(obj);
             if (obj.iso) {

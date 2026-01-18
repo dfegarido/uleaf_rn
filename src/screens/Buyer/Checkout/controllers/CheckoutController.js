@@ -1112,40 +1112,10 @@ export const useCheckoutController = (props) => {
   }, [lockedFlightDate, lockedFlightKey]);
 
   // Calculate order cut-off date based on actual business rules
-  // This represents the deadline to place an order for the currently selected/shown flight date
-  // Cutoff = Selected Flight Date - 7 days, until 11:59 PM Eastern Time
-  // Priority: selectedFlightDate > first available option
-  const orderCutoffDate = useMemo(() => {
-    if (!plantItems.length || !flightDateOptions || flightDateOptions.length === 0) return null;
-
-    try {
-      // PRIORITY: Use the selected flight date if user has selected one, otherwise use first option
-      const targetFlightDate = selectedFlightDate?.iso || flightDateOptions[0]?.iso;
-
-      if (!targetFlightDate) return null;
-
-      const flightDate = new Date(targetFlightDate);
-      if (isNaN(flightDate.getTime())) return null;
-
-      // Calculate cutoff: 7 days before the flight date, until 11:59 PM ET
-      const cutoff = new Date(flightDate);
-      cutoff.setDate(flightDate.getDate() - 7);
-
-      console.log('📅 [orderCutoffDate] Calculated:', {
-        selectedFlightDateIso: selectedFlightDate?.iso || 'none',
-        firstOptionIso: flightDateOptions[0]?.iso,
-        usedFlightDate: targetFlightDate,
-        flightDate: flightDate.toISOString().split('T')[0],
-        cutoff: cutoff.toISOString().split('T')[0],
-        cutoffRule: 'Flight date - 7 days, until 11:59 PM ET'
-      });
-
-      return cutoff;
-    } catch (error) {
-      console.error('Error calculating order cutoff date:', error);
-      return null;
-    }
-  }, [plantItems, flightDateOptions, selectedFlightDate]);
+  // REMOVED: orderCutoffDate calculation
+  // All cutoff logic is now handled by the backend in getBuyerOrders
+  // The backend filters out "Ready to Fly" orders that are past their cutoff
+  // Frontend just disables flight selection if a "Ready to Fly" order is returned
 
   // Effects
   useEffect(() => {
@@ -1649,79 +1619,11 @@ export const useCheckoutController = (props) => {
               });
               
               if (flightDate) {
-                // CUTOFF DATE LOGIC:
-                // Cutoff date = flight date - 7 days at 11:59 PM ET
-                // If cutoff date < current date ET: User can select new flight date (enable selection)
-                // If cutoff date >= current date ET: Flight selector disabled, use existing order's flight date
-                
-                // Parse the existing flight date
-                let existingFlightDate = null;
-                if (typeof flightDate === 'string') {
-                  // Try ISO format first (YYYY-MM-DD)
-                  existingFlightDate = new Date(flightDate + 'T00:00:00');
-                } else if (flightDate?._seconds) {
-                  // Firestore timestamp
-                  existingFlightDate = new Date(flightDate._seconds * 1000);
-                } else if (flightDate instanceof Date) {
-                  existingFlightDate = new Date(flightDate);
-                }
-
-                // Validate the date was parsed successfully
-                if (!existingFlightDate || isNaN(existingFlightDate.getTime())) {
-                  console.warn('⚠️ [checkExistingOrders] Could not parse flight date:', flightDate);
-                  // If we can't parse the date, allow selection to be safe
-                  setDisablePlantFlightSelection(false);
-                  setLockedFlightDate(null);
-                  setLockedFlightKey(null);
-                  if (!isCancelled) {
-                    setCheckingOrders(false);
-                  }
-                  return;
-                }
-
-                // Get current date in Eastern Time (America/New_York) as YYYY-MM-DD string
-                const now = new Date();
-                const nowETString = now.toLocaleDateString('en-CA', { 
-                  timeZone: 'America/New_York'
-                }); // en-CA gives YYYY-MM-DD format
-                
-                // Calculate cutoff date: 7 days before flight date
-                // Get flight date as YYYY-MM-DD string
-                const flightDateString = existingFlightDate.toISOString().split('T')[0];
-                
-                // Calculate cutoff date by subtracting 7 days
-                const cutoffDateObj = new Date(existingFlightDate);
-                cutoffDateObj.setDate(existingFlightDate.getDate() - 7);
-                const cutoffDateString = cutoffDateObj.toISOString().split('T')[0];
-
-                // Compare date strings: if current ET date > cutoff date, we've passed the cutoff
-                // cutoff date < current date ET means we've passed the cutoff
-                const isPastCutoff = cutoffDateString < nowETString;
-
-                console.log('📅 [checkExistingOrders] CUTOFF DATE CHECK:', {
-                  existingFlightDate: flightDateString,
-                  cutoffDate: cutoffDateString,
-                  currentDateET: nowETString,
-                  isPastCutoff,
-                  decision: isPastCutoff
-                    ? '✅ Past cutoff → Allow new flight date selection'
-                    : '🔒 Before cutoff → Lock to existing flight date'
-                });
-
-                // If past cutoff date, allow buyer to select new flight date
-                if (isPastCutoff) {
-                  console.log('🔓 [checkExistingOrders] Past cutoff date → Allowing new flight date selection');
-                  setDisablePlantFlightSelection(false);
-                  setLockedFlightDate(null);
-                  setLockedFlightKey(null);
-                  if (!isCancelled) {
-                    setCheckingOrders(false);
-                  }
-                  return;
-                }
-
-                // If before cutoff (within cutoff period), disable selection and use existing order's flight date
-                console.log('🔒 [checkExistingOrders] Before cutoff → Disabling selection and locking to existing order date');
+                // BACKEND CUTOFF LOGIC:
+                // Backend (getBuyerOrders) already handles cutoff filtering
+                // If we received a "Ready to Fly" order here, it means it's BEFORE cutoff
+                // → Disable flight selection and lock to existing order's flight date
+                console.log('🔒 [checkExistingOrders] Ready to Fly order found (before cutoff) → Disabling flight selection');
 
                 // Disable selection when within cutoff (existing order exists and cutoff hasn't passed)
                 // Set this IMMEDIATELY so UI is disabled even if flight options aren't ready yet
@@ -2840,7 +2742,6 @@ export const useCheckoutController = (props) => {
     orderSummary,
     flightDateOptions,
     flightLockInfo,
-    orderCutoffDate,
 
     //savedPaymentDetails
     vaultedPaymentUsername,
