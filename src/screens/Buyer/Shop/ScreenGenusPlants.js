@@ -904,12 +904,54 @@ const ScreenGenusPlants = ({navigation, route}) => {
     setPlants([]);
     
     try {
-      // Since "Publish to Nursery Drop" is not yet working on seller side,
-      // return empty results for this filter
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      // Specific parameters for Latest Nursery Drop badge - query published nursery drop listings
+      const nurseryDropParams = {
+        limit: 10,
+        offset: 0,
+        nurseryDrop: 'true', // Filter for published nursery drop listings
+        sortBy: 'nurseryDropDate', // Sort by nursery drop date (most recent first)
+        sortOrder: 'desc',
+      };
+
+      const res = await retryAsync(() => getBuyerListingsApi(nurseryDropParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load Latest Nursery Drop plants');
+      }
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
       
-      setPlants([]);
-      setOffset(0);
-      setHasMore(false);
+      // Filter out plants with invalid data (same logic as other loading functions)
+      const newPlants = rawPlants.filter(plant => {
+        // Ensure plant has required fields and they are strings
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
+        
+        if (!isValid) {
+        }
+        
+        return isValid;
+      });
+      
+      setPlants(newPlants);
+      setOffset(newPlants.length);
+
+      // Enable pagination - check if there are more items
+      setHasMore(res.data?.hasNextPage || false);
 
     } catch (error) {
       console.error('Error loading Latest Nursery Drop plants:', error);
@@ -1298,7 +1340,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Latest Nursery Drop badge with specific API parameters
       if (label === 'Latest Nursery Drop') {
-        setActiveBadge('Latest Nursery Drop');
+        activeBadgeRef.current = 'Latest Nursery Drop'; // Set ref immediately (synchronous)
+        setActiveBadge('Latest Nursery Drop');          // Set state (asynchronous)
+        setLoading(true);      // Show loading state
+        setPlants([]);         // Clear old data immediately
+        setOffset(0);          // Reset offset
         justFiltered.current = true;
         loadLatestNurseryDropPlants();
         return;
@@ -1533,6 +1579,71 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }
   };
 
+  // Load more plants for Latest Nursery Drop with pagination
+  const loadMoreNurseryDropPlants = async () => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const nurseryDropParams = {
+        limit: 10,
+        offset: offset, // Use current offset for pagination
+        nurseryDrop: 'true',
+        sortBy: 'nurseryDropDate',
+        sortOrder: 'desc',
+      };
+
+      console.log('📄 Loading more Nursery Drop items, offset:', offset);
+      const res = await retryAsync(() => getBuyerListingsApi(nurseryDropParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load more Nursery Drop plants');
+      }
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      console.log('🔍 Nursery Drop - loaded more:', rawPlants.length);
+      
+      // Filter out plants with invalid data
+      const newPlants = rawPlants.filter(plant => {
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        return hasPlantCode && hasTitle && hasSubtitle;
+      });
+      
+      console.log('✅ Nursery Drop - filtered:', newPlants.length);
+      
+      // Append to existing plants, filtering out duplicates
+      setPlants(prev => {
+        const existingPlantCodes = new Set(prev.map(p => p.plantCode));
+        const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
+        console.log(`🔍 Nursery Drop - deduplicated: ${newPlants.length} -> ${uniqueNewPlants.length} unique items`);
+        return [...prev, ...uniqueNewPlants];
+      });
+      setOffset(prev => prev + newPlants.length);
+      setHasMore(res.data?.hasNextPage || false);
+
+    } catch (error) {
+      console.error('Error loading more Nursery Drop plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
       // Use specific load more function based on active badge
@@ -1540,6 +1651,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
         loadMoreUnicornPlants();
       } else if (activeBadge === 'Price Drop') {
         loadMorePriceDropPlants();
+      } else if (activeBadge === 'Latest Nursery Drop') {
+        loadMoreNurseryDropPlants();
       } else if (isSearchMode && searchTerm.trim()) {
         // If we're in search mode, use loadPlantsWithSearch
         console.log('🔍 [ScreenGenusPlants] Loading more search results for:', searchTerm.trim());
