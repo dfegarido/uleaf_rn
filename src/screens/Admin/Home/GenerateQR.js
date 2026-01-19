@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   TextInput,
   ScrollView,
   TouchableWithoutFeedback,
+  Animated,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
@@ -36,7 +37,7 @@ import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
 import TransactionFilter from '../../../components/Admin/transactionFilter';
 import SellerNameFilter from '../../../components/Admin/sellerNameFilter';
 
-// Skeleton loader component for QR codes
+// Skeleton loader component for QR codes with shimmer animation
 const QRCodeSkeleton = () => {
   const itemWidth = 80;
   const itemHeight = 170;
@@ -44,6 +45,40 @@ const QRCodeSkeleton = () => {
   const numItems = 16; // 4x4 grid
   const containerWidth = Dimensions.get('window').width - 48;
   const spacing = (containerWidth - (itemWidth * 4)) / 3;
+  
+  // Shimmer animation for all skeleton items
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const shimmerAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    shimmerAnimation.start();
+
+    return () => shimmerAnimation.stop();
+  }, [shimmerAnim]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  // Shimmer box component
+  const ShimmerBox = ({ style }) => (
+    <Animated.View style={[style, { opacity }]} />
+  );
 
   return (
     <View style={styles.pageContainer}>
@@ -68,11 +103,11 @@ const QRCodeSkeleton = () => {
                 ]}
               >
                 <View style={styles.skeletonItem}>
-                  <View style={styles.skeletonQR} />
-                  <View style={styles.skeletonLine} />
-                  <View style={styles.skeletonLineShort} />
-                  <View style={styles.skeletonLine} />
-                  <View style={styles.skeletonLineShort} />
+                  <ShimmerBox style={styles.skeletonQR} />
+                  <ShimmerBox style={styles.skeletonLine} />
+                  <ShimmerBox style={styles.skeletonLineShort} />
+                  <ShimmerBox style={styles.skeletonLine} />
+                  <ShimmerBox style={styles.skeletonLineShort} />
                 </View>
               </View>
             );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Animated,
 } from 'react-native';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
@@ -30,12 +31,52 @@ const SellerItem = ({ name, email, onSelect }) => {
   );
 };
 
+const SellerItemSkeleton = () => {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const shimmerAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    shimmerAnimation.start();
+
+    return () => shimmerAnimation.stop();
+  }, [shimmerAnim]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.6],
+  });
+
+  return (
+    <View style={styles.sellerItemContainer}>
+      <View style={styles.detailsContainer}>
+        <Animated.View style={[styles.skeletonBox, styles.skeletonName, { opacity }]} />
+        <Animated.View style={[styles.skeletonBox, styles.skeletonEmail, { opacity }]} />
+      </View>
+    </View>
+  );
+};
+
 const SellerNameFilter = ({ isVisible, onClose, onSelectSellerName, onReset, currentSellerName = '', sellers = [], onSearch }) => {
   const [searchQuery, setSearchQuery] = useState(currentSellerName);
   const [isSearching, setIsSearching] = useState(false);
   const [searchedSellers, setSearchedSellers] = useState([]);
   const scrollRef = React.useRef(null);
   const searchTimeoutRef = React.useRef(null);
+  const lastApiSearchQueryRef = React.useRef('');
 
   // Debug: Log when component receives props
   React.useEffect(() => {
@@ -48,7 +89,7 @@ const SellerNameFilter = ({ isVisible, onClose, onSelectSellerName, onReset, cur
     }
   }, [isVisible, sellers.length, searchedSellers.length, currentSellerName]);
 
-  // Debounced search - calls API after user stops typing
+  // Debounced search - calls API after user stops typing for 3 seconds
   React.useEffect(() => {
     // Clear previous timeout
     if (searchTimeoutRef.current) {
@@ -63,17 +104,24 @@ const SellerNameFilter = ({ isVisible, onClose, onSelectSellerName, onReset, cur
       return;
     }
 
-    // Set searching state
+    // Clear old search results immediately when query changes (so skeleton shows)
+    setSearchedSellers([]);
+    
+    // Set searching state immediately when user types (for skeleton loading)
+    console.log('[SellerNameFilter] User typing, showing skeleton for query:', searchQuery);
     setIsSearching(true);
 
-    // Debounce: Wait 500ms after user stops typing
+    // Debounce: Wait 3 seconds (3000ms) after user stops typing before calling API
     searchTimeoutRef.current = setTimeout(() => {
-      console.log('[SellerNameFilter] Debounced search triggered for:', searchQuery);
+      const trimmedQuery = searchQuery.trim();
+      console.log('[SellerNameFilter] Debounced search triggered (3s) for:', trimmedQuery);
+      // Track which query we're searching for
+      lastApiSearchQueryRef.current = trimmedQuery;
       if (onSearch && typeof onSearch === 'function') {
-        onSearch(searchQuery.trim());
+        onSearch(trimmedQuery);
       }
-      setIsSearching(false);
-    }, 500);
+      // Keep isSearching true until results come back (handled in useEffect below)
+    }, 3000);
 
     // Cleanup timeout on unmount or when query changes
     return () => {
@@ -119,14 +167,25 @@ const SellerNameFilter = ({ isVisible, onClose, onSelectSellerName, onReset, cur
   // This happens when onSearch callback triggers and parent updates sellerNameOptions
   React.useEffect(() => {
     if (searchQuery && searchQuery.trim().length >= 2) {
-      // If we have a search query and sellers prop is updated, it's from API search
-      if (sellers.length > 0) {
-        console.log('[SellerNameFilter] Received search results from parent:', sellers.length);
-        setSearchedSellers(sellers);
+      const trimmedQuery = searchQuery.trim();
+      // Only accept results if they match the last API call we made
+      // This prevents stale results from previous searches
+      if (lastApiSearchQueryRef.current && lastApiSearchQueryRef.current === trimmedQuery) {
+        // If we have a search query and sellers prop is updated, it's from API search
+        if (sellers.length > 0) {
+          console.log('[SellerNameFilter] Received search results from parent for query:', trimmedQuery, '| Results:', sellers.length);
+          setSearchedSellers(sellers);
+        } else {
+          // No results from search
+          console.log('[SellerNameFilter] No search results from parent for query:', trimmedQuery);
+          setSearchedSellers([]);
+        }
+        // Stop showing skeleton when results come back
+        setIsSearching(false);
+        // Clear the tracked query
+        lastApiSearchQueryRef.current = '';
       } else {
-        // No results from search
-        console.log('[SellerNameFilter] No search results from parent');
-        setSearchedSellers([]);
+        console.log('[SellerNameFilter] Ignoring stale results. Current query:', trimmedQuery, '| Last API query:', lastApiSearchQueryRef.current);
       }
     }
   }, [sellers, searchQuery]);
@@ -216,10 +275,22 @@ const SellerNameFilter = ({ isVisible, onClose, onSelectSellerName, onReset, cur
                       showsVerticalScrollIndicator={false}
                       contentContainerStyle={[
                         styles.listsContentContainer,
-                        filteredSellers.length === 0 && styles.listsContentContainerEmpty
+                        filteredSellers.length === 0 && !isSearching && styles.listsContentContainerEmpty
                       ]}
                     >
-                      {filteredSellers.length === 0 && !isSearching ? (
+                      {isSearching ? (
+                        // Show skeleton loading when searching
+                        Array.from({ length: 5 }).map((_, index) => (
+                          <View key={`skeleton-${index}`}>
+                            <SellerItemSkeleton />
+                            {index < 4 && (
+                              <View style={styles.dividerWrapper}>
+                                <View style={styles.divider} />
+                              </View>
+                            )}
+                          </View>
+                        ))
+                      ) : filteredSellers.length === 0 ? (
                         <View style={styles.emptyStateContainer}>
                           <Text style={styles.emptyStateText}>No sellers found</Text>
                           <Text style={styles.emptyStateSubtext}>
@@ -470,6 +541,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
     color: '#FFFFFF',
+  },
+  skeletonBox: {
+    backgroundColor: '#E4E7E9',
+    borderRadius: 4,
+  },
+  skeletonName: {
+    width: '70%',
+    height: 16,
+    marginBottom: 6,
+  },
+  skeletonEmail: {
+    width: '50%',
+    height: 12,
   },
 });
 
