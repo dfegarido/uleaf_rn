@@ -27,6 +27,7 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {PlantItemCard} from '../../../components/PlantItemCard';
 import {
   getBuyerListingsApi,
+  getPriceDropBadgeListingsApi,
   addToCartApi,
   searchPlantsApi,
 } from '../../../components/Api';
@@ -140,6 +141,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
   
   // Track active badge for pagination
   const [activeBadge, setActiveBadge] = useState(null);
+  // Ref to track active badge immediately (prevents race conditions with async state updates)
+  const activeBadgeRef = React.useRef(null);
 
   // Search state - initialize with searchQuery if provided
   const [searchTerm, setSearchTerm] = useState(searchQuery || '');
@@ -402,6 +405,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
           await loadPlantsWithSearch(searchQuery, true);
         } else if (fromBadge && filter) {
           // Check if this is a special badge navigation (from ScreenShop)
+          activeBadgeRef.current = filter; // Set ref immediately
           setActiveBadge(filter);
           justFiltered.current = true;
           
@@ -456,12 +460,20 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }, 800); // Debounce search
       return () => clearTimeout(timeoutId);
     } else if (searchTerm.trim().length === 0) {
-      // Clear results when search is cleared
-      console.log('🔍 [ScreenGenusPlants] Search cleared, reloading all plants');
-      setIsSearchMode(false); // Clear search mode
-      loadPlants(true);
+      // Check ref first (immediate) then state (for consistency)
+      const currentBadge = activeBadgeRef.current || activeBadge;
+      if (!currentBadge) {
+        // Clear results when search is cleared - but ONLY if no badge is active
+        console.log('🔍 [ScreenGenusPlants] Search cleared, reloading all plants');
+        setIsSearchMode(false); // Clear search mode
+        loadPlants(true);
+      } else {
+        // Search cleared but badge is active - just clear search mode, keep badge results
+        console.log('🔍 [ScreenGenusPlants] Search cleared, keeping badge results:', currentBadge);
+        setIsSearchMode(false);
+      }
     }
-  }, [searchTerm]);
+  }, [searchTerm, activeBadge]);
 
   // Track last loaded search query to prevent duplicate loads
   const lastSearchQueryRef = React.useRef(null);
@@ -500,6 +512,15 @@ const ScreenGenusPlants = ({navigation, route}) => {
         setIsSearchMode(false); // Clear search mode
       }
       
+      // Don't reload if a special badge is active
+      // Check ref first (immediate) then state (for consistency)
+      const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $20', 'Unicorn', 'Top 5 Buyer Wish List'];
+      const currentBadge = activeBadgeRef.current || activeBadge;
+      if (specialBadges.includes(currentBadge)) {
+        console.log('⏭️ [ScreenGenusPlants] Focus effect - skipping, badge active:', currentBadge);
+        return;
+      }
+      
       if (justFiltered.current) {
         // Don't reload if we just applied filters
         justFiltered.current = false;
@@ -512,7 +533,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         console.log('⏭️ [ScreenGenusPlants] Focus effect - no action needed');
       }
       // If no applied filters, don't auto-reload to prevent unnecessary API calls
-    }, [appliedFilters, route.params]),
+    }, [appliedFilters, route.params, activeBadge]),
   );
 
   // Handle route parameters (like wholesale filter from shop screen)
@@ -539,16 +560,31 @@ const ScreenGenusPlants = ({navigation, route}) => {
         // Mark as applied to prevent infinite loop
         routeFilterApplied.current = true;
         
-        // Load plants with the wholesale filter
-        setTimeout(() => {
-          loadPlants(true);
-        }, 100); // Small delay to ensure filters are set
+        // Load plants with the wholesale filter (only if no badge is active)
+        const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $20', 'Unicorn', 'Top 5 Buyer Wish List'];
+        const currentBadge = activeBadgeRef.current || activeBadge;
+        if (!specialBadges.includes(currentBadge)) {
+          setTimeout(() => {
+            loadPlants(true);
+          }, 100); // Small delay to ensure filters are set
+        } else {
+          console.log('⏭️ [Wholesale filter] Skipping loadPlants - badge active:', currentBadge);
+        }
       }
     }
   }, [filterType, filterValue, updateFilters]);
 
   const loadPlants = async (refresh = false) => {
     try {
+      // Don't load regular plants if a special badge is active
+      // Check ref first (immediate) then state (for consistency)
+      const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $20', 'Unicorn', 'Top 5 Buyer Wish List'];
+      const currentBadge = activeBadgeRef.current || activeBadge;
+      if (specialBadges.includes(currentBadge)) {
+        console.log('⏭️ [loadPlants] Skipping - special badge active:', currentBadge);
+        return;
+      }
+      
       if (refresh) {
         setRefreshing(true);
         setOffset(0);
@@ -963,15 +999,13 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for Price Drop badge - show ALL price drop items
+      // Use dedicated Price Drop badge API for efficient discounted item retrieval
       const priceDropParams = {
-        maxPrice: 100,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
+        limit: 10, // Load 10 items per page
+        offset: 0, // Start from beginning
       };
 
-
-      const res = await retryAsync(() => getBuyerListingsApi(priceDropParams), 3, 1000);
+      const res = await retryAsync(() => getPriceDropBadgeListingsApi(priceDropParams), 3, 1000);
 
       if (!res?.success) {
         throw new Error(res?.error || 'Failed to load Price Drop plants');
@@ -983,6 +1017,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
+      
+      console.log('🔍 Price Drop rawPlants received:', rawPlants.length);
+      if (rawPlants.length > 0) {
+        console.log('🔍 First plant data:', {
+          plantCode: rawPlants[0].plantCode,
+          genus: rawPlants[0].genus,
+          species: rawPlants[0].species,
+          variegation: rawPlants[0].variegation,
+          plantName: rawPlants[0].plantName
+        });
+      }
       
       // Filter out plants with invalid data (same logic as other loading functions)
       const newPlants = rawPlants.filter(plant => {
@@ -996,17 +1041,27 @@ const ScreenGenusPlants = ({navigation, route}) => {
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
         
         if (!isValid) {
+          console.log('❌ Filtered out plant:', {
+            plantCode: plant.plantCode,
+            hasPlantCode,
+            hasTitle,
+            hasSubtitle,
+            species: plant.species,
+            variegation: plant.variegation
+          });
         }
         
         return isValid;
       });
       
+      console.log('✅ Price Drop newPlants after filter:', newPlants.length);
+      
       
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For Price Drop, load all items at once - no pagination needed
-      setHasMore(false);
+      // Enable pagination - check if there are more items
+      setHasMore(res.data?.hasMore || false);
 
     } catch (error) {
       console.error('Error loading Price Drop plants:', error);
@@ -1212,6 +1267,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (isCurrentlyActive) {
         // Clear the active badge and reset to normal plants
+        activeBadgeRef.current = null; // Clear ref immediately
         setActiveBadge(null);
         setLoading(true);
         setPlants([]);
@@ -1222,7 +1278,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       // Special handling for Price Drop badge with specific API parameters
       if (label === 'Price Drop') {
-        setActiveBadge('Price Drop');
+        activeBadgeRef.current = 'Price Drop'; // Set ref immediately (synchronous)
+        setActiveBadge('Price Drop');          // Set state (asynchronous)
+        setLoading(true);      // Show loading state
+        setPlants([]);         // Clear old data immediately
+        setOffset(0);          // Reset offset
         justFiltered.current = true;
         loadPriceDropPlants();
         return;
@@ -1416,11 +1476,70 @@ const ScreenGenusPlants = ({navigation, route}) => {
     return;
   };
 
+  // Load more plants for Price Drop with pagination
+  const loadMorePriceDropPlants = async () => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    
+    try {
+      let netState = await NetInfo.fetch();
+      if (!netState.isConnected || !netState.isInternetReachable) {
+        throw new Error('No internet connection.');
+      }
+
+      const priceDropParams = {
+        limit: 10,
+        offset: offset, // Use current offset for pagination
+      };
+
+      console.log('📄 Loading more Price Drop items, offset:', offset);
+      const res = await retryAsync(() => getPriceDropBadgeListingsApi(priceDropParams), 3, 1000);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load more Price Drop plants');
+      }
+
+      const rawPlants = (res.data?.listings || []).map(p => ({
+        ...p,
+        imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
+        imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
+      }));
+      
+      console.log('🔍 Price Drop - loaded more:', rawPlants.length);
+      
+      // Filter out plants with invalid data
+      const newPlants = rawPlants.filter(plant => {
+        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        return hasPlantCode && hasTitle && hasSubtitle;
+      });
+      
+      console.log('✅ Price Drop - filtered:', newPlants.length);
+      
+      // Append to existing plants
+      setPlants(prev => [...prev, ...newPlants]);
+      setOffset(prev => prev + newPlants.length);
+      setHasMore(res.data?.hasMore || false);
+
+    } catch (error) {
+      console.error('Error loading more Price Drop plants:', error);
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
       // Use specific load more function based on active badge
       if (activeBadge === 'Unicorn') {
         loadMoreUnicornPlants();
+      } else if (activeBadge === 'Price Drop') {
+        loadMorePriceDropPlants();
       } else if (isSearchMode && searchTerm.trim()) {
         // If we're in search mode, use loadPlantsWithSearch
         console.log('🔍 [ScreenGenusPlants] Loading more search results for:', searchTerm.trim());

@@ -564,3 +564,81 @@ export const searchPlantsApi = async (params = {}) => {
     };
   }
 };
+
+/**
+ * Get Price Drop badge listings (discounted items only)
+ * This is a dedicated, efficient endpoint specifically for the Price Drop badge
+ * 
+ * @param {Object} params - Query parameters
+ * @param {number} params.limit - Number of listings to fetch (default: 10)
+ * @returns {Promise<Object>} Price Drop listings response
+ */
+export const getPriceDropBadgeListingsApi = async (params = {}) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    
+    // Set default limit to 10 if not specified
+    const finalParams = {
+      limit: 10,
+      ...params
+    };
+    
+    console.log("Price Drop Badge API params:", finalParams);
+    
+    const queryParams = new URLSearchParams();
+    Object.keys(finalParams).forEach(key => {
+      if (finalParams[key] !== undefined && finalParams[key] !== null) {
+        queryParams.append(key, String(finalParams[key]));
+      }
+    });
+    
+    const qs = queryParams.toString();
+    console.log("Price Drop Badge API Query:", `${API_ENDPOINTS.GET_PRICE_DROP_BADGE_LISTINGS}?${qs}`);
+
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_PRICE_DROP_BADGE_LISTINGS}?${qs}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Price Drop Badge API error response:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('Price Drop Badge API response:', {
+      success: data.success,
+      count: data.count,
+      scanned: data.scanned,
+      hasMore: data.hasMore
+    });
+
+    return {
+      success: true,
+      data: {
+        listings: data.listings || [],
+        count: data.count || 0,
+        scanned: data.scanned || 0,
+        hasMore: data.hasMore || false
+      },
+      timestamp: data.timestamp
+    };
+  } catch (error) {
+    console.error('Price Drop Badge API error:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while fetching Price Drop listings',
+      data: {
+        listings: [],
+        count: 0
+      }
+    };
+  }
+};
