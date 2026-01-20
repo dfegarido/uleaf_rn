@@ -119,6 +119,14 @@ const FlightSelector = ({
         ) : null}
       </View>
 
+      {/* Cutoff Date Info */}
+      {flightDateOptions.length > 0 && flightDateOptions[0]?.cutoffDateLabel && (
+        <View style={styles.cutoffDateContainer}>
+          <Text style={styles.cutoffDateLabel}>
+            Order cutoff: <Text style={styles.cutoffDateValue}>{flightDateOptions[0].cutoffDateLabel}</Text>
+          </Text>
+        </View>
+      )}
 
       {/* Options */}
       <View style={styles.flightOptions}>
