@@ -754,7 +754,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 )}
               <View style={styles.comments}>
                 <FlatList
-                  style={{backgroundColor: 'rgba(0, 0, 0, 0.4)', borderRadius: 16}}
+                  style={{borderRadius: 16}}
                   ref={flatListRef}
                   data={comments}
                   keyExtractor={(item) => item.id}
@@ -1030,7 +1030,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-end',
     paddingHorizontal: 8,
-    gap: 12,
+    gap: 5,
     width: 375,
     height: 447,
     alignSelf: 'center',
@@ -1059,16 +1059,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     justifyContent: 'flex-end',
-    height: '100%',
-    marginTop: 250,
+    height: '60%',
+   // marginTop: 10,
   },
   joinNotificationContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(86, 80, 80, 0.4)',
     borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 5,
     paddingVertical: 6,
     marginBottom: 8,
     maxHeight: 180,
+    width: '90%',
   },
   joinNotificationHeader: {
     flexDirection: 'row',
@@ -1092,7 +1093,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 16,
     width: 260,
-    height: 453,
+    height: 400,
     paddingBottom: 213,
     
   },
@@ -1111,7 +1112,7 @@ const styles = StyleSheet.create({
     width: '90%',
   },
   joinedContent: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 2,
     width: 118,
@@ -1151,6 +1152,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   chatMessage: {
     ...baseFont,
@@ -1160,6 +1164,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     color: '#fff',
     height: 'auto',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   commentInput: {
     flexDirection: 'row',
@@ -1173,14 +1180,20 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     borderRadius: 12,
     color: '#FFF',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
-    borderRadius: 16
+    // backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    borderRadius: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   commentInputFocused: {
     height: 80, // Or another height that fits multiple lines
     textAlignVertical: 'top', // Align text to the top
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
-    borderRadius: 16
+    // backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    borderRadius: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   sideActions: {
     flexDirection: 'column',

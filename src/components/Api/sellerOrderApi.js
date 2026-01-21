@@ -1,8 +1,12 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 
-export const updateOrderSellerScanned = async (data) => {
+export const updateOrderSellerScanned = async (data, isScanning = false) => {
   try {
+
+    if (isScanning) {
+      return;
+    }
     const token = await getStoredAuthToken();
     if ((typeof data) === 'string') {      
       data = JSON.parse(data)

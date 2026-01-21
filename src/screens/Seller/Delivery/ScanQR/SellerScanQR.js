@@ -9,7 +9,8 @@ import {
   Text,
   TouchableOpacity,
   Vibration,
-  View
+  View,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
@@ -52,8 +53,9 @@ const ScanQRSellerScreen = ({ navigation, route }) => {
   const device = useCameraDevice('back');
   const [latestScannedData, setLatestScannedData] = useState(null);
   const [buttomData, setButtomData] = useState("scan");
-  const [isScanning, setIsScanning] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
   const [plantData, setPlantData] = useState({});
+  
 
   // --- Side Effect: Request Camera Permission ---
   useEffect(() => {
@@ -63,27 +65,40 @@ const ScanQRSellerScreen = ({ navigation, route }) => {
   const codeScanner = useCodeScanner({
     codeTypes: ['qr', 'ean-13'],
     onCodeScanned: useCallback(async (codes) => {
-      if (!isScanning) {
+      let filters = codes[0].value;
+      if ((typeof filters) === 'string') {      
+        filters = JSON.parse(filters)
+      }
+
+      if (isScanning && latestScannedData === (filters.orderId + filters.plantCode)) {
         return;
       }
 
-      setIsScanning(false);
+      setIsScanning(true);
+      setButtomData('loading');
 
       try {
         if (codes.length > 0 && codes[0]?.value) {
-          setLatestScannedData(codes[0].value);
-          const response = await updateOrderSellerScanned(latestScannedData);
-          console.log('response', response);
+          
+          if (!(filters?.orderId) || !(filters?.plantCode)) {
+            throw new Error('Invalid QR Code Data');
+          }
+          
+          setLatestScannedData(filters.orderId + filters.plantCode);
+          const response = await updateOrderSellerScanned(filters, isScanning);
           
           setPlantData(response.data || {});
           setButtomData('success');
           Vibration.vibrate();
+          setTimeout(() => {
+            setIsScanning(false);
+          }, 5000);
         }
       } catch (error) {
         setButtomData('invalid');
       } finally {
         setTimeout(() => {
-          setIsScanning(true);
+          setIsScanning(false);
         }, 5000);
       }
     }),
@@ -139,6 +154,20 @@ const ScanQRSellerScreen = ({ navigation, route }) => {
             </View>
           </View>
         )}
+
+        {buttomData === 'loading' && (
+                  <View style={styles.bottomSheet}>
+                    <View style={styles.titleContainer}>
+                      <Text style={styles.titleText}>Scanning...</Text>
+                    </View>
+                    <View style={styles.noteContainer}>
+                      <ActivityIndicator size="small" color="#647276" style={{ marginBottom: 8 }} />
+                      <Text style={styles.noteText}>
+                        This won’t take long.
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
         {buttomData === 'invalid' && (
           <View style={styles.bottomSheet}>
