@@ -3,7 +3,7 @@ import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityInd
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import ImageIcon from '../../assets/iconchat/image.svg';
 
-const MessageInput = ({onSend, onSendImage, disabled = false}) => {
+const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}}) => {
   const [message, setMessage] = useState('');
   const [inputHeight, setInputHeight] = useState(40); // Initial height
   const [previewImages, setPreviewImages] = useState([]); // Array of local URIs for preview
@@ -19,21 +19,42 @@ const MessageInput = ({onSend, onSendImage, disabled = false}) => {
     const hasImages = previewImages.length > 0;
     const hasText = textToSend.length > 0;
 
+    // Get reply info if replying - ensure no undefined values
+    // If senderName is missing, try to get it from participantDataMap
+    const getSenderName = () => {
+      if (replyingTo?.senderName) {
+        return replyingTo.senderName;
+      }
+      if (replyingTo?.senderId && participantDataMap[replyingTo.senderId]?.name) {
+        return participantDataMap[replyingTo.senderId].name;
+      }
+      return 'Unknown';
+    };
+    
+    const replyTo = replyingTo ? {
+      messageId: replyingTo.id || null,
+      senderId: replyingTo.senderId || null,
+      senderName: getSenderName(),
+      text: replyingTo.text || null,
+      imageUrl: replyingTo.imageUrl || null,
+      imageUrls: replyingTo.imageUrls || null,
+    } : null;
+
     // If we have both images and text, send them together
     if (hasImages && hasText && onSendImage) {
-      onSendImage(previewImages, textToSend); // Send images with text
+      onSendImage(previewImages, textToSend, replyTo); // Send images with text and reply
       setPreviewImages([]);
       setMessage('');
       setInputHeight(40);
     } 
     // If we only have images
     else if (hasImages && onSendImage) {
-      onSendImage(previewImages); // Send images only
+      onSendImage(previewImages, '', replyTo); // Send images with reply
       setPreviewImages([]);
     }
     // If we only have text
     else if (hasText) {
-      onSend(textToSend);
+      onSend(textToSend, false, null, null, null, replyTo);
       setMessage('');
       setInputHeight(40);
     }
@@ -143,8 +164,43 @@ const MessageInput = ({onSend, onSendImage, disabled = false}) => {
     setInputHeight(newHeight);
   };
 
+  // Get reply preview text
+  const getReplyPreviewText = () => {
+    if (!replyingTo) return '';
+    if (replyingTo.text) {
+      return replyingTo.text.length > 50 ? replyingTo.text.substring(0, 50) + '...' : replyingTo.text;
+    }
+    if (replyingTo.imageUrls && replyingTo.imageUrls.length > 0) {
+      return replyingTo.imageUrls.length > 1 ? `${replyingTo.imageUrls.length} photos` : 'Photo';
+    }
+    if (replyingTo.imageUrl) {
+      return 'Photo';
+    }
+    return '';
+  };
+
+  const replySenderName = replyingTo 
+    ? (replyingTo.senderName || participantDataMap[replyingTo.senderId]?.name || 'Unknown')
+    : '';
+
   return (
     <View style={styles.container}>
+      {/* Reply Preview - Above input bar */}
+      {replyingTo && (
+        <View style={styles.replyPreviewContainer}>
+          <View style={styles.replyPreviewContent}>
+            <View style={styles.replyPreviewBar} />
+            <View style={styles.replyPreviewTextContainer}>
+              <Text style={styles.replyPreviewSenderName}>{replySenderName}</Text>
+              <Text style={styles.replyPreviewText} numberOfLines={1}>{getReplyPreviewText()}</Text>
+            </View>
+            <TouchableOpacity onPress={onCancelReply} style={styles.replyCancelButton}>
+              <Text style={styles.replyCancelText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      
       {/* Image Previews - Above input bar */}
       {previewImages.length > 0 && (
         <ScrollView 
@@ -219,6 +275,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F2F5',
     borderTopWidth: 0.5,
     borderTopColor: '#E4E6EB',
+  },
+  replyPreviewContainer: {
+    marginBottom: 8,
+    marginHorizontal: 4,
+  },
+  replyPreviewContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0084FF',
+  },
+  replyPreviewBar: {
+    width: 3,
+    height: 40,
+    backgroundColor: '#0084FF',
+    borderRadius: 2,
+    marginRight: 8,
+  },
+  replyPreviewTextContainer: {
+    flex: 1,
+  },
+  replyPreviewSenderName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0084FF',
+    marginBottom: 2,
+  },
+  replyPreviewText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  replyCancelButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  replyCancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: 'bold',
   },
   inputRow: {
     flexDirection: 'row',

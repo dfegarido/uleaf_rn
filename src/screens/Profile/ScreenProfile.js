@@ -175,7 +175,7 @@ const ScreenProfile = ({navigation}) => {
         ) : (
           // Actual Header Content
           <View style={styles.header}>
-            <View style={styles.avatarWrapper}>
+            <View style={styles.avatarWrapper} pointerEvents="none">
               {cachedProfilePhoto || (userInfo && userInfo.profileImage) ? (
                 <Image
                   source={{uri: cachedProfilePhoto || (userInfo && userInfo.profileImage)}}

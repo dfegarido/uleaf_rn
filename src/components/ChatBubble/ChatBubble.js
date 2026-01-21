@@ -1,19 +1,70 @@
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, View, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
+import { Image, StyleSheet, Text, View, TouchableOpacity, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import ListingMessage from '../../screens/ChatScreen/ListingMessage';
 
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 
-const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, prevMessageHasStackedImages }) => {
+const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions }) => {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [reactionsModalVisible, setReactionsModalVisible] = useState(false);
   
   // Determine which images to display
   const images = imageUrls && imageUrls.length > 0 ? imageUrls : (imageUrl ? [imageUrl] : []);
   // Show sender name for group chats, not from current user, only on first message of group
   const shouldShowSenderName = isGroupChat && !isMe && senderName && isFirstInGroup;
+  
+  // Extract reply data
+  const originalMessageSenderName = replyTo?.senderName || 'Unknown';
+  const originalMessageText = replyTo?.text || '';
+  const originalMessageImages = replyTo?.imageUrls || (replyTo?.imageUrl ? [replyTo.imageUrl] : []);
+
+  // Process reactions: group by emoji and get user info
+  const processReactions = () => {
+    if (!reactions || Object.keys(reactions).length === 0) return { grouped: {}, uniqueEmojis: [], totalCount: 0 };
+
+    const grouped = {};
+    const uniqueEmojis = [];
+
+    Object.entries(reactions).forEach(([key, emoji]) => {
+      // Extract userId from key (format: "userId_emoji")
+      const userId = key.split('_')[0];
+      
+      if (!grouped[emoji]) {
+        grouped[emoji] = [];
+        uniqueEmojis.push(emoji);
+      }
+      
+      // Get user info from participantDataMap
+      const userName = participantDataMap[userId]?.name || 'Unknown';
+      const userAvatar = participantDataMap[userId]?.avatarUrl || null;
+      
+      grouped[emoji].push({
+        userId,
+        userName,
+        userAvatar,
+        emoji,
+      });
+    });
+
+    return {
+      grouped,
+      uniqueEmojis,
+      totalCount: Object.keys(reactions).length,
+    };
+  };
+
+  const reactionsData = processReactions();
+  const { grouped, uniqueEmojis, totalCount } = reactionsData;
+  
+  // Show max 2 emojis, then "+N" if more
+  const displayEmojis = uniqueEmojis.slice(0, 2);
+  const remainingEmojis = uniqueEmojis.slice(2);
+  const remainingCount = remainingEmojis.reduce((sum, emoji) => sum + grouped[emoji].length, 0);
   
   // Determine border radius based on position in group
   const getBorderRadius = () => {
@@ -162,6 +213,36 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
               showAvatar ? { marginLeft: 4 } : (!isMe ? { marginLeft: 35 } : {})
             ]}>{senderName}</Text>
           )}
+          {/* "You replied to [name]" indicator */}
+          {replyTo && isMe && (
+            <View style={styles.replyIndicatorContainer}>
+              <Svg width={14} height={14} viewBox="0 0 16 16" fill="#9CA3AF" style={styles.replyIndicatorIcon}>
+                <Path
+                  d="M6.497 1.035C7.593-.088 9.5.688 9.5 2.257V4.54c1.923.215 3.49 1.246 4.593 2.672C15.328 8.808 16 10.91 16 13v.305c0 .632-.465 1.017-.893 1.127-.422.11-.99.005-1.318-.493-.59-.894-1.2-1.482-1.951-1.859-.611-.307-1.359-.496-2.338-.558v2.23c0 1.57-1.908 2.346-3.003 1.222L.893 9.223a1.75 1.75 0 0 1 .001-2.444l5.603-5.744z"
+                />
+              </Svg>
+              <Text style={styles.replyIndicatorText}>
+                You replied to {originalMessageSenderName}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onLongPress={() => {
+              if (onMessageLongPress && !isListing) {
+                const messageData = {
+                  id: messageId,
+                  text,
+                  imageUrl,
+                  imageUrls,
+                  senderId: isMe ? currentUserUid : (senderName ? null : null),
+                  senderName: isMe ? null : senderName,
+                };
+                onMessageLongPress(messageData);
+              }
+            }}
+            delayLongPress={300}
+          >
           <View
             style={[
               showAvatar ? styles.withAvatar : styles.bubble,
@@ -174,8 +255,47 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
               // Adjust padding for image messages
               images.length > 0 && styles.imageBubble,
               // Add extra margin for stacked images to show cards peeking out
-              images.length > 1 && { marginTop: 20, marginRight: 20 }
+              images.length > 1 && { marginTop: 20, marginRight: 20 },
+              // Make bubble position relative so reactions can be absolutely positioned
+              styles.bubbleRelative
             ]}>
+            {/* Reply Preview */}
+            {replyTo && (
+              <TouchableOpacity
+                style={[
+                  styles.replyPreviewBubble,
+                  isMe ? styles.replyPreviewBubbleMe : styles.replyPreviewBubbleThem
+                ]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (onReplyPress && replyTo?.messageId) {
+                    onReplyPress(replyTo.messageId);
+                  }
+                }}>
+                <View style={[
+                  styles.replyPreviewBar,
+                  isMe ? styles.replyPreviewBarMe : styles.replyPreviewBarThem
+                ]} />
+                <View style={styles.replyPreviewContent}>
+                  {originalMessageText ? (
+                    <Text style={[
+                      styles.replyPreviewText,
+                      isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
+                    ]} numberOfLines={1}>
+                      {originalMessageText}
+                    </Text>
+                  ) : originalMessageImages.length > 0 ? (
+                    <Text style={[
+                      styles.replyPreviewText,
+                      isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
+                    ]}>
+                      {originalMessageImages.length > 1 ? `${originalMessageImages.length} photos` : 'Photo'}
+                    </Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            )}
+            
             {/* Render images */}
             {images.length > 0 && renderImageGrid()}
             
@@ -200,9 +320,98 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
             {isListing && (
               <ListingMessage currentUserUid={currentUserUid} isSeller={isSeller} isBuyer={isBuyer} listingId={listingId} navigation={navigation} />
             )}
+            
+            {/* Emoji Reactions - Overlapping on the right side */}
+            {reactions && Object.keys(reactions).length > 0 && (
+              <TouchableOpacity
+                style={styles.reactionsContainer}
+                onPress={() => setReactionsModalVisible(true)}
+                activeOpacity={0.7}>
+                {displayEmojis.map((emoji, index) => {
+                  const emojiCount = grouped[emoji]?.length || 0;
+                  return (
+                    <View key={emoji} style={styles.reactionItemWithCount}>
+                      <View style={styles.reactionItem}>
+                        <Text style={styles.reactionEmoji}>{emoji}</Text>
+                        {emojiCount > 1 && (
+                          <View style={styles.reactionEmojiCountBadge}>
+                            <Text style={styles.reactionEmojiCountText}>{emojiCount}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+                {remainingCount > 0 && (
+                  <View style={styles.reactionCountItem}>
+                    <Text style={styles.reactionCountText}>+{remainingCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Reactions Modal */}
+      <Modal
+        visible={reactionsModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setReactionsModalVisible(false)}>
+        <TouchableOpacity
+          style={styles.reactionsModalOverlay}
+          activeOpacity={1}
+          onPress={() => setReactionsModalVisible(false)}>
+          <View style={styles.reactionsModalContainer}>
+            <View style={styles.reactionsModalHeader}>
+              <Text style={styles.reactionsModalTitle}>Message reactions</Text>
+              <TouchableOpacity
+                onPress={() => setReactionsModalVisible(false)}
+                style={styles.reactionsModalCloseButton}>
+                <Text style={styles.reactionsModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.reactionsModalDivider} />
+            
+            {/* Summary */}
+            <View style={styles.reactionsModalSummary}>
+              <Text style={styles.reactionsModalSummaryText}>All {totalCount}</Text>
+              {uniqueEmojis.map((emoji) => (
+                <View key={emoji} style={styles.reactionsModalSummaryEmoji}>
+                  <Text style={styles.reactionsModalSummaryEmojiText}>{emoji}</Text>
+                  <Text style={styles.reactionsModalSummaryCount}>{grouped[emoji].length}</Text>
+                </View>
+              ))}
+            </View>
+            
+            {/* Users list grouped by emoji */}
+            <ScrollView style={styles.reactionsModalList} showsVerticalScrollIndicator={true}>
+              {uniqueEmojis.map((emoji) => (
+                <View key={emoji} style={styles.reactionsModalEmojiGroup}>
+                  {grouped[emoji].map((user, index) => (
+                    <View
+                      key={user.userId}
+                      style={styles.reactionsModalUserItem}>
+                      <Image
+                        source={user.userAvatar ? { uri: user.userAvatar } : DefaultAvatar}
+                        style={styles.reactionsModalUserAvatar}
+                        defaultSource={DefaultAvatar}
+                      />
+                      <View style={styles.reactionsModalUserInfo}>
+                        <Text style={styles.reactionsModalUserName}>{user.userName}</Text>
+                      </View>
+                      <Text style={styles.reactionsModalUserEmoji}>{emoji}</Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Full Screen Image Modal */}
       <Modal
@@ -268,6 +477,7 @@ const styles = StyleSheet.create({
   bubbleContainer: {
     flexDirection: 'column',
     maxWidth: '70%',
+    overflow: 'visible',
   },
   senderName: {
     fontSize: 12,
@@ -302,6 +512,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     maxWidth: '100%',
     marginLeft: 4, // Reduced from 10 to minimize gap
+    overflow: 'visible',
   },
   avatarImage: {
     width: 25,
@@ -493,6 +704,246 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 36,
     fontWeight: 'bold',
+  },
+  replyPreviewBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  replyPreviewBubbleMe: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  replyPreviewBubbleThem: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  replyPreviewBar: {
+    width: 3,
+    height: 40,
+    borderRadius: 2,
+    marginRight: 8,
+  },
+  replyPreviewBarMe: {
+    backgroundColor: '#FFFFFF',
+  },
+  replyPreviewBarThem: {
+    backgroundColor: '#0084FF',
+  },
+  replyPreviewContent: {
+    flex: 1,
+  },
+  replyPreviewSenderName: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  replyPreviewSenderNameMe: {
+    color: '#FFFFFF',
+  },
+  replyPreviewSenderNameThem: {
+    color: '#0084FF',
+  },
+  replyPreviewText: {
+    fontSize: 12,
+  },
+  replyPreviewTextMe: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  replyPreviewTextThem: {
+    color: '#666',
+  },
+  replyIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-end',
+    gap: 4,
+  },
+  replyIndicatorIcon: {
+    marginRight: 2,
+  },
+  replyIndicatorText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: '400',
+  },
+  bubbleRelative: {
+    position: 'relative',
+  },
+  reactionsContainer: {
+    position: 'absolute',
+    bottom: -20,
+    right: -8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+    zIndex: 10,
+  },
+  reactionItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    minWidth: 28,
+    height: 28,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#E4E6EB',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  reactionEmoji: {
+    fontSize: 16,
+  },
+  reactionItemWithCount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  reactionEmojiCountBadge: {
+    marginLeft: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionEmojiCountText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666',
+  },
+  reactionCountItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    minWidth: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    borderWidth: 1.5,
+    borderColor: '#E4E6EB',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  reactionCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  reactionsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  reactionsModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  reactionsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  reactionsModalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000',
+  },
+  reactionsModalCloseButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionsModalCloseText: {
+    fontSize: 24,
+    color: '#666',
+  },
+  reactionsModalDivider: {
+    height: 1,
+    backgroundColor: '#E4E6EB',
+    marginHorizontal: 20,
+  },
+  reactionsModalSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  reactionsModalSummaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0084FF',
+    textDecorationLine: 'underline',
+  },
+  reactionsModalSummaryEmoji: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  reactionsModalSummaryEmojiText: {
+    fontSize: 24,
+  },
+  reactionsModalSummaryCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  reactionsModalList: {
+    paddingHorizontal: 20,
+    maxHeight: 400,
+  },
+  reactionsModalEmojiGroup: {
+    marginBottom: 8,
+  },
+  reactionsModalUserItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  reactionsModalUserAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  reactionsModalUserInfo: {
+    flex: 1,
+  },
+  reactionsModalUserName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000',
+    marginBottom: 2,
+  },
+  reactionsModalUserAction: {
+    fontSize: 14,
+    color: '#666',
+  },
+  reactionsModalUserEmoji: {
+    fontSize: 24,
   },
 });
 

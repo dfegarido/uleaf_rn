@@ -16,8 +16,9 @@ import {
   where
 } from 'firebase/firestore';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
@@ -25,6 +26,27 @@ import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
 import { uploadChatImage } from '../../utils/uploadChatImage';
+
+// Reply Icon SVG Component - Curved arrow pointing left
+const ReplyIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
+  <Svg width={width} height={height} viewBox="0 0 16 16" fill={color}>
+    <Path
+      d="M6.497 1.035C7.593-.088 9.5.688 9.5 2.257V4.54c1.923.215 3.49 1.246 4.593 2.672C15.328 8.808 16 10.91 16 13v.305c0 .632-.465 1.017-.893 1.127-.422.11-.99.005-1.318-.493-.59-.894-1.2-1.482-1.951-1.859-.611-.307-1.359-.496-2.338-.558v2.23c0 1.57-1.908 2.346-3.003 1.222L.893 9.223a1.75 1.75 0 0 1 .001-2.444l5.603-5.744z"
+    />
+  </Svg>
+);
+
+// Emoji Icon SVG Component
+const EmojiIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
+  <Svg width={width} height={height} viewBox="0 0 20 20" fill={color}>
+    <Path
+      d="M13.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM8 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm-.75 3.941a.75.75 0 1 0-1 1.118A5.614 5.614 0 0 0 10 15a5.614 5.614 0 0 0 3.75-1.441.75.75 0 0 0-1-1.118A4.113 4.113 0 0 1 10 13.5a4.113 4.113 0 0 1-2.75-1.059z"
+    />
+    <Path
+      d="M10 .5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0z"
+    />
+  </Svg>
+);
 
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -45,8 +67,19 @@ const ChatScreen = ({navigation, route}) => {
   const [loaded, setLoaded] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [hasOlderMessages, setHasOlderMessages] = useState(true);
+  const [hasNewerMessages, setHasNewerMessages] = useState(false);
   const lastMessageRef = useRef(null);
+  const firstMessageRef = useRef(null);
   const messagesUnsubscribeRef = useRef(null);
+  const messagesRef = useRef(messages); // Keep a ref to always have current messages
+  const isJumpedToMessage = useRef(false); // Track if we've jumped to a specific message
+  const [replyingTo, setReplyingTo] = useState(null); // Message being replied to
+  const [messageTooltip, setMessageTooltip] = useState(null); // Message for tooltip (long-pressed message)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Show emoji picker modal
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false); // Show scroll to bottom button
+  const [findingMessage, setFindingMessage] = useState(false); // Show finding message modal
+  const plantRotation = useRef(new Animated.Value(0)).current;
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
@@ -254,8 +287,374 @@ const ChatScreen = ({navigation, route}) => {
     }
   };
 
+  // Handle message long press - show tooltip with emoji and reply options
+  const handleMessageLongPress = (messageData) => {
+    if (!messageData || messageData.isListing) return;
+    
+    // If senderName is missing, try to get it
+    if (!messageData.senderName) {
+      let senderName = null;
+      
+      if (messageData.senderId === currentUserUid) {
+        // Current user's message - get from participantDataMap or userInfo
+        senderName = participantDataMap[currentUserUid]?.name;
+        
+        // Fallback to userInfo
+        if (!senderName) {
+          senderName = userInfo?.data?.fullName || 
+                      (userInfo?.data?.firstName && userInfo?.data?.lastName 
+                        ? `${userInfo.data.firstName} ${userInfo.data.lastName}` 
+                        : null) ||
+                      userInfo?.user?.fullName ||
+                      userInfo?.fullName ||
+                      userInfo?.data?.username ||
+                      userInfo?.user?.username ||
+                      userInfo?.username ||
+                      'You';
+        }
+      } else {
+        // Other user's message
+        if (chatType === 'private') {
+          // Priority 1: Get from participantDataMap
+          senderName = participantDataMap[messageData.senderId]?.name;
+          
+          // Priority 2: Get from otherUserInfo
+          if (!senderName && otherUserInfo?.name) {
+            senderName = otherUserInfo.name;
+          }
+          
+          // Priority 3: Get from participants array
+          if (!senderName) {
+            const sender = participants.find(p => p?.uid === messageData.senderId);
+            senderName = sender?.name;
+          }
+          
+          // Priority 4: Get from route params name (chat name)
+          if (!senderName && name) {
+            senderName = name;
+          }
+        } else if (chatType === 'group') {
+          // For group chats, get from participantDataMap or participants
+          senderName = participantDataMap[messageData.senderId]?.name;
+          if (!senderName) {
+            const sender = participants.find(p => p?.uid === messageData.senderId);
+            senderName = sender?.name;
+          }
+        }
+        
+        // Final fallback
+        if (!senderName) {
+          senderName = 'Unknown';
+        }
+      }
+      
+      messageData.senderName = senderName;
+    }
+    
+    setMessageTooltip(messageData);
+  };
+
+  // Update messagesRef whenever messages changes
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Animate plant rotation when finding message
+  useEffect(() => {
+    if (findingMessage) {
+      // Start rotation animation
+      plantRotation.setValue(0);
+      Animated.loop(
+        Animated.timing(plantRotation, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      ).start();
+    }
+  }, [findingMessage]);
+
+  // Handle reply preview click - scroll to original message (OPTIMIZED)
+  const handleReplyPress = async (originalMessageId) => {
+    console.log('🎯 handleReplyPress called with messageId:', originalMessageId);
+    
+    if (!originalMessageId || !flatListRef.current) {
+      console.log('❌ Cannot scroll: missing messageId or flatListRef');
+      return;
+    }
+    
+    // Check if message is in current view
+    let messageIndex = messagesRef.current.findIndex(msg => msg.id === originalMessageId);
+    
+    console.log('🎯 Initial search - messageId:', originalMessageId, 'at index:', messageIndex, 'total messages:', messagesRef.current.length);
+    
+    // If message not found in current view, use optimized direct fetch
+    if (messageIndex === -1) {
+      console.log('📥 Message not in current view, loading directly...');
+      setFindingMessage(true); // Show loading modal
+      
+      // Use direct fetch instead of sequential loading
+      const success = await loadMessagesAroundMessage(originalMessageId);
+      
+      if (!success) {
+        console.log('❌ Message not found');
+        setFindingMessage(false);
+        Alert.alert('Message not found', 'The original message could not be found. It may have been deleted.');
+        return;
+      }
+      
+      // Wait for state to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Find message index in newly loaded messages
+      messageIndex = messagesRef.current.findIndex(msg => msg.id === originalMessageId);
+      
+      console.log('✅ Message loaded at index:', messageIndex, 'in', messagesRef.current.length, 'total messages');
+      setFindingMessage(false);
+    }
+    
+    if (messageIndex === -1) {
+      console.log('❌ Message still not found after direct load');
+      setFindingMessage(false);
+      Alert.alert('Message not found', 'The original message could not be found.');
+      return;
+    }
+    
+    // Wait for FlatList to render
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Scroll to the message
+    const scrollToMessage = (index) => {
+      console.log('🎯 Scrolling to index:', index);
+      try {
+        if (flatListRef.current) {
+          flatListRef.current.scrollToIndex({
+            index: index,
+            animated: true,
+            viewPosition: 0.3, // Position near top for better context
+          });
+          console.log('✅ Successfully scrolled to index:', index);
+        }
+      } catch (error) {
+        console.log('⚠️ Error scrolling, retrying:', error);
+        setTimeout(() => {
+          try {
+            flatListRef.current?.scrollToIndex({
+              index: index,
+              animated: true,
+              viewPosition: 0.3,
+            });
+            console.log('✅ Retry successful');
+          } catch (e) {
+            console.log('❌ Scroll failed:', e);
+          }
+        }, 500);
+      }
+    };
+    
+    // Execute scroll
+    requestAnimationFrame(() => {
+      setTimeout(() => scrollToMessage(messageIndex), 200);
+    });
+  };
+
+  // Handle reply from tooltip
+  const handleReplyFromTooltip = () => {
+    if (messageTooltip) {
+      const actualMessage = messages.find(m => m.id === messageTooltip.id);
+      if (actualMessage && !actualMessage.isListing) {
+        // If replying to own message, get current user's name from participantDataMap or userInfo
+        const isOwnMessage = actualMessage.senderId === currentUserUid;
+        let senderName = messageTooltip.senderName || actualMessage.senderName;
+        
+        if (isOwnMessage && !senderName) {
+          // Try to get name from participantDataMap first
+          senderName = participantDataMap[currentUserUid]?.name;
+          
+          // Fallback to userInfo
+          if (!senderName) {
+            senderName = userInfo?.data?.fullName || 
+                        (userInfo?.data?.firstName && userInfo?.data?.lastName 
+                          ? `${userInfo.data.firstName} ${userInfo.data.lastName}` 
+                          : null) ||
+                        userInfo?.user?.fullName ||
+                        userInfo?.fullName ||
+                        userInfo?.data?.username ||
+                        userInfo?.user?.username ||
+                        userInfo?.username ||
+                        'You';
+          }
+        } else if (!isOwnMessage && !senderName) {
+          // For private chats, get the other participant's name
+          if (chatType === 'private') {
+            // Priority 1: Get from participantDataMap
+            senderName = participantDataMap[actualMessage.senderId]?.name;
+            
+            // Priority 2: Get from otherUserInfo
+            if (!senderName && otherUserInfo?.name) {
+              senderName = otherUserInfo.name;
+            }
+            
+            // Priority 3: Get from participants array
+            if (!senderName) {
+              const sender = participants.find(p => p?.uid === actualMessage.senderId);
+              senderName = sender?.name;
+            }
+            
+            // Priority 4: Get from route params name (chat name)
+            if (!senderName && name) {
+              senderName = name;
+            }
+          } else if (chatType === 'group') {
+            // For group chats, get from participantDataMap or participants
+            senderName = participantDataMap[actualMessage.senderId]?.name;
+            if (!senderName) {
+              const sender = participants.find(p => p?.uid === actualMessage.senderId);
+              senderName = sender?.name;
+            }
+          }
+          
+          // Final fallback
+          if (!senderName) {
+            senderName = 'Unknown';
+          }
+        }
+        
+        setReplyingTo({
+          ...actualMessage,
+          messageId: actualMessage.id, // Explicitly set messageId for reply
+          senderName: senderName,
+        });
+      }
+      setMessageTooltip(null);
+    }
+  };
+
+  // Handle emoji reaction from emoji picker
+  const handleEmojiReaction = async (emoji) => {
+    if (!messageTooltip || !id) return;
+    
+    try {
+      const messageId = messageTooltip.id;
+      if (!messageId || messageId.startsWith('temp-')) {
+        // Can't react to optimistic messages
+        closeTooltip();
+        return;
+      }
+
+      // Find the message in local state
+      const messageIndex = messages.findIndex(m => m.id === messageId);
+      if (messageIndex === -1) {
+        closeTooltip();
+        return;
+      }
+
+      const currentMessage = messages[messageIndex];
+      const currentReactions = currentMessage.reactions || {};
+      const reactionKey = `${currentUserUid}_${emoji}`;
+      
+      // Toggle reaction - if user already reacted with this emoji, remove it, otherwise add it
+      const userReactions = Object.keys(currentReactions).filter(key => 
+        key.startsWith(`${currentUserUid}_`)
+      );
+      
+      const hasThisEmoji = userReactions.some(key => currentReactions[key] === emoji);
+      
+      // Calculate new reactions
+      let updatedReactions;
+      if (hasThisEmoji) {
+        // Remove this emoji reaction
+        updatedReactions = { ...currentReactions };
+        delete updatedReactions[reactionKey];
+      } else {
+        // Remove any existing emoji from this user, then add new one
+        updatedReactions = { ...currentReactions };
+        userReactions.forEach(key => delete updatedReactions[key]);
+        updatedReactions[reactionKey] = emoji;
+      }
+
+      // Optimistic update - immediately update local state
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[messageIndex] = {
+          ...updated[messageIndex],
+          reactions: updatedReactions,
+        };
+        return updated;
+      });
+
+      closeTooltip();
+
+      // Update Firestore in the background
+      const messageRef = doc(db, 'messages', messageId);
+      await updateDoc(messageRef, { reactions: updatedReactions });
+    } catch (error) {
+      console.error('Error adding emoji reaction:', error);
+      
+      // Revert optimistic update on error
+      const messageIndex = messages.findIndex(m => m.id === messageTooltip?.id);
+      if (messageIndex !== -1) {
+        setMessages(prev => {
+          const updated = [...prev];
+          // Restore original reactions from messageTooltip or keep current
+          const originalMessage = messages[messageIndex];
+          updated[messageIndex] = {
+            ...updated[messageIndex],
+            reactions: originalMessage.reactions || {},
+          };
+          return updated;
+        });
+      }
+      
+      closeTooltip();
+    }
+  };
+
+  // Close tooltip
+  const closeTooltip = () => {
+    setMessageTooltip(null);
+    setShowEmojiPicker(false);
+  };
+
+  // Open emoji picker from tooltip
+  const openEmojiPicker = () => {
+    setShowEmojiPicker(true);
+  };
+
+  // Cancel reply
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  // Scroll to bottom
+  const scrollToBottom = () => {
+    if (flatListRef.current && messages.length > 0) {
+      flatListRef.current.scrollToIndex({
+        index: 0,
+        animated: true,
+      });
+      setShowScrollToBottom(false);
+    }
+  };
+
+  // Handle scroll event to show/hide scroll to bottom button and trigger bidirectional loading
+  const handleScroll = (event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+    
+    // Show button when scrolled up more than 200 pixels
+    setShowScrollToBottom(offsetY > 200);
+    
+    // Load newer messages when scrolling near the top (if we jumped to a message)
+    if (isJumpedToMessage.current && offsetY < 100 && hasNewerMessages && !loadingMore) {
+      console.log('📥 Near top, loading newer messages...');
+      loadNewerMessages();
+    }
+  };
+
   // Send a message: create message doc and update chat metadata
-  const sendMessage = async (text, isListing = false, listingId = null, imageUrl = null, imageUrls = null) => {
+  const sendMessage = async (text, isListing = false, listingId = null, imageUrl = null, imageUrls = null, replyTo = null) => {
     if (!id) {
       return;
     }
@@ -269,6 +668,16 @@ const ChatScreen = ({navigation, route}) => {
     // Must have either text, single image, or multiple images
     if (!text?.trim() && !imageUrl && (!imageUrls || imageUrls.length === 0)) return;
 
+    // Sanitize replyTo to ensure no undefined values
+    const sanitizedReplyTo = replyTo ? {
+      messageId: replyTo.messageId || replyTo.id || null, // Use messageId or id field
+      senderId: replyTo.senderId || null,
+      senderName: replyTo.senderName || null,
+      text: replyTo.text || null,
+      imageUrl: replyTo.imageUrl || null,
+      imageUrls: replyTo.imageUrls || null,
+    } : null;
+
     const optimisticId = `temp-${Date.now()}-${Math.random()}`;
     const newMsg = {
       id: optimisticId,
@@ -280,6 +689,7 @@ const ChatScreen = ({navigation, route}) => {
       listingId,
       imageUrl: imageUrl || null,
       imageUrls: imageUrls || null,
+      replyTo: sanitizedReplyTo, // Add reply information
       optimistic: true, // Flag for optimistic message
     };
 
@@ -297,7 +707,13 @@ const ChatScreen = ({navigation, route}) => {
         listingId,
         imageUrl: imageUrl || null,
         imageUrls: imageUrls || null,
+        replyTo: sanitizedReplyTo, // Add reply information
       });
+
+      // Clear reply state after sending
+      if (replyTo) {
+        setReplyingTo(null);
+      }
 
       // Replace optimistic message with real one
       // Check if real-time listener already added it
@@ -346,7 +762,7 @@ const ChatScreen = ({navigation, route}) => {
   };
 
   // Send an image: upload image first, then send message
-  const sendImage = async (imageUris, text = '') => {
+  const sendImage = async (imageUris, text = '', replyTo = null) => {
     if (!id) {
       return;
     }
@@ -362,6 +778,16 @@ const ChatScreen = ({navigation, route}) => {
       const urisArray = Array.isArray(imageUris) ? imageUris : [imageUris];
       const textToSend = text?.trim() || '';
       
+      // Sanitize replyTo to ensure no undefined values
+      const sanitizedReplyTo = replyTo ? {
+        messageId: replyTo.messageId || replyTo.id || null, // Use messageId or id field
+        senderId: replyTo.senderId || null,
+        senderName: replyTo.senderName || null,
+        text: replyTo.text || null,
+        imageUrl: replyTo.imageUrl || null,
+        imageUrls: replyTo.imageUrls || null,
+      } : null;
+      
       // Create optimistic message with local image URIs and text immediately
       const optimisticId = `temp-${Date.now()}-${Math.random()}`;
       const optimisticMsg = {
@@ -374,6 +800,7 @@ const ChatScreen = ({navigation, route}) => {
         listingId: null,
         imageUrl: null,
         imageUrls: urisArray, // Use local URIs for immediate display
+        replyTo: sanitizedReplyTo, // Add reply information
         optimistic: true,
       };
 
@@ -404,7 +831,13 @@ const ChatScreen = ({navigation, route}) => {
         listingId: null,
         imageUrl: null,
         imageUrls: imageUrls,
+        replyTo: sanitizedReplyTo, // Add reply information
       });
+
+      // Clear reply state after sending
+      if (replyTo) {
+        setReplyingTo(null);
+      }
 
       // Replace optimistic message with real one
       // Check if real-time listener already added it
@@ -576,8 +1009,11 @@ const ChatScreen = ({navigation, route}) => {
     try {
       setLoading(true);
       setMessages([]);
-      setHasMoreMessages(true);
+      setHasOlderMessages(true);
+      setHasNewerMessages(false);
       lastMessageRef.current = null;
+      firstMessageRef.current = null;
+      isJumpedToMessage.current = false;
 
       const messagesRef = collection(db, 'messages');
       const initialQuery = query(
@@ -591,16 +1027,20 @@ const ChatScreen = ({navigation, route}) => {
       const messagesFirestore = snapshot.docs.map(doc => ({
         id: doc.id,
         chatId: id,
+        reactions: doc.data().reactions || {},
         ...doc.data(),
       }));
 
-      // Store the last document for pagination
+      // Store the first and last documents for bidirectional pagination
       if (snapshot.docs.length > 0) {
-        lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
-        // If we got less than 10, there are no more messages
-        setHasMoreMessages(snapshot.docs.length === 10);
+        firstMessageRef.current = snapshot.docs[0]; // Most recent message
+        lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1]; // Oldest message
+        // If we got less than 10, there are no more older messages
+        setHasOlderMessages(snapshot.docs.length === 10);
+        setHasNewerMessages(false); // No newer messages on initial load (these are the latest)
       } else {
-        setHasMoreMessages(false);
+        setHasOlderMessages(false);
+        setHasNewerMessages(false);
       }
 
       // Remove duplicates based on message ID
@@ -632,10 +1072,18 @@ const ChatScreen = ({navigation, route}) => {
             };
 
             // Only add if it's not already in messages (avoid duplicates)
+            // Also update existing messages if reactions changed
             setMessages(prev => {
-              const exists = prev.some(msg => msg.id === newMessage.id);
-              if (exists) {
-                return prev; // Message already exists
+              const existingIndex = prev.findIndex(msg => msg.id === newMessage.id);
+              if (existingIndex !== -1) {
+                // Update existing message (for reaction updates)
+                const updated = [...prev];
+                updated[existingIndex] = {
+                  ...updated[existingIndex],
+                  ...newMessage,
+                  reactions: newMessage.reactions || updated[existingIndex].reactions || {},
+                };
+                return updated;
               }
               
               // Check if there's an optimistic message with matching content that should be replaced
@@ -652,12 +1100,18 @@ const ChatScreen = ({navigation, route}) => {
               if (optimisticIndex !== -1) {
                 // Replace optimistic message with real one
                 const updated = [...prev];
-                updated[optimisticIndex] = newMessage;
+                updated[optimisticIndex] = {
+                  ...newMessage,
+                  reactions: newMessage.reactions || {},
+                };
                 return updated;
               }
               
               // Add to beginning since we're using inverted list (newest first)
-              return [newMessage, ...prev];
+              return [{
+                ...newMessage,
+                reactions: newMessage.reactions || {},
+              }, ...prev];
             });
           }
         },
@@ -675,9 +1129,12 @@ const ChatScreen = ({navigation, route}) => {
     }
   };
 
-  // Load more previous messages (pagination)
+  // Load more previous messages (pagination) - scrolling UP (older messages)
   const loadMoreMessages = async () => {
-    if (!id || !hasMoreMessages || loadingMore || !lastMessageRef.current) {
+    console.log('📥 loadMoreMessages (older) called - hasOlderMessages:', hasOlderMessages, 'loadingMore:', loadingMore, 'lastMessageRef:', !!lastMessageRef.current);
+    
+    if (!id || !hasOlderMessages || loadingMore || !lastMessageRef.current) {
+      console.log('📥 loadMoreMessages early return:', { id: !!id, hasOlderMessages, loadingMore, lastMessageRef: !!lastMessageRef.current });
       return;
     }
 
@@ -700,24 +1157,182 @@ const ChatScreen = ({navigation, route}) => {
         ...doc.data(),
       }));
 
+      console.log('📥 loadMoreMessages fetched:', newMessages.length, 'older messages');
+
       if (snapshot.docs.length > 0) {
         lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
-        setHasMoreMessages(snapshot.docs.length === 10);
+        setHasOlderMessages(snapshot.docs.length === 10);
         
         // Append to end of messages (older messages), removing duplicates
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
           const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
+          console.log('📥 Adding', uniqueNewMessages.length, 'unique older messages. Total will be:', prev.length + uniqueNewMessages.length);
           return [...prev, ...uniqueNewMessages];
         });
       } else {
-        setHasMoreMessages(false);
+        console.log('📥 No more older messages found');
+        setHasOlderMessages(false);
       }
 
       setLoadingMore(false);
     } catch (error) {
-      console.error('Error loading more messages:', error);
+      console.error('❌ Error loading more messages:', error);
       setLoadingMore(false);
+    }
+  };
+
+  // Load newer messages (pagination) - scrolling DOWN (newer messages)
+  const loadNewerMessages = async () => {
+    console.log('📥 loadNewerMessages called - hasNewerMessages:', hasNewerMessages, 'loadingMore:', loadingMore, 'firstMessageRef:', !!firstMessageRef.current);
+    
+    if (!id || !hasNewerMessages || loadingMore || !firstMessageRef.current) {
+      console.log('📥 loadNewerMessages early return:', { id: !!id, hasNewerMessages, loadingMore, firstMessageRef: !!firstMessageRef.current });
+      return;
+    }
+
+    try {
+      setLoadingMore(true);
+
+      const messagesRef = collection(db, 'messages');
+      const newerQuery = query(
+        messagesRef,
+        where('chatId', '==', id),
+        orderBy('timestamp', 'asc'), // Reverse order to get newer messages
+        startAfter(firstMessageRef.current),
+        limit(10)
+      );
+
+      const snapshot = await getDocs(newerQuery);
+      const newMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        chatId: id,
+        ...doc.data(),
+      })).reverse(); // Reverse to maintain desc order
+
+      console.log('📥 loadNewerMessages fetched:', newMessages.length, 'newer messages');
+
+      if (snapshot.docs.length > 0) {
+        firstMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
+        setHasNewerMessages(snapshot.docs.length === 10);
+        
+        // Prepend to beginning of messages (newer messages), removing duplicates
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
+          console.log('📥 Adding', uniqueNewMessages.length, 'unique newer messages. Total will be:', prev.length + uniqueNewMessages.length);
+          return [...uniqueNewMessages, ...prev];
+        });
+      } else {
+        console.log('📥 No more newer messages found');
+        setHasNewerMessages(false);
+      }
+
+      setLoadingMore(false);
+    } catch (error) {
+      console.error('❌ Error loading newer messages:', error);
+      setLoadingMore(false);
+    }
+  };
+
+  // Load messages around a specific message (for reply navigation)
+  const loadMessagesAroundMessage = async (targetMessageId) => {
+    console.log('🎯 loadMessagesAroundMessage called for:', targetMessageId);
+    
+    if (!id || !targetMessageId) {
+      console.error('❌ Missing id or targetMessageId');
+      return false;
+    }
+
+    try {
+      setLoading(true);
+      
+      // 1. Fetch the target message directly
+      const targetMessageRef = doc(db, 'messages', targetMessageId);
+      const targetDoc = await getDoc(targetMessageRef);
+      
+      if (!targetDoc.exists()) {
+        console.error('❌ Target message not found');
+        return false;
+      }
+
+      const targetMessage = {
+        id: targetDoc.id,
+        chatId: id,
+        ...targetDoc.data(),
+      };
+
+      console.log('✅ Found target message:', targetMessage);
+
+      // 2. Fetch 10 messages after (newer than) the target message
+      const messagesCollection = collection(db, 'messages');
+      const newerQuery = query(
+        messagesCollection,
+        where('chatId', '==', id),
+        where('timestamp', '>', targetMessage.timestamp),
+        orderBy('timestamp', 'asc'),
+        limit(10)
+      );
+
+      const newerSnapshot = await getDocs(newerQuery);
+      const newerMessages = newerSnapshot.docs.map(doc => ({
+        id: doc.id,
+        chatId: id,
+        ...doc.data(),
+      }));
+
+      console.log('📥 Fetched', newerMessages.length, 'newer messages');
+
+      // 3. Fetch 5 messages before (older than) the target message for context
+      const olderQuery = query(
+        messagesCollection,
+        where('chatId', '==', id),
+        where('timestamp', '<', targetMessage.timestamp),
+        orderBy('timestamp', 'desc'),
+        limit(5)
+      );
+
+      const olderSnapshot = await getDocs(olderQuery);
+      const olderMessages = olderSnapshot.docs.map(doc => ({
+        id: doc.id,
+        chatId: id,
+        ...doc.data(),
+      }));
+
+      console.log('📥 Fetched', olderMessages.length, 'older messages for context');
+
+      // 4. Combine all messages: newer (reversed) + target + older
+      const allMessages = [
+        ...newerMessages.reverse(), // Newest first
+        targetMessage,
+        ...olderMessages, // Already in desc order
+      ];
+
+      // Remove duplicates
+      const uniqueMessages = allMessages.filter((msg, index, self) =>
+        index === self.findIndex(m => m.id === msg.id)
+      );
+
+      console.log('✅ Total unique messages:', uniqueMessages.length);
+
+      // 5. Set references for pagination
+      if (uniqueMessages.length > 0) {
+        firstMessageRef.current = await getDoc(doc(db, 'messages', uniqueMessages[0].id));
+        lastMessageRef.current = await getDoc(doc(db, 'messages', uniqueMessages[uniqueMessages.length - 1].id));
+      }
+
+      // 6. Update states
+      setMessages(uniqueMessages);
+      setHasNewerMessages(newerMessages.length === 10);
+      setHasOlderMessages(olderMessages.length === 5);
+      isJumpedToMessage.current = true;
+
+      setLoading(false);
+      return true;
+    } catch (error) {
+      console.error('❌ Error loading messages around target:', error);
+      setLoading(false);
+      return false;
     }
   };
 
@@ -991,10 +1606,38 @@ const ChatScreen = ({navigation, route}) => {
           }}
           onEndReached={loadMoreMessages}
           onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            loadingMore ? (
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onScrollToIndexFailed={(info) => {
+            // Handle scroll to index failure - wait a bit and try again
+            console.log('ScrollToIndex failed, retrying:', info);
+            const wait = new Promise(resolve => setTimeout(resolve, 500));
+            wait.then(() => {
+              try {
+                flatListRef.current?.scrollToIndex({ 
+                  index: info.index, 
+                  animated: true,
+                  viewPosition: 0.5,
+                });
+              } catch (e) {
+                console.log('Retry scrollToIndex also failed:', e);
+              }
+            });
+          }}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+          }}
+          ListHeaderComponent={
+            loadingMore && hasNewerMessages ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: '#666' }}>Loading more messages...</Text>
+                <Text style={{ color: '#666' }}>Loading newer messages...</Text>
+              </View>
+            ) : null
+          }
+          ListFooterComponent={
+            loadingMore && hasOlderMessages ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: '#666' }}>Loading older messages...</Text>
               </View>
             ) : null
           }
@@ -1051,7 +1694,6 @@ const ChatScreen = ({navigation, route}) => {
               // Priority 1: Get avatar from participantDataMap (fetched from Firestore - most reliable)
               if (participantDataMap[item.senderId]?.avatarUrl) {
                 senderAvatarUrl = participantDataMap[item.senderId].avatarUrl;
-                console.log(`✅ [ChatScreen] Using participantDataMap avatar for ${item.senderId}:`, senderAvatarUrl);
               }
               // Priority 2: Get avatar from avatarMap (for backward compatibility)
               else if (avatarMap[item.senderId]) {
@@ -1060,42 +1702,26 @@ const ChatScreen = ({navigation, route}) => {
                 } else if (typeof avatarMap[item.senderId] === 'string') {
                   senderAvatarUrl = avatarMap[item.senderId];
                 }
-                console.log(`✅ [ChatScreen] Using avatarMap for ${item.senderId}:`, senderAvatarUrl);
               }
               // Priority 3: Get avatar URL from sender in participants array
               else if (sender?.avatarUrl) {
                 if (typeof sender.avatarUrl === 'string' && sender.avatarUrl.trim() !== '') {
                   senderAvatarUrl = sender.avatarUrl;
-                  console.log(`✅ [ChatScreen] Using participant avatarUrl for ${item.senderId}:`, senderAvatarUrl);
                 } else if (typeof sender.avatarUrl === 'object' && sender.avatarUrl.uri) {
                   senderAvatarUrl = sender.avatarUrl.uri;
-                  console.log(`✅ [ChatScreen] Using participant avatarUrl.uri for ${item.senderId}:`, senderAvatarUrl);
                 }
               }
               // Priority 4: For private chats, try otherUserInfo as fallback
               else if (chatType === 'private' && otherUserInfo?.avatarUrl) {
                 if (typeof otherUserInfo.avatarUrl === 'string' && otherUserInfo.avatarUrl.trim() !== '') {
                   senderAvatarUrl = otherUserInfo.avatarUrl;
-                  console.log(`✅ [ChatScreen] Using otherUserInfo avatarUrl for ${item.senderId}:`, senderAvatarUrl);
                 } else if (typeof otherUserInfo.avatarUrl === 'object' && otherUserInfo.avatarUrl.uri) {
                   senderAvatarUrl = otherUserInfo.avatarUrl.uri;
-                  console.log(`✅ [ChatScreen] Using otherUserInfo avatarUrl.uri for ${item.senderId}:`, senderAvatarUrl);
                 }
               }
               
               if (chatType === 'group' && !senderName) {
                 senderName = 'Unknown';
-                console.log(`⚠️ [ChatScreen] No name found for sender ${item.senderId}`);
-              }
-              
-              if (!senderAvatarUrl) {
-                console.log(`⚠️ [ChatScreen] No avatar found for sender ${item.senderId}`);
-                console.log(`   - participantDataMap[${item.senderId}]:`, participantDataMap[item.senderId]);
-                console.log(`   - avatarMap[${item.senderId}]:`, avatarMap[item.senderId]);
-                console.log(`   - sender.avatarUrl:`, sender?.avatarUrl);
-                if (chatType === 'private') {
-                  console.log(`   - otherUserInfo.avatarUrl:`, otherUserInfo?.avatarUrl);
-                }
               }
             }
 
@@ -1118,6 +1744,13 @@ const ChatScreen = ({navigation, route}) => {
                 imageUrl={item.imageUrl || null}
                 imageUrls={item.imageUrls || null}
                 prevMessageHasStackedImages={prevMessageHasStackedImages || false}
+                replyTo={item.replyTo || null}
+                onMessageLongPress={handleMessageLongPress}
+                onReplyPress={handleReplyPress}
+                participantDataMap={participantDataMap}
+                messages={messages}
+                messageId={item.id}
+                reactions={item.reactions || null}
               />
             );
           }}
@@ -1139,13 +1772,135 @@ const ChatScreen = ({navigation, route}) => {
         />
       )}
 
+      {/* Scroll to Bottom Button */}
+      {showScrollToBottom && (
+        <TouchableOpacity 
+          style={styles.scrollToBottomButton}
+          onPress={scrollToBottom}
+          activeOpacity={0.8}
+        >
+          <View style={styles.scrollToBottomIcon}>
+            <Text style={styles.scrollToBottomArrow}>↓</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Finding Message Modal */}
+      <Modal
+        visible={findingMessage}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.findingMessageOverlay}>
+          <View style={styles.findingMessageContainer}>
+            <Animated.Text
+              style={[
+                styles.findingMessagePlant,
+                {
+                  transform: [{
+                    rotate: plantRotation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg']
+                    })
+                  }]
+                }
+              ]}
+            >
+              🌱
+            </Animated.Text>
+            <Text style={styles.findingMessageTitle}>Finding message</Text>
+            <Text style={styles.findingMessageSubtitle}>Please wait...</Text>
+          </View>
+        </View>
+      </Modal>
 
       {/* Input - Disabled for non-members */}
       <MessageInput 
-        onSend={sendMessage} 
-        onSendImage={sendImage}
+        onSend={(text) => sendMessage(text, false, null, null, null, replyingTo)} 
+        onSendImage={(images, text) => sendImage(images, text, replyingTo)}
         disabled={chatType === 'group' && !isMember}
+        replyingTo={replyingTo}
+        onCancelReply={cancelReply}
+        participantDataMap={participantDataMap}
       />
+
+      {/* Message Tooltip Modal - Two buttons: Emoji and Reply */}
+      {messageTooltip && !showEmojiPicker && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeTooltip}>
+          <TouchableOpacity
+            style={styles.tooltipOverlay}
+            activeOpacity={1}
+            onPress={closeTooltip}>
+            <View style={styles.tooltipContainer}>
+              <TouchableOpacity
+                style={styles.tooltipIconButton}
+                onPress={openEmojiPicker}>
+                <View style={styles.tooltipIconCircle}>
+                  <EmojiIcon width={24} height={24} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.tooltipIconButton}
+                onPress={handleReplyFromTooltip}>
+                <View style={styles.tooltipIconCircle}>
+                  <ReplyIcon width={24} height={24} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {/* Emoji Picker Modal */}
+      {messageTooltip && showEmojiPicker && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeTooltip}>
+          <TouchableOpacity
+            style={styles.tooltipOverlay}
+            activeOpacity={1}
+            onPress={closeTooltip}>
+            <View style={styles.emojiPickerContainer}>
+              <TouchableOpacity
+                style={styles.emojiPickerButton}
+                onPress={() => handleEmojiReaction('❤️')}>
+                <Text style={styles.emojiPickerEmoji}>❤️</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emojiPickerButton}
+                onPress={() => handleEmojiReaction('😂')}>
+                <Text style={styles.emojiPickerEmoji}>😂</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emojiPickerButton}
+                onPress={() => handleEmojiReaction('😮')}>
+                <Text style={styles.emojiPickerEmoji}>😮</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emojiPickerButton}
+                onPress={() => handleEmojiReaction('😢')}>
+                <Text style={styles.emojiPickerEmoji}>😢</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emojiPickerButton}
+                onPress={() => handleEmojiReaction('😡')}>
+                <Text style={styles.emojiPickerEmoji}>😡</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emojiPickerButton}
+                onPress={() => handleEmojiReaction('👍')}>
+                <Text style={styles.emojiPickerEmoji}>👍</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1216,6 +1971,68 @@ const styles = StyleSheet.create({
   chatBrowseMoreContainer: {
     marginBottom: 0,
   },
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tooltipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 8,
+  },
+  tooltipIconButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tooltipIconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  tooltipEmojiIcon: {
+    fontSize: 24,
+    color: '#FFFFFF',
+  },
+  tooltipReplyIcon: {
+    fontSize: 24,
+    color: '#FFFFFF',
+  },
+  emojiPickerContainer: {
+    backgroundColor: 'rgba(60, 60, 60, 0.95)',
+    borderRadius: 24,
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  emojiPickerButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 22,
+  },
+  emojiPickerEmoji: {
+    fontSize: 32,
+  },
   skeletonRow: {
     height: 36,
     marginBottom: 12,
@@ -1244,6 +2061,68 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 12,
+  },
+  scrollToBottomButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 100,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  scrollToBottomIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0FA958',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollToBottomArrow: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  findingMessageOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  findingMessageContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    minWidth: 240,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  findingMessagePlant: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  findingMessageTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  findingMessageSubtitle: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 
