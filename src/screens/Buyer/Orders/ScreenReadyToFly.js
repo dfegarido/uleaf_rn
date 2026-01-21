@@ -12,7 +12,7 @@ import { getBuyerOrdersApi, exportBuyerOrdersApi } from '../../../components/Api
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 
-const READY_TO_FLY_LIMIT = 200;
+const READY_TO_FLY_LIMIT = 4;
 
 const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const route = useRoute();
@@ -31,11 +31,16 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
   const browseMorePlantsRef = React.useRef(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
 
   // Load orders from API
-  const loadOrders = useCallback(async (isRefresh = false) => {
+  const loadOrders = async (isRefresh = false, append = false) => {
     try {
-      if (!isRefresh) {
+      if (append) {
+        setLoadingMore(hasMore);
+      } else if (!isRefresh) {
         setLoading(true);
       }
       setError(null);
@@ -46,11 +51,12 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       }
 
       // Fetch Ready to Fly orders with an elevated limit so all plants are returned
+      const limit = READY_TO_FLY_LIMIT;
       const params = {
         status: "Ready to Fly",
         includeDetails: true,
-        limit: READY_TO_FLY_LIMIT,
-        offset: 0,
+        limit,
+        offset: append ? (page + 1) * limit : 0,
       };
 
       console.log('🔍 Loading Ready to Fly orders');
@@ -59,6 +65,8 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       if (!response.success) {
         throw new Error(response.error || 'Failed to load orders');
       }
+
+      setHasMore(response.data?.data?.pagination?.hasMore || false);
       
       // New API returns a flattened plants[] array where each plant contains its order metadata
       const plantsData = response.data?.data?.plants || [];
@@ -66,8 +74,6 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
 
       // Transform plant-level API data to component expected format
       const transformedOrders = plantsData.map(plant => transformPlantToComponentFormat(plant));
-      
-      setAllOrders(transformedOrders);
       
       // Extract unique buyers from orders and notify parent
       if (onBuyersLoaded) {
@@ -124,7 +130,17 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       }
       
       // Apply filter if provided
-      applyPlantOwnerFilter(transformedOrders, plantOwnerFilter);
+
+      if (append) {
+        const updatedAllOrders = [...allOrders, ...transformedOrders];
+        setAllOrders(updatedAllOrders);
+        applyPlantOwnerFilter(updatedAllOrders, plantOwnerFilter);
+        setPage(prev => prev + 1);
+      } else {
+        setAllOrders(transformedOrders);
+        applyPlantOwnerFilter(transformedOrders, plantOwnerFilter);
+        setPage(0);
+      }
 
     } catch (error) {
       console.error('Error loading Ready to Fly orders:', error);
@@ -132,11 +148,12 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       if (isRefresh) {
         setRefreshing(false);
       }
     }
-  }, []);
+  };
 
   // Transform API plant-level data to component expected format
   const transformPlantToComponentFormat = (plant) => {
@@ -258,7 +275,7 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   // Load orders when component mounts
   useEffect(() => {
     loadOrders();
-  }, [loadOrders]);
+  }, []);
 
   // Listen for refresh parameter
   useEffect(() => {
@@ -272,6 +289,12 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadOrders(true);
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    
+    await loadOrders(false, true);
   };
 
   const handleExportToExcel = async () => {
@@ -334,10 +357,17 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
           scrollEventThrottle={400}
           onScroll={(event) => {
             const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-            
+            const paddingToBottom = 600;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
             // Trigger load more plants when very close to bottom (within 200px)
             const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
             
+            // Load more orders when scrolling near bottom
+            if (isCloseToBottom && !loadingMore && !refreshing) {
+              console.log('📦 ScreenPayToBoard: User is near bottom, loading more orders');
+              handleLoadMore();
+            }
+
             if (distanceFromBottom <= 200 && browseMorePlantsRef?.current) {
               browseMorePlantsRef.current.handleLoadMore();
             }
@@ -425,15 +455,23 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
           )}
           </View>
 
+          {loadingMore && (
+                      <View style={{paddingHorizontal: 0, marginTop: 12}}>
+                        {Array.from({length: READY_TO_FLY_LIMIT}).map((_, i) => (
+                          <OrderItemCardSkeleton key={`load-more-skel-${i}`} />
+                        ))}
+                      </View>
+                    )}
+
           {/* Browse More Plants Component */}
-          <BrowseMorePlants 
+          {/* <BrowseMorePlants 
             ref={browseMorePlantsRef}
             title="More from our Jungle"
             initialLimit={8}
             loadMoreLimit={8}
             showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
-          />
+          /> */}
 
           
         </ScrollView>
