@@ -35,6 +35,7 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const browseMorePlantsRef = React.useRef(null);
+  const [hasMore, setHasMore] = useState(false);
 
   // Apply plant owner filter
   const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
@@ -56,7 +57,7 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const loadOrders = async (isRefresh = false, append = false) => {
     try {
       if (append) {
-        setLoadingMore(true);
+        setLoadingMore(hasMore);
       } else if (!isRefresh) {
         setLoading(true);
       }
@@ -85,6 +86,8 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
       if (!response.success) {
         throw new Error(response.error || 'Failed to load Journey Mishap data');
       }
+
+      setHasMore(response.data?.data?.hasMore || false);
 
       // Support both response formats:
       // 1. Legacy: response.data.data.creditRequests (array of credit requests with linked order/listing details)
@@ -661,14 +664,14 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
           )}
 
           {/* Browse More Plants Component */}
-          <BrowseMorePlants 
+          {/* <BrowseMorePlants 
             ref={browseMorePlantsRef}
             title="More from our Jungle"
             initialLimit={8}
             loadMoreLimit={8}
             showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
-          />
+          /> */}
         </ScrollView>
       )}
     </SafeAreaView>
