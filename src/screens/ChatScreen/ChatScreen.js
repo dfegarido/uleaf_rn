@@ -1145,7 +1145,6 @@ const ChatScreen = ({navigation, route}) => {
         onSend={sendMessage} 
         onSendImage={sendImage}
         disabled={chatType === 'group' && !isMember}
-        isPrivateChat={chatType === 'private'}
       />
       </KeyboardAvoidingView>
     </SafeAreaView>

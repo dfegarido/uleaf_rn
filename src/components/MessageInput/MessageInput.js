@@ -3,7 +3,7 @@ import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityInd
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import ImageIcon from '../../assets/iconchat/image.svg';
 
-const MessageInput = ({onSend, onSendImage, disabled = false, isPrivateChat = false}) => {
+const MessageInput = ({onSend, onSendImage, disabled = false}) => {
   const [message, setMessage] = useState('');
   const [inputHeight, setInputHeight] = useState(40); // Initial height
   const [previewImages, setPreviewImages] = useState([]); // Array of local URIs for preview
@@ -173,15 +173,13 @@ const MessageInput = ({onSend, onSendImage, disabled = false, isPrivateChat = fa
       
       <View style={styles.inputRow}>
         {/* Gallery/Image Button - Left side */}
-        {isPrivateChat && (
-          <TouchableOpacity
-            onPress={handleImagePicker}
-            onLongPress={handleImagePickerLongPress}
-            style={[styles.iconButton, disabled && styles.iconButtonDisabled]}
-            disabled={disabled}>
-            <ImageIcon width={28} height={28} color={disabled ? "#8E8E93" : "#0084FF"} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={handleImagePicker}
+          onLongPress={handleImagePickerLongPress}
+          style={[styles.iconButton, disabled && styles.iconButtonDisabled]}
+          disabled={disabled}>
+          <ImageIcon width={28} height={28} color={disabled ? "#8E8E93" : "#0084FF"} />
+        </TouchableOpacity>
         
         {/* Text Input - Center */}
         <View style={styles.inputContainer}>
