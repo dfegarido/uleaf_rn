@@ -148,7 +148,7 @@ const Avatar = forwardRef(({size = 40, imageUri, onPress, style, rounded = true}
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      // onPress={handlePress}
+      onPress={handlePress}
       style={containerStyle}
       accessible
       accessibilityLabel="User avatar">

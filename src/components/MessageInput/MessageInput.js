@@ -3,10 +3,17 @@ import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityInd
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import ImageIcon from '../../assets/iconchat/image.svg';
 
-const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}}) => {
+const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, editingMessage = null, onCancelEdit = null, onSaveEdit = null}) => {
   const [message, setMessage] = useState('');
   const [inputHeight, setInputHeight] = useState(40); // Initial height
   const [previewImages, setPreviewImages] = useState([]); // Array of local URIs for preview
+
+  // Sync message state with editingMessage
+  React.useEffect(() => {
+    if (editingMessage) {
+      setMessage(editingMessage.text || '');
+    }
+  }, [editingMessage]);
   
   // Show send button when there's text or image previews
   const hasText = message.trim().length > 0;
@@ -14,6 +21,21 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
 
   const handleSend = () => {
     if (disabled) return;
+
+    // If editing mode, save the edit
+    if (editingMessage) {
+      const textToSend = message.trim();
+      if (!textToSend) {
+        Alert.alert('Error', 'Message cannot be empty');
+        return;
+      }
+      if (onSaveEdit) {
+        onSaveEdit(textToSend);
+        setMessage('');
+        setInputHeight(40);
+      }
+      return;
+    }
 
     const textToSend = message.trim();
     const hasImages = previewImages.length > 0;
@@ -185,8 +207,21 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
 
   return (
     <View style={styles.container}>
-      {/* Reply Preview - Above input bar */}
-      {replyingTo && (
+      {/* Edit Mode Indicator - Above input bar */}
+      {editingMessage && (
+        <View style={styles.editModeContainer}>
+          <View style={styles.editModeContent}>
+            <Text style={styles.editModeIcon}>✏️</Text>
+            <Text style={styles.editModeText}>Editing message</Text>
+            <TouchableOpacity onPress={onCancelEdit} style={styles.editCancelButton}>
+              <Text style={styles.editCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Reply Preview - Above input bar (hidden during edit mode) */}
+      {replyingTo && !editingMessage && (
         <View style={styles.replyPreviewContainer}>
           <View style={styles.replyPreviewContent}>
             <View style={styles.replyPreviewBar} />
@@ -201,8 +236,8 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
         </View>
       )}
       
-      {/* Image Previews - Above input bar */}
-      {previewImages.length > 0 && (
+      {/* Image Previews - Above input bar (hidden during edit mode) */}
+      {previewImages.length > 0 && !editingMessage && (
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -228,14 +263,16 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
       )}
       
       <View style={styles.inputRow}>
-        {/* Gallery/Image Button - Left side */}
-        <TouchableOpacity
-          onPress={handleImagePicker}
-          onLongPress={handleImagePickerLongPress}
-          style={[styles.iconButton, disabled && styles.iconButtonDisabled]}
-          disabled={disabled}>
-          <ImageIcon width={28} height={28} color={disabled ? "#8E8E93" : "#0084FF"} />
-        </TouchableOpacity>
+        {/* Gallery/Image Button - Left side (hidden during edit mode) */}
+        {!editingMessage && (
+          <TouchableOpacity
+            onPress={handleImagePicker}
+            onLongPress={handleImagePickerLongPress}
+            style={[styles.iconButton, disabled && styles.iconButtonDisabled]}
+            disabled={disabled}>
+            <ImageIcon width={28} height={28} color={disabled ? "#8E8E93" : "#539461"} />
+          </TouchableOpacity>
+        )}
         
         {/* Text Input - Center */}
         <View style={styles.inputContainer}>
@@ -254,13 +291,13 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
           />
         </View>
         
-        {/* Send Button - Right side (always visible) */}
+        {/* Save/Send Button - Right side (always visible) */}
         <TouchableOpacity
           onPress={handleSend}
           style={[styles.sendButton, (disabled || !hasContent) && styles.sendButtonDisabled]}
           disabled={disabled || !hasContent}>
-          <View style={styles.sendButtonCircle}>
-            <Text style={styles.sendIcon}>➤</Text>
+          <View style={[styles.sendButtonCircle, editingMessage && styles.editSaveButton]}>
+            <Text style={styles.sendIcon}>{editingMessage ? '✓' : '➤'}</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -287,12 +324,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#0084FF',
+    borderLeftColor: '#539461', // Theme green color
   },
   replyPreviewBar: {
     width: 3,
     height: 40,
-    backgroundColor: '#0084FF',
+    backgroundColor: '#539461', // Theme green color
     borderRadius: 2,
     marginRight: 8,
   },
@@ -302,7 +339,7 @@ const styles = StyleSheet.create({
   replyPreviewSenderName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0084FF',
+    color: '#539461', // Theme green color
     marginBottom: 2,
   },
   replyPreviewText: {
@@ -418,7 +455,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#0084FF',
+    backgroundColor: '#539461', // Theme green color (same as chat bubble)
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -429,6 +466,42 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.4,
+  },
+  editModeContainer: {
+    marginBottom: 8,
+    marginHorizontal: 4,
+  },
+  editModeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FFC107',
+  },
+  editModeIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  editModeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#856404',
+  },
+  editCancelButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  editCancelText: {
+    fontSize: 13,
+    color: '#856404',
+    fontWeight: '600',
+  },
+  editSaveButton: {
+    backgroundColor: '#28A745', // Green for save/checkmark
   },
 });
 

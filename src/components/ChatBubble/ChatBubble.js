@@ -5,7 +5,7 @@ import ListingMessage from '../../screens/ChatScreen/ListingMessage';
 
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 
-const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions }) => {
+const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions, isEdited = false, lastEditedAt = null, editHistory = [], onViewEditHistory }) => {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
@@ -301,7 +301,20 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
             
             {/* Render text only for text-only messages (no images) */}
             {!isListing && images.length === 0 && text && text.trim().length > 0 && (
-              <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>
+              <View>
+                <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>
+                {/* Edited indicator */}
+                {isEdited && (
+                  <TouchableOpacity 
+                    onPress={() => {
+                      console.log('📝 Edited label tapped:', { messageId, isEdited, editHistory });
+                      onViewEditHistory && onViewEditHistory({ id: messageId, text, isEdited, lastEditedAt, editHistory });
+                    }}
+                    activeOpacity={0.7}>
+                    <Text style={styles.editedLabel}>Edited</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
             
             {/* Render caption below images if there's text with images */}
@@ -313,6 +326,14 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                 images.length > 1 && styles.imageCaptionWithStacked
               ]}>
                 <Text style={[isMe ? styles.myText : styles.text, styles.imageCaption]}>{text}</Text>
+                {/* Edited indicator */}
+                {isEdited && (
+                  <TouchableOpacity 
+                    onPress={() => onViewEditHistory && onViewEditHistory({ id: messageId, text, isEdited, lastEditedAt, editHistory })}
+                    activeOpacity={0.7}>
+                    <Text style={styles.editedLabel}>Edited</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
             
@@ -944,6 +965,14 @@ const styles = StyleSheet.create({
   },
   reactionsModalUserEmoji: {
     fontSize: 24,
+  },
+  editedLabel: {
+    fontSize: 12,
+    color: '#B8B8B8', // Lighter gray for better visibility
+    fontStyle: 'italic',
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    fontWeight: '500',
   },
 });
 

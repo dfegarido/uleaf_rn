@@ -16,7 +16,7 @@ import {
   where
 } from 'firebase/firestore';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { db } from '../../../firebase';
@@ -44,6 +44,15 @@ const EmojiIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
     />
     <Path
       d="M10 .5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0z"
+    />
+  </Svg>
+);
+
+// Edit Icon SVG Component
+const EditIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
+  <Svg width={width} height={height} viewBox="0 0 16 16" fill={color}>
+    <Path
+      d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
     />
   </Svg>
 );
@@ -79,6 +88,9 @@ const ChatScreen = ({navigation, route}) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Show emoji picker modal
   const [showScrollToBottom, setShowScrollToBottom] = useState(false); // Show scroll to bottom button
   const [findingMessage, setFindingMessage] = useState(false); // Show finding message modal
+  const [editingMessage, setEditingMessage] = useState(null); // Message being edited
+  const [editHistoryVisible, setEditHistoryVisible] = useState(false); // Edit history modal
+  const [selectedMessageHistory, setSelectedMessageHistory] = useState(null); // Message for history view
   const plantRotation = useRef(new Animated.Value(0)).current;
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
@@ -354,6 +366,13 @@ const ChatScreen = ({navigation, route}) => {
     setMessageTooltip(messageData);
   };
 
+  // Handle edit from tooltip
+  const handleEditFromTooltip = () => {
+    if (messageTooltip) {
+      startEditMessage(messageTooltip);
+    }
+  };
+
   // Update messagesRef whenever messages changes
   useEffect(() => {
     messagesRef.current = messages;
@@ -624,6 +643,110 @@ const ChatScreen = ({navigation, route}) => {
   // Cancel reply
   const cancelReply = () => {
     setReplyingTo(null);
+  };
+
+  // Start editing a message
+  const startEditMessage = (message) => {
+    if (message.senderId !== currentUserUid) {
+      Alert.alert('Cannot edit', 'You can only edit your own messages.');
+      return;
+    }
+    
+    // Check if message is too old (optional: 48 hours limit)
+    // const messageTime = message.timestamp?.toDate?.() || new Date(message.timestamp);
+    // const hoursSinceMessage = (Date.now() - messageTime.getTime()) / (1000 * 60 * 60);
+    // if (hoursSinceMessage > 48) {
+    //   Alert.alert('Cannot edit', 'Messages can only be edited within 48 hours.');
+    //   return;
+    // }
+    
+    setEditingMessage(message);
+    setMessageTooltip(null);
+  };
+
+  // Cancel editing
+  const cancelEdit = () => {
+    setEditingMessage(null);
+  };
+
+  // Save edited message
+  const saveEditedMessage = async (newText) => {
+    if (!editingMessage || !id) return;
+    
+    const trimmedText = newText?.trim();
+    if (!trimmedText) {
+      Alert.alert('Error', 'Message cannot be empty');
+      return;
+    }
+    
+    if (trimmedText === editingMessage.text) {
+      // No changes, just cancel
+      cancelEdit();
+      return;
+    }
+
+    try {
+      // Optimistic update
+      const editedAt = Timestamp.now();
+      const updatedMessages = messages.map(msg => {
+        if (msg.id === editingMessage.id) {
+          return {
+            ...msg,
+            text: trimmedText,
+            isEdited: true,
+            lastEditedAt: editedAt,
+            editHistory: [
+              ...(msg.editHistory || []),
+              {
+                text: msg.text, // Store previous version
+                editedAt: editedAt,
+                editedBy: currentUserUid,
+              }
+            ]
+          };
+        }
+        return msg;
+      });
+      
+      setMessages(updatedMessages);
+      cancelEdit();
+
+      // Update Firestore
+      const messageRef = doc(db, 'messages', editingMessage.id);
+      await updateDoc(messageRef, {
+        text: trimmedText,
+        isEdited: true,
+        lastEditedAt: editedAt,
+        editHistory: [
+          ...(editingMessage.editHistory || []),
+          {
+            text: editingMessage.text,
+            editedAt: editedAt,
+            editedBy: currentUserUid,
+          }
+        ]
+      });
+
+      console.log('✅ Message edited successfully', {
+        messageId: editingMessage.id,
+        isEdited: true,
+        historyCount: (editingMessage.editHistory || []).length + 1
+      });
+    } catch (error) {
+      console.error('❌ Error editing message:', error);
+      // Revert optimistic update
+      setMessages(messages);
+      Alert.alert('Error', 'Failed to edit message. Please try again.');
+    }
+  };
+
+  // View edit history
+  const viewEditHistory = (message) => {
+    if (!message.isEdited || !message.editHistory || message.editHistory.length === 0) {
+      return;
+    }
+    setSelectedMessageHistory(message);
+    setEditHistoryVisible(true);
   };
 
   // Scroll to bottom
@@ -1747,6 +1870,10 @@ const ChatScreen = ({navigation, route}) => {
                 replyTo={item.replyTo || null}
                 onMessageLongPress={handleMessageLongPress}
                 onReplyPress={handleReplyPress}
+                isEdited={item.isEdited || false}
+                lastEditedAt={item.lastEditedAt || null}
+                editHistory={item.editHistory || []}
+                onViewEditHistory={viewEditHistory}
                 participantDataMap={participantDataMap}
                 messages={messages}
                 messageId={item.id}
@@ -1822,9 +1949,12 @@ const ChatScreen = ({navigation, route}) => {
         replyingTo={replyingTo}
         onCancelReply={cancelReply}
         participantDataMap={participantDataMap}
+        editingMessage={editingMessage}
+        onCancelEdit={cancelEdit}
+        onSaveEdit={saveEditedMessage}
       />
 
-      {/* Message Tooltip Modal - Two buttons: Emoji and Reply */}
+      {/* Message Tooltip Modal - Three buttons: Emoji, Reply, and Edit (for own messages) */}
       {messageTooltip && !showEmojiPicker && (
         <Modal
           visible={true}
@@ -1850,6 +1980,16 @@ const ChatScreen = ({navigation, route}) => {
                   <ReplyIcon width={24} height={24} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
+              {/* Show Edit button only for own messages */}
+              {messageTooltip.senderId === currentUserUid && !messageTooltip.isListing && (
+                <TouchableOpacity
+                  style={styles.tooltipIconButton}
+                  onPress={handleEditFromTooltip}>
+                  <View style={styles.tooltipIconCircle}>
+                    <EditIcon width={24} height={24} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableOpacity>
         </Modal>
@@ -1899,6 +2039,63 @@ const ChatScreen = ({navigation, route}) => {
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
+        </Modal>
+      )}
+
+      {/* Edit History Modal */}
+      {editHistoryVisible && selectedMessageHistory && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setEditHistoryVisible(false)}>
+          <View style={styles.editHistoryModalOverlay}>
+            <View style={styles.editHistoryModalContent}>
+              {/* Header */}
+              <View style={styles.editHistoryHeader}>
+                <Text style={styles.editHistoryTitle}>Edit History</Text>
+                <TouchableOpacity
+                  onPress={() => setEditHistoryVisible(false)}
+                  style={styles.editHistoryCloseButton}>
+                  <Text style={styles.editHistoryCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Current Version */}
+              <View style={styles.editHistorySection}>
+                <Text style={styles.editHistorySectionTitle}>Current version</Text>
+                <View style={styles.editHistoryItem}>
+                  <Text style={styles.editHistoryText}>{selectedMessageHistory.text}</Text>
+                  <Text style={styles.editHistoryTimestamp}>
+                    {selectedMessageHistory.lastEditedAt?.toDate 
+                      ? new Date(selectedMessageHistory.lastEditedAt.toDate()).toLocaleString()
+                      : 'Just now'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Previous Versions */}
+              {selectedMessageHistory.editHistory && selectedMessageHistory.editHistory.length > 0 && (
+                <View style={styles.editHistorySection}>
+                  <Text style={styles.editHistorySectionTitle}>
+                    Previous versions ({selectedMessageHistory.editHistory.length})
+                  </Text>
+                  <ScrollView style={styles.editHistoryScrollView}>
+                    {selectedMessageHistory.editHistory.map((historyItem, index) => (
+                      <View key={index} style={styles.editHistoryItem}>
+                        <Text style={styles.editHistoryText}>{historyItem.text}</Text>
+                        <Text style={styles.editHistoryTimestamp}>
+                          {historyItem.editedAt?.toDate 
+                            ? new Date(historyItem.editedAt.toDate()).toLocaleString()
+                            : 'Unknown time'}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
         </Modal>
       )}
       </KeyboardAvoidingView>
@@ -2080,13 +2277,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#0FA958',
+    backgroundColor: '#539461', // Same color as chat bubble background
     justifyContent: 'center',
     alignItems: 'center',
   },
   scrollToBottomArrow: {
     fontSize: 24,
-    color: '#FFFFFF',
+    color: '#FFFFFF', // White arrow
     fontWeight: 'bold',
   },
   findingMessageOverlay: {
@@ -2123,6 +2320,76 @@ const styles = StyleSheet.create({
   findingMessageSubtitle: {
     fontSize: 14,
     color: '#666',
+  },
+  editHistoryModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  editHistoryModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '80%',
+  },
+  editHistoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E6EB',
+  },
+  editHistoryTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#050505',
+  },
+  editHistoryCloseButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editHistoryCloseText: {
+    fontSize: 24,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  editHistorySection: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  editHistorySectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  editHistoryScrollView: {
+    maxHeight: 400,
+  },
+  editHistoryItem: {
+    backgroundColor: '#F0F2F5',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  editHistoryText: {
+    fontSize: 15,
+    color: '#050505',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  editHistoryTimestamp: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
   },
 });
 
