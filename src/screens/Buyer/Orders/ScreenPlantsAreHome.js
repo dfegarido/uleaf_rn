@@ -36,6 +36,7 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
   const browseMorePlantsRef = React.useRef(null);
+  const [hasMore, setHasMore] = useState(false);
   
   // Optimistic credit requests state - tracks plantCode+orderId combinations
   const [optimisticCreditRequests, setOptimisticCreditRequests] = useState(new Set());
@@ -70,7 +71,7 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const loadOrders = async (isRefresh = false, append = false) => {
     try {
       if (append) {
-        setLoadingMore(true);
+        setLoadingMore(hasMore);
       } else if (!isRefresh) {
         setLoading(true);
       }
@@ -100,6 +101,7 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
       // 2. New: response.data.data.plants (array of plants with embedded order)
       const plantsData = response.data?.data?.plants || [];
       const ordersData = response.data?.data?.orders || [];
+      setHasMore(response.data?.data?.pagination?.hasMore || false);
       
       console.log('API Response Structure:', {
         hasPlants: plantsData.length > 0,
@@ -628,14 +630,14 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
           )}
 
           {/* Browse More Plants Component */}
-          <BrowseMorePlants 
+          {/* <BrowseMorePlants 
             ref={browseMorePlantsRef}
             title="More from our Jungle"
             initialLimit={8}
             loadMoreLimit={8}
             showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 32}}
-          />
+          /> */}
 
           
         </ScrollView>

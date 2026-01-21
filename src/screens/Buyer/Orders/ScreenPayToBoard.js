@@ -45,6 +45,7 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const [payingTransaction, setPayingTransaction] = useState(null);
   const [vaultedPaymentId, setVaultedPaymentId] = useState(null);
   const [vaultedPaymentUsername, setVaultedPaymentUsername] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -97,7 +98,7 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const loadOrders = async (isRefresh = false, append = false) => {
     try {
       if (append) {
-        setLoadingMore(true);
+        setLoadingMore(hasMore);
       } else if (!isRefresh) {
         setLoading(true);
       }
@@ -130,7 +131,8 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       if (!response.success) {
         throw new Error(response.error || 'Failed to load orders');
       }
-
+      setHasMore(response.data?.data?.pagination?.hasMore || false);
+      
       const groupedOrders = response.data?.data?.groups || [];
       console.log('📦 Loaded Pay to Board grouped orders:', groupedOrders);
 
@@ -653,14 +655,14 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
           )}
 
 
-          <BrowseMorePlants 
+          {/* <BrowseMorePlants 
             ref={browseMorePlantsRef}
             title="More from our Jungle"
             initialLimit={8}
             loadMoreLimit={8}
             showLoadMore={false}
             containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
-          />
+          /> */}
 
         </ScrollView>
       )}
