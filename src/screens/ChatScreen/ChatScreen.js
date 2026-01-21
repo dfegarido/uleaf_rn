@@ -6,15 +6,17 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
+  startAfter,
   Timestamp,
   updateDoc,
   where
 } from 'firebase/firestore';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -22,6 +24,7 @@ import { AuthContext } from '../../auth/AuthProvider';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
+import { uploadChatImage } from '../../utils/uploadChatImage';
 
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -40,6 +43,10 @@ const ChatScreen = ({navigation, route}) => {
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const lastMessageRef = useRef(null);
+  const messagesUnsubscribeRef = useRef(null);
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
@@ -248,39 +255,82 @@ const ChatScreen = ({navigation, route}) => {
   };
 
   // Send a message: create message doc and update chat metadata
-  const sendMessage = async (text, isListing = false, listingId = null) => {
+  const sendMessage = async (text, isListing = false, listingId = null, imageUrl = null, imageUrls = null) => {
     if (!id) {
       return;
     }
 
-    if (!text || !text.trim()) return;
-    
     // Block sending messages if user is not a member
     if (chatType === 'group' && !isMember) {
       Alert.alert('Access Denied', 'You must be a member of this group to send messages.');
       return;
     }
 
+    // Must have either text, single image, or multiple images
+    if (!text?.trim() && !imageUrl && (!imageUrls || imageUrls.length === 0)) return;
+
+    const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+    const newMsg = {
+      id: optimisticId,
+      chatId: id,
+      senderId: currentUserUid || null,
+      text: text?.trim() || '',
+      timestamp: Timestamp.now(),
+      isListing,
+      listingId,
+      imageUrl: imageUrl || null,
+      imageUrls: imageUrls || null,
+      optimistic: true, // Flag for optimistic message
+    };
+
+    // Optimistically add message to local state immediately
+    setMessages(prev => [newMsg, ...prev]);
+
     try {
-      const newMsg = {
+      // Add message to messages collection in background
+      const docRef = await addDoc(collection(db, 'messages'), {
         chatId: id,
         senderId: currentUserUid || null,
-        text: text.trim(),
+        text: text?.trim() || '',
         timestamp: Timestamp.now(),
         isListing,
         listingId,
-      };
+        imageUrl: imageUrl || null,
+        imageUrls: imageUrls || null,
+      });
 
-      // Add message to messages collection
-      await addDoc(collection(db, 'messages'), newMsg);
+      // Replace optimistic message with real one
+      // Check if real-time listener already added it
+      setMessages(prev => {
+        // Check if message with real ID already exists (from real-time listener)
+        const realMsgExists = prev.some(msg => msg.id === docRef.id);
+        if (realMsgExists) {
+          // Remove optimistic message if real one already exists
+          return prev.filter(msg => msg.id !== optimisticId);
+        }
+        // Replace optimistic message with real one
+        return prev.map(msg => 
+          msg.id === optimisticId 
+            ? { ...msg, id: docRef.id, optimistic: false }
+            : msg
+        );
+      });
+
       // Mark chat lastMessage and update timestamp, mark unread for other participants
       const otherParticipantIds = Array.isArray(participantIds)
         ? participantIds.filter(pid => pid && pid !== currentUserUid)
         : [];
 
+      // Update lastMessage - use text if available, otherwise indicate image(s)
+      const hasImages = imageUrl || (imageUrls && imageUrls.length > 0);
+      const imageCount = imageUrls && imageUrls.length > 1 ? imageUrls.length : 1;
+      const lastMessageText = text?.trim() || (hasImages 
+        ? (imageUrls && imageUrls.length > 1 ? `📷 ${imageCount} Images` : '📷 Image')
+        : '');
+
       try {
         await updateDoc(doc(db, 'chats', id), {
-          lastMessage: newMsg.text,
+          lastMessage: lastMessageText,
           timestamp: Timestamp.now(),
           unreadBy: arrayUnion(...otherParticipantIds),
         });
@@ -288,7 +338,113 @@ const ChatScreen = ({navigation, route}) => {
         // ignore update failures
       }
     } catch (error) {
-      // ignore send errors
+      console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+    }
+  };
+
+  // Send an image: upload image first, then send message
+  const sendImage = async (imageUris, text = '') => {
+    if (!id) {
+      return;
+    }
+
+    // Block sending messages if user is not a member
+    if (chatType === 'group' && !isMember) {
+      Alert.alert('Access Denied', 'You must be a member of this group to send messages.');
+      return;
+    }
+
+    try {
+      // Convert single URI to array for backward compatibility
+      const urisArray = Array.isArray(imageUris) ? imageUris : [imageUris];
+      const textToSend = text?.trim() || '';
+      
+      // Create optimistic message with local image URIs and text immediately
+      const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+      const optimisticMsg = {
+        id: optimisticId,
+        chatId: id,
+        senderId: currentUserUid || null,
+        text: textToSend,
+        timestamp: Timestamp.now(),
+        isListing: false,
+        listingId: null,
+        imageUrl: null,
+        imageUrls: urisArray, // Use local URIs for immediate display
+        optimistic: true,
+      };
+
+      // Add optimistic message immediately - appears instantly in chat with images and text
+      setMessages(prev => [optimisticMsg, ...prev]);
+      
+      // Upload all images to Firebase Storage in the background
+      const imageUrls = [];
+      for (const uri of urisArray) {
+        const imageUrl = await uploadChatImage(uri, id);
+        imageUrls.push(imageUrl);
+      }
+      
+      // Silently update optimistic message with uploaded URLs (no visual change)
+      setMessages(prev => prev.map(msg => 
+        msg.id === optimisticId 
+          ? { ...msg, imageUrls }
+          : msg
+      ));
+      
+      // Send message with uploaded image URLs and text to Firestore
+      const docRef = await addDoc(collection(db, 'messages'), {
+        chatId: id,
+        senderId: currentUserUid || null,
+        text: textToSend,
+        timestamp: Timestamp.now(),
+        isListing: false,
+        listingId: null,
+        imageUrl: null,
+        imageUrls: imageUrls,
+      });
+
+      // Replace optimistic message with real one
+      // Check if real-time listener already added it
+      setMessages(prev => {
+        // Check if message with real ID already exists (from real-time listener)
+        const realMsgExists = prev.some(msg => msg.id === docRef.id);
+        if (realMsgExists) {
+          // Remove optimistic message if real one already exists
+          return prev.filter(msg => msg.id !== optimisticId);
+        }
+        // Replace optimistic message with real one
+        return prev.map(msg => 
+          msg.id === optimisticId 
+            ? { ...msg, id: docRef.id, optimistic: false }
+            : msg
+        );
+      });
+
+      // Update chat document
+      const otherParticipantIds = Array.isArray(participantIds)
+        ? participantIds.filter(pid => pid && pid !== currentUserUid)
+        : [];
+
+      const imageCount = imageUrls.length;
+      const lastMessageText = textToSend || (imageUrls.length > 1 ? `📷 ${imageCount} Images` : '📷 Image');
+
+      try {
+        await updateDoc(doc(db, 'chats', id), {
+          lastMessage: lastMessageText,
+          timestamp: Timestamp.now(),
+          unreadBy: arrayUnion(...otherParticipantIds),
+        });
+      } catch (err) {
+        // ignore update failures
+      }
+    } catch (error) {
+      console.error('Error sending image:', error);
+      // Silently fail - keep the message visible with local URIs
+      // The message stays in chat even if upload fails
+      console.warn('Image upload failed but message remains visible with local URIs');
     }
   };
 
@@ -413,6 +569,158 @@ const ChatScreen = ({navigation, route}) => {
     checkMembershipAndPublicStatus();
   }, [id, chatType, currentUserUid, isBuyer, navigation, name]));
 
+  // Load initial messages (10 latest)
+  const loadInitialMessages = async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      setMessages([]);
+      setHasMoreMessages(true);
+      lastMessageRef.current = null;
+
+      const messagesRef = collection(db, 'messages');
+      const initialQuery = query(
+        messagesRef,
+        where('chatId', '==', id),
+        orderBy('timestamp', 'desc'),
+        limit(10)
+      );
+
+      const snapshot = await getDocs(initialQuery);
+      const messagesFirestore = snapshot.docs.map(doc => ({
+        id: doc.id,
+        chatId: id,
+        ...doc.data(),
+      }));
+
+      // Store the last document for pagination
+      if (snapshot.docs.length > 0) {
+        lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
+        // If we got less than 10, there are no more messages
+        setHasMoreMessages(snapshot.docs.length === 10);
+      } else {
+        setHasMoreMessages(false);
+      }
+
+      // Remove duplicates based on message ID
+      const uniqueMessages = messagesFirestore.filter((msg, index, self) =>
+        index === self.findIndex(m => m.id === msg.id)
+      );
+
+      setMessages(uniqueMessages);
+      setLoading(false);
+
+      // Set up real-time listener for new messages only
+      const allMessagesQuery = query(
+        messagesRef,
+        where('chatId', '==', id),
+        orderBy('timestamp', 'desc'),
+        limit(1) // Only get the latest message for real-time updates
+      );
+
+      const unsubscribe = onSnapshot(
+        allMessagesQuery,
+        { includeMetadataChanges: false },
+        (newSnapshot) => {
+          if (!newSnapshot.empty) {
+            const newDoc = newSnapshot.docs[0];
+            const newMessage = {
+              id: newDoc.id,
+              chatId: id,
+              ...newDoc.data(),
+            };
+
+            // Only add if it's not already in messages (avoid duplicates)
+            setMessages(prev => {
+              const exists = prev.some(msg => msg.id === newMessage.id);
+              if (exists) {
+                return prev; // Message already exists
+              }
+              
+              // Check if there's an optimistic message with matching content that should be replaced
+              const optimisticIndex = prev.findIndex(msg => 
+                msg.optimistic && 
+                msg.senderId === newMessage.senderId &&
+                msg.text === newMessage.text &&
+                // Check images match (handle both local URIs and uploaded URLs)
+                ((!msg.imageUrls && !newMessage.imageUrls) ||
+                 (msg.imageUrls && newMessage.imageUrls && 
+                  msg.imageUrls.length === newMessage.imageUrls.length))
+              );
+              
+              if (optimisticIndex !== -1) {
+                // Replace optimistic message with real one
+                const updated = [...prev];
+                updated[optimisticIndex] = newMessage;
+                return updated;
+              }
+              
+              // Add to beginning since we're using inverted list (newest first)
+              return [newMessage, ...prev];
+            });
+          }
+        },
+        (error) => {
+          console.error('Error in real-time listener:', error);
+        }
+      );
+
+      messagesUnsubscribeRef.current = unsubscribe;
+    } catch (error) {
+      console.error('Error loading initial messages:', error);
+      setMessages([]);
+      setLoading(false);
+      setHasMoreMessages(false);
+    }
+  };
+
+  // Load more previous messages (pagination)
+  const loadMoreMessages = async () => {
+    if (!id || !hasMoreMessages || loadingMore || !lastMessageRef.current) {
+      return;
+    }
+
+    try {
+      setLoadingMore(true);
+
+      const messagesRef = collection(db, 'messages');
+      const moreQuery = query(
+        messagesRef,
+        where('chatId', '==', id),
+        orderBy('timestamp', 'desc'),
+        startAfter(lastMessageRef.current),
+        limit(10)
+      );
+
+      const snapshot = await getDocs(moreQuery);
+      const newMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        chatId: id,
+        ...doc.data(),
+      }));
+
+      if (snapshot.docs.length > 0) {
+        lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
+        setHasMoreMessages(snapshot.docs.length === 10);
+        
+        // Append to end of messages (older messages), removing duplicates
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
+          return [...prev, ...uniqueNewMessages];
+        });
+      } else {
+        setHasMoreMessages(false);
+      }
+
+      setLoadingMore(false);
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+      setLoadingMore(false);
+    }
+  };
+
   useFocusEffect(useCallback(() => {
     if (!id) {
       setMessages([]);
@@ -420,46 +728,15 @@ const ChatScreen = ({navigation, route}) => {
       return;
     }
 
-    try {
-      // Reset loading state immediately when navigating to a new chat
-      setLoading(true);
-      setMessages([]);
-      
-      const q = query(
-        collection(db, 'messages'),
-        where('chatId', '==', id),
-        orderBy('timestamp', 'desc')
-      );
+    loadInitialMessages();
 
-      const unsubscribe = onSnapshot(
-        q,
-        { includeMetadataChanges: true },
-        snapshot => {
-          try {
-            const messagesFirestore = snapshot.docs.map(doc => ({
-              id: doc.id,
-              chatId: id,
-              ...doc.data(),
-            }));
-
-            setMessages(messagesFirestore);
-            setLoading(false);
-          } catch (error) {
-            setMessages([]);
-            setLoading(false);
-          }
-        },
-        error => {
-          setMessages([]);
-          setLoading(false);
-        }
-      );
-
-      return () => unsubscribe();
-    } catch (error) {
-      setMessages([]);
-      setLoading(false);
-    }
+    return () => {
+      // Cleanup real-time listener
+      if (messagesUnsubscribeRef.current) {
+        messagesUnsubscribeRef.current();
+        messagesUnsubscribeRef.current = null;
+      }
+    };
   }, [id]));
 
   // Auto-scroll when messages change
@@ -704,7 +981,23 @@ const ChatScreen = ({navigation, route}) => {
           inverted
           ref={flatListRef}
           data={messages}
-          keyExtractor={(item, index) => item.id || `message-${index}`}
+          keyExtractor={(item, index) => {
+            // Ensure unique key - use ID if available, otherwise use index with timestamp
+            if (item.id) {
+              return item.id;
+            }
+            // Fallback for optimistic messages or messages without ID
+            return `message-${index}-${item.timestamp?.toMillis() || Date.now()}`;
+          }}
+          onEndReached={loadMoreMessages}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: '#666' }}>Loading more messages...</Text>
+              </View>
+            ) : null
+          }
           renderItem={({ item, index }) => {
             
             if (!item) return null;
@@ -720,6 +1013,12 @@ const ChatScreen = ({navigation, route}) => {
             const isFirstInGroup = !prevMsg || prevMsg?.senderId !== item?.senderId;
             // Check if this is the last message in a group (different sender or no next message)
             const isLastInGroup = !nextMsg || nextMsg?.senderId !== item?.senderId;
+            
+            // Check if previous message has stacked images (for adding top margin to current message)
+            const prevMessageHasStackedImages = prevMsg && (
+              (prevMsg.imageUrls && prevMsg.imageUrls.length > 1) || 
+              (prevMsg.imageUrl && prevMsg.imageUrls && prevMsg.imageUrls.length > 0)
+            );
             
             // Show avatar only on the last message of a group (for non-me messages)
             const showAvatar = !isMe && isLastInGroup;
@@ -802,7 +1101,7 @@ const ChatScreen = ({navigation, route}) => {
 
             return (
               <ChatBubble
-                text={item.text || 'Empty message'}
+                text={item.text || ''}
                 isMe={isMe}
                 showAvatar={showAvatar}
                 senderName={senderName}
@@ -816,6 +1115,9 @@ const ChatScreen = ({navigation, route}) => {
                 isBuyer={isBuyer}
                 isSeller={isSeller}
                 currentUserUid={currentUserUid}
+                imageUrl={item.imageUrl || null}
+                imageUrls={item.imageUrls || null}
+                prevMessageHasStackedImages={prevMessageHasStackedImages || false}
               />
             );
           }}
@@ -841,7 +1143,9 @@ const ChatScreen = ({navigation, route}) => {
       {/* Input - Disabled for non-members */}
       <MessageInput 
         onSend={sendMessage} 
+        onSendImage={sendImage}
         disabled={chatType === 'group' && !isMember}
+        isPrivateChat={chatType === 'private'}
       />
       </KeyboardAvoidingView>
     </SafeAreaView>
