@@ -265,7 +265,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
 
   const assignBox = () => {
     setIsAssignBoxVisible(true);
-    
+    setIsSelectionMode(false);
   };
 
   return (
