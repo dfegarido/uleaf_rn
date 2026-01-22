@@ -26,6 +26,9 @@ import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
 import { uploadChatImage } from '../../utils/uploadChatImage';
+import { uploadChatVideo } from '../../utils/uploadChatVideo';
+import { compressVideo } from '../../utils/videoCompression';
+import { generateVideoThumbnail } from '../../utils/videoThumbnail';
 
 // Reply Icon SVG Component - Curved arrow pointing left
 const ReplyIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
@@ -1004,6 +1007,185 @@ const ChatScreen = ({navigation, route}) => {
     }
   };
 
+  // Send a video: compress, generate thumbnail, upload both, then send message
+  const sendVideo = async (videoData, text = '', replyTo = null) => {
+    if (!id) {
+      return;
+    }
+
+    // Block sending messages if user is not a member
+    if (chatType === 'group' && !isMember) {
+      Alert.alert('Access Denied', 'You must be a member of this group to send messages.');
+      return;
+    }
+
+    const textToSend = text?.trim() || '';
+    
+    // Sanitize replyTo to ensure no undefined values
+    const sanitizedReplyTo = replyTo ? {
+      messageId: replyTo.messageId || replyTo.id || null,
+      senderId: replyTo.senderId || null,
+      senderName: replyTo.senderName || null,
+      text: replyTo.text || null,
+      imageUrl: replyTo.imageUrl || null,
+      imageUrls: replyTo.imageUrls || null,
+    } : null;
+
+    // Create optimistic message ID
+    const optimisticId = `temp-video-${Date.now()}-${Math.random()}`;
+
+    // Step 1: Generate thumbnail immediately for optimistic UI
+    console.log('🖼️ Generating thumbnail for optimistic UI...');
+    let localThumbnailUri = null;
+    try {
+      const thumbnail = await generateVideoThumbnail(videoData.uri);
+      localThumbnailUri = thumbnail.path;
+    } catch (thumbError) {
+      console.warn('Failed to generate thumbnail, continuing without it:', thumbError);
+    }
+
+    // Create optimistic message with local thumbnail
+    const optimisticMsg = {
+      id: optimisticId,
+      chatId: id,
+      senderId: currentUserUid || null,
+      text: textToSend,
+      timestamp: Timestamp.now(),
+      isListing: false,
+      listingId: null,
+      imageUrl: null,
+      imageUrls: null,
+      videoUrl: null, // Will be set after upload
+      thumbnailUrl: localThumbnailUri, // Local thumbnail for immediate display
+      videoDuration: videoData.duration || 0,
+      videoSize: videoData.fileSize || 0,
+      videoFormat: 'mp4',
+      replyTo: sanitizedReplyTo,
+      optimistic: true,
+      uploadProgress: 0, // Track upload progress
+    };
+
+    // Add optimistic message immediately
+    setMessages(prev => [optimisticMsg, ...prev]);
+
+    // Update progress in optimistic message
+    const updateProgress = (progress) => {
+      setMessages(prev => prev.map(msg => 
+        msg.id === optimisticId 
+          ? { ...msg, uploadProgress: progress }
+          : msg
+      ));
+    };
+
+    try {
+      console.log('🎬 Starting video upload process...');
+      
+      // Step 2: Compress video
+      console.log('📦 Compressing video...');
+      updateProgress(10); // 10% after compression starts
+      const compressed = await compressVideo(videoData.uri);
+      updateProgress(30); // 30% after compression
+      
+      // Step 3: Generate thumbnail (if not already done)
+      if (!localThumbnailUri) {
+        console.log('🖼️ Generating thumbnail...');
+        const thumbnail = await generateVideoThumbnail(compressed.uri);
+        localThumbnailUri = thumbnail.path;
+      }
+      updateProgress(40); // 40% after thumbnail
+      
+      // Step 4: Upload video and thumbnail with progress
+      console.log('📤 Uploading video and thumbnail...');
+      const { videoUrl, thumbnailUrl } = await uploadChatVideo(
+        compressed.uri,
+        localThumbnailUri,
+        (progress) => {
+          // Map upload progress from 40-100% (40% base + 60% for upload)
+          const mappedProgress = 40 + Math.floor(progress * 0.6);
+          updateProgress(mappedProgress);
+          console.log(`Upload progress: ${mappedProgress}%`);
+        }
+      );
+      
+      updateProgress(100); // 100% after upload complete
+      console.log('✅ Video uploaded successfully');
+      console.log('Video URL:', videoUrl);
+      console.log('Thumbnail URL:', thumbnailUrl);
+      
+      // Step 5: Send message to Firestore
+      const docRef = await addDoc(collection(db, 'messages'), {
+        chatId: id,
+        senderId: currentUserUid || null,
+        text: textToSend,
+        timestamp: Timestamp.now(),
+        isListing: false,
+        listingId: null,
+        imageUrl: null,
+        imageUrls: null,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        videoDuration: compressed.duration || videoData.duration || 0,
+        videoSize: compressed.size || videoData.fileSize || 0,
+        videoFormat: 'mp4',
+        replyTo: sanitizedReplyTo,
+      });
+
+      console.log('✅ Video message sent:', docRef.id);
+
+      // Replace optimistic message with real one
+      setMessages(prev => {
+        // Check if real-time listener already added it
+        const realMsgExists = prev.some(msg => msg.id === docRef.id);
+        if (realMsgExists) {
+          // Remove optimistic message if real one already exists
+          return prev.filter(msg => msg.id !== optimisticId);
+        }
+        // Replace optimistic message with real one
+        return prev.map(msg => 
+          msg.id === optimisticId 
+            ? {
+                ...msg,
+                id: docRef.id,
+                videoUrl: videoUrl,
+                thumbnailUrl: thumbnailUrl,
+                optimistic: false,
+                uploadProgress: undefined, // Remove progress indicator
+              }
+            : msg
+        );
+      });
+
+      // Clear reply state after sending
+      if (replyTo) {
+        setReplyingTo(null);
+      }
+
+      // Update chat document
+      const otherParticipantIds = Array.isArray(participantIds)
+        ? participantIds.filter(pid => pid && pid !== currentUserUid)
+        : [];
+
+      try {
+        await updateDoc(doc(db, 'chats', id), {
+          lastMessage: textToSend || '📹 Video',
+          lastTimestamp: Timestamp.now(),
+          lastSenderId: currentUserUid || null,
+          unreadBy: otherParticipantIds.length > 0 ? otherParticipantIds : [],
+        });
+      } catch (updateError) {
+        console.warn('Failed to update chat metadata:', updateError);
+        // ignore update failures
+      }
+    } catch (error) {
+      console.error('❌ Error sending video:', error);
+      
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
+      
+      Alert.alert('Error', 'Failed to send video. Please try again.');
+    }
+  };
+
   // Helper function to detect plant-related conversation
   const isPlantRelatedConversation = () => {
     const plantKeywords = ['plant', 'flower', 'seed', 'garden', 'grow', 'leaf', 'root', 'soil', 'water', 'fertilizer', 'bloom', 'care', 'indoor', 'outdoor', 'succulent', 'herb', 'tree', 'shrub'];
@@ -1866,6 +2048,10 @@ const ChatScreen = ({navigation, route}) => {
                 currentUserUid={currentUserUid}
                 imageUrl={item.imageUrl || null}
                 imageUrls={item.imageUrls || null}
+                videoUrl={item.videoUrl || null}
+                thumbnailUrl={item.thumbnailUrl || null}
+                videoDuration={item.videoDuration || 0}
+                uploadProgress={item.uploadProgress}
                 prevMessageHasStackedImages={prevMessageHasStackedImages || false}
                 replyTo={item.replyTo || null}
                 onMessageLongPress={handleMessageLongPress}
@@ -1945,6 +2131,7 @@ const ChatScreen = ({navigation, route}) => {
       <MessageInput 
         onSend={(text) => sendMessage(text, false, null, null, null, replyingTo)} 
         onSendImage={(images, text) => sendImage(images, text, replyingTo)}
+        onSendVideo={(video, text) => sendVideo(video, text, replyingTo)}
         disabled={chatType === 'group' && !isMember}
         replyingTo={replyingTo}
         onCancelReply={cancelReply}

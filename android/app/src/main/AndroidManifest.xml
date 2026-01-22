@@ -29,7 +29,8 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:supportsRtl="true">
+      android:supportsRtl="true"
+      tools:replace="android:allowBackup">
       <uses-library android:name="org.webrtc" android:required="false" />
       <activity
         android:name=".MainActivity"

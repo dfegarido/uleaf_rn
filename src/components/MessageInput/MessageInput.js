@@ -1,12 +1,41 @@
 import React, { useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityIndicator, Image, ScrollView } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import ImageIcon from '../../assets/iconchat/image.svg';
+import { validateVideo, formatDuration } from '../../utils/videoCompression';
+import Svg, { Path, G } from 'react-native-svg';
 
-const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, editingMessage = null, onCancelEdit = null, onSaveEdit = null}) => {
+// Image Icon SVG Component
+const ImageIcon = ({ width = 24, height = 24, color = '#080341' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path 
+      fillRule="evenodd" 
+      clipRule="evenodd" 
+      d="M3.75 3.75H19.5L20.25 4.5V20.25H4.5L3.75 19.5V3.75ZM5.25 5.25V12.9166L7.90909 10.2575L13.3636 15.7121L16.7727 12.303L18.75 14.2802V5.25H5.25ZM18.75 16.4016L16.7727 14.4243L13.3636 17.8334L7.90909 12.3788L5.25 15.0379V18.75H18.75V16.4016ZM14.7273 7.97727C14.0118 7.97727 13.4318 8.55727 13.4318 9.27273C13.4318 9.98819 14.0118 10.5682 14.7273 10.5682C15.4427 10.5682 16.0227 9.98819 16.0227 9.27273C16.0227 8.55727 15.4427 7.97727 14.7273 7.97727ZM11.9318 9.27273C11.9318 7.72884 13.1834 6.47727 14.7273 6.47727C16.2712 6.47727 17.5227 7.72884 17.5227 9.27273C17.5227 10.8166 16.2712 12.0682 14.7273 12.0682C13.1834 12.0682 11.9318 10.8166 11.9318 9.27273Z" 
+      fill={color}
+    />
+  </Svg>
+);
+
+// Video Icon SVG Component
+const VideoIcon = ({ width = 24, height = 24, color = '#000000' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path 
+      d="M16 10L18.5768 8.45392C19.3699 7.97803 19.7665 7.74009 20.0928 7.77051C20.3773 7.79703 20.6369 7.944 20.806 8.17433C21 8.43848 21 8.90095 21 9.8259V14.1741C21 15.099 21 15.5615 20.806 15.8257C20.6369 16.056 20.3773 16.203 20.0928 16.2295C19.7665 16.2599 19.3699 16.022 18.5768 15.5461L16 14M6.2 18H12.8C13.9201 18 14.4802 18 14.908 17.782C15.2843 17.5903 15.5903 17.2843 15.782 16.908C16 16.4802 16 15.9201 16 14.8V9.2C16 8.0799 16 7.51984 15.782 7.09202C15.5903 6.71569 15.2843 6.40973 14.908 6.21799C14.4802 6 13.9201 6 12.8 6H6.2C5.0799 6 4.51984 6 4.09202 6.21799C3.71569 6.40973 3.40973 6.71569 3.21799 7.09202C3 7.51984 3 8.07989 3 9.2V14.8C3 15.9201 3 16.4802 3.21799 16.908C3.40973 17.2843 3.71569 17.5903 4.09202 17.782C4.51984 18 5.07989 18 6.2 18Z" 
+      stroke={color} 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, editingMessage = null, onCancelEdit = null, onSaveEdit = null}) => {
   const [message, setMessage] = useState('');
   const [inputHeight, setInputHeight] = useState(40); // Initial height
   const [previewImages, setPreviewImages] = useState([]); // Array of local URIs for preview
+  const [previewVideo, setPreviewVideo] = useState(null); // Video preview data: { uri, thumbnail, duration }
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Sync message state with editingMessage
   React.useEffect(() => {
@@ -15,9 +44,9 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
     }
   }, [editingMessage]);
   
-  // Show send button when there's text or image previews
+  // Show send button when there's text, image, or video previews
   const hasText = message.trim().length > 0;
-  const hasContent = hasText || previewImages.length > 0;
+  const hasContent = hasText || previewImages.length > 0 || previewVideo !== null;
 
   const handleSend = () => {
     if (disabled) return;
@@ -39,6 +68,7 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
 
     const textToSend = message.trim();
     const hasImages = previewImages.length > 0;
+    const hasVideo = previewVideo !== null;
     const hasText = textToSend.length > 0;
 
     // Get reply info if replying - ensure no undefined values
@@ -62,8 +92,16 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
       imageUrls: replyingTo.imageUrls || null,
     } : null;
 
+    // If we have video (priority over images)
+    if (hasVideo && onSendVideo) {
+      onSendVideo(previewVideo, textToSend, replyTo);
+      setPreviewVideo(null);
+      setMessage('');
+      setInputHeight(40);
+      setUploadProgress(0);
+    }
     // If we have both images and text, send them together
-    if (hasImages && hasText && onSendImage) {
+    else if (hasImages && hasText && onSendImage) {
       onSendImage(previewImages, textToSend, replyTo); // Send images with text and reply
       setPreviewImages([]);
       setMessage('');
@@ -84,6 +122,11 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
 
   const handleRemovePreview = (index) => {
     setPreviewImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveVideoPreview = () => {
+    setPreviewVideo(null);
+    setUploadProgress(0);
   };
 
   const handleImagePicker = () => {
@@ -181,6 +224,122 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
     });
   };
 
+  const handleVideoPicker = () => {
+    if (disabled || editingMessage) return;
+
+    // On simulator, skip camera option and go directly to library
+    // You can detect simulator with: Platform.OS === 'ios' && !Platform.isPad && Platform.constants.interfaceIdiom === 'phone'
+    // But for simplicity, let's always show both options
+    Alert.alert(
+      'Select Video',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: () => openVideoCamera(),
+        },
+        {
+          text: 'Video Library',
+          onPress: () => openVideoLibrary(),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const openVideoLibrary = () => {
+    const options = {
+      mediaType: 'video',
+      quality: 0.8,
+      videoQuality: 'medium',
+      durationLimit: 300, // 5 minutes max
+      includeBase64: false,
+    };
+
+    launchImageLibrary(options, (response) => {
+      if (response.didCancel) {
+        return;
+      }
+
+      if (response.errorCode) {
+        Alert.alert('Error', `Error selecting video: ${response.errorMessage}`);
+        return;
+      }
+
+      if (response.assets && response.assets[0]) {
+        const video = response.assets[0];
+        
+        // Validate video
+        if (!validateVideo(video)) {
+          return;
+        }
+
+        // Set video preview
+        setPreviewVideo({
+          uri: video.uri,
+          thumbnail: video.uri, // Will be replaced with actual thumbnail
+          duration: video.duration || 0,
+          fileSize: video.fileSize || 0,
+          fileName: video.fileName || 'video.mp4',
+        });
+
+        // Clear images if any
+        setPreviewImages([]);
+      }
+    });
+  };
+
+  const openVideoCamera = () => {
+    const options = {
+      mediaType: 'video',
+      quality: 0.8,
+      videoQuality: 'medium',
+      durationLimit: 300, // 5 minutes max
+      saveToPhotos: true,
+      includeBase64: false,
+    };
+
+    launchCamera(options, (response) => {
+      if (response.didCancel) {
+        return;
+      }
+
+      if (response.errorCode) {
+        // Better error message for simulator
+        const errorMsg = response.errorCode === 'camera_unavailable' 
+          ? 'Camera is not available on simulator. Please use "Video Library" or test on a real device.'
+          : `Camera error: ${response.errorMessage}`;
+        Alert.alert('Camera Error', errorMsg);
+        return;
+      }
+
+      if (response.assets && response.assets[0]) {
+        const video = response.assets[0];
+        
+        // Validate video
+        if (!validateVideo(video)) {
+          return;
+        }
+
+        // Set video preview
+        setPreviewVideo({
+          uri: video.uri,
+          thumbnail: video.uri, // Will be replaced with actual thumbnail
+          duration: video.duration || 0,
+          fileSize: video.fileSize || 0,
+          fileName: video.fileName || 'video.mp4',
+        });
+
+        // Clear images if any
+        setPreviewImages([]);
+      }
+    });
+  };
+
   const handleContentSizeChange = (event) => {
     const newHeight = Math.min(Math.max(40, event.nativeEvent.contentSize.height), 120); // Min 40px, Max 120px
     setInputHeight(newHeight);
@@ -236,8 +395,43 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
         </View>
       )}
       
-      {/* Image Previews - Above input bar (hidden during edit mode) */}
-      {previewImages.length > 0 && !editingMessage && (
+      {/* Video Preview - Above input bar (hidden during edit mode) */}
+      {previewVideo && !editingMessage && (
+        <View style={styles.videoPreviewContainer}>
+          <View style={styles.videoPreviewItem}>
+            <View style={styles.videoThumbnailContainer}>
+              <View style={styles.videoPlayIcon}>
+                <Text style={styles.videoPlayIconText}>▶</Text>
+              </View>
+              {previewVideo.duration > 0 && (
+                <View style={styles.videoDurationBadge}>
+                  <Text style={styles.videoDurationText}>{formatDuration(previewVideo.duration)}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.videoInfo}>
+              <Text style={styles.videoFileName} numberOfLines={1}>{previewVideo.fileName}</Text>
+              <Text style={styles.videoFileSize}>
+                {(previewVideo.fileSize / 1024 / 1024).toFixed(2)} MB
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleRemoveVideoPreview}
+              style={styles.removeVideoButton}>
+              <Text style={styles.removeVideoText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {uploadingVideo && (
+            <View style={styles.uploadProgressContainer}>
+              <View style={[styles.uploadProgressBar, { width: `${uploadProgress}%` }]} />
+              <Text style={styles.uploadProgressText}>{uploadProgress}%</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Image Previews - Above input bar (hidden during edit mode and when video is selected) */}
+      {previewImages.length > 0 && !editingMessage && !previewVideo && (
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -264,13 +458,23 @@ const MessageInput = ({onSend, onSendImage, disabled = false, replyingTo = null,
       
       <View style={styles.inputRow}>
         {/* Gallery/Image Button - Left side (hidden during edit mode) */}
-        {!editingMessage && (
+        {!editingMessage && !previewVideo && (
           <TouchableOpacity
             onPress={handleImagePicker}
             onLongPress={handleImagePickerLongPress}
             style={[styles.iconButton, disabled && styles.iconButtonDisabled]}
             disabled={disabled}>
             <ImageIcon width={28} height={28} color={disabled ? "#8E8E93" : "#539461"} />
+          </TouchableOpacity>
+        )}
+
+        {/* Video Button - Left side (hidden during edit mode and when images are selected) */}
+        {!editingMessage && previewImages.length === 0 && (
+          <TouchableOpacity
+            onPress={handleVideoPicker}
+            style={[styles.iconButton, disabled && styles.iconButtonDisabled]}
+            disabled={disabled}>
+            <VideoIcon width={28} height={28} color={disabled ? "#8E8E93" : "#539461"} />
           </TouchableOpacity>
         )}
         
@@ -502,6 +706,112 @@ const styles = StyleSheet.create({
   },
   editSaveButton: {
     backgroundColor: '#28A745', // Green for save/checkmark
+  },
+  videoPreviewContainer: {
+    marginBottom: 8,
+    marginHorizontal: 4,
+  },
+  videoPreviewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E4E6EB',
+  },
+  videoThumbnailContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    position: 'relative',
+  },
+  videoPlayIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(83, 148, 97, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoPlayIconText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginLeft: 2,
+  },
+  videoDurationBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  videoDurationText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  videoInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  videoFileName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#050505',
+    marginBottom: 4,
+  },
+  videoFileSize: {
+    fontSize: 12,
+    color: '#666',
+  },
+  removeVideoButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  removeVideoText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  uploadProgressContainer: {
+    marginTop: 8,
+    height: 24,
+    backgroundColor: '#F0F2F5',
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  uploadProgressBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: '#539461',
+    borderRadius: 12,
+  },
+  uploadProgressText: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    textAlign: 'center',
+    lineHeight: 24,
+    color: '#050505',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 
