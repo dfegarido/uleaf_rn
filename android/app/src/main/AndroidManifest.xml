@@ -18,6 +18,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     
+    <!-- Explicitly remove MEDIA_PROJECTION permission added by dependencies (Agora SDK) -->
+    <!-- We don't use screen projection, only camera-based live streaming -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
+    
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
