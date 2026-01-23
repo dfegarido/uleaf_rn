@@ -55,5 +55,14 @@
             <data android:scheme="ileafu" android:host="payment-cancel" />
         </intent-filter>
       </activity>
+      
+      <!-- Remove Agora SDK's MediaProjection service and activity -->
+      <!-- We don't use screen sharing, only camera-based live streaming -->
+      <service
+        android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenSharingService"
+        tools:node="remove" />
+      <activity
+        android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenCaptureAssistantActivity"
+        tools:node="remove" />
     </application>
 </manifest>
