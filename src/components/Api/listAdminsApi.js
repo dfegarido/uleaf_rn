@@ -15,13 +15,6 @@ export const listAdminsApi = async (filters = {}) => {
   try {
     const token = await getStoredAuthToken();
     
-    console.log('listAdminsApi: Preparing request', {
-      hasToken: !!token,
-      tokenLength: token?.length,
-      tokenStart: token?.substring(0, 20) + '...',
-      filters
-    });
-    
     // Build query string from filters
     const queryParams = new URLSearchParams();
     
@@ -47,20 +40,12 @@ export const listAdminsApi = async (filters = {}) => {
 
     const url = `${API_ENDPOINTS.LIST_ADMINS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
-    console.log('listAdminsApi: Sending request to:', url);
-
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-    });
-
-    console.log('listAdminsApi: Response received', {
-      status: response.status,
-      ok: response.ok,
-      statusText: response.statusText
     });
 
     if (!response.ok) {
@@ -70,13 +55,9 @@ export const listAdminsApi = async (filters = {}) => {
     }
 
     const json = await response.json();
-    console.log('listAdminsApi: Success response received', {
-      dataCount: json.data?.length,
-      pagination: json.pagination
-    });
     return json;
   } catch (error) {
-    console.log('listAdminsApi error:', error.message);
+    console.error('listAdminsApi error:', error.message);
     throw error;
   }
 };

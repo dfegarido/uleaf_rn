@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityIndicator, Image, ScrollView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityIndicator, Image, ScrollView, Keyboard } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { validateVideo, formatDuration } from '../../utils/videoCompression';
 import Svg, { Path, G } from 'react-native-svg';
+import UserMentionPicker from './UserMentionPicker';
 
 // Image Icon SVG Component
 const ImageIcon = ({ width = 24, height = 24, color = '#080341' }) => (
@@ -29,13 +30,21 @@ const VideoIcon = ({ width = 24, height = 24, color = '#000000' }) => (
   </Svg>
 );
 
-const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, editingMessage = null, onCancelEdit = null, onSaveEdit = null}) => {
+const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, editingMessage = null, onCancelEdit = null, onSaveEdit = null, currentUserUid = null, chatType = 'private'}) => {
   const [message, setMessage] = useState('');
   const [inputHeight, setInputHeight] = useState(40); // Initial height
   const [previewImages, setPreviewImages] = useState([]); // Array of local URIs for preview
   const [previewVideo, setPreviewVideo] = useState(null); // Video preview data: { uri, thumbnail, duration }
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  // Mention functionality
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionSearchQuery, setMentionSearchQuery] = useState('');
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [mentionStartPosition, setMentionStartPosition] = useState(0);
+  const [mentions, setMentions] = useState([]); // Array of {uid, name, username}
+  const textInputRef = useRef(null);
 
   // Sync message state with editingMessage
   React.useEffect(() => {
@@ -43,6 +52,87 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       setMessage(editingMessage.text || '');
     }
   }, [editingMessage]);
+  
+  // Detect @ mentions
+  const handleTextChange = (text) => {
+    setMessage(text);
+    
+    // Only process mentions in group chats
+    if (chatType !== 'group') {
+      return;
+    }
+    
+    // Find @ symbol before cursor
+    const textBeforeCursor = text.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex >= 0) {
+      // Check if there's a space or newline before @ (or it's at the start)
+      const charBeforeAt = lastAtIndex > 0 ? text[lastAtIndex - 1] : ' ';
+      const isValidMentionStart = charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0;
+      
+      if (isValidMentionStart) {
+        const searchText = textBeforeCursor.substring(lastAtIndex + 1);
+        
+        // Only show picker if search text doesn't contain space or newline
+        if (!searchText.includes(' ') && !searchText.includes('\n')) {
+          setMentionSearchQuery(searchText);
+          setMentionStartPosition(lastAtIndex);
+          setShowMentionPicker(true);
+          return;
+        }
+      }
+    }
+    
+    // Hide mention picker if no valid mention detected
+    setShowMentionPicker(false);
+  };
+  
+  // Handle mention selection
+  const handleSelectMention = (user) => {
+    const mentionText = `@${user.username || user.name}`;
+    const textBeforeMention = message.substring(0, mentionStartPosition);
+    const textAfterCursor = message.substring(cursorPosition);
+    const newMessage = textBeforeMention + mentionText + ' ' + textAfterCursor;
+    
+    setMessage(newMessage);
+    setShowMentionPicker(false);
+    setMentionSearchQuery('');
+    
+    // Add to mentions array
+    const newMention = {
+      uid: user.uid,
+      name: user.name,
+      username: user.username || user.name,
+    };
+    
+    if (!mentions.find(m => m.uid === user.uid)) {
+      setMentions(prev => [...prev, newMention]);
+    }
+    
+    // Set cursor position after mention
+    const newCursorPos = textBeforeMention.length + mentionText.length + 1;
+    setCursorPosition(newCursorPos);
+    
+    // Focus back on input
+    if (textInputRef.current) {
+      textInputRef.current.focus();
+    }
+  };
+  
+  // Get group members for mention picker
+  const getGroupMembers = () => {
+    if (chatType !== 'group') return [];
+    
+    return Object.keys(participantDataMap)
+      .map(uid => ({
+        uid,
+        name: participantDataMap[uid]?.name || 'Unknown',
+        username: participantDataMap[uid]?.username || participantDataMap[uid]?.name,
+        avatarUrl: participantDataMap[uid]?.avatarUrl || null,
+      }))
+      .filter(user => user.uid !== currentUserUid); // Don't show current user
+  };
   
   // Show send button when there's text, image, or video previews
   const hasText = message.trim().length > 0;
@@ -90,6 +180,8 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       text: replyingTo.text || null,
       imageUrl: replyingTo.imageUrl || null,
       imageUrls: replyingTo.imageUrls || null,
+      videoUrl: replyingTo.videoUrl || null,
+      thumbnailUrl: replyingTo.thumbnailUrl || null,
     } : null;
 
     // If we have video (priority over images)
@@ -114,9 +206,11 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     }
     // If we only have text
     else if (hasText) {
-      onSend(textToSend, false, null, null, null, replyTo);
+      // Include mentions in the message
+      onSend(textToSend, false, null, null, null, replyTo, mentions.length > 0 ? mentions : null);
       setMessage('');
       setInputHeight(40);
+      setMentions([]); // Clear mentions after sending
     }
   };
 
@@ -367,31 +461,19 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
   const getReplyMediaThumbnail = () => {
     if (!replyingTo) return null;
     
-    console.log('🔍 Reply data:', {
-      hasVideoUrl: !!replyingTo.videoUrl,
-      hasThumbnailUrl: !!replyingTo.thumbnailUrl,
-      hasImageUrls: !!replyingTo.imageUrls,
-      hasImageUrl: !!replyingTo.imageUrl,
-    });
-    
     // Video thumbnail
     if (replyingTo.videoUrl || replyingTo.thumbnailUrl) {
-      const thumbnail = replyingTo.thumbnailUrl || replyingTo.videoUrl;
-      console.log('🎬 Using video thumbnail:', thumbnail);
-      return thumbnail;
+      return replyingTo.thumbnailUrl || replyingTo.videoUrl;
     }
     
     // Image thumbnail
     if (replyingTo.imageUrls && replyingTo.imageUrls.length > 0) {
-      console.log('🖼️ Using image thumbnail:', replyingTo.imageUrls[0]);
       return replyingTo.imageUrls[0];
     }
     if (replyingTo.imageUrl) {
-      console.log('🖼️ Using single image:', replyingTo.imageUrl);
       return replyingTo.imageUrl;
     }
     
-    console.log('❌ No thumbnail found');
     return null;
   };
 
@@ -548,14 +630,18 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
             <VideoIcon width={28} height={28} color={disabled ? "#8E8E93" : "#539461"} />
           </TouchableOpacity>
         )}
-        
+
         {/* Text Input - Center */}
         <View style={styles.inputContainer}>
           <TextInput
+            ref={textInputRef}
             style={[styles.input, { height: inputHeight }, disabled && styles.inputDisabled]}
             placeholder={disabled ? "Join the group to send messages..." : "Aa"}
             value={message}
-            onChangeText={setMessage}
+            onChangeText={handleTextChange}
+            onSelectionChange={(event) => {
+              setCursorPosition(event.nativeEvent.selection.start);
+            }}
             onContentSizeChange={handleContentSizeChange}
             multiline={true}
             textAlignVertical="center"
@@ -576,6 +662,17 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
           </View>
         </TouchableOpacity>
       </View>
+      
+      {/* User Mention Picker - Shows when typing @ in group chats */}
+      {chatType === 'group' && (
+        <UserMentionPicker
+          visible={showMentionPicker}
+          users={getGroupMembers()}
+          onSelectUser={handleSelectMention}
+          searchQuery={mentionSearchQuery}
+          currentUserUid={currentUserUid}
+        />
+      )}
     </View>
   );
 }

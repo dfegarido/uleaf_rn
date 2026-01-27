@@ -17,6 +17,63 @@ const PlayIcon = ({ width = 60, height = 60, color = '#FFFFFF' }) => (
   </Svg>
 );
 
+/**
+ * Parse text and render mentions with special styling
+ * @param {string} text - The message text containing @mentions
+ * @param {boolean} isMe - Whether this is the current user's message
+ * @returns {Array} Array of React Text components with styled mentions
+ */
+const renderTextWithMentions = (text, isMe) => {
+  if (!text) return null;
+
+  // Regex to match @username patterns
+  const mentionRegex = /@(\w+)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    // Add text before the mention
+    if (match.index > lastIndex) {
+      parts.push(
+        <Text key={`text-${lastIndex}`}>
+          {text.substring(lastIndex, match.index)}
+        </Text>
+      );
+    }
+
+    // Check if this is @everyone
+    const isEveryone = match[1].toLowerCase() === 'everyone';
+
+    // Add the mention with special styling
+    parts.push(
+      <Text 
+        key={`mention-${match.index}`}
+        style={
+          isEveryone 
+            ? (isMe ? styles.everyoneMentionMe : styles.everyoneMentionThem)
+            : (isMe ? styles.mentionTextMe : styles.mentionTextThem)
+        }
+      >
+        {isEveryone && '👥 '}{match[0]}
+      </Text>
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after the last mention
+  if (lastIndex < text.length) {
+    parts.push(
+      <Text key={`text-${lastIndex}`}>
+        {text.substring(lastIndex)}
+      </Text>
+    );
+  }
+
+  return parts.length > 0 ? parts : text;
+};
+
 const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, videoUrl, thumbnailUrl, videoDuration, uploadProgress, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions, isEdited = false, lastEditedAt = null, editHistory = [], onViewEditHistory, localVideoUri }) => {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -41,18 +98,14 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
   // Get thumbnail for reply preview (video thumbnail or first image)
   const getOriginalMessageThumbnail = () => {
     if (originalMessageThumbnailUrl) {
-      console.log('🎬 Reply thumbnail from thumbnailUrl:', originalMessageThumbnailUrl);
       return originalMessageThumbnailUrl;
     }
     if (originalMessageVideoUrl) {
-      console.log('🎬 Reply thumbnail from videoUrl:', originalMessageVideoUrl);
       return originalMessageVideoUrl;
     }
     if (originalMessageImages.length > 0) {
-      console.log('🖼️ Reply thumbnail from imageUrls:', originalMessageImages[0]);
       return originalMessageImages[0];
     }
-    console.log('❌ No thumbnail found for reply');
     return null;
   };
   
@@ -420,8 +473,6 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                       source={{ uri: originalMessageThumbnail }} 
                       style={styles.replyThumbnailImage}
                       resizeMode="cover"
-                      onError={(e) => console.log('❌ Failed to load reply thumbnail:', e.nativeEvent.error)}
-                      onLoad={() => console.log('✅ Reply thumbnail loaded successfully')}
                     />
                     {/* Video play icon overlay */}
                     {originalMessageVideoUrl && (
@@ -449,17 +500,21 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                       {originalMessageText}
                     </Text>
                   ) : originalMessageVideoUrl ? (
-                    <Text style={[
-                      styles.replyPreviewText,
-                      isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
-                    ]}>
+                    <Text 
+                      style={[
+                        styles.replyPreviewText,
+                        isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
+                      ]}
+                      numberOfLines={1}>
                       Video
                     </Text>
                   ) : originalMessageImages.length > 0 ? (
-                    <Text style={[
-                      styles.replyPreviewText,
-                      isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
-                    ]}>
+                    <Text 
+                      style={[
+                        styles.replyPreviewText,
+                        isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
+                      ]}
+                      numberOfLines={1}>
                       {originalMessageImages.length > 1 ? `${originalMessageImages.length} photos` : 'Photo'}
                     </Text>
                   ) : null}
@@ -473,7 +528,9 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
             {/* Render text for text-only messages OR text with video (video is rendered separately above) */}
             {!isListing && images.length === 0 && text && text.trim().length > 0 && (
               <View>
-                <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>
+                <Text style={[isMe ? styles.myText : styles.text]}>
+                  {renderTextWithMentions(text, isMe)}
+                </Text>
                 {/* Edited indicator (non-interactive) */}
                 {isEdited && (
                   <Text style={styles.editedLabel}>Edited</Text>
@@ -489,7 +546,9 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                 // Add extra top margin for stacked images (2+ photos)
                 images.length > 1 && styles.imageCaptionWithStacked
               ]}>
-                <Text style={[isMe ? styles.myText : styles.text, styles.imageCaption]}>{text}</Text>
+                <Text style={[isMe ? styles.myText : styles.text, styles.imageCaption]}>
+                  {renderTextWithMentions(text, isMe)}
+                </Text>
                 {/* Edited indicator (non-interactive) */}
                 {isEdited && (
                   <Text style={styles.editedLabel}>Edited</Text>
@@ -643,6 +702,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
       {(videoUrl || localVideoUri) && (
         <VideoPlayer
           videoUrl={videoUrl || localVideoUri}
+          thumbnailUrl={thumbnailUrl} // Pass thumbnail for poster/loading
           visible={videoPlayerVisible}
           onClose={() => setVideoPlayerVisible(false)}
         />
@@ -697,6 +757,42 @@ const styles = StyleSheet.create({
   },
   myText: {
     color: '#fff',
+  },
+  mentionTextMe: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  mentionTextThem: {
+    color: '#539461',
+    fontWeight: '700',
+    backgroundColor: 'rgba(83, 148, 97, 0.1)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  everyoneMentionMe: {
+    color: '#FFD700',
+    fontWeight: '800',
+    backgroundColor: 'rgba(255, 215, 0, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.4)',
+  },
+  everyoneMentionThem: {
+    color: '#FF6B35',
+    fontWeight: '800',
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
   },
   withAvatar: {
     padding: 10,
@@ -903,6 +999,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     overflow: 'hidden',
+    minWidth: 150,
   },
   replyPreviewBubbleMe: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -924,6 +1021,7 @@ const styles = StyleSheet.create({
   },
   replyPreviewContent: {
     flex: 1,
+    minWidth: 0,
   },
   replyPreviewSenderName: {
     fontSize: 13,
@@ -938,6 +1036,7 @@ const styles = StyleSheet.create({
   },
   replyPreviewText: {
     fontSize: 12,
+    flexShrink: 1,
   },
   replyPreviewTextMe: {
     color: 'rgba(255, 255, 255, 0.8)',

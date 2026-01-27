@@ -224,7 +224,6 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
         
         if (hasSupplierFields) {
           // If we have supplier fields, assume seller context
-          console.log('⚠️ Attempting to fetch suppliers as fallback (supplier fields detected)');
           const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${limit}&offset=0`;
           
           try {
@@ -243,31 +242,19 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
                 const suppliersWithType = supplierData.results
                   .filter(result => {
                     const resultUserType = result.userType || 'supplier';
-                    if (resultUserType === 'buyer') {
-                      console.log('⚠️ SECURITY: API returned buyer user in supplier search results, filtering out:', result.id, result.email);
-                      return false;
-                    }
-                    return true;
+                    // Filter out buyers from supplier search
+                    return resultUserType !== 'buyer';
                   })
                   .map(supplier => ({
                     ...supplier,
                     userType: supplier.userType || 'supplier'
                   }));
                 allResults.push(...suppliersWithType);
-                console.log(`✅ Fallback: Added ${suppliersWithType.length} suppliers to results`);
               }
             }
           } catch (fallbackError) {
-            console.log('Fallback supplier fetch failed:', fallbackError);
+            console.error('Fallback supplier fetch failed:', fallbackError);
           }
-        } else {
-          // No supplier fields detected - but DON'T assume buyer context automatically
-          // This could be a seller account where userInfo is incomplete
-          // Only fetch buyers if we're absolutely sure we're in buyer context
-          // For now, skip fallback to prevent security breach
-          console.log('⚠️ No supplier fields detected, but not assuming buyer context to prevent security issues.');
-          console.log('⚠️ Will rely on final security filter to determine correct user types.');
-          // Don't fetch buyers here - let the final security filter handle it
         }
       }
       
@@ -471,10 +458,6 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
                 userType: buyer.userType || 'buyer' // Use API userType if available, otherwise default to buyer
               }));
             allResults.push(...buyersWithType);
-            console.log(`✅ Added ${buyersWithType.length} buyers to results (filtered out ${buyerData.results.length - buyersWithType.length} suppliers)`);
-            if (buyersWithType.length === 0 && buyerData.results.length > 0) {
-              console.log('⚠️ WARNING: All buyer results were filtered out!');
-            }
             if (buyersWithType.length === 0 && buyerData.results.length === 0) {
               console.log('⚠️ WARNING: No buyer users found in database. This might be expected if you are the only buyer.');
             }

@@ -46,7 +46,6 @@ const BrowseMorePlants = React.forwardRef(({
     }
 
     try {
-      console.log(`🌱 Loading plants with offset: ${loadOffset}, limit: ${initialLimit}`);
       const response = await getPlantRecommendationsApi({ 
         limit: initialLimit, 
         offset: loadOffset 
@@ -87,10 +86,8 @@ const BrowseMorePlants = React.forwardRef(({
             // Filter out duplicates when loading more
             const existingPlantCodes = new Set(plants.map(p => p.plantCode));
             const uniqueNew = normalized.filter(p => p.plantCode && !existingPlantCodes.has(p.plantCode));
-            console.log(`🌱 Loading ${uniqueNew.length} new plants, filtered out ${normalized.length - uniqueNew.length} duplicates`);
             setPlants(prev => [...prev, ...uniqueNew]);
           } else {
-            console.log(`🌱 Loading ${normalized.length} initial plants`);
             setPlants(normalized);
           }
 
@@ -101,14 +98,12 @@ const BrowseMorePlants = React.forwardRef(({
             const nextOffset = apiData.pagination.nextOffset !== undefined 
               ? apiData.pagination.nextOffset 
               : loadOffset + normalized.length;
-            console.log(`🌱 Updating offset: ${loadOffset} -> ${nextOffset} (returned ${normalized.length} plants)`);
             setOffset(nextOffset);
             offsetRef.current = nextOffset;
           } else {
             setHasMore(true); // Default to true if pagination info not available
             // Fallback: calculate offset from returned plants
             const nextOffset = loadOffset + normalized.length;
-            console.log(`🌱 Updating offset (no pagination info): ${loadOffset} -> ${nextOffset}`);
             setOffset(nextOffset);
             offsetRef.current = nextOffset;
           }
@@ -148,15 +143,12 @@ const BrowseMorePlants = React.forwardRef(({
     }
 
     try {
-      console.log('Adding plant to cart from browse more:', plant.plantCode);
-      
       const params = {
         plantCode: plant.plantCode,
         quantity: 1,
       };
       
       const response = await addToCartApi(params);
-      console.log('Add to cart response:', response);
       
       if (response.success) {
         Alert.alert('Success', 'Plant added to cart successfully!');
@@ -174,7 +166,6 @@ const BrowseMorePlants = React.forwardRef(({
   const handleLoadMoreIfNeeded = React.useCallback(() => {
     const currentOffset = offsetRef.current; // Always use ref value
     if (hasMore && !loadingMore && !loadMoreTriggered.current) {
-      console.log(`🌱 BrowseMorePlants: Loading more plants from offset ${currentOffset}...`);
       loadMoreTriggered.current = true;
       loadPlants(currentOffset, true); // Use ref value, not state
       // Reset the flag after a delay to allow another load
@@ -194,23 +185,13 @@ const BrowseMorePlants = React.forwardRef(({
 
   // Auto-load on mount if enabled
   useEffect(() => {
-    console.log('🌱 BrowseMorePlants useEffect triggered:', { autoLoad, plantsCount: plants.length, forceRefresh });
     if (autoLoad && plants.length === 0) {
-      console.log('🌱 BrowseMorePlants: Loading initial plants - resetting offset to 0');
       offsetRef.current = 0;
       setOffset(0);
       loadPlants(0, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoLoad, forceRefresh]); // Don't include loadPlants in deps
-
-  // Component mount/unmount debugging
-  useEffect(() => {
-    console.log('🌱 BrowseMorePlants: Component mounted');
-    return () => {
-      console.log('🌱 BrowseMorePlants: Component unmounted');
-    };
-  }, []);
 
   // Skeleton loading component
   const SkeletonCard = () => (

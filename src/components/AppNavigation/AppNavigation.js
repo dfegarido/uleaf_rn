@@ -971,27 +971,18 @@ const AppNavigation = () => {
   // Get userInfo and userType from AsyncStorage
   useEffect(() => {
     const getUserInfoFromStorage = async () => {
-      console.log('Reading userInfo from AsyncStorage...');
-
       // Try to get userInfo first
       const storedUserInfo = await AsyncStorage.getItem('userInfo');
-      console.log('Raw stored userInfo:', storedUserInfo);
 
       if (storedUserInfo) {
         const parsed = JSON.parse(storedUserInfo);
         setAsyncUserInfo(parsed);
-        console.log(
-          'AsyncStorage userInfo parsed:',
-          JSON.stringify(parsed, null, 2),
-        );
       }
     };
 
     if (isLoggedIn) {
-      console.log('User is logged in, fetching userInfo from AsyncStorage');
       getUserInfoFromStorage();
     } else {
-      console.log('User is not logged in, skipping AsyncStorage fetch');
       setAsyncUserInfo(null);
     }
   }, [isLoggedIn]);
@@ -1063,15 +1054,6 @@ const AppNavigation = () => {
       </View>
     );
   }
-
-  // Debug logging
-  console.log('=== NAVIGATION DECISION ===');
-  console.log('currentUserInfo:', currentUserInfo);
-  console.log('userType:', userType);
-  console.log('isBuyer:', isBuyer);
-  console.log('isAdmin:', isAdmin);
-  console.log('isLoggedIn:', isLoggedIn);
-  console.log('========================');
 
   return (
     // <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={[]}>

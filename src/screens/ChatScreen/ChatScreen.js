@@ -29,6 +29,7 @@ import { uploadChatImage } from '../../utils/uploadChatImage';
 import { uploadChatVideo } from '../../utils/uploadChatVideo';
 import { compressVideo } from '../../utils/videoCompression';
 import { generateVideoThumbnail } from '../../utils/videoThumbnail';
+import { useUserPresence } from '../../hooks/useUserPresence';
 
 // Reply Icon SVG Component - Curved arrow pointing left
 const ReplyIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
@@ -101,7 +102,9 @@ const ChatScreen = ({navigation, route}) => {
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-  console.log('userInfouserInfo', userInfo);
+  
+  // Track current user's presence (must be after currentUserUid is defined)
+  useUserPresence(currentUserUid);
   
   // Check if current user is a buyer (only buyers can request to join public groups)
   const isBuyer =
@@ -150,6 +153,10 @@ const ChatScreen = ({navigation, route}) => {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [hasRejectedRequest, setHasRejectedRequest] = useState(false);
   const [requestingJoin, setRequestingJoin] = useState(false);
+  
+  // Active members tracking
+  const [activeMembers, setActiveMembers] = useState(0);
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   
   // Default avatar for fallback
   const DefaultAvatar = require('../../assets/images/AvatarBig.png');
@@ -384,6 +391,54 @@ const ChatScreen = ({navigation, route}) => {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Track active/online members in group chat
+  useEffect(() => {
+    if (chatType !== 'group' || !id || participants.length === 0) {
+      setActiveMembers(0);
+      return;
+    }
+    
+    // Set up real-time presence listener for all group members
+    const presenceUnsubscribers = [];
+    const onlineUsers = new Set();
+
+    participants.forEach(participant => {
+      if (!participant?.uid || participant.uid === currentUserUid) return;
+
+      // Listen to user's presence status
+      const userPresenceRef = doc(db, 'userPresence', participant.uid);
+      const unsubscribe = onSnapshot(userPresenceRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const presenceData = snapshot.data();
+          const isOnline = presenceData?.isOnline || false;
+          const lastSeen = presenceData?.lastSeen;
+          
+          // Check if user is active (online within last 5 minutes)
+          const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+          const isRecentlyActive = lastSeen && lastSeen.toMillis && lastSeen.toMillis() > fiveMinutesAgo;
+          
+          if (isOnline || isRecentlyActive) {
+            onlineUsers.add(participant.uid);
+          } else {
+            onlineUsers.delete(participant.uid);
+          }
+          
+          setOnlineUserIds(new Set(onlineUsers));
+          setActiveMembers(onlineUsers.size);
+        }
+      }, (error) => {
+        console.log('Presence listener error:', error);
+      });
+
+      presenceUnsubscribers.push(unsubscribe);
+    });
+
+    // Cleanup
+    return () => {
+      presenceUnsubscribers.forEach(unsub => unsub());
+    };
+  }, [chatType, id, participants, currentUserUid]);
+
   // Animate plant rotation when finding message
   useEffect(() => {
     if (findingMessage) {
@@ -401,28 +456,19 @@ const ChatScreen = ({navigation, route}) => {
 
   // Handle reply preview click - scroll to original message (OPTIMIZED)
   const handleReplyPress = async (originalMessageId) => {
-    console.log('🎯 handleReplyPress called with messageId:', originalMessageId);
-    
-    if (!originalMessageId || !flatListRef.current) {
-      console.log('❌ Cannot scroll: missing messageId or flatListRef');
-      return;
-    }
+    if (!originalMessageId || !flatListRef.current) return;
     
     // Check if message is in current view
     let messageIndex = messagesRef.current.findIndex(msg => msg.id === originalMessageId);
     
-    console.log('🎯 Initial search - messageId:', originalMessageId, 'at index:', messageIndex, 'total messages:', messagesRef.current.length);
-    
     // If message not found in current view, use optimized direct fetch
     if (messageIndex === -1) {
-      console.log('📥 Message not in current view, loading directly...');
       setFindingMessage(true); // Show loading modal
       
       // Use direct fetch instead of sequential loading
       const success = await loadMessagesAroundMessage(originalMessageId);
       
       if (!success) {
-        console.log('❌ Message not found');
         setFindingMessage(false);
         Alert.alert('Message not found', 'The original message could not be found. It may have been deleted.');
         return;
@@ -433,13 +479,10 @@ const ChatScreen = ({navigation, route}) => {
       
       // Find message index in newly loaded messages
       messageIndex = messagesRef.current.findIndex(msg => msg.id === originalMessageId);
-      
-      console.log('✅ Message loaded at index:', messageIndex, 'in', messagesRef.current.length, 'total messages');
       setFindingMessage(false);
     }
     
     if (messageIndex === -1) {
-      console.log('❌ Message still not found after direct load');
       setFindingMessage(false);
       Alert.alert('Message not found', 'The original message could not be found.');
       return;
@@ -450,7 +493,6 @@ const ChatScreen = ({navigation, route}) => {
     
     // Scroll to the message
     const scrollToMessage = (index) => {
-      console.log('🎯 Scrolling to index:', index);
       try {
         if (flatListRef.current) {
           flatListRef.current.scrollToIndex({
@@ -458,10 +500,8 @@ const ChatScreen = ({navigation, route}) => {
             animated: true,
             viewPosition: 0.3, // Position near top for better context
           });
-          console.log('✅ Successfully scrolled to index:', index);
         }
       } catch (error) {
-        console.log('⚠️ Error scrolling, retrying:', error);
         setTimeout(() => {
           try {
             flatListRef.current?.scrollToIndex({
@@ -469,9 +509,8 @@ const ChatScreen = ({navigation, route}) => {
               animated: true,
               viewPosition: 0.3,
             });
-            console.log('✅ Retry successful');
           } catch (e) {
-            console.log('❌ Scroll failed:', e);
+            // Silent fail
           }
         }, 500);
       }
@@ -732,14 +771,8 @@ const ChatScreen = ({navigation, route}) => {
           }
         ]
       });
-
-      console.log('✅ Message edited successfully', {
-        messageId: editingMessage.id,
-        isEdited: true,
-        historyCount: (editingMessage.editHistory || []).length + 1
-      });
     } catch (error) {
-      console.error('❌ Error editing message:', error);
+      console.error('Error editing message:', error);
       // Revert optimistic update
       setMessages(messages);
       Alert.alert('Error', 'Failed to edit message. Please try again.');
@@ -783,13 +816,12 @@ const ChatScreen = ({navigation, route}) => {
     
     // Load newer messages when scrolling near the top (if we jumped to a message)
     if (isJumpedToMessage.current && offsetY < 100 && hasNewerMessages && !loadingMore) {
-      console.log('📥 Near top, loading newer messages...');
       loadNewerMessages();
     }
   };
 
   // Send a message: create message doc and update chat metadata
-  const sendMessage = async (text, isListing = false, listingId = null, imageUrl = null, imageUrls = null, replyTo = null) => {
+  const sendMessage = async (text, isListing = false, listingId = null, imageUrl = null, imageUrls = null, replyTo = null, mentions = null) => {
     if (!id) {
       return;
     }
@@ -827,6 +859,7 @@ const ChatScreen = ({navigation, route}) => {
       imageUrl: imageUrl || null,
       imageUrls: imageUrls || null,
       replyTo: sanitizedReplyTo, // Add reply information
+      mentions: mentions || null, // Add mention information
       optimistic: true, // Flag for optimistic message
     };
 
@@ -845,6 +878,7 @@ const ChatScreen = ({navigation, route}) => {
         imageUrl: imageUrl || null,
         imageUrls: imageUrls || null,
         replyTo: sanitizedReplyTo, // Add reply information
+        mentions: mentions || null, // Add mentions information
       });
 
       // Clear reply state after sending
@@ -1086,25 +1120,19 @@ const ChatScreen = ({navigation, route}) => {
     // Start upload process in background (don't await - let it happen asynchronously)
     (async () => {
       try {
-        console.log('🎬 Starting video upload process...');
-        
         // Step 1: Compress video with iOS-compatible settings
-        console.log('📦 Compressing video for iOS compatibility...');
         updateProgress(10);
         
         let videoToUpload = videoData.uri;
         try {
           const compressed = await compressVideo(videoData.uri);
           videoToUpload = compressed.uri;
-          console.log('✅ Video compressed successfully');
           updateProgress(30);
         } catch (compressionError) {
-          console.warn('⚠️ Compression failed, uploading original:', compressionError);
           updateProgress(30);
         }
         
         // Step 2: Upload video
-        console.log('📤 Uploading video...');
         const { videoUrl, thumbnailUrl } = await uploadChatVideo(
           videoToUpload,
           null, // Backend will generate thumbnail
@@ -1112,14 +1140,10 @@ const ChatScreen = ({navigation, route}) => {
             // Map upload progress from 30-100%
             const mappedProgress = 30 + Math.floor(progress * 0.7);
             updateProgress(mappedProgress);
-            console.log(`Upload progress: ${mappedProgress}%`);
           }
         );
         
         updateProgress(100); // 100% after upload complete
-        console.log('✅ Video uploaded successfully');
-        console.log('Video URL:', videoUrl);
-        console.log('Thumbnail URL:', thumbnailUrl);
         
         // Step 3: Send message to Firestore
       const docRef = await addDoc(collection(db, 'messages'), {
@@ -1138,8 +1162,6 @@ const ChatScreen = ({navigation, route}) => {
         videoFormat: 'mp4',
         replyTo: sanitizedReplyTo,
       });
-
-        console.log('✅ Video message sent:', docRef.id);
 
         // Replace optimistic message with real one (with server URLs and thumbnail)
         setMessages(prev => {
@@ -1393,7 +1415,6 @@ const ChatScreen = ({navigation, route}) => {
             // Only process modifications and new messages after the first snapshot
             const isInitial = isInitialListenerSnapshot.current;
             if (isInitial) {
-              console.log('📡 Initial listener snapshot - skipping added messages to avoid loading all history');
               isInitialListenerSnapshot.current = false;
             }
             
@@ -1408,7 +1429,6 @@ const ChatScreen = ({navigation, route}) => {
 
               if (change.type === 'modified') {
                 // Message was modified (reaction added/removed, edited, etc.)
-                console.log('🔄 Message modified (reactions/edit):', updatedMessage.id);
                 setMessages(prev => {
                   const existingIndex = prev.findIndex(msg => msg.id === updatedMessage.id);
                   if (existingIndex !== -1) {
@@ -1431,8 +1451,6 @@ const ChatScreen = ({navigation, route}) => {
                 
                 // New message added
                 const newMessage = updatedMessage;
-                console.log('📩 New message detected via listener:', newMessage.id);
-                
                 setMessages(prev => {
                   const existingIndex = prev.findIndex(msg => msg.id === newMessage.id);
                   if (existingIndex !== -1) {
@@ -1492,12 +1510,7 @@ const ChatScreen = ({navigation, route}) => {
 
   // Load more previous messages (pagination) - scrolling UP (older messages)
   const loadMoreMessages = async () => {
-    console.log('📥 loadMoreMessages (older) called - hasOlderMessages:', hasOlderMessages, 'loadingMore:', loadingMore, 'lastMessageRef:', !!lastMessageRef.current);
-    
-    if (!id || !hasOlderMessages || loadingMore || !lastMessageRef.current) {
-      console.log('📥 loadMoreMessages early return:', { id: !!id, hasOlderMessages, loadingMore, lastMessageRef: !!lastMessageRef.current });
-      return;
-    }
+    if (!id || !hasOlderMessages || loadingMore || !lastMessageRef.current) return;
 
     try {
       setLoadingMore(true);
@@ -1518,8 +1531,6 @@ const ChatScreen = ({navigation, route}) => {
         ...doc.data(),
       }));
 
-      console.log('📥 loadMoreMessages fetched:', newMessages.length, 'older messages');
-
       if (snapshot.docs.length > 0) {
         lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
         setHasOlderMessages(snapshot.docs.length === 10);
@@ -1528,11 +1539,9 @@ const ChatScreen = ({navigation, route}) => {
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
           const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
-          console.log('📥 Adding', uniqueNewMessages.length, 'unique older messages. Total will be:', prev.length + uniqueNewMessages.length);
           return [...prev, ...uniqueNewMessages];
         });
       } else {
-        console.log('📥 No more older messages found');
         setHasOlderMessages(false);
       }
 
@@ -1545,12 +1554,7 @@ const ChatScreen = ({navigation, route}) => {
 
   // Load newer messages (pagination) - scrolling DOWN (newer messages)
   const loadNewerMessages = async () => {
-    console.log('📥 loadNewerMessages called - hasNewerMessages:', hasNewerMessages, 'loadingMore:', loadingMore, 'firstMessageRef:', !!firstMessageRef.current);
-    
-    if (!id || !hasNewerMessages || loadingMore || !firstMessageRef.current) {
-      console.log('📥 loadNewerMessages early return:', { id: !!id, hasNewerMessages, loadingMore, firstMessageRef: !!firstMessageRef.current });
-      return;
-    }
+    if (!id || !hasNewerMessages || loadingMore || !firstMessageRef.current) return;
 
     try {
       setLoadingMore(true);
@@ -1571,8 +1575,6 @@ const ChatScreen = ({navigation, route}) => {
         ...doc.data(),
       })).reverse(); // Reverse to maintain desc order
 
-      console.log('📥 loadNewerMessages fetched:', newMessages.length, 'newer messages');
-
       if (snapshot.docs.length > 0) {
         firstMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
         setHasNewerMessages(snapshot.docs.length === 10);
@@ -1581,11 +1583,9 @@ const ChatScreen = ({navigation, route}) => {
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
           const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
-          console.log('📥 Adding', uniqueNewMessages.length, 'unique newer messages. Total will be:', prev.length + uniqueNewMessages.length);
           return [...uniqueNewMessages, ...prev];
         });
       } else {
-        console.log('📥 No more newer messages found');
         setHasNewerMessages(false);
       }
 
@@ -1598,8 +1598,6 @@ const ChatScreen = ({navigation, route}) => {
 
   // Load messages around a specific message (for reply navigation)
   const loadMessagesAroundMessage = async (targetMessageId) => {
-    console.log('🎯 loadMessagesAroundMessage called for:', targetMessageId);
-    
     if (!id || !targetMessageId) {
       console.error('❌ Missing id or targetMessageId');
       return false;
@@ -1623,8 +1621,6 @@ const ChatScreen = ({navigation, route}) => {
         ...targetDoc.data(),
       };
 
-      console.log('✅ Found target message:', targetMessage);
-
       // 2. Fetch 10 messages after (newer than) the target message
       const messagesCollection = collection(db, 'messages');
       const newerQuery = query(
@@ -1642,8 +1638,6 @@ const ChatScreen = ({navigation, route}) => {
         ...doc.data(),
       }));
 
-      console.log('📥 Fetched', newerMessages.length, 'newer messages');
-
       // 3. Fetch 5 messages before (older than) the target message for context
       const olderQuery = query(
         messagesCollection,
@@ -1660,8 +1654,6 @@ const ChatScreen = ({navigation, route}) => {
         ...doc.data(),
       }));
 
-      console.log('📥 Fetched', olderMessages.length, 'older messages for context');
-
       // 4. Combine all messages: newer (reversed) + target + older
       const allMessages = [
         ...newerMessages.reverse(), // Newest first
@@ -1673,8 +1665,6 @@ const ChatScreen = ({navigation, route}) => {
       const uniqueMessages = allMessages.filter((msg, index, self) =>
         index === self.findIndex(m => m.id === msg.id)
       );
-
-      console.log('✅ Total unique messages:', uniqueMessages.length);
 
       // 5. Set references for pagination
       if (uniqueMessages.length > 0) {
@@ -1721,7 +1711,6 @@ const ChatScreen = ({navigation, route}) => {
     const hasNewMessages = messages.length > previousMessageCount.current;
     
     if (hasNewMessages && isNearBottom.current && flatListRef?.current && messages.length > 0) {
-      console.log('📩 New message detected, auto-scrolling to bottom');
       // Use scrollToIndex instead of scrollToEnd for inverted FlatList
       setTimeout(() => {
         try {
@@ -1731,7 +1720,6 @@ const ChatScreen = ({navigation, route}) => {
           });
         } catch (error) {
           // Fallback if scrollToIndex fails
-          console.log('Auto-scroll failed, trying scrollToOffset');
           flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }
       }, 100);
@@ -1744,26 +1732,18 @@ const ChatScreen = ({navigation, route}) => {
   // Fetch latest names and avatars for all participants from Firestore
   useEffect(() => {
     const fetchParticipantData = async () => {
-      if (!participants || participants.length === 0) {
-        console.log('🖼️ [ChatScreen] No participants to fetch data for');
-        return;
-      }
+      if (!participants || participants.length === 0) return;
 
       try {
         const uidsToFetch = participants
           .map(p => p?.uid)
           .filter(uid => uid);
 
-        console.log('🖼️ [ChatScreen] Fetching latest names and avatars for participants:', uidsToFetch);
-
         // Get current participantDataMap state
         setParticipantDataMap(prevMap => {
           for (const uid of uidsToFetch) {
             // Skip if currently fetching
-            if (fetchingRef.current.has(uid)) {
-              console.log(`⏭️ [ChatScreen] Skipping ${uid} - currently fetching`);
-              continue;
-            }
+            if (fetchingRef.current.has(uid)) continue;
 
             // Mark as fetching
             fetchingRef.current.add(uid);
@@ -1771,22 +1751,18 @@ const ChatScreen = ({navigation, route}) => {
             // Fetch participant data asynchronously
             (async () => {
               try {
-                console.log(`🔍 [ChatScreen] Fetching latest data for ${uid}...`);
-
                 // Try buyer collection first
                 let userDocRef = doc(db, 'buyer', uid);
                 let userSnap = await getDoc(userDocRef);
                 
                 // If not found in buyer, try admin collection
                 if (!userSnap.exists()) {
-                  console.log(`🔍 [ChatScreen] ${uid} not in buyer, trying admin...`);
                   userDocRef = doc(db, 'admin', uid);
                   userSnap = await getDoc(userDocRef);
                 }
                 
                 // If not found in admin, try supplier collection
                 if (!userSnap.exists()) {
-                  console.log(`🔍 [ChatScreen] ${uid} not in admin, trying supplier...`);
                   userDocRef = doc(db, 'supplier', uid);
                   userSnap = await getDoc(userDocRef);
                 }
@@ -1809,7 +1785,6 @@ const ChatScreen = ({navigation, route}) => {
                   setParticipantDataMap(prevMap => {
                     // Double-check it's not already there (in case of race condition)
                     if (prevMap[uid] && prevMap[uid].name === latestName && prevMap[uid].avatarUrl === avatarUrl) {
-                      console.log(`⏭️ [ChatScreen] ${uid} data unchanged, skipping update`);
                       return prevMap;
                     }
                     
@@ -1820,7 +1795,6 @@ const ChatScreen = ({navigation, route}) => {
                     }
                     
                     if (Object.keys(updateData).length > 0) {
-                      console.log(`✅ [ChatScreen] Found latest data for ${uid}:`, updateData);
                       const newMap = {...prevMap, [uid]: {...prevMap[uid], ...updateData}};
                       
                       // Also update avatarMap for backward compatibility
@@ -1833,11 +1807,9 @@ const ChatScreen = ({navigation, route}) => {
                     
                     return prevMap;
                   });
-                } else {
-                  console.log(`⚠️ [ChatScreen] User ${uid} not found in buyer, admin, or supplier collections`);
                 }
               } catch (err) {
-                console.warn(`❌ [ChatScreen] Error fetching data for ${uid}:`, err);
+                // Silent fail
               } finally {
                 // Remove from fetching set
                 fetchingRef.current.delete(uid);
@@ -1848,7 +1820,7 @@ const ChatScreen = ({navigation, route}) => {
           return prevMap;
         });
       } catch (err) {
-        console.warn('❌ [ChatScreen] Error in fetchParticipantData:', err);
+        // Silent fail
       }
     };
 
@@ -1937,9 +1909,22 @@ const ChatScreen = ({navigation, route}) => {
             {chatType === 'group' ? (
               <View style={styles.userInfoText}>
                 <Text style={styles.title} numberOfLines={1}>{name || 'Chat'}</Text>
-                <Text style={styles.subtitle}>
-                  {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
-                </Text>
+                <View style={styles.subtitleRow}>
+                  <Text style={styles.subtitle}>
+                    {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
+                  </Text>
+                  {activeMembers > 0 && (
+                    <>
+                      <View style={styles.subtitleDot} />
+                      <View style={styles.activeIndicatorContainer}>
+                        <View style={styles.activeIndicatorDot} />
+                        <Text style={styles.activeIndicatorText}>
+                          {`${activeMembers} active`}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
               </View>
             ) : (
               <View style={styles.userInfoText}>
@@ -1990,17 +1975,16 @@ const ChatScreen = ({navigation, route}) => {
           scrollEventThrottle={16}
           onScrollToIndexFailed={(info) => {
             // Handle scroll to index failure - wait a bit and try again
-            console.log('ScrollToIndex failed, retrying:', info);
             const wait = new Promise(resolve => setTimeout(resolve, 500));
             wait.then(() => {
               try {
-                flatListRef.current?.scrollToIndex({ 
-                  index: info.index, 
+                flatListRef.current?.scrollToIndex({
+                  index: info.index,
                   animated: true,
                   viewPosition: 0.5,
                 });
               } catch (e) {
-                console.log('Retry scrollToIndex also failed:', e);
+                // Silent fail
               }
             });
           }}
@@ -2061,12 +2045,10 @@ const ChatScreen = ({navigation, route}) => {
                 // Priority 1: Get name from participantDataMap (fetched from Firestore - most reliable)
                 if (participantDataMap[item.senderId]?.name) {
                   senderName = participantDataMap[item.senderId].name;
-                  console.log(`✅ [ChatScreen] Using participantDataMap name for ${item.senderId}:`, senderName);
                 }
                 // Priority 2: Get name from sender in participants array
                 else if (sender) {
                   senderName = sender?.name || 'Unknown';
-                  console.log(`✅ [ChatScreen] Using participant name for ${item.senderId}:`, senderName);
                 }
               }
               
@@ -2213,7 +2195,7 @@ const ChatScreen = ({navigation, route}) => {
 
       {/* Input - Disabled for non-members */}
       <MessageInput 
-        onSend={(text) => sendMessage(text, false, null, null, null, replyingTo)} 
+        onSend={(text, isListing, listingData, isSeller, isBuyer, replyTo, mentions) => sendMessage(text, isListing, listingData, isSeller, isBuyer, replyTo, mentions)} 
         onSendImage={(images, text) => sendImage(images, text, replyingTo)}
         onSendVideo={(video, text) => sendVideo(video, text, replyingTo)}
         disabled={chatType === 'group' && !isMember}
@@ -2223,6 +2205,8 @@ const ChatScreen = ({navigation, route}) => {
         editingMessage={editingMessage}
         onCancelEdit={cancelEdit}
         onSaveEdit={saveEditedMessage}
+        currentUserUid={currentUserUid}
+        chatType={chatType}
       />
 
       {/* Message Tooltip Modal - Three buttons: Emoji, Reply, and Edit (for own messages) */}
@@ -2401,6 +2385,41 @@ const styles = StyleSheet.create({
   },
   title: {fontSize: 18, fontWeight: 'bold', color: '#000'},
   subtitle: {fontSize: 12, color: '#666', marginTop: 2},
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 6,
+  },
+  subtitleDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#999',
+  },
+  activeIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  activeIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#34C759', // iOS green for online/active
+    shadowColor: '#34C759',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+  },
+  activeIndicatorText: {
+    fontSize: 12,
+    color: '#34C759',
+    fontWeight: '600',
+  },
   avatar: {
     width: 32,
     height: 32,

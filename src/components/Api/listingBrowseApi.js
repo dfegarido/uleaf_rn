@@ -33,8 +33,6 @@ export const getPlantRecommendationsApi = async (params = {}) => {
     // Get auth token if available (optional for this public endpoint)
     const authToken = await getStoredAuthToken();
     
-    console.log('🌱 getPlantRecommendations called with params:', params);
-    
     // Build query string with better error handling
     const queryParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
@@ -70,8 +68,6 @@ export const getPlantRecommendationsApi = async (params = {}) => {
       }
     });
     const qs = queryParams.toString();
-    
-    console.log('🌱 Final query string:', qs);
 
   // Memory cache key per-user token + endpoint + query
   // CRITICAL: Include offset in cache key to prevent returning wrong page from cache
@@ -84,27 +80,17 @@ export const getPlantRecommendationsApi = async (params = {}) => {
   if (shouldCache && cacheKey) {
     const cached = __memCache.get(cacheKey);
     if (cached) {
-      console.log('🌱 Returning cached recommendations (offset=0 only)');
       return cached;
     }
-  } else {
-    console.log(`🌱 Skipping cache for offset=${params.offset} (only caching offset=0)`);
   }
 
   // Try persistent cache (short TTL) as a fallback - only for offset=0
   if (shouldCache) {
     const persistent = await getCachedResponse('GET_PLANT_RECOMMENDATIONS', qs, userKey);
     if (persistent) {
-      console.log('🌱 Returning persistent cached recommendations (offset=0 only)');
       return persistent;
     }
   }
-
-    console.log('🌱 Making API request to:', `${API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS}?${qs}`);
-    console.log('🌱 Request headers:', {
-      'Content-Type': 'application/json',
-      'Authorization': authToken ? `Bearer ${authToken?.slice?.(0, 20)}...` : 'None (public endpoint)'
-    });
 
     // Verify the endpoint is properly constructed
     if (!API_ENDPOINTS.GET_PLANT_RECOMMENDATIONS) {
@@ -129,17 +115,14 @@ export const getPlantRecommendationsApi = async (params = {}) => {
       },
     );
 
-    console.log('🌱 API response status:', response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('🌱 API error response:', errorText);
       
       let errorData = {};
       try {
         errorData = JSON.parse(errorText);
       } catch (e) {
-        console.warn('🌱 Could not parse error response as JSON');
+        // Could not parse error response
       }
       
       throw new Error(
@@ -148,10 +131,6 @@ export const getPlantRecommendationsApi = async (params = {}) => {
     }
 
   const data = await response.json();
-  console.log('🌱 API response data:', { 
-    success: true, 
-    recommendationsCount: data?.recommendations?.length || 0 
-  });
   
   const result = {
       success: true,
@@ -275,8 +254,6 @@ export const getBuyerListingsApi = async (params = {}) => {
       ...params
     };
     
-    console.log("Input params to getBuyerListingsApi:", finalParams);
-    
     const queryParams = new URLSearchParams();
     Object.keys(finalParams).forEach(key => {
       if (finalParams[key] !== undefined && finalParams[key] !== null) {
@@ -302,7 +279,6 @@ export const getBuyerListingsApi = async (params = {}) => {
       }
     });
     const qs = queryParams.toString();
-    console.log("API Query Params:", `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${qs}`);
 
   // Memory cache key per-user token + endpoint + query
     const cacheKey = `buyerListings:${authToken?.slice?.(-12) || 'anon'}:${qs}`;
@@ -549,7 +525,6 @@ export const searchPlantsApi = async (params = {}) => {
     }
 
     const data = await response.json();
-    console.log('Search plants API response:', data);
 
     return {
       success: true,
@@ -583,8 +558,6 @@ export const getPriceDropBadgeListingsApi = async (params = {}) => {
       ...params
     };
     
-    console.log("Price Drop Badge API params:", finalParams);
-    
     const queryParams = new URLSearchParams();
     Object.keys(finalParams).forEach(key => {
       if (finalParams[key] !== undefined && finalParams[key] !== null) {
@@ -593,7 +566,6 @@ export const getPriceDropBadgeListingsApi = async (params = {}) => {
     });
     
     const qs = queryParams.toString();
-    console.log("Price Drop Badge API Query:", `${API_ENDPOINTS.GET_PRICE_DROP_BADGE_LISTINGS}?${qs}`);
 
     const response = await fetch(
       `${API_ENDPOINTS.GET_PRICE_DROP_BADGE_LISTINGS}?${qs}`,
@@ -613,12 +585,6 @@ export const getPriceDropBadgeListingsApi = async (params = {}) => {
     }
 
     const data = await response.json();
-    console.log('Price Drop Badge API response:', {
-      success: data.success,
-      count: data.count,
-      scanned: data.scanned,
-      hasMore: data.hasMore
-    });
 
     return {
       success: true,

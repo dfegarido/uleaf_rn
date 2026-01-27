@@ -138,7 +138,6 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
                 userType: user.userType || 'buyer'
               }));
               allResults.push(...buyerResults);
-              console.log(`✅ Added ${buyerResults.length} buyers to admin results`);
             }
           }
         } catch (buyerError) {
@@ -167,7 +166,6 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
                 userType: user.userType || 'supplier'
               }));
               allResults.push(...supplierResults);
-              console.log(`✅ Added ${supplierResults.length} suppliers to admin results`);
             }
           }
         } catch (supplierError) {
@@ -181,7 +179,6 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         // 2. Other seller users (suppliers)
         // Sellers CANNOT message buyer users
         // ============================================
-        console.log('✅ Seller detected: Fetching suppliers and admins ONLY (buyers excluded)');
         const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=50&offset=0`;
         
         const supplierResponse = await fetch(supplierUrl, {
@@ -208,7 +205,6 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
             userType: user.userType || 'supplier'
           }));
           allResults.push(...supplierResults);
-          console.log(`✅ Added ${supplierResults.length} suppliers to results`);
         }
       } else if (isBuyer) {
         // ============================================
@@ -245,12 +241,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
             userType: user.userType || 'buyer'
           }));
           allResults.push(...buyerResults);
-          console.log(`✅ Added ${buyerResults.length} buyers to results`);
         }
-      } else {
-        // Fallback: if user type is not detected
-        console.log('⚠️ WARNING: User type not detected. Cannot fetch users.');
-        // Don't fetch anything - let the final security filter handle it
       }
       
       // Also fetch admins (both admin and sub_admin roles)

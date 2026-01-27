@@ -125,6 +125,7 @@ const ensureIOSCompatibleUrl = (url) => {
 
 const VideoPlayer = ({ 
   videoUrl, 
+  thumbnailUrl, // Thumbnail to show while video loads
   visible, 
   onClose, 
   autoPlay = false,
@@ -407,6 +408,28 @@ const VideoPlayer = ({
             playInBackground={false}
             playWhenInactive={false}
             ignoreSilentSwitch="ignore"
+            // Buffer configuration for large videos (iOS compatibility)
+            bufferConfig={{
+              minBufferMs: 15000,        // Minimum 15s buffer before playback
+              maxBufferMs: 50000,        // Maximum 50s buffer
+              bufferForPlaybackMs: 2500, // Start playing after 2.5s buffered
+              bufferForPlaybackAfterRebufferMs: 5000, // Resume after 5s if rebuffering
+            }}
+            // Limit bitrate to prevent memory issues with large videos
+            maxBitRate={2500000} // 2.5 Mbps max (adjust based on your video quality)
+            // Retry failed loads (network issues)
+            minLoadRetryCount={3}
+            // Show thumbnail while loading (if available)
+            poster={thumbnailUrl}
+            posterResizeMode="cover"
+            // Controls for better large file handling
+            controls={false} // We use custom controls
+            progressUpdateInterval={250} // Update progress every 250ms
+            // iOS-specific optimizations
+            allowsExternalPlayback={false}
+            pictureInPicture={false}
+            // Prevent automatic quality switching
+            automaticallyWaitsToMinimizeStalling={true}
           />
           
           {/* Transparent Touch Overlay - Captures touches for showing/hiding controls */}

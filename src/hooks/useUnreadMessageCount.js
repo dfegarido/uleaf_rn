@@ -47,11 +47,6 @@ export const useUnreadMessageCount = () => {
               }
             });
 
-            console.log('📬 Unread message count updated:', {
-              count,
-              userId: currentUserUid,
-              timestamp: new Date().toISOString(),
-            });
             setUnreadCount(count);
             setLoading(false);
           } catch (error) {

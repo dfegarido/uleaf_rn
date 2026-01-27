@@ -28,14 +28,11 @@ const UpdateRequiredScreen = ({updateUrl, message}) => {
         'https://play.google.com/store/apps/details?id=com.ileafu';
     }
     
-    console.log('Opening update URL:', url, 'Platform:', Platform.OS);
-    
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
         await Linking.openURL(url);
       } else {
-        console.log("Can't open URL:", url);
         // Fallback to browser URL format
         const fallbackUrl = Platform.OS === 'ios' 
           ? 'https://apps.apple.com/us/app/ileafu/id6749962372'
