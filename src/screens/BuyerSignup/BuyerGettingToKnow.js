@@ -77,8 +77,7 @@ const BuyerGettingToKnow = () => {
     const newErrors = {};
     if (!firstName.trim()) newErrors.firstName = 'First name is required';
     if (!lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!contactNumber.trim())
-      newErrors.contactNumber = 'Contact number is required';
+    // Contact number is now optional - no validation needed
     if (!email.trim()) newErrors.email = 'Email address is required';
     // Basic email validation
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
@@ -154,7 +153,7 @@ const BuyerGettingToKnow = () => {
 
           {/* Contact number */}
           <Text style={styles.label}>
-            Contact number<Text style={styles.required}>*</Text>
+            Contact number <Text style={styles.optional}>(Optional)</Text>
           </Text>
           {/* Restrict PhoneInput to US only by setting initialPhoneNumber to '+1' and hiding country picker if possible */}
           <PhoneInput
@@ -198,13 +197,13 @@ const BuyerGettingToKnow = () => {
             style={[
               globalStyles.primaryButton,
               {marginBottom: 8},
-              (!firstName.trim() || !lastName.trim() || !contactNumber.trim() || !email.trim()) && styles.disabledButton,
+              (!firstName.trim() || !lastName.trim() || !email.trim()) && styles.disabledButton,
             ]}
             onPress={handleContinue}
-            disabled={!firstName.trim() || !lastName.trim() || !contactNumber.trim() || !email.trim()}>
+            disabled={!firstName.trim() || !lastName.trim() || !email.trim()}>
             <Text style={[
               globalStyles.primaryButtonText,
-              (!firstName.trim() || !lastName.trim() || !contactNumber.trim() || !email.trim()) && styles.disabledButtonText,
+              (!firstName.trim() || !lastName.trim() || !email.trim()) && styles.disabledButtonText,
             ]}>
               Continue
             </Text>
@@ -263,6 +262,11 @@ const styles = StyleSheet.create({
   },
   required: {
     color: '#FF5247',
+  },
+  optional: {
+    color: '#8E8E93',
+    fontSize: 13,
+    fontWeight: '400',
   },
   errorText: {
     color: '#FF5247',
