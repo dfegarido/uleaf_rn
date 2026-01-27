@@ -50,7 +50,7 @@ export const uploadChatVideo = async (videoUri, thumbnailUri, onProgress = null)
             if (response.success && response.data) {
               resolve({
                 videoUrl: response.data.videoUrl || response.data.url,
-                thumbnailUrl: response.data.thumbnailUrl,
+                thumbnailUrl: response.data.thumbnailUrl || null,
               });
             } else {
               reject(new Error(response.message || 'Upload failed'));

@@ -36,9 +36,8 @@ const TabFilter = ({tabFilters, activeTab, setActiveTab, onPressTab}) => {
             style={{
               flexDirection: 'row',
               paddingHorizontal: 20,
-              //   paddingVertical: 10,
-              borderBottomColor: '#202325',
               paddingVertical: 10,
+              borderBottomColor: '#202325',
               borderBottomWidth:
                 activeTab === parseTabFilters.filterKey ? 2 : 0,
             }}>

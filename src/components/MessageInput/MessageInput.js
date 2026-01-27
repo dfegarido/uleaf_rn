@@ -351,6 +351,9 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     if (replyingTo.text) {
       return replyingTo.text.length > 50 ? replyingTo.text.substring(0, 50) + '...' : replyingTo.text;
     }
+    if (replyingTo.videoUrl) {
+      return 'Video';
+    }
     if (replyingTo.imageUrls && replyingTo.imageUrls.length > 0) {
       return replyingTo.imageUrls.length > 1 ? `${replyingTo.imageUrls.length} photos` : 'Photo';
     }
@@ -360,9 +363,44 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     return '';
   };
 
+  // Get media thumbnail for reply preview
+  const getReplyMediaThumbnail = () => {
+    if (!replyingTo) return null;
+    
+    console.log('🔍 Reply data:', {
+      hasVideoUrl: !!replyingTo.videoUrl,
+      hasThumbnailUrl: !!replyingTo.thumbnailUrl,
+      hasImageUrls: !!replyingTo.imageUrls,
+      hasImageUrl: !!replyingTo.imageUrl,
+    });
+    
+    // Video thumbnail
+    if (replyingTo.videoUrl || replyingTo.thumbnailUrl) {
+      const thumbnail = replyingTo.thumbnailUrl || replyingTo.videoUrl;
+      console.log('🎬 Using video thumbnail:', thumbnail);
+      return thumbnail;
+    }
+    
+    // Image thumbnail
+    if (replyingTo.imageUrls && replyingTo.imageUrls.length > 0) {
+      console.log('🖼️ Using image thumbnail:', replyingTo.imageUrls[0]);
+      return replyingTo.imageUrls[0];
+    }
+    if (replyingTo.imageUrl) {
+      console.log('🖼️ Using single image:', replyingTo.imageUrl);
+      return replyingTo.imageUrl;
+    }
+    
+    console.log('❌ No thumbnail found');
+    return null;
+  };
+
   const replySenderName = replyingTo 
     ? (replyingTo.senderName || participantDataMap[replyingTo.senderId]?.name || 'Unknown')
     : '';
+  
+  const replyMediaThumbnail = getReplyMediaThumbnail();
+  const hasVideo = replyingTo?.videoUrl;
 
   return (
     <View style={styles.container}>
@@ -384,10 +422,43 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
         <View style={styles.replyPreviewContainer}>
           <View style={styles.replyPreviewContent}>
             <View style={styles.replyPreviewBar} />
+            
+            {/* Thumbnail for images/videos */}
+            {replyMediaThumbnail && (
+              <View style={styles.replyThumbnailContainer}>
+                <Image 
+                  source={{ uri: replyMediaThumbnail }} 
+                  style={styles.replyThumbnail}
+                  resizeMode="cover"
+                />
+                {/* Video play icon overlay */}
+                {hasVideo && (
+                  <View style={styles.replyVideoIconOverlay}>
+                    <VideoIcon width={16} height={16} color="#FFFFFF" />
+                  </View>
+                )}
+              </View>
+            )}
+            
             <View style={styles.replyPreviewTextContainer}>
-              <Text style={styles.replyPreviewSenderName}>{replySenderName}</Text>
-              <Text style={styles.replyPreviewText} numberOfLines={1}>{getReplyPreviewText()}</Text>
+              <Text style={styles.replyPreviewSenderName}>
+                Replying to {replySenderName}
+              </Text>
+              <View style={styles.replyPreviewMessageRow}>
+                {/* Show icon for media without text */}
+                {!replyingTo.text && replyMediaThumbnail && (
+                  hasVideo ? (
+                    <VideoIcon width={14} height={14} color="#666" />
+                  ) : (
+                    <ImageIcon width={14} height={14} color="#666" />
+                  )
+                )}
+                <Text style={styles.replyPreviewText} numberOfLines={1}>
+                  {getReplyPreviewText()}
+                </Text>
+              </View>
             </View>
+            
             <TouchableOpacity onPress={onCancelReply} style={styles.replyCancelButton}>
               <Text style={styles.replyCancelText}>✕</Text>
             </TouchableOpacity>
@@ -513,7 +584,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#F0F2F5',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 0.5,
     borderTopColor: '#E4E6EB',
   },
@@ -541,14 +612,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   replyPreviewSenderName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#539461', // Theme green color
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  replyPreviewMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   replyPreviewText: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 13,
+    color: '#333',
+    flex: 1,
+  },
+  replyThumbnailContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    marginRight: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  replyThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  replyVideoIconOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   replyCancelButton: {
     width: 24,

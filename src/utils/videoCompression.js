@@ -30,12 +30,29 @@ export const compressVideo = async (videoUri) => {
       throw new Error(`Video size exceeds ${MAX_VIDEO_SIZE_MB}MB limit`);
     }
     
-    // Try to compress video - Video.compress will handle dimensions internally
-    console.log('📦 Compressing video...');
+    // Try to compress video with iOS-compatible settings
+    // iOS requires H.264 video codec and AAC audio codec
+    console.log('📦 Compressing video with iOS-compatible settings...');
+    console.log('🎬 Input video URI:', videoUri);
+    console.log('🎬 Platform:', Platform.OS);
     try {
-      const compressedUri = await Video.compress(videoUri, {
-        compressionMethod: 'auto',
+      console.log('🔄 Starting compression with settings:', {
+        compressionMethod: 'manual',
+        bitrate: 1500000,
+        minimumFileSizeForCompress: 0,
+        maxSize: 1920,
       });
+      
+      const compressedUri = await Video.compress(videoUri, {
+        compressionMethod: 'manual', // Use manual for more control
+        bitrate: 1500000, // 1.5 Mbps for better quality
+        minimumFileSizeForCompress: 0, // Always compress to ensure correct codec
+        maxSize: 1920, // Max width/height 1920px
+        getCancellationId: (cancellationId) => console.log('Compression ID:', cancellationId),
+      });
+      
+      console.log('🎬 Output video URI:', compressedUri);
+      console.log('🎬 Compression completed, URIs are different:', compressedUri !== videoUri);
       
       const compressedSize = await getFileSize(compressedUri);
       console.log('✅ Video compressed successfully', {

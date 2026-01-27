@@ -9,18 +9,15 @@ const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 
 // Play Icon SVG Component
 const PlayIcon = ({ width = 60, height = 60, color = '#FFFFFF' }) => (
-  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+  <Svg width={width} height={height} viewBox="0 0 32 32">
     <Path
-      d="M16.6582 9.28638C18.098 10.1862 18.8178 10.6361 19.0647 11.2122C19.2803 11.7152 19.2803 12.2847 19.0647 12.7878C18.8178 13.3638 18.098 13.8137 16.6582 14.7136L9.896 18.94C8.29805 19.9387 7.49907 20.4381 6.83973 20.385C6.26501 20.3388 5.73818 20.0469 5.3944 19.584C5 19.053 5 18.1108 5 16.2264V7.77357C5 5.88919 5 4.94701 5.3944 4.41598C5.73818 3.9531 6.26501 3.66111 6.83973 3.6149C7.49907 3.5619 8.29805 4.06126 9.896 5.05998L16.6582 9.28638Z"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinejoin="round"
+      d="M5.92 24.096q0 1.088 0.928 1.728 0.512 0.288 1.088 0.288 0.448 0 0.896-0.224l16.16-8.064q0.48-0.256 0.8-0.736t0.288-1.088-0.288-1.056-0.8-0.736l-16.16-8.064q-0.448-0.224-0.896-0.224-0.544 0-1.088 0.288-0.928 0.608-0.928 1.728v16.16z"
       fill={color}
     />
   </Svg>
 );
 
-const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, videoUrl, thumbnailUrl, videoDuration, uploadProgress, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions, isEdited = false, lastEditedAt = null, editHistory = [], onViewEditHistory }) => {
+const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, videoUrl, thumbnailUrl, videoDuration, uploadProgress, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions, isEdited = false, lastEditedAt = null, editHistory = [], onViewEditHistory, localVideoUri }) => {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
@@ -38,6 +35,28 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
   const originalMessageSenderName = replyTo?.senderName || 'Unknown';
   const originalMessageText = replyTo?.text || '';
   const originalMessageImages = replyTo?.imageUrls || (replyTo?.imageUrl ? [replyTo.imageUrl] : []);
+  const originalMessageVideoUrl = replyTo?.videoUrl || null;
+  const originalMessageThumbnailUrl = replyTo?.thumbnailUrl || null;
+  
+  // Get thumbnail for reply preview (video thumbnail or first image)
+  const getOriginalMessageThumbnail = () => {
+    if (originalMessageThumbnailUrl) {
+      console.log('🎬 Reply thumbnail from thumbnailUrl:', originalMessageThumbnailUrl);
+      return originalMessageThumbnailUrl;
+    }
+    if (originalMessageVideoUrl) {
+      console.log('🎬 Reply thumbnail from videoUrl:', originalMessageVideoUrl);
+      return originalMessageVideoUrl;
+    }
+    if (originalMessageImages.length > 0) {
+      console.log('🖼️ Reply thumbnail from imageUrls:', originalMessageImages[0]);
+      return originalMessageImages[0];
+    }
+    console.log('❌ No thumbnail found for reply');
+    return null;
+  };
+  
+  const originalMessageThumbnail = getOriginalMessageThumbnail();
 
   // Process reactions: group by emoji and get user info
   const processReactions = () => {
@@ -133,6 +152,20 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
             setSelectedImageIndex(0);
             setImageModalVisible(true);
           }}
+          onLongPress={() => {
+            if (onMessageLongPress && !isListing) {
+              const messageData = {
+                id: messageId,
+                text,
+                imageUrl,
+                imageUrls,
+                senderId: isMe ? currentUserUid : (senderName ? null : null),
+                senderName: isMe ? null : senderName,
+              };
+              onMessageLongPress(messageData);
+            }
+          }}
+          delayLongPress={300}
           activeOpacity={0.9}
           style={styles.singleImageContainer}>
           <Image
@@ -151,6 +184,20 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
           setSelectedImageIndex(0);
           setImageModalVisible(true);
         }}
+        onLongPress={() => {
+          if (onMessageLongPress && !isListing) {
+            const messageData = {
+              id: messageId,
+              text,
+              imageUrl,
+              imageUrls,
+              senderId: isMe ? currentUserUid : (senderName ? null : null),
+              senderName: isMe ? null : senderName,
+            };
+            onMessageLongPress(messageData);
+          }
+        }}
+        delayLongPress={300}
         activeOpacity={0.9}
         style={styles.stackedImagesContainer}>
         {/* Background cards - show up to 2 actual images peeking out */}
@@ -232,9 +279,12 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
           {/* "You replied to [name]" indicator */}
           {replyTo && isMe && (
             <View style={styles.replyIndicatorContainer}>
-              <Svg width={14} height={14} viewBox="0 0 16 16" fill="#9CA3AF" style={styles.replyIndicatorIcon}>
+              <Svg width="14" height="14" viewBox="0 0 24 24" style={styles.replyIndicatorIcon}>
                 <Path
-                  d="M6.497 1.035C7.593-.088 9.5.688 9.5 2.257V4.54c1.923.215 3.49 1.246 4.593 2.672C15.328 8.808 16 10.91 16 13v.305c0 .632-.465 1.017-.893 1.127-.422.11-.99.005-1.318-.493-.59-.894-1.2-1.482-1.951-1.859-.611-.307-1.359-.496-2.338-.558v2.23c0 1.57-1.908 2.346-3.003 1.222L.893 9.223a1.75 1.75 0 0 1 .001-2.444l5.603-5.744z"
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M12 3C12.5523 3 13 3.44772 13 4V17.5858L18.2929 12.2929C18.6834 11.9024 19.3166 11.9024 19.7071 12.2929C20.0976 12.6834 20.0976 13.3166 19.7071 13.7071L12.7071 20.7071C12.3166 21.0976 11.6834 21.0976 11.2929 20.7071L4.29289 13.7071C3.90237 13.3166 3.90237 12.6834 4.29289 12.2929C4.68342 11.9024 5.31658 11.9024 5.70711 12.2929L11 17.5858V4C11 3.44772 11.4477 3 12 3Z"
+                  fill="#9CA3AF"
                 />
               </Svg>
               <Text style={styles.replyIndicatorText}>
@@ -242,6 +292,76 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
               </Text>
             </View>
           )}
+          {/* Render video separately - OUTSIDE of text bubble */}
+          {!isListing && (videoUrl || localVideoUri) && (
+            <TouchableOpacity
+              onPress={() => {
+                // Play from server URL if available, otherwise from local URI
+                const playableUri = videoUrl || localVideoUri;
+                if (playableUri) {
+                  setVideoPlayerVisible(true);
+                }
+              }}
+              onLongPress={() => {
+                if (onMessageLongPress && !isListing) {
+                  const messageData = {
+                    id: messageId,
+                    text,
+                    imageUrl,
+                    imageUrls,
+                    videoUrl,
+                    thumbnailUrl,
+                    senderId: isMe ? currentUserUid : (senderName ? null : null),
+                    senderName: isMe ? null : senderName,
+                  };
+                  onMessageLongPress(messageData);
+                }
+              }}
+              delayLongPress={300}
+              activeOpacity={(videoUrl || localVideoUri) ? 0.9 : 1}
+              disabled={!(videoUrl || localVideoUri)}
+              style={[
+                styles.videoContainer,
+                // Add left margin for receiver messages to align with text bubbles
+                !isMe && { marginLeft: 35 },
+                { marginBottom: text && text.trim().length > 0 ? 6 : 0 } // Space between video and text
+              ]}>
+              {thumbnailUrl ? (
+                <Image
+                  source={{ uri: thumbnailUrl }}
+                  style={styles.videoThumbnail}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.videoThumbnail, { backgroundColor: '#222', justifyContent: 'center', alignItems: 'center' }]}>
+                  <PlayIcon width={60} height={60} color="#666" />
+                </View>
+              )}
+              {/* Upload progress indicator */}
+              {uploadProgress !== undefined && uploadProgress < 100 && (
+                <View style={styles.videoUploadOverlay}>
+                  <View style={styles.videoUploadProgressContainer}>
+                    <View style={[styles.videoUploadProgressBar, { width: `${uploadProgress}%` }]} />
+                    <Text style={styles.videoUploadProgressText}>{uploadProgress}%</Text>
+                  </View>
+                </View>
+              )}
+              {/* Play button overlay - show if video is playable (uploaded or local) */}
+              {(videoUrl || localVideoUri) && !(uploadProgress !== undefined && uploadProgress < 100) && (
+                <View style={styles.videoPlayOverlay}>
+                  <View style={styles.videoPlayButton}>
+                    <PlayIcon width={40} height={40} color="#FFFFFF" />
+                  </View>
+                </View>
+              )}
+              {videoDuration > 0 && (
+                <View style={styles.videoDurationBadge}>
+                  <Text style={styles.videoDurationText}>{formatDuration(videoDuration)}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             activeOpacity={0.7}
             onLongPress={() => {
@@ -262,8 +382,8 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
           <View
             style={[
               showAvatar ? styles.withAvatar : styles.bubble,
-              // Only apply bubble colors if it's a text-only message (has text and no images)
-              images.length === 0 && text && text.trim().length > 0 && (isMe ? styles.myBubble : styles.theirBubble),
+              // Apply bubble colors for text messages (no video/images, or has text with video/images)
+              ((images.length === 0 && !videoUrl && !localVideoUri) || ((videoUrl || localVideoUri) && text && text.trim().length > 0)) && text && text.trim().length > 0 && (isMe ? styles.myBubble : styles.theirBubble),
               typeof borderRadius === 'number' ? { borderRadius } : borderRadius,
               { marginBottom },
               // Add left margin for receiver messages to align with avatar position (avatar width 25 + margin 10 = 35)
@@ -292,6 +412,34 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                   styles.replyPreviewBar,
                   isMe ? styles.replyPreviewBarMe : styles.replyPreviewBarThem
                 ]} />
+                
+                {/* Thumbnail for images/videos */}
+                {originalMessageThumbnail && (
+                  <View style={styles.replyThumbnailBubble}>
+                    <Image 
+                      source={{ uri: originalMessageThumbnail }} 
+                      style={styles.replyThumbnailImage}
+                      resizeMode="cover"
+                      onError={(e) => console.log('❌ Failed to load reply thumbnail:', e.nativeEvent.error)}
+                      onLoad={() => console.log('✅ Reply thumbnail loaded successfully')}
+                    />
+                    {/* Video play icon overlay */}
+                    {originalMessageVideoUrl && (
+                      <View style={styles.replyVideoOverlay}>
+                        <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                          <Path 
+                            d="M16 10L18.5768 8.45392C19.3699 7.97803 19.7665 7.74009 20.0928 7.77051C20.3773 7.79703 20.6369 7.944 20.806 8.17433C21 8.43848 21 8.90095 21 9.8259V14.1741C21 15.099 21 15.5615 20.806 15.8257C20.6369 16.056 20.3773 16.203 20.0928 16.2295C19.7665 16.2599 19.3699 16.022 18.5768 15.5461L16 14M6.2 18H12.8C13.9201 18 14.4802 18 14.908 17.782C15.2843 17.5903 15.5903 17.2843 15.782 16.908C16 16.4802 16 15.9201 16 14.8V9.2C16 8.0799 16 7.51984 15.782 7.09202C15.5903 6.71569 15.2843 6.40973 14.908 6.21799C14.4802 6 13.9201 6 12.8 6H6.2C5.0799 6 4.51984 6 4.09202 6.21799C3.71569 6.40973 3.40973 6.71569 3.21799 7.09202C3 7.51984 3 8.07989 3 9.2V14.8C3 15.9201 3 16.4802 3.21799 16.908C3.40973 17.2843 3.71569 17.5903 4.09202 17.782C4.51984 18 5.07989 18 6.2 18Z" 
+                            stroke="#FFFFFF" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                      </View>
+                    )}
+                  </View>
+                )}
+                
                 <View style={styles.replyPreviewContent}>
                   {originalMessageText ? (
                     <Text style={[
@@ -299,6 +447,13 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                       isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
                     ]} numberOfLines={1}>
                       {originalMessageText}
+                    </Text>
+                  ) : originalMessageVideoUrl ? (
+                    <Text style={[
+                      styles.replyPreviewText,
+                      isMe ? styles.replyPreviewTextMe : styles.replyPreviewTextThem
+                    ]}>
+                      Video
                     </Text>
                   ) : originalMessageImages.length > 0 ? (
                     <Text style={[
@@ -311,65 +466,17 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                 </View>
               </TouchableOpacity>
             )}
-            
-            {/* Render video - show if we have thumbnail (optimistic) or videoUrl (uploaded) */}
-            {!isListing && (thumbnailUrl || videoUrl) && (
-              <TouchableOpacity
-                onPress={() => {
-                  if (videoUrl) {
-                    setVideoPlayerVisible(true);
-                  }
-                }}
-                activeOpacity={videoUrl ? 0.9 : 1}
-                disabled={!videoUrl}
-                style={styles.videoContainer}>
-                <Image
-                  source={{ uri: thumbnailUrl || videoUrl }}
-                  style={styles.videoThumbnail}
-                  resizeMode="cover"
-                />
-                {/* Upload progress indicator */}
-                {uploadProgress !== undefined && uploadProgress < 100 && (
-                  <View style={styles.videoUploadOverlay}>
-                    <View style={styles.videoUploadProgressContainer}>
-                      <View style={[styles.videoUploadProgressBar, { width: `${uploadProgress}%` }]} />
-                      <Text style={styles.videoUploadProgressText}>{uploadProgress}%</Text>
-                    </View>
-                  </View>
-                )}
-                {/* Play button overlay - only show if video is uploaded */}
-                {videoUrl && (
-                  <View style={styles.videoPlayOverlay}>
-                    <View style={styles.videoPlayButton}>
-                      <PlayIcon width={40} height={40} color="#FFFFFF" />
-                    </View>
-                  </View>
-                )}
-                {videoDuration > 0 && (
-                  <View style={styles.videoDurationBadge}>
-                    <Text style={styles.videoDurationText}>{formatDuration(videoDuration)}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            )}
 
             {/* Render images */}
             {images.length > 0 && renderImageGrid()}
             
-            {/* Render text only for text-only messages (no images or video) */}
-            {!isListing && images.length === 0 && !videoUrl && text && text.trim().length > 0 && (
+            {/* Render text for text-only messages OR text with video (video is rendered separately above) */}
+            {!isListing && images.length === 0 && text && text.trim().length > 0 && (
               <View>
                 <Text style={[isMe ? styles.myText : styles.text]}>{text}</Text>
-                {/* Edited indicator */}
+                {/* Edited indicator (non-interactive) */}
                 {isEdited && (
-                  <TouchableOpacity 
-                    onPress={() => {
-                      console.log('📝 Edited label tapped:', { messageId, isEdited, editHistory });
-                      onViewEditHistory && onViewEditHistory({ id: messageId, text, isEdited, lastEditedAt, editHistory });
-                    }}
-                    activeOpacity={0.7}>
-                    <Text style={styles.editedLabel}>Edited</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.editedLabel}>Edited</Text>
                 )}
               </View>
             )}
@@ -383,34 +490,13 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                 images.length > 1 && styles.imageCaptionWithStacked
               ]}>
                 <Text style={[isMe ? styles.myText : styles.text, styles.imageCaption]}>{text}</Text>
-                {/* Edited indicator */}
+                {/* Edited indicator (non-interactive) */}
                 {isEdited && (
-                  <TouchableOpacity 
-                    onPress={() => onViewEditHistory && onViewEditHistory({ id: messageId, text, isEdited, lastEditedAt, editHistory })}
-                    activeOpacity={0.7}>
-                    <Text style={styles.editedLabel}>Edited</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.editedLabel}>Edited</Text>
                 )}
               </View>
             )}
 
-            {/* Render caption below video if there's text with video */}
-            {!isListing && videoUrl && text && text.trim().length > 0 && (
-              <View style={[
-                styles.imageCaptionContainer,
-                isMe ? styles.myBubble : styles.theirBubble,
-              ]}>
-                <Text style={[isMe ? styles.myText : styles.text, styles.imageCaption]}>{text}</Text>
-                {/* Edited indicator */}
-                {isEdited && (
-                  <TouchableOpacity 
-                    onPress={() => onViewEditHistory && onViewEditHistory({ id: messageId, text, isEdited, lastEditedAt, editHistory })}
-                    activeOpacity={0.7}>
-                    <Text style={styles.editedLabel}>Edited</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
             
             {/* Render listing message */}
             {isListing && (
@@ -554,9 +640,9 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
       </Modal>
 
       {/* Video Player Modal */}
-      {videoUrl && (
+      {(videoUrl || localVideoUri) && (
         <VideoPlayer
-          videoUrl={videoUrl}
+          videoUrl={videoUrl || localVideoUri}
           visible={videoPlayerVisible}
           onClose={() => setVideoPlayerVisible(false)}
         />
@@ -858,6 +944,29 @@ const styles = StyleSheet.create({
   },
   replyPreviewTextThem: {
     color: '#666',
+  },
+  replyThumbnailBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 4,
+    marginRight: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  replyThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  replyVideoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   replyIndicatorContainer: {
     flexDirection: 'row',

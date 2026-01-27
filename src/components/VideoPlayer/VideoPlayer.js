@@ -9,9 +9,12 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  Alert,
 } from 'react-native';
 import Video from 'react-native-video';
-import Slider from '@react-native-community/slider';
+// FALLBACK: Using simple progress bar instead of Slider to avoid RNCSlider issues
+// import Slider from '@react-native-community/slider';
+import SimpleProgressBar from './SimpleProgressBar';
 import Svg, { Path } from 'react-native-svg';
 import { formatDuration } from '../../utils/videoCompression';
 
@@ -25,12 +28,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Play Icon SVG Component
 const PlayIcon = ({ width = 80, height = 80, color = '#FFFFFF' }) => (
-  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+  <Svg width={width} height={height} viewBox="0 0 32 32">
     <Path
-      d="M16.6582 9.28638C18.098 10.1862 18.8178 10.6361 19.0647 11.2122C19.2803 11.7152 19.2803 12.2847 19.0647 12.7878C18.8178 13.3638 18.098 13.8137 16.6582 14.7136L9.896 18.94C8.29805 19.9387 7.49907 20.4381 6.83973 20.385C6.26501 20.3388 5.73818 20.0469 5.3944 19.584C5 19.053 5 18.1108 5 16.2264V7.77357C5 5.88919 5 4.94701 5.3944 4.41598C5.73818 3.9531 6.26501 3.66111 6.83973 3.6149C7.49907 3.5619 8.29805 4.06126 9.896 5.05998L16.6582 9.28638Z"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinejoin="round"
+      d="M5.92 24.096q0 1.088 0.928 1.728 0.512 0.288 1.088 0.288 0.448 0 0.896-0.224l16.16-8.064q0.48-0.256 0.8-0.736t0.288-1.088-0.288-1.056-0.8-0.736l-16.16-8.064q-0.448-0.224-0.896-0.224-0.544 0-1.088 0.288-0.928 0.608-0.928 1.728v16.16z"
       fill={color}
     />
   </Svg>
@@ -89,28 +89,108 @@ const MutedVolumeIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
   </Svg>
 );
 
+/**
+ * Ensure Cloudinary video URLs have iOS-compatible transformations
+ * Adds H.264/AAC codec parameters if missing
+ * 
+ * Cloudinary URL format: https://res.cloudinary.com/{cloud_name}/video/upload/{transformations}/{public_id}.{format}
+ * Transformations format: vc_h264,ac_aac,q_auto:good,f_mp4
+ */
+const ensureIOSCompatibleUrl = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  
+  // Check if it's a Cloudinary URL
+  if (url.includes('res.cloudinary.com') && url.includes('/video/upload/')) {
+    // Check if transformations are already in the URL
+    // Cloudinary URLs with transformations: /video/upload/vc_h264,ac_aac/... or /video/upload/v123/...
+    // Version-only URLs: /video/upload/v123/... (no codec transformations)
+    const hasCodecTransformations = url.includes('vc_') || url.includes('ac_');
+    
+    if (!hasCodecTransformations) {
+      // Add iOS-compatible transformations to the URL
+      // Insert transformations after /video/upload/ and before version or public_id
+      const uploadIndex = url.indexOf('/video/upload/');
+      if (uploadIndex !== -1) {
+        const insertIndex = uploadIndex + '/video/upload/'.length;
+        // Add transformations: H.264 video codec, AAC audio codec, auto quality, MP4 format
+        // Format: vc_h264,ac_aac,q_auto:good,f_mp4/
+        const transformations = 'vc_h264,ac_aac,q_auto:good,f_mp4/';
+        return url.slice(0, insertIndex) + transformations + url.slice(insertIndex);
+      }
+    }
+  }
+  
+  return url;
+};
+
 const VideoPlayer = ({ 
   videoUrl, 
   visible, 
   onClose, 
   autoPlay = false,
-  showControls = true,
+  showControls: showControlsProp = true,
   style = {},
 }) => {
   const videoRef = useRef(null);
+  
+  // Ensure video URL is iOS-compatible (for Cloudinary URLs)
+  const compatibleVideoUrl = React.useMemo(() => {
+    return ensureIOSCompatibleUrl(videoUrl);
+  }, [videoUrl]);
+  const controlsTimeout = useRef(null);
   const [paused, setPaused] = useState(!autoPlay);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [showControlsOverlay, setShowControlsOverlay] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Controls are always visible - no auto-hide
-  const showControlsOverlay = true;
+
+  // Auto-hide controls after 3 seconds when playing
+  const resetControlsTimer = () => {
+    if (controlsTimeout.current) {
+      clearTimeout(controlsTimeout.current);
+      controlsTimeout.current = null;
+    }
+    if (!paused) {
+      controlsTimeout.current = setTimeout(() => {
+        console.log('🎬 resetControlsTimer: Auto-hiding controls');
+        setShowControls(false);
+        setShowControlsOverlay(false);
+      }, 3000);
+    }
+  };
 
   const handlePlayPause = () => {
-    setPaused(!paused);
+    console.log('🎬 Play/Pause pressed, current paused:', paused);
+    const newPausedState = !paused;
+    setPaused(newPausedState);
+    
+    // Clear any existing timer
+    if (controlsTimeout.current) {
+      clearTimeout(controlsTimeout.current);
+      controlsTimeout.current = null;
+    }
+    
+    if (!newPausedState) {
+      // Video is now playing - show controls briefly then hide
+      console.log('🎬 Video now playing, showing controls then auto-hide');
+      setShowControls(true);
+      setShowControlsOverlay(true);
+      // Start timer to hide controls after 3 seconds
+      controlsTimeout.current = setTimeout(() => {
+        console.log('🎬 handlePlayPause: Auto-hiding controls');
+        setShowControls(false);
+        setShowControlsOverlay(false);
+      }, 3000);
+    } else {
+      // Video is now paused - keep controls visible
+      console.log('🎬 Video now paused, keeping controls visible');
+      setShowControls(true);
+      setShowControlsOverlay(true);
+    }
   };
 
   const handleMute = () => {
@@ -120,6 +200,54 @@ const VideoPlayer = ({
   const handleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
   };
+
+  const handleVideoPress = () => {
+    console.log('🎬 Video pressed, current showControls:', showControls, 'paused:', paused);
+    
+    // Clear any existing timer first
+    if (controlsTimeout.current) {
+      clearTimeout(controlsTimeout.current);
+      controlsTimeout.current = null;
+    }
+    
+    // Toggle controls visibility
+    const newShowControls = !showControls;
+    setShowControls(newShowControls);
+    setShowControlsOverlay(newShowControls);
+    
+    console.log('🎬 Setting showControls to:', newShowControls);
+    
+    // If showing controls and video is playing, auto-hide after 3 seconds
+    if (newShowControls && !paused) {
+      console.log('🎬 Setting auto-hide timer (3 seconds)');
+      controlsTimeout.current = setTimeout(() => {
+        console.log('🎬 Auto-hiding controls');
+        setShowControls(false);
+        setShowControlsOverlay(false);
+      }, 3000);
+    }
+  };
+
+  // Log video URL when component mounts or videoUrl changes
+  useEffect(() => {
+    if (visible && videoUrl) {
+      console.log('🎥 VideoPlayer opened with URL:', videoUrl);
+      console.log('URL type:', typeof videoUrl);
+      console.log('URL starts with:', videoUrl.substring(0, 50));
+      if (compatibleVideoUrl !== videoUrl) {
+        console.log('🔧 Applied iOS-compatible transformations:', compatibleVideoUrl);
+      }
+    }
+  }, [visible, videoUrl, compatibleVideoUrl]);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (controlsTimeout.current) {
+        clearTimeout(controlsTimeout.current);
+      }
+    };
+  }, []);
 
   const handleSeek = (value) => {
     if (videoRef.current) {
@@ -139,6 +267,8 @@ const VideoPlayer = ({
   };
 
   const handleLoad = (data) => {
+    console.log('✅ Video loaded successfully:', compatibleVideoUrl);
+    console.log('Video duration:', data.duration, 'seconds');
     setDuration(data.duration);
     setIsLoading(false);
   };
@@ -156,9 +286,38 @@ const VideoPlayer = ({
   };
 
   const handleError = (err) => {
-    console.error('Video playback error:', err);
-    setError('Failed to load video');
+    console.error('❌ Video playback error:', err);
+    console.error('Video URL that failed:', compatibleVideoUrl);
+    console.error('Original URL:', videoUrl);
+    console.error('Error details:', JSON.stringify(err, null, 2));
+    
+    // Check for specific error codes
+    let errorTitle = 'Video Playback Error';
+    let errorMessage = 'Failed to load video';
+    
+    if (err?.error?.code === -11800) {
+      // Error -11800 with -12746 typically means codec incompatibility on iOS
+      if (Platform.OS === 'ios') {
+        errorTitle = 'Video Format Not Supported';
+        errorMessage = 'This video cannot play on iOS.\n\n' +
+                      'The video was uploaded in a format that iOS doesn\'t support. ' +
+                      'Please ask the sender to re-upload the video.';
+      } else {
+        errorMessage = 'Video not found or inaccessible';
+      }
+    } else if (err?.error?.localizedFailureReason) {
+      errorMessage = err.error.localizedFailureReason;
+    }
+    
+    setError(errorMessage);
     setIsLoading(false);
+    
+    // Show alert for better user feedback
+    Alert.alert(
+      errorTitle,
+      errorMessage,
+      [{ text: 'OK' }]
+    );
   };
 
   const handleBuffer = ({ isBuffering }) => {
@@ -173,14 +332,31 @@ const VideoPlayer = ({
       setDuration(0);
       setIsLoading(true);
       setError(null);
+      setShowControls(true);
+      setShowControlsOverlay(true);
+      // Clear any existing timer
+      if (controlsTimeout.current) {
+        clearTimeout(controlsTimeout.current);
+        controlsTimeout.current = null;
+      }
       if (videoRef.current) {
         videoRef.current.seek(0);
       }
     }
   }, [visible]);
+  
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (controlsTimeout.current) {
+        clearTimeout(controlsTimeout.current);
+        controlsTimeout.current = null;
+      }
+    };
+  }, []);
 
   // Don't render anything if modal is not visible
-  if (!visible || !videoUrl) {
+  if (!visible || !compatibleVideoUrl) {
     return null;
   }
 
@@ -213,7 +389,7 @@ const VideoPlayer = ({
           {/* Video Player */}
           <Video
             ref={videoRef}
-            source={{ uri: videoUrl }}
+            source={{ uri: compatibleVideoUrl }}
             style={[
               styles.video,
               isFullscreen && styles.videoFullscreen,
@@ -232,6 +408,24 @@ const VideoPlayer = ({
             playWhenInactive={false}
             ignoreSilentSwitch="ignore"
           />
+          
+          {/* Transparent Touch Overlay - Captures touches for showing/hiding controls */}
+          {!isLoading && !error && (
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={handleVideoPress}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'transparent',
+                zIndex: 1,
+              }}
+              pointerEvents="auto"
+            />
+          )}
 
           {/* Loading Indicator */}
           {isLoading && (
@@ -255,14 +449,43 @@ const VideoPlayer = ({
             </View>
           )}
 
-          {/* Center Play/Pause Button - Always visible when paused */}
-          {paused && !error && (
-            <TouchableOpacity
-              style={styles.centerPlayButton}
-              onPress={handlePlayPause}
-              activeOpacity={0.8}>
-              <PlayIcon width={60} height={60} color="#FFFFFF" />
-            </TouchableOpacity>
+          {/* Center Skip Controls - Only visible when paused or controls shown */}
+          {(showControls || paused) && !isLoading && !error && (
+            <View style={styles.centerControls} pointerEvents="box-none">
+              {/* Skip Backward -10s */}
+              <TouchableOpacity
+                style={styles.centerControlButton}
+                onPress={handleSkipBackward}
+                activeOpacity={0.7}>
+                <View style={styles.centerButtonContent}>
+                  <SkipBackwardIcon width={28} height={28} color="#FFFFFF" />
+                  <Text style={styles.centerButtonLabel}>-10s</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Play/Pause in center */}
+              <TouchableOpacity
+                style={[styles.centerControlButton, styles.centerPlayButton]}
+                onPress={handlePlayPause}
+                activeOpacity={0.8}>
+                {paused ? (
+                  <PlayIcon width={36} height={36} color="#FFFFFF" />
+                ) : (
+                  <PauseIcon width={36} height={36} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+
+              {/* Skip Forward +10s */}
+              <TouchableOpacity
+                style={styles.centerControlButton}
+                onPress={handleSkipForward}
+                activeOpacity={0.7}>
+                <View style={styles.centerButtonContent}>
+                  <SkipForwardIcon width={28} height={28} color="#FFFFFF" />
+                  <Text style={styles.centerButtonLabel}>+10s</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Controls Overlay */}
@@ -270,70 +493,18 @@ const VideoPlayer = ({
             <View style={styles.controlsOverlay}>
               {/* Bottom Controls */}
               <View style={styles.bottomControls}>
-                {/* Timeline Slider */}
+                {/* Timeline Progress Bar (Fallback without RNCSlider) */}
                 <View style={styles.timelineContainer}>
                   <Text style={styles.timeText}>{formatDuration(currentTime)}</Text>
-                  <Slider
-                    style={styles.slider}
-                    value={currentTime}
-                    minimumValue={0}
-                    maximumValue={duration}
-                    onValueChange={handleSeek}
-                    minimumTrackTintColor="#539461"
-                    maximumTrackTintColor="#FFFFFF33"
-                    thumbTintColor="#539461"
+                  <SimpleProgressBar
+                    currentTime={currentTime}
+                    duration={duration}
+                    onSeek={handleSeek}
                   />
                   <Text style={styles.timeText}>{formatDuration(duration)}</Text>
                 </View>
 
-                {/* Control Buttons */}
-                <View style={styles.controlButtons}>
-                  {/* Skip Backward -10 seconds */}
-                  <TouchableOpacity
-                    style={styles.controlButton}
-                    onPress={handleSkipBackward}
-                    activeOpacity={0.8}>
-                    <View style={styles.skipButtonContainer}>
-                      <SkipBackwardIcon width={24} height={24} color="#FFFFFF" />
-                      <Text style={styles.controlButtonLabel}>-10s</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Play/Pause Button */}
-                  <TouchableOpacity
-                    style={styles.controlButton}
-                    onPress={handlePlayPause}
-                    activeOpacity={0.8}>
-                    {paused ? (
-                      <PlayIcon width={24} height={24} color="#FFFFFF" />
-                    ) : (
-                      <PauseIcon width={24} height={24} color="#FFFFFF" />
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Skip Forward +10 seconds */}
-                  <TouchableOpacity
-                    style={styles.controlButton}
-                    onPress={handleSkipForward}
-                    activeOpacity={0.8}>
-                    <View style={styles.skipButtonContainer}>
-                      <SkipForwardIcon width={24} height={24} color="#FFFFFF" />
-                      <Text style={styles.controlButtonLabel}>+10s</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Mute Button */}
-                  <TouchableOpacity
-                    style={styles.controlButton}
-                    onPress={handleMute}
-                    activeOpacity={0.8}>
-                    {isMuted ? (
-                      <MutedVolumeIcon width={24} height={24} color="#FFFFFF" />
-                    ) : (
-                      <VolumeIcon width={24} height={24} color="#FFFFFF" />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                {/* No bottom control buttons - all controls in center */}
               </View>
             </View>
           )}
@@ -435,26 +606,57 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    zIndex: 10,
+    paddingBottom: 20,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent)',
+    zIndex: 5,
+    elevation: 5, // Android elevation
   },
-  centerPlayButton: {
+  centerControls: {
     position: 'absolute',
     top: '50%',
-    left: '50%',
-    transform: [{ translateX: -40 }, { translateY: -40 }],
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(83, 148, 97, 0.95)',
+    left: 0,
+    right: 0,
+    transform: [{ translateY: -40 }],
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 30,
+    zIndex: 5,
+    elevation: 5, // Android elevation
+  },
+  centerControlButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
-    shadowRadius: 5,
-    elevation: 10,
-    zIndex: 20,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  centerPlayButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(83, 148, 97, 0.95)',
+  },
+  centerButtonContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerButtonLabel: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   centerPlayButtonText: {
     color: '#FFFFFF',
@@ -462,20 +664,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   bottomControls: {
-    padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 8,
   },
   timelineContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
+    paddingHorizontal: 4,
   },
   timeText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
-    minWidth: 45,
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 50,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   slider: {
     flex: 1,
@@ -483,18 +688,28 @@ const styles = StyleSheet.create({
   },
   controlButtons: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
-    gap: 24,
+    paddingHorizontal: 20,
   },
   controlButton: {
-    minWidth: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
+  },
+  primaryButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(83, 148, 97, 0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
   },
   skipButtonContainer: {
     justifyContent: 'center',
@@ -507,9 +722,12 @@ const styles = StyleSheet.create({
   },
   controlButtonLabel: {
     color: '#FFFFFF',
-    fontSize: 10,
-    marginTop: -4,
-    fontWeight: '500',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 
