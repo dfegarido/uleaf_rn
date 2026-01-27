@@ -26,6 +26,9 @@ import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
 import { uploadChatImage } from '../../utils/uploadChatImage';
+import { uploadChatVideo } from '../../utils/uploadChatVideo';
+import { compressVideo } from '../../utils/videoCompression';
+import { generateVideoThumbnail } from '../../utils/videoThumbnail';
 
 // Reply Icon SVG Component - Curved arrow pointing left
 const ReplyIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
@@ -83,6 +86,9 @@ const ChatScreen = ({navigation, route}) => {
   const messagesUnsubscribeRef = useRef(null);
   const messagesRef = useRef(messages); // Keep a ref to always have current messages
   const isJumpedToMessage = useRef(false); // Track if we've jumped to a specific message
+  const previousMessageCount = useRef(0); // Track message count to detect new messages
+  const isNearBottom = useRef(true); // Track if user is near bottom of chat
+  const isInitialListenerSnapshot = useRef(true); // Track if this is the first snapshot from listener
   const [replyingTo, setReplyingTo] = useState(null); // Message being replied to
   const [messageTooltip, setMessageTooltip] = useState(null); // Message for tooltip (long-pressed message)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Show emoji picker modal
@@ -766,6 +772,12 @@ const ChatScreen = ({navigation, route}) => {
     const contentHeight = event.nativeEvent.contentSize.height;
     const layoutHeight = event.nativeEvent.layoutMeasurement.height;
     
+    // For inverted list, bottom is at offsetY = 0
+    const isAtBottom = offsetY < 100;
+    
+    // Update isNearBottom ref for auto-scroll logic
+    isNearBottom.current = isAtBottom;
+    
     // Show button when scrolled up more than 200 pixels
     setShowScrollToBottom(offsetY > 200);
     
@@ -799,6 +811,8 @@ const ChatScreen = ({navigation, route}) => {
       text: replyTo.text || null,
       imageUrl: replyTo.imageUrl || null,
       imageUrls: replyTo.imageUrls || null,
+      videoUrl: replyTo.videoUrl || null,
+      thumbnailUrl: replyTo.thumbnailUrl || null,
     } : null;
 
     const optimisticId = `temp-${Date.now()}-${Math.random()}`;
@@ -909,6 +923,8 @@ const ChatScreen = ({navigation, route}) => {
         text: replyTo.text || null,
         imageUrl: replyTo.imageUrl || null,
         imageUrls: replyTo.imageUrls || null,
+        videoUrl: replyTo.videoUrl || null,
+        thumbnailUrl: replyTo.thumbnailUrl || null,
       } : null;
       
       // Create optimistic message with local image URIs and text immediately
@@ -1001,6 +1017,188 @@ const ChatScreen = ({navigation, route}) => {
       // Silently fail - keep the message visible with local URIs
       // The message stays in chat even if upload fails
       console.warn('Image upload failed but message remains visible with local URIs');
+    }
+  };
+
+  // Send a video: compress, generate thumbnail, upload both, then send message
+  const sendVideo = async (videoData, text = '', replyTo = null) => {
+    if (!id) {
+      return;
+    }
+
+    // Block sending messages if user is not a member
+    if (chatType === 'group' && !isMember) {
+      Alert.alert('Access Denied', 'You must be a member of this group to send messages.');
+      return;
+    }
+
+    const textToSend = text?.trim() || '';
+    
+    // Sanitize replyTo to ensure no undefined values
+    const sanitizedReplyTo = replyTo ? {
+      messageId: replyTo.messageId || replyTo.id || null,
+      senderId: replyTo.senderId || null,
+      senderName: replyTo.senderName || null,
+      text: replyTo.text || null,
+      imageUrl: replyTo.imageUrl || null,
+      imageUrls: replyTo.imageUrls || null,
+      videoUrl: replyTo.videoUrl || null,
+      thumbnailUrl: replyTo.thumbnailUrl || null,
+    } : null;
+
+    // Create optimistic message ID
+    const optimisticId = `temp-video-${Date.now()}-${Math.random()}`;
+
+    // Create optimistic message with LOCAL video URI for immediate playback
+    const optimisticMsg = {
+      id: optimisticId,
+      chatId: id,
+      senderId: currentUserUid || null,
+      text: textToSend,
+      timestamp: Timestamp.now(),
+      isListing: false,
+      listingId: null,
+      imageUrl: null,
+      imageUrls: null,
+      videoUrl: videoData.uri, // Show local video immediately
+      thumbnailUrl: null, // No thumbnail yet (backend will generate)
+      videoDuration: videoData.duration || 0,
+      videoSize: videoData.fileSize || 0,
+      videoFormat: 'mp4',
+      replyTo: sanitizedReplyTo,
+      optimistic: true,
+      uploadProgress: 0, // Track upload progress
+      localVideoUri: videoData.uri, // Keep local URI for reference
+    };
+
+    // Add optimistic message immediately - user sees it right away
+    setMessages(prev => [optimisticMsg, ...prev]);
+
+    // Update progress in optimistic message
+    const updateProgress = (progress) => {
+      setMessages(prev => prev.map(msg => 
+        msg.id === optimisticId 
+          ? { ...msg, uploadProgress: progress }
+          : msg
+      ));
+    };
+
+    // Start upload process in background (don't await - let it happen asynchronously)
+    (async () => {
+      try {
+        console.log('🎬 Starting video upload process...');
+        
+        // Step 1: Compress video with iOS-compatible settings
+        console.log('📦 Compressing video for iOS compatibility...');
+        updateProgress(10);
+        
+        let videoToUpload = videoData.uri;
+        try {
+          const compressed = await compressVideo(videoData.uri);
+          videoToUpload = compressed.uri;
+          console.log('✅ Video compressed successfully');
+          updateProgress(30);
+        } catch (compressionError) {
+          console.warn('⚠️ Compression failed, uploading original:', compressionError);
+          updateProgress(30);
+        }
+        
+        // Step 2: Upload video
+        console.log('📤 Uploading video...');
+        const { videoUrl, thumbnailUrl } = await uploadChatVideo(
+          videoToUpload,
+          null, // Backend will generate thumbnail
+          (progress) => {
+            // Map upload progress from 30-100%
+            const mappedProgress = 30 + Math.floor(progress * 0.7);
+            updateProgress(mappedProgress);
+            console.log(`Upload progress: ${mappedProgress}%`);
+          }
+        );
+        
+        updateProgress(100); // 100% after upload complete
+        console.log('✅ Video uploaded successfully');
+        console.log('Video URL:', videoUrl);
+        console.log('Thumbnail URL:', thumbnailUrl);
+        
+        // Step 3: Send message to Firestore
+      const docRef = await addDoc(collection(db, 'messages'), {
+        chatId: id,
+        senderId: currentUserUid || null,
+        text: textToSend,
+        timestamp: Timestamp.now(),
+        isListing: false,
+        listingId: null,
+        imageUrl: null,
+        imageUrls: null,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        videoDuration: videoData.duration || 0,
+        videoSize: videoData.fileSize || 0,
+        videoFormat: 'mp4',
+        replyTo: sanitizedReplyTo,
+      });
+
+        console.log('✅ Video message sent:', docRef.id);
+
+        // Replace optimistic message with real one (with server URLs and thumbnail)
+        setMessages(prev => {
+          // Check if real-time listener already added it
+          const realMsgExists = prev.some(msg => msg.id === docRef.id);
+          if (realMsgExists) {
+            // Remove optimistic message if real one already exists
+            return prev.filter(msg => msg.id !== optimisticId);
+          }
+          // Replace optimistic message with real one
+          return prev.map(msg => 
+            msg.id === optimisticId 
+              ? {
+                  ...msg,
+                  id: docRef.id,
+                  videoUrl: videoUrl, // Server URL (uploaded)
+                  thumbnailUrl: thumbnailUrl, // Server-generated thumbnail
+                  localVideoUri: undefined, // Clear local URI
+                  optimistic: false,
+                  uploadProgress: undefined, // Remove progress indicator
+                }
+              : msg
+          );
+        });
+
+        // Clear reply state after sending
+        if (replyTo) {
+          setReplyingTo(null);
+        }
+
+        // Update chat document
+        const otherParticipantIds = Array.isArray(participantIds)
+          ? participantIds.filter(pid => pid && pid !== currentUserUid)
+          : [];
+
+        try {
+          await updateDoc(doc(db, 'chats', id), {
+            lastMessage: textToSend || '📹 Video',
+            lastTimestamp: Timestamp.now(),
+            lastSenderId: currentUserUid || null,
+            unreadBy: otherParticipantIds.length > 0 ? otherParticipantIds : [],
+          });
+        } catch (updateError) {
+          console.warn('Failed to update chat metadata:', updateError);
+          // ignore update failures
+        }
+      } catch (error) {
+        console.error('❌ Error sending video:', error);
+        
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
+        
+        Alert.alert('Error', 'Failed to send video. Please try again.');
+      }
+    })(); // Execute async upload in background
+    
+    // Clear reply state immediately (don't wait for upload)
+    if (replyTo) {
+      setReplyingTo(null);
     }
   };
 
@@ -1174,35 +1372,73 @@ const ChatScreen = ({navigation, route}) => {
       setMessages(uniqueMessages);
       setLoading(false);
 
-      // Set up real-time listener for new messages only
+      // Set up real-time listener for recent messages (to catch reactions and new messages)
+      // Increased limit to 200 to ensure all visible messages get real-time updates
       const allMessagesQuery = query(
         messagesRef,
         where('chatId', '==', id),
         orderBy('timestamp', 'desc'),
-        limit(1) // Only get the latest message for real-time updates
+        limit(200) // Listen to 200 most recent messages for real-time updates (reactions, edits, new messages)
       );
+
+      // Reset flag for initial snapshot
+      isInitialListenerSnapshot.current = true;
 
       const unsubscribe = onSnapshot(
         allMessagesQuery,
         { includeMetadataChanges: false },
-        (newSnapshot) => {
-          if (!newSnapshot.empty) {
-            const newDoc = newSnapshot.docs[0];
-            const newMessage = {
-              id: newDoc.id,
-              chatId: id,
-              ...newDoc.data(),
-            };
+        (snapshot) => {
+          if (!snapshot.empty) {
+            // Skip adding messages on the initial snapshot to avoid loading all 200 messages
+            // Only process modifications and new messages after the first snapshot
+            const isInitial = isInitialListenerSnapshot.current;
+            if (isInitial) {
+              console.log('📡 Initial listener snapshot - skipping added messages to avoid loading all history');
+              isInitialListenerSnapshot.current = false;
+            }
+            
+            // Process all updated documents
+            snapshot.docChanges().forEach((change) => {
+              const doc = change.doc;
+              const updatedMessage = {
+                id: doc.id,
+                chatId: id,
+                ...doc.data(),
+              };
 
-            // Only add if it's not already in messages (avoid duplicates)
-            // Also update existing messages if reactions changed
-            setMessages(prev => {
-              const existingIndex = prev.findIndex(msg => msg.id === newMessage.id);
-              if (existingIndex !== -1) {
-                // Update existing message (for reaction updates)
-                const updated = [...prev];
-                updated[existingIndex] = {
-                  ...updated[existingIndex],
+              if (change.type === 'modified') {
+                // Message was modified (reaction added/removed, edited, etc.)
+                console.log('🔄 Message modified (reactions/edit):', updatedMessage.id);
+                setMessages(prev => {
+                  const existingIndex = prev.findIndex(msg => msg.id === updatedMessage.id);
+                  if (existingIndex !== -1) {
+                    // Update existing message with new data (reactions, edits, etc.)
+                    const updated = [...prev];
+                    updated[existingIndex] = {
+                      ...updated[existingIndex],
+                      ...updatedMessage,
+                      reactions: updatedMessage.reactions || {},
+                    };
+                    return updated;
+                  }
+                  return prev;
+                });
+              } else if (change.type === 'added') {
+                // Skip added messages on initial snapshot to avoid loading all 200 messages
+                if (isInitial) {
+                  return;
+                }
+                
+                // New message added
+                const newMessage = updatedMessage;
+                console.log('📩 New message detected via listener:', newMessage.id);
+                
+                setMessages(prev => {
+                  const existingIndex = prev.findIndex(msg => msg.id === newMessage.id);
+                  if (existingIndex !== -1) {
+                    // Message already exists (might be from initial load), update it
+                    const updated = [...prev];
+                    updated[existingIndex] = {
                   ...newMessage,
                   reactions: newMessage.reactions || updated[existingIndex].reactions || {},
                 };
@@ -1231,10 +1467,12 @@ const ChatScreen = ({navigation, route}) => {
               }
               
               // Add to beginning since we're using inverted list (newest first)
-              return [{
-                ...newMessage,
-                reactions: newMessage.reactions || {},
-              }, ...prev];
+                  return [{
+                    ...newMessage,
+                    reactions: newMessage.reactions || {},
+                  }, ...prev];
+                });
+              }
             });
           }
         },
@@ -1477,12 +1715,31 @@ const ChatScreen = ({navigation, route}) => {
     };
   }, [id]));
 
-  // Auto-scroll when messages change
-  // useEffect(() => {
-  //   if (flatListRef?.current && messages.length > 0) {
-  //     flatListRef.current.scrollToEnd({ animated: false });
-  //   }
-  // }, [messages]);
+  // Auto-scroll to bottom when new messages arrive (only if user is near bottom)
+  useEffect(() => {
+    // Check if new messages were added
+    const hasNewMessages = messages.length > previousMessageCount.current;
+    
+    if (hasNewMessages && isNearBottom.current && flatListRef?.current && messages.length > 0) {
+      console.log('📩 New message detected, auto-scrolling to bottom');
+      // Use scrollToIndex instead of scrollToEnd for inverted FlatList
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToIndex({
+            index: 0,
+            animated: true,
+          });
+        } catch (error) {
+          // Fallback if scrollToIndex fails
+          console.log('Auto-scroll failed, trying scrollToOffset');
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }
+      }, 100);
+    }
+    
+    // Update previous message count
+    previousMessageCount.current = messages.length;
+  }, [messages]);
 
   // Fetch latest names and avatars for all participants from Firestore
   useEffect(() => {
@@ -1866,6 +2123,11 @@ const ChatScreen = ({navigation, route}) => {
                 currentUserUid={currentUserUid}
                 imageUrl={item.imageUrl || null}
                 imageUrls={item.imageUrls || null}
+                videoUrl={item.videoUrl || null}
+                thumbnailUrl={item.thumbnailUrl || null}
+                videoDuration={item.videoDuration || 0}
+                uploadProgress={item.uploadProgress}
+                localVideoUri={item.localVideoUri || null}
                 prevMessageHasStackedImages={prevMessageHasStackedImages || false}
                 replyTo={item.replyTo || null}
                 onMessageLongPress={handleMessageLongPress}
@@ -1907,7 +2169,15 @@ const ChatScreen = ({navigation, route}) => {
           activeOpacity={0.8}
         >
           <View style={styles.scrollToBottomIcon}>
-            <Text style={styles.scrollToBottomArrow}>↓</Text>
+            <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M3 21H21M12 3V17M12 17L19 10M12 17L5 10"
+                stroke="#FFFFFF"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </View>
         </TouchableOpacity>
       )}
@@ -1945,6 +2215,7 @@ const ChatScreen = ({navigation, route}) => {
       <MessageInput 
         onSend={(text) => sendMessage(text, false, null, null, null, replyingTo)} 
         onSendImage={(images, text) => sendImage(images, text, replyingTo)}
+        onSendVideo={(video, text) => sendVideo(video, text, replyingTo)}
         disabled={chatType === 'group' && !isMember}
         replyingTo={replyingTo}
         onCancelReply={cancelReply}
@@ -2042,8 +2313,9 @@ const ChatScreen = ({navigation, route}) => {
         </Modal>
       )}
 
-      {/* Edit History Modal */}
-      {editHistoryVisible && selectedMessageHistory && (
+      {/* Edit History Modal - DISABLED */}
+      {/* Users can edit messages but cannot view edit history */}
+      {false && editHistoryVisible && selectedMessageHistory && (
         <Modal
           visible={true}
           transparent={true}

@@ -38,39 +38,35 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
   const scrollViewRef = useRef(null);
   const searchInputRef = useRef(null);
   
-  // Check if current user is a seller (supplier) - check multiple possible structures
-  // Suppliers have specific fields: gardenOrCompanyName, liveFlag, currency, etc.
-  const isSeller = 
-    userInfo?.user?.userType === 'supplier' || 
-    userInfo?.data?.userType === 'supplier' ||
-    userInfo?.userType === 'supplier' ||
-    // Check for supplier-specific fields in user object
-    userInfo?.user?.gardenOrCompanyName !== undefined ||
-    userInfo?.user?.liveFlag !== undefined ||
-    userInfo?.user?.currency !== undefined ||
-    // Check for supplier-specific fields in data object
-    userInfo?.data?.gardenOrCompanyName !== undefined ||
-    userInfo?.data?.liveFlag !== undefined ||
-    userInfo?.data?.currency !== undefined ||
-    // Check for supplier-specific fields at root level (from getSupplierInfo API)
-    userInfo?.gardenOrCompanyName !== undefined ||
-    userInfo?.liveFlag !== undefined ||
-    userInfo?.currency !== undefined ||
-    // Check status field (suppliers have status like 'active', 'De-activated')
-    (userInfo?.user?.status && typeof userInfo.user.status === 'string' && 
-     ['active', 'Active', 'De-activated', 'De-activated'].includes(userInfo.user.status)) ||
-    (userInfo?.data?.status && typeof userInfo.data.status === 'string' && 
-     ['active', 'Active', 'De-activated', 'De-activated'].includes(userInfo.data.status)) ||
-    (userInfo?.status && typeof userInfo.status === 'string' && 
-     ['active', 'Active', 'De-activated', 'De-activated'].includes(userInfo.status));
+  // Check if current user is a seller (supplier) - check explicit userType FIRST
+  // IMPORTANT: Check explicit userType field before checking for supplier-specific fields
+  // This prevents false positives where a buyer might have some fields that exist but are null
+  const explicitUserType = userInfo?.user?.userType || userInfo?.data?.userType || userInfo?.userType;
   
-  // Check if current user is a buyer - check multiple possible structures
+  const isSeller = 
+    explicitUserType === 'supplier' ||
+    // Only check for supplier-specific fields if userType is not explicitly set to 'buyer'
+    (explicitUserType !== 'buyer' && (
+      // Check for supplier-specific fields in user object (must have actual truthy values)
+      (userInfo?.user?.gardenOrCompanyName && userInfo.user.gardenOrCompanyName.trim && userInfo.user.gardenOrCompanyName.trim() !== '') ||
+      (userInfo?.user?.liveFlag !== undefined && userInfo?.user?.liveFlag !== null) ||
+      (userInfo?.user?.currency && userInfo.user.currency.trim && userInfo.user.currency.trim() !== '') ||
+      // Check for supplier-specific fields in data object
+      (userInfo?.data?.gardenOrCompanyName && userInfo.data.gardenOrCompanyName.trim && userInfo.data.gardenOrCompanyName.trim() !== '') ||
+      (userInfo?.data?.liveFlag !== undefined && userInfo?.data?.liveFlag !== null) ||
+      (userInfo?.data?.currency && userInfo.data.currency.trim && userInfo.data.currency.trim() !== '') ||
+      // Check for supplier-specific fields at root level (from getSupplierInfo API)
+      (userInfo?.gardenOrCompanyName && userInfo.gardenOrCompanyName.trim && userInfo.gardenOrCompanyName.trim() !== '') ||
+      (userInfo?.liveFlag !== undefined && userInfo?.liveFlag !== null) ||
+      (userInfo?.currency && userInfo.currency.trim && userInfo.currency.trim() !== '')
+    ));
+  
+  // Check if current user is a buyer - check explicit userType FIRST
+  // IMPORTANT: Explicit userType takes precedence, then check if not a seller
   const isBuyer = 
-    userInfo?.user?.userType === 'buyer' || 
-    userInfo?.data?.userType === 'buyer' ||
-    userInfo?.userType === 'buyer' ||
-    // Buyers don't have supplier-specific fields, so if not seller and has userType, likely buyer
-    (!isSeller && (userInfo?.user?.userType || userInfo?.data?.userType || userInfo?.userType));
+    explicitUserType === 'buyer' ||
+    // If not explicitly a seller and has some user type, assume buyer
+    (!isSeller && explicitUserType && explicitUserType !== 'admin');
   
   // Check if current user is an admin (admin or sub_admin)
   const isAdmin = 
@@ -90,6 +86,8 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
         console.log('userInfo?.user?.userType:', userInfo?.user?.userType);
         console.log('userInfo?.data?.userType:', userInfo?.data?.userType);
         console.log('userInfo?.userType:', userInfo?.userType);
+        console.log('➡️ explicitUserType:', explicitUserType);
+        console.log('➡️ FINAL DETECTION - isSeller:', isSeller, 'isBuyer:', isBuyer, 'isAdmin:', isAdmin);
         console.log('userInfo?.gardenOrCompanyName:', userInfo?.gardenOrCompanyName);
         console.log('userInfo?.user?.gardenOrCompanyName:', userInfo?.user?.gardenOrCompanyName);
         console.log('userInfo?.data?.gardenOrCompanyName:', userInfo?.data?.gardenOrCompanyName);

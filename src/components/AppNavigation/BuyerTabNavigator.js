@@ -393,7 +393,6 @@ function BuyerTabs() {
                     backgroundColor: 'transparent',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    shadowColor: '#000',
                   }}>
                   <BuyerIcon width={80} height={80} />
                 </View>

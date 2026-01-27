@@ -89,8 +89,8 @@ android {
         applicationId "com.ileafu"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 50
-    versionName "1.0.43"
+        versionCode 53
+        versionName "1.0.44"
     }
     signingConfigs {
         debug {
@@ -129,14 +129,42 @@ android {
             universalApk false
         }
     }
+
+    // Configure manifest merger to remove unwanted permissions from Agora SDK
+    packagingOptions {
+        // This ensures the permission is removed during manifest merge
+    }
+}
+
+// Task to verify manifest doesn't contain MEDIA_PROJECTION permission
+tasks.register('checkManifestPermissions') {
+    doLast {
+        def manifestFile = file("${projectDir}/build/intermediates/merged_manifests/release/AndroidManifest.xml")
+        if (manifestFile.exists()) {
+            def manifestContent = manifestFile.text
+            if (manifestContent.contains("FOREGROUND_SERVICE_MEDIA_PROJECTION")) {
+                throw new GradleException("ERROR: FOREGROUND_SERVICE_MEDIA_PROJECTION permission still found in merged manifest!")
+            } else {
+                println("✓ FOREGROUND_SERVICE_MEDIA_PROJECTION permission successfully removed from manifest")
+            }
+        }
+    }
 }
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
-    // Agora native SDK for Android - required for native PiP engine holder usage
-    implementation 'io.agora.rtc:full-sdk:4.5.2'
+    // Agora native SDK for Android - using voice SDK (includes video calling without screen sharing)
+    // Switched from full-sdk to voice-sdk to remove MEDIA_PROJECTION permission
+    // voice-sdk includes: voice calling, video calling, live broadcasting
+    // voice-sdk excludes: screen sharing, media projection
+    // Exclude full-sdk to prevent duplicate classes
+    configurations.all {
+        exclude group: 'io.agora.rtc', module: 'full-sdk'
+        exclude group: 'io.agora.rtc', module: 'full-rtc-basic'
+    }
+    implementation 'io.agora.rtc:voice-sdk:4.5.2'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

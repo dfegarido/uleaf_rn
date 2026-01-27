@@ -14,13 +14,16 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     
     <!-- Foreground service permissions for live video streaming -->
+    <!-- Using Agora voice-sdk (not full-sdk) to avoid MEDIA_PROJECTION permission -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     
-    <!-- Explicitly remove MEDIA_PROJECTION permission added by dependencies (Agora SDK) -->
-    <!-- We don't use screen projection, only camera-based live streaming -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
+    <!-- CRITICAL: Explicitly remove MEDIA_PROJECTION permission added by Agora SDK -->
+    <!-- We do NOT use screen recording/projection - only camera-based live streaming -->
+    <uses-permission 
+        android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" 
+        tools:node="remove" />
     
     <application
       android:name=".MainApplication"
@@ -29,7 +32,8 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:supportsRtl="true">
+      android:supportsRtl="true"
+      tools:replace="android:allowBackup">
       <uses-library android:name="org.webrtc" android:required="false" />
       <activity
         android:name=".MainActivity"
@@ -56,13 +60,30 @@
         </intent-filter>
       </activity>
       
-      <!-- Remove Agora SDK's MediaProjection service and activity -->
-      <!-- We don't use screen sharing, only camera-based live streaming -->
+      <!-- CRITICAL: Agora SDK includes MediaProjection components even in voice-sdk -->
+      <!-- We MUST explicitly remove them as we don't use screen sharing -->
+      <!-- We only use camera-based live video streaming, NOT screen recording -->
       <service
         android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenSharingService"
         tools:node="remove" />
       <activity
         android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenCaptureAssistantActivity"
         tools:node="remove" />
+      
+      <!-- Foreground service type declarations for Android 14+ compliance -->
+      <!-- These services are used for live video streaming functionality -->
+      <!-- Camera foreground service: Used when sellers broadcast live video streams -->
+      <service
+        android:name="com.ileafu.services.CameraForegroundService"
+        android:foregroundServiceType="camera"
+        android:exported="false"
+        android:enabled="true" />
+      
+      <!-- Media playback foreground service: Used when buyers watch live video streams -->
+      <service
+        android:name="com.ileafu.services.MediaPlaybackForegroundService"
+        android:foregroundServiceType="mediaPlayback"
+        android:exported="false"
+        android:enabled="true" />
     </application>
 </manifest>

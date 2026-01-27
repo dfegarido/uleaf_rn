@@ -916,7 +916,6 @@ function MainTabNavigator() {
                     backgroundColor: 'transparent', // Adjust background color if needed
                     justifyContent: 'center',
                     alignItems: 'center',
-                    shadowColor: '#000',
                   }}>
                   <SellIcon width={80} height={80} />
                 </View>

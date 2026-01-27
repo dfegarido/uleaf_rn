@@ -221,6 +221,7 @@ const generateEndpoints = () => ({
   
   // Listing Management APIs
   UPLOAD_LISTING_IMAGE: `${getBaseUrl()}/uploadListingImage`,
+  UPLOAD_CHAT_VIDEO: `${getBaseUrl()}/uploadChatVideo`,
   ADD_LISTING: `${getBaseUrl()}/addListing`,
   UPDATE_LISTING: `${getBaseUrl()}/updateListing`,
   DUPLICATE_LISTING: `${getBaseUrl()}/duplicateListing`,
