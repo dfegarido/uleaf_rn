@@ -76,6 +76,26 @@ const AddMemberIcon = ({ width = 24, height = 24, color = '#647276' }) => (
   </Svg>
 );
 
+// Edit Name Icon SVG Component (pencil)
+const EditNameIcon = ({ width = 24, height = 24, color = '#647276' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 // Delete Group Icon SVG Component
 const DeleteGroupIcon = ({ width = 24, height = 24, color = '#647276' }) => (
   <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
@@ -111,8 +131,18 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const [selectedUsersToAdd, setSelectedUsersToAdd] = useState([]);
   // User type filter for add member modal ('all', 'buyer', 'supplier')
   const [userTypeFilter, setUserTypeFilter] = useState('all');
+  // Country filter for add member modal (only when Suppliers selected)
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const [userTypeModalVisible, setUserTypeModalVisible] = useState(false);
+  const availableCountries = ['Philippines', 'Indonesia', 'Thailand'];
+  const regionToCountry = { PH: 'Philippines', ID: 'Indonesia', TH: 'Thailand' };
   // View all members modal state
   const [viewMembersModalVisible, setViewMembersModalVisible] = useState(false);
+  // Edit group name state (admin only)
+  const [groupNameDisplay, setGroupNameDisplay] = useState(name || 'Group Chat');
+  const [editNameModalVisible, setEditNameModalVisible] = useState(false);
+  const [editNameInput, setEditNameInput] = useState('');
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
@@ -272,10 +302,13 @@ const ChatSettingsScreen = ({navigation, route}) => {
           
           setParticipants(dedupedParticipants);
           
-          // Load isPublic setting for group chats
+          // Load isPublic and name for group chats
           if (isGroupChat) {
             const publicStatus = chatData.isPublic === true;
             setIsPublic(publicStatus);
+            if (chatData.name != null && chatData.name !== '') {
+              setGroupNameDisplay(chatData.name);
+            }
             console.log('✅ [ChatSettingsScreen] Loaded group visibility:', publicStatus ? 'Public' : 'Private');
           }
         }
@@ -288,6 +321,11 @@ const ChatSettingsScreen = ({navigation, route}) => {
       fetchLatestChatData();
     }
   }, [chatId, isFocused, isGroupChat]);
+
+  // Sync group name from route params on mount
+  useEffect(() => {
+    if (name) setGroupNameDisplay(name);
+  }, [name]);
 
   // Check membership, request status for buyers, and invitation status for sellers in public groups
   useEffect(() => {
@@ -593,7 +631,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 name: user.username || user.email || 'Unknown',
                 email: user.email || '',
                 avatarUrl: user.profileImage || '',
-                userType: user.userType || 'supplier'
+                userType: user.userType || 'supplier',
+                country: user.country || regionToCountry[user.region] || user.region || 'Unknown'
               }));
               allResults.push(...supplierResults);
               console.log(`✅ Added ${supplierResults.length} suppliers to admin results`);
@@ -631,7 +670,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
             name: user.username || user.email || 'Unknown',
             email: user.email || '',
             avatarUrl: user.profileImage || '',
-            userType: user.userType || userTypeToSearch
+            userType: user.userType || userTypeToSearch,
+            country: (userTypeToSearch === 'supplier') ? (user.country || user.region || 'Unknown') : undefined
           }));
           allResults.push(...searchResults);
         }
@@ -696,7 +736,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
             avatarUrl: avatarUrl,
             uid: user.id,
             email: user.email || '',
-            userType: user.userType || 'buyer', // Preserve userType
+            userType: user.userType || 'buyer',
+            country: user.country || regionToCountry[user.region] || user.region || 'Unknown'
           };
         }));
         
@@ -1133,7 +1174,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const handleLeaveGroup = async () => {
     Alert.alert(
       'Leave Group',
-      `Are you sure you want to leave "${name || 'this group'}"?`,
+      `Are you sure you want to leave "${groupNameDisplay || 'this group'}"?`,
       [
         {
           text: 'Cancel',
@@ -1335,13 +1376,63 @@ const ChatSettingsScreen = ({navigation, route}) => {
     );
   };
 
+  const openEditNameModal = () => {
+    setEditNameInput(groupNameDisplay);
+    setEditNameModalVisible(true);
+  };
+
+  const handleUpdateGroupName = async () => {
+    const trimmed = (editNameInput || '').trim();
+    if (!trimmed) {
+      Alert.alert('Error', 'Please enter a group name.');
+      return;
+    }
+    if (trimmed === groupNameDisplay) {
+      setEditNameModalVisible(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'chats', chatId), { name: trimmed });
+      setGroupNameDisplay(trimmed);
+      setEditNameModalVisible(false);
+      // Navigate back to ChatScreen with updated name so header updates
+      navigation.navigate('ChatScreen', {
+        id: chatId,
+        chatId,
+        participants,
+        participantIds: participants.map(p => p.uid).filter(Boolean),
+        name: trimmed,
+        type: 'group',
+      });
+      Alert.alert('Success', 'Group name updated.');
+    } catch (error) {
+      console.log('Error updating group name:', error);
+      Alert.alert('Error', 'Failed to update group name. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openAddMemberModal = () => {
     setAddMemberModalVisible(true);
     setSearchText('');
     setAvailableUsers([]);
     setFilteredUsers([]);
     setSelectedUsersToAdd([]);
-    setUserTypeFilter('all'); // Reset filter to 'all'
+    setUserTypeFilter('all');
+    setCountryFilter('all');
+    setUserTypeModalVisible(false);
+  };
+
+  // Helper: apply userType + country filters to get display list
+  const applyUserAndCountryFilter = (users) => {
+    return users.filter(user => {
+      if (participants?.some(p => p.uid === user.uid)) return false;
+      if (userTypeFilter !== 'all' && user.userType !== userTypeFilter) return false;
+      if (userTypeFilter === 'supplier' && countryFilter !== 'all' && user.country !== countryFilter) return false;
+      return true;
+    });
   };
 
   // Toggle user selection in Add Member modal
@@ -1358,13 +1449,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
   // Select all users or deselect all (respects user type filter)
   const handleSelectAll = () => {
-    const availableToAdd = filteredUsers.filter(user => {
-      // Filter out existing participants
-      if (participants?.some(p => p.uid === user.uid)) return false;
-      // Filter by user type
-      if (userTypeFilter === 'all') return true;
-      return user.userType === userTypeFilter;
-    });
+    const availableToAdd = applyUserAndCountryFilter(filteredUsers);
 
     if (selectedUsersToAdd.length === availableToAdd.length && availableToAdd.length > 0) {
       // All are selected, deselect all
@@ -1436,31 +1521,45 @@ const ChatSettingsScreen = ({navigation, route}) => {
             </View>
             
             {/* Group Name - Full, no truncation */}
-            <Text style={styles.groupNameFull}>{name || 'Group Chat'}</Text>
+            <Text style={styles.groupNameFull}>{groupNameDisplay || 'Group Chat'}</Text>
             
             {/* Member Count */}
             <Text style={styles.groupMemberCount}>
               {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
             </Text>
             
-            {/* Action Buttons */}
+            {/* Action Buttons - Add Member, Edit Name, Delete Group (admin) / Leave Group (member) */}
             <View style={styles.groupActionButtons}>
               {isAdmin && (
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={openAddMemberModal}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  accessibilityLabel="Add Member">
                   <View style={styles.actionButtonIcon}>
                     <AddMemberIcon width={24} height={24} color="#647276" />
                   </View>
                   <Text style={styles.actionButtonText}>Add Member</Text>
                 </TouchableOpacity>
               )}
+              {isAdmin && (
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={openEditNameModal}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Edit Name">
+                  <View style={styles.actionButtonIcon}>
+                    <EditNameIcon width={24} height={24} color="#647276" />
+                  </View>
+                  <Text style={styles.actionButtonText}>Edit Name</Text>
+                </TouchableOpacity>
+              )}
               {isAdmin ? (
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={deleteChat}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  accessibilityLabel="Delete Group">
                   <View style={styles.actionButtonIcon}>
                     <DeleteGroupIcon width={24} height={24} color="#FF3B30" />
                   </View>
@@ -1470,7 +1569,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={handleLeaveGroup}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  accessibilityLabel="Leave Group">
                   <View style={styles.actionButtonIcon}>
                     <DeleteGroupIcon width={24} height={24} color="#FF3B30" />
                   </View>
@@ -1619,12 +1719,55 @@ const ChatSettingsScreen = ({navigation, route}) => {
       )}
       </ScrollView>
 
+      {/* Edit Group Name Modal (admin only) */}
+      {isGroupChat && editNameModalVisible && (
+        <Modal
+          visible={editNameModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditNameModalVisible(false)}>
+          <TouchableOpacity
+            style={styles.filterModalOverlay}
+            activeOpacity={1}
+            onPress={() => setEditNameModalVisible(false)}>
+            <TouchableOpacity style={styles.editNameModalContent} activeOpacity={1} onPress={() => {}}>
+              <Text style={styles.filterModalTitle}>Edit Group Name</Text>
+              <TextInput
+                style={styles.editNameInput}
+                value={editNameInput}
+                onChangeText={setEditNameInput}
+                placeholder="Group name"
+                placeholderTextColor="#9BA1A6"
+                autoFocus
+              />
+              <View style={styles.editNameModalButtons}>
+                <TouchableOpacity
+                  style={styles.editNameModalButton}
+                  onPress={() => setEditNameModalVisible(false)}>
+                  <Text style={styles.editNameModalButtonCancel}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.editNameModalButton, styles.editNameModalButtonSave]}
+                  onPress={handleUpdateGroupName}
+                  disabled={loading}>
+                  <Text style={styles.editNameModalButtonSaveText}>
+                    {loading ? 'Saving...' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
       {/* Add Member Modal */}
       {addMemberModalVisible && (
         <Modal
           visible={addMemberModalVisible}
           animationType="slide"
           transparent
+          presentationStyle="overFullScreen"
+          statusBarTranslucent
           onRequestClose={() => setAddMemberModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
@@ -1645,57 +1788,51 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 </TouchableOpacity>
               </View>
 
-              {/* User Type Filters */}
-              {!fetchingUsers && filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length > 0 && (
+              {/* Filter Selectors - same approach as Create New Group */}
+              {!fetchingUsers && filteredUsers.length > 0 && (
                 <>
-                  <View style={styles.filterSection}>
-                    <Text style={styles.filterLabel}>Filter by:</Text>
-                    <View style={styles.filterChipsContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.filterChip,
-                          userTypeFilter === 'all' && styles.filterChipActive
-                        ]}
-                        onPress={() => setUserTypeFilter('all')}
-                        activeOpacity={0.7}>
-                        <Text style={[
-                          styles.filterChipText,
-                          userTypeFilter === 'all' && styles.filterChipTextActive
-                        ]}>
-                          All ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length})
+                  <View style={styles.filterSelectorsContainer}>
+                    <TouchableOpacity
+                      style={styles.filterSelector}
+                      onPress={() => setUserTypeModalVisible(true)}
+                      activeOpacity={0.7}>
+                      <Text style={styles.filterSelectorLabel}>User Type:</Text>
+                      <View style={styles.filterSelectorValue}>
+                        <Text style={styles.filterSelectorValueText}>
+                          {userTypeFilter === 'all' ? 'All' : userTypeFilter === 'buyer' ? 'Buyers' : 'Suppliers'}
                         </Text>
-                      </TouchableOpacity>
+                        <Text style={styles.filterSelectorArrow}>›</Text>
+                      </View>
+                    </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[
-                          styles.filterChip,
-                          userTypeFilter === 'buyer' && styles.filterChipActive
-                        ]}
-                        onPress={() => setUserTypeFilter('buyer')}
-                        activeOpacity={0.7}>
+                    <TouchableOpacity
+                      style={[
+                        styles.filterSelector,
+                        userTypeFilter !== 'supplier' && styles.filterSelectorDisabled
+                      ]}
+                      onPress={() => {
+                        if (userTypeFilter === 'supplier') setCountryModalVisible(true);
+                      }}
+                      disabled={userTypeFilter !== 'supplier'}
+                      activeOpacity={0.7}>
+                      <Text style={[
+                        styles.filterSelectorLabel,
+                        userTypeFilter !== 'supplier' && styles.filterSelectorLabelDisabled
+                      ]}>
+                        Country:
+                      </Text>
+                      <View style={styles.filterSelectorValue}>
                         <Text style={[
-                          styles.filterChipText,
-                          userTypeFilter === 'buyer' && styles.filterChipTextActive
+                          styles.filterSelectorValueText,
+                          userTypeFilter !== 'supplier' && styles.filterSelectorValueDisabled
                         ]}>
-                          Buyers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'buyer').length})
+                          {countryFilter === 'all' ? 'All' : countryFilter}
                         </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.filterChip,
-                          userTypeFilter === 'supplier' && styles.filterChipActive
-                        ]}
-                        onPress={() => setUserTypeFilter('supplier')}
-                        activeOpacity={0.7}>
-                        <Text style={[
-                          styles.filterChipText,
-                          userTypeFilter === 'supplier' && styles.filterChipTextActive
-                        ]}>
-                          Suppliers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'supplier').length})
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                        {userTypeFilter === 'supplier' && (
+                          <Text style={styles.filterSelectorArrow}>›</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
                   </View>
 
                   {/* Select All Button */}
@@ -1705,11 +1842,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
                       style={styles.selectAllButton}>
                       <Text style={styles.selectAllButtonText}>
                         {(() => {
-                          const availableToAdd = filteredUsers.filter(user => {
-                            if (participants?.some(p => p.uid === user.uid)) return false;
-                            if (userTypeFilter === 'all') return true;
-                            return user.userType === userTypeFilter;
-                          });
+                          const availableToAdd = applyUserAndCountryFilter(filteredUsers);
                           return selectedUsersToAdd.length === availableToAdd.length && availableToAdd.length > 0
                             ? 'Deselect All'
                             : 'Select All';
@@ -1725,13 +1858,18 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 </>
               )}
 
-              <TextInput
-                placeholder="Search users..."
-                value={searchText}
-                onChangeText={setSearchText}
-                style={styles.searchInput}
-                placeholderTextColor="#647276"
-              />
+              <View style={styles.addMemberSearchBox}>
+                <View style={styles.searchIconContainer}>
+                  <SearchIcon width={20} height={20} color="#647276" />
+                </View>
+                <TextInput
+                  placeholder="Search"
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  style={styles.addMemberSearchInput}
+                  placeholderTextColor="#647276"
+                />
+              </View>
 
               {fetchingUsers ? (
                 <View style={styles.skeletonListContainer}>
@@ -1741,13 +1879,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 </View>
               ) : (
                 <FlatList
-                  data={filteredUsers.filter(user => {
-                    // Filter out existing participants
-                    if (participants?.some(p => p.uid === user.uid)) return false;
-                    // Filter by user type
-                    if (userTypeFilter === 'all') return true;
-                    return user.userType === userTypeFilter;
-                  })}
+                  data={applyUserAndCountryFilter(filteredUsers)}
                   keyExtractor={item => item.uid}
                   renderItem={({item}) => {
                     const isSelected = selectedUsersToAdd.some(u => u.uid === item.uid);
@@ -1787,6 +1919,94 @@ const ChatSettingsScreen = ({navigation, route}) => {
               )}
             </View>
           </View>
+
+          {/* User Type Filter Modal - nested inside Add Member modal */}
+          <Modal
+            visible={userTypeModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setUserTypeModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.filterModalOverlay}
+              activeOpacity={1}
+              onPress={() => setUserTypeModalVisible(false)}>
+              <TouchableOpacity style={styles.filterModalContent} activeOpacity={1} onPress={() => {}}>
+                <Text style={styles.filterModalTitle}>Select User Type</Text>
+                <TouchableOpacity
+                  style={styles.filterModalOption}
+                  onPress={() => {
+                    setUserTypeFilter('all');
+                    setCountryFilter('all');
+                    setUserTypeModalVisible(false);
+                  }}>
+                  <Text style={styles.filterModalOptionText}>
+                    All ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length})
+                  </Text>
+                  {userTypeFilter === 'all' && <Text style={styles.filterModalCheck}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.filterModalOption}
+                  onPress={() => {
+                    setUserTypeFilter('buyer');
+                    setCountryFilter('all');
+                    setUserTypeModalVisible(false);
+                  }}>
+                  <Text style={styles.filterModalOptionText}>
+                    Buyers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'buyer').length})
+                  </Text>
+                  {userTypeFilter === 'buyer' && <Text style={styles.filterModalCheck}>✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.filterModalOption}
+                  onPress={() => {
+                    setUserTypeFilter('supplier');
+                    setUserTypeModalVisible(false);
+                  }}>
+                  <Text style={styles.filterModalOptionText}>
+                    Suppliers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'supplier').length})
+                  </Text>
+                  {userTypeFilter === 'supplier' && <Text style={styles.filterModalCheck}>✓</Text>}
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* Country Filter Modal - nested inside Add Member modal */}
+          <Modal
+            visible={countryModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setCountryModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.filterModalOverlay}
+              activeOpacity={1}
+              onPress={() => setCountryModalVisible(false)}>
+              <TouchableOpacity style={styles.filterModalContent} activeOpacity={1} onPress={() => {}}>
+                <Text style={styles.filterModalTitle}>Select Country</Text>
+                <TouchableOpacity
+                  style={styles.filterModalOption}
+                  onPress={() => {
+                    setCountryFilter('all');
+                    setCountryModalVisible(false);
+                  }}>
+                  <Text style={styles.filterModalOptionText}>All</Text>
+                  {countryFilter === 'all' && <Text style={styles.filterModalCheck}>✓</Text>}
+                </TouchableOpacity>
+                {availableCountries.map(country => (
+                  <TouchableOpacity
+                    key={country}
+                    style={styles.filterModalOption}
+                    onPress={() => {
+                      setCountryFilter(country);
+                      setCountryModalVisible(false);
+                    }}>
+                    <Text style={styles.filterModalOptionText}>{country}</Text>
+                    {countryFilter === country && <Text style={styles.filterModalCheck}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </Modal>
         </Modal>
       )}
 
@@ -2280,51 +2500,142 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#647276',
   },
-  filterSection: {
+  filterSelectorsContainer: {
+    marginTop: 16,
+    marginBottom: 12,
+    gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
   },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#647276',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  filterChipsContainer: {
+  filterSelector: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F3F3F5',
+    borderRadius: 12,
+  },
+  filterSelectorDisabled: {
+    backgroundColor: '#E5E8EA',
+    opacity: 0.6,
+  },
+  filterSelectorLabel: {
+    fontSize: 14,
+    color: '#647276',
+    fontWeight: '500',
+  },
+  filterSelectorLabelDisabled: {
+    color: '#9BA1A6',
+  },
+  filterSelectorValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  filterChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F5F6F6',
-    borderWidth: 1,
-    borderColor: '#F5F6F6',
-  },
-  filterChipActive: {
-    backgroundColor: '#539461',
-    borderColor: '#539461',
-  },
-  filterChipText: {
-    fontSize: 13,
+  filterSelectorValueText: {
+    fontSize: 14,
+    color: '#202325',
     fontWeight: '600',
+  },
+  filterSelectorValueDisabled: {
+    color: '#9BA1A6',
+  },
+  filterSelectorArrow: {
+    fontSize: 20,
     color: '#647276',
+    fontWeight: '300',
   },
-  filterChipTextActive: {
-    color: '#FFFFFF',
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  searchInput: {
+  filterModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxHeight: '60%',
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202325',
+    marginBottom: 16,
+  },
+  filterModalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E8EA',
+  },
+  filterModalOptionText: {
+    fontSize: 16,
+    color: '#202325',
+  },
+  filterModalCheck: {
+    fontSize: 20,
+    color: '#539461',
+    fontWeight: '600',
+  },
+  editNameModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '85%',
+  },
+  editNameInput: {
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
-    padding: 12,
-    margin: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
+    color: '#202325',
+    marginBottom: 20,
+  },
+  editNameModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  editNameModalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  editNameModalButtonCancel: {
+    fontSize: 16,
+    color: '#647276',
+    fontWeight: '600',
+  },
+  editNameModalButtonSave: {
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+  },
+  editNameModalButtonSaveText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  addMemberSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  addMemberSearchInput: {
+    fontSize: 16,
+    color: '#000',
+    flex: 1,
   },
   userItem: {
     flexDirection: 'row',
