@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { AuthContext } from '../../auth/AuthProvider';
@@ -10,6 +11,26 @@ import { listAdminsApi } from '../Api/listAdminsApi';
 const AvatarImage = require('../../assets/images/AvatarBig.png');
 const CheckIcon = require('../../assets/icons/check-circle-solid.svg');
 
+// Search Icon Component
+const SearchIcon = ({ width = 20, height = 20, color = '#292929' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <G clipPath="url(#clip0_429_11090)">
+      <Path
+        d="M21 21L16.6569 16.6569M16.6569 16.6569C18.1046 15.2091 19 13.2091 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C13.2091 19 15.2091 18.1046 16.6569 16.6569Z"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </G>
+    <Defs>
+      <ClipPath id="clip0_429_11090">
+        <Rect width="24" height="24" fill="white" />
+      </ClipPath>
+    </Defs>
+  </Svg>
+);
+
 const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   const { userInfo } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
@@ -18,9 +39,16 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   const [searchText, setSearchText] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [groupName, setGroupName] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState('all'); // 'all', 'buyer', 'supplier'
+  const [countryFilter, setCountryFilter] = useState('all'); // 'all', 'Philippines', 'Indonesia', 'Thailand'
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [countryModalVisible, setCountryModalVisible] = useState(false);
   const scrollViewRef = useRef(null);
   const searchInputRef = useRef(null);
   const groupNameInputRef = useRef(null);
+  
+  // Fixed country list
+  const availableCountries = ['Philippines', 'Indonesia', 'Thailand'];
   
   // Check explicit userType first (most reliable)
   const explicitBuyer = 
@@ -92,6 +120,29 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
     return () => clearTimeout(debounceTimeout);
   }, [searchText]);
   
+  // Filter users based on userType and country filters
+  useEffect(() => {
+    if (!users || users.length === 0) {
+      setFilteredUsers([]);
+      return;
+    }
+    
+    let filtered = [...users];
+    
+    // Filter by user type
+    if (userTypeFilter !== 'all') {
+      filtered = filtered.filter(user => user.userType === userTypeFilter);
+    }
+    
+    // Filter by country (applies to all user types)
+    if (countryFilter !== 'all') {
+      filtered = filtered.filter(user => user.country === countryFilter);
+    }
+    
+    setFilteredUsers(filtered);
+  }, [users, userTypeFilter, countryFilter]);
+  
+  
   const fetchUsers = async (query = '') => {
     try {
       setLoading(true);
@@ -112,13 +163,16 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       const encodedQuery = encodeURIComponent(searchQuery);
       const authToken = await getStoredAuthToken();
       
+      // API has a limit of 100 for search queries, but 1000 for list mode (empty query)
+      const apiLimit = searchQuery ? 100 : 1000;
+      
       // IMPORTANT: Check isAdmin FIRST before isSeller/isBuyer
       // Admins might have fields that make them appear as sellers or buyers,
       // but they should be treated as admins with full access
       if (isAdmin) {
         // Fetch buyers
         try {
-          const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=50&offset=0`;
+          const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=${apiLimit}&offset=0`;
           const buyerResponse = await fetch(buyerUrl, {
             method: 'GET',
             headers: {
@@ -146,7 +200,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         
         // Fetch suppliers
         try {
-          const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=50&offset=0`;
+          const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${apiLimit}&offset=0`;
           const supplierResponse = await fetch(supplierUrl, {
             method: 'GET',
             headers: {
@@ -163,7 +217,8 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
                 username: user.username || user.email || '',
                 email: user.email || '',
                 profileImage: user.profileImage || '',
-                userType: user.userType || 'supplier'
+                userType: user.userType || 'supplier',
+                country: user.country || 'Unknown'
               }));
               allResults.push(...supplierResults);
             }
@@ -179,7 +234,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         // 2. Other seller users (suppliers)
         // Sellers CANNOT message buyer users
         // ============================================
-        const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=50&offset=0`;
+        const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${apiLimit}&offset=0`;
         
         const supplierResponse = await fetch(supplierUrl, {
           method: 'GET',
@@ -202,7 +257,8 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
             username: user.username || user.email || '',
             email: user.email || '',
             profileImage: user.profileImage || '',
-            userType: user.userType || 'supplier'
+            userType: user.userType || 'supplier',
+            country: user.country || 'Unknown'
           }));
           allResults.push(...supplierResults);
         }
@@ -215,7 +271,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         // Buyers CANNOT message seller users (suppliers)
         // ============================================
         console.log('✅ Buyer detected: Fetching buyers and admins ONLY (suppliers excluded)');
-        const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=50&offset=0`;
+        const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=${apiLimit}&offset=0`;
         
         const buyerResponse = await fetch(buyerUrl, {
           method: 'GET',
@@ -248,7 +304,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       try {
         const adminFilters = {
           status: 'active',
-          limit: 50
+          limit: 1000
         };
         const adminData = await listAdminsApi(adminFilters);
         
@@ -303,7 +359,9 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
             avatarUrl: avatarUrl,
             uid: user.id,
             email: user.email || '',
-            createdAt: user.createdAt
+            createdAt: user.createdAt,
+            userType: user.userType || 'buyer', // Preserve userType
+            country: user.country || 'Unknown' // Preserve country
           };
         }));
         
@@ -377,14 +435,6 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modal}>
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}>
             {/* Header */}
             <View style={styles.header}>
               <Pressable onPress={onClose} style={styles.cancelButton}>
@@ -423,19 +473,97 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
               />
             </View>
 
-            {/* Selected Users Count */}
-            {selectedUsers.length > 0 && (
-              <View style={styles.selectedCountContainer}>
-                <Text style={styles.selectedCountText}>
-                  {selectedUsers.length} {selectedUsers.length === 1 ? 'person' : 'people'} selected
-                </Text>
+            {/* Filter Selector Buttons */}
+            {!loading && users.length > 0 && (
+              <View style={styles.filterSelectorsContainer}>
+                <TouchableOpacity 
+                  style={styles.filterSelector}
+                  onPress={() => setFilterModalVisible(true)}>
+                  <Text style={styles.filterSelectorLabel}>User Type:</Text>
+                  <View style={styles.filterSelectorValue}>
+                    <Text style={styles.filterSelectorValueText}>
+                      {userTypeFilter === 'all' ? 'All' : userTypeFilter === 'buyer' ? 'Buyers' : 'Suppliers'}
+                    </Text>
+                    <Text style={styles.filterSelectorArrow}>›</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[
+                    styles.filterSelector,
+                    userTypeFilter !== 'supplier' && styles.filterSelectorDisabled
+                  ]}
+                  onPress={() => {
+                    if (userTypeFilter === 'supplier') {
+                      setCountryModalVisible(true);
+                    }
+                  }}
+                  disabled={userTypeFilter !== 'supplier'}>
+                  <Text style={[
+                    styles.filterSelectorLabel,
+                    userTypeFilter !== 'supplier' && styles.filterSelectorLabelDisabled
+                  ]}>
+                    Country:
+                  </Text>
+                  <View style={styles.filterSelectorValue}>
+                    <Text style={[
+                      styles.filterSelectorValueText,
+                      userTypeFilter !== 'supplier' && styles.filterSelectorValueDisabled
+                    ]}>
+                      {countryFilter === 'all' ? 'All' : countryFilter}
+                    </Text>
+                    {userTypeFilter === 'supplier' && (
+                      <Text style={styles.filterSelectorArrow}>›</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Select All Button */}
+            {!loading && filteredUsers.length > 0 && (
+              <View style={styles.selectAllContainer}>
+                <TouchableOpacity
+                  onPress={() => {
+                    // Check if all filtered users are already selected
+                    const allSelected = filteredUsers.every(user => 
+                      selectedUsers.some(selected => selected.id === user.id)
+                    );
+                    
+                    if (allSelected) {
+                      // Deselect all filtered users
+                      setSelectedUsers(prev => 
+                        prev.filter(selected => 
+                          !filteredUsers.some(filtered => filtered.id === selected.id)
+                        )
+                      );
+                    } else {
+                      // Select all filtered users (add only new ones)
+                      const newUsers = filteredUsers.filter(filtered => 
+                        !selectedUsers.some(selected => selected.id === filtered.id)
+                      );
+                      setSelectedUsers(prev => [...prev, ...newUsers]);
+                    }
+                  }}
+                  style={styles.selectAllButton}>
+                  <Text style={styles.selectAllButtonText}>
+                    {filteredUsers.every(user => 
+                      selectedUsers.some(selected => selected.id === user.id)
+                    ) ? 'Deselect All' : 'Select All'}
+                  </Text>
+                </TouchableOpacity>
+                {selectedUsers.length > 0 && (
+                  <Text style={styles.selectAllCount}>
+                    {selectedUsers.length} selected
+                  </Text>
+                )}
               </View>
             )}
 
             {/* Search Field */}
             <View style={styles.searchBox}>
               <View style={styles.searchIconContainer}>
-                <Text style={styles.searchIconText}>🔍</Text>
+                <SearchIcon width={20} height={20} color="#647276" />
               </View>
               <TextInput
                 ref={searchInputRef}
@@ -444,65 +572,154 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
                 style={styles.searchInput}
                 value={searchText}
                 onChangeText={setSearchText}
-                onFocus={() => {
-                  // Scroll to show search input when focused
-                  setTimeout(() => {
-                    scrollViewRef.current?.scrollTo({ y: 150, animated: true });
-                  }, 100);
-                }}
               />
             </View>
 
-            {/* List */}
-            {loading ? (
-              <View style={styles.userList}>
-                {Array.from({length: 5}).map((_, idx) => (
-                  <SkeletonUserItem key={idx} index={idx} />
-                ))}
-              </View>
-            ) : filteredUsers.length > 0 ? (
-              <View style={styles.userList}>
-                {filteredUsers.map((user, index) => {
-                  const isSelected = selectedUsers.some(u => u.id === user.id);
-                  return (
-                    <TouchableOpacity 
-                      onPress={() => toggleUserSelection(user)} 
-                      key={user.id || index} 
-                      style={[
-                        styles.userItem,
-                        index !== filteredUsers.length - 1 && styles.userItemBorder,
-                        isSelected && styles.userItemSelected
-                      ]}
-                    >
-                      <Image 
-                        source={user.avatarUrl}
-                        style={styles.avatar}
-                        defaultSource={AvatarImage}
-                      />
-                      <View style={styles.userInfo}>
-                        <Text style={styles.userName}>{user.name}</Text>
-                        {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
-                      </View>
-                      {isSelected && (
-                        <View style={styles.checkIcon}>
-                          <Text style={styles.checkIconText}>✓</Text>
+            {/* Scrollable User List */}
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.userListScroll}
+              contentContainerStyle={styles.userListContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={true}>
+              {loading ? (
+                <View style={styles.userList}>
+                  {Array.from({length: 5}).map((_, idx) => (
+                    <SkeletonUserItem key={idx} index={idx} />
+                  ))}
+                </View>
+              ) : filteredUsers.length > 0 ? (
+                <View style={styles.userList}>
+                  {filteredUsers.map((user, index) => {
+                    const isSelected = selectedUsers.some(u => u.id === user.id);
+                    return (
+                      <TouchableOpacity 
+                        onPress={() => toggleUserSelection(user)} 
+                        key={user.id || index} 
+                        style={[
+                          styles.userItem,
+                          index !== filteredUsers.length - 1 && styles.userItemBorder,
+                          isSelected && styles.userItemSelected
+                        ]}
+                      >
+                        <Image 
+                          source={user.avatarUrl}
+                          style={styles.avatar}
+                          defaultSource={AvatarImage}
+                        />
+                        <View style={styles.userInfo}>
+                          <Text style={styles.userName}>{user.name}</Text>
+                          {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
                         </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  {searchText.trim() ? `No users found for "${searchText}"` : 'No users found'}
-                </Text>
-              </View>
-            )}
-          </ScrollView>
+                        {isSelected && (
+                          <View style={styles.checkIcon}>
+                            <Text style={styles.checkIconText}>✓</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>
+                    {searchText.trim() ? `No users found for "${searchText}"` : 'No users found'}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </View>
+
+      {/* User Type Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFilterModalVisible(false)}>
+        <Pressable 
+          style={styles.filterModalOverlay}
+          onPress={() => setFilterModalVisible(false)}>
+          <Pressable style={styles.filterModalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.filterModalTitle}>Select User Type</Text>
+            
+            <TouchableOpacity
+              style={styles.filterModalOption}
+              onPress={() => {
+                setUserTypeFilter('all');
+                setCountryFilter('all');
+                setFilterModalVisible(false);
+              }}>
+              <Text style={styles.filterModalOptionText}>All ({users.length})</Text>
+              {userTypeFilter === 'all' && <Text style={styles.filterModalCheck}>✓</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.filterModalOption}
+              onPress={() => {
+                setUserTypeFilter('buyer');
+                setCountryFilter('all');
+                setFilterModalVisible(false);
+              }}>
+              <Text style={styles.filterModalOptionText}>
+                Buyers ({users.filter(u => u.userType === 'buyer').length})
+              </Text>
+              {userTypeFilter === 'buyer' && <Text style={styles.filterModalCheck}>✓</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.filterModalOption}
+              onPress={() => {
+                setUserTypeFilter('supplier');
+                setFilterModalVisible(false);
+              }}>
+              <Text style={styles.filterModalOptionText}>
+                Suppliers ({users.filter(u => u.userType === 'supplier').length})
+              </Text>
+              {userTypeFilter === 'supplier' && <Text style={styles.filterModalCheck}>✓</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Country Filter Modal */}
+      <Modal
+        visible={countryModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCountryModalVisible(false)}>
+        <Pressable 
+          style={styles.filterModalOverlay}
+          onPress={() => setCountryModalVisible(false)}>
+          <Pressable style={styles.filterModalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.filterModalTitle}>Select Country</Text>
+            
+            <TouchableOpacity
+              style={styles.filterModalOption}
+              onPress={() => {
+                setCountryFilter('all');
+                setCountryModalVisible(false);
+              }}>
+              <Text style={styles.filterModalOptionText}>All</Text>
+              {countryFilter === 'all' && <Text style={styles.filterModalCheck}>✓</Text>}
+            </TouchableOpacity>
+
+            {availableCountries.map(country => (
+              <TouchableOpacity
+                key={country}
+                style={styles.filterModalOption}
+                onPress={() => {
+                  setCountryFilter(country);
+                  setCountryModalVisible(false);
+                }}>
+                <Text style={styles.filterModalOptionText}>{country}</Text>
+                {countryFilter === country && <Text style={styles.filterModalCheck}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Modal>
   );
 }
@@ -535,13 +752,7 @@ const styles = StyleSheet.create({
     height: 600,
     width: '100%',
     overflow: 'hidden',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 34,
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
@@ -549,6 +760,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
     paddingBottom: 12,
+    paddingHorizontal: 24,
   },
   cancelButton: {
     padding: 8,
@@ -581,6 +793,7 @@ const styles = StyleSheet.create({
   },
   groupNameContainer: {
     marginBottom: 12,
+    paddingHorizontal: 24,
   },
   groupNameInput: {
     borderWidth: 1,
@@ -595,6 +808,109 @@ const styles = StyleSheet.create({
   },
   selectedCountText: {
     fontSize: 14,
+    color: '#539461',
+    fontWeight: '600',
+  },
+  filterSelectorsContainer: {
+    marginBottom: 12,
+    gap: 8,
+    paddingHorizontal: 24,
+  },
+  filterSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F3F3F5',
+    borderRadius: 12,
+  },
+  filterSelectorDisabled: {
+    backgroundColor: '#E5E8EA',
+    opacity: 0.6,
+  },
+  filterSelectorLabel: {
+    fontSize: 14,
+    color: '#647276',
+    fontWeight: '500',
+  },
+  filterSelectorLabelDisabled: {
+    color: '#9BA1A6',
+  },
+  filterSelectorValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterSelectorValueText: {
+    fontSize: 14,
+    color: '#202325',
+    fontWeight: '600',
+  },
+  filterSelectorValueDisabled: {
+    color: '#9BA1A6',
+  },
+  filterSelectorArrow: {
+    fontSize: 20,
+    color: '#647276',
+    fontWeight: '300',
+  },
+  selectAllContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  selectAllButton: {
+    paddingVertical: 4,
+  },
+  selectAllButtonText: {
+    fontSize: 16,
+    color: '#539461',
+    fontWeight: '600',
+  },
+  selectAllCount: {
+    fontSize: 14,
+    color: '#647276',
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxHeight: '60%',
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202325',
+    marginBottom: 16,
+  },
+  filterModalScroll: {
+    maxHeight: 300,
+  },
+  filterModalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E8EA',
+  },
+  filterModalOptionText: {
+    fontSize: 16,
+    color: '#202325',
+  },
+  filterModalCheck: {
+    fontSize: 20,
     color: '#539461',
     fontWeight: '600',
   },
@@ -618,11 +934,19 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     paddingHorizontal: 16,
     marginBottom: 12,
+    marginHorizontal: 24,
   },
   searchInput: {
     fontSize: 16,
     color: '#000',
     flex: 1,
+  },
+  userListScroll: {
+    flex: 1,
+  },
+  userListContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
   userList: {
     paddingVertical: 8,

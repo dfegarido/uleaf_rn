@@ -1,12 +1,33 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 import { listAdminsApi } from '../Api/listAdminsApi';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 
 // Pre-load and cache the avatar image to prevent RCTImageView errors
 const AvatarImage = require('../../assets/images/AvatarBig.png');
+
+// Search Icon Component
+const SearchIcon = ({ width = 20, height = 20, color = '#292929' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <G clipPath="url(#clip0_429_11090)">
+      <Path
+        d="M21 21L16.6569 16.6569M16.6569 16.6569C18.1046 15.2091 19 13.2091 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C13.2091 19 15.2091 18.1046 16.6569 16.6569Z"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </G>
+    <Defs>
+      <ClipPath id="clip0_429_11090">
+        <Rect width="24" height="24" fill="white" />
+      </ClipPath>
+    </Defs>
+  </Svg>
+);
 
 /**
  * ============================================
@@ -933,7 +954,7 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
             {/* Search Field - Fixed */}
             <View style={styles.searchBox}>
               <View style={styles.searchIconContainer}>
-                <Text style={styles.searchIconText}>🔍</Text>
+                <SearchIcon width={20} height={20} color="#647276" />
               </View>
               <TextInput
                 ref={searchInputRef}

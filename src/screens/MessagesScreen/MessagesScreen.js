@@ -23,8 +23,8 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path, G } from 'react-native-svg';
 import { db } from '../../../firebase';
-import CreateChat from '../../assets/iconchat/new-chat.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
@@ -32,6 +32,30 @@ import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
+
+// Group Icon Component
+const GroupIcon = ({ width = 24, height = 24, color = '#000000' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24">
+    <G id="group">
+      <Path
+        fill={color}
+        d="M24,15.9c0-2.8-1.5-5-3.7-6.1C21.3,8.8,22,7.5,22,6c0-2.8-2.2-5-5-5c-2.1,0-3.8,1.2-4.6,3c0,0,0,0,0,0c-0.1,0-0.3,0-0.4,0 c-0.1,0-0.3,0-0.4,0c0,0,0,0,0,0C10.8,2.2,9.1,1,7,1C4.2,1,2,3.2,2,6c0,1.5,0.7,2.8,1.7,3.8C1.5,10.9,0,13.2,0,15.9V20h5v3h14v-3h5 V15.9z M17,3c1.7,0,3,1.3,3,3c0,1.6-1.3,3-3,3c0-1.9-1.1-3.5-2.7-4.4c0,0,0,0,0,0C14.8,3.6,15.8,3,17,3z M13.4,4.2 C13.4,4.2,13.4,4.2,13.4,4.2C13.4,4.2,13.4,4.2,13.4,4.2z M15,9c0,1.7-1.3,3-3,3s-3-1.3-3-3s1.3-3,3-3S15,7.3,15,9z M10.6,4.2 C10.6,4.2,10.6,4.2,10.6,4.2C10.6,4.2,10.6,4.2,10.6,4.2z M7,3c1.2,0,2.2,0.6,2.7,1.6C8.1,5.5,7,7.1,7,9C5.3,9,4,7.7,4,6S5.3,3,7,3 z M5.1,18H2v-2.1C2,13.1,4.1,11,7,11v0c0,0,0,0,0,0c0.1,0,0.2,0,0.3,0c0,0,0,0,0,0c0.3,0.7,0.8,1.3,1.3,1.8 C6.7,13.8,5.4,15.7,5.1,18z M17,21H7v-2.1c0-2.8,2.2-4.9,5-4.9c2.9,0,5,2.1,5,4.9V21z M22,18h-3.1c-0.3-2.3-1.7-4.2-3.7-5.2 c0.6-0.5,1-1.1,1.3-1.8c0.1,0,0.2,0,0.4,0v0c2.9,0,5,2.1,5,4.9V18z"
+      />
+    </G>
+  </Svg>
+);
+
+// New Message Icon Component
+const NewMessageIcon = ({ width = 24, height = 24, color = '#000000' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      fill={color}
+      d="M19.186 2.09c.521.25 1.136.612 1.625 1.101.49.49.852 1.104 1.1 1.625.313.654.11 1.408-.401 1.92l-7.214 7.213c-.31.31-.688.541-1.105.675l-4.222 1.353a.75.75 0 0 1-.943-.944l1.353-4.221a2.75 2.75 0 0 1 .674-1.105l7.214-7.214c.512-.512 1.266-.714 1.92-.402zm.211 2.516a3.608 3.608 0 0 0-.828-.586l-6.994 6.994a1.002 1.002 0 0 0-.178.241L9.9 14.102l2.846-1.496c.09-.047.171-.107.242-.178l6.994-6.994a3.61 3.61 0 0 0-.586-.828zM4.999 5.5A.5.5 0 0 1 5.47 5l5.53.005a1 1 0 0 0 0-2L5.5 3A2.5 2.5 0 0 0 3 5.5v12.577c0 .76.082 1.185.319 1.627.224.419.558.754.977.978.442.236.866.318 1.627.318h12.154c.76 0 1.185-.082 1.627-.318.42-.224.754-.559.978-.978.236-.442.318-.866.318-1.627V13a1 1 0 1 0-2 0v5.077c0 .459-.021.571-.082.684a.364.364 0 0 1-.157.157c-.113.06-.225.082-.684.082H5.923c-.459 0-.57-.022-.684-.082a.363.363 0 0 1-.157-.157c-.06-.113-.082-.225-.082-.684V5.5z"
+    />
+  </Svg>
+);
 
 const MessagesScreen = ({navigation}) => {
   const insets = useSafeAreaInsets();
@@ -73,6 +97,8 @@ const MessagesScreen = ({navigation}) => {
   const [avatarMap, setAvatarMap] = useState({});
   // Map of uid -> username (fetched from Firestore)
   const [usernameMap, setUsernameMap] = useState({});
+  // Tab selection: 'messages' (default), 'unread', 'groups'
+  const [selectedTab, setSelectedTab] = useState('messages');
 
   // Fetch avatars and usernames from buyer, admin, and supplier collections for given chats' participant UIDs
   async function fetchAvatarsForChats(chats = []) {
@@ -717,6 +743,24 @@ const MessagesScreen = ({navigation}) => {
     </View>
   );
 
+  // Filter messages based on selected tab
+  const getFilteredMessages = () => {
+    const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+    
+    if (selectedTab === 'unread') {
+      // Show only unread messages
+      return messages.filter(msg => msg.unreadBy && msg.unreadBy.includes(currentUserUid));
+    } else if (selectedTab === 'groups') {
+      // Show only group chats (more than 2 participants)
+      return messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2));
+    } else {
+      // 'messages' - show only 1-on-1 chats (exclude groups)
+      return messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
+    }
+  };
+
+  const filteredMessages = getFilteredMessages();
+
   return (
     <SafeAreaView style={{flex: 1}} edges={["left", "right", "bottom"]}>
       <View style={styles.container}>
@@ -728,28 +772,55 @@ const MessagesScreen = ({navigation}) => {
           <View style={styles.headerActions}>
             {isAdmin && (
               <TouchableOpacity
-                style={[styles.createChat, styles.groupChatButton]}
+                style={styles.createChat}
                 onPress={() => setGroupChatModalVisible(true)}>
-                <Text style={styles.groupChatButtonText}>Group</Text>
+                <GroupIcon width={24} height={24} color="#000000" />
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={styles.createChat}
               onPress={() => setModalVisible(true)}>
-              <CreateChat />
+              <NewMessageIcon width={24} height={24} color="#000000" />
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, selectedTab === 'messages' && styles.tabActive]}
+            onPress={() => setSelectedTab('messages')}>
+            <Text style={[styles.tabText, selectedTab === 'messages' && styles.tabTextActive]}>
+              Messages
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tab, selectedTab === 'unread' && styles.tabActive]}
+            onPress={() => setSelectedTab('unread')}>
+            <Text style={[styles.tabText, selectedTab === 'unread' && styles.tabTextActive]}>
+              Unread
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tab, selectedTab === 'groups' && styles.tabActive]}
+            onPress={() => setSelectedTab('groups')}>
+            <Text style={[styles.tabText, selectedTab === 'groups' && styles.tabTextActive]}>
+              Groups
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <FlatList
           style={{flex: 1}}
-          data={loading ? [] : messages}
+          data={loading ? [] : filteredMessages}
           keyExtractor={(item, index) => (item && item.id) ? item.id : `chat-${index}`}
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContainer,
             {paddingBottom: totalBottomPadding},
-            messages.length === 0 && !loading && styles.emptyListContainer,
+            filteredMessages.length === 0 && !loading && styles.emptyListContainer,
           ]}
           ListEmptyComponent={() =>
             loading ? (
@@ -762,10 +833,15 @@ const MessagesScreen = ({navigation}) => {
             ) : (
               // Show empty state when not loading and no messages
               <View style={styles.emptyStateContainer}>
-                <Text style={styles.emptyStateTitle}>No Messages Yet</Text>
+                <Text style={styles.emptyStateTitle}>
+                  {selectedTab === 'unread' ? 'No Unread Messages' : 
+                   selectedTab === 'groups' ? 'No Group Chats' : 
+                   'No Messages Yet'}
+                </Text>
                 <Text style={styles.emptyStateSubtitle}>
-                  Start a conversation with plant enthusiasts and discover
-                  amazing plants!
+                  {selectedTab === 'unread' ? 'All caught up!' :
+                   selectedTab === 'groups' ? 'Join or create a group chat to get started.' :
+                   'Start a conversation with plant enthusiasts and discover amazing plants!'}
                 </Text>
               </View>
             )
@@ -805,19 +881,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  groupChatButton: {
-    backgroundColor: '#539461',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    width: 'auto',
-    height: 32,
-  },
-  groupChatButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -832,6 +895,32 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000000',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginHorizontal: 4,
+  },
+  tabActive: {
+    backgroundColor: '#4A5E69',
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#647276',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   listContainer: {
     padding: 12,
