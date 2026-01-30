@@ -17,13 +17,14 @@ import {
   Alert,
   FlatList,
   Image,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, G } from 'react-native-svg';
+import Svg, { Path, G, Circle } from 'react-native-svg';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
@@ -35,13 +36,42 @@ const DefaultAvatar = require('../../assets/images/AvatarBig.png');
 
 // Group Icon Component
 const GroupIcon = ({ width = 24, height = 24, color = '#000000' }) => (
-  <Svg width={width} height={height} viewBox="0 0 24 24">
-    <G id="group">
-      <Path
-        fill={color}
-        d="M24,15.9c0-2.8-1.5-5-3.7-6.1C21.3,8.8,22,7.5,22,6c0-2.8-2.2-5-5-5c-2.1,0-3.8,1.2-4.6,3c0,0,0,0,0,0c-0.1,0-0.3,0-0.4,0 c-0.1,0-0.3,0-0.4,0c0,0,0,0,0,0C10.8,2.2,9.1,1,7,1C4.2,1,2,3.2,2,6c0,1.5,0.7,2.8,1.7,3.8C1.5,10.9,0,13.2,0,15.9V20h5v3h14v-3h5 V15.9z M17,3c1.7,0,3,1.3,3,3c0,1.6-1.3,3-3,3c0-1.9-1.1-3.5-2.7-4.4c0,0,0,0,0,0C14.8,3.6,15.8,3,17,3z M13.4,4.2 C13.4,4.2,13.4,4.2,13.4,4.2C13.4,4.2,13.4,4.2,13.4,4.2z M15,9c0,1.7-1.3,3-3,3s-3-1.3-3-3s1.3-3,3-3S15,7.3,15,9z M10.6,4.2 C10.6,4.2,10.6,4.2,10.6,4.2C10.6,4.2,10.6,4.2,10.6,4.2z M7,3c1.2,0,2.2,0.6,2.7,1.6C8.1,5.5,7,7.1,7,9C5.3,9,4,7.7,4,6S5.3,3,7,3 z M5.1,18H2v-2.1C2,13.1,4.1,11,7,11v0c0,0,0,0,0,0c0.1,0,0.2,0,0.3,0c0,0,0,0,0,0c0.3,0.7,0.8,1.3,1.3,1.8 C6.7,13.8,5.4,15.7,5.1,18z M17,21H7v-2.1c0-2.8,2.2-4.9,5-4.9c2.9,0,5,2.1,5,4.9V21z M22,18h-3.1c-0.3-2.3-1.7-4.2-3.7-5.2 c0.6-0.5,1-1.1,1.3-1.8c0.1,0,0.2,0,0.4,0v0c2.9,0,5,2.1,5,4.9V18z"
-      />
-    </G>
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Circle 
+      cx="9" 
+      cy="9" 
+      r="3" 
+      stroke={color} 
+      strokeWidth="2" 
+      strokeLinecap="round"
+    />
+    <Path 
+      d="M12.2679 9C12.5332 8.54063 12.97 8.20543 13.4824 8.06815C13.9947 7.93086 14.5406 8.00273 15 8.26795C15.4594 8.53317 15.7946 8.97 15.9319 9.48236C16.0691 9.99472 15.9973 10.5406 15.7321 11C15.4668 11.4594 15.03 11.7946 14.5176 11.9319C14.0053 12.0691 13.4594 11.9973 13 11.7321C12.5406 11.4668 12.2054 11.03 12.0681 10.5176C11.9309 10.0053 12.0027 9.45937 12.2679 9L12.2679 9Z" 
+      stroke={color} 
+      strokeWidth="2"
+    />
+    <Path 
+      d="M13.8816 19L12.9013 19.1974L13.0629 20H13.8816V19ZM17.7202 17.9042L18.6627 17.5699L17.7202 17.9042ZM11.7808 15.7105L11.176 14.9142L10.0194 15.7927L11.2527 16.5597L11.7808 15.7105ZM16.8672 18H13.8816V20H16.8672V18ZM16.7777 18.2384C16.7707 18.2186 16.7642 18.181 16.7725 18.1354C16.7804 18.0921 16.7982 18.0593 16.8151 18.0383C16.8474 17.9982 16.874 18 16.8672 18V20C18.0132 20 19.1414 18.9194 18.6627 17.5699L16.7777 18.2384ZM14 16C15.6416 16 16.4027 17.1811 16.7777 18.2384L18.6627 17.5699C18.1976 16.2588 16.9485 14 14 14V16ZM12.3857 16.5069C12.7702 16.2148 13.282 16 14 16V14C12.8381 14 11.9028 14.3622 11.176 14.9142L12.3857 16.5069ZM11.2527 16.5597C12.2918 17.206 12.7271 18.3324 12.9013 19.1974L14.8619 18.8026C14.644 17.7204 14.0374 15.9364 12.309 14.8614L11.2527 16.5597Z" 
+      fill={color}
+    />
+    <Path 
+      d="M9 15C12.5715 15 13.5919 17.5512 13.8834 19.0089C13.9917 19.5504 13.5523 20 13 20H5C4.44772 20 4.00829 19.5504 4.11659 19.0089C4.4081 17.5512 5.42846 15 9 15Z" 
+      stroke={color} 
+      strokeWidth="2" 
+      strokeLinecap="round"
+    />
+    <Path 
+      d="M19 3V7" 
+      stroke={color} 
+      strokeWidth="2" 
+      strokeLinecap="round"
+    />
+    <Path 
+      d="M21 5L17 5" 
+      stroke={color} 
+      strokeWidth="2" 
+      strokeLinecap="round"
+    />
   </Svg>
 );
 
@@ -57,13 +87,35 @@ const NewMessageIcon = ({ width = 24, height = 24, color = '#000000' }) => (
   </Svg>
 );
 
+// Format timestamp to compact notation (1m, 1h, 1d)
+const formatTimeAgo = (timestamp) => {
+  if (!timestamp) return '';
+  
+  const now = moment();
+  const then = moment(timestamp.toDate());
+  const diffMinutes = now.diff(then, 'minutes');
+  const diffHours = now.diff(then, 'hours');
+  const diffDays = now.diff(then, 'days');
+  const diffWeeks = now.diff(then, 'weeks');
+  const diffMonths = now.diff(then, 'months');
+  const diffYears = now.diff(then, 'years');
+  
+  if (diffMinutes < 1) return 'now';
+  if (diffMinutes < 60) return `${diffMinutes}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  if (diffWeeks < 4) return `${diffWeeks}w`;
+  if (diffMonths < 12) return `${diffMonths}mo`;
+  return `${diffYears}y`;
+};
+
 const MessagesScreen = ({navigation}) => {
   const insets = useSafeAreaInsets();
   
   // Calculate proper bottom padding for tab bar + safe area
-  const tabBarHeight = 60; // Standard tab bar height  
-  const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
-  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  const tabBarHeight = 80; // Tab bar height (including the prominent center button)
+  const safeBottomPadding = Math.max(insets.bottom, 16); // iPhone home indicator area
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 24; // Extra 24px for spacing
   
   const {userInfo} = useContext(AuthContext);
   // Handle admin API response structure: userInfo.data.* or regular userInfo.user.* or flat userInfo.*
@@ -200,16 +252,33 @@ const MessagesScreen = ({navigation}) => {
     }
 
     try {
-      // Fetch chats where user is a participant
+      // For admins: fetch their own direct messages + ALL group chats separately
+      // For non-admins: fetch only chats where they're a participant
       const memberChatsQuery = query(
         collection(db, 'chats'),
         where('participantIds', 'array-contains', currentUserUid),
         orderBy('timestamp', 'desc'),
       );
 
-      // For buyers, also fetch public groups where they're not members
+      // Admins also see ALL group chats (both private and public) for moderation
+      let allGroupChatsQuery = null;
+      console.log('🔍 [MessagesScreen] isAdmin:', isAdmin);
+      if (isAdmin) {
+        try {
+          console.log('📊 [MessagesScreen] Admin detected - setting up query for ALL group chats');
+          allGroupChatsQuery = query(
+            collection(db, 'chats'),
+            where('type', '==', 'group'),
+            orderBy('timestamp', 'desc'),
+          );
+        } catch (error) {
+          console.log('❌ [MessagesScreen] Could not create all group chats query:', error);
+        }
+      }
+
+      // For buyers (non-admins), also fetch public groups where they're not members
       let publicGroupsQuery = null;
-      if (isBuyer) {
+      if (isBuyer && !isAdmin) {
         try {
           publicGroupsQuery = query(
             collection(db, 'chats'),
@@ -234,7 +303,27 @@ const MessagesScreen = ({navigation}) => {
               ...doc.data(),
             }));
 
-            // If buyer and public groups query exists, fetch public groups
+            // For admins: fetch ALL group chats for moderation
+            let allGroupChats = [];
+            if (allGroupChatsQuery && isAdmin) {
+              try {
+                console.log('🔄 [MessagesScreen] Fetching ALL group chats for admin...');
+                const allGroupsSnapshot = await getDocs(allGroupChatsQuery);
+                allGroupChats = allGroupsSnapshot.docs
+                  .map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                  }));
+                console.log(`✅ [MessagesScreen] Fetched ${allGroupChats.length} group chats for admin`);
+                console.log('📋 [MessagesScreen] Group chat names:', allGroupChats.map(c => c.name || 'Unnamed'));
+              } catch (error) {
+                console.log('❌ [MessagesScreen] Error fetching all group chats for admin:', error);
+              }
+            } else {
+              console.log('⏭️ [MessagesScreen] Skipping group chats fetch - allGroupChatsQuery:', !!allGroupChatsQuery, 'isAdmin:', isAdmin);
+            }
+
+            // For buyers: fetch public groups where they're not members
             // Sellers can only see public groups if they are invited
             let publicGroups = [];
             if (publicGroupsQuery && (isBuyer || isSeller)) {
@@ -267,9 +356,14 @@ const MessagesScreen = ({navigation}) => {
               }
             }
 
-            // Combine member chats and public groups (deduplicate by id)
+            // Combine member chats, all group chats (for admins), and public groups (deduplicate by id)
             const allChatsMap = new Map();
             memberChats.forEach(chat => allChatsMap.set(chat.id, chat));
+            allGroupChats.forEach(chat => {
+              if (!allChatsMap.has(chat.id)) {
+                allChatsMap.set(chat.id, chat);
+              }
+            });
             publicGroups.forEach(chat => {
               if (!allChatsMap.has(chat.id)) {
                 allChatsMap.set(chat.id, chat);
@@ -283,6 +377,11 @@ const MessagesScreen = ({navigation}) => {
               const bTime = b.timestamp?.toDate?.() || new Date(0);
               return bTime - aTime;
             });
+
+            console.log(`📱 [MessagesScreen] Total chats to display: ${allChats.length}`);
+            console.log(`   - Member chats: ${memberChats.length}`);
+            console.log(`   - All group chats (admin): ${allGroupChats.length}`);
+            console.log(`   - Public groups: ${publicGroups.length}`);
 
             setMessages(allChats);
             // Fire-and-forget: populate avatarMap for participant UIDs we don't yet have
@@ -302,7 +401,7 @@ const MessagesScreen = ({navigation}) => {
     } catch (error) {
       setLoading(false);
     }
-  }, [userInfo, isBuyer, isSeller]);
+  }, [userInfo, isBuyer, isSeller, isAdmin]);
 
   
 
@@ -629,12 +728,37 @@ const MessagesScreen = ({navigation}) => {
   let avatarElement;
   
   if (chatType === 'group') {
-    // Get all participants (excluding current user) - we'll take first 2 for display
+    // Get all participants (excluding current user)
     const otherParticipants = participants
       .filter(p => p && p.uid && p.uid !== currentUserUid);
     
-    // Get avatar sources for first 2 participants (based on order in array)
-    const avatarSources = otherParticipants.slice(0, 2).map(p => {
+    // Filter participants who have valid avatars
+    const participantsWithAvatars = otherParticipants.filter(p => {
+      const uid = p?.uid;
+      // Check if they have avatar in avatarMap or avatarUrl
+      if (uid && avatarMap[uid]) return true;
+      if (p?.avatarUrl) {
+        if (typeof p.avatarUrl === 'string' && p.avatarUrl.trim() !== '') return true;
+        if (typeof p.avatarUrl === 'object' && p.avatarUrl?.uri) return true;
+      }
+      return false;
+    });
+    
+    // Shuffle and take first 2 participants who have avatars
+    // If less than 2 have avatars, supplement with participants without avatars
+    const shuffled = [...participantsWithAvatars].sort(() => Math.random() - 0.5);
+    const selectedParticipants = shuffled.slice(0, 2);
+    
+    // If we don't have enough participants with avatars, add some without
+    if (selectedParticipants.length < 2) {
+      const remaining = otherParticipants
+        .filter(p => !selectedParticipants.includes(p))
+        .slice(0, 2 - selectedParticipants.length);
+      selectedParticipants.push(...remaining);
+    }
+    
+    // Get avatar sources for selected participants
+    const avatarSources = selectedParticipants.map(p => {
       const uid = p?.uid;
       // Priority 1: avatarMap (from Firestore)
       if (uid && avatarMap[uid]) {
@@ -684,7 +808,11 @@ const MessagesScreen = ({navigation}) => {
         <View style={styles.chatContent}>
           <View style={styles.chatHeader}>
             <View style={styles.chatSubHeader}>
-              <Text style={styles.chatName}>
+              <Text 
+                style={styles.chatName} 
+                numberOfLines={1} 
+                ellipsizeMode="tail"
+              >
                 {displayName || item.name || 'Unknown'}
               </Text>
               <Text
@@ -692,10 +820,9 @@ const MessagesScreen = ({navigation}) => {
                   item.unreadBy && item.unreadBy.includes(currentUserUid)
                     ? styles.unreadChatTime
                     : styles.chatTime,
-                ]}>
-                {item.timestamp
-                  ? moment(item.timestamp.toDate()).fromNow()
-                  : ''}
+                ]}
+                numberOfLines={1}>
+                {formatTimeAgo(item.timestamp)}
               </Text>
             </View>
             <View style={styles.timeContainer}>
@@ -706,6 +833,7 @@ const MessagesScreen = ({navigation}) => {
           </View>
           <Text
             numberOfLines={1}
+            ellipsizeMode="tail"
             style={[
               item.unreadBy && item.unreadBy.includes(currentUserUid)
                 ? styles.unreadChatMessage
@@ -747,10 +875,7 @@ const MessagesScreen = ({navigation}) => {
   const getFilteredMessages = () => {
     const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
     
-    if (selectedTab === 'unread') {
-      // Show only unread messages
-      return messages.filter(msg => msg.unreadBy && msg.unreadBy.includes(currentUserUid));
-    } else if (selectedTab === 'groups') {
+    if (selectedTab === 'groups') {
       // Show only group chats (more than 2 participants)
       return messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2));
     } else {
@@ -759,12 +884,38 @@ const MessagesScreen = ({navigation}) => {
     }
   };
 
+  // Calculate unread counts for badges
+  const getUnreadCounts = () => {
+    const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+    
+    const unreadMessages = messages.filter(msg => 
+      msg.unreadBy && 
+      msg.unreadBy.includes(currentUserUid) &&
+      !msg.isGroup && 
+      (!msg.participants || msg.participants.length <= 2)
+    ).length;
+    
+    const unreadGroups = messages.filter(msg => 
+      msg.unreadBy && 
+      msg.unreadBy.includes(currentUserUid) &&
+      (msg.isGroup || (msg.participants && msg.participants.length > 2))
+    ).length;
+    
+    return { unreadMessages, unreadGroups };
+  };
+
   const filteredMessages = getFilteredMessages();
+  const { unreadMessages, unreadGroups } = getUnreadCounts();
 
   return (
-    <SafeAreaView style={{flex: 1}} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["top", "left", "right"]}>
+      <StatusBar 
+        barStyle="dark-content"
+        backgroundColor="#fff"
+        translucent={false}
+      />
       <View style={styles.container}>
-        <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
+        <View style={[styles.header, {paddingTop: 12}]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <BackSolidIcon />
           </TouchableOpacity>
@@ -790,25 +941,35 @@ const MessagesScreen = ({navigation}) => {
           <TouchableOpacity
             style={[styles.tab, selectedTab === 'messages' && styles.tabActive]}
             onPress={() => setSelectedTab('messages')}>
-            <Text style={[styles.tabText, selectedTab === 'messages' && styles.tabTextActive]}>
-              Messages
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === 'unread' && styles.tabActive]}
-            onPress={() => setSelectedTab('unread')}>
-            <Text style={[styles.tabText, selectedTab === 'unread' && styles.tabTextActive]}>
-              Unread
-            </Text>
+            <View style={styles.tabContent}>
+              <Text style={[styles.tabText, selectedTab === 'messages' && styles.tabTextActive]}>
+                Messages
+              </Text>
+              {unreadMessages > 0 && (
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>
+                    {unreadMessages > 99 ? '99+' : unreadMessages}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.tab, selectedTab === 'groups' && styles.tabActive]}
             onPress={() => setSelectedTab('groups')}>
-            <Text style={[styles.tabText, selectedTab === 'groups' && styles.tabTextActive]}>
-              Groups
-            </Text>
+            <View style={styles.tabContent}>
+              <Text style={[styles.tabText, selectedTab === 'groups' && styles.tabTextActive]}>
+                Groups
+              </Text>
+              {unreadGroups > 0 && (
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>
+                    {unreadGroups > 99 ? '99+' : unreadGroups}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -834,9 +995,7 @@ const MessagesScreen = ({navigation}) => {
               // Show empty state when not loading and no messages
               <View style={styles.emptyStateContainer}>
                 <Text style={styles.emptyStateTitle}>
-                  {selectedTab === 'unread' ? 'No Unread Messages' : 
-                   selectedTab === 'groups' ? 'No Group Chats' : 
-                   'No Messages Yet'}
+                  {selectedTab === 'groups' ? 'No Group Chats' : 'No Messages Yet'}
                 </Text>
                 <Text style={styles.emptyStateSubtitle}>
                   {selectedTab === 'unread' ? 'All caught up!' :
@@ -911,7 +1070,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   tabActive: {
-    backgroundColor: '#4A5E69',
+    backgroundColor: '#539461',
+  },
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   tabText: {
     fontSize: 15,
@@ -921,6 +1085,20 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  tabBadge: {
+    backgroundColor: '#FF5247',
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   listContainer: {
     padding: 12,
@@ -963,20 +1141,27 @@ const styles = StyleSheet.create({
   },
   chatSubHeader: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   chatName: {
+    flex: 1,
+    minWidth: 0,
     fontWeight: '600',
     fontSize: 16,
     color: '#000000',
+    marginRight: 8,
   },
   chatTime: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#999',
+    flexShrink: 0,
   },
   unreadChatTime: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#000000',
+    flexShrink: 0,
   },
   chatMessage: {
     fontSize: 14,

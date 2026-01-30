@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState, useRef} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import {useIsFocused} from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import {getAdminInfoApi} from '../../../components/Api';
 import {checkMaintenanceApi, setMaintenanceApi} from '../../../components/Api/maintenanceApi';
-import Avatar from '../../../components/Avatar/Avatar';
+import ProfileAvatar from '../../Profile/ProfileAvatar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import icons
@@ -101,7 +101,7 @@ const SkeletonLoader = () => {
 };
 
 // Profile Info Component
-const ProfileInfo = ({adminData, userInfo, profilePhotoUri, avatarRef}) => {
+const ProfileInfo = ({adminData, userInfo, profilePhotoUri}) => {
   // Use API data if available, fallback to userInfo
   const data = adminData || userInfo;
   const firstName = data?.user?.firstName || data?.firstName || 'Admin';
@@ -111,12 +111,9 @@ const ProfileInfo = ({adminData, userInfo, profilePhotoUri, avatarRef}) => {
   return (
     <View style={styles.profileSection}>
       <View style={styles.avatarContainer}>
-        <Avatar 
-          ref={avatarRef}
-          size={80}
+        <ProfileAvatar
           imageUri={profilePhotoUri}
-          style={styles.avatarImage}
-          onPress={null} // Disable default navigation
+          size={80}
         />
       </View>
       <View style={styles.profileInfo}>
@@ -143,9 +140,6 @@ const AdminProfileScreen = () => {
   const [isMaintenanceLoading, setIsMaintenanceLoading] = useState(false);
   const [profilePhotoUri, setProfilePhotoUri] = useState(null);
   
-  // Ref for Avatar component
-  const avatarRef = useRef(null);
-
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60; // Standard admin tab bar height
   const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
@@ -205,10 +199,7 @@ const AdminProfileScreen = () => {
                                await AsyncStorage.getItem('profilePhotoUrl');
         if (storedPhotoUrl && storedPhotoUrl !== profilePhotoUri) {
           setProfilePhotoUri(storedPhotoUrl);
-          // Refresh avatar component
-          if (avatarRef.current) {
-            avatarRef.current.refresh();
-          }
+          // profilePhotoUri state update will re-render ProfileAvatar
         }
       } catch (e) {
         console.warn('Failed to check profile photo from AsyncStorage:', e);
@@ -331,7 +322,6 @@ const AdminProfileScreen = () => {
             adminData={adminData} 
             userInfo={userInfo} 
             profilePhotoUri={profilePhotoUri}
-            avatarRef={avatarRef}
           />
         )}
 

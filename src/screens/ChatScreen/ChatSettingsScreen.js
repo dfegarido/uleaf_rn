@@ -20,6 +20,7 @@ import {
   Image,
   Modal,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -34,12 +35,59 @@ import { db } from '../../../firebase';
 import TrashcanIcon from '../../assets/iconchat/trashcan.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
+import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { listAdminsApi } from '../../components/Api/listAdminsApi';
 
 const AvatarImage = require('../../assets/images/AvatarBig.png');
+
+// Search Icon SVG Component
+const SearchIcon = ({ width = 24, height = 24, color = '#292929' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <G clipPath="url(#clip0_429_11090)">
+      <Path
+        d="M21 21L16.6569 16.6569M16.6569 16.6569C18.1046 15.2091 19 13.2091 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C13.2091 19 15.2091 18.1046 16.6569 16.6569Z"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </G>
+    <Defs>
+      <ClipPath id="clip0_429_11090">
+        <Rect width="24" height="24" fill="white" />
+      </ClipPath>
+    </Defs>
+  </Svg>
+);
+
+// Add Member Icon SVG Component
+const AddMemberIcon = ({ width = 24, height = 24, color = '#647276' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M20 18L17 18M17 18L14 18M17 18V15M17 18V21M11 21H4C4 17.134 7.13401 14 11 14C11.695 14 12.3663 14.1013 13 14.2899M15 7C15 9.20914 13.2091 11 11 11C8.79086 11 7 9.20914 7 7C7 4.79086 8.79086 3 11 3C13.2091 3 15 4.79086 15 7Z"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+// Delete Group Icon SVG Component
+const DeleteGroupIcon = ({ width = 24, height = 24, color = '#647276' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 6H5H21M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M10 11V17M14 11V17"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
 
 const ChatSettingsScreen = ({navigation, route}) => {
   const { participants: initialParticipants, chatId, type, name } = route.params || {};
@@ -53,17 +101,9 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const [searchText, setSearchText] = useState('');
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [participants, setParticipants] = useState(initialParticipants || []);
-  // Map of uid -> { name, avatarUrl } for participants (fetched from Firestore)
-  const [participantDataMap, setParticipantDataMap] = useState({});
-  const fetchingRef = useRef(new Set());
   // Public/Private toggle state for group chats
   const [isPublic, setIsPublic] = useState(false);
   const [updatingVisibility, setUpdatingVisibility] = useState(false);
-  // Join requests state
-  const [joinRequests, setJoinRequests] = useState([]);
-  const [loadingRequests, setLoadingRequests] = useState(false);
-  // Map of userId -> { name, avatarUrl } for join request users (fetched from Firestore)
-  const [joinRequestUserDataMap, setJoinRequestUserDataMap] = useState({});
   // Member search state
   const [memberSearchText, setMemberSearchText] = useState('');
   const [filteredParticipants, setFilteredParticipants] = useState([]);
@@ -71,6 +111,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const [selectedUsersToAdd, setSelectedUsersToAdd] = useState([]);
   // User type filter for add member modal ('all', 'buyer', 'supplier')
   const [userTypeFilter, setUserTypeFilter] = useState('all');
+  // View all members modal state
+  const [viewMembersModalVisible, setViewMembersModalVisible] = useState(false);
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
@@ -122,19 +164,30 @@ const ChatSettingsScreen = ({navigation, route}) => {
     ? participants.find(p => p.uid !== currentUserUid) || participants[0]
     : null;
 
-  // Helper function to get safe avatar source - prioritizes participantDataMap (from Firestore)
-  const getAvatarSource = (avatarUrl, uid = null) => {
-    // Priority 1: Use participantDataMap if available (fetched from Firestore)
-    if (uid && participantDataMap[uid]?.avatarUrl) {
-      return { uri: participantDataMap[uid].avatarUrl };
-    }
+  // Helper function to deduplicate participants by UID
+  const deduplicateParticipants = (participantsArray) => {
+    if (!Array.isArray(participantsArray)) return [];
     
-    // Priority 2: Check if avatarUrl is a valid string URL
+    const seen = new Set();
+    return participantsArray.filter(p => {
+      if (!p || !p.uid) return false;
+      if (seen.has(p.uid)) {
+        console.log(`⚠️ [ChatSettingsScreen] Duplicate participant found: ${p.uid}, removing duplicate`);
+        return false;
+      }
+      seen.add(p.uid);
+      return true;
+    });
+  };
+
+  // Helper function to get safe avatar source - uses stored data from chat document
+  const getAvatarSource = (avatarUrl) => {
+    // Check if avatarUrl is a valid string URL
     if (typeof avatarUrl === 'string' && avatarUrl.trim() !== '' && avatarUrl.startsWith('http')) {
       return { uri: avatarUrl };
     }
     
-    // Priority 3: Check if avatarUrl is an object with uri
+    // Check if avatarUrl is an object with uri
     if (typeof avatarUrl === 'object' && avatarUrl !== null && avatarUrl.uri) {
       return { uri: avatarUrl.uri };
     }
@@ -143,14 +196,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
     return AvatarImage;
   };
 
-  // Helper function to get participant name - prioritizes participantDataMap (from Firestore)
+  // Helper function to get participant name - uses stored data from chat document
   const getParticipantName = (participant) => {
-    // Priority 1: Use participantDataMap if available (fetched from Firestore)
-    if (participant?.uid && participantDataMap[participant.uid]?.name) {
-      return participantDataMap[participant.uid].name;
-    }
-
-    // Priority 2: Use participant name from route params
     return participant?.name || 'Unknown';
   };
 
@@ -163,16 +210,25 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
     const query = searchQuery.toLowerCase().trim();
     const filtered = (participants || []).filter(participant => {
-      // Get display name from participantDataMap or fallback
-      const displayName = participant?.uid && participantDataMap[participant.uid]?.name
-        ? participantDataMap[participant.uid].name
-        : participant?.name || '';
-
+      // Use stored name from chat document
+      const displayName = participant?.name || '';
       return displayName.toLowerCase().includes(query);
     });
 
     setFilteredParticipants(filtered);
   };
+
+  // Deduplicate initial participants on mount
+  useEffect(() => {
+    if (initialParticipants && initialParticipants.length > 0) {
+      const deduped = deduplicateParticipants(initialParticipants);
+      if (deduped.length !== initialParticipants.length) {
+        console.log(`⚠️ [ChatSettingsScreen] Deduplicating initial participants: ${initialParticipants.length} -> ${deduped.length}`);
+        setParticipants(deduped);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
 
   useEffect(() => {
     if (addMemberModalVisible && searchText.trim() === '') {
@@ -205,8 +261,16 @@ const ChatSettingsScreen = ({navigation, route}) => {
         if (chatDocSnap.exists()) {
           const chatData = chatDocSnap.data();
           const latestParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
-          console.log('✅ [ChatSettingsScreen] Updated participants from Firestore:', latestParticipants.length);
-          setParticipants(latestParticipants);
+          console.log('📊 [ChatSettingsScreen] Raw participants from Firestore:', latestParticipants.length);
+          const dedupedParticipants = deduplicateParticipants(latestParticipants);
+          console.log('✅ [ChatSettingsScreen] After deduplication:', dedupedParticipants.length);
+          
+          // Check if data is from cache
+          const fromCache = chatDocSnap.metadata.fromCache;
+          const hasPendingWrites = chatDocSnap.metadata.hasPendingWrites;
+          console.log(`📡 [ChatSettingsScreen] Data source - fromCache: ${fromCache}, hasPendingWrites: ${hasPendingWrites}`);
+          
+          setParticipants(dedupedParticipants);
           
           // Load isPublic setting for group chats
           if (isGroupChat) {
@@ -413,108 +477,6 @@ const ChatSettingsScreen = ({navigation, route}) => {
   };
 
   // Fetch latest names and avatars for all participants from Firestore
-  useEffect(() => {
-    const fetchParticipantData = async () => {
-      if (!participants || participants.length === 0) {
-        console.log('🖼️ [ChatSettingsScreen] No participants to fetch data for');
-        return;
-      }
-
-      try {
-        const uidsToFetch = participants
-          .map(p => p?.uid)
-          .filter(uid => uid);
-
-        console.log('🖼️ [ChatSettingsScreen] Fetching latest names and avatars for participants:', uidsToFetch);
-
-        // Get current participantDataMap state
-        setParticipantDataMap(prevMap => {
-          for (const uid of uidsToFetch) {
-            // Skip if currently fetching
-            if (fetchingRef.current.has(uid)) {
-              console.log(`⏭️ [ChatSettingsScreen] Skipping ${uid} - currently fetching`);
-              continue;
-            }
-
-            // Mark as fetching
-            fetchingRef.current.add(uid);
-            
-            // Fetch participant data asynchronously
-            (async () => {
-              try {
-                console.log(`🔍 [ChatSettingsScreen] Fetching latest data for ${uid}...`);
-
-                // Try buyer collection first
-                let userDocRef = doc(db, 'buyer', uid);
-                let userSnap = await getDoc(userDocRef);
-                
-                // If not found in buyer, try admin collection
-                if (!userSnap.exists()) {
-                  console.log(`🔍 [ChatSettingsScreen] ${uid} not in buyer, trying admin...`);
-                  userDocRef = doc(db, 'admin', uid);
-                  userSnap = await getDoc(userDocRef);
-                }
-                
-                // If not found in admin, try supplier collection
-                if (!userSnap.exists()) {
-                  console.log(`🔍 [ChatSettingsScreen] ${uid} not in admin, trying supplier...`);
-                  userDocRef = doc(db, 'supplier', uid);
-                  userSnap = await getDoc(userDocRef);
-                }
-
-                if (userSnap.exists()) {
-                  const data = userSnap.data();
-                  
-                  // Get latest name - use username instead of firstName/lastName
-                  const latestName = data?.username || data?.gardenOrCompanyName || data?.name || data?.email || '';
-                  
-                  // Get latest avatar URL
-                  const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;
-                  
-                  setParticipantDataMap(prevMap => {
-                    // Double-check it's not already there (in case of race condition)
-                    if (prevMap[uid] && prevMap[uid].name === latestName && prevMap[uid].avatarUrl === avatarUrl) {
-                      console.log(`⏭️ [ChatSettingsScreen] ${uid} data unchanged, skipping update`);
-                      return prevMap;
-                    }
-                    
-                    const updateData = {};
-                    if (latestName) updateData.name = latestName;
-                    if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
-                      updateData.avatarUrl = avatarUrl;
-                    }
-                    
-                    if (Object.keys(updateData).length > 0) {
-                      console.log(`✅ [ChatSettingsScreen] Found latest data for ${uid}:`, updateData);
-                      return {...prevMap, [uid]: {...prevMap[uid], ...updateData}};
-                    }
-                    
-                    return prevMap;
-                  });
-                } else {
-                  console.log(`⚠️ [ChatSettingsScreen] User ${uid} not found in buyer, admin, or supplier collections`);
-                }
-              } catch (err) {
-                console.log(`❌ [ChatSettingsScreen] Error fetching data for ${uid}:`, err);
-              } finally {
-                // Remove from fetching set
-                fetchingRef.current.delete(uid);
-              }
-            })();
-          }
-          
-          return prevMap;
-        });
-      } catch (err) {
-        console.log('❌ [ChatSettingsScreen] Error in fetchParticipantData:', err);
-      }
-    };
-
-    if (isFocused) {
-      fetchParticipantData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants?.length, currentUserUid, isFocused]);
 
   // Initialize filtered participants when participants change or search text changes
   useEffect(() => {
@@ -524,7 +486,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
       filterParticipants(memberSearchText);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants, participantDataMap, memberSearchText]);
+  }, [participants, memberSearchText]);
 
   const fetchUsers = async (query = '') => {
     try {
@@ -787,7 +749,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
       if (chatDocSnap.exists()) {
         const chatData = chatDocSnap.data();
-        setParticipants(Array.isArray(chatData.participants) ? chatData.participants : []);
+        const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
+        setParticipants(deduplicateParticipants(rawParticipants));
       }
 
       // Remove from available users list
@@ -837,7 +800,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
       if (chatDocSnap.exists()) {
         const chatData = chatDocSnap.data();
-        setParticipants(Array.isArray(chatData.participants) ? chatData.participants : []);
+        const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
+        setParticipants(deduplicateParticipants(rawParticipants));
       }
 
       // Remove added users from available users list
@@ -916,7 +880,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
       const chatDocSnap = await getDoc(chatDocRef);
       if (chatDocSnap.exists()) {
         const chatData = chatDocSnap.data();
-        setParticipants(Array.isArray(chatData.participants) ? chatData.participants : []);
+        const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
+        setParticipants(deduplicateParticipants(rawParticipants));
       }
       
       Alert.alert('Success', `${request.userName || 'User'} has been added to the group.`);
@@ -1109,7 +1074,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
               const chatDocSnap = await getDoc(chatDocRef);
               if (chatDocSnap.exists()) {
                 const chatData = chatDocSnap.data();
-                setParticipants(Array.isArray(chatData.participants) ? chatData.participants : []);
+                const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
+                setParticipants(deduplicateParticipants(rawParticipants));
               }
               
               setIsMember(true);
@@ -1437,14 +1403,85 @@ const ChatSettingsScreen = ({navigation, route}) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <BackSolidIcon size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, Platform.OS === 'android' && styles.headerTitleAndroid]}>
-          {isGroupChat ? (name || 'Group Settings') : (otherUserInfo?.name || 'Chat Settings')}
-        </Text>
+        <View style={{flex: 1}} />
         <View style={{width: 24}} />
       </View>
 
-      {isGroupChat ? (
+      <ScrollView 
+        style={{flex: 1}}
+        contentContainerStyle={{paddingBottom: insets.bottom + 20}}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={true}>
+        {isGroupChat ? (
         <>
+          {/* Group Info Section - Centered at top */}
+          <View style={styles.groupInfoHeader}>
+            {/* Overlapping Group Avatars */}
+            <View style={styles.groupAvatarsContainer}>
+              {participants.slice(0, 2).map((participant, index) => (
+                <View 
+                  key={participant.uid} 
+                  style={[
+                    styles.groupAvatarWrapper,
+                    index === 1 && { marginLeft: -15 }
+                  ]}
+                >
+                  <Image
+                    source={getAvatarSource(participant.avatarUrl)}
+                    style={styles.groupAvatar}
+                    defaultSource={AvatarImage}
+                  />
+                </View>
+              ))}
+            </View>
+            
+            {/* Group Name - Full, no truncation */}
+            <Text style={styles.groupNameFull}>{name || 'Group Chat'}</Text>
+            
+            {/* Member Count */}
+            <Text style={styles.groupMemberCount}>
+              {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
+            </Text>
+            
+            {/* Action Buttons */}
+            <View style={styles.groupActionButtons}>
+              {isAdmin && (
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={openAddMemberModal}
+                  activeOpacity={0.7}>
+                  <View style={styles.actionButtonIcon}>
+                    <AddMemberIcon width={24} height={24} color="#647276" />
+                  </View>
+                  <Text style={styles.actionButtonText}>Add Member</Text>
+                </TouchableOpacity>
+              )}
+              {isAdmin ? (
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={deleteChat}
+                  activeOpacity={0.7}>
+                  <View style={styles.actionButtonIcon}>
+                    <DeleteGroupIcon width={24} height={24} color="#FF3B30" />
+                  </View>
+                  <Text style={[styles.actionButtonText, {color: '#FF3B30'}]}>Delete Group</Text>
+                </TouchableOpacity>
+              ) : isMember ? (
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={handleLeaveGroup}
+                  activeOpacity={0.7}>
+                  <View style={styles.actionButtonIcon}>
+                    <DeleteGroupIcon width={24} height={24} color="#FF3B30" />
+                  </View>
+                  <Text style={[styles.actionButtonText, {color: '#FF3B30'}]}>Leave Group</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
           {/* Join Request Section for Buyers - Show at top if not a member */}
           {isBuyer && !isMember && isPublic && (
             <>
@@ -1515,84 +1552,19 @@ const ChatSettingsScreen = ({navigation, route}) => {
             </>
           )}
 
-          {/* Members Section */}
+          {/* Members Section - Button to open modal */}
           <View style={styles.section}>
-            <View style={styles.sectionHeaderContainer}>
-              <Text style={styles.sectionHeader}>Members</Text>
-              <Text style={styles.memberCount}>
-                {memberSearchText.trim()
-                  ? `${filteredParticipants.length} of ${participants?.length || 0}`
-                  : `${participants?.length || 0}`
-                } {participants?.length === 1 ? 'member' : 'members'}
-              </Text>
-            </View>
-
-            {/* Member Search Input - Only show if 4 or more members */}
-            {participants && participants.length > 3 && (
-              <View style={styles.memberSearchContainer}>
-                <View style={styles.memberSearchBox}>
-                  <View style={styles.searchIconContainer}>
-                    <Text style={styles.searchIconText}>🔍</Text>
-                  </View>
-                  <TextInput
-                    placeholder="Search members..."
-                    placeholderTextColor="#647276"
-                    style={styles.memberSearchInput}
-                    value={memberSearchText}
-                    onChangeText={setMemberSearchText}
-                  />
-                  {memberSearchText.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setMemberSearchText('')}
-                      style={styles.clearSearchButton}>
-                      <Text style={styles.clearSearchText}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+            <TouchableOpacity 
+              style={styles.viewMembersButton}
+              onPress={() => setViewMembersModalVisible(true)}>
+              <View style={styles.viewMembersButtonContent}>
+                <Text style={styles.viewMembersButtonText}>View All Members</Text>
+                <Text style={styles.viewMembersButtonCount}>
+                  {participants?.length || 0} {participants?.length === 1 ? 'member' : 'members'}
+                </Text>
               </View>
-            )}
-
-            <FlatList
-              data={filteredParticipants}
-              keyExtractor={(item, index) => item.uid || `member-${index}`}
-              renderItem={({item}) => {
-                // Get latest name from Firestore or fallback to participant name
-                const displayName = getParticipantName(item);
-                
-                return (
-                  <View style={styles.memberItem}>
-                    <Image
-                      source={getAvatarSource(item.avatarUrl, item.uid)}
-                      style={styles.memberAvatar}
-                      defaultSource={AvatarImage}
-                    />
-                    <Text style={styles.memberName}>{displayName}</Text>
-                    {item.uid === currentUserUid && (
-                      <Text style={styles.youLabel}>You</Text>
-                    )}
-                    {item.uid !== currentUserUid && isAdmin && (
-                      <TouchableOpacity
-                        onPress={() => handleRemoveMember(item)}
-                        style={styles.removeButton}>
-                        <TrashcanIcon width={20} height={20} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              }}
-              scrollEnabled={true}
-              nestedScrollEnabled={true}
-              style={styles.membersList}
-              ListEmptyComponent={
-                memberSearchText.trim() ? (
-                  <View style={styles.emptySearchContainer}>
-                    <Text style={styles.emptySearchText}>
-                      No members found for "{memberSearchText}"
-                    </Text>
-                  </View>
-                ) : null
-              }
-            />
+              <Text style={styles.viewMembersButtonArrow}>›</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Group Visibility Toggle - Only show for admins */}
@@ -1622,113 +1594,6 @@ const ChatSettingsScreen = ({navigation, route}) => {
             </>
           )}
 
-          {/* Join Requests Section - Only show for admins in public groups */}
-          {isAdmin && isPublic && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderContainer}>
-                  <Text style={styles.sectionHeader}>Join Requests</Text>
-                  {joinRequests.length > 0 && (
-                    <Text style={styles.requestCount}>{joinRequests.length} pending</Text>
-                  )}
-                </View>
-                {loadingRequests ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#539461" />
-                    <Text style={styles.loadingText}>Loading requests...</Text>
-                  </View>
-                ) : joinRequests.length === 0 ? (
-                  <Text style={styles.emptyRequestsText}>No pending join requests</Text>
-                ) : (
-                  <FlatList
-                    data={joinRequests}
-                    keyExtractor={(item) => item.id}
-                    scrollEnabled={true}
-                    nestedScrollEnabled={true}
-                    renderItem={({item}) => {
-                      // Get latest user data from Firestore if available, otherwise use stored data
-                      const userData = joinRequestUserDataMap[item.userId];
-                      const displayName = userData?.name || item.userName || 'Unknown User';
-                      const displayAvatar = userData?.avatarUrl || item.userAvatar || '';
-                      
-                      return (
-                        <View style={styles.requestItem}>
-                          <Image
-                            source={displayAvatar ? { uri: displayAvatar } : AvatarImage}
-                            style={styles.requestAvatar}
-                            defaultSource={AvatarImage}
-                          />
-                          <View style={styles.requestInfo}>
-                            <Text style={styles.requestName}>{displayName}</Text>
-                            <Text style={styles.requestDate}>
-                              Requested {item.requestedAt?.toDate ? 
-                                new Date(item.requestedAt.toDate()).toLocaleDateString() : 
-                                'recently'}
-                            </Text>
-                          </View>
-                        <View style={styles.requestActions}>
-                          <TouchableOpacity
-                            style={[styles.requestButton, styles.approveButton]}
-                            onPress={() => handleApproveRequest(item)}
-                            disabled={loading}>
-                            <Text style={styles.approveButtonText}>Approve</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.requestButton, styles.rejectButton]}
-                            onPress={() => handleRejectRequest(item)}
-                            disabled={loading}>
-                            <Text style={styles.rejectButtonText}>Reject</Text>
-                          </TouchableOpacity>
-                        </View>
-                        </View>
-                      );
-                    }}
-                    style={styles.requestsList}
-                  />
-                )}
-              </View>
-            </>
-          )}
-
-          {/* Add Member Button - Only show for admins */}
-          {isAdmin && (
-            <>
-              <View style={styles.addMemberSection}>
-                <TouchableOpacity
-                  onPress={openAddMemberModal}
-                  style={styles.addMemberButton}>
-                  <Text style={styles.addMemberIcon}>+</Text>
-                  <Text style={styles.addMemberText}>Add Member</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Divider */}
-              <View style={styles.divider} />
-
-              {/* Delete Group Button */}
-              <View style={styles.actionSection}>
-                <TouchableOpacity onPress={deleteChat} style={styles.deleteButton}>
-                  <TrashcanIcon />
-                  <Text style={styles.deleteText}>Delete Group</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-
-          {/* Leave Group Button - Show for non-admin users who are members */}
-          {!isAdmin && isMember && (
-            <>
-              <View style={styles.divider} />
-
-              <View style={styles.actionSection}>
-                <TouchableOpacity onPress={handleLeaveGroup} style={styles.deleteButton}>
-                  <TrashcanIcon />
-                  <Text style={styles.deleteText}>Leave Group</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
         </>
       ) : (
         <>
@@ -1752,6 +1617,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
           </View>
         </>
       )}
+      </ScrollView>
 
       {/* Add Member Modal */}
       {addMemberModalVisible && (
@@ -1782,48 +1648,54 @@ const ChatSettingsScreen = ({navigation, route}) => {
               {/* User Type Filters */}
               {!fetchingUsers && filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length > 0 && (
                 <>
-                  <View style={styles.userTypeFiltersContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.userTypeFilterButton,
-                        userTypeFilter === 'all' && styles.userTypeFilterButtonActive
-                      ]}
-                      onPress={() => setUserTypeFilter('all')}>
-                      <Text style={[
-                        styles.userTypeFilterText,
-                        userTypeFilter === 'all' && styles.userTypeFilterTextActive
-                      ]}>
-                        All ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length})
-                      </Text>
-                    </TouchableOpacity>
+                  <View style={styles.filterSection}>
+                    <Text style={styles.filterLabel}>Filter by:</Text>
+                    <View style={styles.filterChipsContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.filterChip,
+                          userTypeFilter === 'all' && styles.filterChipActive
+                        ]}
+                        onPress={() => setUserTypeFilter('all')}
+                        activeOpacity={0.7}>
+                        <Text style={[
+                          styles.filterChipText,
+                          userTypeFilter === 'all' && styles.filterChipTextActive
+                        ]}>
+                          All ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length})
+                        </Text>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.userTypeFilterButton,
-                        userTypeFilter === 'buyer' && styles.userTypeFilterButtonActive
-                      ]}
-                      onPress={() => setUserTypeFilter('buyer')}>
-                      <Text style={[
-                        styles.userTypeFilterText,
-                        userTypeFilter === 'buyer' && styles.userTypeFilterTextActive
-                      ]}>
-                        Buyers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'buyer').length})
-                      </Text>
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.filterChip,
+                          userTypeFilter === 'buyer' && styles.filterChipActive
+                        ]}
+                        onPress={() => setUserTypeFilter('buyer')}
+                        activeOpacity={0.7}>
+                        <Text style={[
+                          styles.filterChipText,
+                          userTypeFilter === 'buyer' && styles.filterChipTextActive
+                        ]}>
+                          Buyers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'buyer').length})
+                        </Text>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.userTypeFilterButton,
-                        userTypeFilter === 'supplier' && styles.userTypeFilterButtonActive
-                      ]}
-                      onPress={() => setUserTypeFilter('supplier')}>
-                      <Text style={[
-                        styles.userTypeFilterText,
-                        userTypeFilter === 'supplier' && styles.userTypeFilterTextActive
-                      ]}>
-                        Suppliers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'supplier').length})
-                      </Text>
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.filterChip,
+                          userTypeFilter === 'supplier' && styles.filterChipActive
+                        ]}
+                        onPress={() => setUserTypeFilter('supplier')}
+                        activeOpacity={0.7}>
+                        <Text style={[
+                          styles.filterChipText,
+                          userTypeFilter === 'supplier' && styles.filterChipTextActive
+                        ]}>
+                          Suppliers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'supplier').length})
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Select All Button */}
@@ -1917,6 +1789,104 @@ const ChatSettingsScreen = ({navigation, route}) => {
           </View>
         </Modal>
       )}
+
+      {/* View All Members Modal */}
+      {viewMembersModalVisible && (
+        <Modal
+          visible={viewMembersModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => {
+            setViewMembersModalVisible(false);
+            setMemberSearchText('');
+          }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.viewMembersModalContainer}>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => {
+                  setViewMembersModalVisible(false);
+                  setMemberSearchText('');
+                }}>
+                  <Text style={styles.modalCancelButton}>Close</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>
+                  Members ({participants?.length || 0})
+                </Text>
+                <View style={{width: 60}} />
+              </View>
+
+              {/* Search Input */}
+              <View style={styles.viewMembersSearchContainer}>
+                <View style={styles.memberSearchBox}>
+                  <View style={styles.searchIconContainer}>
+                    <SearchIcon width={20} height={20} color="#647276" />
+                  </View>
+                  <TextInput
+                    placeholder="Search members..."
+                    placeholderTextColor="#647276"
+                    style={styles.memberSearchInput}
+                    value={memberSearchText}
+                    onChangeText={setMemberSearchText}
+                  />
+                  {memberSearchText.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setMemberSearchText('')}
+                      style={styles.clearSearchButton}>
+                      <Text style={styles.clearSearchText}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* Members List */}
+              <FlatList
+                data={filteredParticipants}
+                keyExtractor={(item, index) => item.uid || `member-${index}`}
+                renderItem={({item}) => {
+                  const displayName = getParticipantName(item);
+                  
+                  return (
+                    <View style={styles.memberItem}>
+                      <Image
+                        source={getAvatarSource(item.avatarUrl)}
+                        style={styles.memberAvatar}
+                        defaultSource={AvatarImage}
+                      />
+                      <Text style={styles.memberName}>{displayName}</Text>
+                      {item.uid === currentUserUid && (
+                        <Text style={styles.youLabel}>You</Text>
+                      )}
+                      {item.uid !== currentUserUid && isAdmin && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveMember(item)}
+                          style={styles.removeButton}>
+                          <TrashcanIcon width={20} height={20} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                }}
+                style={{flex: 1}}
+                contentContainerStyle={{paddingHorizontal: 24, paddingBottom: 24}}
+                ListEmptyComponent={
+                  memberSearchText.trim() ? (
+                    <View style={styles.emptySearchContainer}>
+                      <Text style={styles.emptySearchText}>
+                        No members found for "{memberSearchText}"
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.emptySearchContainer}>
+                      <Text style={styles.emptySearchText}>No members</Text>
+                    </View>
+                  )
+                }
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -1971,6 +1941,9 @@ const styles = StyleSheet.create({
   membersList: {
     maxHeight: 300,
   },
+  membersListExpanded: {
+    // No maxHeight - expands to show all members
+  },
   sectionHeaderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2012,30 +1985,6 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     padding: 4,
-  },
-  addMemberSection: {
-    paddingHorizontal: 16,
-  },
-  addMemberButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#539461',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  addMemberIcon: {
-    fontSize: 24,
-    color: '#539461',
-    marginRight: 8,
-  },
-  addMemberText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#539461',
   },
   toggleRow: {
     flexDirection: 'row',
@@ -2331,34 +2280,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#647276',
   },
-  userTypeFiltersContainer: {
-    flexDirection: 'row',
+  filterSection: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E8EA',
-  },
-  userTypeFilterButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
+    paddingTop: 16,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
-    alignItems: 'center',
   },
-  userTypeFilterButtonActive: {
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#647276',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterChipsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F5F6F6',
+    borderWidth: 1,
+    borderColor: '#F5F6F6',
+  },
+  filterChipActive: {
     backgroundColor: '#539461',
     borderColor: '#539461',
   },
-  userTypeFilterText: {
-    fontSize: 14,
+  filterChipText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#393D40',
+    color: '#647276',
   },
-  userTypeFilterTextActive: {
+  filterChipTextActive: {
     color: '#FFFFFF',
   },
   searchInput: {
@@ -2515,5 +2472,105 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#647276',
     textAlign: 'center',
+  },
+  viewMembersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#F7F8F9',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  viewMembersButtonContent: {
+    flex: 1,
+  },
+  viewMembersButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#202325',
+    marginBottom: 4,
+  },
+  viewMembersButtonCount: {
+    fontSize: 14,
+    color: '#647276',
+  },
+  viewMembersButtonArrow: {
+    fontSize: 24,
+    color: '#647276',
+    fontWeight: '300',
+  },
+  viewMembersModalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '80%',
+    width: '100%',
+    overflow: 'hidden',
+    flexDirection: 'column',
+  },
+  viewMembersSearchContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+  },
+  groupInfoHeader: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  groupAvatarsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  groupAvatarWrapper: {
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    borderRadius: 40,
+    backgroundColor: '#FFFFFF',
+  },
+  groupAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+  },
+  groupNameFull: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#202325',
+    textAlign: 'center',
+    marginBottom: 4,
+    paddingHorizontal: 24,
+  },
+  groupMemberCount: {
+    fontSize: 14,
+    color: '#647276',
+    marginBottom: 20,
+  },
+  groupActionButtons: {
+    flexDirection: 'row',
+    gap: 32,
+  },
+  actionButton: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButtonIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F5F6F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    fontSize: 13,
+    color: '#202325',
+    fontWeight: '500',
   },
 });

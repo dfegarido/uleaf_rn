@@ -581,10 +581,6 @@ const JourneyMishapDetail = () => {
               <Text style={styles.detailLabel}>Plant Price</Text>
               <Text style={styles.priceValue}>{creditRequest.price || '$0.00'}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Shipping Cost</Text>
-              <Text style={styles.detailValue}>{creditRequest.shippingCost || '$0.00'}</Text>
-            </View>
           </View>
         </View>
 

@@ -38,6 +38,7 @@ import TrashIcon from '../../../assets/icons/red/trash.svg';
 import PlantIcon from '../../../assets/icons/greydark/plant-regular.svg';
 import PlaneIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import { useNavigation } from '@react-navigation/native';
+import ProfileAvatar from '../../Profile/ProfileAvatar';
 
 // Custom Shipping Credits Icon Component (from Figma SVG)
 const ShippingCreditsIcon = ({width = 24, height = 24, fill = "white"}) => (
@@ -198,8 +199,6 @@ const BuyerProfileScreen = (props) => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
-  // Local require for reusable Avatar component
-  const Avatar = require('../../../components/Avatar/Avatar').default;
   const {logout, userInfo, isLoggedIn} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -503,7 +502,15 @@ const BuyerProfileScreen = (props) => {
               {loading ? (
                 <View style={styles.skeletonAvatar} />
               ) : (
-                <Avatar size={56} />
+                <ProfileAvatar
+                  imageUri={
+                    data?.profilePhotoUrl ||
+                    data?.profileImage ||
+                    userInfo?.profileImage ||
+                    userInfo?.profilePhotoUrl
+                  }
+                  size={56}
+                />
               )}
             </View>
             <View style={styles.information}>

@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState, useRef} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import {AuthContext} from '../../../auth/AuthProvider';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
 import {getAdminInfoApi, updateAdminInfoApi, uploadProfilePhotoApi} from '../../../components/Api';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
-import Avatar from '../../../components/Avatar/Avatar';
+import ProfileAvatar from '../../Profile/ProfileAvatar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -47,9 +47,6 @@ const AdminAccountInformationScreen = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
   
-  // Ref for Avatar component
-  const avatarRef = useRef(null);
-
   // Fetch admin info from API
   const fetchAdminInfo = async () => {
     try {
@@ -280,12 +277,9 @@ const AdminAccountInformationScreen = () => {
           console.warn('Failed to update userInfo in AsyncStorage:', e);
         }
         
-        // Force Avatar components to refresh
+        // Update profile photo state for immediate UI refresh
         setTimeout(() => {
           setProfilePhotoUri(`${newUrl}${newUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`);
-          if (avatarRef.current) {
-            avatarRef.current.refresh();
-          }
         }, 100);
       }
 
@@ -417,13 +411,9 @@ const AdminAccountInformationScreen = () => {
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              {/* Use the shared Avatar component with imageUri to force refresh */}
-              <Avatar 
-                ref={avatarRef}
-                size={96}
+              <ProfileAvatar
                 imageUri={profilePhotoUri}
-                style={styles.avatarImage}
-                onPress={null} // Disable default navigation
+                size={96}
               />
               {uploadingPhoto && (
                 <View style={styles.uploadingOverlay}>

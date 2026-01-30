@@ -16,7 +16,7 @@ const IconTile = ({title, children, onPress, badgeCount = 0}) => {
   );
 };
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useCallback } from 'react';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
@@ -43,16 +43,17 @@ import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
 import UserManagementIcon from '../../../assets/admin-icons/user-management.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAdminFlightChangeRequestsApi } from '../../../components/Api/adminOrderApi';
 import { getAdminJourneyMishapDataApi } from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
 
 
-const AdminHeader = ({onPressProfile = () => {}, insets}) => {
+const AdminHeader = ({onPressProfile = () => {}, insets, profilePhotoUri}) => {
   const {userInfo} = useAuth();
   const firstName = userInfo?.user?.firstName || userInfo?.firstName || 'Admin';
   const canGoLive = false;
-  const profileImage = userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
+  const profileImage = profilePhotoUri || userInfo?.profileImage || userInfo?.profilePhotoUrl || userInfo?.data?.profilePhotoUrl || userInfo?.data?.profileImage || '';
 
   return (
     <View style={[styles.headerContainer]}>
@@ -278,25 +279,37 @@ const Home = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [pendingWildgoneCount, setPendingWildgoneCount] = useState(0);
+  const [cachedProfilePhoto, setCachedProfilePhoto] = useState(null);
 
   // Calculate proper bottom padding for admin tab bar + safe area
   const tabBarHeight = 60; // Standard admin tab bar height
   const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
 
-  // Fetch pending wildgone count when screen comes into focus
+  // Load profile photo and fetch data when screen is focused (ensures avatar updates after profile photo change)
   useFocusEffect(
     useCallback(() => {
+      const loadProfilePhoto = async () => {
+        try {
+          const cached = await AsyncStorage.getItem('profilePhotoUrlWithTimestamp') ||
+                        await AsyncStorage.getItem('profilePhotoUrl');
+          if (cached) {
+            // Add cache-bust param so Android fetches fresh image after profile photo update
+            const cacheBusted = `${cached}${cached.includes('?') ? '&' : '?'}cb=${Date.now()}`;
+            setCachedProfilePhoto(cacheBusted);
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
       const fetchPendingWildgoneCount = async () => {
         try {
           const response = await getAdminJourneyMishapDataApi({
             limit: 100,
             offset: 0,
           });
-
           if (response.success && response.data?.data) {
             const creditRequests = response.data.data.creditRequests || [];
-            // Count only pending requests
             const pendingCount = creditRequests.filter(req => req.status === 'pending').length;
             setPendingWildgoneCount(pendingCount);
           }
@@ -304,16 +317,22 @@ const Home = () => {
           console.error('Error fetching pending wildgone count:', error);
         }
       };
-
+      loadProfilePhoto();
       fetchPendingWildgoneCount();
     }, [])
   );
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={['top', 'left', 'right']}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#fff"
+        translucent={false}
+      />
       <AdminHeader
         onPressProfile={() => navigation.navigate('AdminProfile')}
         insets={insets}
+        profilePhotoUri={cachedProfilePhoto}
       />
       <ScrollView
         style={{flex: 1}}

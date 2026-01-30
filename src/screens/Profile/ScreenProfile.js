@@ -29,7 +29,7 @@ import EnvelopeIcon from '../../assets/icons/greydark/envelope.svg';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 import TrashIcon from '../../assets/icons/red/trash.svg';
-import AvatarIcon from '../../assets/images/avatar.svg';
+import ProfileAvatar from './ProfileAvatar';
 
 const ScreenProfile = ({navigation}) => {
   const insets = useSafeAreaInsets();
@@ -116,9 +116,9 @@ const ScreenProfile = ({navigation}) => {
     <SafeAreaView
       style={{
         flex: 1,
-        backgroundColor: '#fff',
-        paddingTop: insets.top,
-      }}>
+        backgroundColor: '#DFECDF',
+      }}
+      edges={['top', 'left', 'right']}>
       <ScrollView
         style={[
           styles.container,
@@ -175,16 +175,11 @@ const ScreenProfile = ({navigation}) => {
         ) : (
           // Actual Header Content
           <View style={styles.header}>
-            <View style={styles.avatarWrapper} pointerEvents="none">
-              {cachedProfilePhoto || (userInfo && userInfo.profileImage) ? (
-                <Image
-                  source={{uri: cachedProfilePhoto || (userInfo && userInfo.profileImage)}}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
-              ) : (
-                <AvatarIcon width={40} height={40} />
-              )}
+            <View style={styles.avatarWrapper}>
+              <ProfileAvatar
+                imageUri={cachedProfilePhoto || (userInfo && userInfo.profileImage)}
+                size={50}
+              />
             </View>
             <View>
               <Text style={globalStyles.textLGGreyDark}>

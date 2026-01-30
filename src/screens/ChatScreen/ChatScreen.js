@@ -87,8 +87,10 @@ const DeleteIcon = ({ width = 20, height = 20, color = '#FFFFFF' }) => (
 const ChatScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   
-  // Calculate proper bottom padding for safe area
+  // Calculate proper bottom padding for tab bar + safe area
+  const tabBarHeight = 60; // Standard tab bar height
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
+  const totalBottomPadding = tabBarHeight + safeBottomPadding; // Tab bar + safe area
   
   const routeParams = route?.params || {};
 
@@ -97,7 +99,8 @@ const ChatScreen = ({navigation, route}) => {
   const name = routeParams.name || routeParams.title || '';
   const id = routeParams.id || routeParams.chatId || null;
   const participantIds = Array.isArray(routeParams.participantIds) ? routeParams.participantIds : (Array.isArray(routeParams.participants) ? routeParams.participants.map(p => p.uid).filter(Boolean) : []);
-  const participants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
+  const initialParticipants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
+  const [participants, setParticipants] = useState(initialParticipants);
   const {userInfo} = useContext(AuthContext);
   const flatListRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
@@ -121,6 +124,8 @@ const ChatScreen = ({navigation, route}) => {
   const [editingMessage, setEditingMessage] = useState(null); // Message being edited
   const [editHistoryVisible, setEditHistoryVisible] = useState(false); // Edit history modal
   const [selectedMessageHistory, setSelectedMessageHistory] = useState(null); // Message for history view
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // Delete confirmation modal
+  const [messageToDelete, setMessageToDelete] = useState(null); // Message to be deleted
   const plantRotation = useRef(new Animated.Value(0)).current;
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
@@ -858,43 +863,45 @@ const ChatScreen = ({navigation, route}) => {
       return;
     }
     
-    // Show confirmation dialog
-    Alert.alert(
-      'Delete Message',
-      'Are you sure you want to delete this message? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => setMessageTooltip(null),
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const messageId = messageTooltip.id;
-              
-              // Optimistically remove from UI
-              setMessages(prev => prev.filter(msg => msg.id !== messageId));
-              setMessageTooltip(null);
-              
-              // Delete from Firestore
-              const messageRef = doc(db, 'messages', messageId);
-              await deleteDoc(messageRef);
-              
-              console.log('✅ Message deleted successfully');
-            } catch (error) {
-              console.error('❌ Error deleting message:', error);
-              Alert.alert('Error', 'Failed to delete message. Please try again.');
-              // Reload messages to restore state
-              loadInitialMessages();
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    // Show custom delete confirmation modal
+    setMessageToDelete(messageTooltip);
+    setShowDeleteConfirm(true);
+    setMessageTooltip(null);
+  };
+
+  // Confirm delete message
+  const confirmDeleteMessage = async () => {
+    if (!messageToDelete) return;
+
+    try {
+      const messageId = messageToDelete.id;
+      
+      // Close modal first
+      setShowDeleteConfirm(false);
+      
+      // Optimistically remove from UI
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      
+      // Delete from Firestore
+      const messageRef = doc(db, 'messages', messageId);
+      await deleteDoc(messageRef);
+      
+      console.log('✅ Message deleted successfully');
+      setMessageToDelete(null);
+    } catch (error) {
+      console.error('❌ Error deleting message:', error);
+      Alert.alert('Error', 'Failed to delete message. Please try again.');
+      // Reload messages to restore state
+      loadInitialMessages();
+      setShowDeleteConfirm(false);
+      setMessageToDelete(null);
+    }
+  };
+
+  // Cancel delete message
+  const cancelDeleteMessage = () => {
+    setShowDeleteConfirm(false);
+    setMessageToDelete(null);
   };
 
   // Scroll to bottom
@@ -1388,6 +1395,10 @@ const ChatScreen = ({navigation, route}) => {
           const isPublic = chatData.isPublic === true;
           setIsPublicGroup(isPublic);
           
+          // Update participants with latest data from Firestore
+          const latestParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
+          setParticipants(latestParticipants);
+          
           // Check if current user is a member
           const memberIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
           const userIsMember = memberIds.includes(currentUserUid);
@@ -1838,19 +1849,22 @@ const ChatScreen = ({navigation, route}) => {
     previousMessageCount.current = messages.length;
   }, [messages]);
 
-  // Fetch latest names and avatars for all participants from Firestore
+  // Fetch latest names and avatars ONLY for message senders (not all participants)
+  // This is much more efficient for large group chats
   useEffect(() => {
     const fetchParticipantData = async () => {
-      if (!participants || participants.length === 0) return;
+      if (messages.length === 0) return;
 
       try {
-        const uidsToFetch = participants
-          .map(p => p?.uid)
-          .filter(uid => uid);
+        // Extract unique sender IDs from visible messages
+        const uniqueSenderIds = [...new Set(messages.map(msg => msg.senderId).filter(Boolean))];
 
         // Get current participantDataMap state
         setParticipantDataMap(prevMap => {
-          for (const uid of uidsToFetch) {
+          for (const uid of uniqueSenderIds) {
+            // Skip if already have data
+            if (prevMap[uid]) continue;
+            
             // Skip if currently fetching
             if (fetchingRef.current.has(uid)) continue;
 
@@ -1935,7 +1949,7 @@ const ChatScreen = ({navigation, route}) => {
 
     fetchParticipantData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants?.length, currentUserUid, id]); // Use participants.length to avoid re-fetching on object reference changes
+  }, [messages.length, currentUserUid, id]); // Trigger when messages change (new senders appear)
 
   // Skeleton message for loading state
   const SkeletonMessage = ({isMe = false, index = 0}) => (
@@ -1957,14 +1971,14 @@ const ChatScreen = ({navigation, route}) => {
   }
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView 
         style={{flex: 1}} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
-        <View style={[styles.header, {paddingTop: Math.max(insets.top, 12)}]}>
+        <View style={[styles.header, {paddingTop: 12}]}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}>
@@ -2017,7 +2031,7 @@ const ChatScreen = ({navigation, route}) => {
             )}
             {chatType === 'group' ? (
               <View style={styles.userInfoText}>
-                <Text style={styles.title} numberOfLines={1}>{name || 'Chat'}</Text>
+                <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{name || 'Chat'}</Text>
                 <View style={styles.subtitleRow}>
                   <Text style={styles.subtitle}>
                     {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
@@ -2037,7 +2051,7 @@ const ChatScreen = ({navigation, route}) => {
               </View>
             ) : (
               <View style={styles.userInfoText}>
-                <Text style={styles.title} numberOfLines={1}>{participantDataMap[otherParticipantUid]?.name || otherParticipant?.name || name || 'Chat'}</Text>
+                <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{participantDataMap[otherParticipantUid]?.name || otherParticipant?.name || name || 'Chat'}</Text>
                 <Text style={styles.subtitle}>Active now</Text>
               </View>
             )}
@@ -2234,7 +2248,7 @@ const ChatScreen = ({navigation, route}) => {
               />
             );
           }}
-          contentContainerStyle={{ paddingVertical: 10, paddingBottom: safeBottomPadding + 16 }}
+          contentContainerStyle={{ paddingVertical: 10, paddingBottom: totalBottomPadding + 16 }}
           style={{ flex: 1 }}
           // onContentSizeChange={() => {
           //   setTimeout(() => {
@@ -2303,20 +2317,22 @@ const ChatScreen = ({navigation, route}) => {
       </Modal>
 
       {/* Input - Disabled for non-members */}
-      <MessageInput 
-        onSend={(text, isListing, listingData, isSeller, isBuyer, replyTo, mentions) => sendMessage(text, isListing, listingData, isSeller, isBuyer, replyTo, mentions)} 
-        onSendImage={(images, text) => sendImage(images, text, replyingTo)}
-        onSendVideo={(video, text) => sendVideo(video, text, replyingTo)}
-        disabled={chatType === 'group' && !isMember}
-        replyingTo={replyingTo}
-        onCancelReply={cancelReply}
-        participantDataMap={participantDataMap}
-        editingMessage={editingMessage}
-        onCancelEdit={cancelEdit}
-        onSaveEdit={saveEditedMessage}
-        currentUserUid={currentUserUid}
-        chatType={chatType}
-      />
+      <View style={{paddingBottom: Math.max(insets.bottom, 8)}}>
+        <MessageInput 
+          onSend={(text, isListing, listingData, isSeller, isBuyer, replyTo, mentions) => sendMessage(text, isListing, listingData, isSeller, isBuyer, replyTo, mentions)} 
+          onSendImage={(images, text) => sendImage(images, text, replyingTo)}
+          onSendVideo={(video, text) => sendVideo(video, text, replyingTo)}
+          disabled={chatType === 'group' && !isMember}
+          replyingTo={replyingTo}
+          onCancelReply={cancelReply}
+          participantDataMap={participantDataMap}
+          editingMessage={editingMessage}
+          onCancelEdit={cancelEdit}
+          onSaveEdit={saveEditedMessage}
+          currentUserUid={currentUserUid}
+          chatType={chatType}
+        />
+      </View>
 
       {/* Message Tooltip Modal - Emoji, Reply, Edit, and Delete */}
       {messageTooltip && !showEmojiPicker && (
@@ -2418,6 +2434,46 @@ const ChatScreen = ({navigation, route}) => {
         </Modal>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <Modal
+          visible={showDeleteConfirm}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={cancelDeleteMessage}>
+          <View style={styles.deleteModalOverlay}>
+            <View style={styles.deleteModalContainer}>
+              <View style={styles.deleteModalContent}>
+                <Text style={styles.deleteModalTitle}>Delete Message</Text>
+                <Text style={styles.deleteModalMessage}>
+                  Are you sure you want to delete this message? This action cannot be undone.
+                </Text>
+              </View>
+              
+              <View style={styles.deleteModalDivider} />
+              
+              <View style={styles.deleteModalButtons}>
+                <TouchableOpacity
+                  style={styles.deleteModalButton}
+                  onPress={cancelDeleteMessage}
+                  activeOpacity={0.7}>
+                  <Text style={styles.deleteModalButtonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <View style={styles.deleteModalButtonDivider} />
+                
+                <TouchableOpacity
+                  style={styles.deleteModalButton}
+                  onPress={confirmDeleteMessage}
+                  activeOpacity={0.7}>
+                  <Text style={styles.deleteModalButtonTextDelete}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {/* Edit History Modal - DISABLED */}
       {/* Users can edit messages but cannot view edit history */}
       {false && editHistoryVisible && selectedMessageHistory && (
@@ -2502,6 +2558,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   userInfoText: {
+    flex: 1,
+    minWidth: 0,
     marginLeft: 10,
   },
   title: {fontSize: 18, fontWeight: 'bold', color: '#000'},
@@ -2732,6 +2790,75 @@ const styles = StyleSheet.create({
   findingMessageSubtitle: {
     fontSize: 14,
     color: '#666',
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  deleteModalContainer: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  deleteModalContent: {
+    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    alignItems: 'center',
+  },
+  deleteModalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 13,
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  deleteModalDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(60, 60, 67, 0.29)',
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+  },
+  deleteModalButton: {
+    flex: 1,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  deleteModalButtonDivider: {
+    width: 0.5,
+    backgroundColor: 'rgba(60, 60, 67, 0.29)',
+  },
+  deleteModalButtonTextCancel: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  deleteModalButtonTextDelete: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FF3B30',
   },
   editHistoryModalOverlay: {
     flex: 1,
