@@ -69,6 +69,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
   const [filteredParticipants, setFilteredParticipants] = useState([]);
   // Add member modal selection state
   const [selectedUsersToAdd, setSelectedUsersToAdd] = useState([]);
+  // User type filter for add member modal ('all', 'buyer', 'supplier')
+  const [userTypeFilter, setUserTypeFilter] = useState('all');
 
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
@@ -558,11 +560,25 @@ const ChatSettingsScreen = ({navigation, route}) => {
       const encodedQuery = encodeURIComponent(searchQuery);
       const authToken = await getStoredAuthToken();
       
+      // API has a limit of 100 for search queries, but 1000 for list mode (empty query)
+      const apiLimit = searchQuery ? 100 : 1000;
+      
+      console.log('🔍 fetchUsers called with:', { 
+        originalQuery: query, 
+        searchQuery, 
+        encodedQuery,
+        apiLimit,
+        isAdmin,
+        isBuyer,
+        isSeller
+      });
+      
       // For admins, fetch both buyers and suppliers
       if (isAdmin) {
         // Fetch buyers
         try {
-          const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=50&offset=0`;
+          const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=${apiLimit}&offset=0`;
+          console.log('📞 Fetching buyers from:', buyerUrl);
           const buyerResponse = await fetch(buyerUrl, {
             method: 'GET',
             headers: {
@@ -573,6 +589,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
           
           if (buyerResponse.ok) {
             const buyerData = await buyerResponse.json();
+            console.log('📦 Buyer API response:', { success: buyerData?.success, resultsCount: buyerData?.results?.length });
             if (buyerData && buyerData.success && buyerData.results) {
               const buyerResults = buyerData.results.map(user => ({
                 id: user.id,
@@ -583,7 +600,11 @@ const ChatSettingsScreen = ({navigation, route}) => {
               }));
               allResults.push(...buyerResults);
               console.log(`✅ Added ${buyerResults.length} buyers to admin results`);
+            } else {
+              console.log('⚠️ No buyer results returned');
             }
+          } else {
+            console.log('❌ Buyer API failed with status:', buyerResponse.status);
           }
         } catch (buyerError) {
           console.log('Error fetching buyers for admin:', buyerError);
@@ -591,7 +612,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
         
         // Fetch suppliers
         try {
-          const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=50&offset=0`;
+          const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${apiLimit}&offset=0`;
+          console.log('📞 Fetching suppliers from:', supplierUrl);
           const supplierResponse = await fetch(supplierUrl, {
             method: 'GET',
             headers: {
@@ -602,6 +624,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
           
           if (supplierResponse.ok) {
             const supplierData = await supplierResponse.json();
+            console.log('📦 Supplier API response:', { success: supplierData?.success, resultsCount: supplierData?.results?.length });
             if (supplierData && supplierData.success && supplierData.results) {
               const supplierResults = supplierData.results.map(user => ({
                 id: user.id,
@@ -612,14 +635,18 @@ const ChatSettingsScreen = ({navigation, route}) => {
               }));
               allResults.push(...supplierResults);
               console.log(`✅ Added ${supplierResults.length} suppliers to admin results`);
+            } else {
+              console.log('⚠️ No supplier results returned');
             }
+          } else {
+            console.log('❌ Supplier API failed with status:', supplierResponse.status);
           }
         } catch (supplierError) {
           console.log('Error fetching suppliers for admin:', supplierError);
         }
       } else {
         // For non-admins, fetch based on userTypeToSearch
-        const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=${userTypeToSearch}&limit=50&offset=0`;
+        const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=${userTypeToSearch}&limit=${apiLimit}&offset=0`;
         const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
@@ -652,7 +679,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
       try {
         const adminFilters = {
           status: 'active',
-          limit: 50
+          limit: 1000
         };
         const adminData = await listAdminsApi(adminFilters);
         
@@ -707,13 +734,22 @@ const ChatSettingsScreen = ({navigation, route}) => {
             avatarUrl: avatarUrl,
             uid: user.id,
             email: user.email || '',
+            userType: user.userType || 'buyer', // Preserve userType
           };
         }));
+        
+        // Debug: Log userType distribution
+        const buyerCount = formattedUsers.filter(u => u.userType === 'buyer').length;
+        const supplierCount = formattedUsers.filter(u => u.userType === 'supplier').length;
+        const adminCount = formattedUsers.filter(u => u.userType === 'admin' || u.userType === 'sub_admin').length;
+        console.log(`📊 User type distribution: Buyers=${buyerCount}, Suppliers=${supplierCount}, Admins=${adminCount}`);
+        console.log(`🎯 Total users to display: ${formattedUsers.length}`);
         
         setAvailableUsers(formattedUsers);
         setFilteredUsers(formattedUsers);
       } else {
         // No results found (neither search results nor admins)
+        console.log('⚠️ No results found at all - setting empty arrays');
         setAvailableUsers([]);
         setFilteredUsers([]);
       }
@@ -1339,6 +1375,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
     setAvailableUsers([]);
     setFilteredUsers([]);
     setSelectedUsersToAdd([]);
+    setUserTypeFilter('all'); // Reset filter to 'all'
   };
 
   // Toggle user selection in Add Member modal
@@ -1353,15 +1390,21 @@ const ChatSettingsScreen = ({navigation, route}) => {
     });
   };
 
-  // Select all users or deselect all
+  // Select all users or deselect all (respects user type filter)
   const handleSelectAll = () => {
-    const availableToAdd = filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid));
+    const availableToAdd = filteredUsers.filter(user => {
+      // Filter out existing participants
+      if (participants?.some(p => p.uid === user.uid)) return false;
+      // Filter by user type
+      if (userTypeFilter === 'all') return true;
+      return user.userType === userTypeFilter;
+    });
 
     if (selectedUsersToAdd.length === availableToAdd.length && availableToAdd.length > 0) {
       // All are selected, deselect all
       setSelectedUsersToAdd([]);
     } else {
-      // Select all available users
+      // Select all available users (with current filter)
       setSelectedUsersToAdd(availableToAdd);
     }
   };
@@ -1736,24 +1779,78 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Select All Button */}
+              {/* User Type Filters */}
               {!fetchingUsers && filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length > 0 && (
-                <View style={styles.selectAllContainer}>
-                  <TouchableOpacity
-                    onPress={handleSelectAll}
-                    style={styles.selectAllButton}>
-                    <Text style={styles.selectAllButtonText}>
-                      {selectedUsersToAdd.length === filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length
-                        ? 'Deselect All'
-                        : 'Select All'}
-                    </Text>
-                  </TouchableOpacity>
-                  {selectedUsersToAdd.length > 0 && (
-                    <Text style={styles.selectedCountText}>
-                      {selectedUsersToAdd.length} selected
-                    </Text>
-                  )}
-                </View>
+                <>
+                  <View style={styles.userTypeFiltersContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.userTypeFilterButton,
+                        userTypeFilter === 'all' && styles.userTypeFilterButtonActive
+                      ]}
+                      onPress={() => setUserTypeFilter('all')}>
+                      <Text style={[
+                        styles.userTypeFilterText,
+                        userTypeFilter === 'all' && styles.userTypeFilterTextActive
+                      ]}>
+                        All ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid)).length})
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.userTypeFilterButton,
+                        userTypeFilter === 'buyer' && styles.userTypeFilterButtonActive
+                      ]}
+                      onPress={() => setUserTypeFilter('buyer')}>
+                      <Text style={[
+                        styles.userTypeFilterText,
+                        userTypeFilter === 'buyer' && styles.userTypeFilterTextActive
+                      ]}>
+                        Buyers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'buyer').length})
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.userTypeFilterButton,
+                        userTypeFilter === 'supplier' && styles.userTypeFilterButtonActive
+                      ]}
+                      onPress={() => setUserTypeFilter('supplier')}>
+                      <Text style={[
+                        styles.userTypeFilterText,
+                        userTypeFilter === 'supplier' && styles.userTypeFilterTextActive
+                      ]}>
+                        Suppliers ({filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid) && user.userType === 'supplier').length})
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Select All Button */}
+                  <View style={styles.selectAllContainer}>
+                    <TouchableOpacity
+                      onPress={handleSelectAll}
+                      style={styles.selectAllButton}>
+                      <Text style={styles.selectAllButtonText}>
+                        {(() => {
+                          const availableToAdd = filteredUsers.filter(user => {
+                            if (participants?.some(p => p.uid === user.uid)) return false;
+                            if (userTypeFilter === 'all') return true;
+                            return user.userType === userTypeFilter;
+                          });
+                          return selectedUsersToAdd.length === availableToAdd.length && availableToAdd.length > 0
+                            ? 'Deselect All'
+                            : 'Select All';
+                        })()}
+                      </Text>
+                    </TouchableOpacity>
+                    {selectedUsersToAdd.length > 0 && (
+                      <Text style={styles.selectedCountText}>
+                        {selectedUsersToAdd.length} selected
+                      </Text>
+                    )}
+                  </View>
+                </>
               )}
 
               <TextInput
@@ -1772,7 +1869,13 @@ const ChatSettingsScreen = ({navigation, route}) => {
                 </View>
               ) : (
                 <FlatList
-                  data={filteredUsers.filter(user => !participants?.some(p => p.uid === user.uid))}
+                  data={filteredUsers.filter(user => {
+                    // Filter out existing participants
+                    if (participants?.some(p => p.uid === user.uid)) return false;
+                    // Filter by user type
+                    if (userTypeFilter === 'all') return true;
+                    return user.userType === userTypeFilter;
+                  })}
                   keyExtractor={item => item.uid}
                   renderItem={({item}) => {
                     const isSelected = selectedUsersToAdd.some(u => u.uid === item.uid);
@@ -2227,6 +2330,36 @@ const styles = StyleSheet.create({
   selectedCountText: {
     fontSize: 14,
     color: '#647276',
+  },
+  userTypeFiltersContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E8EA',
+  },
+  userTypeFilterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  userTypeFilterButtonActive: {
+    backgroundColor: '#539461',
+    borderColor: '#539461',
+  },
+  userTypeFilterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#393D40',
+  },
+  userTypeFilterTextActive: {
+    color: '#FFFFFF',
   },
   searchInput: {
     borderWidth: 1,

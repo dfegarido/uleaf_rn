@@ -3,6 +3,7 @@ import {
   addDoc,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -57,6 +58,28 @@ const EditIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
   <Svg width={width} height={height} viewBox="0 0 16 16" fill={color}>
     <Path
       d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
+    />
+  </Svg>
+);
+
+// Share Icon SVG Component
+const ShareIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M18 8C19.6569 8 21 6.65685 21 5C21 3.34315 19.6569 2 18 2C16.3431 2 15 3.34315 15 5C15 5.12548 15.0077 5.2502 15.0227 5.3732L7.56 9.2C6.93937 8.4538 6.0248 8 5 8C3.34315 8 2 9.34315 2 11C2 12.6569 3.34315 14 5 14C6.0248 14 6.93937 13.5462 7.56 12.8L15.0227 16.6268C15.0077 16.7502 15 16.8745 15 17C15 18.6569 16.3431 20 18 20C19.6569 20 21 18.6569 21 17C21 15.3431 19.6569 14 18 14C16.9752 14 16.0606 14.4538 15.44 15.2L7.97728 11.3732C7.99228 11.2498 8 11.1255 8 11C8 10.8745 7.99228 10.7502 7.97728 10.6268L15.44 6.8C16.0606 7.5462 16.9752 8 18 8Z"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+// Delete Icon SVG Component
+const DeleteIcon = ({ width = 20, height = 20, color = '#FFFFFF' }) => (
+  <Svg width={width} height={height} viewBox="0 0 16 16" fill={color}>
+    <Path
+      d="M11,5h2v8.5c0,0.825-0.675,1.5-1.5,1.5h-7C3.675,15,3,14.325,3,13.5V5h2v8h2V5h2v8h2V5z M2,2h12v2H2V2z M6,0h4v1H6V0z"
     />
   </Svg>
 );
@@ -786,6 +809,92 @@ const ChatScreen = ({navigation, route}) => {
     }
     setSelectedMessageHistory(message);
     setEditHistoryVisible(true);
+  };
+
+  // Handle share from tooltip
+  const handleShareFromTooltip = async () => {
+    if (!messageTooltip) return;
+    
+    try {
+      const messageText = messageTooltip.text || '';
+      const imageUrl = messageTooltip.imageUrl || (messageTooltip.imageUrls && messageTooltip.imageUrls[0]) || '';
+      
+      let shareContent = '';
+      if (messageText) {
+        shareContent = messageText;
+      }
+      if (imageUrl) {
+        shareContent += shareContent ? `\n${imageUrl}` : imageUrl;
+      }
+      
+      if (!shareContent) {
+        Alert.alert('Nothing to share', 'This message has no content to share.');
+        setMessageTooltip(null);
+        return;
+      }
+
+      // Use React Native Share API
+      const { Share } = require('react-native');
+      await Share.share({
+        message: shareContent,
+      });
+      
+      setMessageTooltip(null);
+    } catch (error) {
+      console.error('Error sharing message:', error);
+      Alert.alert('Error', 'Failed to share message');
+      setMessageTooltip(null);
+    }
+  };
+
+  // Handle delete from tooltip
+  const handleDeleteFromTooltip = () => {
+    if (!messageTooltip) return;
+    
+    // Check if user owns the message
+    if (messageTooltip.senderId !== currentUserUid) {
+      Alert.alert('Cannot delete', 'You can only delete your own messages.');
+      setMessageTooltip(null);
+      return;
+    }
+    
+    // Show confirmation dialog
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => setMessageTooltip(null),
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const messageId = messageTooltip.id;
+              
+              // Optimistically remove from UI
+              setMessages(prev => prev.filter(msg => msg.id !== messageId));
+              setMessageTooltip(null);
+              
+              // Delete from Firestore
+              const messageRef = doc(db, 'messages', messageId);
+              await deleteDoc(messageRef);
+              
+              console.log('✅ Message deleted successfully');
+            } catch (error) {
+              console.error('❌ Error deleting message:', error);
+              Alert.alert('Error', 'Failed to delete message. Please try again.');
+              // Reload messages to restore state
+              loadInitialMessages();
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   // Scroll to bottom
@@ -2209,7 +2318,7 @@ const ChatScreen = ({navigation, route}) => {
         chatType={chatType}
       />
 
-      {/* Message Tooltip Modal - Three buttons: Emoji, Reply, and Edit (for own messages) */}
+      {/* Message Tooltip Modal - Emoji, Reply, Edit, and Delete */}
       {messageTooltip && !showEmojiPicker && (
         <Modal
           visible={true}
@@ -2221,6 +2330,7 @@ const ChatScreen = ({navigation, route}) => {
             activeOpacity={1}
             onPress={closeTooltip}>
             <View style={styles.tooltipContainer}>
+              {/* Emoji */}
               <TouchableOpacity
                 style={styles.tooltipIconButton}
                 onPress={openEmojiPicker}>
@@ -2228,6 +2338,7 @@ const ChatScreen = ({navigation, route}) => {
                   <EmojiIcon width={24} height={24} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
+              {/* Reply */}
               <TouchableOpacity
                 style={styles.tooltipIconButton}
                 onPress={handleReplyFromTooltip}>
@@ -2235,13 +2346,23 @@ const ChatScreen = ({navigation, route}) => {
                   <ReplyIcon width={24} height={24} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
-              {/* Show Edit button only for own messages */}
+              {/* Edit - only for own messages */}
               {messageTooltip.senderId === currentUserUid && !messageTooltip.isListing && (
                 <TouchableOpacity
                   style={styles.tooltipIconButton}
                   onPress={handleEditFromTooltip}>
                   <View style={styles.tooltipIconCircle}>
                     <EditIcon width={24} height={24} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              )}
+              {/* Delete - only for own messages */}
+              {messageTooltip.senderId === currentUserUid && !messageTooltip.isListing && (
+                <TouchableOpacity
+                  style={styles.tooltipIconButton}
+                  onPress={handleDeleteFromTooltip}>
+                  <View style={styles.tooltipIconCircle}>
+                    <DeleteIcon width={20} height={20} color="#FFFFFF" />
                   </View>
                 </TouchableOpacity>
               )}
