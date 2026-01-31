@@ -36,6 +36,16 @@ const ListItem = ({ item, navigation}) => (
               <Text style={styles.receivedNumber}>{item.receivedPlantsCount}</Text>
             </View>
             <View style={styles.quantitySection}>
+              <Text style={styles.quantityLabel}>Sorted</Text>
+              <Text style={styles.receivedNumber}>{item.sortedPlantsCount}</Text>
+            </View>
+          </View>
+          <View style={styles.quantityRow}>
+            <View style={styles.quantitySection}>
+              <Text style={styles.quantityLabel}>Need to Stay</Text>
+              <Text style={styles.receivedNumber}>{item.needsToStayOrderCount}</Text>
+            </View>
+            <View style={styles.quantitySection}>
               <Text style={styles.quantityLabel}>Mishap</Text>
               <Text style={styles.mishapNumber}>{item.journeyMishapCount}</Text>
             </View>

@@ -277,6 +277,17 @@ const SortedPlantsTab = ({itemDetails, openTagAs}) => (
   />
 );
 
+const NeedToStayPlantsTab = ({itemDetails, openTagAs}) => (
+  <FlatList
+    data={itemDetails}
+    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} />}
+    keyExtractor={item => item.hubReceiverId}
+    style={styles.listContainer}
+    contentContainerStyle={styles.listContent}
+    ItemSeparatorComponent={() => <View style={{height: 6}} />}
+  />
+);
+
 const MissingPlantsTab = ({itemDetails, openTagAs}) => (
   <FlatList
     data={itemDetails}
@@ -295,12 +306,14 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
   const [journeyMishapCount, setJourneyMishapCount] = useState(itemDetails?.journeyMishapCount || 0);
   const [receivedPlantsCount, setReceivedPlantsCount] = useState(itemDetails?.receivedPlantsCount || 0);
+  const [needsToStayPlantsCount, setNeedsToStayPlantsCount] = useState(itemDetails?.needsToStayPlantsCount || 0);
   const [sortedPlantsCount, setsortedPlantsCount] = useState(itemDetails?.sortedPlantsCount || 0);
 
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'For Sorting Plants', count: receivedPlantsCount },
     { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
     { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
+    { key: 'needsToStay', title: 'Needs to Stay', count: needsToStayPlantsCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
   const [sortedPlantsData, setsortedPlantsData] = useState(itemDetails?.sortedPlantsData || [])
@@ -366,6 +379,8 @@ const SortingDetailsScreen = ({ navigation, route }) => {
         return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
       case 'sorted':
         return <SortedPlantsTab itemDetails={sortedPlantsData || []} openTagAs={openTagAs} />;
+      case 'needsToStay':
+        return <NeedToStayPlantsTab itemDetails={itemDetails?.needsToStayPlantsData || []} openTagAs={openTagAs} />;
       default:
         return null;
     }
