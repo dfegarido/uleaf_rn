@@ -18,7 +18,7 @@ import BackIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
-const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, sort }) => (
+const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, sort, stay }) => (
   <View style={styles.selectionHeader}>
     <View style={styles.controls}>
       <TouchableOpacity onPress={onBack}>
@@ -34,6 +34,11 @@ const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, so
       <TouchableOpacity style={styles.actionButton} onPress={sort}>
         <BoxIcon fill="#FFFFFF" />
         <Text style={styles.actionText}>Tag as sorted</Text>
+      </TouchableOpacity>
+      <View style={{ width: 12 }} />
+      <TouchableOpacity style={styles.actionButton} onPress={stay}>
+        <BoxIcon fill="#FFFFFF" />
+        <Text style={styles.actionText}>Tag as Needs to Stay</Text>
       </TouchableOpacity>
     </ScrollView>
   </View>
@@ -95,6 +100,7 @@ const SelectionModal = ({
   onSelectAll,
   openTagAs,
   sort,
+  stay,
 }) => {
   const isAllSelected = plants.length > 0 && selectedPlants.length === plants.length;
 
@@ -111,6 +117,7 @@ const SelectionModal = ({
           onSelectAll={onSelectAll}
           isAllSelected={isAllSelected}
           sort={sort}
+          stay={stay}
         />
         <FlatList
           data={plants}

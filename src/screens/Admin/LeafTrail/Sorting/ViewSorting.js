@@ -21,7 +21,7 @@ import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { addSortingTrayNumber, updateLeafTrailStatus, updatePlantsToSorted } from '../../../../components/Api/getAdminLeafTrail';
+import { addSortingTrayNumber, updateLeafTrailStatus, updatePlantsToSorted, updatePlantsToNeedsToStay} from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
@@ -230,7 +230,12 @@ const MishapPlantCard = ({ plant, openTagAs }) => {
 )};
 
 const CustomTabBar = ({ navigationState, jumpTo }) => (
-    <View style={styles.tabBar}>
+    <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabBar}
+        contentContainerStyle={styles.tabBarContent}
+    >
         {navigationState.routes.map((route, i) => {
             const isFocused = navigationState.index === i;
             return (
@@ -251,7 +256,7 @@ const CustomTabBar = ({ navigationState, jumpTo }) => (
                 </TouchableOpacity>
             );
         })}
-    </View>
+    </ScrollView>
 );
 
 // --- Tab Scenes ---
@@ -266,10 +271,10 @@ const ReceivedPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleS
   />
 );
 
-const SortedPlantsTab = ({itemDetails, openTagAs}) => (
+const SortedPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSelectPlant}) => (
   <FlatList
     data={itemDetails}
-    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} />}
+    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} isSelected={selectedPlants.includes(item.id)} onSelect={handleSelectPlant} forSorting={true} />}
     keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
@@ -277,10 +282,10 @@ const SortedPlantsTab = ({itemDetails, openTagAs}) => (
   />
 );
 
-const NeedToStayPlantsTab = ({itemDetails, openTagAs}) => (
+const NeedToStayPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSelectPlant}) => (
   <FlatList
     data={itemDetails}
-    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} />}
+    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} isSelected={selectedPlants.includes(item.id)} onSelect={handleSelectPlant} forSorting={true} />}
     keyExtractor={item => item.hubReceiverId}
     style={styles.listContainer}
     contentContainerStyle={styles.listContent}
@@ -306,18 +311,19 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
   const [journeyMishapCount, setJourneyMishapCount] = useState(itemDetails?.journeyMishapCount || 0);
   const [receivedPlantsCount, setReceivedPlantsCount] = useState(itemDetails?.receivedPlantsCount || 0);
-  const [needsToStayPlantsCount, setNeedsToStayPlantsCount] = useState(itemDetails?.needsToStayPlantsCount || 0);
+  const [needsToStayPlantsCount, setNeedsToStayPlantsCount] = useState(itemDetails?.needsToStayOrderCount || 0);
   const [sortedPlantsCount, setsortedPlantsCount] = useState(itemDetails?.sortedPlantsCount || 0);
 
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'For Sorting Plants', count: receivedPlantsCount },
     { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
     { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
-    { key: 'needsToStay', title: 'Needs to Stay', count: needsToStayPlantsCount },
+    { key: 'needsToStay', title: 'Need to Stay', count: needsToStayPlantsCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
   const [sortedPlantsData, setsortedPlantsData] = useState(itemDetails?.sortedPlantsData || [])
   const [missingPlantsData, setMissingPlantsData] = useState(itemDetails?.missingPlantsData || [])
+  const [needsToStayPlantsData, setNeedsToStayPlantsData] = useState(itemDetails?.needsToStayPlantsData || [])
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
   const [isDamaged, setIsDamaged] = useState(false);
@@ -345,6 +351,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
          { key: 'received', title: 'For Sorting Plants', count: response.receivedPlantsCount },
          { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
          { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
+         { key: 'needsToStay', title: 'Need to Stay', count: needsToStayPlantsCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
       setMissingPlantsData(response?.missingPlantsData || []);
@@ -357,6 +364,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   }
 
   const handleSelectPlant = (plantId) => {
+    
     const newSelection = selectedPlants.includes(plantId)
         ? selectedPlants.filter(id => id !== plantId)
         : [...selectedPlants, plantId];
@@ -378,9 +386,9 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       case 'missing':
         return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
       case 'sorted':
-        return <SortedPlantsTab itemDetails={sortedPlantsData || []} openTagAs={openTagAs} />;
+        return <SortedPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={sortedPlantsData || []} openTagAs={openTagAs} />;
       case 'needsToStay':
-        return <NeedToStayPlantsTab itemDetails={itemDetails?.needsToStayPlantsData || []} openTagAs={openTagAs} />;
+        return <NeedToStayPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={itemDetails?.needsToStayPlantsData || []} openTagAs={openTagAs} />;
       default:
         return null;
     }
@@ -435,6 +443,22 @@ const SortingDetailsScreen = ({ navigation, route }) => {
 
   }
 
+  const stay = async () => {
+    setIsSelectionMode(false);
+    setIsLoading(true);
+
+    const response = await updatePlantsToNeedsToStay({orderIds: selectedPlants})
+        if (response.success) {
+          setIsLoading(false);
+          Alert.alert('Success');
+          navigation.goBack();
+        } else {
+          setIsLoading(false);
+          Alert.alert('Error', error.message);
+        }
+
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <Header title="Receiver's Details" navigation={navigation} />
@@ -476,12 +500,13 @@ const SortingDetailsScreen = ({ navigation, route }) => {
         <SelectionModal
           visible={isSelectionMode}
           onClose={() => { setIsSelectionMode(false); setSelectedPlants([]); }}
-          plants={receivedPlantsData || []}
+          plants={index === 0 ? receivedPlantsData : (index === 2 ? sortedPlantsData : needsToStayPlantsData)}
           selectedPlants={selectedPlants}
           onSelectPlant={handleSelectPlant}
           onSelectAll={handleSelectAll}
           openTagAs={openTagAs}
           sort={sort}
+          stay={stay}
         />
     </SafeAreaView>
   );
@@ -576,11 +601,17 @@ const styles = StyleSheet.create({
   listContent: { padding: 12, gap: 12 },
   // Custom Tab Bar
   tabBar: {
-    flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1,
-    borderColor: '#CDD3D4', paddingHorizontal: 15, justifyContent: 'flex-start',
+    backgroundColor: '#FFFFFF', borderBottomWidth: 1,
+    borderColor: '#CDD3D4',
+    flexGrow: 0,
+    height: 35,
   },
-  tabItem: { alignItems: 'center', paddingTop: 8, marginRight: 10, minWidth: 100 },
-  tabContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 24, marginBottom: 12 },
+  tabBarContent: {
+    flexDirection: 'row',
+    paddingHorizontal: 15, justifyContent: 'flex-start',
+  },
+  tabItem: { alignItems: 'center', paddingTop: 0, marginRight: 10, minWidth: 100, justifyContent: 'center' },
+  tabContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 24, marginBottom: 2 },
   tabText: { fontFamily: 'Inter', fontSize: 11, color: '#647276' },
   tabTextFocused: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#202325' },
   badgeContainer: {
