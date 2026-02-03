@@ -674,8 +674,12 @@ const ScreenShop = ({navigation}) => {
     try {
       setLoadingChatShops(true);
       
-      // Fetch chat shops from Firestore
-      const q = query(collection(db, 'chatShops'), orderBy('createdAt', 'asc'));
+      // Fetch chat shops for buyers only
+      const q = query(
+        collection(db, 'chatShops'),
+        where('userType', '==', 'buyer'),
+        orderBy('createdAt', 'asc')
+      );
       const snapshot = await getDocs(q);
       const shops = snapshot.docs.map(doc => ({
         id: doc.id,

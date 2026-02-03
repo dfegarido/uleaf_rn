@@ -101,6 +101,7 @@ export default function ChatShops({ navigation }) {
   const [shopName, setShopName] = useState('');
   const [shopPhoto, setShopPhoto] = useState(null); // { uri, fileName, type }
   const [selectedGroupChat, setSelectedGroupChat] = useState(null);
+  const [userType, setUserType] = useState('buyer'); // 'buyer' or 'supplier'
   const [groupChats, setGroupChats] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showGroupChatPicker, setShowGroupChatPicker] = useState(false);
@@ -181,14 +182,11 @@ export default function ChatShops({ navigation }) {
   }, [fetchGroupChats]);
 
   const openAddModal = () => {
-    if (chatShops.length >= 8) {
-      Alert.alert('Limit Reached', 'You can only create up to 8 chat shops.');
-      return;
-    }
     setEditingShop(null);
     setShopName('');
     setShopPhoto(null);
     setSelectedGroupChat(null);
+    setUserType('buyer'); // Default to buyer
     setModalVisible(true);
   };
 
@@ -199,6 +197,7 @@ export default function ChatShops({ navigation }) {
     setSelectedGroupChat(
       groupChats.find(gc => gc.id === shop.groupChatId) || null
     );
+    setUserType(shop.userType || 'buyer'); // Load existing userType or default to buyer
     setModalVisible(true);
   };
 
@@ -208,6 +207,7 @@ export default function ChatShops({ navigation }) {
     setShopName('');
     setShopPhoto(null);
     setSelectedGroupChat(null);
+    setUserType('buyer');
     setShowGroupChatPicker(false);
   };
 
@@ -278,6 +278,7 @@ export default function ChatShops({ navigation }) {
         photoUrl: photoUrl || null,
         groupChatId: selectedGroupChat.id,
         groupChatName: selectedGroupChat.name,
+        userType: userType, // 'buyer' or 'supplier'
         updatedAt: new Date(),
       };
 
@@ -376,6 +377,9 @@ export default function ChatShops({ navigation }) {
           </Text>
           <Text style={styles.shopGroupName} numberOfLines={1}>
             {item.groupChatName || 'Group Chat'}
+          </Text>
+          <Text style={styles.shopUserType}>
+            {item.userType === 'supplier' ? 'Supplier' : 'Buyer'}
           </Text>
         </View>
         <View style={styles.shopActions}>
@@ -510,6 +514,43 @@ export default function ChatShops({ navigation }) {
                   {selectedGroupChat ? selectedGroupChat.name : 'Select Group Chat'}
                 </Text>
               </TouchableOpacity>
+
+              {/* User Type Selector */}
+              <Text style={[styles.label, { marginTop: 16 }]}>
+                Who Can Access <Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.userTypeContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.userTypeBtn,
+                    userType === 'buyer' && styles.userTypeBtnActive
+                  ]}
+                  onPress={() => setUserType('buyer')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.userTypeBtnText,
+                    userType === 'buyer' && styles.userTypeBtnTextActive
+                  ]}>
+                    Buyer
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.userTypeBtn,
+                    userType === 'supplier' && styles.userTypeBtnActive
+                  ]}
+                  onPress={() => setUserType('supplier')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.userTypeBtnText,
+                    userType === 'supplier' && styles.userTypeBtnTextActive
+                  ]}>
+                    Supplier
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.modalFooter}>
                 <TouchableOpacity
@@ -677,6 +718,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B777B',
   },
+  shopUserType: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#FF8C00',
+    fontWeight: '600',
+  },
   shopActions: {
     flexDirection: 'row',
     gap: 8,
@@ -813,6 +860,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#202325',
     fontWeight: '600',
+  },
+  userTypeContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  userTypeBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D7E6D9',
+    backgroundColor: '#F2F7F3',
+    alignItems: 'center',
+  },
+  userTypeBtnActive: {
+    backgroundColor: '#539461',
+    borderColor: '#539461',
+  },
+  userTypeBtnText: {
+    fontSize: 15,
+    color: '#6B777B',
+    fontWeight: '600',
+  },
+  userTypeBtnTextActive: {
+    color: '#fff',
   },
   modalFooter: {
     flexDirection: 'row',
