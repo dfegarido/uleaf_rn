@@ -68,6 +68,7 @@ import SalesReport from '../../screens/Admin/SalesReport/SalesReport';
 import JourneyMishapDetail from '../../screens/Admin/SalesReport/JourneyMishapDetail';
 import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 import OrderSummary from '../../screens/Admin/OrderSummary/OrderSummary';
+import ChatShops from '../../screens/Admin/ChatShops/ChatShops';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -255,6 +256,9 @@ function AdminTabs() {
       
       {/* Generate Invoice */}
       <Stack.Screen name="GenerateInvoice" options={{headerShown: false}} component={require('../../screens/Admin/Home/GenerateInvoice').default} />
+
+      {/* Chat Shops */}
+      <Stack.Screen name="ChatShops" options={{headerShown: false}} component={ChatShops} />
       
       {/* Taxonomy Screens */}
       <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />

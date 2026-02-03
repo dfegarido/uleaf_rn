@@ -117,6 +117,7 @@ export {createAddressBookEntryApi} from './createAddressBookEntryApi';
 export {updateAddressBookEntryApi} from './updateAddressBookEntryApi';
 export {deleteAddressBookEntryApi} from './deleteAddressBookEntryApi';
 export {uploadProfilePhotoApi} from './uploadProfilePhotoApi';
+export {uploadChatShopPhotoApi} from './uploadChatShopPhotoApi';
 export {getBrowsePlantByGenusApi} from './getBrowsePlantByGenus';
 export {postBuyerUpdateInfoApi} from './postBuyerUpdateInfoApi';
 export {getPriceFilterApi} from './getPriceFilterApi';

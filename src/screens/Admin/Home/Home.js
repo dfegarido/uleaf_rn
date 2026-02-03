@@ -41,6 +41,7 @@ import ShippedIcon from '../../../assets/admin-icons/shipped.svg';
 import SortingIcon from '../../../assets/admin-icons/sorting.svg';
 import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
 import UserManagementIcon from '../../../assets/admin-icons/user-management.svg';
+import ChatShopsIcon from '../../../assets/admin-icons/chat-shops.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -244,6 +245,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
           </IconTile>
           <IconTile title="Invoice Viewer" onPress={() => navigation.navigate('GenerateInvoice')}>
             <OrderSummaryIcon width={48} height={48} />
+          </IconTile>
+          <IconTile title="Chat Shops" onPress={() => navigation.navigate('ChatShops')}>
+            <ChatShopsIcon width={48} height={48} />
           </IconTile>
         </View>
       </View>

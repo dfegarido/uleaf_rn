@@ -312,6 +312,7 @@ const generateEndpoints = () => ({
   // User related endpoints
   SEARCH_USER: `${getBaseUrl()}/searchUser`,
   UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
+  UPLOAD_CHAT_SHOP_PHOTO: `${getBaseUrl()}/uploadChatShopPhoto`,
   
   // Shipping Buddy endpoints
   SUBMIT_RECEIVER_REQUEST: `${getBaseUrl()}/submitReceiverRequest`,
