@@ -36,7 +36,7 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { uploadChatShopPhotoApi } from '../../../components/Api';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 
-const DefaultShopImage = require('../../../assets/images/AvatarBig.png');
+// Removed DefaultShopImage - will use empty placeholder view instead
 
 const PlusIcon = ({ width = 24, height = 24, color = '#fff' }) => (
   <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
@@ -357,14 +357,19 @@ export default function ChatShops({ navigation }) {
   };
 
   const renderShopItem = ({ item }) => {
-    const imageSource = item.photoUrl ? { uri: item.photoUrl } : DefaultShopImage;
     return (
       <TouchableOpacity 
         style={styles.shopCard}
         onPress={() => handleShopPress(item)}
         activeOpacity={0.7}
       >
-        <Image source={imageSource} style={styles.shopImage} />
+        {item.photoUrl ? (
+          <Image source={{ uri: item.photoUrl }} style={styles.shopImage} />
+        ) : (
+          <View style={[styles.shopImage, styles.emptyImagePlaceholder]}>
+            <Text style={styles.emptyImageText}>No Image</Text>
+          </View>
+        )}
         <View style={styles.shopInfo}>
           <Text style={styles.shopName} numberOfLines={1}>
             {item.name}
@@ -646,6 +651,16 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 8,
     backgroundColor: '#EAF2EC',
+  },
+  emptyImagePlaceholder: {
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyImageText: {
+    fontSize: 11,
+    color: '#9AA4A8',
+    fontWeight: '500',
   },
   shopInfo: {
     flex: 1,
