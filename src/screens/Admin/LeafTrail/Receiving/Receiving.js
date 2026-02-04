@@ -11,8 +11,13 @@ import {
     Text,
     TouchableOpacity,
     Dimensions,
-    View
+    View,
+    ScrollView,
+    PermissionsAndroid,
+    Platform
 } from 'react-native';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { TabBar, TabView } from 'react-native-tab-view';
@@ -20,15 +25,18 @@ import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import Options from '../../../../assets/admin-icons/options.svg';
 import QuestionMarkIcon from '../../../../assets/admin-icons/question-mark.svg';
 import ReceivedIcon from '../../../../assets/admin-icons/received.svg';
+import CheckedBoxIcon from '../../../../assets/admin-icons/checked-box.svg';
+import DownloadIcon from '../../../../assets/admin-icons/download.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus, generateThermalLabels } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
+import BackIcon from '../../../../assets/admin-icons/back.svg';
 
 // A single card in the list
-const PlantListItem = ({ item, type, openTagAs }) => {
+const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
       const [isImageModalVisible, setImageModalVisible] = useState(false);
       const pressInTimeout = useRef(null);
       const isLongPress = useRef(false);
@@ -160,9 +168,22 @@ const PlantListItem = ({ item, type, openTagAs }) => {
                         <View style={{flex: 1}} />
                         <Text style={styles.countryText}>{item.country}</Text>
                         <CountryFlagIcon code={item.country} width={24} height={16} />
-                        <TouchableOpacity onPress={setTags}>
-                           <Options style={{paddingRight: 10}} />
-                        </TouchableOpacity>
+                        {selectionMode ? (
+                            <TouchableOpacity 
+                                onPress={() => onToggleSelect(item.id)}
+                                style={styles.checkboxButton}
+                            >
+                                {isSelected ? (
+                                    <CheckedBoxIcon width={24} height={24} />
+                                ) : (
+                                    <View style={styles.uncheckedBox} />
+                                )}
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity onPress={setTags}>
+                               <Options style={{paddingRight: 10}} />
+                            </TouchableOpacity>
+                        )}
                     </View>
                     <Text style={styles.plantGenus}>{item.genus} {item.species}</Text>
                     <Text style={styles.plantVariegation}>{item.variegation} • {item.size}</Text>
@@ -180,7 +201,7 @@ const PlantListItem = ({ item, type, openTagAs }) => {
 
 // --- TAB SCREENS ---
 
-const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs, selectionMode, selectedItems, onToggleSelect}) => {
     if (!(data?.data) || data.data.length === 0) {   
         return (
             <>
@@ -205,7 +226,16 @@ const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
             <FlatList
                 data={data.data}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="forReceiving" />}
+                renderItem={({ item }) => (
+                    <PlantListItem 
+                        openTagAs={openTagAs} 
+                        item={item} 
+                        type="forReceiving"
+                        selectionMode={selectionMode}
+                        isSelected={selectedItems.includes(item.id)}
+                        onToggleSelect={onToggleSelect}
+                    />
+                )}
                 ListHeaderComponent={
                 <>
                     <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters}/>
@@ -349,6 +379,10 @@ const ReceivingScreen = ({navigation}) => {
     const [isDamaged, setIsDamaged] = useState(false);
     const [forShipping, setForShipping] = useState(false);
     const [orderId, setOrderId] = useState(false);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedItems, setSelectedItems] = useState([]);
+    const [generatedLabels, setGeneratedLabels] = useState([]);
+    const [showLabelViewer, setShowLabelViewer] = useState(false);
 
     const openTagAs = (status, id) => {
         setIsMissing(status.isMissing);
@@ -393,7 +427,15 @@ const ReceivingScreen = ({navigation}) => {
     const renderScene = ({ route }) => {
         switch (route.key) {
             case 'forReceiving':
-                return <ForReceivingTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.forReceiving || {}} adminFilters={adminFilters}  />;
+                return <ForReceivingTab 
+                    openTagAs={openTagAs} 
+                    onFilterChange={onFilterChange} 
+                    data={receivingData?.forReceiving || {}} 
+                    adminFilters={adminFilters}
+                    selectionMode={selectionMode}
+                    selectedItems={selectedItems}
+                    onToggleSelect={handleToggleSelect}
+                />;
             case 'inventoryForHub':
                 return <InventoryForHubTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.inventoryForHub || {}} adminFilters={adminFilters} />;
             case 'received':
@@ -450,6 +492,85 @@ const ReceivingScreen = ({navigation}) => {
         }
     }
 
+    const handlePrint = async () => {
+        if (selectionMode) {
+            // Generate thermal labels for selected items
+            if (selectedItems.length > 0) {
+                try {
+                    setIsLoading(true);
+                    const response = await generateThermalLabels(selectedItems);
+                    
+                    if (response.success && response.labels) {
+                        // Store generated labels and show viewer
+                        setGeneratedLabels(response.labels);
+                        setShowLabelViewer(true);
+                        // Exit selection mode
+                        setSelectionMode(false);
+                        setSelectedItems([]);
+                    } else {
+                        Alert.alert('Error', response.message || 'Failed to generate thermal labels');
+                    }
+                } catch (error) {
+                    console.error('Error generating thermal labels:', error);
+                    Alert.alert('Error', error.message || 'Failed to generate thermal labels');
+                } finally {
+                    setIsLoading(false);
+                }
+            } else {
+                Alert.alert('No Selection', 'Please select at least one item to print labels for.');
+            }
+        } else {
+            // Enter selection mode
+            setSelectionMode(true);
+        }
+    }
+
+    const handleCancelSelection = () => {
+        setSelectionMode(false);
+        setSelectedItems([]);
+    }
+
+    const handleToggleSelect = (itemId) => {
+        setSelectedItems(prev => {
+            if (prev.includes(itemId)) {
+                return prev.filter(id => id !== itemId);
+            } else {
+                return [...prev, itemId];
+            }
+        });
+    };
+
+    const downloadAllLabels = async () => {
+        try {
+            setIsLoading(true);
+            const timestamp = Date.now();
+            const tempDir = `${RNFS.CachesDirectoryPath}/qr-labels-${timestamp}`;
+            await RNFS.mkdir(tempDir);
+
+            const filePaths = [];
+            for (const label of generatedLabels) {
+                const filename = `label-${label.plantCode}.png`;
+                const filepath = `${tempDir}/${filename}`;
+                await RNFS.writeFile(filepath, label.base64, 'base64');
+                filePaths.push(`file://${filepath}`);
+            }
+
+            await Share.open({
+                urls: filePaths,
+                title: 'QR Labels',
+                message: `${generatedLabels.length} QR label(s) - save to Files, Photos, or Downloads`,
+            });
+            Alert.alert('Success', 'Labels shared. Save them to your preferred location.', [{ text: 'OK' }]);
+        } catch (error) {
+            if (error?.message !== 'User did not share') {
+                console.error('Download error:', error);
+                Alert.alert('Error', 'Failed to save labels. ' + (error?.message || ''));
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.screenContainer} edges={['top']}>
@@ -461,11 +582,81 @@ const ReceivingScreen = ({navigation}) => {
                           </View>
                         </Modal>
                       )}
-                <ScreenHeader navigation={navigation} scarQr={true} title={'Receiving of Plants'}/>
+                
+                {/* Label Viewer Modal */}
+                <Modal
+                    visible={showLabelViewer}
+                    animationType="slide"
+                    transparent={false}
+                >
+                    <View style={styles.labelViewerContainer}>
+                        <View style={styles.labelViewerHeader}>
+                            <TouchableOpacity 
+                                onPress={() => setShowLabelViewer(false)}
+                                style={styles.backButton}
+                            >
+                                <BackIcon width={24} height={24} />
+                            </TouchableOpacity>
+                            <Text style={styles.labelViewerTitle}>
+                                Generated Labels ({generatedLabels.length})
+                            </Text>
+                            <View style={styles.headerSpacer} />
+                        </View>
+                        
+                        <View style={styles.printerControls}>
+                            <TouchableOpacity 
+                                style={styles.downloadButton}
+                                onPress={downloadAllLabels}
+                            >
+                                <View style={styles.buttonContent}>
+                                    <DownloadIcon width={20} height={20} />
+                                    <Text style={styles.buttonText}>
+                                        Download All
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <FlatList
+                            data={generatedLabels}
+                            keyExtractor={(item, index) => index.toString()}
+                            numColumns={2}
+                            contentContainerStyle={styles.labelGridContainer}
+                            renderItem={({ item, index }) => (
+                                <View style={styles.labelPreview}>
+                                    <Text style={styles.labelInfo}>
+                                        {item.plantCode || `Label ${index + 1}`}
+                                    </Text>
+                                    <Image
+                                        source={{ uri: `data:image/png;base64,${item.base64}` }}
+                                        style={styles.labelImage}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            )}
+                        />
+                    </View>
+                </Modal>
+                <ScreenHeader 
+                    navigation={navigation} 
+                    printButton={index === 0} 
+                    onPrint={handlePrint} 
+                    scarQr={!selectionMode} 
+                    title={'Receiving of Plants'}
+                    selectionMode={selectionMode}
+                    onCancelSelection={handleCancelSelection}
+                    selectedCount={selectedItems.length}
+                />
                 <TabView
                     navigationState={{ index, routes }}
                     renderScene={renderScene}
-                    onIndexChange={setIndex}
+                    onIndexChange={(newIndex) => {
+                        setIndex(newIndex);
+                        // Clear selection mode when switching tabs
+                        if (selectionMode) {
+                            handleCancelSelection();
+                        }
+                    }}
                     renderTabBar={renderTabBar}
                     onTabSelect={tabChange}
                 />
@@ -554,6 +745,20 @@ const styles = StyleSheet.create({
         padding: 12,
         flexDirection: 'row',
         gap: 12,
+    },
+    checkboxButton: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingLeft: 10,
+        paddingRight: 8,
+    },
+    uncheckedBox: {
+        width: 24,
+        height: 24,
+        borderWidth: 2,
+        borderColor: '#CDD3D4',
+        borderRadius: 6,
+        backgroundColor: '#FFFFFF',
     },
     plantImage: {
         width: 96,
@@ -660,5 +865,94 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#E7522F',
+    },
+    // Label Viewer Modal Styles
+    labelViewerContainer: {
+        flex: 1,
+        backgroundColor: '#F5F7F8',
+        paddingTop: Platform.OS === 'ios' ? 44 : 0,
+    },
+    labelViewerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E9EB',
+    },
+    labelViewerTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#202325',
+        flex: 1,
+        textAlign: 'center',
+    },
+    backButton: {
+        padding: 8,
+        width: 40,
+    },
+    headerSpacer: {
+        width: 40,
+    },
+    closeButton: {
+        padding: 8,
+    },
+    printerControls: {
+        flexDirection: 'row',
+        padding: 12,
+        gap: 10,
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E9EB',
+    },
+    downloadButton: {
+        flex: 1,
+        backgroundColor: '#4A90E2',
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    buttonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    buttonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    labelGridContainer: {
+        padding: 12,
+    },
+    labelPreview: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 8,
+        padding: 12,
+        margin: 6,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    labelInfo: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#202325',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    labelImage: {
+        width: 120,
+        height: 180,
+        borderWidth: 1,
+        borderColor: '#E5E9EB',
     },
 });

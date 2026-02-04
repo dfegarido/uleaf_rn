@@ -45,6 +45,10 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
             ...data,
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt ? new Date(data.createdAt) : new Date(),
           };
+          transaction.transactionNumber = data.orderId;
+          if (data.flightDate) {
+            transaction.flightDate = data.flightDate?.toDate ? data.flightDate.toDate() : new Date(data.flightDate);
+          }
           transaction.plantCode = data.plantCode || data.plantDetails?.plantCode;
           transaction.plantName = data.plantName || data.plantDetails?.plantName;
           transaction.plantImage = data.plantImage || data.plantDetails?.plantImage || data.plantDetails?.image;
@@ -66,7 +70,10 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
 
               if (orderData) {
                 fetchedOrderData = orderData;
-                transaction.orderDate = orderData.createdAt?.toDate ? orderData.createdAt.toDate() : null;
+                transaction.orderDate = orderData.createdAt?.toDate ? orderData.createdAt.toDate() : orderData.createdAt ? new Date(orderData.createdAt) : null;
+                transaction.transactionNumber = orderData.trxNumber || orderData.orderNumber || orderData.transactionNumber || data.orderId;
+                const fd = orderData.flightDate || orderData.flightDateFormatted || orderData.cargoDate;
+                transaction.flightDate = fd?.toDate ? fd.toDate() : fd ? new Date(fd) : null;
                 let plants = orderData.products || orderData.items || [];
 
                 if (plants?.length > 0) {
@@ -75,6 +82,13 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
                     if (!transaction.plantName) transaction.plantName = plant.plantName || plant.scientificName || plant.name;
                     if (!transaction.plantImage) transaction.plantImage = plant.plantImage || plant.image || plant.photoUrl;
                     if (!transaction.plantCode) transaction.plantCode = plant.plantCode || plant.code;
+                    transaction.genus = transaction.genus || plant.genus;
+                    transaction.species = transaction.species || plant.species;
+                    transaction.unitPrice = transaction.unitPrice ?? plant.unitPrice ?? plant.usdPrice ?? plant.price;
+                    if (!transaction.flightDate) {
+                      const pfd = plant.flightDate || plant.flightDateFormatted || plant.cargoDate;
+                      transaction.flightDate = pfd?.toDate ? pfd.toDate() : pfd ? new Date(pfd) : null;
+                    }
                   }
                 } else if (orderData.plantCode) {
                   transaction.plantCode = orderData.plantCode;
@@ -82,7 +96,11 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
                   transaction.plantImage = orderData.plantImage || orderData.imagePrimary;
                   transaction.genus = orderData.genus;
                   transaction.species = orderData.species;
-                  transaction.unitPrice = orderData.unitPrice || orderData.usdPrice;
+                  transaction.unitPrice = orderData.unitPrice ?? orderData.usdPrice;
+                  if (!transaction.flightDate) {
+                    const fd = orderData.flightDate || orderData.flightDateFormatted || orderData.cargoDate;
+                    transaction.flightDate = fd?.toDate ? fd.toDate() : fd ? new Date(fd) : null;
+                  }
                 }
               }
             } catch (_) {}
@@ -110,8 +128,9 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
                 const ld = listingsSnap.docs[0].data();
                 if (!transaction.plantName) transaction.plantName = ld.plantName || ld.scientificName || ld.name;
                 if (!transaction.plantImage) transaction.plantImage = ld.plantImage || ld.image || ld.photoUrl || ld.images?.[0];
-                transaction.genus = ld.genus;
-                transaction.species = ld.species;
+                transaction.genus = transaction.genus || ld.genus;
+                transaction.species = transaction.species || ld.species;
+                if (transaction.unitPrice == null) transaction.unitPrice = ld.unitPrice ?? ld.usdPrice ?? ld.price;
               } else if (fetchedOrderData) {
                 if (!transaction.plantName) transaction.plantName = fetchedOrderData.plantName || (fetchedOrderData.genus && fetchedOrderData.species ? `${fetchedOrderData.genus} ${fetchedOrderData.species}` : fetchedOrderData.scientificName);
                 if (!transaction.plantImage) transaction.plantImage = fetchedOrderData.plantImage || fetchedOrderData.imagePrimary;
@@ -185,7 +204,9 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
 
   const formatDate = (date) => {
     if (!date) return '—';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const renderTransaction = ({ item }) => {
@@ -236,22 +257,34 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
             {item.plantCode && <Text style={styles.plantCode}>{item.plantCode}</Text>}
           </View>
         </TouchableOpacity>
-        <View style={styles.dates}>
-          {item.orderDate && (
-            <View style={styles.dateItem}>
-              <Text style={styles.dateLabel}>Order Date</Text>
-              <Text style={styles.dateValue}>{formatDate(item.orderDate)}</Text>
-            </View>
-          )}
-          <View style={styles.dateItem}>
-            <Text style={styles.dateLabel}>Credit Given</Text>
-            <Text style={styles.dateValue}>{formatDate(item.createdAt)}</Text>
-          </View>
-        </View>
         <View style={styles.details}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Plant Price</Text>
-            <Text style={styles.detailValue}>${Number(plantPrice).toFixed(0)}</Text>
+            <Text style={styles.detailLabel}>Transaction #</Text>
+            <Text style={styles.detailValue}>{item.transactionNumber || item.orderId || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Order Date</Text>
+            <Text style={styles.detailValue}>{formatDate(item.orderDate)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Flight Date</Text>
+            <Text style={styles.detailValue}>{formatDate(item.flightDate)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Plant Code</Text>
+            <Text style={styles.detailValue}>{item.plantCode || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Genus</Text>
+            <Text style={styles.detailValue}>{item.genus || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Species</Text>
+            <Text style={styles.detailValue}>{item.species || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Price (USD)</Text>
+            <Text style={styles.detailValue}>${Number(plantPrice).toFixed(2)}</Text>
           </View>
           {item.balanceBefore !== undefined && item.balanceAfter !== undefined && (
             <View style={styles.detailRow}>

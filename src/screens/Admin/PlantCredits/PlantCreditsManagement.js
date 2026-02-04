@@ -84,27 +84,132 @@ const PlantCreditsManagement = ({ navigation }) => {
       setLoading(true);
       setHasMore(true);
       
-      // Fetch ALL buyers to filter those with plantCredits > 0
+      // 1. Fetch buyers from buyer collection (check both plantCredits and plant_credits)
       const buyersSnap = await getDocs(collection(db, 'buyer'));
+      const buyerMap = new Map(); // uid -> buyer data
       
-      const buyersWithCredits = [];
-      buyersSnap.forEach(doc => {
-        const data = doc.data();
-        const plantCredits = data.plantCredits || 0;
+      buyersSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        const plantCredits = data.plantCredits ?? data.plant_credits ?? 0;
         
         if (plantCredits > 0) {
-          buyersWithCredits.push({
-            uid: doc.id,
+          buyerMap.set(docSnap.id, {
+            uid: docSnap.id,
             firstName: data.firstName || '',
             lastName: data.lastName || '',
             email: data.email || '',
             username: data.username || '',
-            plantCredits: plantCredits,
+            plantCredits: Number(plantCredits),
             country: data.country || data.region || '',
             createdAt: data.createdAt,
           });
         }
       });
+      
+      // 2. Also check plant_credits collection for buyers with available credits
+      // (catches cases where buyer.plantCredits wasn't synced)
+      try {
+        const plantCreditsSnap = await getDocs(collection(db, 'plant_credits'));
+        const creditsByBuyer = new Map(); // buyerUid -> total available amount
+        
+        plantCreditsSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.buyerUid && (data.status === 'available' || !data.status)) {
+            const amount = (data.amount || 0) - (data.usedAmount || 0);
+            if (amount > 0) {
+              creditsByBuyer.set(data.buyerUid, (creditsByBuyer.get(data.buyerUid) || 0) + amount);
+            }
+          }
+        });
+        
+        // Add buyers from plant_credits who aren't in buyerMap or have higher balance
+        const missingUids = [];
+        for (const [buyerUid, totalCredits] of creditsByBuyer) {
+          const existing = buyerMap.get(buyerUid);
+          const credits = Number(totalCredits.toFixed(2));
+          if (credits > 0) {
+            if (existing) {
+              if (credits > existing.plantCredits) {
+                existing.plantCredits = credits;
+              }
+            } else {
+              missingUids.push({ buyerUid, credits });
+            }
+          }
+        }
+        const buyerDocs = await Promise.all(missingUids.map(({ buyerUid }) => getDoc(doc(db, 'buyer', buyerUid))));
+        missingUids.forEach(({ buyerUid, credits }, i) => {
+          const buyerDoc = buyerDocs[i];
+          const data = buyerDoc?.exists() ? buyerDoc.data() : {};
+          buyerMap.set(buyerUid, {
+            uid: buyerUid,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || '',
+            username: data.username || '',
+            plantCredits: credits,
+            country: data.country || data.region || '',
+            createdAt: data.createdAt,
+          });
+        });
+      } catch (plantCreditsErr) {
+        console.warn('Could not fetch plant_credits collection:', plantCreditsErr);
+      }
+      
+      // 3. Get latest balance from credit_transactions (authoritative source)
+      try {
+        const transactionsSnap = await getDocs(
+          query(
+            collection(db, 'credit_transactions'),
+            orderBy('createdAt', 'desc'),
+            limit(2000)
+          )
+        );
+        const latestBalanceByBuyer = new Map(); // buyerUid -> balance (from most recent tx)
+        transactionsSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          const isShipping = data.creditType?.toLowerCase().includes('shipping') ||
+            data.type?.toLowerCase().includes('shipping');
+          if (isShipping) return;
+          const buyerUid = data.buyerUid;
+          if (!buyerUid || latestBalanceByBuyer.has(buyerUid)) return;
+          const balanceAfter = data.balanceAfter ?? 0;
+          latestBalanceByBuyer.set(buyerUid, Number(balanceAfter));
+        });
+        latestBalanceByBuyer.forEach((balance, buyerUid) => {
+          if (balance > 0) {
+            const existing = buyerMap.get(buyerUid);
+            if (existing) {
+              existing.plantCredits = balance;
+            }
+          }
+        });
+        const uidsNeedingBuyerInfo = [...latestBalanceByBuyer.entries()]
+          .filter(([uid, balance]) => balance > 0 && !buyerMap.has(uid))
+          .map(([uid]) => uid);
+        if (uidsNeedingBuyerInfo.length > 0) {
+          const buyerDocs = await Promise.all(uidsNeedingBuyerInfo.map(uid => getDoc(doc(db, 'buyer', uid))));
+          uidsNeedingBuyerInfo.forEach((buyerUid, i) => {
+            const buyerDoc = buyerDocs[i];
+            const data = buyerDoc?.exists() ? buyerDoc.data() : {};
+            const balance = latestBalanceByBuyer.get(buyerUid);
+            buyerMap.set(buyerUid, {
+              uid: buyerUid,
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
+              email: data.email || '',
+              username: data.username || '',
+              plantCredits: balance,
+              country: data.country || data.region || '',
+              createdAt: data.createdAt,
+            });
+          });
+        }
+      } catch (txErr) {
+        console.warn('Could not fetch latest balance from credit_transactions:', txErr);
+      }
+      
+      const buyersWithCredits = Array.from(buyerMap.values()).filter(b => b.plantCredits > 0);
       
       // Sort by plantCredits descending (highest first)
       buyersWithCredits.sort((a, b) => b.plantCredits - a.plantCredits);
@@ -175,7 +280,10 @@ const PlantCreditsManagement = ({ navigation }) => {
               type: data.type,
             });
             
-            // Extract plant code from transaction data
+            transaction.transactionNumber = data.orderId;
+            if (data.flightDate) {
+              transaction.flightDate = data.flightDate?.toDate ? data.flightDate.toDate() : new Date(data.flightDate);
+            }
             transaction.plantCode = data.plantCode || 
                                    data.plantDetails?.plantCode;
             
@@ -227,7 +335,10 @@ const PlantCreditsManagement = ({ navigation }) => {
                 
                 if (orderData) {
                   fetchedOrderData = orderData;
-                  transaction.orderDate = orderData.createdAt?.toDate ? orderData.createdAt.toDate() : null;
+                  transaction.orderDate = orderData.createdAt?.toDate ? orderData.createdAt.toDate() : orderData.createdAt ? new Date(orderData.createdAt) : null;
+                  transaction.transactionNumber = orderData.trxNumber || orderData.orderNumber || orderData.transactionNumber || data.orderId;
+                  const fd = orderData.flightDate || orderData.flightDateFormatted || orderData.cargoDate;
+                  transaction.flightDate = fd?.toDate ? fd.toDate() : fd ? new Date(fd) : null;
                   
                   // Log the full order structure to see what fields exist
                   console.log(`📦 Order structure:`, {
@@ -279,6 +390,13 @@ const PlantCreditsManagement = ({ navigation }) => {
                       if (!transaction.plantCode) {
                         transaction.plantCode = plant.plantCode || plant.code;
                       }
+                      transaction.genus = transaction.genus || plant.genus;
+                      transaction.species = transaction.species || plant.species;
+                      transaction.unitPrice = transaction.unitPrice ?? plant.unitPrice ?? plant.usdPrice ?? plant.price;
+                      if (!transaction.flightDate) {
+                        const pfd = plant.flightDate || plant.flightDateFormatted || plant.cargoDate;
+                        transaction.flightDate = pfd?.toDate ? pfd.toDate() : pfd ? new Date(pfd) : null;
+                      }
                     }
                   } else {
                     // If no items array, check if plant data is directly in order
@@ -289,7 +407,11 @@ const PlantCreditsManagement = ({ navigation }) => {
                       transaction.plantImage = orderData.plantImage || orderData.imagePrimary;
                       transaction.genus = orderData.genus;
                       transaction.species = orderData.species;
-                      transaction.unitPrice = orderData.unitPrice || orderData.usdPrice;
+                      transaction.unitPrice = orderData.unitPrice ?? orderData.usdPrice;
+                      if (!transaction.flightDate) {
+                        const fd = orderData.flightDate || orderData.flightDateFormatted || orderData.cargoDate;
+                        transaction.flightDate = fd?.toDate ? fd.toDate() : fd ? new Date(fd) : null;
+                      }
                       console.log(`🌱 Found plant data at order level:`, {
                         plantCode: orderData.plantCode,
                         plantName: orderData.plantName,
@@ -361,10 +483,11 @@ const PlantCreditsManagement = ({ navigation }) => {
                                            (listingData.images && listingData.images[0]);
                   }
                   
-                  // Add genus and species
-                  transaction.genus = listingData.genus;
-                  transaction.species = listingData.species;
-                  
+                  transaction.genus = transaction.genus || listingData.genus;
+                  transaction.species = transaction.species || listingData.species;
+                  if (transaction.unitPrice == null) {
+                    transaction.unitPrice = listingData.unitPrice ?? listingData.usdPrice ?? listingData.price;
+                  }
                   console.log(`✅ Fetched plant details from listings for ${transaction.plantCode}:`, {
                     plantName: transaction.plantName,
                     genus: transaction.genus,
@@ -445,10 +568,16 @@ const PlantCreditsManagement = ({ navigation }) => {
                 amount: amount,
                 description: `Credit for ${issueType} - ${plantName}`,
                 orderId: data.orderId || data.transactionNumber || null,
+                transactionNumber: data.transactionNumber || data.orderId,
                 creditRequestId: doc.id,
                 processedBy: data.reviewedBy?.name || data.lastModifiedBy || 'Admin',
-                plantCode: data.plantCode,
+                plantCode: data.plantCode || data.plantDetails?.plantCode,
                 plantName: plantName,
+                genus: data.plantDetails?.genus || data.genus,
+                species: data.plantDetails?.species || data.species,
+                unitPrice: data.plantDetails?.totalPrice || data.approvedAmount || data.creditAmount,
+                flightDate: data.flightDate?.toDate ? data.flightDate.toDate() : data.flightDate ? new Date(data.flightDate) : null,
+                orderDate: data.orderDate?.toDate ? data.orderDate.toDate() : data.orderDate ? new Date(data.orderDate) : null,
                 issueType: issueType,
                 status: data.status,
                 createdAt: data.reviewedAt?.toDate ? data.reviewedAt.toDate() :
@@ -528,7 +657,9 @@ const PlantCreditsManagement = ({ navigation }) => {
 
   const formatDate = (date) => {
     if (!date) return '—';
-    return date.toLocaleDateString('en-US', {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -614,25 +745,35 @@ const PlantCreditsManagement = ({ navigation }) => {
           </View>
         </TouchableOpacity>
         
-        {/* Dates */}
-        <View style={styles.datesSection}>
-          {item.orderDate && (
-            <View style={styles.dateItem}>
-              <Text style={styles.dateLabel}>Order Date</Text>
-              <Text style={styles.dateValue}>{formatDate(item.orderDate)}</Text>
-            </View>
-          )}
-          <View style={styles.dateItem}>
-            <Text style={styles.dateLabel}>Credit Given</Text>
-            <Text style={styles.dateValue}>{formatDate(item.createdAt)}</Text>
-          </View>
-        </View>
-        
-        {/* Details - concise */}
+        {/* Required fields - always show on every card */}
         <View style={styles.transactionDetails}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Plant Price</Text>
-            <Text style={styles.detailValue}>${Number(plantPrice).toFixed(0)}</Text>
+            <Text style={styles.detailLabel}>Transaction #</Text>
+            <Text style={styles.detailValue}>{item.transactionNumber || item.orderId || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Order Date</Text>
+            <Text style={styles.detailValue}>{formatDate(item.orderDate)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Flight Date</Text>
+            <Text style={styles.detailValue}>{formatDate(item.flightDate)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Plant Code</Text>
+            <Text style={styles.detailValue}>{item.plantCode || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Genus</Text>
+            <Text style={styles.detailValue}>{item.genus || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Species</Text>
+            <Text style={styles.detailValue}>{item.species || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Price (USD)</Text>
+            <Text style={styles.detailValue}>${Number(plantPrice).toFixed(2)}</Text>
           </View>
           {item.processedByName && (
             <View style={styles.detailRow}>
