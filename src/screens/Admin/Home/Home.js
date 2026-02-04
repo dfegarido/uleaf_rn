@@ -42,6 +42,7 @@ import SortingIcon from '../../../assets/admin-icons/sorting.svg';
 import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
 import UserManagementIcon from '../../../assets/admin-icons/user-management.svg';
 import ChatShopsIcon from '../../../assets/admin-icons/chat-shops.svg';
+import PlantCreditsIcon from '../../../assets/admin-icons/plant-credits.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -249,6 +250,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
           <IconTile title="Chat Shops" onPress={() => navigation.navigate('ChatShops')}>
             <ChatShopsIcon width={48} height={48} />
           </IconTile>
+          <IconTile title="Plant Credits" onPress={() => navigation.navigate('PlantCreditsManagement')}>
+            <PlantCreditsIcon width={48} height={48} />
+          </IconTile>
         </View>
       </View>
     );
@@ -269,7 +273,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
             <DiscountsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Discounts</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
+          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('LeafPointsManagement')}>
             <LeafPointsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Leaf Points</Text>
           </TouchableOpacity>

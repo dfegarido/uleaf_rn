@@ -153,26 +153,35 @@ const ShippingBuddiesIcon = ({width = 80, height = 80}) => (
 );
 
 // Component definitions outside of render
-const CreditCard = ({title, value, color, hasArrow = false, icon, isPlantCredits = false}) => (
-  <View style={[styles.creditCard]}>
-    <View style={[styles.iconActionRow, isPlantCredits && styles.plantCreditsIconRow]}>
-      <View style={[
-        styles.iconContainer, 
-        {backgroundColor: color},
-        isPlantCredits && styles.plantCreditsIconContainer
-      ]}>
-        {icon && icon}
-        <Text style={[styles.creditValue, isPlantCredits && styles.plantCreditValue]}>{value}</Text>
-      </View>
-      {hasArrow && (
-        <View style={[styles.arrowContainer, isPlantCredits && styles.plantCreditsArrowContainer]}>
-          <RightIcon width={24} height={24} fill="#7F8D91" />
+const CreditCard = ({title, value, color, hasArrow = false, icon, isPlantCredits = false, onPress}) => {
+  const content = (
+    <>
+      <View style={[styles.iconActionRow, isPlantCredits && styles.plantCreditsIconRow]}>
+        <View style={[
+          styles.iconContainer, 
+          {backgroundColor: color},
+          isPlantCredits && styles.plantCreditsIconContainer
+        ]}>
+          {icon && icon}
+          <Text style={[styles.creditValue, isPlantCredits && styles.plantCreditValue]}>{value}</Text>
         </View>
-      )}
-    </View>
-    <Text style={[styles.creditLabel, isPlantCredits && styles.plantCreditsLabel]}>{title}</Text>
-  </View>
-);
+        {hasArrow && (
+          <View style={[styles.arrowContainer, isPlantCredits && styles.plantCreditsArrowContainer]}>
+            <RightIcon width={24} height={24} fill="#7F8D91" />
+          </View>
+        )}
+      </View>
+      <Text style={[styles.creditLabel, isPlantCredits && styles.plantCreditsLabel]}>{title}</Text>
+    </>
+  );
+  return onPress ? (
+    <TouchableOpacity style={[styles.creditCard]} onPress={onPress} activeOpacity={0.7}>
+      {content}
+    </TouchableOpacity>
+  ) : (
+    <View style={[styles.creditCard]}>{content}</View>
+  );
+};
 
 const MenuItem = ({icon, title, rightText, onPress, disabled = false, isDangerous = false}) => (
   <TouchableOpacity style={[styles.menuItem, disabled && styles.menuItemDisabled, isDangerous && styles.dangerMenuItem]} onPress={onPress} disabled={disabled}>
@@ -554,6 +563,7 @@ const BuyerProfileScreen = (props) => {
               color="#6B4EFF"
               icon={<PlantCreditsIcon width={24} height={24} fill="#FFFFFF" />}
               isPlantCredits={true}
+              onPress={() => navigation.navigate('BuyerPlantCreditsScreen')}
             />
             <CreditCard
               title="My Shipping Credits"

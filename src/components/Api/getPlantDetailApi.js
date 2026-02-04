@@ -4,7 +4,6 @@ import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 export const getPlantDetailApi = async (plantCode) => {
   try {
     const token = await getStoredAuthToken();
-    console.log("authToken", token)
     const response = await fetch(
       `${API_ENDPOINTS.GET_BUYER_LISTING}?plantCode=${plantCode}`,
       {
