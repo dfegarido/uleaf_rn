@@ -29,11 +29,12 @@ import CheckedBoxIcon from '../../../../assets/admin-icons/checked-box.svg';
 import DownloadIcon from '../../../../assets/admin-icons/download.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import ScreenHeader from '../../../../components/Admin/header';
-import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus, generateThermalLabels } from '../../../../components/Api/getAdminLeafTrail';
+import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus, generateThermalLabels, emailThermalLabels } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
+import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
 
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
@@ -373,6 +374,7 @@ const ReceivingScreen = ({navigation}) => {
     const [receivingData, setReceivingData] = useState(null);
     const [adminFilters, setAdminFilters] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadingMessage, setLoadingMessage] = useState('Growing your plants, please wait...');
     const [error, setError] = useState(null);
     const [isTagAsVisible, setTagAsVisible] = useState(false);
     const [isMissing, setIsMissing] = useState(false);
@@ -497,6 +499,7 @@ const ReceivingScreen = ({navigation}) => {
             // Generate thermal labels for selected items
             if (selectedItems.length > 0) {
                 try {
+                    setLoadingMessage('Generating your labels, please wait...');
                     setIsLoading(true);
                     const response = await generateThermalLabels(selectedItems);
                     
@@ -540,8 +543,44 @@ const ReceivingScreen = ({navigation}) => {
         });
     };
 
+    const handleSelectAll = () => {
+        // Get all items from the current tab
+        const currentTabData = getCurrentTabData();
+        const allItemIds = currentTabData?.data?.map(item => item.id) || [];
+        
+        // If all items are already selected, deselect all. Otherwise, select all.
+        if (selectedItems.length === allItemIds.length) {
+            setSelectedItems([]);
+        } else {
+            setSelectedItems(allItemIds);
+        }
+    };
+
+    const getCurrentTabData = () => {
+        switch (routes[index].key) {
+            case 'forReceiving':
+                return receivingData?.forReceiving || {};
+            case 'inventoryForHub':
+                return receivingData?.inventoryForHub || {};
+            case 'received':
+                return receivingData?.received || {};
+            case 'missing':
+                return receivingData?.missing || {};
+            case 'damaged':
+                return receivingData?.damaged || {};
+            default:
+                return {};
+        }
+    };
+
+    const getTotalItemsCount = () => {
+        const currentTabData = getCurrentTabData();
+        return currentTabData?.data?.length || 0;
+    };
+
     const downloadAllLabels = async () => {
         try {
+            setLoadingMessage('Preparing your labels for download, please wait...');
             setIsLoading(true);
             const timestamp = Date.now();
             const tempDir = `${RNFS.CachesDirectoryPath}/qr-labels-${timestamp}`;
@@ -571,15 +610,39 @@ const ReceivingScreen = ({navigation}) => {
         }
     };
 
+    const sendViaEmail = async () => {
+        try {
+            setLoadingMessage('Sending your labels via email, please wait...');
+            setIsLoading(true);
+            // Get the order IDs from the generated labels
+            const orderIds = generatedLabels.map(label => label.orderId);
+            
+            const response = await emailThermalLabels(orderIds);
+            
+            if (response.success) {
+                Alert.alert('Success', `Thermal labels have been sent to your email (${response.details?.sentTo || 'your registered email'}).`);
+                // Close the label viewer
+                setShowLabelViewer(false);
+            } else {
+                Alert.alert('Error', response.message || 'Failed to send labels via email');
+            }
+        } catch (error) {
+            console.error('Email error:', error);
+            Alert.alert('Error', error.message || 'Failed to send labels via email');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.screenContainer} edges={['top']}>
                 <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-                {isLoading && (
+                {isLoading && !showLabelViewer && (
                         <Modal transparent animationType="fade">
-                          <View style={styles.loadingOverlay}>
-                            <ActivityIndicator size="large" color="#699E73" />
-                          </View>
+                          <LoadingModal 
+                            message={loadingMessage} 
+                          />
                         </Modal>
                       )}
                 
@@ -605,13 +668,26 @@ const ReceivingScreen = ({navigation}) => {
                         
                         <View style={styles.printerControls}>
                             <TouchableOpacity 
-                                style={styles.downloadButton}
+                                style={[styles.downloadButton, isLoading && styles.buttonDisabled]}
                                 onPress={downloadAllLabels}
+                                disabled={isLoading}
                             >
                                 <View style={styles.buttonContent}>
                                     <DownloadIcon width={20} height={20} />
                                     <Text style={styles.buttonText}>
                                         Download All
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                                style={[styles.emailButton, isLoading && styles.buttonDisabled]}
+                                onPress={sendViaEmail}
+                                disabled={isLoading}
+                            >
+                                <View style={styles.buttonContent}>
+                                    <Text style={styles.emailButtonText}>
+                                        Send via Email
                                     </Text>
                                 </View>
                             </TouchableOpacity>
@@ -635,6 +711,13 @@ const ReceivingScreen = ({navigation}) => {
                                 </View>
                             )}
                         />
+                        
+                        {/* Loading Modal - inside Label Viewer */}
+                        {isLoading && (
+                            <LoadingModal 
+                                message={loadingMessage} 
+                            />
+                        )}
                     </View>
                 </Modal>
                 <ScreenHeader 
@@ -646,6 +729,8 @@ const ReceivingScreen = ({navigation}) => {
                     selectionMode={selectionMode}
                     onCancelSelection={handleCancelSelection}
                     selectedCount={selectedItems.length}
+                    onSelectAll={selectionMode ? handleSelectAll : null}
+                    totalItemsCount={getTotalItemsCount()}
                 />
                 <TabView
                     navigationState={{ index, routes }}
@@ -694,12 +779,6 @@ const styles = StyleSheet.create({
         padding: 10,
         backgroundColor: 'rgba(0,0,0,0.5)',
         borderRadius: 20,
-    },
-    loadingOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.25)',
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     screenContainer: {
         flex: 1,
@@ -915,12 +994,29 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    emailButton: {
+        flex: 1,
+        backgroundColor: '#23C16B',
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    buttonDisabled: {
+        opacity: 0.5,
+    },
     buttonContent: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
     buttonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    emailButtonText: {
         color: '#FFFFFF',
         fontSize: 14,
         fontWeight: '600',
@@ -951,7 +1047,7 @@ const styles = StyleSheet.create({
     },
     labelImage: {
         width: 120,
-        height: 180,
+        height: 200,
         borderWidth: 1,
         borderColor: '#E5E9EB',
     },

@@ -34,6 +34,8 @@ const ScreenHeader = ({
     selectionMode=false,
     onCancelSelection,
     selectedCount=0,
+    onSelectAll,
+    totalItemsCount=0,
 }) => {
     return (
         <View style={styles.header}>
@@ -58,6 +60,17 @@ const ScreenHeader = ({
             )}
 
             <View style={styles.rightActions}>
+                {selectionMode && onSelectAll && (
+                    <TouchableOpacity 
+                        style={styles.selectAllButton} 
+                        onPress={onSelectAll}
+                    >
+                        <Text style={styles.selectAllText}>
+                            {selectedCount === totalItemsCount ? 'Deselect All' : 'Select All'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
                 {printButton && !searchActive && (
                     <TouchableOpacity 
                         style={styles.headerAction} 
@@ -129,6 +142,18 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+    },
+    selectAllButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: '#F2F7F3',
+        borderRadius: 8,
+        marginRight: 4,
+    },
+    selectAllText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#23C16B',
     },
     headerAction: {
         width: 40,

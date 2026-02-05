@@ -197,6 +197,7 @@ const generateEndpoints = () => ({
   QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
   QR_GENERATOR_ORDERS: `${getBaseUrl()}/qrGenerator/orders`,
   THERMAL_LABEL_GENERATOR: `${getBaseUrl()}/thermalLabelGenerator`,
+  EMAIL_THERMAL_LABELS: `${getBaseUrl()}/emailThermalLabels`,
   
   // Cart APIs
   ADD_TO_CART: `${getBaseUrl()}/addToCart`,

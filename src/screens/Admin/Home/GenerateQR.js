@@ -36,87 +36,8 @@ import JoinerFilter from '../../../components/Admin/joinerFilter';
 import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
 import TransactionFilter from '../../../components/Admin/transactionFilter';
 import SellerNameFilter from '../../../components/Admin/sellerNameFilter';
-
-// Skeleton loader component for QR codes with shimmer animation
-const QRCodeSkeleton = () => {
-  const itemWidth = 80;
-  const itemHeight = 170;
-  const rowSpacing = 10;
-  const numItems = 16; // 4x4 grid
-  const containerWidth = Dimensions.get('window').width - 48;
-  const spacing = (containerWidth - (itemWidth * 4)) / 3;
-  
-  // Shimmer animation for all skeleton items
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const shimmerAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    shimmerAnimation.start();
-
-    return () => shimmerAnimation.stop();
-  }, [shimmerAnim]);
-
-  const opacity = shimmerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.7],
-  });
-
-  // Shimmer box component
-  const ShimmerBox = ({ style }) => (
-    <Animated.View style={[style, { opacity }]} />
-  );
-
-  return (
-    <View style={styles.pageContainer}>
-      <View style={styles.contentWrapper}>
-        <View style={[styles.qrListContainer, { height: (4 * itemHeight) + (3 * rowSpacing) + 10 }]}>
-          {Array.from({ length: numItems }).map((_, index) => {
-            const row = Math.floor(index / 4);
-            const col = index % 4;
-            const left = col * (itemWidth + spacing);
-            const top = row * (itemHeight + rowSpacing);
-            
-            return (
-              <View 
-                key={index}
-                style={[
-                  styles.qrItemContainer,
-                  {
-                    left: left,
-                    top: top,
-                    height: itemHeight,
-                  }
-                ]}
-              >
-                <View style={styles.skeletonItem}>
-                  <ShimmerBox style={styles.skeletonQR} />
-                  <ShimmerBox style={styles.skeletonLine} />
-                  <ShimmerBox style={styles.skeletonLineShort} />
-                  <ShimmerBox style={styles.skeletonLine} />
-                  <ShimmerBox style={styles.skeletonLineShort} />
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-    </View>
-  );
-};
+import LeafTrailFilter from '../../../components/Admin/leafTrailFilter';
+import LoadingModal from '../../../components/LoadingModal/LoadingModal';
 
 // Seller Selection Modal Component
 const SellerSelectionModal = ({ isVisible, onClose, onSelectSeller, sellers, loading }) => {
@@ -244,6 +165,7 @@ const GenerateQR = ({navigation}) => {
   const DEBUG_QR_DATE_PARSING = true;
   const [qrCodeData, setQrCodeData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Growing your plants, please wait...');
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState(null);
@@ -260,6 +182,7 @@ const GenerateQR = ({navigation}) => {
     flightDate: [], // Array of flight dates
     transaction: null, // Transaction number (string)
     joiner: null,
+    leafTrailStatus: null, // Leaf trail status
   });
 
   // Filter modal states
@@ -269,6 +192,7 @@ const GenerateQR = ({navigation}) => {
   const [flightDateModalVisible, setFlightDateModalVisible] = useState(false);
   const [transactionModalVisible, setTransactionModalVisible] = useState(false);
   const [joinerModalVisible, setJoinerModalVisible] = useState(false);
+  const [leafTrailModalVisible, setLeafTrailModalVisible] = useState(false);
 
   // Filter options from API response
   const [sellerNameOptions, setSellerNameOptions] = useState([]);
@@ -343,6 +267,9 @@ const GenerateQR = ({navigation}) => {
       }
       if (selectedFilters.joiner) {
         queryParams.append('joiner', selectedFilters.joiner);
+      }
+      if (selectedFilters.leafTrailStatus) {
+        queryParams.append('leafTrailStatus', selectedFilters.leafTrailStatus);
       }
       
       const queryString = queryParams.toString();
@@ -466,6 +393,7 @@ const GenerateQR = ({navigation}) => {
   // Function to fetch QR code data from API
   const fetchQRCodeData = useCallback(async () => {
     try {
+      setLoadingMessage('Generating QR codes, please wait...');
       setLoading(true);
       setError(null);
       
@@ -512,6 +440,9 @@ const GenerateQR = ({navigation}) => {
       }
       if (selectedFilters.joiner) {
         queryParams.append('joiner', selectedFilters.joiner);
+      }
+      if (selectedFilters.leafTrailStatus) {
+        queryParams.append('leafTrailStatus', selectedFilters.leafTrailStatus);
       }
       
       const queryString = queryParams.toString();
@@ -1276,6 +1207,11 @@ const GenerateQR = ({navigation}) => {
     setJoinerModalVisible(false);
   }, []);
 
+  const handleLeafTrailStatusSelect = useCallback((status) => {
+    setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: status }));
+    setLeafTrailModalVisible(false);
+  }, []);
+
   // Helper to check if filter is active
   const isFilterActive = (filterLabel) => {
     switch (filterLabel) {
@@ -1291,6 +1227,8 @@ const GenerateQR = ({navigation}) => {
         return selectedFilters.transaction !== null && selectedFilters.transaction.trim() !== '';
       case 'Joiner':
         return selectedFilters.joiner !== null;
+      case 'Leaf Trail':
+        return selectedFilters.leafTrailStatus !== null;
       default:
         return false;
     }
@@ -1304,7 +1242,8 @@ const GenerateQR = ({navigation}) => {
       selectedFilters.createdDate !== null ||
       (selectedFilters.flightDate !== null && selectedFilters.flightDate.length > 0) ||
       (selectedFilters.transaction !== null && selectedFilters.transaction.trim() !== '') ||
-      selectedFilters.joiner !== null
+      selectedFilters.joiner !== null ||
+      selectedFilters.leafTrailStatus !== null
     );
   };
 
@@ -1316,6 +1255,7 @@ const GenerateQR = ({navigation}) => {
     { label: 'Flight Date', rightIcon: DownIcon },
     { label: 'Transaction', rightIcon: DownIcon },
     { label: 'Joiner', rightIcon: DownIcon },
+    { label: 'Leaf Trail', rightIcon: DownIcon },
   ];
 
   // Filter Tab component
@@ -1360,6 +1300,9 @@ const GenerateQR = ({navigation}) => {
           } else if (filter.label === 'Joiner') {
             console.log('[FilterTab] Opening Joiner modal');
             setJoinerModalVisible(true);
+          } else if (filter.label === 'Leaf Trail') {
+            console.log('[FilterTab] Opening Leaf Trail modal');
+            setLeafTrailModalVisible(true);
           }
         }}
         style={{
@@ -1760,6 +1703,7 @@ const GenerateQR = ({navigation}) => {
       flightDate: [],
       transaction: null,
       joiner: null,
+      leafTrailStatus: null,
     });
     setQrCodeData([]);
     setError(null);
@@ -1866,23 +1810,17 @@ const GenerateQR = ({navigation}) => {
           </TouchableOpacity>
         </View>
 
-        {/* Skeleton Loader - Only show if filters are selected */}
-        {hasAnyFilterSelected() && (
-          <View style={styles.mainContent}>
-            <ScrollView contentContainerStyle={styles.flatListContent}>
-              <QRCodeSkeleton />
-            </ScrollView>
-          </View>
-        )}
+        {/* Empty State */}
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            No filters selected. Apply filters and click "Generate QR Codes" to start.
+          </Text>
+        </View>
 
-        {/* Empty State - Show if no filters selected */}
-        {!hasAnyFilterSelected() && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              No filters selected. Apply filters and click "Generate QR Codes" to start.
-            </Text>
-          </View>
-        )}
+        {/* Loading Modal - animated plant */}
+        <Modal transparent animationType="fade" visible={loading}>
+          <LoadingModal message={loadingMessage} />
+        </Modal>
 
         {/* Filter Modals */}
         <SellerNameFilter
@@ -1953,6 +1891,17 @@ const GenerateQR = ({navigation}) => {
           }}
           joiners={joinerOptions}
         />
+
+        <LeafTrailFilter
+          isVisible={leafTrailModalVisible}
+          onClose={() => setLeafTrailModalVisible(false)}
+          onSelectStatus={handleLeafTrailStatusSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: null }));
+            setLeafTrailModalVisible(false);
+          }}
+          currentStatus={selectedFilters.leafTrailStatus}
+        />
       </SafeAreaView>
     );
   }
@@ -1992,7 +1941,9 @@ const GenerateQR = ({navigation}) => {
         {/* Submit Button */}
         <View style={styles.submitButtonContainer}>
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Generate QR Codes</Text>
+            <Text style={styles.submitButtonText}>
+              {`Generate QR Codes${qrCodeData.length > 0 ? ` (${qrCodeData.reduce((sum, page) => sum + (page.qrcodes?.length || 0), 0)})` : ''}`}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -2092,6 +2043,17 @@ const GenerateQR = ({navigation}) => {
           }}
           joiners={joinerOptions}
         />
+
+        <LeafTrailFilter
+          isVisible={leafTrailModalVisible}
+          onClose={() => setLeafTrailModalVisible(false)}
+          onSelectStatus={handleLeafTrailStatusSelect}
+          onReset={() => {
+            setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: null }));
+            setLeafTrailModalVisible(false);
+          }}
+          currentStatus={selectedFilters.leafTrailStatus}
+        />
       </SafeAreaView>
     );
   }
@@ -2131,7 +2093,9 @@ const GenerateQR = ({navigation}) => {
       <View style={styles.submitButtonContainer}>
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
           <Text style={styles.submitButtonText}>
-            {loading ? 'Loading...' : 'Generate QR Codes'}
+            {loading
+              ? 'Loading...'
+              : `Generate QR Codes${qrCodeData.length > 0 ? ` (${qrCodeData.reduce((sum, page) => sum + (page.qrcodes?.length || 0), 0)})` : ''}`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -2317,6 +2281,17 @@ const GenerateQR = ({navigation}) => {
           setJoinerModalVisible(false);
         }}
         joiners={joinerOptions}
+      />
+
+      <LeafTrailFilter
+        isVisible={leafTrailModalVisible}
+        onClose={() => setLeafTrailModalVisible(false)}
+        onSelectStatus={handleLeafTrailStatusSelect}
+        onReset={() => {
+          setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: null }));
+          setLeafTrailModalVisible(false);
+        }}
+        currentStatus={selectedFilters.leafTrailStatus}
       />
     </SafeAreaView>
   );
@@ -2790,41 +2765,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#647276',
     textAlign: 'center',
-  },
-  // Skeleton loader styles
-  skeletonItem: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 4,
-    paddingHorizontal: 4,
-    paddingBottom: 0,
-    gap: 4,
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    width: '100%',
-    height: '95%',
-    borderRadius: 4,
-  },
-  skeletonQR: {
-    width: 50,
-    height: 50,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-  },
-  skeletonLine: {
-    width: '80%',
-    height: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginTop: 2,
-  },
-  skeletonLineShort: {
-    width: '60%',
-    height: 6,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginTop: 2,
   },
 });
