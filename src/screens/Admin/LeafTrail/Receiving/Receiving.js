@@ -233,7 +233,7 @@ const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs, selecti
                         item={item} 
                         type="forReceiving"
                         selectionMode={selectionMode}
-                        isSelected={selectedItems.includes(item.id)}
+                        isSelected={(selectedItems || []).includes(item.id)}
                         onToggleSelect={onToggleSelect}
                     />
                 )}
@@ -275,7 +275,7 @@ const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
     />
 )};
 
-const InventoryForHubTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+const InventoryForHubTab = ({data, onFilterChange, adminFilters, openTagAs, selectionMode, selectedItems, onToggleSelect}) => {
     
     if (!(data?.data) || data.data.length === 0) {   
         return (
@@ -297,7 +297,16 @@ const InventoryForHubTab = ({data, onFilterChange, adminFilters, openTagAs}) => 
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="forInventoryHub" />}
+        renderItem={({ item }) => (
+            <PlantListItem 
+                openTagAs={openTagAs} 
+                item={item} 
+                type="forInventoryHub"
+                selectionMode={selectionMode}
+                isSelected={(selectedItems || []).includes(item.id)}
+                onToggleSelect={onToggleSelect}
+            />
+        )}
         ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
@@ -439,7 +448,15 @@ const ReceivingScreen = ({navigation}) => {
                     onToggleSelect={handleToggleSelect}
                 />;
             case 'inventoryForHub':
-                return <InventoryForHubTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.inventoryForHub || {}} adminFilters={adminFilters} />;
+                return <InventoryForHubTab 
+                    openTagAs={openTagAs} 
+                    onFilterChange={onFilterChange} 
+                    data={receivingData?.inventoryForHub || {}} 
+                    adminFilters={adminFilters}
+                    selectionMode={selectionMode}
+                    selectedItems={selectedItems}
+                    onToggleSelect={handleToggleSelect}
+                />;
             case 'received':
                 return <ReceivedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFilters} />;
             case 'missing':
@@ -722,7 +739,7 @@ const ReceivingScreen = ({navigation}) => {
                 </Modal>
                 <ScreenHeader 
                     navigation={navigation} 
-                    printButton={index === 0} 
+                    printButton={index === 0 || index === 1} 
                     onPrint={handlePrint} 
                     scarQr={!selectionMode} 
                     title={'Receiving of Plants'}
