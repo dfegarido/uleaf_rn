@@ -418,11 +418,19 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   }
 
   const handleSelectAll = () => {
-    if (selectedPlants.length === receivedPlantsData.length) {
+    let currentOrders = [];
+    if (index === 0) {
+      currentOrders = receivedPlantsData;
+    } else if (index === 2) {
+      currentOrders = sortedPlantsData;
+    } else if (index === 3) {
+      currentOrders = needsToStayPlantsData;
+    }
+    if (selectedPlants.length === currentOrders.length) {
       setSelectedPlants([]);
     } else {
       // Select all
-      setSelectedPlants(receivedPlantsData.map(p => p.id));
+      setSelectedPlants(currentOrders.map(p => p.id));
     }
     
   }
