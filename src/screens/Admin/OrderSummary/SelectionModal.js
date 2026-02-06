@@ -11,12 +11,12 @@ import {
   View,
 } from 'react-native';
 
-import BoxIcon from '../../../../assets/admin-icons/box-white.svg';
-import OptionsIcon from '../../../../assets/admin-icons/options.svg';
-import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
-import BackIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import CheckBox from '../../../../components/CheckBox/CheckBox';
-import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import BoxIcon from '../../../assets/admin-icons/box-white.svg';
+import OptionsIcon from '../../../assets/admin-icons/options.svg';
+import QuestionMarkTooltip from '../../../assets/admin-icons/question-mark.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import CheckBox from '../../../components/CheckBox/CheckBox';
+import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
 
 const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, generate }) => (
   <View style={styles.selectionHeader}>
@@ -40,6 +40,7 @@ const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, ge
 );
 
 const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
+
     const setTags = () => {
       openTagAs(plant?.packingData?.boxNumber || null, plant.id)
     }
@@ -48,7 +49,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
     <View style={styles.plantCardContainer}>
       <View style={styles.plantCard}>
         <View>
-          <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+          <Image source={{ uri: plant.imageUrl }} style={styles.plantImage} />
           <View style={styles.checkboxContainer}>
               <CheckBox
                   isChecked={isSelected}
@@ -79,7 +80,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
                 <Text style={styles.typeText}>{plant.listingType}</Text>
               </View>
             )}
-            <Text style={styles.quantity}>{plant.quantity}X</Text>
+            {/* <Text style={styles.quantity}>{plant.quantity}X</Text> */}
           </View>
         </View>
       </View>

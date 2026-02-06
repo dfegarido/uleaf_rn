@@ -98,7 +98,6 @@ const DeliveryDateTimeInput = ({ setIsDelayed, isDelayed, deliveryDate, setDeliv
                 mode="time"
                 onConfirm={handleTimeConfirm}
                 onCancel={hideTimePicker}
-                minimumDate={new Date()}
             />
 
             {/* add a checkbox here label is "Delayed UPS Delivery" */}

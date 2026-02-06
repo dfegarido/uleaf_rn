@@ -24,7 +24,7 @@ if (!__DEV__ && USE_LOCAL_API) {
 // Local development endpoints (Firebase Functions Emulator)
 // Loaded from .env file - each team member can configure their own IP address
 // Default fallback if .env is not configured
-const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL || 'http://localhost:5001/i-leaf-u/us-central1';
+const LOCAL_BASE_URL = 'http://localhost:5001/i-leaf-u/us-central1';
 
 // If LOCAL_BASE_URL is not set, log a warning
 if (__DEV__ && !ENV_LOCAL_BASE_URL) {
@@ -345,6 +345,7 @@ const generateEndpoints = () => ({
   ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
   ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
   UPDATE_PLANTS_TO_SORTED: `${getBaseUrl()}/updatePlantsToSorted`,
+  UPDATE_PLANTS_TO_NEEDS_TO_STAY: `${getBaseUrl()}/updatePlantsToNeedsToStay`,
   GET_ORDERS_BY_SORTING_TRAY: `${getBaseUrl()}/getOrdersBySortingTray`,
   GET_ORDERS_BY_BOX_NUMBER: `${getBaseUrl()}/getOrdersByBoxNumber`,
   GET_ORDERS_BY_TRACKING_NUMBER: `${getBaseUrl()}/getOrdersByTrackingNumber`,
