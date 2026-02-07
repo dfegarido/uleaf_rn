@@ -346,6 +346,16 @@ console.log('shippedData', shippedData);
                 </View>
               )}
 
+            {leafTrailHistory?.needsToStay?.hubNeedsToStayDate && 
+              (<View style={{display: 'flex', flexDirection: 'row'}}>
+                  <Text style={styles.leafTrailStatusLabel}>Held at the hub: </Text>
+                  <Text style={styles.leafTrailStatusText}>
+                    {moment(leafTrailHistory?.needsToStay?.hubNeedsToStayDate?._seconds ? 
+                    (leafTrailHistory.needsToStay.hubNeedsToStayDate._seconds * 1000) : leafTrailHistory.needsToStay.hubNeedsToStayDate).format('MMM DD, YYYY hh:mmA')}
+                  </Text>
+                </View>
+              )}
+
             {leafTrailHistory?.packed?.datePacked && 
               (<View style={{display: 'flex', flexDirection: 'row'}}>
                   <Text style={styles.leafTrailStatusLabel}>Packed at the hub: </Text>
