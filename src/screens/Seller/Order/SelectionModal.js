@@ -11,14 +11,14 @@ import {
   View,
 } from 'react-native';
 
-import BoxIcon from '../../../../assets/admin-icons/box-white.svg';
-import OptionsIcon from '../../../../assets/admin-icons/options.svg';
-import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
-import BackIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import CheckBox from '../../../../components/CheckBox/CheckBox';
-import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import BoxIcon from '../../../assets/admin-icons/box-white.svg';
+import OptionsIcon from '../../../assets/admin-icons/options.svg';
+import QuestionMarkTooltip from '../../../assets/admin-icons/question-mark.svg';
+import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import CheckBox from '../../../components/CheckBox/CheckBox';
+import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
 
-const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, sort, stay }) => (
+const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, generate }) => (
   <View style={styles.selectionHeader}>
     <View style={styles.controls}>
       <TouchableOpacity onPress={onBack}>
@@ -31,20 +31,16 @@ const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, so
       </View>
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
-      <TouchableOpacity style={styles.actionButton} onPress={sort}>
+      <TouchableOpacity style={styles.actionButton} onPress={generate}>
         <BoxIcon fill="#FFFFFF" />
-        <Text style={styles.actionText}>Tag as sorted</Text>
-      </TouchableOpacity>
-      <View style={{ width: 12 }} />
-      <TouchableOpacity style={styles.actionButton} onPress={stay}>
-        <BoxIcon fill="#FFFFFF" />
-        <Text style={styles.actionText}>Tag as Needs to Stay</Text>
+        <Text style={styles.actionText}>Send QR Codes via Email</Text>
       </TouchableOpacity>
     </ScrollView>
   </View>
 );
 
 const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
+
     const setTags = () => {
       openTagAs(plant?.packingData?.boxNumber || null, plant.id)
     }
@@ -53,7 +49,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
     <View style={styles.plantCardContainer}>
       <View style={styles.plantCard}>
         <View>
-          <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+          <Image source={{ uri: plant.imageUrl || plant.plantImage }} style={styles.plantImage} />
           <View style={styles.checkboxContainer}>
               <CheckBox
                   isChecked={isSelected}
@@ -71,8 +67,8 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
                 <QuestionMarkTooltip />
               </View>
               <View style={styles.countryContainer}>
-                <Text style={styles.countryText}>{plant.countryCode}</Text>
-                <CountryFlagIcon code={plant.countryCode} width={24} height={16} />
+                <Text style={styles.countryText}>{plant.countryCode || plant.country}</Text>
+                <CountryFlagIcon code={plant.countryCode || plant.country} width={24} height={16} />
               </View>
             </View>
             <Text style={styles.plantName}>{plant.genus} {plant.species}</Text>
@@ -84,7 +80,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
                 <Text style={styles.typeText}>{plant.listingType}</Text>
               </View>
             )}
-            <Text style={styles.quantity}>{plant.quantity}X</Text>
+            {/* <Text style={styles.quantity}>{plant.quantity}X</Text> */}
           </View>
         </View>
       </View>
@@ -99,8 +95,7 @@ const SelectionModal = ({
   onSelectPlant,
   onSelectAll,
   openTagAs,
-  sort,
-  stay,
+  generate,
 }) => {
   const isAllSelected = plants.length > 0 && selectedPlants.length === plants.length;
 
@@ -116,8 +111,7 @@ const SelectionModal = ({
           selectedCount={selectedPlants.length}
           onSelectAll={onSelectAll}
           isAllSelected={isAllSelected}
-          sort={sort}
-          stay={stay}
+          generate={generate}
         />
         <FlatList
           data={plants}

@@ -336,6 +336,35 @@ export const addSortingTrayNumber = async (data) => {
   }
 };
 
+export const updatePlantsToNeedsToStay = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(
+      API_ENDPOINTS.UPDATE_PLANTS_TO_NEEDS_TO_STAY,
+      {
+        method: 'POST', 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data)
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error('updatePlantsToSorted error:', error.message);
+    throw error; // optionally rethrow for use in UI
+  }
+};
+
 export const updatePlantsToSorted = async (data) => {
   try {
     const token = await getStoredAuthToken();

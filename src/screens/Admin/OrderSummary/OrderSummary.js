@@ -40,6 +40,8 @@ import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
 import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
+import CheckBox from '../../../components/CheckBox/CheckBox';
+import SelectionModal from './SelectionModal';
 
 // Skeleton component for pagination loading
 const SkeletonBox = ({ width, height, style }) => {
@@ -127,6 +129,8 @@ const OrderSummary = ({navigation}) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
   const searchInputRef = useRef(null);
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   
   // Filter states
   const [selectedFilters, setSelectedFilters] = useState({
@@ -345,8 +349,18 @@ const OrderSummary = ({navigation}) => {
       order._hubDebugLogged = true; // Prevent multiple logs
     }
 
+    const formatCamelCase = (camelCaseString) => {
+      if (!camelCaseString) return '';
+
+      const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
+
+      return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
+    }
+
     return {
       id: order.id,
+      leafTrailStatus: formatCamelCase(order.leafTrailStatus || '—'),
+      trackingNumber: order?.shippingData?.trackingNumber || '—',
       imageUrl: imageUrl,
       transactionNumber: (order.transactionNumber || '—').toString(),
       orderDate: safeFormatDate(order.orderDate || order.createdAt, order.orderDateFormatted || order.createdAtFormatted),
@@ -961,6 +975,8 @@ const OrderSummary = ({navigation}) => {
   useEffect(() => {
     setCurrentPage(1);
     fetchOrders(1);
+    setSelectedOrders([]);
+    setIsSelectionMode(false);
   }, [activeTab]);
 
   // Load orders when search term changes (with debounce)
@@ -1293,6 +1309,98 @@ const OrderSummary = ({navigation}) => {
         return selectedFilters.plantFlight !== null && selectedFilters.plantFlight.length > 0;
       default:
         return false;
+    }
+  };
+
+  const handleSelectOrder = (orderId) => {
+    const newSelection = selectedOrders.includes(orderId)
+      ? selectedOrders.filter(id => id !== orderId)
+      : [...selectedOrders, orderId];
+
+    setSelectedOrders(newSelection);
+
+    if (newSelection.length > 0 && !isSelectionMode) {
+      setIsSelectionMode(true);
+    } else if (newSelection.length === 0 && isSelectionMode) {
+      setIsSelectionMode(false);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map(o => o.id));
+    }
+  };
+
+  const generate = async () => {
+    try {        
+        setIsSelectionMode(false);
+        setLoading(true);
+        const token =  await getStoredAuthToken();
+        
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+
+        const queryParams = new URLSearchParams();
+        queryParams.append('orderIds', selectedOrders);
+        
+        const queryString = queryParams.toString();
+        const url = queryString ? `${API_ENDPOINTS.QR_GENERATOR}?${queryString}` : API_ENDPOINTS.QR_GENERATOR;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+              throw new Error('No QR codes available for email at this time.');
+            } else if (response.status === 401) {
+              throw new Error('Your session has expired. Please log in again.');
+            } else if (response.status === 403) {
+              throw new Error('You do not have permission to access QR codes.');
+            } else if (response.status === 500) {
+              throw new Error('Server error. Please try again later.');
+            } else {
+              throw new Error('Unable to send QR codes email. Please try again.');
+            }
+        }
+    
+        const data = await response.json();
+        
+        if (!data.success || data.error) {
+            if (data.error && data.error.includes('No orders found')) {
+              throw new Error('No QR codes available for email at this time.');
+            } else {
+              throw new Error(data.error || 'Unable to send QR codes email. Please try again.');
+            }
+        }
+    
+        Alert.alert('Success', 'QR codes PDF has been sent to your email address. Please check your inbox.');
+          
+    } catch (err) {
+        console.error('Error sending QR codes email:', err);
+        
+        let userFriendlyMessage;
+        
+        if (err.message.includes('No authentication token')) {
+            userFriendlyMessage = 'Please log in again to send QR codes email.';
+        } else if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
+            userFriendlyMessage = 'No internet connection. Please check your network and try again.';
+        } else {
+            userFriendlyMessage = err.message || 'Unable to send QR codes email. Please try again.';
+        }
+  
+        Alert.alert('Email Failed', userFriendlyMessage);
+    } finally {
+        setSelectedOrders([]);
+        setLoading(false);
     }
   };
 
@@ -1648,6 +1756,16 @@ const OrderSummary = ({navigation}) => {
                           <Text style={styles.placeholderText}>No Image</Text>
                         </View>
                       )}
+                      {activeTab === 'readyToFly' && (
+                        <View style={styles.checkboxContainer}>
+                          <CheckBox
+                            checked={selectedOrders.includes(order.id)}
+                            onToggle={() => handleSelectOrder(order.id)}
+                            containerStyle={{padding: 0, margin: 0}}
+                            checkedColor="#539461"
+                          />
+                        </View>
+                      )}
                     </View>
 
                     {/* Order Info */}
@@ -1658,6 +1776,12 @@ const OrderSummary = ({navigation}) => {
                         <Text style={styles.orderDate}>Flight Date: {order.plantFlight}</Text>
                         <Text style={styles.orderDate}>Hub Received: {order.hubReceivedDate}</Text>
                         <Text style={styles.orderDate}>Hub Packed: {order.hubPackedDate}</Text>
+                        {(activeTab === 'readyToFly' || activeTab === 'completed') && (
+                          <>
+                            <Text style={styles.orderDate}>Leaf Trail Status: {order.leafTrailStatus}</Text>
+                            <Text style={styles.orderDate}>UPS Tracking #: {order.trackingNumber}</Text>
+                          </>
+                        )}
                       </View>
                     </View>
 
@@ -1871,6 +1995,17 @@ const OrderSummary = ({navigation}) => {
         duration={3000}
         onHide={() => setToastVisible(false)}
       />
+
+      <SelectionModal
+        visible={isSelectionMode && activeTab === 'readyToFly'}
+        onClose={() => { setIsSelectionMode(false); setSelectedOrders([]); }}
+        plants={orders}
+        selectedPlants={selectedOrders}
+        onSelectPlant={handleSelectOrder}
+        onSelectAll={handleSelectAll}
+        openTagAs={() => {}}
+        generate={generate}
+      />
     </SafeAreaProvider>
   );
 };
@@ -2011,6 +2146,12 @@ const styles = StyleSheet.create({
     height: 116,
     borderRadius: 12,
     backgroundColor: '#F5F6F6',
+  },
+  checkboxContainer: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    zIndex: 10,
   },
   placeholderImage: {
     width: 116,

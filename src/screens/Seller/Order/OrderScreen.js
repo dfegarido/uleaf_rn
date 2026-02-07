@@ -8,7 +8,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Alert
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AvatarIcon from '../../../assets/images/avatar.svg';
@@ -27,6 +28,10 @@ import { getListingTypeApi, getSortApi } from '../../../components/Api';
 import { getOrderForReceiving } from '../../../components/Api/sellerOrderApi';
 import { InputSearch } from '../../../components/InputGroup/Left';
 import { retryAsync } from '../../../utils/utils';
+import CheckBox from '../../../components/CheckBox/CheckBox';
+import SelectionModal from './SelectionModal';
+import { API_ENDPOINTS } from '../../../config/apiConfig';
+import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 
 
 // Mock function for fetching data. Replace with your actual API call.
@@ -68,8 +73,8 @@ const TABS = {
   damaged: 'Damaged',
 };
 
-const PlantCard = React.memo(({ item, index, activeTab }) => {
-  console.log('activeTab', activeTab);
+const PlantCard = React.memo(({ item, index, activeTab, isSelected, onSelect }) => {
+  console.log('activeTab', item.leafTrailStatus);
   
   let leafTrailStatus = item.leafTrailStatus;
 
@@ -84,9 +89,24 @@ const PlantCard = React.memo(({ item, index, activeTab }) => {
 
     return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
   }
+
+  const showCheckbox = activeTab === 'forDelivery' || activeTab === 'inventoryForHub';
+
   return (
   <View style={styles.card}>
-    <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+    <View>
+      <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+      {showCheckbox && (
+        <View style={styles.checkboxContainer}>
+          <CheckBox
+            checked={isSelected}
+            onToggle={() => onSelect(item.id)}
+            containerStyle={{padding: 0, margin: 0}}
+            checkedColor="#539461"
+          />
+        </View>
+      )}
+    </View>
     <View style={styles.cardContent}>
       <Text style={styles.cardText}>{index + 1}.{activeTab === 'allOrders' && (
              <Text style={styles.bold}>{formatCamelCase(leafTrailStatus)}</Text>)}
@@ -116,6 +136,8 @@ const OrderScreen = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalCounts, setTotalCounts] = useState(0);
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   // Filter and search states
   const [search, setSearch] = useState('');
@@ -326,6 +348,8 @@ const OrderScreen = ({navigation}) => {
   // Fetch orders when tab or filters change
   useEffect(() => {
     applyFilters();
+    setSelectedOrders([]);
+    setIsSelectionMode(false);
   }, [activeTab]);
 
   const handleLoadMore = () => {
@@ -430,6 +454,97 @@ const OrderScreen = ({navigation}) => {
     </View>
   );
 
+  const handleSelectOrder = (orderId) => {
+    const newSelection = selectedOrders.includes(orderId)
+      ? selectedOrders.filter(id => id !== orderId)
+      : [...selectedOrders, orderId];
+
+    setSelectedOrders(newSelection);
+
+    if (newSelection.length > 0 && !isSelectionMode) {
+      setIsSelectionMode(true);
+    } else if (newSelection.length === 0 && isSelectionMode) {
+      setIsSelectionMode(false);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map(o => o.id));
+    }
+  };
+
+  const generate = async () => {
+    try {        
+        setIsSelectionMode(false);
+        setLoading(true);
+        const token =  await getStoredAuthToken();
+        
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+
+        const queryParams = new URLSearchParams();
+        queryParams.append('orderIds', selectedOrders);
+        
+        const queryString = queryParams.toString();
+        const url = queryString ? `${API_ENDPOINTS.QR_GENERATOR}?${queryString}` : API_ENDPOINTS.QR_GENERATOR;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+              throw new Error('No QR codes available for email at this time.');
+            } else if (response.status === 401) {
+              throw new Error('Your session has expired. Please log in again.');
+            } else if (response.status === 403) {
+              throw new Error('You do not have permission to access QR codes.');
+            } else if (response.status === 500) {
+              throw new Error('Server error. Please try again later.');
+            } else {
+              throw new Error('Unable to send QR codes email. Please try again.');
+            }
+        }
+    
+        const data = await response.json();
+        
+        if (!data.success || data.error) {
+            if (data.error && data.error.includes('No orders found')) {
+              throw new Error('No QR codes available for email at this time.');
+            } else {
+              throw new Error(data.error || 'Unable to send QR codes email. Please try again.');
+            }
+        }
+    
+        Alert.alert('Success', 'QR codes PDF has been sent to your email address. Please check your inbox.');
+          
+    } catch (err) {
+        console.error('Error sending QR codes email:', err);
+        
+        let userFriendlyMessage;
+        
+        if (err.message.includes('No authentication token')) {
+            userFriendlyMessage = 'Please log in again to send QR codes email.';
+        } else if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
+            userFriendlyMessage = 'No internet connection. Please check your network and try again.';
+        } else {
+            userFriendlyMessage = err.message || 'Unable to send QR codes email. Please try again.';
+        }
+  
+        Alert.alert('Email Failed', userFriendlyMessage);
+    } finally {
+        setSelectedOrders([]);
+        setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
             <View style={styles.stickyHeader}>
@@ -472,24 +587,30 @@ const OrderScreen = ({navigation}) => {
           </View>
         </View>
       </View>
+      {renderHeader()}
       {loading && orders.length === 0 ? (
         // Show skeleton loading for initial load
         <View style={styles.container}>
-          {renderHeader()}
           <SkeletonList count={5} />
         </View>
       ) : (
         <FlatList
           data={orders}
-          renderItem={({ item, index }) => <PlantCard item={item} index={index} activeTab={activeTab} />}
+          renderItem={({ item, index }) => (
+            <PlantCard 
+              item={item} 
+              index={index} 
+              activeTab={activeTab} 
+              isSelected={selectedOrders.includes(item.id)}
+              onSelect={handleSelectOrder}
+            />
+          )}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           contentContainerStyle={styles.listContentContainer}
-          stickyHeaderIndices={[0]} // Makes the header (including tabs) sticky
         />
       )}
       <OrderActionSheet
@@ -506,11 +627,35 @@ const OrderScreen = ({navigation}) => {
         handleSearchSubmitRange={handleSearchSubmitRange}
         handleResetDateRange={handleResetDateRange}
       />
+      <SelectionModal
+        visible={isSelectionMode && (activeTab === 'forDelivery' || activeTab === 'inventoryForHub')}
+        onClose={() => { setIsSelectionMode(false); setSelectedOrders([]); }}
+        plants={orders}
+        selectedPlants={selectedOrders}
+        onSelectPlant={handleSelectOrder}
+        onSelectAll={handleSelectAll}
+        openTagAs={() => {}}
+        generate={generate}
+      />
+
+      {loading && (
+                <Modal transparent animationType="fade">
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#699E73" />
+                  </View>
+                </Modal>
+              )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   image: {
     width: 45,
     height: 45,
@@ -651,7 +796,7 @@ header: {
   },
   plantImage: {
     width: 110,
-    height: '50%',
+    height: 110,
     borderRadius: 8,
     marginRight: 15,
   },
@@ -717,6 +862,12 @@ header: {
     marginTop: 50,
     fontSize: 16,
     color: '#888',
+  },
+  checkboxContainer: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    zIndex: 10,
   },
 });
 export default OrderScreen;

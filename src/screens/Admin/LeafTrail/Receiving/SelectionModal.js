@@ -18,7 +18,7 @@ import BackIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
-const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, sort, stay }) => (
+const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, generate }) => (
   <View style={styles.selectionHeader}>
     <View style={styles.controls}>
       <TouchableOpacity onPress={onBack}>
@@ -31,14 +31,9 @@ const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, so
       </View>
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
-      <TouchableOpacity style={styles.actionButton} onPress={sort}>
+      <TouchableOpacity style={styles.actionButton} onPress={generate}>
         <BoxIcon fill="#FFFFFF" />
-        <Text style={styles.actionText}>Tag as sorted</Text>
-      </TouchableOpacity>
-      <View style={{ width: 12 }} />
-      <TouchableOpacity style={styles.actionButton} onPress={stay}>
-        <BoxIcon fill="#FFFFFF" />
-        <Text style={styles.actionText}>Tag as Needs to Stay</Text>
+        <Text style={styles.actionText}>Send QR Codes via Email</Text>
       </TouchableOpacity>
     </ScrollView>
   </View>
@@ -99,8 +94,7 @@ const SelectionModal = ({
   onSelectPlant,
   onSelectAll,
   openTagAs,
-  sort,
-  stay,
+  generate,
 }) => {
   const isAllSelected = plants.length > 0 && selectedPlants.length === plants.length;
 
@@ -116,8 +110,7 @@ const SelectionModal = ({
           selectedCount={selectedPlants.length}
           onSelectAll={onSelectAll}
           isAllSelected={isAllSelected}
-          sort={sort}
-          stay={stay}
+          generate={generate}
         />
         <FlatList
           data={plants}

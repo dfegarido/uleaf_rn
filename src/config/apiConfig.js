@@ -348,6 +348,7 @@ const generateEndpoints = () => ({
   ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
   ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
   UPDATE_PLANTS_TO_SORTED: `${getBaseUrl()}/updatePlantsToSorted`,
+  UPDATE_PLANTS_TO_NEEDS_TO_STAY: `${getBaseUrl()}/updatePlantsToNeedsToStay`,
   GET_ORDERS_BY_SORTING_TRAY: `${getBaseUrl()}/getOrdersBySortingTray`,
   GET_ORDERS_BY_BOX_NUMBER: `${getBaseUrl()}/getOrdersByBoxNumber`,
   GET_ORDERS_BY_TRACKING_NUMBER: `${getBaseUrl()}/getOrdersByTrackingNumber`,
