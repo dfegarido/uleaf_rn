@@ -1,0 +1,54 @@
+<svg width="128" height="128" viewBox="0 0 128 128"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Circular arrows (true centered circle) -->
+  <circle cx="64" cy="64" r="44"
+          stroke="#4CAF50"
+          stroke-width="6"
+          fill="none"
+          stroke-linecap="round"
+          stroke-dasharray="220 40"/>
+
+  <!-- Arrow head -->
+  <path d="M100 38l12 6-12 6z"
+        fill="#4CAF50"
+        transform="rotate(20 100 38)"/>
+
+  <!-- Soil (centered horizontally) -->
+  <ellipse cx="64" cy="86" rx="20" ry="8" fill="#8D6E63"/>
+  <circle cx="56" cy="86" r="2" fill="#A1887F"/>
+  <circle cx="64" cy="90" r="2" fill="#A1887F"/>
+  <circle cx="72" cy="86" r="2" fill="#A1887F"/>
+
+  <!-- Stem (true center) -->
+  <rect x="61" y="56" width="6" height="30" rx="3" fill="#43A047"/>
+
+  <!-- Leaves (symmetrical Bézier curves) -->
+  <path d="M61 64
+           C48 64, 44 76, 44 76
+           C52 78, 58 74, 61 70Z"
+        fill="#66BB6A"/>
+
+  <path d="M67 64
+           C80 64, 84 76, 84 76
+           C76 78, 70 74, 67 70Z"
+        fill="#66BB6A"/>
+
+  <!-- Coin -->
+  <circle cx="64" cy="44" r="16" fill="#FFC107"/>
+  <circle cx="64" cy="44" r="13" fill="#FFD54F"/>
+
+  <!-- Accurate dollar sign -->
+  <path d="
+    M64 36
+    V52
+    M58 40
+    C58 36, 70 36, 70 40
+    C70 44, 58 44, 58 48
+    C58 52, 70 52, 70 48"
+    stroke="#F57F17"
+    stroke-width="2.5"
+    fill="none"
+    stroke-linecap="round"/>
+
+</svg>

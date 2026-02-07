@@ -196,6 +196,8 @@ const generateEndpoints = () => ({
   // QR Code APIs
   QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
   QR_GENERATOR_ORDERS: `${getBaseUrl()}/qrGenerator/orders`,
+  THERMAL_LABEL_GENERATOR: `${getBaseUrl()}/thermalLabelGenerator`,
+  EMAIL_THERMAL_LABELS: `${getBaseUrl()}/emailThermalLabels`,
   
   // Cart APIs
   ADD_TO_CART: `${getBaseUrl()}/addToCart`,
@@ -312,6 +314,7 @@ const generateEndpoints = () => ({
   // User related endpoints
   SEARCH_USER: `${getBaseUrl()}/searchUser`,
   UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
+  UPLOAD_CHAT_SHOP_PHOTO: `${getBaseUrl()}/uploadChatShopPhoto`,
   
   // Shipping Buddy endpoints
   SUBMIT_RECEIVER_REQUEST: `${getBaseUrl()}/submitReceiverRequest`,

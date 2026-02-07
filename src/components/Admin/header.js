@@ -10,6 +10,9 @@ import ScanQrIcon from '../../assets/admin-icons/qr.svg';
 import DownloadIcon from '../../assets/admin-icons/download.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import SearchIcon from '../../assets/icons/greylight/magnifying-glass-regular';
+import PrintIcon from '../../assets/icons/greylight/printer.svg';
+import CheckIcon from '../../assets/admin-icons/check.svg';
+import CloseIcon from '../../assets/admin-icons/x.svg';
 
 const ScreenHeader = ({
     navigation,
@@ -26,14 +29,22 @@ const ScreenHeader = ({
     downloadCsv=false,
     onDownloadCsv,
     downloadLoading=false,
+    printButton=false,
+    onPrint,
+    selectionMode=false,
+    onCancelSelection,
+    selectedCount=0,
+    onSelectAll,
+    totalItemsCount=0,
 }) => {
     return (
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-                <BackSolidIcon />
+            <TouchableOpacity onPress={selectionMode ? onCancelSelection : () => navigation.goBack()}>
+                {selectionMode ? <CloseIcon /> : <BackSolidIcon />}
             </TouchableOpacity>
 
-            {!searchActive && <Text style={styles.headerTitle}>{title}</Text>}
+            {!searchActive && !selectionMode && <Text style={styles.headerTitle}>{title}</Text>}
+            {selectionMode && <Text style={styles.headerTitle}>{selectedCount} selected</Text>}
 
             {searchActive && (
                 <TextInput
@@ -49,6 +60,26 @@ const ScreenHeader = ({
             )}
 
             <View style={styles.rightActions}>
+                {selectionMode && onSelectAll && (
+                    <TouchableOpacity 
+                        style={styles.selectAllButton} 
+                        onPress={onSelectAll}
+                    >
+                        <Text style={styles.selectAllText}>
+                            {selectedCount === totalItemsCount ? 'Deselect All' : 'Select All'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
+                {printButton && !searchActive && (
+                    <TouchableOpacity 
+                        style={styles.headerAction} 
+                        onPress={onPrint}
+                    >
+                        <PrintIcon />
+                    </TouchableOpacity>
+                )}
+
                 {downloadCsv && !searchActive && (
                     <TouchableOpacity 
                         style={[styles.headerAction, downloadLoading && styles.headerActionDisabled]} 
@@ -111,6 +142,18 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+    },
+    selectAllButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: '#F2F7F3',
+        borderRadius: 8,
+        marginRight: 4,
+    },
+    selectAllText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#23C16B',
     },
     headerAction: {
         width: 40,

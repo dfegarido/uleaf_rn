@@ -68,6 +68,10 @@ import SalesReport from '../../screens/Admin/SalesReport/SalesReport';
 import JourneyMishapDetail from '../../screens/Admin/SalesReport/JourneyMishapDetail';
 import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 import OrderSummary from '../../screens/Admin/OrderSummary/OrderSummary';
+import ChatShops from '../../screens/Admin/ChatShops/ChatShops';
+import LeafPointsManagement from '../../screens/Admin/LeafPoints/LeafPointsManagement';
+import PlantCreditsManagement from '../../screens/Admin/PlantCredits/PlantCreditsManagement';
+import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -255,6 +259,18 @@ function AdminTabs() {
       
       {/* Generate Invoice */}
       <Stack.Screen name="GenerateInvoice" options={{headerShown: false}} component={require('../../screens/Admin/Home/GenerateInvoice').default} />
+
+      {/* Chat Shops */}
+      <Stack.Screen name="ChatShops" options={{headerShown: false}} component={ChatShops} />
+      
+      {/* Leaf Points Management */}
+      <Stack.Screen name="LeafPointsManagement" options={{headerShown: false}} component={LeafPointsManagement} />
+      
+      {/* Plant Credits Management */}
+      <Stack.Screen name="PlantCreditsManagement" options={{headerShown: false}} component={PlantCreditsManagement} />
+      
+      {/* Plant Detail (shared with buyer) */}
+      <Stack.Screen name="ScreenPlantDetail" options={{headerShown: false}} component={ScreenPlantDetail} />
       
       {/* Taxonomy Screens */}
       <Stack.Screen name="AddTaxonomy" options={{headerShown: false}} component={AddTaxonomy} />

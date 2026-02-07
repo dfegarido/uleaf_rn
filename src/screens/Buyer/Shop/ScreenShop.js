@@ -46,6 +46,16 @@ import syngoniumImage from '../../../assets/buyer-icons/png/syngonium.jpg';
 
 import NetInfo from '@react-native-community/netinfo';
 import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore';
+import { db } from '../../../../firebase';
+import {
   addToCartApi,
   getBuyerEventsApi,
   getBuyerListingsApi,
@@ -141,6 +151,10 @@ const ScreenShop = ({navigation}) => {
   const [eventImageCache, setEventImageCache] = useState({});
   const [eventImageLoading, setEventImageLoading] = useState({});
   
+  // Chat Shops data state
+  const [chatShops, setChatShops] = useState([]);
+  const [loadingChatShops, setLoadingChatShops] = useState(true);
+  
   // (Removed) genus image cache state – no longer needed with static local images
   
   // Search state
@@ -193,6 +207,7 @@ const ScreenShop = ({navigation}) => {
           loadAcclimationIndexData(),
           loadBrowseGenusData(),
           loadEventsData(),
+          loadChatShops(),
         ]);
       } catch (error) {
       }
@@ -232,6 +247,7 @@ const ScreenShop = ({navigation}) => {
         loadAcclimationIndexData(),
         loadBrowseGenusData(),
         loadEventsData(),
+        loadChatShops(),
       ]);
       
       // Force BrowseMorePlants to reload by changing its key
@@ -650,6 +666,66 @@ const ScreenShop = ({navigation}) => {
         ...prev,
         [eventId]: true
       }));
+    }
+  };
+
+  // Load chat shops from Firestore
+  const loadChatShops = async () => {
+    try {
+      setLoadingChatShops(true);
+      
+      // Fetch chat shops for buyers only
+      const q = query(
+        collection(db, 'chatShops'),
+        where('userType', '==', 'buyer'),
+        orderBy('createdAt', 'asc')
+      );
+      const snapshot = await getDocs(q);
+      const shops = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      
+      console.log(`📱 Loaded ${shops.length} chat shops for buyer`);
+      setChatShops(shops);
+    } catch (error) {
+      console.error('Error loading chat shops:', error);
+      // Silent fail - chat shops are not critical
+      setChatShops([]);
+    } finally {
+      setLoadingChatShops(false);
+    }
+  };
+
+  // Handle chat shop press - navigate to linked group chat
+  const handleChatShopPress = async (shop) => {
+    try {
+      if (!shop.groupChatId) {
+        Alert.alert('Error', 'No group chat linked to this shop.');
+        return;
+      }
+
+      console.log('📱 Opening group chat from shop:', shop.groupChatId);
+
+      // Fetch the group chat data from Firestore
+      const chatDocRef = doc(db, 'chats', shop.groupChatId);
+      const chatDoc = await getDoc(chatDocRef);
+
+      if (!chatDoc.exists()) {
+        Alert.alert('Error', 'Group chat not found. It may have been deleted.');
+        return;
+      }
+
+      const chatData = chatDoc.data();
+      
+      // Navigate to ChatScreen with the full chat data
+      navigation.navigate('ChatScreen', {
+        id: shop.groupChatId,
+        ...chatData,
+      });
+    } catch (error) {
+      console.error('Error opening group chat:', error);
+      Alert.alert('Error', 'Failed to open group chat. Please try again.');
     }
   };
 
@@ -1163,6 +1239,80 @@ const ScreenShop = ({navigation}) => {
             onPress={onWholesalePress}
           />
         </View>
+        
+        {/* Chat Shops Section */}
+        {!loadingChatShops && chatShops.length > 0 && (
+          <>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: '#393D40',
+                marginTop: 10,
+              }}>
+              Chat Shops
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                flexDirection: 'row',
+                gap: 10,
+                alignItems: 'flex-start',
+                paddingHorizontal: 10,
+              }}
+              style={{flexGrow: 0}}>
+              {chatShops.map((shop, idx) => {
+                return (
+                  <TouchableOpacity
+                    key={shop.id || idx}
+                    style={{width: 275, position: 'relative'}}
+                    onPress={() => handleChatShopPress(shop)}
+                    activeOpacity={0.7}>
+                    {shop.photoUrl ? (
+                      <Image
+                        source={{ uri: shop.photoUrl }}
+                        style={{width: 260, height: 120, borderRadius: 16}}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={{
+                        width: 260,
+                        height: 120,
+                        borderRadius: 16,
+                        backgroundColor: '#F5F5F5',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#9AA4A8',
+                          fontWeight: '500',
+                        }}>
+                          No Image
+                        </Text>
+                      </View>
+                    )}
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '900',
+                        color: '#393D40',
+                        marginTop: 4,
+                        textAlign: 'left',
+                        paddingHorizontal: 5,
+                      }}>
+                      {shop.name || 'Chat Shop'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
+        
         <Text
           style={{
             fontSize: 20,
@@ -1170,6 +1320,7 @@ const ScreenShop = ({navigation}) => {
             paddingHorizontal: 12,
             paddingVertical: 10,
             color: '#393D40',
+            marginTop: 10,
           }}>
           Deals, Rewards & Latest News
         </Text>

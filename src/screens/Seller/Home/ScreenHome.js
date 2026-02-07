@@ -15,6 +15,16 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore';
+import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { CustomSalesChart } from '../../../components/Charts';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
@@ -109,6 +119,11 @@ const ScreenHome = ({navigation}) => {
         loadEventsData().catch(err => {
           console.log('Events failed to load (non-blocking):', err.message);
         });
+        
+        // Load chat shops independently
+        loadChatShops().catch(err => {
+          console.log('Chat shops failed to load (non-blocking):', err.message);
+        });
 
         // Load dashboard data in parallel (but events loads separately)
         await Promise.all([
@@ -153,6 +168,10 @@ const ScreenHome = ({navigation}) => {
   // Events - Independent loading state
   const [eventData, setEventData] = useState();
   const [eventsLoading, setEventsLoading] = useState(false);
+  
+  // Chat Shops state
+  const [chatShops, setChatShops] = useState([]);
+  const [loadingChatShops, setLoadingChatShops] = useState(true);
   const loadEventsData = async () => {
     try {
       setEventsLoading(true);
@@ -171,6 +190,115 @@ const ScreenHome = ({navigation}) => {
     }
   };
   // Events
+
+  // Load chat shops from Firestore
+  const loadChatShops = async () => {
+    try {
+      setLoadingChatShops(true);
+      
+      if (!userInfo?.uid) {
+        console.log('❌ No user ID available for chat shops');
+        setChatShops([]);
+        return;
+      }
+      
+      console.log('👤 Current seller UID:', userInfo.uid);
+      
+      // Fetch chat shops for suppliers only
+      const q = query(
+        collection(db, 'chatShops'),
+        where('userType', '==', 'supplier'),
+        orderBy('createdAt', 'asc')
+      );
+      const snapshot = await getDocs(q);
+      const allShops = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      
+      console.log(`📦 Found ${allShops.length} total supplier chat shops`);
+      
+      // Filter shops where seller is a member of the linked group chat
+      const filteredShops = [];
+      for (const shop of allShops) {
+        console.log(`\n🔍 Checking shop: "${shop.name}" (ID: ${shop.id})`);
+        console.log(`   Linked group chat ID: ${shop.groupChatId}`);
+        
+        if (!shop.groupChatId) {
+          console.log('   ⚠️  No group chat linked to this shop');
+          continue;
+        }
+        
+        try {
+          // Fetch the group chat to check membership
+          const chatDocRef = doc(db, 'chats', shop.groupChatId);
+          const chatDoc = await getDoc(chatDocRef);
+          
+          if (chatDoc.exists()) {
+            const chatData = chatDoc.data();
+            // Group chat members are stored in 'participantIds' field
+            const participantIds = chatData.participantIds || [];
+            
+            console.log(`   👥 Group chat members (${participantIds.length}):`, participantIds);
+            console.log(`   🔐 Is seller a member?`, participantIds.includes(userInfo.uid));
+            
+            // Check if current seller is in the participantIds array
+            if (participantIds.includes(userInfo.uid)) {
+              console.log(`   ✅ Shop "${shop.name}" is accessible`);
+              filteredShops.push(shop);
+            } else {
+              console.log(`   ❌ Seller not a member of this group chat`);
+            }
+          } else {
+            console.log(`   ⚠️  Group chat document not found`);
+          }
+        } catch (error) {
+          console.error(`   ❌ Error checking membership for shop ${shop.id}:`, error);
+        }
+      }
+      
+      console.log(`\n📱 Final result: ${filteredShops.length} accessible chat shops for seller (out of ${allShops.length} total)`);
+      setChatShops(filteredShops);
+    } catch (error) {
+      console.error('❌ Error loading chat shops:', error);
+      // Silent fail - chat shops are not critical
+      setChatShops([]);
+    } finally {
+      setLoadingChatShops(false);
+    }
+  };
+
+  // Handle chat shop press - navigate to linked group chat
+  const handleChatShopPress = async (shop) => {
+    try {
+      if (!shop.groupChatId) {
+        Alert.alert('Error', 'No group chat linked to this shop.');
+        return;
+      }
+
+      console.log('📱 Opening group chat from shop:', shop.groupChatId);
+
+      // Fetch the group chat data from Firestore
+      const chatDocRef = doc(db, 'chats', shop.groupChatId);
+      const chatDoc = await getDoc(chatDocRef);
+
+      if (!chatDoc.exists()) {
+        Alert.alert('Error', 'Group chat not found. It may have been deleted.');
+        return;
+      }
+
+      const chatData = chatDoc.data();
+      
+      // Navigate to ChatScreen with the full chat data
+      navigation.navigate('ChatScreen', {
+        id: shop.groupChatId,
+        ...chatData,
+      });
+    } catch (error) {
+      console.error('Error opening group chat:', error);
+      Alert.alert('Error', 'Failed to open group chat. Please try again.');
+    }
+  };
 
   // Sales Performance
   const [businessPerformanceTable, setBusinessPerformanceTable] = useState([]);
@@ -549,6 +677,71 @@ const ScreenHome = ({navigation}) => {
             )}
           </ScrollView>
           {/* Stats Cards */}
+
+          {/* Chat Shops Section */}
+          {!loadingChatShops && chatShops.length > 0 && (
+            <>
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    globalStyles.textMDGreyDark,
+                    globalStyles.textBold,
+                    {paddingBottom: 10},
+                  ]}>
+                  Chat Shops
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{flexGrow: 0}}
+                contentContainerStyle={{
+                  flexDirection: 'row',
+                  gap: 10,
+                  alignItems: 'flex-start',
+                }}>
+                {chatShops.map((shop, idx) => {
+                  return (
+                    <TouchableOpacity
+                      key={shop.id || idx}
+                      style={{width: 316}}
+                      onPress={() => handleChatShopPress(shop)}
+                      activeOpacity={0.7}>
+                      {shop.photoUrl ? (
+                        <Image
+                          source={{ uri: shop.photoUrl }}
+                          style={styles.banner}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.banner, {
+                          backgroundColor: '#F5F5F5',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }]}>
+                          <Text style={{
+                            fontSize: 14,
+                            color: '#9AA4A8',
+                            fontWeight: '500',
+                          }}>
+                            No Image
+                          </Text>
+                        </View>
+                      )}
+                      <Text
+                        style={[
+                          globalStyles.textSMGreyDark,
+                          globalStyles.textSemiBold,
+                          {paddingTop: 10},
+                        ]}>
+                        {shop.name || 'Chat Shop'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
 
           {/* News Section */}
           <View style={styles.section}>
