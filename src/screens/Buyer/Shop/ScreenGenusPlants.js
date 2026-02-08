@@ -777,49 +777,69 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for Unicorn badge - show ALL items over $2000 without limit
+      // Specific parameters for Unicorn badge - show ALL items over $2000
+      // Sort by finalPrice desc to prioritize expensive plants
       const unicornParams = {
         minPrice: 2000,
-        sortBy: 'createdAt',
+        limit: 500, // Increased limit to fetch more unicorn plants
+        offset: 0,
+        sortBy: 'finalPrice', // Sort by price to find expensive plants faster
         sortOrder: 'desc',
       };
 
-
+      console.log('🦄 Loading Unicorn plants with params:', unicornParams);
       const res = await retryAsync(() => getBuyerListingsApi(unicornParams), 3, 1000);
 
       if (!res?.success) {
         throw new Error(res?.error || 'Failed to load Unicorn plants');
       }
 
-
+      console.log('🦄 Received', res.data?.listings?.length || 0, 'listings from API');
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
         imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
+      // Log price information for debugging
+      if (rawPlants.length > 0) {
+        console.log('🦄 First few plants finalPrice:', rawPlants.slice(0, 5).map(p => ({
+          plantCode: p.plantCode,
+          finalPrice: p.finalPrice,
+          usdPrice: p.usdPrice,
+          originalPrice: p.originalPrice
+        })));
+      }
+      
       // Filter out plants with invalid data (same logic as other loading functions)
       const newPlants = rawPlants.filter(plant => {
         // Ensure plant has required fields and they are strings
         const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle =
-          (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
-          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-
-        const isValid = hasPlantCode && hasTitle;
+        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
+                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
+                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
+        
+        const isValid = hasPlantCode && hasTitle && hasSubtitle;
 
         if (!isValid) {
+          console.log('🦄 Filtered out invalid plant:', {
+            plantCode: plant?.plantCode,
+            hasPlantCode,
+            hasTitle,
+            hasSubtitle
+          });
         }
 
         return isValid;
       });
       
-      
+      console.log('🦄 Filtered to', newPlants.length, 'valid plants');
       setPlants(newPlants);
       setOffset(newPlants.length);
 
-      // For Unicorn category, load all items at once - no pagination needed
-      setHasMore(false);
+      // For Unicorn category, check if there are more results available
+      setHasMore(res.data?.hasNextPage || false);
       
 
     } catch (error) {
