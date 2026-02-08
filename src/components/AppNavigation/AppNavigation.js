@@ -987,9 +987,6 @@ const AppNavigation = () => {
     }
   }, [isLoggedIn]);
 
-  // NOTE: Do not return early here; keep hooks (useEffect) declared above this line
-  // to ensure hook call order remains stable across renders.
-
   // Determine navigation based on user type
   // Use context userInfo first, fallback to AsyncStorage userInfo
   const currentUserInfo = userInfo || asyncUserInfo;
@@ -998,6 +995,29 @@ const AppNavigation = () => {
   const userType = currentUserInfo?.user?.userType ?? null;
   const isBuyer = userType === 'buyer';
   const isAdmin = userType === 'admin' || userType === 'sub_admin';
+
+  // Create a stable navigation key that changes when login state or user type changes
+  // This forces NavigationContainer to remount when switching between auth and app navigators
+  const navKey = isLoggedIn && currentUserInfo 
+    ? `loggedIn_${userType || 'unknown'}` 
+    : 'loggedOut';
+  const shouldShowAuth = !isLoggedIn || fallbackTriggered;
+
+  // Log navigation state changes for debugging (must be before any early returns)
+  useEffect(() => {
+    console.log('🧭 [AppNavigation] State changed:', {
+      isLoggedIn,
+      userType,
+      isBuyer,
+      isAdmin,
+      hasUserInfo: !!currentUserInfo,
+      hasContextUserInfo: !!userInfo,
+      hasAsyncUserInfo: !!asyncUserInfo,
+      shouldShowAuth,
+      fallbackTriggered,
+      navKey
+    });
+  }, [isLoggedIn, userType, currentUserInfo, fallbackTriggered, navKey, userInfo, asyncUserInfo, isBuyer, isAdmin, shouldShowAuth]);
 
   // If we are logged in but userInfo hasn't loaded yet, show a loader instead of guessing navigation
   // Start a timeout fallback: if logged in but profile doesn't arrive in time, fall back to login
@@ -1034,7 +1054,7 @@ const AppNavigation = () => {
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [isLoggedIn, currentUserInfo, setIsLoggedIn, fallbackTriggered]);
+  }, [isLoggedIn, currentUserInfo, setIsLoggedIn, fallbackTriggered, setUserInfo]);
 
   // Render loading indicator while we're checking auth status initially
   if (isLoading) {
@@ -1048,6 +1068,7 @@ const AppNavigation = () => {
   // If we are logged in but userInfo hasn't loaded yet, show a loader instead of guessing navigation
   // But if fallback has triggered, go straight to login
   if (isLoggedIn && !currentUserInfo && !fallbackTriggered) {
+    console.log('⏳ [AppNavigation] Waiting for userInfo: isLoggedIn=', isLoggedIn, 'userInfo=', !!userInfo, 'asyncUserInfo=', !!asyncUserInfo);
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
         <ActivityIndicator size="large" />
@@ -1057,7 +1078,7 @@ const AppNavigation = () => {
 
   return (
     // <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={[]}>
-      <NavigationContainer key={isLoggedIn ? 'loggedIn' : 'loggedOut'}>
+      <NavigationContainer key={navKey}>
         {isLoggedIn && !fallbackTriggered ? (
           isBuyer ? (
             <BuyerTabNavigator />

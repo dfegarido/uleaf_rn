@@ -156,11 +156,16 @@ const ScreenLoginOtp = ({navigation}) => {
         
         // ✅ Fetch and store user profile info BEFORE setting isLoggedIn
         // This ensures AppNavigation has userInfo when it checks auth state
+        let profileData = null;
         try {
           const profile = await getProfileInfoApi();
           if (profile?.success) {
+            profileData = profile;
+            // Set userInfo in context FIRST - use a callback to ensure it's set
             setUserInfo(profile);
+            // Then save to AsyncStorage
             await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
+            console.log('✅ userInfo set in context and AsyncStorage');
 
             // Extract and store profile photo
             const profilePhotoUrl = profile?.data?.profilePhotoUrl || 
@@ -183,7 +188,7 @@ const ScreenLoginOtp = ({navigation}) => {
 
             // Log user type for debugging
             console.log('✅ User type detected:', profile?.user?.userType);
-            console.log('✅ Profile loaded successfully, setting isLoggedIn to true');
+            console.log('✅ Profile loaded successfully');
           } else {
             console.warn('⚠️ Profile fetch returned unsuccessful response:', profile);
             // Still set isLoggedIn even if profile fetch fails
@@ -195,25 +200,29 @@ const ScreenLoginOtp = ({navigation}) => {
           // But log the error for debugging
         }
         
-        // Set isLoggedIn AFTER profile is fetched (or attempted)
-        // This ensures AppNavigation has userInfo when checking auth state
-        // The NavigationContainer key={isLoggedIn ? 'loggedIn' : 'loggedOut'} in AppNavigation
-        // will force a complete remount when isLoggedIn changes, switching from AuthStack
-        // to the appropriate navigator (BuyerTabNavigator, AdminTabNavigator, or MainStack)
+        // Clear loading state BEFORE setting isLoggedIn to ensure screen is ready for navigation
+        setLoading(false);
+        
+        // Ensure userInfo is available before setting isLoggedIn
+        // If profile fetch failed, AppNavigation will show loading and handle fallback
+        if (!profileData) {
+          console.warn('⚠️ No profile data available, but proceeding with login');
+        }
+        
+        // Set isLoggedIn AFTER profile is fetched, userInfo is set, and loading is cleared
+        // Use a small delay to ensure React processes the setUserInfo update first
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
         console.log('🔄 Setting isLoggedIn to true...');
         setIsLoggedIn(true);
         console.log('✅ setIsLoggedIn(true) called - NavigationContainer should remount with new key');
         
-        // Force a state update by accessing the navigation state
-        // This ensures React processes the context update and AppNavigation re-renders
-        // The NavigationContainer key change will handle the actual navigation switch
-        setTimeout(() => {
-          console.log('🔄 Checking if navigation state updated...');
-          // Just trigger a re-render check - NavigationContainer key should handle navigation
-        }, 50);
+        // Additional delay to ensure NavigationContainer remounts and navigation switches
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     } catch (error) {
       console.error('OTP verification error:', error);
+      setLoading(false);
       // Only show error alert if not a test user (test user skips OTP)
       if (!isTestUser) {
         Alert.alert(
@@ -222,8 +231,6 @@ const ScreenLoginOtp = ({navigation}) => {
           [{text: 'OK'}]
         );
       }
-    } finally {
-      setLoading(false);
     }
   };
 
