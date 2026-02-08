@@ -816,10 +816,10 @@ const ScreenGenusPlants = ({navigation, route}) => {
         // Ensure plant has required fields and they are strings
         const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
         const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
+          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
         const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
                            (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
+
         const isValid = hasPlantCode && hasTitle && hasSubtitle;
 
         if (!isValid) {
