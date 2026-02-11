@@ -706,11 +706,11 @@ export const useCheckoutController = (props) => {
       //   - Discount codes (need to subtract)
       //   - User credits/points (leafPoints, plantCredits, shippingCredits - need to subtract here)
       // This is to avoid double deduction (backend + frontend)
-      // Ensure the result is never negative (minimum $1)
-      finalTotal = Math.max(1, backendFinalTotal - codeDiscount - totalCreditsDeduction);
+      // Allow negative totals to show accurate remaining balance
+      finalTotal = backendFinalTotal - codeDiscount - totalCreditsDeduction;
     } else {
       // Fallback: Calculate from components: subtotal + shipping - all discounts - credits
-      finalTotal = Math.max(1, subtotal + shippingTotal - totalDiscount - totalCreditsDeduction);
+      finalTotal = subtotal + shippingTotal - totalDiscount - totalCreditsDeduction;
     }
     
     // Debug logging for shipping calculation matching
