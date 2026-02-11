@@ -11,8 +11,6 @@ import styles from './styles/CheckoutBarStyles';
 const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightDateIso, onCheckoutPress, vaultedPaymentId, vaultedPaymentUsername}) => {
   const isBelowMinimum = total < 1;
   const isDisabled = loading || !selectedFlightDateIso || isBelowMinimum;
-  // Calculate how much more is needed: if total is negative, show absolute value; otherwise show difference from $1
-  const remainingAmount = total < 0 ? Math.abs(total).toFixed(2) : (1 - total).toFixed(2);
   // Display total: if less than $1 (including negative), always show $0.00
   const displayTotal = total < 1 ? 0 : total;
 
@@ -31,13 +29,11 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
 
   return (
     <View style={styles.checkoutBar}>
-      {/* Minimum order warning */}
-      {isBelowMinimum && (
+      {/* Minimum order warning - only show if flight date is selected */}
+      {isBelowMinimum && selectedFlightDateIso && (
         <View style={styles.warningContainer}>
           <Text style={styles.warningText}>
             Sorry, a minimum purchase of $1 is required to process payment. Please add more plants to your order.
-            {'\n\n'}
-            Remaining balance needed: ${remainingAmount}
           </Text>
         </View>
       )}
