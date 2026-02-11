@@ -207,8 +207,7 @@ const ScreenHome = ({navigation}) => {
       // Fetch chat shops for suppliers only
       const q = query(
         collection(db, 'chatShops'),
-        where('userType', '==', 'supplier'),
-        orderBy('createdAt', 'asc')
+        where('userType', '==', 'supplier')
       );
       const snapshot = await getDocs(q);
       const allShops = snapshot.docs.map(doc => ({
@@ -216,11 +215,25 @@ const ScreenHome = ({navigation}) => {
         ...doc.data(),
       }));
       
-      console.log(`📦 Found ${allShops.length} total supplier chat shops`);
+      // Sort all shops by priority before filtering
+      const sortedAllShops = allShops.sort((a, b) => {
+        const aPriority = a.priority ?? 999; // No priority = 999 (bottom)
+        const bPriority = b.priority ?? 999;
+        
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+        
+        const aTime = a.createdAt?.toDate?.() || new Date(0);
+        const bTime = b.createdAt?.toDate?.() || new Date(0);
+        return aTime - bTime;
+      });
+      
+      console.log(`📦 Found ${sortedAllShops.length} total supplier chat shops (sorted by priority)`);
       
       // Filter shops where seller is a member of the linked group chat
       const filteredShops = [];
-      for (const shop of allShops) {
+      for (const shop of sortedAllShops) {
         console.log(`\n🔍 Checking shop: "${shop.name}" (ID: ${shop.id})`);
         console.log(`   Linked group chat ID: ${shop.groupChatId}`);
         
@@ -257,7 +270,7 @@ const ScreenHome = ({navigation}) => {
         }
       }
       
-      console.log(`\n📱 Final result: ${filteredShops.length} accessible chat shops for seller (out of ${allShops.length} total)`);
+      console.log(`\n📱 Final result: ${filteredShops.length} accessible chat shops for seller (out of ${sortedAllShops.length} total)`);
       setChatShops(filteredShops);
     } catch (error) {
       console.error('❌ Error loading chat shops:', error);

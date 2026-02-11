@@ -677,8 +677,7 @@ const ScreenShop = ({navigation}) => {
       // Fetch chat shops for buyers only
       const q = query(
         collection(db, 'chatShops'),
-        where('userType', '==', 'buyer'),
-        orderBy('createdAt', 'asc')
+        where('userType', '==', 'buyer')
       );
       const snapshot = await getDocs(q);
       const shops = snapshot.docs.map(doc => ({
@@ -686,8 +685,24 @@ const ScreenShop = ({navigation}) => {
         ...doc.data(),
       }));
       
-      console.log(`📱 Loaded ${shops.length} chat shops for buyer`);
-      setChatShops(shops);
+      // Sort in-memory by priority (ascending), then by createdAt
+      // Shops without priority go to the bottom
+      const sortedShops = shops.sort((a, b) => {
+        const aPriority = a.priority ?? 999; // No priority = 999 (bottom)
+        const bPriority = b.priority ?? 999;
+        
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority; // Lower priority number = higher position
+        }
+        
+        // If same priority, sort by createdAt
+        const aTime = a.createdAt?.toDate?.() || new Date(0);
+        const bTime = b.createdAt?.toDate?.() || new Date(0);
+        return aTime - bTime;
+      });
+      
+      console.log(`📱 Loaded ${sortedShops.length} chat shops for buyer (sorted by priority)`);
+      setChatShops(sortedShops);
     } catch (error) {
       console.error('Error loading chat shops:', error);
       // Silent fail - chat shops are not critical

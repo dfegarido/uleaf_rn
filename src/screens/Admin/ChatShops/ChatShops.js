@@ -102,6 +102,7 @@ export default function ChatShops({ navigation }) {
   const [shopPhoto, setShopPhoto] = useState(null); // { uri, fileName, type }
   const [selectedGroupChat, setSelectedGroupChat] = useState(null);
   const [userType, setUserType] = useState('buyer'); // 'buyer' or 'supplier'
+  const [priority, setPriority] = useState('1'); // Priority number for sorting
   const [groupChats, setGroupChats] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showGroupChatPicker, setShowGroupChatPicker] = useState(false);
@@ -109,10 +110,27 @@ export default function ChatShops({ navigation }) {
   const fetchChatShops = useCallback(async () => {
     try {
       setLoading(true);
-      const q = query(collection(db, 'chatShops'), orderBy('createdAt', 'asc'));
-      const snapshot = await getDocs(q);
+      // Fetch all chat shops without orderBy to avoid index issues
+      const snapshot = await getDocs(collection(db, 'chatShops'));
       const shops = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setChatShops(shops);
+      
+      // Sort in-memory: by priority (ascending), then by createdAt
+      // Shops without priority go to the bottom
+      const sortedShops = shops.sort((a, b) => {
+        const aPriority = a.priority ?? 999; // No priority = 999 (bottom)
+        const bPriority = b.priority ?? 999;
+        
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority; // Lower priority number = higher position
+        }
+        
+        // If same priority, sort by createdAt
+        const aTime = a.createdAt?.toDate?.() || new Date(0);
+        const bTime = b.createdAt?.toDate?.() || new Date(0);
+        return aTime - bTime;
+      });
+      
+      setChatShops(sortedShops);
     } catch (error) {
       console.error('Error fetching chat shops:', error);
     } finally {
@@ -187,6 +205,7 @@ export default function ChatShops({ navigation }) {
     setShopPhoto(null);
     setSelectedGroupChat(null);
     setUserType('buyer'); // Default to buyer
+    setPriority('1'); // Default priority
     setModalVisible(true);
   };
 
@@ -198,6 +217,7 @@ export default function ChatShops({ navigation }) {
       groupChats.find(gc => gc.id === shop.groupChatId) || null
     );
     setUserType(shop.userType || 'buyer'); // Load existing userType or default to buyer
+    setPriority(String(shop.priority || 1)); // Load existing priority or default to 1
     setModalVisible(true);
   };
 
@@ -208,6 +228,7 @@ export default function ChatShops({ navigation }) {
     setShopPhoto(null);
     setSelectedGroupChat(null);
     setUserType('buyer');
+    setPriority('1');
     setShowGroupChatPicker(false);
   };
 
@@ -262,6 +283,11 @@ export default function ChatShops({ navigation }) {
       Alert.alert('Error', 'Please select a group chat.');
       return;
     }
+    const priorityNum = parseInt(priority);
+    if (!priority.trim() || isNaN(priorityNum) || priorityNum < 1 || priorityNum > 99) {
+      Alert.alert('Error', 'Please enter a valid priority number (1-99).');
+      return;
+    }
 
     try {
       setUploading(true);
@@ -279,6 +305,7 @@ export default function ChatShops({ navigation }) {
         groupChatId: selectedGroupChat.id,
         groupChatName: selectedGroupChat.name,
         userType: userType, // 'buyer' or 'supplier'
+        priority: parseInt(priority) || 1, // Priority for sorting
         updatedAt: new Date(),
       };
 
@@ -364,6 +391,11 @@ export default function ChatShops({ navigation }) {
         onPress={() => handleShopPress(item)}
         activeOpacity={0.7}
       >
+        {/* Priority Badge */}
+        <View style={styles.priorityBadge}>
+          <Text style={styles.priorityText}>{item.priority || 1}</Text>
+        </View>
+        
         {item.photoUrl ? (
           <Image source={{ uri: item.photoUrl }} style={styles.shopImage} />
         ) : (
@@ -552,6 +584,23 @@ export default function ChatShops({ navigation }) {
                 </TouchableOpacity>
               </View>
 
+              {/* Priority Number */}
+              <Text style={[styles.label, { marginTop: 16 }]}>
+                Priority Number <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                value={priority}
+                onChangeText={setPriority}
+                placeholder="Enter priority (1-99)"
+                placeholderTextColor="#9AA4A8"
+                style={styles.input}
+                keyboardType="numeric"
+                maxLength={2}
+              />
+              <Text style={styles.helperText}>
+                Lower numbers appear first. Use 1 for highest priority.
+              </Text>
+
               <View style={styles.modalFooter}>
                 <TouchableOpacity
                   style={styles.cancelBtn}
@@ -686,6 +735,31 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
+    position: 'relative',
+  },
+  priorityBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: '#2E7D32',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  priorityText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   shopImage: {
     width: 60,
@@ -824,6 +898,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: '#202325',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#6B777B',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   photoPickerBtn: {
     height: 120,
