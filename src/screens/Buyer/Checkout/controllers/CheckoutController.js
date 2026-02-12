@@ -2283,9 +2283,11 @@ export const useCheckoutController = (props) => {
                      (typeof item.unitPrice === 'number' ? item.unitPrice : 
                      (parseFloat(item.price) || parseFloat(item.unitPrice) || 0));
 
-        // Get seller code
+        // Get seller code (supplier UID)
         const sellerCode = item.sellerCode || 
+                          item.supplierUid || 
                           item.listingDetails?.sellerCode || 
+                          item.listingDetails?.supplierId || 
                           '';
 
         // Get listingId - try multiple sources

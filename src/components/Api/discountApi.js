@@ -371,7 +371,7 @@ export const validateDiscountCodeApi = async (code, cartItems, buyerId) => {
         country: item.country || item.plantSourceCountry,
         genus: item.genus,
         species: item.species || '', // Include species field for discount validation
-        sellerCode: item.sellerCode,
+        sellerCode: item.sellerCode || item.supplierUid || item.listingDetails?.supplierId || '', // Map supplier ID to sellerCode
       })),
       ...(buyerId && { buyerId }),
     };
