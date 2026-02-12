@@ -316,8 +316,10 @@ const BuyXGetY = () => {
               const sellerName = `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim();
               const sellerUsername = supplier.email || supplier.username || '';
               const sellerAvatar = supplier.profileImage || supplier.avatar || '';
+              const sellerId = supplier.uid || supplier.id || supplier.userId;
               
               gardenMap.set(normalizedName, {
+                id: sellerId,
                 name: String(gardenName),
                 sellerName: sellerName || 'Unknown Seller',
                 sellerUsername: sellerUsername,
@@ -336,17 +338,19 @@ const BuyXGetY = () => {
             
             const existing = gardenMap.get(normalizedName);
             const sellerAvatar = supplier.profileImage || supplier.avatar || '';
+            const sellerId = supplier.uid || supplier.id || supplier.userId;
             
-            // Update if we have a profile image but existing doesn't
-            if (sellerAvatar && !existing.sellerAvatar) {
+            // Update if we have a profile image but existing doesn't, or if we have an ID but existing doesn't
+            if ((sellerAvatar && !existing.sellerAvatar) || (sellerId && !existing.id)) {
               const sellerName = `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim();
               const sellerUsername = supplier.email || supplier.username || '';
               
               gardenMap.set(normalizedName, {
                 ...existing,
+                id: sellerId || existing.id,
                 sellerName: sellerName || existing.sellerName || 'Unknown Seller',
                 sellerUsername: sellerUsername || existing.sellerUsername,
-                sellerAvatar: sellerAvatar,
+                sellerAvatar: sellerAvatar || existing.sellerAvatar,
               });
             }
           });
@@ -825,20 +829,22 @@ const BuyXGetY = () => {
         )}
         {!!selectedGardens.length && appliesText === 'Specific garden' && (
           <View style={styles.appliesListWrap}>
-            {selectedGardens.map((garden, idx) => (
-              <View key={`${garden.name}-${idx}`} style={[styles.appliesCard, selectedGardens.length > 1 && idx < selectedGardens.length - 1 && {marginBottom: 8}]}>
+            {selectedGardens.map((garden, idx) => {
+              const displayName = garden?.name || 'Unknown Garden';
+              return (
+              <View key={`${displayName}-${idx}`} style={[styles.appliesCard, selectedGardens.length > 1 && idx < selectedGardens.length - 1 && {marginBottom: 8}]}>
                 <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                   {garden.sellerAvatar ? (
                     <Image source={{uri: garden.sellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
                   ) : (
                     <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
                       <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
-                        {(garden.sellerName || garden.name || 'U').charAt(0).toUpperCase()}
+                        {(garden.sellerName || displayName || 'U').charAt(0).toUpperCase()}
                       </Text>
                     </View>
                   )}
                   <View style={{flex: 1}}>
-                    <Text style={styles.appliesCardText}>{garden.name}</Text>
+                    <Text style={styles.appliesCardText}>{displayName}</Text>
                     {garden.sellerName && (
                       <Text style={{fontFamily: 'Inter', fontWeight: '500', fontSize: 14, lineHeight: 20, color: '#647276', marginTop: 2}}>{garden.sellerName}</Text>
                     )}
@@ -850,7 +856,8 @@ const BuyXGetY = () => {
                   </Svg>
                 </TouchableOpacity>
               </View>
-            ))}
+            );
+            })}
           </View>
         )}
         {!!selectedCountries.length && appliesText === 'Specific country' && (
@@ -1368,7 +1375,11 @@ const BuyXGetY = () => {
                   selectedGardens,
                   selectedListings: selectedListings.map(l => l.id),
                   eligibility,
-                  minRequirement,
+                  minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
+                    ? `Minimum purchase amount of $${minPurchaseAmount}` 
+                    : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                    ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                    : minRequirement,
                   limitTotalEnabled,
                   limitPerCustomerEnabled,
                   maxUsesTotal: limitTotalEnabled ? maxUsesTotal : undefined,
