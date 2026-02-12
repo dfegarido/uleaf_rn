@@ -80,6 +80,11 @@ export const useCheckoutController = (props) => {
   const [transactionNum, setTransactionNum] = useState(null);
   const [discountCode, setDiscountCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState({ amount: 0, discountId: null, code: null, discountDetails: null });
+  
+  // Handler to force uppercase discount code as user types
+  const handleDiscountCodeChange = (text) => {
+    setDiscountCode(text.toUpperCase());
+  };
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
       street: '123 Main St',
@@ -2760,7 +2765,7 @@ export const useCheckoutController = (props) => {
     handleCheckout,
     navigateBack,
     discountCode,
-    setDiscountCode,
+    setDiscountCode: handleDiscountCodeChange,
     handleApplyDiscount,
     
     // Joiner state
