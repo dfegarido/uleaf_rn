@@ -11,6 +11,7 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { getBuyerOrdersApi, exportBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
+import { filterByPlantOwner, isReadyToFly, getBuyerUid } from '../../../utils/buyerOrderFiltering';
 
 const READY_TO_FLY_LIMIT = 4;
 
@@ -249,20 +250,29 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     return flagMap[countryCode] || IndonesiaFlag;
   };
 
-  // Apply plant owner filter
+  // Apply plant owner filter using centralized filtering utility
   const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
-    if (!filter || filter === null) {
-      setOrders(ordersToFilter);
-      return;
-    }
-
-    // Filter by buyerUid
-    const filtered = ordersToFilter.filter(order => {
-      const orderBuyerUid = order.buyerUid || order._rawPlantRecord?.buyerUid || order.fullOrderData?.buyerUid;
-      return orderBuyerUid === filter;
+    // Use centralized filtering utility
+    const filtered = filterByPlantOwner(ordersToFilter, filter);
+    
+    // Additional frontend validation: ensure orders pass Ready to Fly criteria
+    // (Backend already filters, but this provides extra safety)
+    const validatedOrders = filtered.filter(order => {
+      // Convert component format back to order format for validation
+      const orderForValidation = {
+        status: order.status || order._rawPlantRecord?.order?.status,
+        leafTrailStatus: order._rawPlantRecord?.order?.leafTrailStatus || order._rawPlantRecord?.leafTrailStatus,
+        flightDate: order._rawPlantRecord?.flightDate || order._rawPlantRecord?.order?.flightDate,
+        buyerUid: order.buyerUid || order._rawPlantRecord?.buyerUid,
+      };
+      
+      // Validate order passes Ready to Fly criteria
+      return isReadyToFly(orderForValidation);
     });
     
-    setOrders(filtered);
+    console.log(`🔍 [ScreenReadyToFly] Filtered orders: ${ordersToFilter.length} → ${filtered.length} (plant owner) → ${validatedOrders.length} (validated)`);
+    
+    setOrders(validatedOrders);
   }, []);
 
   // Apply filter when plantOwnerFilter prop changes
