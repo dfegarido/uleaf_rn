@@ -72,6 +72,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [stickyNoteText, setStickyNoteText] = useState('');
 
   const currentUserInfo = userInfo || asyncUserInfo;
+  const [sellerProfile, setSellerProfile] = useState(null); // Cached seller profile from Firestore
   const [isMuted, setIsMuted] = useState(false);
   const [channelName, setChannelName] = useState(null);
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
@@ -89,6 +90,28 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       KeepAwake.activate();
       return () => KeepAwake.deactivate();
   }, [joined]);
+
+  // Fetch seller profile from Firestore if currentUserInfo is missing profile fields
+  useEffect(() => {
+    const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+    if (!userId) return;
+    // If gardenOrCompanyName already exists at root, no need to fetch
+    if (currentUserInfo?.gardenOrCompanyName) {
+      setSellerProfile({ gardenOrCompanyName: currentUserInfo.gardenOrCompanyName, profileImage: currentUserInfo.profileImage });
+      return;
+    }
+    // Fetch from supplier collection
+    const supplierDocRef = doc(db, 'supplier', userId);
+    getDoc(supplierDocRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        // #region agent log
+        console.log('DEBUG_SELLER_PROFILE', JSON.stringify({ gardenOrCompanyName: data.gardenOrCompanyName, profileImage: data.profileImage, firstName: data.firstName }));
+        // #endregion
+        setSellerProfile({ gardenOrCompanyName: data.gardenOrCompanyName, profileImage: data.profileImage, firstName: data.firstName, lastName: data.lastName });
+      }
+    }).catch((err) => console.error('Error fetching seller profile:', err));
+  }, [currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
 
   const updateLiveStatus = async (newStatus) => {
     setIsLoading(true);
@@ -353,19 +376,45 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const handleSendComment = async () => {
     const commentToSend = newComment;
     if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
+    
+    // Extract uid properly (handles nested structure for suppliers)
+    const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+    if (!userId) {
+      console.error('Error sending comment: uid not found in currentUserInfo');
+      return;
+    }
+    
+    // Extract name properly (handles nested structure)
+    const userName = currentUserInfo?.gardenOrCompanyName || 
+                     currentUserInfo?.user?.gardenOrCompanyName || 
+                     currentUserInfo?.username || 
+                     currentUserInfo?.user?.username ||
+                     (currentUserInfo?.firstName ? `${currentUserInfo.firstName} ${currentUserInfo?.lastName || ''}`.trim() : null) ||
+                     (currentUserInfo?.user?.firstName ? `${currentUserInfo.user.firstName} ${currentUserInfo?.user?.lastName || ''}`.trim() : null) ||
+                     'Anonymous';
+    
+    // Extract avatar properly
+    const userAvatar = currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`;
+    
+    // #region agent log
+    console.log('DEBUG_SELLER_COMMENT', JSON.stringify({userId, userName, userAvatar, keys: Object.keys(currentUserInfo || {}), gardenOrCompanyName: currentUserInfo?.gardenOrCompanyName, profileImage: currentUserInfo?.profileImage, userKeys: Object.keys(currentUserInfo?.user || {})}));
+    // #endregion
+    
     setNewComment(''); // Clear input after sending
 
     try {
       const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
-      
       await addDoc(commentsCollectionRef, {
         message: commentToSend,
-        name: `${currentUserInfo.gardenOrCompanyName}`,
-        avatar: currentUserInfo?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
-        uid: currentUserInfo.uid,
+        name: userName,
+        avatar: userAvatar,
+        uid: userId,
         createdAt: serverTimestamp(),
       });
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LiveBroadcastScreen.js:handleSendComment:catch',message:'Error sending seller comment',data:{error:error.message},timestamp:Date.now(),hypothesisId:'seller-comment'})}).catch(()=>{});
+      // #endregion
       console.error('Error sending comment:', error);
     }
   };
@@ -418,13 +467,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
  //get active listing
   useEffect(() => {
-      if (!sessionId) return;
+      // Extract uid properly (handles nested structure for suppliers)
+      const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+      
+      if (!sessionId || !userId) return;
 
       const listingsCollectionRef = collection(db, 'listing');
       const q = query(
         listingsCollectionRef,
         where('isActiveLiveListing', '==', true),
-        where('sellerCode', '==', currentUserInfo.uid)
+        where('sellerCode', '==', userId)
       );
   
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -439,7 +491,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       });
   
       return () => unsubscribe();
-  }, [sessionId]);
+  }, [sessionId, currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
 
   // Effect to fetch order for the active listing
   useEffect(() => {

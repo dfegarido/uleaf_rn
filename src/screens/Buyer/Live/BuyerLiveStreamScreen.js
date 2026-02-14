@@ -104,10 +104,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   useEffect(() => {
       if (!sessionId) return;
+      
+      // Extract uid properly (handles nested structure for suppliers)
+      const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
   
       const orderCollectionRef = collection(db, 'order');
       
-      const q = query(orderCollectionRef, where('buyerUid', '==' , currentUserInfo?.uid || null), where('listingId', '==' , activeListing?.id || null));
+      const q = query(orderCollectionRef, where('buyerUid', '==' , userId || null), where('listingId', '==' , activeListing?.id || null));
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const fetchedOrders = [];
         querySnapshot.forEach((doc) => {
@@ -117,7 +120,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       });
       
       return () => unsubscribe();
-  }, [sessionId, activeListing]);
+  }, [sessionId, activeListing, currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -209,16 +212,29 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const handleSendComment = async () => {
       const commentToSend = newComment;
       
-      if (commentToSend.trim() === '' || !sessionId || !currentUserInfo.uid) return;
+      // Extract uid properly (handles different user object structures)
+      const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+      
+      if (commentToSend.trim() === '' || !sessionId || !userId) return;
+      
+      // Extract name properly (handles nested structure)
+      const userName = currentUserInfo?.username || 
+                       currentUserInfo?.user?.username ||
+                       currentUserInfo?.displayName ||
+                       currentUserInfo?.user?.displayName ||
+                       `${currentUserInfo?.firstName || ''} ${currentUserInfo?.lastName || ''}`.trim() ||
+                       `${currentUserInfo?.user?.firstName || ''} ${currentUserInfo?.user?.lastName || ''}`.trim() ||
+                       'Anonymous';
+      
       setNewComment(''); // Clear input after sending
       try {
         const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
         
         await addDoc(commentsCollectionRef, {
           message: commentToSend,
-          name: `${currentUserInfo.username}`,
-          avatar: profilePhotoUrl || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
-          uid: currentUserInfo.uid,
+          name: userName,
+          avatar: profilePhotoUrl || currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
+          uid: userId,
           createdAt: serverTimestamp(),
         });
         
@@ -267,7 +283,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         setProfilePhotoUrl(buyerAvatar);
 
         const response = await generateAgoraToken(sessionId);
-        // console.log('Fetched token response:', response);
 
         if (response.token && response.appId && response.channelName) {
           setToken(response.token);
@@ -344,12 +359,21 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }, [sessionId]);
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:346',message:'startAgora useEffect triggered',data:{hasToken:!!token,hasAppId:!!appId,hasChannelName:!!channelName,tokenLength:token?.length,appId:appId,channelName:channelName},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     const startAgora = async () => {
       if (!token || !appId || !channelName) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:349',message:'startAgora waiting for credentials',data:{hasToken:!!token,hasAppId:!!appId,hasChannelName:!!channelName},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           console.log('Waiting for token, appId, and channelName...');
           return;
       }
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:353',message:'Creating Agora engine',data:{appId:appId,channelName:channelName},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
@@ -384,7 +408,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           console.log('✅ Joined Channel as viewer:', connection, 'Elapsed:', elapsed);
           setJoined(true);
           addViewers();
-          if (comments.filter(a => a.message === 'Joined 👋' && a.uid === currentUserInfo.uid).length === 0) {
+          const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+          if (comments.filter(a => a.message === 'Joined 👋' && a.uid === userId).length === 0) {
             handleSendComment();
             setNewComment('');
           }
@@ -433,6 +458,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           }
         },
         onError: (err) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:435',message:'Agora onError fired',data:{error:err,errorCode:err?.code,errorMessage:err?.message},timestamp:Date.now(),hypothesisId:'D,E'})}).catch(()=>{});
+          // #endregion
           console.error('❌ Agora Error:', err);
           setError('Agora Error: ' + (err.message || err));
         },
@@ -808,15 +836,20 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
           </View> */}
           <View style={styles.sideActions}>
-              {liveStats?.lovedByUids && liveStats?.lovedByUids.includes(currentUserInfo.uid) ? (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                <ActiveLoveIcon />
-                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
-              </TouchableOpacity>) : 
-              (<TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                <LoveIcon />
-                <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
-              </TouchableOpacity>
-              )}
+              {(() => {
+                const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+                return liveStats?.lovedByUids && liveStats?.lovedByUids.includes(userId) ? (
+                  <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                    <ActiveLoveIcon />
+                    <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
+                    <LoveIcon />
+                    <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
+                  </TouchableOpacity>
+                );
+              })()}
               <TouchableOpacity onPress={() => setShowStickyNote(!showStickyNote)} style={styles.sideAction}>
                 <NoteIcon width={32} height={32} />
                 <Text style={styles.sideActionNotesText}>Notes</Text>
