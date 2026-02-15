@@ -416,7 +416,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         }
         
         // Check if plant is available for purchase
-        if (plantData.status && plantData.status !== 'Active') {
+        if (plantData.status && (plantData.status !== 'Active' && plantData.status !== 'GroupChatListing' && plantData.status !== 'Live')) {
           throw new Error(`This plant is currently ${plantData.status} and not available for purchase`);
         }
 

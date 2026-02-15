@@ -56,6 +56,7 @@ import {
   toggleLoveLiveSession,
   updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
+import { addToCartApi } from '../../../components/Api/cartApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
@@ -568,6 +569,61 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       }
   };
 
+  const handleAddToCart = async (item) => {
+    try {
+      setIsLoading(true);
+      const plantDatas = await loadPlantDetails(item);
+      
+      if (!plantDatas) {
+        // loadPlantDetails handles the error alert
+        return;
+      }
+
+      let country = plantDatas.country;
+      if (!country) {
+        const mapCurrencyToCountry = (localCurrency) => {
+          if (!localCurrency) return 'ID'; 
+          switch (localCurrency.toUpperCase()) {
+            case 'PHP': return 'PH';
+            case 'THB': return 'TH';
+            case 'IDR': return 'ID';
+            default: return 'ID';
+          }
+        };
+        country = mapCurrencyToCountry(plantDatas.localCurrency);
+      }
+
+      const cartData = {
+        plantCode: plantDatas.plantCode,
+        quantity: 1,
+        potSize: plantDatas.potSize || (plantDatas.availablePotSizes ? plantDatas.availablePotSizes[0] : null) || 'Standard',
+        country: country,
+        notes: `${plantDatas.genus} ${plantDatas.species} - ${plantDatas.variegation || 'Standard'}`
+      };
+
+      const response = await addToCartApi(cartData);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to add to cart');
+      }
+
+      Alert.alert('Success', 'Plant added to cart successfully!');
+
+    } catch (error) {
+      let errorMessage = 'Failed to add item to cart';
+      if (error.message.includes('No active listing found')) {
+        errorMessage = `This plant is currently not available for purchase.`;
+      } else if (error.message.includes('Insufficient stock')) {
+        errorMessage = 'Sorry, not enough items in stock.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const buyNow = async (item) => {
     // removeViewers();
     try {
@@ -906,11 +962,18 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               )} 
 
               {!orderStatus && (
-               <TouchableOpacity onPress={() => {
-                  buyNow(activeListing);
-                }} style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Buy Now</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity onPress={() => {
+                    handleAddToCart(activeListing);
+                  }} style={[styles.actionButtonTouch, {flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#539461', width: undefined}]}>
+                    <Text style={[styles.actionText, {color: '#539461'}]}>Add to Cart</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => {
+                    buyNow(activeListing);
+                  }} style={[styles.actionButtonTouch, {flex: 1, width: undefined}]}>
+                    <Text style={styles.actionText}>Buy Now</Text>
+                  </TouchableOpacity>
+                </>
               )} 
             </View>
         </View>)}
