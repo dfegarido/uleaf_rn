@@ -89,8 +89,8 @@ android {
         applicationId "com.ileafu"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 54
-        versionName "1.0.45"
+        versionCode 55
+        versionName "1.0.46"
     }
     signingConfigs {
         debug {
@@ -155,16 +155,11 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
-    // Agora native SDK for Android - using voice SDK (includes video calling without screen sharing)
-    // Switched from full-sdk to voice-sdk to remove MEDIA_PROJECTION permission
-    // voice-sdk includes: voice calling, video calling, live broadcasting
-    // voice-sdk excludes: screen sharing, media projection
-    // Exclude full-sdk to prevent duplicate classes
-    configurations.all {
-        exclude group: 'io.agora.rtc', module: 'full-sdk'
-        exclude group: 'io.agora.rtc', module: 'full-rtc-basic'
-    }
-    implementation 'io.agora.rtc:voice-sdk:4.5.2'
+    // Agora native SDK for Android - using FULL SDK for video calling + live broadcasting
+    // The voice-sdk does NOT support video rendering (causes black screen)
+    // MEDIA_PROJECTION permission is removed via tools:node="remove" in AndroidManifest.xml
+    // Screen sharing service/activity are also removed via tools:node="remove" in AndroidManifest.xml
+    implementation 'io.agora.rtc:full-sdk:4.5.2'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

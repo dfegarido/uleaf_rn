@@ -69,26 +69,35 @@ const LiveSellerScreen = ({navigation}) => {
   }, []);
 
   useEffect(() => {
+    // Extract uid properly (handles nested structure for suppliers)
+    const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id;
+    
+    // Guard: don't run queries if uid is not available
+    if (!uid) {
+      console.log('LiveScreen: uid not available yet, skipping queries');
+      return;
+    }
+    
     const liveCollectionRef = collection(db, 'live');
     
     // Listener for ongoing sessions
-    const ongoingQuery = query(liveCollectionRef, where('createdBy', '==', userInfo?.uid), where('liveType', '==', 'live'));
+    const ongoingQuery = query(liveCollectionRef, where('createdBy', '==', uid), where('liveType', '==', 'live'));
     const unsubscribeOngoing = onSnapshot(ongoingQuery, (snapshot) => {
       setOngoingCount(snapshot.size);
     });
 
     // Listener for upcoming (scheduled) sessions
-    const upcomingQuery = query(liveCollectionRef, where('createdBy', '==', userInfo?.uid), where('liveType', '==', 'purge'));
+    const upcomingQuery = query(liveCollectionRef, where('createdBy', '==', uid), where('liveType', '==', 'purge'));
     const unsubscribeUpcoming = onSnapshot(upcomingQuery, (snapshot) => {
       setUpcomingCount(snapshot.size);
     });
-userInfo?.uid
+
     // Cleanup listeners on component unmount
     return () => {
       unsubscribeOngoing();
       unsubscribeUpcoming();
     };
-  }, []);
+  }, [userInfo?.uid, userInfo?.id, userInfo?.user?.uid, userInfo?.user?.id]);
 
 
   return (

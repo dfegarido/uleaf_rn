@@ -14,6 +14,7 @@ import FileViewer from 'react-native-file-viewer';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import Toast from '../../../components/Toast/Toast';
+import { filterByPlantOwner, isPlantsAreHome } from '../../../utils/buyerOrderFiltering';
 
 const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const route = useRoute();
@@ -44,20 +45,29 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const [toastMessage, setToastMessage] = useState('');
   const processedParamsRef = React.useRef(new Set()); // Track processed params to avoid re-processing
 
-  // Apply plant owner filter
+  // Apply plant owner filter using centralized filtering utility
   const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
-    if (!filter || filter === null) {
-      setOrders(ordersToFilter);
-      return;
-    }
-
-    // Filter by buyerUid
-    const filtered = ordersToFilter.filter(order => {
-      const orderBuyerUid = order.buyerUid || order._rawPlantRecord?.buyerUid || order.fullOrderData?.buyerUid;
-      return orderBuyerUid === filter;
+    // Use centralized filtering utility
+    const filtered = filterByPlantOwner(ordersToFilter, filter);
+    
+    // Additional frontend validation: ensure orders pass Plants are Home criteria
+    // (Backend already filters, but this provides extra safety)
+    const validatedOrders = filtered.filter(order => {
+      // Convert component format back to order format for validation
+      const orderForValidation = {
+        shippingData: order.shippedData || order._rawPlantRecord?.order?.shippingData || {},
+        shippedData: order.shippedData || order._rawPlantRecord?.order?.shippedData || {},
+        trackingNumber: order._rawPlantRecord?.order?.shippingData?.trackingNumber,
+        buyerUid: order.buyerUid || order._rawPlantRecord?.buyerUid,
+      };
+      
+      // Validate order passes Plants are Home criteria
+      return isPlantsAreHome(orderForValidation);
     });
     
-    setOrders(filtered);
+    console.log(`🔍 [ScreenPlantsAreHome] Filtered orders: ${ordersToFilter.length} → ${filtered.length} (plant owner) → ${validatedOrders.length} (validated)`);
+    
+    setOrders(validatedOrders);
   }, []);
 
   // Apply filter when plantOwnerFilter prop changes

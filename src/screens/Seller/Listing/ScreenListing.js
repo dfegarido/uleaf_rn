@@ -799,7 +799,7 @@ const ScreenListing = ({navigation}) => {
   };
 
   const handleNextPage = () => {
-    if (currentPage < totalPages || hasMorePages) {
+    if (hasMorePages) {
       fetchListingsPage(currentPage + 1);
     }
   };
@@ -1560,16 +1560,16 @@ const ScreenListing = ({navigation}) => {
           <TouchableOpacity
             style={[
               styles.paginationButton,
-              ((currentPage >= totalPages && !hasMorePages) || loading) &&
+              (!hasMorePages || loading) &&
                 styles.paginationButtonDisabled,
             ]}
             onPress={handleNextPage}
-            disabled={(currentPage >= totalPages && !hasMorePages) || loading}
+            disabled={!hasMorePages || loading}
             activeOpacity={0.7}>
             <Text
               style={[
                 styles.paginationButtonText,
-                ((currentPage >= totalPages && !hasMorePages) || loading) &&
+                (!hasMorePages || loading) &&
                   styles.paginationButtonTextDisabled,
               ]}>
               Next

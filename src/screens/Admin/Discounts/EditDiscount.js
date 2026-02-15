@@ -349,12 +349,107 @@ const EditDiscount = () => {
             setSelectedCountries(discountData.countries || []);
           }
           if (discountData.appliesTo === 'Specific garden' && discountData.gardens) {
-            // Gardens might be IDs or null, filter out nulls and convert to array format if needed
-            const validGardens = discountData.gardens
-              .filter(g => g != null) // Filter out null/undefined values
-              .map(g => typeof g === 'string' ? { id: g, name: g } : (g && typeof g === 'object' ? g : { id: g, name: String(g) }));
-            setSelectedGardens(validGardens);
-            console.log('✅ EditDiscount - Loaded gardens:', validGardens);
+            // Gardens might be IDs, null, or objects - filter out nulls
+            const validGardens = discountData.gardens.filter(g => g != null);
+            
+            if (validGardens.length > 0) {
+              // Check if gardens are already objects with names (new format) or just IDs/strings (old format)
+              const firstGarden = validGardens[0];
+              const isObjectFormat = typeof firstGarden === 'object' && (firstGarden.name || firstGarden.sellerName);
+              
+              if (isObjectFormat) {
+                // Gardens are already in object format with seller info, use them directly
+                const formattedGardens = validGardens.map(g => ({
+                  id: g.id,
+                  name: g.name || g.sellerName || 'Unknown Garden',
+                  sellerName: g.sellerName || g.name || 'Unknown Seller',
+                  sellerUsername: g.sellerUsername || '',
+                  sellerAvatar: g.sellerAvatar || ''
+                }));
+                setSelectedGardens(formattedGardens);
+                console.log('✅ EditDiscount - Loaded gardens (object format):', formattedGardens);
+              } else {
+                // Gardens are supplier UIDs, need to fetch supplier details
+                // Use the same logic as the garden selection modal
+                try {
+                  // Fetch all suppliers (same as garden selection modal does)
+                  let allSuppliers = [];
+                  let currentPage = 1;
+                  let hasMore = true;
+                  
+                  while (hasMore) {
+                    const suppliersResp = await getAllUsersApi({ role: 'supplier', limit: 100, page: currentPage });
+                    const suppliers = suppliersResp?.data?.users || suppliersResp?.users || [];
+                    allSuppliers.push(...suppliers);
+                    
+                    const pagination = suppliersResp?.data?.pagination;
+                    hasMore = pagination && currentPage < pagination.totalPages;
+                    
+                    if (hasMore) {
+                      currentPage++;
+                    }
+                  }
+                  
+                  console.log('📊 EditDiscount - Total suppliers fetched:', allSuppliers.length);
+                  console.log('📊 EditDiscount - Gardens (supplier UIDs) to match:', validGardens);
+                  
+                  // Match gardens by supplier UID
+                  const matchedGardens = validGardens
+                    .map(supplierUid => {
+                      // Find supplier by UID
+                      const supplier = allSuppliers.find(s => {
+                        const supplierId = s.uid || s.id || s.userId;
+                        return supplierId === supplierUid;
+                      });
+                      
+                      if (supplier) {
+                        const gardenName = supplier.gardenOrCompanyName || supplier.gardenName || supplier.companyName;
+                        const sellerName = `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim();
+                        const sellerUsername = supplier.email || supplier.username || '';
+                        const sellerAvatar = supplier.profileImage || supplier.avatar || '';
+                        const sellerId = supplier.uid || supplier.id || supplier.userId;
+                        
+                        console.log('✅ EditDiscount - Found supplier:', supplierUid, '→', gardenName);
+                        
+                        return {
+                          id: sellerId,
+                          name: String(gardenName),
+                          sellerName: sellerName || 'Unknown Seller',
+                          sellerUsername: sellerUsername,
+                          sellerAvatar: sellerAvatar,
+                        };
+                      }
+                      
+                      console.log('⚠️ EditDiscount - Supplier not found for UID:', supplierUid);
+                      
+                      // If supplier not found, keep the UID but show a placeholder
+                      return {
+                        id: supplierUid,
+                        name: 'Unknown Garden',
+                        sellerName: 'Garden ID: ' + supplierUid.substring(0, 12),
+                        sellerUsername: '',
+                        sellerAvatar: '',
+                      };
+                    })
+                    .filter(g => g != null);
+                  
+                  setSelectedGardens(matchedGardens);
+                  console.log('✅ EditDiscount - Loaded gardens:', matchedGardens);
+                } catch (error) {
+                  console.error('❌ EditDiscount - Error loading garden details:', error);
+                  // Fallback: show placeholder
+                  const fallbackGardens = validGardens.map(g => ({ 
+                    id: g, 
+                    name: 'Unknown Garden', 
+                    sellerName: 'Garden ID: ' + String(g).substring(0, 12), 
+                    sellerUsername: '', 
+                    sellerAvatar: '' 
+                  }));
+                  setSelectedGardens(fallbackGardens);
+                  console.log('✅ EditDiscount - Loaded gardens (fallback):', fallbackGardens);
+                }
+              }
+            }
           }
           if (discountData.appliesTo === 'Specific listing' && discountData.listingIds) {
             // Listing IDs, convert to array format if needed
@@ -381,13 +476,15 @@ const EditDiscount = () => {
             const amountMatch = discountData.minRequirement.match(/\$([\d.]+)/);
             if (amountMatch && amountMatch[1]) {
               setMinPurchaseAmount(amountMatch[1]);
+              console.log('📝 EditDiscount - Loaded minPurchaseAmount:', amountMatch[1]);
             }
           }
           // Check if minRequirement contains a quantity (e.g., "Minimum quantity of 10 plants")
-          if (discountData.minRequirement.includes('Minimum quantity of plants')) {
-            const quantityMatch = discountData.minRequirement.match(/(\d+)\s*plants?/i);
+          if (discountData.minRequirement.includes('Minimum quantity of') && discountData.minRequirement.includes('plants')) {
+            const quantityMatch = discountData.minRequirement.match(/Minimum quantity of (\d+)\s*plants?/i);
             if (quantityMatch && quantityMatch[1]) {
               setMinPurchaseQuantity(quantityMatch[1]);
+              console.log('📝 EditDiscount - Loaded minPurchaseQuantity:', quantityMatch[1]);
             }
           }
         }
@@ -640,8 +737,10 @@ const EditDiscount = () => {
               const sellerName = `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim();
               const sellerUsername = supplier.email || supplier.username || '';
               const sellerAvatar = supplier.profileImage || supplier.avatar || '';
+              const sellerId = supplier.uid || supplier.id || supplier.userId;
               
               gardenMap.set(normalizedName, {
+                id: sellerId,
                 name: String(gardenName),
                 sellerName: sellerName || 'Unknown Seller',
                 sellerUsername: sellerUsername,
@@ -660,17 +759,19 @@ const EditDiscount = () => {
             
             const existing = gardenMap.get(normalizedName);
             const sellerAvatar = supplier.profileImage || supplier.avatar || '';
+            const sellerId = supplier.uid || supplier.id || supplier.userId;
             
-            // Update if we have a profile image but existing doesn't
-            if (sellerAvatar && !existing.sellerAvatar) {
+            // Update if we have a profile image but existing doesn't, or if we have an ID but existing doesn't
+            if ((sellerAvatar && !existing.sellerAvatar) || (sellerId && !existing.id)) {
               const sellerName = `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim();
               const sellerUsername = supplier.email || supplier.username || '';
               
               gardenMap.set(normalizedName, {
                 ...existing,
+                id: sellerId || existing.id,
                 sellerName: sellerName || existing.sellerName || 'Unknown Seller',
                 sellerUsername: sellerUsername || existing.sellerUsername,
-                sellerAvatar: sellerAvatar,
+                sellerAvatar: sellerAvatar || existing.sellerAvatar,
               });
             }
           });
@@ -1187,7 +1288,7 @@ const EditDiscount = () => {
               .filter(garden => garden != null) // Filter out any null values
               .map((garden, idx, filteredList) => {
                 // Ensure garden has required properties
-                const gardenName = garden?.name || garden?.id || 'Unknown Garden';
+                const gardenName = garden?.name || 'Unknown Garden';
                 const gardenSellerName = garden?.sellerName || '';
                 const gardenSellerAvatar = garden?.sellerAvatar || '';
                 
@@ -1774,6 +1875,15 @@ const EditDiscount = () => {
                 let discountData;
                 
                 if (discountTypeParam === 'buyXGetY') {
+                  console.log('💾 Update Discount - minRequirement data:', {
+                    minRequirement,
+                    minPurchaseAmount,
+                    minPurchaseQuantity,
+                    willSave: minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                      ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                      : minRequirement
+                  });
+                  
                   discountData = {
                     code: code.trim(),
                     type: 'buyXGetY',

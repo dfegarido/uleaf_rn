@@ -80,6 +80,11 @@ export const useCheckoutController = (props) => {
   const [transactionNum, setTransactionNum] = useState(null);
   const [discountCode, setDiscountCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState({ amount: 0, discountId: null, code: null, discountDetails: null });
+  
+  // Handler to force uppercase discount code as user types
+  const handleDiscountCodeChange = (text) => {
+    setDiscountCode(text.toUpperCase());
+  };
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
       street: '123 Main St',
@@ -706,11 +711,11 @@ export const useCheckoutController = (props) => {
       //   - Discount codes (need to subtract)
       //   - User credits/points (leafPoints, plantCredits, shippingCredits - need to subtract here)
       // This is to avoid double deduction (backend + frontend)
-      // Ensure the result is never negative (minimum $1)
-      finalTotal = Math.max(1, backendFinalTotal - codeDiscount - totalCreditsDeduction);
+      // Allow negative totals to show accurate remaining balance
+      finalTotal = backendFinalTotal - codeDiscount - totalCreditsDeduction;
     } else {
       // Fallback: Calculate from components: subtotal + shipping - all discounts - credits
-      finalTotal = Math.max(1, subtotal + shippingTotal - totalDiscount - totalCreditsDeduction);
+      finalTotal = subtotal + shippingTotal - totalDiscount - totalCreditsDeduction;
     }
     
     // Debug logging for shipping calculation matching
@@ -2283,9 +2288,11 @@ export const useCheckoutController = (props) => {
                      (typeof item.unitPrice === 'number' ? item.unitPrice : 
                      (parseFloat(item.price) || parseFloat(item.unitPrice) || 0));
 
-        // Get seller code
+        // Get seller code (supplier UID)
         const sellerCode = item.sellerCode || 
+                          item.supplierUid || 
                           item.listingDetails?.sellerCode || 
+                          item.listingDetails?.supplierId || 
                           '';
 
         // Get listingId - try multiple sources
@@ -2758,7 +2765,7 @@ export const useCheckoutController = (props) => {
     handleCheckout,
     navigateBack,
     discountCode,
-    setDiscountCode,
+    setDiscountCode: handleDiscountCodeChange,
     handleApplyDiscount,
     
     // Joiner state

@@ -1,10 +1,11 @@
 import { useIsFocused } from '@react-navigation/native';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   ImageBackground,
@@ -26,10 +27,53 @@ import { AuthContext } from '../../auth/AuthProvider';
 import { updateLiveSession } from '../../components/Api/agoraLiveApi';
 import { InputBox } from '../../components/Input';
 
+// Skeleton Card Component
+const SkeletonCard = () => {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
+  }, [shimmerAnim]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <View style={styles.card}>
+      <Animated.View style={[styles.skeletonImage, { opacity }]} />
+      <View style={styles.cardInfo}>
+        <Animated.View style={[styles.skeletonTitle, { opacity }]} />
+        <Animated.View style={[styles.skeletonDate, { opacity }]} />
+      </View>
+    </View>
+  );
+};
+
 const MyLiveSessionsScreen = ({ navigation }) => {
   const { userInfo } = useContext(AuthContext);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false); // For delete/save actions
   const isFocused = useIsFocused();
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -39,7 +83,10 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
 
   useEffect(() => {
-    if (!isFocused || !userInfo?.uid) {
+    // Extract uid properly (handles nested structure for suppliers)
+    const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id;
+    
+    if (!isFocused || !uid) {
       return;
     }
 
@@ -47,7 +94,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
     const liveCollectionRef = collection(db, 'live');
     const q = query(
       liveCollectionRef,
-      where('createdBy', '==', userInfo.uid),
+      where('createdBy', '==', uid),
       where('liveType', '==', 'live'),
       orderBy('createdAt', 'desc'),
     );
@@ -70,7 +117,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
 
     // Cleanup listener on component unmount
     return () => unsubscribe();
-  }, [isFocused, userInfo?.uid]);
+  }, [isFocused, userInfo?.uid, userInfo?.id, userInfo?.user?.uid, userInfo?.user?.id]);
 
   const handleCardPress = (item) => {
     // Navigate based on session status
@@ -105,14 +152,14 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setLoading(true);
+            setActionLoading(true);
             try {
               await deleteDoc(doc(db, 'live', item.id));
             } catch (error) {
               console.error('Error deleting session:', error);
               Alert.alert('Error', 'Could not delete the session. Please try again.');
             } finally {
-              setLoading(false);
+              setActionLoading(false);
             }
           },
         },
@@ -147,7 +194,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
       return;
     }
 
-    setLoading(true);
+    setActionLoading(true);
     try {
       const sessionData = {
         title: newTitle.trim(),
@@ -166,7 +213,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -206,7 +253,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.screen}>
-      {loading && (
+      {actionLoading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
@@ -224,8 +271,8 @@ const MyLiveSessionsScreen = ({ navigation }) => {
       </View>
 
       <FlatList
-        data={sessions}
-        renderItem={renderItem}
+        data={loading ? [{ id: 'skeleton-1' }, { id: 'skeleton-2' }, { id: 'skeleton-3' }, { id: 'skeleton-4' }] : sessions}
+        renderItem={loading ? () => <SkeletonCard /> : renderItem}
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.listContainer}
@@ -331,6 +378,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
+  },
+  // Skeleton styles
+  skeletonImage: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#E0E0E0',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  skeletonTitle: {
+    width: '80%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonDate: {
+    width: '60%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
   },
   cardImage: {
     width: '100%',

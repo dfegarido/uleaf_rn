@@ -30,6 +30,85 @@ import { uploadChatImage } from '../../utils/uploadChatImage';
 import { uploadChatVideo } from '../../utils/uploadChatVideo';
 import { compressVideo } from '../../utils/videoCompression';
 import { generateVideoThumbnail } from '../../utils/videoThumbnail';
+
+// Helper function to format date/time for separators
+const formatMessageDateTime = (timestamp) => {
+  if (!timestamp) return '';
+  
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  const month = months[date.getMonth()];
+  const day = String(date.getDate()).padStart(2, '0');
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  
+  hours = hours % 12;
+  hours = hours ? hours : 12; // Convert 0 to 12
+  
+  return `${month} ${day} ${hours}:${minutes}${ampm}`;
+};
+
+// Helper function to insert date separators every 30 minutes
+const insertDateSeparators = (messages) => {
+  if (!messages || messages.length === 0) return messages;
+  
+  const result = [];
+  const THIRTY_MINUTES_MS = 30 * 60 * 1000; // 30 minutes in milliseconds
+  let separatorsAdded = 0;
+  
+  for (let index = 0; index < messages.length; index++) {
+    const message = messages[index];
+    
+    // Skip if message is already a date separator
+    if (message.type === 'date') {
+      continue;
+    }
+    
+    // Add the message
+    result.push(message);
+    
+    // Check if we should insert a separator after this message
+    if (index < messages.length - 1) {
+      const currentMessage = message;
+      const nextMessage = messages[index + 1];
+      
+      // Skip if next message is a separator
+      if (nextMessage.type === 'date') {
+        continue;
+      }
+      
+      if (currentMessage.timestamp && nextMessage.timestamp) {
+        try {
+          const currentTime = currentMessage.timestamp.toMillis ? currentMessage.timestamp.toMillis() : new Date(currentMessage.timestamp).getTime();
+          const nextTime = nextMessage.timestamp.toMillis ? nextMessage.timestamp.toMillis() : new Date(nextMessage.timestamp).getTime();
+          
+          // Calculate time difference
+          const timeDiff = Math.abs(currentTime - nextTime);
+          const timeDiffMinutes = Math.floor(timeDiff / (60 * 1000));
+          
+          // Insert separator if time gap is >= 30 minutes
+          if (timeDiff >= THIRTY_MINUTES_MS) {
+            separatorsAdded++;
+            console.log(`📅 Inserting separator: ${timeDiffMinutes}min gap between messages`);
+            result.push({
+              type: 'date',
+              text: formatMessageDateTime(nextMessage.timestamp),
+              id: `date-separator-${index}-${nextTime}`
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error calculating time difference:', error);
+        }
+      }
+    }
+  }
+  
+  console.log(`📅 insertDateSeparators: ${messages.length} messages → ${result.length} total (${separatorsAdded} separators added)`);
+  
+  return result;
+};
 import { useUserPresence } from '../../hooks/useUserPresence';
 
 // Reply Icon SVG Component - Curved arrow pointing left
@@ -1511,7 +1590,10 @@ const ChatScreen = ({navigation, route}) => {
         index === self.findIndex(m => m.id === msg.id)
       );
 
-      setMessages(uniqueMessages);
+      // Insert date separators every 10 messages
+      const messagesWithSeparators = insertDateSeparators(uniqueMessages);
+
+      setMessages(messagesWithSeparators);
       setLoading(false);
 
       // Set up real-time listener for recent messages (to catch reactions and new messages)
@@ -1559,7 +1641,8 @@ const ChatScreen = ({navigation, route}) => {
                       ...updatedMessage,
                       reactions: updatedMessage.reactions || {},
                     };
-                    return updated;
+                    // Reapply date separators after modification
+                    return insertDateSeparators(updated.filter(m => m.type !== 'date'));
                   }
                   return prev;
                 });
@@ -1580,7 +1663,7 @@ const ChatScreen = ({navigation, route}) => {
                   ...newMessage,
                   reactions: newMessage.reactions || updated[existingIndex].reactions || {},
                 };
-                return updated;
+                return insertDateSeparators(updated.filter(m => m.type !== 'date'));
               }
               
               // Check if there's an optimistic message with matching content that should be replaced
@@ -1601,14 +1684,15 @@ const ChatScreen = ({navigation, route}) => {
                   ...newMessage,
                   reactions: newMessage.reactions || {},
                 };
-                return updated;
+                return insertDateSeparators(updated.filter(m => m.type !== 'date'));
               }
               
               // Add to beginning since we're using inverted list (newest first)
-                  return [{
+                  const combined = [{
                     ...newMessage,
                     reactions: newMessage.reactions || {},
-                  }, ...prev];
+                  }, ...prev.filter(m => m.type !== 'date')];
+                  return insertDateSeparators(combined);
                 });
               }
             });
@@ -1657,9 +1741,18 @@ const ChatScreen = ({navigation, route}) => {
         
         // Append to end of messages (older messages), removing duplicates
         setMessages(prev => {
-          const existingIds = new Set(prev.map(m => m.id));
+          const existingIds = new Set(prev.filter(m => m.type !== 'date').map(m => m.id));
           const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
-          return [...prev, ...uniqueNewMessages];
+          const combined = [...prev.filter(m => m.type !== 'date'), ...uniqueNewMessages];
+          
+          console.log(`📅 [loadMoreMessages] Loading ${uniqueNewMessages.length} older messages, total: ${combined.length}`);
+          
+          const withSeparators = insertDateSeparators(combined);
+          const separatorCount = withSeparators.filter(m => m.type === 'date').length;
+          
+          console.log(`📅 [loadMoreMessages] Added ${separatorCount} date separators`);
+          
+          return withSeparators;
         });
       } else {
         setHasOlderMessages(false);
@@ -1701,9 +1794,10 @@ const ChatScreen = ({navigation, route}) => {
         
         // Prepend to beginning of messages (newer messages), removing duplicates
         setMessages(prev => {
-          const existingIds = new Set(prev.map(m => m.id));
+          const existingIds = new Set(prev.filter(m => m.type !== 'date').map(m => m.id));
           const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
-          return [...uniqueNewMessages, ...prev];
+          const combined = [...uniqueNewMessages, ...prev.filter(m => m.type !== 'date')];
+          return insertDateSeparators(combined);
         });
       } else {
         setHasNewerMessages(false);
@@ -1793,7 +1887,8 @@ const ChatScreen = ({navigation, route}) => {
       }
 
       // 6. Update states
-      setMessages(uniqueMessages);
+      const messagesWithSeparators = insertDateSeparators(uniqueMessages);
+      setMessages(messagesWithSeparators);
       setHasNewerMessages(newerMessages.length === 10);
       setHasOlderMessages(olderMessages.length === 5);
       isJumpedToMessage.current = true;

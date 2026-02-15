@@ -340,8 +340,10 @@ const AmountOffPlantsPercentage = () => {
               const sellerName = `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim();
               const sellerUsername = supplier.email || supplier.username || '';
               const sellerAvatar = supplier.profileImage || supplier.avatar || '';
+              const sellerId = supplier.uid || supplier.id || supplier.userId;
               
               gardenMap.set(normalizedName, {
+                id: sellerId,
                 name: String(gardenName),
                 sellerName: sellerName || 'Unknown Seller',
                 sellerUsername: sellerUsername,
@@ -360,17 +362,19 @@ const AmountOffPlantsPercentage = () => {
             
             const existing = gardenMap.get(normalizedName);
             const sellerAvatar = supplier.profileImage || supplier.avatar || '';
+            const sellerId = supplier.uid || supplier.id || supplier.userId;
             
-            // Update if we have a profile image but existing doesn't
-            if (sellerAvatar && !existing.sellerAvatar) {
+            // Update if we have a profile image but existing doesn't, or if we have an ID but existing doesn't
+            if ((sellerAvatar && !existing.sellerAvatar) || (sellerId && !existing.id)) {
               const sellerName = `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim();
               const sellerUsername = supplier.email || supplier.username || '';
               
               gardenMap.set(normalizedName, {
                 ...existing,
+                id: sellerId || existing.id,
                 sellerName: sellerName || existing.sellerName || 'Unknown Seller',
                 sellerUsername: sellerUsername || existing.sellerUsername,
-                sellerAvatar: sellerAvatar,
+                sellerAvatar: sellerAvatar || existing.sellerAvatar,
               });
             }
           });
@@ -888,7 +892,7 @@ const AmountOffPlantsPercentage = () => {
         {!!selectedGardens.length && appliesText === 'Specific garden' && (
           <View style={styles.appliesListWrap}>
             {selectedGardens.map((garden, idx) => {
-              const gardenName = typeof garden === 'string' ? garden : (garden?.name || '');
+              const gardenName = typeof garden === 'string' ? garden : (garden?.name || 'Unknown Garden');
               const gardenSellerName = typeof garden === 'object' ? (garden?.sellerName || '') : '';
               const gardenSellerAvatar = typeof garden === 'object' ? (garden?.sellerAvatar || '') : '';
               return (
@@ -1436,7 +1440,11 @@ const AmountOffPlantsPercentage = () => {
                   selectedGardens,
                   selectedListings: selectedListings.map(l => l.id),
                   eligibility,
-                  minRequirement,
+                  minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
+                    ? `Minimum purchase amount of $${minPurchaseAmount}` 
+                    : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                    ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                    : minRequirement,
                   limitTotalEnabled,
                   limitPerCustomerEnabled,
                   maxUsesTotal: limitTotalEnabled ? maxUsesTotal : undefined,

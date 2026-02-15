@@ -20,6 +20,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {useAuth} from '../../../auth/AuthProvider';
 import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
 import { createAndCapturePaypalOrder } from '../../../components/Api/paymentApi';
+import { filterPayToBoardGroups, filterGroupPlants, isPayToBoard } from '../../../utils/buyerOrderFiltering';
 
 const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const navigation = useNavigation();
@@ -65,33 +66,25 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     loadUserProfile();
   }, []);
 
-  // Apply plant owner filter
+  // Apply plant owner filter using centralized filtering utility
   const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
-    if (!filter || filter === null) {
-      setOrders(ordersToFilter);
-      return;
-    }
-
-    // Filter grouped orders by buyerUid
-    // A group should be included if any of its plants match the filter
-    const filtered = ordersToFilter.filter(group => {
-      // Check group level buyerUid
-      if (group.buyerUid === filter) {
-        return true;
-      }
-      
-      // Check if any plant in the group matches
-      if (group.plants && group.plants.length > 0) {
-        return group.plants.some(plant => {
-          const plantBuyerUid = plant.buyerUid || group.buyerUid;
-          return plantBuyerUid === filter;
-        });
-      }
-      
-      return false;
+    // Use centralized filtering utility for grouped orders
+    const filtered = filterPayToBoardGroups(ordersToFilter, filter);
+    
+    // Additional frontend validation: ensure groups pass Pay to Board criteria
+    const validatedGroups = filtered.filter(group => {
+      // Validate group status
+      return isPayToBoard(group);
     });
     
-    setOrders(filtered);
+    // Filter plants within each group if plant owner filter is applied
+    const groupsWithFilteredPlants = validatedGroups.map(group => 
+      filter ? filterGroupPlants(group, filter) : group
+    );
+    
+    console.log(`🔍 [ScreenPayToBoard] Filtered groups: ${ordersToFilter.length} → ${filtered.length} (plant owner) → ${validatedGroups.length} (validated)`);
+    
+    setOrders(groupsWithFilteredPlants);
   }, []);
 
   // Load orders from API

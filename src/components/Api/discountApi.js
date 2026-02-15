@@ -61,7 +61,18 @@ export const createDiscountApi = async (discountData) => {
       genus: discountData.selectedGenus || [],
       species: discountData.selectedSpecies || [],
       countries: discountData.selectedCountries || [],
-      gardens: discountData.selectedGardens?.map(g => typeof g === 'object' ? g.id : g) || [],
+      gardens: discountData.selectedGardens?.map(g => {
+        if (typeof g === 'object') {
+          return {
+            id: g.id,
+            name: g.name || g.sellerName,
+            sellerName: g.sellerName,
+            sellerAvatar: g.sellerAvatar || '',
+            sellerUsername: g.sellerUsername || ''
+          };
+        }
+        return g;
+      }) || [],
       listingIds: discountData.selectedListings || [],
       // Eligibility and requirements
       eligibility: discountData.eligibility,
@@ -182,7 +193,18 @@ export const updateDiscountApi = async (discountId, discountData) => {
       genus: discountData.selectedGenus || [],
       species: discountData.selectedSpecies || [],
       countries: discountData.selectedCountries || [],
-      gardens: discountData.selectedGardens?.map(g => typeof g === 'object' ? g.id : g) || [],
+      gardens: discountData.selectedGardens?.map(g => {
+        if (typeof g === 'object') {
+          return {
+            id: g.id,
+            name: g.name || g.sellerName,
+            sellerName: g.sellerName,
+            sellerAvatar: g.sellerAvatar || '',
+            sellerUsername: g.sellerUsername || ''
+          };
+        }
+        return g;
+      }) || [],
       listingIds: discountData.selectedListings || [],
       eligibility: discountData.eligibility,
       minRequirement: discountData.minRequirement,
@@ -349,7 +371,7 @@ export const validateDiscountCodeApi = async (code, cartItems, buyerId) => {
         country: item.country || item.plantSourceCountry,
         genus: item.genus,
         species: item.species || '', // Include species field for discount validation
-        sellerCode: item.sellerCode,
+        sellerCode: item.sellerCode || item.supplierUid || item.listingDetails?.supplierId || '', // Map supplier ID to sellerCode
       })),
       ...(buyerId && { buyerId }),
     };

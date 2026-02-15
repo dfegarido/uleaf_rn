@@ -15,6 +15,7 @@ import {getBuyerCreditRequestsApi, getJourneyMishapDataApi} from '../../../compo
 import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
 import NetInfo from '@react-native-community/netinfo';
 import {useAuth} from '../../../auth/AuthProvider';
+import { filterByPlantOwner, isJourneyMishap } from '../../../utils/buyerOrderFiltering';
 
 const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const route = useRoute();
@@ -37,20 +38,31 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const browseMorePlantsRef = React.useRef(null);
   const [hasMore, setHasMore] = useState(false);
 
-  // Apply plant owner filter
+  // Apply plant owner filter using centralized filtering utility
   const applyPlantOwnerFilter = useCallback((ordersToFilter, filter) => {
-    if (!filter || filter === null) {
-      setOrders(ordersToFilter);
-      return;
-    }
-
-    // Filter by buyerUid
-    const filtered = ordersToFilter.filter(order => {
-      const orderBuyerUid = order.buyerUid || order.fullOrderData?.buyerUid;
-      return orderBuyerUid === filter;
+    // Use centralized filtering utility
+    const filtered = filterByPlantOwner(ordersToFilter, filter);
+    
+    // Additional frontend validation: ensure orders pass Journey Mishap criteria
+    // (Backend already filters, but this provides extra safety)
+    const validatedOrders = filtered.filter(order => {
+      // Convert component format back to order format for validation
+      const orderForValidation = {
+        leafTrailStatus: order._rawPlantRecord?.order?.leafTrailStatus || order._rawPlantRecord?.leafTrailStatus,
+        creditRequests: order._rawPlantRecord?.order?.creditRequests || order._rawPlantRecord?.creditRequests || [],
+        buyerUid: order.buyerUid || order._rawPlantRecord?.buyerUid,
+      };
+      
+      // Also check if order has credit request status (from new API format)
+      const hasCreditRequestStatus = order._rawPlantRecord?.creditRequestStatus?.hasRequest || false;
+      
+      // Validate order passes Journey Mishap criteria
+      return isJourneyMishap(orderForValidation) || hasCreditRequestStatus;
     });
     
-    setOrders(filtered);
+    console.log(`🔍 [ScreenJourneyMishap] Filtered orders: ${ordersToFilter.length} → ${filtered.length} (plant owner) → ${validatedOrders.length} (validated)`);
+    
+    setOrders(validatedOrders);
   }, []);
 
   // Load credit requests from API using the new comprehensive Journey Mishap API
