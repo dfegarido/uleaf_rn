@@ -1,5 +1,5 @@
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   FlatList,
   Image,
@@ -9,7 +9,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Dimensions,
 } from 'react-native';
+import ImageZoom from 'react-native-image-pan-zoom';
 import { db } from '../../../../firebase';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 
@@ -18,6 +20,10 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
   const [allListings, setAllListings] = useState([]);
   const [soldListings, setSoldListings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const pressInTimeout = useRef(null);
+  const isLongPress = useRef(false);
+  const ignoreNextPress = useRef(false);
 
   useEffect(() => {
     if (!isVisible || !broadcasterId) return;
@@ -95,9 +101,22 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
       item.species.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const handlePress = (item) => {
+    if (ignoreNextPress.current) {
+      ignoreNextPress.current = false;
+      return;
+    }
+    setSelectedImage(item.imagePrimary);
+  };
+
   const renderListingItem = ({ item }) => (
     <View style={styles.card}>
-      <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+      <TouchableOpacity
+                  onPress={() => handlePress(item)}
+                  activeOpacity={0.8}>
+        <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+      </TouchableOpacity>
+      
       <View style={styles.priceContainer}>
         <Text style={styles.priceText}>${item.usdPrice}</Text>
       </View>
@@ -115,7 +134,11 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
 
   const renderSoldItem = ({ item }) => (
     <View style={styles.card}>
-      <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+      <TouchableOpacity
+                  onPress={() => handlePress(item)}
+                  activeOpacity={0.8}>
+        <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+      </TouchableOpacity>
       <View style={styles.priceContainer}>
         <Text style={styles.priceText}>${item.usdPrice}</Text>
       </View>
@@ -187,6 +210,42 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
           )}
         </View>
       </View>
+      
+      {/* Full-screen image modal - Moved outside FlatList */}
+      <Modal
+        visible={!!selectedImage}
+        transparent={true}
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <View style={styles.fullScreenImageContainer}>
+          <TouchableOpacity
+            style={styles.fullScreenImageCloseButton}
+            onPress={() => setSelectedImage(null)}
+          >
+            <CloseIcon width={24} height={24} color="#fff" />
+          </TouchableOpacity>
+          <ImageZoom
+            cropWidth={Dimensions.get('window').width}
+            cropHeight={Dimensions.get('window').height}
+            imageWidth={Dimensions.get('window').width}
+            imageHeight={Dimensions.get('window').height}
+            minScale={0.5}
+            maxScale={3}
+            enableSwipeDown={true}
+            onSwipeDown={() => setSelectedImage(null)}
+            onClick={() => setSelectedImage(null)}>
+            {selectedImage && (
+              <Image
+                source={{ uri: selectedImage }}
+                style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
+                resizeMode="contain"
+              />
+            )}
+          </ImageZoom>
+        </View>
+      </Modal>
+
+     
     </Modal>
   );
 };
@@ -311,6 +370,21 @@ const styles = StyleSheet.create({
     color: '#539461',
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
+  },
+  fullScreenImageContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImageCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
   },
 });
 

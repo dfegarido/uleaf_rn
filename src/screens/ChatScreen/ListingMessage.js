@@ -184,7 +184,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, li
             onPressOut={handlePressOut}
             onPress={handlePress}
             activeOpacity={0.8}>
-            <Image source={{ uri: listing.imagePrimary }} style={styles.image} />
+            <Image source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="contain" />
             {isSoldOut && (
               <View style={styles.soldBadge}>
                 <Text style={styles.soldBadgeText}>SOLD</Text>
