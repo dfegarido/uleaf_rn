@@ -559,7 +559,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
             
             {/* Render listing message */}
             {isListing && (
-              <ListingMessage currentUserUid={currentUserUid} isSeller={isSeller} isBuyer={isBuyer} listingId={listingId} navigation={navigation} />
+              <ListingMessage messageId={messageId} currentUserUid={currentUserUid} isSeller={isSeller} isBuyer={isBuyer} listingId={listingId} navigation={navigation} />
             )}
             
             {/* Emoji Reactions - Overlapping on the right side */}

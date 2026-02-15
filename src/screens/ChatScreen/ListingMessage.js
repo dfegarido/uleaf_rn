@@ -16,16 +16,18 @@ import {
   serverTimestamp,
   where,
   getDoc,
-  or
+  or,
+  deleteDoc
 } from 'firebase/firestore';
 import CloseIcon from '../../assets/icons/white/x-regular.svg'; // Assuming this icon is available
 
-const ListingMessage = ({ currentUserUid, isSeller=false, isBuyer, listingId, navigation }) => {
+const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const pressInTimeout = useRef(null);
   const isLongPress = useRef(false);
+  
 
   const [soldTo, setSoldTo] = useState(null);
 
@@ -114,6 +116,9 @@ const ListingMessage = ({ currentUserUid, isSeller=false, isBuyer, listingId, na
             try {
               setLoading(true);
               await postListingDeleteApi(listing.plantCode);
+              if (messageId) {
+                await deleteDoc(doc(db, 'messages', messageId));
+              }
               setListing(null);
               setLoading(false);
               Alert.alert("Success", "Listing has been deleted.");
@@ -165,7 +170,7 @@ const ListingMessage = ({ currentUserUid, isSeller=false, isBuyer, listingId, na
   if (!listing) {
     return (
       <View style={styles.card}>
-        <Text style={styles.errorText}>Listing not available.</Text>
+        <Text style={styles.errorText}>Message deleted.</Text>
       </View>
     );
   }

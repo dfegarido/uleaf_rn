@@ -340,11 +340,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const handleConfirmAddToCart = async () => {
+    setLoading(true);
     if (plantSoldOut) {
       showSoldOutAlert();
+      setLoading(false);
       return;
     }
     if (quantity < 1) {
+      setLoading(false);
       Alert.alert('Invalid Quantity', 'Please select a quantity of at least 1');
       return;
     }
@@ -352,6 +355,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     // Check stock limits
     const currentAvailableStock = getAvailableStock();
     if (quantity > currentAvailableStock) {
+      setLoading(false);
       Alert.alert('Stock Limit', `Only ${currentAvailableStock} items available in stock. Please reduce your quantity.`);
       return;
     }
@@ -457,6 +461,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         // You could emit an event or call a context method here
         
       } catch (error) {
+        setLoading(false);
         // Enhanced error handling with specific messages
         let errorMessage = 'Failed to add item to cart';
         if (error.message.includes('No active listing found')) {
@@ -474,6 +479,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
         Alert.alert('Error', errorMessage);
       }
     }
+
+    setLoading(false);
   };
 
   const handleCloseModal = () => {
