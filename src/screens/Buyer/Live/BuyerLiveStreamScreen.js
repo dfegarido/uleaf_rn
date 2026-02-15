@@ -47,6 +47,7 @@ import LoveIcon from '../../../assets/live-icon/love.svg';
 import NoteIcon from '../../../assets/live-icon/notes.svg';
 import ShopIcon from '../../../assets/live-icon/shopv3.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
+import CartIconSelected from '../../../assets/icontabs/buyer-tabs/cart-icon-selected.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import {
@@ -914,6 +915,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                  <ShopIcon width={32} height={32} />
                 <Text style={styles.sideActionNotesText}>Shop</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.sideAction} onPress={() => navigation.navigate('ScreenCart')}>
+                 <CartIconSelected width={32} height={32} />
+                <Text style={styles.sideActionNotesText}>Cart</Text>
+              </TouchableOpacity>
 
              
           </View>
@@ -1296,7 +1301,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
     paddingHorizontal: 8,
-    gap: 20,
+    gap: 5,
     width: 56,
     height: 160,
   },
