@@ -248,11 +248,29 @@ const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs, selecti
 )};
 
 const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+    // Sort buyers alphabetically by name for the Received tab only
+    const sortedAdminFilters = React.useMemo(() => {
+        if (!adminFilters) return adminFilters;
+        
+        const sortedBuyers = adminFilters.buyer 
+            ? [...adminFilters.buyer].sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            })
+            : adminFilters.buyer;
+        
+        return {
+            ...adminFilters,
+            buyer: sortedBuyers
+        };
+    }, [adminFilters]);
+    
     if (!(data?.data) || data.data.length === 0) {   
         return (
             <>
                 <FlatList
-                    ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                     contentContainerStyle={styles.listContentContainer}
                     ListFooterComponent={
@@ -269,7 +287,7 @@ const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="received" />}
-        ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
@@ -493,20 +511,17 @@ const ReceivingScreen = ({navigation}) => {
         />
     );
 
-    const tabChange = async () => {
-        if (index === 0) {
+    const tabChange = async (newIndex) => {
+        // Tab indices: 0=forReceiving, 1=inventoryForHub, 2=received, 3=missing, 4=damaged
+        if (newIndex === 0) {
             await getFilters('["forReceiving"]');
-        }
-        if (index === 1) {
+        } else if (newIndex === 1) {
             await getFilters('["forReceiving"]');
-        }
-        if (index === 1) {
+        } else if (newIndex === 2) {
             await getFilters('["received"]');
-        }
-        if (index === 2) {
+        } else if (newIndex === 3) {
             await getFilters('["missing"]');
-        }
-        if (index === 3) {
+        } else if (newIndex === 4) {
             await getFilters('["damaged"]');
         }
     }
@@ -754,13 +769,14 @@ const ReceivingScreen = ({navigation}) => {
                     renderScene={renderScene}
                     onIndexChange={(newIndex) => {
                         setIndex(newIndex);
+                        // Update filters based on the new tab
+                        tabChange(newIndex);
                         // Clear selection mode when switching tabs
                         if (selectionMode) {
                             handleCancelSelection();
                         }
                     }}
                     renderTabBar={renderTabBar}
-                    onTabSelect={tabChange}
                 />
             </SafeAreaView>
 
