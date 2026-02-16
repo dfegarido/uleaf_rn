@@ -141,6 +141,13 @@ const PlantCreditsManagement = ({ navigation }) => {
         missingUids.forEach(({ buyerUid, credits }, i) => {
           const buyerDoc = buyerDocs[i];
           const data = buyerDoc?.exists() ? buyerDoc.data() : {};
+          // If the buyer document explicitly has plantCredits set to 0,
+          // that is the authoritative source — skip stale plant_credits records
+          const buyerDocCredits = data.plantCredits ?? data.plant_credits;
+          if (buyerDocCredits === 0) {
+            console.log(`⚠️ Skipping ${data.firstName} ${data.lastName}: buyer.plantCredits is 0 (stale plant_credits record)`);
+            return;
+          }
           buyerMap.set(buyerUid, {
             uid: buyerUid,
             firstName: data.firstName || '',
@@ -181,6 +188,12 @@ const PlantCreditsManagement = ({ navigation }) => {
             const existing = buyerMap.get(buyerUid);
             if (existing) {
               existing.plantCredits = balance;
+            }
+          } else {
+            // Balance is 0 or negative — remove from map (credits fully used/reversed)
+            if (buyerMap.has(buyerUid)) {
+              console.log(`🔄 Removing ${buyerUid} from list: latest transaction balance is ${balance}`);
+              buyerMap.delete(buyerUid);
             }
           }
         });

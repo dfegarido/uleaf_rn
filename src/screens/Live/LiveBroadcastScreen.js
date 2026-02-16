@@ -244,30 +244,26 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
+  // Fetch token on mount
   useEffect(() => {
-    // Fetch the token when the component mounts
     fetchToken();
+  }, [sessionId]);
 
-    // Ensure the engine is released before starting.
-    // This is crucial for hot-reloading in development and for re-entering the screen.
-    const cleanup = () => {
-      rtcEngineRef.current?.leaveChannel();
-      rtcEngineRef.current?.release();
-      rtcEngineRef.current = null;
-    };
+  // Initialize Agora engine and start broadcast when all prerequisites are ready
+  useEffect(() => {
+    if (!token || !appId || !channelName || !permissionsGranted) {
+      console.log('Waiting for token, appId, channelName, and permissions...');
+      return;
+    }
 
-    const startBroadcast = async () => {
-      if (!token || !appId || !channelName) {
-        console.log('Waiting for token, appId, channelName, and uid...');
-        return;
-      }
+    // Prevent re-initialization if engine is already running
+    if (rtcEngineRef.current) {
+      console.log('Agora engine already initialized, skipping...');
+      return;
+    }
 
-      // If an engine instance already exists, release it first.
-      if (rtcEngineRef.current) {
-        console.log('Releasing previous Agora engine instance...');
-        rtcEngineRef.current.release();
-      }
-
+    const startBroadcast = () => {
+      console.log('🔴 Initializing Agora engine for broadcast...');
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
@@ -296,29 +292,32 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         },
       });
       rtc.enableVideo();
-      rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster); // Set role before joining
-      rtc.setupLocalVideo({ uid: 0, renderMode: 1 }); // Use uid 0 for local video
+      rtc.enableLocalVideo(true); // Explicitly enable local video capture (critical for Android)
+      rtc.setVideoEncoderConfiguration({
+        dimensions: { width: 720, height: 1280 },
+        frameRate: 15,
+        bitrate: 1130,
+        orientationMode: 0, // Adaptive
+      });
+      rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+      rtc.setupLocalVideo({ uid: 0, renderMode: 1 });
       rtc.startPreview();
       
       console.log('🔴 Starting broadcast with token:', token.substring(0, 20) + '...');
       console.log('🔄 Channel name:', channelName);
-      console.log('🔄 UID:', uid);
       
-      // Join the channel
       rtc.joinChannel(token, channelName, 0, {});
-
-
-      rtcEngineRef.current = rtc;
     };
 
-    if (token && permissionsGranted) {
-      startBroadcast();
-    }
+    startBroadcast();
 
     return () => {
-      cleanup();
+      console.log('🧹 Cleaning up Agora engine...');
+      rtcEngineRef.current?.leaveChannel();
+      rtcEngineRef.current?.release();
+      rtcEngineRef.current = null;
     };
-  }, [token, appId, channelName, permissionsGranted, sessionId]);
+  }, [permissionsGranted, appId, channelName]);
 
   useEffect(() => {
     if (!sessionId) return;
