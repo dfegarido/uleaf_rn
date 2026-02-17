@@ -55,7 +55,7 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
     const validatedOrders = filtered.filter(order => {
       // Convert component format back to order format for validation
       const orderForValidation = {
-        shippingData: order.shippedData || order._rawPlantRecord?.order?.shippingData || {},
+        shippingData: order.shippingData || order._rawPlantRecord?.order?.shippingData || {},
         shippedData: order.shippedData || order._rawPlantRecord?.order?.shippedData || {},
         trackingNumber: order._rawPlantRecord?.order?.shippingData?.trackingNumber,
         buyerUid: order.buyerUid || order._rawPlantRecord?.buyerUid,
@@ -285,6 +285,7 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
     };
 
     return {
+      shippingData: order?.shippingData || {},
       shippedData: order?.shippedData || {},
       status: 'Plants are Home',
       airCargoDate: plant.flightDateFormatted || order.flightDateFormatted || order.cargoDateFormatted || 'TBD',
