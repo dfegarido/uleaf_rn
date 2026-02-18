@@ -363,7 +363,23 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
       isJoinerOrder: isJoinerOrder,
       joinerInfo: joinerInfo,
       // Include buyerUid for filtering
-      buyerUid: buyerUid
+      buyerUid: buyerUid,
+      // Include _rawPlantRecord for validation
+      _rawPlantRecord: {
+        order: {
+          ...orderDetails,
+          leafTrailStatus: orderDetails.leafTrailStatus,
+          creditRequests: [creditRequest]
+        },
+        leafTrailStatus: orderDetails.leafTrailStatus,
+        creditRequests: [creditRequest],
+        creditRequestStatus: {
+          hasRequest: true,
+          requests: [creditRequest],
+          latestRequest: creditRequest
+        },
+        buyerUid: buyerUid
+      }
     };
 
     return transformedObject;
