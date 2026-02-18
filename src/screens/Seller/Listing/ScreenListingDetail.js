@@ -495,7 +495,13 @@ const ScreenListingDetail = ({navigation, route}) => {
       {/* Fullscreen Background Carousel */}
       <View style={StyleSheet.absoluteFill}>
         <BackgroundCarousel
-          images={listingData?.imageCollection}
+          images={
+            listingData?.imageCollection?.length > 0
+              ? listingData.imageCollection
+              : listingData?.imagePrimary
+              ? [listingData.imagePrimary]
+              : []
+          }
           width={screenWidth}
           height={screenHeight * 0.5}
         />

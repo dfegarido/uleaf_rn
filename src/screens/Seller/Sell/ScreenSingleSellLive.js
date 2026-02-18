@@ -62,7 +62,7 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route}) => {
+const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -626,6 +626,13 @@ const ScreenSingleSellLive = ({navigation, route}) => {
           </Modal>
         )}
         <View style={styles.formContainer}>
+          {nextIgIndex > 0 && (
+            <View style={styles.igIndexRow}>
+              <View style={styles.igIndexBadge}>
+                <Text style={styles.igIndexText}>IG{nextIgIndex}</Text>
+              </View>
+            </View>
+          )}
           <View style={[{paddingBottom: 10}]}>
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
               Genus <Text style={globalStyles.textXSRed}>*</Text>
@@ -834,6 +841,21 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomColor: '#E4E7E9',
     borderBottomWidth: 1,
+  },
+  igIndexRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  igIndexBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  igIndexText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   image: {
     width: 150,

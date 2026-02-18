@@ -32,6 +32,7 @@ import {
   postListingUpdateStockActionApi,
 } from '../../../components/Api';
 import { setLiveListingActiveApi } from '../../../components/Api/agoraLiveApi';
+import { deleteListingApi } from '../../../components/Api/listingManagementApi';
 import { InputBox } from '../../../components/Input';
 import { InputSearch } from '../../../components/InputGroup/Left';
 import { InputGroupAddon } from '../../../components/InputGroupAddon';
@@ -53,6 +54,7 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
+import RefreshIcon from '../../../assets/icons/accent/arrow-clockwise-regular.svg';
 import LiveIcon from '../../../assets/images/live.svg';
 
 const screenHeight = Dimensions.get('window').height;
@@ -230,6 +232,10 @@ const ScreenListing = ({navigation}) => {
   /** Live tab: plantCodes that were set active earlier this session (for orange styling) */
   const [prevActivePlantCodes, setPrevActivePlantCodes] = useState(new Set());
 
+  /** Live tab: batch select mode */
+  const [isLiveSelectMode, setIsLiveSelectMode] = useState(false);
+  const [liveSelectedIds, setLiveSelectedIds] = useState([]);
+
   const resetPaginationState = () => {
     setPageTokens(['']);
     setCurrentPage(1);
@@ -241,7 +247,66 @@ const ScreenListing = ({navigation}) => {
     setLiveLoadingMore(false);
     setLiveHasMore(false);
     setPrevActivePlantCodes(new Set());
+    setIsLiveSelectMode(false);
+    setLiveSelectedIds([]);
   };
+
+  const toggleLiveSelect = useCallback((id) => {
+    setLiveSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  }, []);
+
+  const toggleLiveSelectAll = useCallback(() => {
+    setLiveSelectedIds(prev =>
+      prev.length === dataTable.length ? [] : dataTable.map(l => l.id)
+    );
+  }, [dataTable]);
+
+  const exitLiveSelectMode = useCallback(() => {
+    setIsLiveSelectMode(false);
+    setLiveSelectedIds([]);
+  }, []);
+
+  const handleLiveBatchDelete = useCallback(() => {
+    if (liveSelectedIds.length === 0) return;
+    const count = liveSelectedIds.length;
+    Alert.alert(
+      'Delete Listings',
+      `Are you sure you want to delete ${count} listing${count > 1 ? 's' : ''}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const selectedItems = dataTable.filter(item => liveSelectedIds.includes(item.id));
+            const remainingItems = dataTable.filter(item => !liveSelectedIds.includes(item.id));
+
+            setDataTable(remainingItems);
+            liveAllListingsRef.current = liveAllListingsRef.current.filter(
+              item => !liveSelectedIds.includes(item.id)
+            );
+            exitLiveSelectMode();
+            showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
+
+            Promise.all(
+              selectedItems.map(item => deleteListingApi({ plantCode: item.plantCode }))
+            ).then(results => {
+              const failed = results.filter(r => !r.success);
+              if (failed.length > 0) {
+                showToast(`${failed.length} listing(s) failed to delete.`, 'error');
+                onRefresh();
+              }
+            }).catch(() => {
+              showToast('Some listings failed to delete.', 'error');
+              onRefresh();
+            });
+          },
+        },
+      ]
+    );
+  }, [liveSelectedIds, dataTable]);
 
   const loadData = async (
     filterMine,
@@ -676,10 +741,9 @@ const ScreenListing = ({navigation}) => {
         }
 
         if (activeTab === 'Live') {
-          // Live tab should only show listings with status "Live" AND isActiveLiveListing === true
           const isLiveStatus = (listing.status || '').trim() === 'Live';
-          // const isActiveLive = listing.isActiveLiveListing === true;
-          return isLiveStatus;
+          const isSold = listing._displayStatus === 'sold';
+          return isLiveStatus && !isSold;
         }
 
         if (activeTab === 'Group Chat Listing') {
@@ -1165,9 +1229,13 @@ const ScreenListing = ({navigation}) => {
     setActiveTab(pressTab);
     setIsDiscounted(false);
     resetPaginationState();
-    setLoading(true); // Show skeleton while fetching with new tab filter
-    
-    // Handle Discounted tab - set discount flag and reset status
+    setLoading(true);
+
+    if (pressTab === 'Live') {
+      const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id || auth.currentUser?.uid;
+      _bustLiveCache(uid);
+    }
+
     if (pressTab === 'Discounted') {
       setIsDiscounted(true);
     } else {
@@ -1565,15 +1633,17 @@ const ScreenListing = ({navigation}) => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onPressTab={onTabPressItem}
+          disabled={loading}
         />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{
             flexGrow: 0,
-            paddingVertical: 20,
+            paddingTop: 8,
+            paddingBottom: 0,
             paddingHorizontal: 20,
-          }} // ✅ prevents extra vertical space
+          }}
           contentContainerStyle={{
             flexDirection: 'row',
             gap: 10,
@@ -1666,6 +1736,41 @@ const ScreenListing = ({navigation}) => {
       {activeTab === 'Live' ? (
         <View style={[styles.container, { flex: 1, paddingBottom: insets.bottom }]}>
           <View style={{ flex: 1, backgroundColor: '#fff' }}>
+            {!loading && dataTable && dataTable.length > 0 && (
+              <View style={styles.liveToolbar}>
+                {isLiveSelectMode ? (
+                  <>
+                    <TouchableOpacity onPress={toggleLiveSelectAll} style={styles.liveSelectAllBtn}>
+                      <View style={[styles.liveCheckbox, liveSelectedIds.length === dataTable.length && styles.liveCheckboxChecked]}>
+                        {liveSelectedIds.length === dataTable.length && <Text style={styles.liveCheckmark}>✓</Text>}
+                      </View>
+                      <Text style={styles.liveToolbarText}>Select All</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.liveToolbarCount}>{liveSelectedIds.length} selected</Text>
+                    <View style={styles.liveToolbarActions}>
+                      <TouchableOpacity
+                        onPress={handleLiveBatchDelete}
+                        disabled={liveSelectedIds.length === 0}
+                        style={[styles.liveDeleteBtn, liveSelectedIds.length === 0 && { opacity: 0.4 }]}>
+                        <Text style={styles.liveDeleteBtnText}>Delete</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={exitLiveSelectMode} style={styles.liveCancelBtn}>
+                        <Text style={styles.liveCancelBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
+                      <RefreshIcon width={18} height={18} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setIsLiveSelectMode(true)} style={styles.liveManageBtn}>
+                      <Text style={styles.liveManageBtnText}>Manage</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
             {loading ? (
               <LiveListingGridSkeleton cardCount={12} />
             ) : dataTable && dataTable.length > 0 ? (
@@ -1679,6 +1784,9 @@ const ScreenListing = ({navigation}) => {
                   refreshing={refreshing}
                   onRefresh={onRefresh}
                   prevActivePlantCodes={prevActivePlantCodes}
+                  isSelectMode={isLiveSelectMode}
+                  selectedIds={liveSelectedIds}
+                  onToggleSelect={toggleLiveSelect}
                 />
               </View>
             ) : !loading ? (
@@ -2121,5 +2229,101 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 12,
     color: '#647276',
+  },
+  liveToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 6,
+    backgroundColor: '#fff',
+  },
+  liveSelectAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#9DA5A7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveCheckboxChecked: {
+    backgroundColor: '#48A7F8',
+    borderColor: '#48A7F8',
+  },
+  liveCheckmark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
+  liveToolbarText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B4344',
+  },
+  liveToolbarCount: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#647276',
+  },
+  liveToolbarActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  liveDeleteBtn: {
+    backgroundColor: '#E74C3C',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  liveDeleteBtnText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  liveCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+  },
+  liveCancelBtnText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#647276',
+  },
+  liveRefreshBtn: {
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    marginRight: 8,
+  },
+  liveManageBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+  },
+  liveManageBtnText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B4344',
   },
 });

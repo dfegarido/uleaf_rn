@@ -24,11 +24,11 @@ import { getSellMostLove } from '../../../components/Api';
 import GrowerPlantIcon from '../../../assets/sellicon/growers.svg';
 import SinglePlantIcon from '../../../assets/sellicon/single.svg';
 import WholeSalePlantIcon from '../../../assets/sellicon/wholesale.svg';
-import BatchUploadSvg from '../../../assets/images/batch-upload.svg';
-
 import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
 const screenWidth = Dimensions.get('window').width;
 
@@ -50,7 +50,6 @@ const ScreenSell = ({navigation}) => {
   });
 
   const [showSheet, setShowSheet] = useState(false);
-  const [showLiveSheet, setShowLiveSheet] = useState(false);
 
   const openSheet = sheetOpen => {
     setShowSheet(!sheetOpen);
@@ -58,9 +57,6 @@ const ScreenSell = ({navigation}) => {
 
   const handlePressSingle = () => {
     navigation.navigate('ScreenSingleSell');
-  };
-  const handlePressSingleLive = () => {
-    navigation.navigate('ScreenSingleSellLive');
   };
   const handlePressWholesale = () => {
     navigation.navigate('ScreenWholesaleSell');
@@ -226,7 +222,25 @@ const ScreenSell = ({navigation}) => {
               }}>
               <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
                 <TouchableOpacity
-                  onPress={() => setShowLiveSheet(true)}
+                  onPress={async () => {
+                    const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id;
+                    let existingLiveCount = 0;
+                    if (uid) {
+                      try {
+                        const snap = await getDocs(
+                          query(
+                            collection(db, 'listing'),
+                            where('sellerCode', '==', uid),
+                            where('status', '==', 'Live')
+                          )
+                        );
+                        existingLiveCount = snap.size;
+                      } catch (e) {
+                        console.warn('Failed to fetch live listing count:', e?.message);
+                      }
+                    }
+                    navigation.navigate('BatchUploadScreen', { existingLiveCount });
+                  }}
                   style={{
                     marginTop: 10,
                     justifyContent: 'center',
@@ -255,65 +269,6 @@ const ScreenSell = ({navigation}) => {
 
           <CarouselSell plantItems={mostLoveData} />
         </View>
-
-        <ActionSheet
-          visible={showLiveSheet}
-          onClose={() => setShowLiveSheet(false)}
-          heightPercent={'30%'}>
-          <View style={{padding: 20}}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowLiveSheet(false);
-                handlePressSingleLive();
-              }}>
-              <View
-                style={{
-                  borderColor: '#CDD3D4',
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                }}>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <SinglePlantIcon width={50} height={50} />
-                  <View style={{flexDirection: 'column', paddingLeft: 10}}>
-                    <Text style={globalStyles.textLGGreyDark}>
-                      Live Sale Listing
-                    </Text>
-                    <Text style={globalStyles.textMDGreyLight}>
-                      Add a single plant to your live sale
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                setShowLiveSheet(false);
-                navigation.navigate('BatchUploadScreen');
-              }}>
-              <View
-                style={{
-                  borderColor: '#CDD3D4',
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <BatchUploadSvg width={50} height={50} />
-                  <View style={{flexDirection: 'column', paddingLeft: 10}}>
-                    <Text style={globalStyles.textLGGreyDark}>
-                      Batch Upload
-                    </Text>
-                    <Text style={globalStyles.textMDGreyLight}>
-                      Upload multiple live listings at once
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </ActionSheet>
 
         <ActionSheet
           visible={showSheet}

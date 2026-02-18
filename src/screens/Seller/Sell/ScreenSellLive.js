@@ -30,7 +30,7 @@ import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
 const screenWidth = Dimensions.get('window').width;
 
-const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, onClose, onListingCreated}) => {
+const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, onClose, onListingCreated, nextIgIndex}) => {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
 
@@ -140,8 +140,8 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, o
         </Modal>
       )}
       
-      {isSinglePlant && (<ScreenSingleSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} publishRef={childAddRef} navigation={navigation} />)}
-      {isGrower && (<ScreenGrowersSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} publishRef={childAddRef} navigation={navigation} />)}
+      {isSinglePlant && (<ScreenSingleSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} publishRef={childAddRef} navigation={navigation} nextIgIndex={nextIgIndex} />)}
+      {isGrower && (<ScreenGrowersSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} publishRef={childAddRef} navigation={navigation} nextIgIndex={nextIgIndex} />)}
 
 
       {!isGrower && !isSinglePlant && (<View style={styles.mainContainer}>

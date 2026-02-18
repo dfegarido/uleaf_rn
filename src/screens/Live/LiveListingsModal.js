@@ -73,9 +73,10 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet }
     }
   };
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item, index }) => {
     const isSelected = selectedListing?.plantCode === item.plantCode;
     const isActive = item.isActiveLiveListing;
+    const indexCode = `IG${index + 1}`;
 
     return (
       <TouchableOpacity
@@ -86,6 +87,9 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet }
         ]}
         onPress={() => setSelectedListing(item)}>
         <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
+        <View style={styles.indexBadge}>
+          <Text style={styles.indexText}>{indexCode}</Text>
+        </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.genus} {item.species}
@@ -161,6 +165,8 @@ const styles = StyleSheet.create({
   cardInfo: { padding: 8, color: '#333' },
   cardTitle: { fontWeight: '600', fontSize: 14, color: '#333' },
   cardPrice: { color: '#555', fontSize: 14, marginTop: 4 },
+  indexBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: '#333', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  indexText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
   activeBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#E7522F', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   activeText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
   footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#E0E0E0' },

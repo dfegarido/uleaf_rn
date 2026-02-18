@@ -60,6 +60,9 @@ const LiveListingGrid = ({
   refreshing = false,
   onRefresh,
   prevActivePlantCodes = new Set(),
+  isSelectMode = false,
+  selectedIds = [],
+  onToggleSelect,
 }) => {
   const renderCard = ({ item: listing, index }) => {
     const isActive = listing?.isActiveLiveListing === true;
@@ -87,14 +90,24 @@ const LiveListingGrid = ({
           ? '#FEF2EA'
           : '#fff';
     const showSetActive = !isActive && inStock;
-    const displayIndex = listing._originalIndex ?? (index + 1);
+    const displayIndex = `IG${listing._originalIndex ?? (index + 1)}`;
     const hasImage = !!(listing.imagePrimary || listing.image);
+
+    const isSelected = isSelectMode && selectedIds.includes(listing.id);
+
+    const handleCardPress = () => {
+      if (isSelectMode) {
+        onToggleSelect?.(listing.id);
+      } else {
+        onNavigateToDetail(listing.plantCode, listing.id);
+      }
+    };
 
     return (
       <TouchableOpacity
         activeOpacity={0.8}
-        style={[styles.card, { borderColor: cardBorderColor, backgroundColor: cardBgColor }]}
-        onPress={() => onNavigateToDetail(listing.plantCode, listing.id)}>
+        style={[styles.card, { borderColor: isSelected ? '#48A7F8' : cardBorderColor, backgroundColor: isSelected ? '#EBF5FF' : cardBgColor }]}
+        onPress={handleCardPress}>
         <View style={styles.imageWrap}>
           {hasImage ? (
             <Image
@@ -117,6 +130,13 @@ const LiveListingGrid = ({
           {isSold && (
             <View style={styles.soldOverlay}>
               <Text style={styles.soldText}>Sold</Text>
+            </View>
+          )}
+          {isSelectMode && (
+            <View style={styles.selectCheckboxWrap}>
+              <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxChecked]}>
+                {isSelected && <Text style={styles.selectCheckmark}>✓</Text>}
+              </View>
             </View>
           )}
         </View>
@@ -212,9 +232,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#E4E7E9',
   },
   noImageIndexText: {
-    fontSize: 32,
+    fontSize: 22,
     color: '#6B7280',
     fontWeight: '800',
+    letterSpacing: 1,
   },
   indexBadge: {
     position: 'absolute',
@@ -226,12 +247,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   indexBadgeText: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800',
     color: 'rgba(255,255,255,0.9)',
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 6,
+    letterSpacing: 1,
   },
   activeOverlay: {
     position: 'absolute',
@@ -297,6 +319,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#fff',
+  },
+  selectCheckboxWrap: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    zIndex: 5,
+  },
+  selectCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectCheckboxChecked: {
+    backgroundColor: '#48A7F8',
+    borderColor: '#48A7F8',
+  },
+  selectCheckmark: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 15,
   },
 });
 

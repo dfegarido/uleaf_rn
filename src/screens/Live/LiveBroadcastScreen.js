@@ -44,12 +44,16 @@ import CaretDown from '../../assets/icons/white/caret-down.svg';
 import CaretUp from '../../assets/icons/white/caret-up.svg';
 import NoteIcon from '../../assets/live-icon/notes.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
+import ScreenshotIcon from '../../assets/live-icon/screenshot.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
+import RNFS from 'react-native-fs';
 import { AuthContext } from '../../auth/AuthProvider';
 import { generateAgoraToken, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
-import CreateLiveListingScreen from './CreateLiveListingScreen'; // Import the modal component
-import LiveListingsModal from './LiveListingsModal'; // Import the new modal
+import { uploadImageToBackend } from '../../components/Api/uploadImageToBackend';
+import { updateListingApi } from '../../components/Api/listingManagementApi';
+import CreateLiveListingScreen from './CreateLiveListingScreen';
+import LiveListingsModal from './LiveListingsModal';
 
 const LiveBroadcastScreen = ({navigation, route}) => {
   const { userInfo } = useContext(AuthContext);
@@ -78,6 +82,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
   const [isLive, setIsLive] = useState(false);
   const flatListRef = useRef(null);
+  const snapshotPendingRef = useRef(null);
+  const [snapshotPreviewUri, setSnapshotPreviewUri] = useState(null);
+  const [snapshotCountdown, setSnapshotCountdown] = useState(0);
+  const countdownIntervalRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isJoinListExpanded, setJoinListExpanded] = useState(false);
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
@@ -85,6 +93,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [soldToUser, setSoldToUser] = useState(null);
   const [isCommentFocused, setIsCommentFocused] = useState(false);
+  const [sessionListingIndexMap, setSessionListingIndexMap] = useState({});
+  const [sessionListingsCount, setSessionListingsCount] = useState(0);
 
   useEffect(() => {
       KeepAwake.activate();
@@ -290,6 +300,20 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             fetchTokenAndRejoin();
           }
         },
+        onSnapshotTaken: (_connection, _uid, filePath, width, height, errCode) => {
+          if (errCode !== 0) {
+            console.warn('[Snapshot] Failed, errCode:', errCode);
+            snapshotPendingRef.current = null;
+            return;
+          }
+          console.log(`[Snapshot] Captured ${width}x${height} -> ${filePath}`);
+          const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+          setSnapshotPreviewUri(fileUri);
+          const pending = snapshotPendingRef.current;
+          snapshotPendingRef.current = null;
+          if (!pending) return;
+          handleSnapshotUpload(filePath, pending);
+        },
       });
       rtc.enableVideo();
       rtc.enableLocalVideo(true); // Explicitly enable local video capture (critical for Android)
@@ -464,7 +488,50 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     
   // };
 
- //get active listing
+  const handleSnapshotUpload = async (filePath, plantCode) => {
+    try {
+      console.log('[Snapshot] Uploading image for', plantCode);
+      const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+      const imageUrl = await uploadImageToBackend(fileUri);
+      if (!imageUrl) throw new Error('Upload returned empty URL');
+      console.log('[Snapshot] Uploaded, updating listing imagePrimary:', imageUrl);
+      await updateListingApi({ plantCode, imagePrimary: imageUrl });
+      console.log('[Snapshot] Listing updated successfully');
+    } catch (err) {
+      console.error('[Snapshot] Upload/update failed:', err?.message || err);
+    } finally {
+      try { await RNFS.unlink(filePath); } catch (_) {}
+      setSnapshotPreviewUri(null);
+    }
+  };
+
+  const captureAndUploadSnapshot = (listing) => {
+    const engine = rtcEngineRef.current;
+    if (!engine) {
+      console.warn('[Snapshot] No Agora engine, skipping');
+      return;
+    }
+    const plantCode = listing.plantCode;
+    const filePath = `${RNFS.CachesDirectoryPath}/live_snapshot_${plantCode}_${Date.now()}.jpg`;
+    snapshotPendingRef.current = plantCode;
+    const result = engine.takeSnapshot(0, filePath);
+    if (result < 0) {
+      console.warn('[Snapshot] takeSnapshot returned error:', result);
+      snapshotPendingRef.current = null;
+    }
+  };
+
+  const handleManualSnapshot = () => {
+    if (!activeListing || !joined) return;
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setSnapshotCountdown(0);
+    captureAndUploadSnapshot(activeListing);
+  };
+
+  //get active listing
   useEffect(() => {
       // Extract uid properly (handles nested structure for suppliers)
       const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
@@ -491,6 +558,60 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   
       return () => unsubscribe();
   }, [sessionId, currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
+
+  useEffect(() => {
+    const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+    if (!sessionId || !userId) return;
+
+    const q = query(
+      collection(db, 'listing'),
+      where('sessionId', '==', sessionId),
+      where('status', '==', 'Live'),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const indexMap = {};
+      snapshot.docs.forEach((docSnap, i) => {
+        indexMap[docSnap.id] = `IG${i + 1}`;
+      });
+      setSessionListingIndexMap(indexMap);
+      setSessionListingsCount(snapshot.docs.length);
+    });
+
+    return () => unsubscribe();
+  }, [sessionId, currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
+
+  useEffect(() => {
+    setSnapshotPreviewUri(null);
+    setSnapshotCountdown(0);
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    if (!activeListing || activeListing.imagePrimary || !joined) return;
+
+    console.log('[Snapshot] No image for listing', activeListing.plantCode, '— starting 8s countdown');
+    let remaining = 8;
+    setSnapshotCountdown(remaining);
+
+    countdownIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+      setSnapshotCountdown(remaining);
+      if (remaining <= 0) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        captureAndUploadSnapshot(activeListing);
+      }
+    }, 1000);
+
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+  }, [activeListing, joined]);
 
   // Effect to fetch order for the active listing
   useEffect(() => {
@@ -557,6 +678,16 @@ console.log('activeListing?.id', activeListing?.id);
             </View>
           )}
         </View>
+
+        {snapshotCountdown > 0 && (
+          <View style={styles.snapshotOverlay}>
+            <Text style={styles.snapshotPrepareText}>Prepare for snapshot</Text>
+            <Text style={styles.snapshotCountdownText}>{snapshotCountdown}</Text>
+            <TouchableOpacity onPress={handleManualSnapshot} style={styles.snapshotSnapNowBtn}>
+              <Text style={styles.snapshotSnapNowText}>Snap Now</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         
         {/* Only show UI components when stream is active */}
         {joined && (
@@ -661,6 +792,10 @@ console.log('activeListing?.id', activeListing?.id);
                   <NoteIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Notes</Text>
                 </TouchableOpacity>
+                <TouchableOpacity onPress={handleManualSnapshot} style={styles.sideAction}>
+                  <ScreenshotIcon width={32} height={32} />
+                  <Text style={styles.sideActionNotesText}>Snap</Text>
+                </TouchableOpacity>
             </View>
           </View>
           {soldToUser && (
@@ -672,8 +807,21 @@ console.log('activeListing?.id', activeListing?.id);
             <View style={styles.shop}>
                 <View style={styles.plant}>
                   <View style={styles.plantDetails}>
+                    {(snapshotPreviewUri || activeListing.imagePrimary) && (
+                      <Image
+                        source={{ uri: snapshotPreviewUri ?? activeListing.imagePrimary }}
+                        style={styles.listingThumb}
+                      />
+                    )}
                     <View style={styles.plantName}>
-                      <Text style={styles.name}>{activeListing.genus}</Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                        {sessionListingIndexMap[activeListing.id] && (
+                          <View style={styles.igBadge}>
+                            <Text style={styles.igBadgeText}>{sessionListingIndexMap[activeListing.id]}</Text>
+                          </View>
+                        )}
+                        <Text style={styles.name}>{activeListing.genus}</Text>
+                      </View>
                       <Text style={styles.name}>{activeListing.species}</Text>
                       <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
                     </View>
@@ -718,6 +866,7 @@ console.log('activeListing?.id', activeListing?.id);
           onListingCreated={() => {}}
           sessionId={sessionId}
           navigation={navigation}
+          nextIgIndex={sessionListingsCount + 1}
         />
 
         <LiveListingsModal
@@ -1045,13 +1194,46 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
   },
+  snapshotOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    zIndex: 10,
+  },
+  snapshotPrepareText: {
+    ...baseFont,
+    fontSize: 18,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: 8,
+  },
+  snapshotCountdownText: {
+    ...baseFont,
+    fontSize: 72,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 80,
+  },
+  snapshotSnapNowBtn: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  snapshotSnapNowText: {
+    ...baseFont,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   shop: {
     flexDirection: 'column',
     alignItems: 'center',
     padding: 16,
     gap: 12,
-    width: 359,
-    height: 210,
+    width: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 16,
   },
@@ -1059,20 +1241,35 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 12,
-    width: 327,
-    height: 90,
+    width: '100%',
   },
   plantDetails: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    width: 327,
-    height: 50,
+    width: '100%',
+  },
+  listingThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  igBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  igBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 11,
   },
   plantName: {
+    flex: 1,
     flexDirection: 'column',
     gap: 4,
-    width: 247,
-    height: 50,
   },
   name: {
     ...baseFont,
@@ -1091,8 +1288,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-end',
     gap: 6,
-    width: 72,
-    height: 50,
+    flexShrink: 0,
   },
   plantPrice: {
     ...baseFont,
@@ -1120,9 +1316,8 @@ const styles = StyleSheet.create({
   shipping: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 22,
     gap: 8,
-    width: 327,
+    width: '100%',
     height: 28,
   },
   shippingType: {
@@ -1156,16 +1351,15 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 22,
     gap: 8,
-    width: 327,
+    width: '100%',
     height: 48,
   },
   actionButtonTouch: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 12,
-    width: 327,
+    width: '100%',
     height: 48,
     backgroundColor: '#539461',
     borderRadius: 12,
@@ -1174,7 +1368,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 12,
-    width: 327,
+    width: '100%',
     height: 48,
     backgroundColor: '#E7522F',
     borderRadius: 12,

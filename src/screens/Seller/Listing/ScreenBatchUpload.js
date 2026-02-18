@@ -57,7 +57,8 @@ const createBlankRow = () => ({
   loadingVariegation: false,
 });
 
-const ScreenBatchUpload = ({navigation}) => {
+const ScreenBatchUpload = ({navigation, route}) => {
+  const existingLiveCount = route?.params?.existingLiveCount ?? 0;
   const insets = useSafeAreaInsets();
   const [genusOptions, setGenusOptions] = useState([]);
   const [rows, setRows] = useState([createBlankRow()]);
@@ -270,10 +271,12 @@ const ScreenBatchUpload = ({navigation}) => {
           contentContainerStyle={[styles.scrollContent, {paddingBottom: insets.bottom + 100}]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          {rows.map((row) => (
+          {rows.map((row, rowIndex) => (
             <View key={row.id} style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={globalStyles.textSMGreyDark}>Listing</Text>
+                <View style={styles.igBadge}>
+                  <Text style={styles.igBadgeText}>IG{existingLiveCount + rowIndex + 1}</Text>
+                </View>
                 {rows.length > 1 && (
                   <TouchableOpacity
                     onPress={() => removeRow(row.id)}
@@ -345,7 +348,10 @@ const ScreenBatchUpload = ({navigation}) => {
                 <InputBox
                   placeholder="Enter price"
                   value={row.localPrice}
-                  setValue={(v) => updateRow(row.id, {localPrice: v})}
+                  setValue={(v) => {
+                    const sanitized = v.replace(/[^0-9.]/g, '').replace(/^(\d*\.?)(.*)$/, (_, a, b) => a + b.replace(/\./g, ''));
+                    updateRow(row.id, {localPrice: sanitized});
+                  }}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -470,6 +476,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  igBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  igBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   deleteBtn: {padding: 4},
   field: {marginBottom: 14},

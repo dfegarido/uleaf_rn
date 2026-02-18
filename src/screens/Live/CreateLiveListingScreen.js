@@ -5,7 +5,7 @@ import CloseIcom from '../../assets/live-icon/close-x.svg';
 import { addListing } from '../../components/Api/listingApi'; // Assuming you have this API function
 import ScreenSellLive from '../Seller/Sell/ScreenSellLive';
 
-const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId, onListingCreated }) => {
+const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId, onListingCreated, nextIgIndex }) => {
   // const route = useRoute(); // No longer needed as sessionId is passed as prop
   // const { sessionId } = route.params; // No longer needed
 
@@ -114,7 +114,7 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId, on
               <View style={{ width: 24 }} />
             </View>
 
-        <ScreenSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton}></ScreenSellLive>
+        <ScreenSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton} nextIgIndex={nextIgIndex}></ScreenSellLive>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.goLiveButton} onPress={handleParentAddButtonClick}>
