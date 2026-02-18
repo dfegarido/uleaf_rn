@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -37,9 +37,13 @@ import { InputSearch } from '../../../components/InputGroup/Left';
 import { InputGroupAddon } from '../../../components/InputGroupAddon';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
 import TabFilter from '../../../components/TabFilter/TabFilter';
+import Toast from '../../../components/Toast/Toast';
+import { auth } from '../../../../firebase';
+import { fetchLiveListingsFromFirestore } from '../../../utils/fetchLiveListingsFromFirestore';
 import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
+import LiveListingGrid from './components/LiveListingGrid';
 import ListingTable from './components/ListingTable';
 import ListingTableSkeleton from './components/ListingTableSkeleton';
 
@@ -170,12 +174,24 @@ const ScreenListing = ({navigation}) => {
   const [totalListings, setTotalListings] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  /** Live tab infinite scroll: cursor and load-more state */
+  const liveLastDocRef = useRef(null);
+  const [liveLoadingMore, setLiveLoadingMore] = useState(false);
+  const [liveHasMore, setLiveHasMore] = useState(false);
+
+  /** Live tab: plantCodes that were set active earlier this session (for orange styling) */
+  const [prevActivePlantCodes, setPrevActivePlantCodes] = useState(new Set());
+
   const resetPaginationState = () => {
     setPageTokens(['']);
     setCurrentPage(1);
     setHasMorePages(false);
     setTotalListings(0);
     setTotalPages(1);
+    liveLastDocRef.current = null;
+    setLiveLoadingMore(false);
+    setLiveHasMore(false);
+    setPrevActivePlantCodes(new Set());
   };
 
   const loadData = async (
@@ -315,6 +331,47 @@ const ScreenListing = ({navigation}) => {
       const tokensCopy = [...pageTokens];
       let response = null;
 
+      if (activeTab === 'Live') {
+        const uid =
+          userInfo?.uid ||
+          userInfo?.id ||
+          userInfo?.user?.uid ||
+          userInfo?.user?.id ||
+          auth.currentUser?.uid;
+        if (__DEV__ && uid) {
+          console.log('[Live tab] Using uid for Firestore query:', uid);
+        }
+        if (uid) {
+          try {
+            liveLastDocRef.current = null;
+            const { listings, docs, hasMore } = await fetchLiveListingsFromFirestore(uid, {
+              pageSize: 12,
+              lastDoc: null,
+            });
+            setDataTable(listings);
+            liveLastDocRef.current = docs[docs.length - 1] ?? null;
+            setLiveHasMore(hasMore);
+          } catch (liveErr) {
+            console.error('[Live tab] Firestore fetch error:', liveErr?.message || liveErr);
+            Alert.alert(
+              'Live listings',
+              liveErr?.message?.includes('permission')
+                ? 'Could not load Live listings. Check Firestore rules allow read for your account.'
+                : liveErr?.message || 'Failed to load Live listings.',
+            );
+          }
+        } else {
+          if (__DEV__) {
+            console.warn('[Live tab] No uid available (userInfo or auth.currentUser)');
+          }
+          setDataTable([]);
+          setLiveHasMore(false);
+        }
+        setRefreshing(false);
+        setLoading(false);
+        return;
+      }
+
       const fetchPageWithToken = async (pageToken = '') => {
         return loadData(
         true,
@@ -331,40 +388,42 @@ const ScreenListing = ({navigation}) => {
         );
       };
 
-      if (tokensCopy[desiredPage - 1] === undefined) {
-        let currentIndex = tokensCopy.length - 1;
-        let lastToken = tokensCopy[currentIndex] || '';
-        while (currentIndex < desiredPage - 1) {
-          const interimResponse = await fetchPageWithToken(lastToken);
-          const nextToken = interimResponse?.nextPageToken || null;
-          tokensCopy[currentIndex + 1] = nextToken;
-          lastToken = nextToken || '';
-          currentIndex += 1;
-
-          if (currentIndex === desiredPage - 1) {
-            response = interimResponse;
-            break;
-          }
-
-          if (!nextToken) {
-            desiredPage = currentIndex;
-            response = interimResponse;
-            break;
-          }
-        }
-
+      if (activeTab !== 'Live') {
         if (tokensCopy[desiredPage - 1] === undefined) {
-          desiredPage = Math.max(1, tokensCopy.length - 1);
-        }
-      }
+          let currentIndex = tokensCopy.length - 1;
+          let lastToken = tokensCopy[currentIndex] || '';
+          while (currentIndex < desiredPage - 1) {
+            const interimResponse = await fetchPageWithToken(lastToken);
+            const nextToken = interimResponse?.nextPageToken || null;
+            tokensCopy[currentIndex + 1] = nextToken;
+            lastToken = nextToken || '';
+            currentIndex += 1;
 
-      if (!response) {
-        let tokenForPage = tokensCopy[desiredPage - 1] || '';
+            if (currentIndex === desiredPage - 1) {
+              response = interimResponse;
+              break;
+            }
 
-        if (desiredPage === 1 && activeTab === 'Group Chat Listing') {
-          tokenForPage = null;
+            if (!nextToken) {
+              desiredPage = currentIndex;
+              response = interimResponse;
+              break;
+            }
+          }
+
+          if (tokensCopy[desiredPage - 1] === undefined) {
+            desiredPage = Math.max(1, tokensCopy.length - 1);
+          }
         }
-        response = await fetchPageWithToken(tokenForPage);
+
+        if (!response) {
+          let tokenForPage = tokensCopy[desiredPage - 1] || '';
+
+          if (desiredPage === 1 && activeTab === 'Group Chat Listing') {
+            tokenForPage = null;
+          }
+          response = await fetchPageWithToken(tokenForPage);
+        }
       }
 
       const normalizeFilterValues = (filterArray) => {
@@ -644,6 +703,7 @@ const ScreenListing = ({navigation}) => {
       }
 
       const sortedAggregated = sortListingsBySelection(aggregatedListings);
+
       const pageListings = sortedAggregated.slice(0, SELLER_LISTINGS_PAGE_SIZE);
 
       const displayedCount = pageListings.length;
@@ -801,6 +861,31 @@ const ScreenListing = ({navigation}) => {
   const handleNextPage = () => {
     if (hasMorePages) {
       fetchListingsPage(currentPage + 1);
+    }
+  };
+
+  const loadMoreLiveListings = async () => {
+    if (!liveHasMore || liveLoadingMore) return;
+    const uid =
+      userInfo?.uid ||
+      userInfo?.id ||
+      userInfo?.user?.uid ||
+      userInfo?.user?.id ||
+      auth.currentUser?.uid;
+    if (!uid) return;
+    setLiveLoadingMore(true);
+    try {
+      const { listings, docs, hasMore } = await fetchLiveListingsFromFirestore(uid, {
+        pageSize: 12,
+        lastDoc: liveLastDocRef.current,
+      });
+      setDataTable((prev) => [...prev, ...listings]);
+      liveLastDocRef.current = docs[docs.length - 1] ?? null;
+      setLiveHasMore(hasMore);
+    } catch (err) {
+      if (__DEV__) console.warn('[Live tab] loadMore error:', err?.message);
+    } finally {
+      setLiveLoadingMore(false);
     }
   };
 
@@ -1251,14 +1336,41 @@ const ScreenListing = ({navigation}) => {
   };
 
   const onPressSetToActive = async (plantCode) => {
+    if (activeTab === 'Live') {
+      const previousDataTable = dataTable;
+      const previousPrevActive = prevActivePlantCodes;
+      const currentActive = dataTable.find((l) => l.isActiveLiveListing === true);
+      if (currentActive?.plantCode && currentActive.plantCode !== plantCode) {
+        setPrevActivePlantCodes((prev) => new Set([...prev, currentActive.plantCode]));
+      }
+      setDataTable((prev) =>
+        prev.map((l) => ({
+          ...l,
+          isActiveLiveListing: l.plantCode === plantCode,
+        })),
+      );
+      try {
+        const response = await setLiveListingActiveApi({ plantCode });
+        if (!response?.success) {
+          throw new Error(response?.message || 'Failed to set active listing.');
+        }
+        showToast('Active listing has been updated.');
+      } catch (error) {
+        console.log('Error action:', error.message);
+        setDataTable(previousDataTable);
+        setPrevActivePlantCodes(previousPrevActive);
+        showToast(error.message || 'Failed to set active listing.', 'error');
+      }
+      return;
+    }
     setLoading(true);
     try {
       const response = await setLiveListingActiveApi({
         plantCode: plantCode,
       });
-      
+
       if (response.success) {
-        Alert.alert('Success', 'Active listing has been updated.');
+        showToast('Active listing has been updated.');
         resetPaginationState();
         await fetchListingsPage(1);
       } else {
@@ -1266,7 +1378,7 @@ const ScreenListing = ({navigation}) => {
       }
     } catch (error) {
       console.log('Error action:', error.message);
-      Alert.alert('Error', error.message);
+      showToast(error.message || 'Failed to set active listing.', 'error');
     } finally {
       setLoading(false);
     }
@@ -1321,6 +1433,16 @@ const ScreenListing = ({navigation}) => {
   // Delete Item
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   const onPressDeleteConfirm = () => {
     setActionShowSheet(false);
@@ -1477,28 +1599,57 @@ const ScreenListing = ({navigation}) => {
         </ScrollView>
         {/* Filter Tabs */}
       </View>
-      {/* Search and Icons */}
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        style={[styles.container]}
-        contentContainerStyle={{
-          paddingBottom: insets.bottom,
-        }}
-        // stickyHeaderIndices={[0]}
-      >
-        <View
-          style={{
-            backgroundColor: '#fff',
-            minHeight: dataTable.length != 0 && screenHeight * 0.9,
-          }}>
-          {loading ? (
-            <View style={styles.contents}>
-              <ListingTableSkeleton rowCount={SELLER_LISTINGS_PAGE_SIZE} />
-            </View>
-          ) : dataTable && dataTable.length > 0 ? (
-            <>
+      {/* Search and Icons — use View for Live tab so FlatList is not inside ScrollView */}
+      {activeTab === 'Live' ? (
+        <View style={[styles.container, { flex: 1, paddingBottom: insets.bottom }]}>
+          <View style={{ flex: 1, backgroundColor: '#fff' }}>
+            {loading ? (
+              <View style={styles.contents}>
+                <ListingTableSkeleton rowCount={SELLER_LISTINGS_PAGE_SIZE} />
+              </View>
+            ) : dataTable && dataTable.length > 0 ? (
+              <View style={[styles.contents, { flex: 1 }]}>
+                <LiveListingGrid
+                  data={dataTable}
+                  onNavigateToDetail={onNavigateToDetail}
+                  onPressSetToActive={onPressSetToActive}
+                  onLoadMore={loadMoreLiveListings}
+                  isLoadingMore={liveLoadingMore}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  prevActivePlantCodes={prevActivePlantCodes}
+                />
+              </View>
+            ) : !loading ? (
+              <View style={{ alignItems: 'center', paddingTop: 80, flex: 1 }}>
+                <Image
+                  source={imageMap[normalizeKey(activeTab)]}
+                  style={{ width: 300, height: 300, resizeMode: 'contain' }}
+                />
+              </View>
+            ) : null}
+          </View>
+        </View>
+      ) : (
+        <ScrollView
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          style={[styles.container]}
+          contentContainerStyle={{
+            paddingBottom: insets.bottom,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              minHeight: dataTable.length != 0 && screenHeight * 0.9,
+            }}>
+            {loading ? (
+              <View style={styles.contents}>
+                <ListingTableSkeleton rowCount={SELLER_LISTINGS_PAGE_SIZE} />
+              </View>
+            ) : dataTable && dataTable.length > 0 ? (
               <View style={styles.contents}>
                 <ListingTable
                   headers={headers}
@@ -1516,19 +1667,20 @@ const ScreenListing = ({navigation}) => {
                   onPressSetToActive={onPressSetToActive}
                 />
               </View>
-            </>
-          ) : !loading ? (
-            <View style={{alignItems: 'center', paddingTop: 80, flex: 1}}>
-              <Image
-                source={imageMap[normalizeKey(activeTab)]}
-                style={{width: 300, height: 300, resizeMode: 'contain'}}
-              />
-            </View>
-          ) : null}
-        </View>
-      </ScrollView>
+            ) : !loading ? (
+              <View style={{ alignItems: 'center', paddingTop: 80, flex: 1 }}>
+                <Image
+                  source={imageMap[normalizeKey(activeTab)]}
+                  style={{ width: 300, height: 300, resizeMode: 'contain' }}
+                />
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
+      )}
 
-      {/* Pagination Controls */}
+      {/* Pagination Controls (hidden for Live tab — uses infinite scroll) */}
+      {activeTab !== 'Live' && (
       <View style={styles.paginationWrapper}>
         <View style={styles.paginationContainer}>
           <TouchableOpacity
@@ -1577,6 +1729,7 @@ const ScreenListing = ({navigation}) => {
           </TouchableOpacity>
         </View>
       </View>
+      )}
 
       <ReusableActionSheet
         code={code}
@@ -1746,6 +1899,15 @@ const ScreenListing = ({navigation}) => {
         visible={deleteModalVisible}
         onDelete={onPressDelete}
         onCancel={() => setDeleteModalVisible(false)}
+      />
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        duration={3000}
+        position="bottom"
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

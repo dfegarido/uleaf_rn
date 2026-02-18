@@ -1,13 +1,14 @@
 import React, {useEffect, useRef} from 'react';
 import {View, Text, StyleSheet, Animated} from 'react-native';
 
-const Toast = ({visible, message, type = 'success', duration = 3000, onHide}) => {
+const Toast = ({visible, message, type = 'success', duration = 3000, onHide, position = 'top'}) => {
+  const isBottom = position === 'bottom';
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(-50)).current;
+  const slideAnim = useRef(new Animated.Value(isBottom ? 50 : -50)).current;
 
   useEffect(() => {
     if (visible) {
-      // Show animation
+      // Show animation (slide in: top = from -50 to 0, bottom = from 50 to 0)
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -40,7 +41,7 @@ const Toast = ({visible, message, type = 'success', duration = 3000, onHide}) =>
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
-        toValue: -50,
+        toValue: isBottom ? 50 : -50,
         duration: 200,
         useNativeDriver: true,
       }),
@@ -56,10 +57,11 @@ const Toast = ({visible, message, type = 'success', duration = 3000, onHide}) =>
   const backgroundColor = type === 'success' ? '#539461' : type === 'error' ? '#E7522F' : '#556065';
 
   return (
-    <View style={styles.container} pointerEvents="none">
+    <View style={[styles.container, isBottom ? styles.containerBottom : styles.containerTop]} pointerEvents="none">
       <Animated.View
         style={[
           styles.toast,
+          isBottom ? styles.toastBottom : styles.toastTop,
           {backgroundColor},
           {
             opacity: fadeAnim,
@@ -79,13 +81,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'flex-start',
     alignItems: 'center',
     zIndex: 9999,
     pointerEvents: 'box-none',
   },
+  containerTop: {
+    justifyContent: 'flex-start',
+  },
+  containerBottom: {
+    justifyContent: 'flex-end',
+  },
   toast: {
-    marginTop: 60,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
@@ -99,6 +105,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  toastTop: {
+    marginTop: 60,
+  },
+  toastBottom: {
+    marginBottom: 60,
   },
   message: {
     color: '#FFFFFF',
