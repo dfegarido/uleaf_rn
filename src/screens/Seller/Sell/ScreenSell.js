@@ -24,6 +24,7 @@ import { getSellMostLove } from '../../../components/Api';
 import GrowerPlantIcon from '../../../assets/sellicon/growers.svg';
 import SinglePlantIcon from '../../../assets/sellicon/single.svg';
 import WholeSalePlantIcon from '../../../assets/sellicon/wholesale.svg';
+import BatchUploadSvg from '../../../assets/images/batch-upload.svg';
 
 import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
@@ -36,6 +37,11 @@ const ScreenSell = ({navigation}) => {
   const isFocused = useIsFocused();
   const {userInfo} = useContext(AuthContext);
 
+  if (__DEV__) {
+    console.log('[ScreenSell] userInfo.liveFlag =', userInfo?.liveFlag);
+    console.log('[ScreenSell] userInfo keys =', userInfo ? Object.keys(userInfo) : 'null');
+  }
+
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
       StatusBar.setBarStyle('dark-content');
@@ -44,6 +50,7 @@ const ScreenSell = ({navigation}) => {
   });
 
   const [showSheet, setShowSheet] = useState(false);
+  const [showLiveSheet, setShowLiveSheet] = useState(false);
 
   const openSheet = sheetOpen => {
     setShowSheet(!sheetOpen);
@@ -210,52 +217,33 @@ const ScreenSell = ({navigation}) => {
               </Text>
             </TouchableOpacity>
           </View>
-          {userInfo?.liveFlag === 'Yes' && (<View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginTop: 20,
-            }}>
-            <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
-              <TouchableOpacity
-                onPress={handlePressSingleLive}
-                style={{
-                  marginTop: 10,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}>
-                <SinglePlantIcon width={42} height={52}></SinglePlantIcon>
-                <Text
-                  style={[
-                    globalStyles.textMDAccentDark,
-                    {paddingTop: 10, fontWeight: '800'},
-                  ]}>
-                  Live Sale
-                </Text>
-              </TouchableOpacity>
+          {userInfo?.liveFlag === 'Yes' && (
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginTop: 20,
+              }}>
+              <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
+                <TouchableOpacity
+                  onPress={() => setShowLiveSheet(true)}
+                  style={{
+                    marginTop: 10,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                  <SinglePlantIcon width={42} height={52} />
+                  <Text
+                    style={[
+                      globalStyles.textMDAccentDark,
+                      {paddingTop: 10, fontWeight: '800'},
+                    ]}>
+                    Live Sale
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            {/* <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
-              <TouchableOpacity
-                onPress={ () => navigation.navigate('CreateLiveSession', {isPurge: true})}
-                style={{
-                  marginTop: 10,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}>
-                <GrowerPlantIcon width={42} height={52}></GrowerPlantIcon>
-                <Text
-                  style={[
-                    globalStyles.textMDAccentDark,
-                    {
-                      paddingTop: 10,
-                      fontWeight: '800',
-                    },
-                  ]}>
-                  Purge
-                </Text>
-              </TouchableOpacity>
-            </View> */}
-          </View>)}
+          )}
         </View>
 
         <View style={{paddingTop: 30}}>
@@ -267,6 +255,65 @@ const ScreenSell = ({navigation}) => {
 
           <CarouselSell plantItems={mostLoveData} />
         </View>
+
+        <ActionSheet
+          visible={showLiveSheet}
+          onClose={() => setShowLiveSheet(false)}
+          heightPercent={'30%'}>
+          <View style={{padding: 20}}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowLiveSheet(false);
+                handlePressSingleLive();
+              }}>
+              <View
+                style={{
+                  borderColor: '#CDD3D4',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                }}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <SinglePlantIcon width={50} height={50} />
+                  <View style={{flexDirection: 'column', paddingLeft: 10}}>
+                    <Text style={globalStyles.textLGGreyDark}>
+                      Live Sale Listing
+                    </Text>
+                    <Text style={globalStyles.textMDGreyLight}>
+                      Add a single plant to your live sale
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setShowLiveSheet(false);
+                navigation.navigate('BatchUploadScreen');
+              }}>
+              <View
+                style={{
+                  borderColor: '#CDD3D4',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                  marginTop: 10,
+                }}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <BatchUploadSvg width={50} height={50} />
+                  <View style={{flexDirection: 'column', paddingLeft: 10}}>
+                    <Text style={globalStyles.textLGGreyDark}>
+                      Batch Upload
+                    </Text>
+                    <Text style={globalStyles.textMDGreyLight}>
+                      Upload multiple live listings at once
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </ActionSheet>
 
         <ActionSheet
           visible={showSheet}

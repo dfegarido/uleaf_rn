@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -10,7 +10,39 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { globalStyles } from '../../../../assets/styles/styles';
+
+const ActiveBadge = () => {
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.25, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+  }, [opacity]);
+
+  const blinkStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Animated.View style={[styles.activeOverlay, blinkStyle]}>
+      <View style={styles.activeDot} />
+      <Text style={styles.activeText}>Active</Text>
+    </Animated.View>
+  );
+};
 
 const SCREEN_PADDING = 16;
 const GAP = 6;
@@ -55,7 +87,8 @@ const LiveListingGrid = ({
           ? '#FEF2EA'
           : '#fff';
     const showSetActive = !isActive && inStock;
-    const displayIndex = index + 1;
+    const displayIndex = listing._originalIndex ?? (index + 1);
+    const hasImage = !!(listing.imagePrimary || listing.image);
 
     return (
       <TouchableOpacity
@@ -63,21 +96,24 @@ const LiveListingGrid = ({
         style={[styles.card, { borderColor: cardBorderColor, backgroundColor: cardBgColor }]}
         onPress={() => onNavigateToDetail(listing.plantCode, listing.id)}>
         <View style={styles.imageWrap}>
-          <Image
-            style={styles.image}
-            source={{
-              uri:
-                listing.imagePrimary ||
-                listing.image ||
-                'https://via.placeholder.com/80x80.png?text=No+Image',
-            }}
-          />
-          {isActive && (
-            <View style={styles.activeOverlay}>
-              <View style={styles.activeDot} />
-              <Text style={styles.activeText}>Active</Text>
+          {hasImage ? (
+            <Image
+              style={styles.image}
+              source={{
+                uri: listing.imagePrimary || listing.image,
+              }}
+            />
+          ) : (
+            <View style={styles.noImagePlaceholder}>
+              <Text style={styles.noImageIndexText}>{displayIndex}</Text>
             </View>
           )}
+          {hasImage && (
+            <View style={styles.indexBadge}>
+              <Text style={styles.indexBadgeText}>{displayIndex}</Text>
+            </View>
+          )}
+          {isActive && <ActiveBadge />}
           {isSold && (
             <View style={styles.soldOverlay}>
               <Text style={styles.soldText}>Sold</Text>
@@ -85,9 +121,6 @@ const LiveListingGrid = ({
           )}
         </View>
         <View style={styles.body}>
-          <Text style={[globalStyles.textSMGreyLight, globalStyles.textBold, styles.index]}>
-            {displayIndex}
-          </Text>
           <Text
             style={[globalStyles.textSMGreyDark, globalStyles.textBold, styles.genus]}
             numberOfLines={1}>
@@ -172,6 +205,34 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
+  noImagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E4E7E9',
+  },
+  noImageIndexText: {
+    fontSize: 32,
+    color: '#6B7280',
+    fontWeight: '800',
+  },
+  indexBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  indexBadgeText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.9)',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+  },
   activeOverlay: {
     position: 'absolute',
     top: 6,
@@ -206,8 +267,10 @@ const styles = StyleSheet.create({
   },
   soldText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#000000',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   body: {
     padding: 8,

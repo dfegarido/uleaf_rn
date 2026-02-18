@@ -178,14 +178,24 @@ const ReusableActionSheet = ({
                 position: 'absolute',
                 bottom: 10,
                 width: '100%',
+                paddingHorizontal: 20,
               }}>
               <TouchableOpacity
+                onPress={() => {
+                  sortChange('');
+                  handleSearchSubmit();
+                }}
+                style={{width: '45%'}}>
+                <View style={[globalStyles.lightGreenButton]}>
+                  <Text
+                    style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
+                    Reset
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={handleSearchSubmit}
-                style={{
-                  paddingHorizontal: 20,
-                  alignSelf: 'stretch',
-                  width: '100%',
-                }}>
+                style={{width: '45%'}}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>

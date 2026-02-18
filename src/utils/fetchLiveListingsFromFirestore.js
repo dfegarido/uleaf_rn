@@ -23,34 +23,55 @@ function formatTimestamp(timestamp) {
   return null;
 }
 
+function extractValues(arr) {
+  return (arr || [])
+    .map((x) => (typeof x === 'string' ? x : (x?.value ?? x?.label ?? x?.name ?? '')))
+    .filter(Boolean);
+}
+
 /**
  * Fetch Live listings for the given seller/supplier uid with cursor-based pagination.
+ * When fetchAll or filters are used, fetches up to 500 and applies filter/sort client-side.
  * @param {string} uid - seller/supplier uid (sellerCode in listing docs)
- * @param {{ pageSize?: number, lastDoc?: import('firebase/firestore').DocumentSnapshot | null }} options - pageSize (default 12), lastDoc cursor for next page
+ * @param {{ pageSize?: number, lastDoc?: import('firebase/firestore').DocumentSnapshot | null, fetchAll?: boolean, filters?: object }} options
  * @returns {Promise<{ listings: Array, docs: Array, hasMore: boolean }>}
  */
-export async function fetchLiveListingsFromFirestore(uid, { pageSize = 12, lastDoc = null } = {}) {
+export async function fetchLiveListingsFromFirestore(uid, {
+  pageSize = 12,
+  lastDoc = null,
+  fetchAll = false,
+  filters = {},
+} = {}) {
   if (!uid) {
     return { listings: [], docs: [], hasMore: false };
   }
 
+  const effectiveLimit = fetchAll ? 500 : pageSize;
   const listingRef = collection(db, 'listing');
-  const q = lastDoc
+  const q = fetchAll
     ? query(
         listingRef,
         where('sellerCode', '==', uid),
         where('status', '==', 'Live'),
-        orderBy('createdAt', 'desc'),
-        startAfter(lastDoc),
-        limit(pageSize),
+        orderBy('createdAt', 'asc'),
+        limit(effectiveLimit),
       )
-    : query(
-        listingRef,
-        where('sellerCode', '==', uid),
-        where('status', '==', 'Live'),
-        orderBy('createdAt', 'desc'),
-        limit(pageSize),
-      );
+    : lastDoc
+      ? query(
+          listingRef,
+          where('sellerCode', '==', uid),
+          where('status', '==', 'Live'),
+          orderBy('createdAt', 'asc'),
+          startAfter(lastDoc),
+          limit(pageSize),
+        )
+      : query(
+          listingRef,
+          where('sellerCode', '==', uid),
+          where('status', '==', 'Live'),
+          orderBy('createdAt', 'asc'),
+          limit(pageSize),
+        );
 
   let snapshot;
   try {
@@ -128,15 +149,69 @@ export async function fetchLiveListingsFromFirestore(uid, { pageSize = 12, lastD
     }
   }
 
+  let result = listings;
+  if (fetchAll) {
+    result.forEach((item, i) => {
+      item._originalIndex = i + 1;
+    });
+  }
+  if (fetchAll && filters) {
+    const genusVals = extractValues(filters.genus);
+    const variegationVals = extractValues(filters.variegation);
+    const listingTypeVals = extractValues(filters.listingType);
+    const searchQ = (filters.search || '').trim().toLowerCase();
+
+    if (genusVals.length) {
+      result = result.filter((l) => genusVals.includes(l.genus));
+    }
+    if (variegationVals.length) {
+      result = result.filter((l) => variegationVals.includes(l.variegation));
+    }
+    if (listingTypeVals.length) {
+      result = result.filter((l) => listingTypeVals.includes(l.listingType));
+    }
+    if (searchQ) {
+      result = result.filter((l) => {
+        const g = (l.genus || '').toLowerCase();
+        const s = (l.species || '').toLowerCase();
+        const v = (l.variegation || '').toLowerCase();
+        return g.includes(searchQ) || s.includes(searchQ) || v.includes(searchQ);
+      });
+    }
+
+    const sortValNorm = (filters.sort || '').trim().toLowerCase();
+    if (sortValNorm.includes('price') && sortValNorm.includes('low to high')) {
+      result = [...result].sort(
+        (a, b) =>
+          parseFloat(a.localPrice || 0) - parseFloat(b.localPrice || 0),
+      );
+    } else if (sortValNorm.includes('price') && sortValNorm.includes('high to low')) {
+      result = [...result].sort(
+        (a, b) =>
+          parseFloat(b.localPrice || 0) - parseFloat(a.localPrice || 0),
+      );
+    } else if (sortValNorm === 'newest' || sortValNorm === 'newest to oldest') {
+      result = [...result].reverse();
+    } else if (sortValNorm === 'oldest' || sortValNorm === 'oldest to newest') {
+      // already fetched in createdAt asc order, no change needed
+    } else if (sortValNorm === 'most loved') {
+      result = [...result].sort((a, b) => (b.loveCount ?? 0) - (a.loveCount ?? 0));
+    } else {
+      // default: newest first (same as "Newest to Oldest")
+      result = [...result].reverse();
+    }
+  }
+
+  const hasMore = fetchAll ? false : snapshot.docs.length === pageSize;
   if (__DEV__) {
     console.log(
-      `[fetchLiveListingsFromFirestore] sellerCode=${uid} status=Live → ${listings.length} listing(s), hasMore=${snapshot.docs.length === pageSize}`,
+      `[fetchLiveListingsFromFirestore] sellerCode=${uid} status=Live → ${result.length} listing(s), hasMore=${hasMore}`,
     );
   }
 
   return {
-    listings,
+    listings: result,
     docs: snapshot.docs,
-    hasMore: snapshot.docs.length === pageSize,
+    hasMore,
   };
 }

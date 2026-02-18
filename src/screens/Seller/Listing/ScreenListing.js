@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -46,6 +46,7 @@ import ListingActionSheet from './components/ListingActionSheetEdit';
 import LiveListingGrid from './components/LiveListingGrid';
 import ListingTable from './components/ListingTable';
 import ListingTableSkeleton from './components/ListingTableSkeleton';
+import LiveListingGridSkeleton from './components/LiveListingGridSkeleton';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -155,6 +156,48 @@ const imageMap = {
   outofstock: require('../../../assets/images/manage-out_of_stock.png'),
 };
 
+// Module-level cache for Live listings — persists across tab switches within the same app session.
+// Key: "<uid>|<serialised filters>"  Value: { listings, timestamp }
+const LIVE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const _liveListingsCache = new Map();
+
+const _liveListingsCacheKey = (uid, filters = {}) =>
+  `${uid}|${JSON.stringify({
+    sort: filters.sort ?? '',
+    genus: [...(filters.genus ?? [])].sort(),
+    variegation: [...(filters.variegation ?? [])].sort(),
+    listingType: [...(filters.listingType ?? [])].sort(),
+    search: (filters.search ?? '').trim().toLowerCase(),
+  })}`;
+
+const _getLiveCache = (uid, filters) => {
+  const key = _liveListingsCacheKey(uid, filters);
+  const entry = _liveListingsCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > LIVE_CACHE_TTL_MS) {
+    _liveListingsCache.delete(key);
+    return null;
+  }
+  return entry.listings;
+};
+
+const _setLiveCache = (uid, filters, listings) => {
+  _liveListingsCache.set(_liveListingsCacheKey(uid, filters), {
+    listings,
+    timestamp: Date.now(),
+  });
+};
+
+const _bustLiveCache = (uid) => {
+  if (!uid) {
+    _liveListingsCache.clear();
+    return;
+  }
+  for (const key of _liveListingsCache.keys()) {
+    if (key.startsWith(`${uid}|`)) _liveListingsCache.delete(key);
+  }
+};
+
 const ScreenListing = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
@@ -174,8 +217,13 @@ const ScreenListing = ({navigation}) => {
   const [totalListings, setTotalListings] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  /** Live tab infinite scroll: cursor and load-more state */
+  /** Live tab: full fetched array (for client-side lazy rendering) */
+  const liveAllListingsRef = useRef([]);
+  const LIVE_DISPLAY_PAGE = 24;
+
+  /** Live tab scroll state */
   const liveLastDocRef = useRef(null);
+  const liveFetchIdRef = useRef(0);
   const [liveLoadingMore, setLiveLoadingMore] = useState(false);
   const [liveHasMore, setLiveHasMore] = useState(false);
 
@@ -188,6 +236,7 @@ const ScreenListing = ({navigation}) => {
     setHasMorePages(false);
     setTotalListings(0);
     setTotalPages(1);
+    liveAllListingsRef.current = [];
     liveLastDocRef.current = null;
     setLiveLoadingMore(false);
     setLiveHasMore(false);
@@ -342,16 +391,50 @@ const ScreenListing = ({navigation}) => {
           console.log('[Live tab] Using uid for Firestore query:', uid);
         }
         if (uid) {
+          const fetchId = ++liveFetchIdRef.current;
+          const liveFilters = {
+            genus: reusableGenus,
+            variegation: reusableVariegation,
+            listingType: reusableListingType,
+            search,
+            sort: reusableSort,
+          };
+          if (__DEV__) {
+            console.log(
+              '[Live tab] filters:',
+              liveFilters,
+            );
+          }
           try {
             liveLastDocRef.current = null;
-            const { listings, docs, hasMore } = await fetchLiveListingsFromFirestore(uid, {
+
+            // — Cache check —
+            const cached = _getLiveCache(uid, liveFilters);
+            if (cached) {
+              if (__DEV__) console.log('[Live tab] Cache HIT — skipping Firestore fetch');
+              if (fetchId !== liveFetchIdRef.current) return;
+              liveAllListingsRef.current = cached;
+              setDataTable(cached.slice(0, LIVE_DISPLAY_PAGE));
+              setLiveHasMore(cached.length > LIVE_DISPLAY_PAGE);
+              setRefreshing(false);
+              setLoading(false);
+              return;
+            }
+
+            if (__DEV__) console.log('[Live tab] Cache MISS — fetching from Firestore');
+            const { listings } = await fetchLiveListingsFromFirestore(uid, {
               pageSize: 12,
               lastDoc: null,
+              fetchAll: true,
+              filters: liveFilters,
             });
-            setDataTable(listings);
-            liveLastDocRef.current = docs[docs.length - 1] ?? null;
-            setLiveHasMore(hasMore);
+            _setLiveCache(uid, liveFilters, listings);
+            if (fetchId !== liveFetchIdRef.current) return;
+            liveAllListingsRef.current = listings;
+            setDataTable(listings.slice(0, LIVE_DISPLAY_PAGE));
+            setLiveHasMore(listings.length > LIVE_DISPLAY_PAGE);
           } catch (liveErr) {
+            if (fetchId !== liveFetchIdRef.current) return;
             console.error('[Live tab] Firestore fetch error:', liveErr?.message || liveErr);
             Alert.alert(
               'Live listings',
@@ -864,44 +947,41 @@ const ScreenListing = ({navigation}) => {
     }
   };
 
-  const loadMoreLiveListings = async () => {
+  const loadMoreLiveListings = useCallback(() => {
     if (!liveHasMore || liveLoadingMore) return;
-    const uid =
-      userInfo?.uid ||
-      userInfo?.id ||
-      userInfo?.user?.uid ||
-      userInfo?.user?.id ||
-      auth.currentUser?.uid;
-    if (!uid) return;
-    setLiveLoadingMore(true);
-    try {
-      const { listings, docs, hasMore } = await fetchLiveListingsFromFirestore(uid, {
-        pageSize: 12,
-        lastDoc: liveLastDocRef.current,
-      });
-      setDataTable((prev) => [...prev, ...listings]);
-      liveLastDocRef.current = docs[docs.length - 1] ?? null;
-      setLiveHasMore(hasMore);
-    } catch (err) {
-      if (__DEV__) console.warn('[Live tab] loadMore error:', err?.message);
-    } finally {
-      setLiveLoadingMore(false);
-    }
-  };
+    const all = liveAllListingsRef.current;
+    setDataTable((prev) => {
+      const nextSlice = all.slice(prev.length, prev.length + LIVE_DISPLAY_PAGE);
+      if (nextSlice.length === 0) return prev;
+      const next = [...prev, ...nextSlice];
+      // schedule the hasMore update outside the render cycle
+      setTimeout(() => setLiveHasMore(next.length < all.length), 0);
+      return next;
+    });
+  }, [liveHasMore, liveLoadingMore]);
 
   // ✅ Fetch on mount
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (isFocused) {
+    if (!isFocused) return;
+    const timer = setTimeout(() => {
       resetPaginationState();
       fetchListingsPage(1);
-    }
+    }, 300);
+    return () => clearTimeout(timer);
   }, [isFocused, isInitialFetchRefresh, activeTab]);
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
+    const uid =
+      userInfo?.uid ||
+      userInfo?.id ||
+      userInfo?.user?.uid ||
+      userInfo?.user?.id ||
+      auth.currentUser?.uid;
+    if (activeTab === 'Live') _bustLiveCache(uid);
     setRefreshing(true);
     resetPaginationState();
     fetchListingsPage(1);
@@ -914,7 +994,7 @@ const ScreenListing = ({navigation}) => {
   const onPressPinSearch = paramPinSearch => {
     setPinSearch(paramPinSearch);
     resetPaginationState();
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    setIsInitialFetchRefresh(prev => !prev);
   };
   // Pin search
 
@@ -924,13 +1004,13 @@ const ScreenListing = ({navigation}) => {
     setSearch(searchText);
     // trigger your search logic here
     resetPaginationState();
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    setIsInitialFetchRefresh(prev => !prev);
   };
 
   const handleFilterView = () => {
     setLoading(true); // Show skeleton while applying filters
     resetPaginationState();
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    setIsInitialFetchRefresh(prev => !prev);
     // Close the modal after applying filters
     setShowSheet(false);
   };
@@ -1095,7 +1175,7 @@ const ScreenListing = ({navigation}) => {
     }
     
     // Trigger refresh to apply new filter
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    setIsInitialFetchRefresh(prev => !prev);
   };
 
   const [code, setCode] = useState(null);
@@ -1138,27 +1218,10 @@ const ScreenListing = ({navigation}) => {
     // Refresh listings after clearing filter
     setLoading(true); // Show skeleton while clearing filter and refetching
     resetPaginationState();
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    setIsInitialFetchRefresh(prev => !prev);
   };
 
   const onPressFilter = pressCode => {
-    // Map pressCode to filter label
-    const filterLabelMap = {
-      'SORT': 'Sort',
-      'GENUS': 'Genus',
-      'VARIEGATION': 'Variegation',
-      'LISTINGTYPE': 'Listing Type',
-    };
-    
-    const filterLabel = filterLabelMap[pressCode];
-    
-    // If filter is active, clear it instead of opening the modal
-    if (filterLabel && isFilterActive(filterLabel)) {
-      clearSpecificFilter(filterLabel);
-      return;
-    }
-    
-    // Otherwise, open the filter modal as usual
     setCode(pressCode);
     setShowSheet(true);
   };
@@ -1604,9 +1667,7 @@ const ScreenListing = ({navigation}) => {
         <View style={[styles.container, { flex: 1, paddingBottom: insets.bottom }]}>
           <View style={{ flex: 1, backgroundColor: '#fff' }}>
             {loading ? (
-              <View style={styles.contents}>
-                <ListingTableSkeleton rowCount={SELLER_LISTINGS_PAGE_SIZE} />
-              </View>
+              <LiveListingGridSkeleton cardCount={12} />
             ) : dataTable && dataTable.length > 0 ? (
               <View style={[styles.contents, { flex: 1 }]}>
                 <LiveListingGrid

@@ -2,3 +2,4 @@ export {default as ScreenListing} from './ScreenListing';
 export {default as ScreenListingAction} from './ScreenListingAction';
 export {default as ScreenListingDetail} from './ScreenListingDetail';
 export {default as ScreenSearchListing} from './ScreenSearchListing';
+export {default as ScreenBatchUpload} from './ScreenBatchUpload';
