@@ -31,7 +31,7 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   // Calculate proper bottom padding for tab bar + safe area
   const tabBarHeight = 60; // Standard tab bar height  
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
-  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 100; // Extra 100px for spacing to show all orders
   
   const PAGE_SIZE = 4;
   const [orders, setOrders] = useState([]);

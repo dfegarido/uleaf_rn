@@ -495,11 +495,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    minHeight: 1000,
   },
   contentContainer: {
     flex: 1,
-    marginTop: 100,
+    paddingTop: HEADER_HEIGHT,
   },
   stickyHeader: {
     position: 'absolute',

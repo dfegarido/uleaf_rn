@@ -25,7 +25,7 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   // Calculate proper bottom padding for tab bar + safe area
   const tabBarHeight = 60; // Standard tab bar height  
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
-  const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
+  const totalBottomPadding = tabBarHeight + safeBottomPadding + 100; // Extra 100px for spacing to show all orders
   
   const PAGE_SIZE = 4;
   const [orders, setOrders] = useState([]);
@@ -216,7 +216,8 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
     const plantDetails = creditRequest.plantDetails || listingDetails.plantDetails || {};
     
     // Extract order product data for the specific plant code (matching Plants Are Home pattern)
-    const orderProduct = orderDetails.products?.find(product => product.plantCode === creditRequest.plantCode);
+    // For synthetic credit requests, plantDetails is the product, so use it as fallback
+    const orderProduct = orderDetails.products?.find(product => product.plantCode === creditRequest.plantCode) || plantDetails;
     const productPlantDetails = orderProduct?.plantDetails || orderProduct; // Fallback to product itself if no plantDetails
 
     // Check if we need to fetch plant image as fallback
