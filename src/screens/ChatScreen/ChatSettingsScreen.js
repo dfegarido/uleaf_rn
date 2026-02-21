@@ -40,6 +40,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { listAdminsApi } from '../../components/Api/listAdminsApi';
+import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
 
 const AvatarImage = require('../../assets/images/AvatarBig.png');
 
@@ -834,6 +835,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
         participants: arrayUnion(...newParticipants),
         participantIds: arrayUnion(...newParticipantIds),
       });
+
+      await sendGroupChatNotificationApi(newParticipantIds, name);
 
       // Refresh the chat document to get the latest data
       const chatDocRef = doc(db, 'chats', chatId);

@@ -361,6 +361,9 @@ const generateEndpoints = () => ({
   // Order Export endpoints
   EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
   EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
+
+  // Group Chat Notification
+  SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,
 });
 
 // API Endpoints - Initially generated with default environment

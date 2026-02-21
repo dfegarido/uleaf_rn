@@ -30,6 +30,7 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
+import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
@@ -592,6 +593,7 @@ const MessagesScreen = ({navigation}) => {
 
         if (docSnap.exists()) {
           const newChatData = {id: docSnap.id, ...docSnap.data()};
+          await sendGroupChatNotificationApi(allParticipantIds, name);
           navigation.navigate('ChatScreen', newChatData);
         } else {
           throw new Error('Failed to get created chat document');
