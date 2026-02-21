@@ -24,9 +24,9 @@ if (!__DEV__ && USE_LOCAL_API) {
 // Local development endpoints (Firebase Functions Emulator)
 // Loaded from .env file - each team member can configure their own IP address
 // Default fallback if .env is not configured
-const LOCAL_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
+const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL || 'http://localhost:5001/i-leaf-u/us-central1';
 
-// If LOCAL_BASE_URL is not set, log a warning ultimatus11@gmail.conm
+// If LOCAL_BASE_URL is not set, log a warning
 if (__DEV__ && !ENV_LOCAL_BASE_URL) {
   console.warn('⚠️ LOCAL_BASE_URL not found in .env, using default: http://localhost:5001/i-leaf-u/us-central1');
 }
