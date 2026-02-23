@@ -365,26 +365,20 @@ fi
             codegen_group = installer.pods_project.main_group['Pods']['ReactCodegen'] || installer.pods_project.main_group['Pods']
             
             rncslider_cpp_files.each do |filename|
-              # Check if file already exists
-              file_path = File.join(app_root, 'build', 'generated', 'ios', 'react', 'renderer', 'components', 'RNCSlider', filename)
+              file_path = File.join(app_root, 'ios', 'build', 'generated', 'ios', 'react', 'renderer', 'components', 'RNCSlider', filename)
+              file_path = File.join(app_root, 'build', 'generated', 'ios', 'react', 'renderer', 'components', 'RNCSlider', filename) unless File.exist?(file_path)
               
               if File.exist?(file_path)
-                # Check if file reference already exists in the project
                 relative_path = "react/renderer/components/RNCSlider/#{filename}"
                 file_ref = installer.pods_project.files.find { |f| f.path == relative_path }
                 
                 if file_ref.nil?
-                  # Create file reference with absolute path
-                  # Use relative path from Pods root to build/generated/ios
-                  pods_root = installer.sandbox.root
-                  relative_to_pods = File.join('..', '..', 'build', 'generated', 'ios', 'react', 'renderer', 'components', 'RNCSlider', filename)
+                  relative_to_pods = File.join('..', 'build', 'generated', 'ios', 'react', 'renderer', 'components', 'RNCSlider', filename)
                   
-                  # Create file reference
                   file_ref = installer.pods_project.new_file(relative_to_pods)
                   file_ref.name = filename
                   file_ref.path = relative_to_pods
                   
-                  # Add to Sources build phase
                   build_file = sources_phase.add_file_reference(file_ref)
                   build_file.settings = { 'COMPILER_FLAGS' => '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -DFOLLY_CFG_NO_COROUTINES=1 -DFOLLY_HAVE_CLOCK_GETTIME=1 -Wno-comma -Wno-shorten-64-to-32 -Wno-documentation -Wno-nullability-completeness -std=c++20' }
                   
