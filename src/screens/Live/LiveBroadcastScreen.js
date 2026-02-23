@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -95,6 +96,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isCommentFocused, setIsCommentFocused] = useState(false);
   const [sessionListingIndexMap, setSessionListingIndexMap] = useState({});
   const [sessionListingsCount, setSessionListingsCount] = useState(0);
+  const [editingComment, setEditingComment] = useState(null);
 
   useEffect(() => {
       KeepAwake.activate();
@@ -396,6 +398,37 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       }
   }, [comments]); // This effect runs whenever 'messages' array changes
 
+  const deleteComment = async (commentId) => {
+    try {
+        await deleteDoc(doc(db, 'live', sessionId, 'comments', commentId));
+    } catch (error) {
+        console.error("Error deleting comment: ", error);
+        Alert.alert('Error', 'Failed to delete comment');
+    }
+  };
+
+  const startEditing = (comment) => {
+    setEditingComment(comment);
+    setNewComment(comment.message);
+    setIsCommentFocused(true);
+  };
+
+  const handleLongPressComment = (comment) => {
+    const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+    
+    if (comment.uid !== userId) return; 
+
+    Alert.alert(
+      'Comment Options',
+      'Choose an action',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Edit', onPress: () => startEditing(comment) },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteComment(comment.id) },
+      ]
+    );
+  };
+
   const handleSendComment = async () => {
     const commentToSend = newComment;
     if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
@@ -424,16 +457,26 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     // #endregion
     
     setNewComment(''); // Clear input after sending
+    setEditingComment(null); // Clear editing state
 
     try {
       const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
-      await addDoc(commentsCollectionRef, {
-        message: commentToSend,
-        name: userName,
-        avatar: userAvatar,
-        uid: userId,
-        createdAt: serverTimestamp(),
-      });
+      
+      if (editingComment) {
+          const commentDocRef = doc(commentsCollectionRef, editingComment.id);
+          await updateDoc(commentDocRef, {
+              message: commentToSend,
+              updatedAt: serverTimestamp()
+          });
+      } else {
+          await addDoc(commentsCollectionRef, {
+            message: commentToSend,
+            name: userName,
+            avatar: userAvatar,
+            uid: userId,
+            createdAt: serverTimestamp(),
+          });
+      }
     } catch (error) {
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LiveBroadcastScreen.js:handleSendComment:catch',message:'Error sending seller comment',data:{error:error.message},timestamp:Date.now(),hypothesisId:'seller-comment'})}).catch(()=>{});
@@ -759,13 +802,17 @@ console.log('activeListing?.id', activeListing?.id);
                 style={{backgroundColor: 'rgba(0, 0, 0, 0.4)', borderRadius: 16}}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <View style={styles.commentRow}>
+                  <TouchableOpacity 
+                    style={styles.commentRow} 
+                    onLongPress={() => handleLongPressComment(item)}
+                    activeOpacity={0.7}
+                  >
                     <Image source={{ uri: item.avatar }} style={styles.avatar} />
                     <View style={styles.commentContent}>
                       <Text style={styles.chatName}>{item.name}</Text>
                       <Text style={styles.chatMessage}>{item.message}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 )}
               />
               <TextInput
