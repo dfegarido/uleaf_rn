@@ -20,7 +20,7 @@ import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { addLeafTrailBoxNumber, getOrdersBySortingTray, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
+import { addLeafTrailBoxNumber, getOrdersBySortingTray, updateLeafTrailStatus, updatePlantsToNeedsToStay } from '../../../../components/Api/getAdminLeafTrail';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import AssignBoxModal from './AssignBoxModal';
@@ -117,7 +117,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
             </View>
           </View>
         )}
-        {!(plant?.packingData?.boxNumber) && (
+        {/* {!(plant?.packingData?.boxNumber) && (
           <View style={styles.checkboxContainer}>
              <CheckBox
                 checked={isSelected}
@@ -126,7 +126,15 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
                 checkedColor="#539461"
             />
           </View>
-        )}
+        )} */}
+        <View style={styles.checkboxContainer}>
+             <CheckBox
+                checked={isSelected}
+                onToggle={onCheckPress}
+                containerStyle={{padding: 0, margin: 0}}
+                checkedColor="#539461"
+            />
+          </View>
       </View>
       <View style={styles.plantDetails}>
         <View>
@@ -192,6 +200,26 @@ const ViewPackingScreen = ({ navigation, route }) => {
         setIsLoading(false)
         Alert.alert('Error', error.message);
       }  
+    }
+  }
+
+  const stay = async () => {
+    setIsSelectionMode(false);
+    setIsLoading(true);
+
+    try {
+        const response = await updatePlantsToNeedsToStay({orderIds: selectedPlants})
+        if (response.success) {
+          setIsLoading(false);
+          Alert.alert('Success', 'Plants tagged as Needs to Stay');
+          navigation.goBack();
+        } else {
+          setIsLoading(false);
+          Alert.alert('Error', response.message || 'Failed to update status');
+        }
+    } catch (error) {
+        setIsLoading(false);
+        Alert.alert('Error', error.message);
     }
   }
 
@@ -337,6 +365,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
         onSelectAll={handleSelectAll}
         openTagAs={openTagAs}
         assignBox={assignBox}
+        stay={stay}
       />
     </SafeAreaView>
   );

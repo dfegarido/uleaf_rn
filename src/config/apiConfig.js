@@ -24,7 +24,7 @@ if (!__DEV__ && USE_LOCAL_API) {
 // Local development endpoints (Firebase Functions Emulator)
 // Loaded from .env file - each team member can configure their own IP address
 // Default fallback if .env is not configured
-const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL || 'http://localhost:5001/i-leaf-u/us-central1';
+const LOCAL_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
 
 // If LOCAL_BASE_URL is not set, log a warning
 if (__DEV__ && !ENV_LOCAL_BASE_URL) {
@@ -361,6 +361,11 @@ const generateEndpoints = () => ({
   // Order Export endpoints
   EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
   EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
+
+  // Payment Management APIs
+  GET_PENDING_PAYMENT_ORDERS: `${getBaseUrl()}/getPendingPaymentOrders`,
+  UPDATE_ORDER_READY_TO_FLY: `${getBaseUrl()}/updateOrderToReadyToFly`,
+  DELETE_PENDING_ORDER: `${getBaseUrl()}/deletePendingOrder`,
 
   // Group Chat Notification
   SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,
