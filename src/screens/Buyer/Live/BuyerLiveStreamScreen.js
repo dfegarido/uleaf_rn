@@ -3,12 +3,14 @@ import NetInfo from '@react-native-community/netinfo';
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
@@ -103,6 +105,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [isCommentFocused, setIsCommentFocused] = useState(false);
   const [checkOutData, setCheckOutData] = useState({});
   const [isLiveShopCheckoutVisible, setIsLiveShopCheckoutVisible] = useState(false);
+  const [editingComment, setEditingComment] = useState(null);
 
   useEffect(() => {
       if (!sessionId) return;
@@ -211,6 +214,37 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       return () => unsubscribe();
     }, [sessionId]);
 
+  const deleteComment = async (commentId) => {
+    try {
+        await deleteDoc(doc(db, 'live', sessionId, 'comments', commentId));
+    } catch (error) {
+        console.error("Error deleting comment: ", error);
+        Alert.alert('Error', 'Failed to delete comment');
+    }
+  };
+
+  const startEditing = (comment) => {
+    setEditingComment(comment);
+    setNewComment(comment.message);
+    setIsCommentFocused(true);
+  };
+
+  const handleLongPressComment = (comment) => {
+    const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+    
+    if (comment.uid !== userId) return; 
+
+    Alert.alert(
+      'Comment Options',
+      'Choose an action',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Edit', onPress: () => startEditing(comment) },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteComment(comment.id) },
+      ]
+    );
+  };
+
   const handleSendComment = async () => {
       const commentToSend = newComment;
       
@@ -229,16 +263,26 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                        'Anonymous';
       
       setNewComment(''); // Clear input after sending
+      setEditingComment(null); // Clear editing state
+
       try {
         const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
         
-        await addDoc(commentsCollectionRef, {
-          message: commentToSend,
-          name: userName,
-          avatar: profilePhotoUrl || currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
-          uid: userId,
-          createdAt: serverTimestamp(),
-        });
+        if (editingComment) {
+            const commentDocRef = doc(commentsCollectionRef, editingComment.id);
+            await updateDoc(commentDocRef, {
+                message: commentToSend,
+                updatedAt: serverTimestamp()
+            });
+        } else {
+            await addDoc(commentsCollectionRef, {
+              message: commentToSend,
+              name: userName,
+              avatar: profilePhotoUrl || currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
+              uid: userId,
+              createdAt: serverTimestamp(),
+            });
+        }
         
       } catch (error) {
         console.error('Error sending comment:', error);
@@ -844,13 +888,17 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   data={comments}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
-                    <View style={styles.commentRow}>
+                    <TouchableOpacity 
+                      style={styles.commentRow} 
+                      onLongPress={() => handleLongPressComment(item)}
+                      activeOpacity={0.7}
+                    >
                       <Image source={{ uri: item.avatar }} style={styles.avatar} />
                       <View style={styles.commentContent}>
                         <Text style={styles.chatName}>{item.name}</Text>
                         <Text style={styles.chatMessage}>{item.message}</Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   )}
                 />
                 <TextInput
