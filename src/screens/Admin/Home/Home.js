@@ -43,6 +43,7 @@ import TaxonomyIcon from '../../../assets/admin-icons/taxonomy-book.svg';
 import UserManagementIcon from '../../../assets/admin-icons/user-management.svg';
 import ChatShopsIcon from '../../../assets/admin-icons/chat-shops.svg';
 import PlantCreditsIcon from '../../../assets/admin-icons/plant-credits.svg';
+import PaymentMgmtIcon from '../../../assets/admin-icons/payment-mgmt.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -218,6 +219,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
           </IconTile>
           <IconTile title="Payouts">
             <PayoutsIcon width={48} height={48} />
+          </IconTile>
+          <IconTile title="Payment Mgmt" onPress={() => navigation.navigate('PaymentManagement')}>
+            <PaymentMgmtIcon width={48} height={48} />
           </IconTile>
           <IconTile title="Schedule" onPress={() => navigation.navigate('Schedule')}>
             <ScheduleIcon width={48} height={48} />
@@ -533,4 +537,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
