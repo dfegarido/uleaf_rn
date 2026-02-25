@@ -2,6 +2,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -22,25 +23,25 @@ import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {
   getAllPlantGenusApi,
   getListingTypeApi,
-  getManageListingApi,
   getSortApi,
   getVariegationApi,
   postListingApplyDiscountActionApi,
-  postListingDeleteApi,
+  postListingDeactivateActionApi,
   postListingPinActionApi,
   postListingRemoveDiscountActionApi,
   postListingUpdateStockActionApi,
 } from '../../../components/Api';
 import { setLiveListingActiveApi } from '../../../components/Api/agoraLiveApi';
-import { deleteListingApi } from '../../../components/Api/listingManagementApi';
 import { InputBox } from '../../../components/Input';
 import { InputSearch } from '../../../components/InputGroup/Left';
 import { InputGroupAddon } from '../../../components/InputGroupAddon';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
 import TabFilter from '../../../components/TabFilter/TabFilter';
 import Toast from '../../../components/Toast/Toast';
-import { auth } from '../../../../firebase';
+import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { auth, db } from '../../../../firebase';
 import { fetchLiveListingsFromFirestore } from '../../../utils/fetchLiveListingsFromFirestore';
+import { fetchSellerListingsFromFirestore } from '../../../utils/fetchSellerListingsFromFirestore';
 import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
@@ -214,10 +215,18 @@ const ScreenListing = ({navigation}) => {
 
   // ✅ Your loadData (unchanged)
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageTokens, setPageTokens] = useState(['']);
   const [hasMorePages, setHasMorePages] = useState(false);
   const [totalListings, setTotalListings] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  /** Non-Live tabs: all fetched listings cached in memory (avoids re-fetch on tab/page switch) */
+  const allListingsRef = useRef([]);
+  const allFetchIdRef = useRef(0);
+  /** Non-Live tabs: filtered+sorted result set for in-memory infinite scroll */
+  const allDisplayListingsRef = useRef([]);
+  const ALL_DISPLAY_PAGE = 10;
+  const [allLoadingMore, setAllLoadingMore] = useState(false);
+  const [allHasMore, setAllHasMore] = useState(false);
 
   /** Live tab: full fetched array (for client-side lazy rendering) */
   const liveAllListingsRef = useRef([]);
@@ -237,7 +246,10 @@ const ScreenListing = ({navigation}) => {
   const [liveSelectedIds, setLiveSelectedIds] = useState([]);
 
   const resetPaginationState = () => {
-    setPageTokens(['']);
+    allListingsRef.current = [];
+    allDisplayListingsRef.current = [];
+    setAllHasMore(false);
+    setAllLoadingMore(false);
     setCurrentPage(1);
     setHasMorePages(false);
     setTotalListings(0);
@@ -290,15 +302,11 @@ const ScreenListing = ({navigation}) => {
             exitLiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
 
-            Promise.all(
-              selectedItems.map(item => deleteListingApi({ plantCode: item.plantCode }))
-            ).then(results => {
-              const failed = results.filter(r => !r.success);
-              if (failed.length > 0) {
-                showToast(`${failed.length} listing(s) failed to delete.`, 'error');
-                onRefresh();
-              }
-            }).catch(() => {
+            const batch = writeBatch(db);
+            selectedItems.forEach(item => {
+              batch.delete(doc(db, 'listing', item.id));
+            });
+            batch.commit().catch(() => {
               showToast('Some listings failed to delete.', 'error');
               onRefresh();
             });
@@ -308,142 +316,96 @@ const ScreenListing = ({navigation}) => {
     );
   }, [liveSelectedIds, dataTable]);
 
-  const loadData = async (
-    filterMine,
-    sortBy,
-    genus,
-    variegation,
-    listingType,
-    status,
-    discount,
-    limit,
-    plant,
-    pinTag,
-    nextPageToken,
-  ) => {
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
-    // Convert discount boolean to string 'true' or 'false' for API
-    const discountParam = discount === true ? 'true' : (discount === false ? 'false' : '');
-    
-    // Map tab names to API status values (exact match required by backend)
-    // Ensure status is a valid string and map correctly
-    let apiStatus = status || 'All';
-    
-    // Handle status mapping - ensure 'All' is passed correctly
-    if (status === 'All' || !status || status === '') {
-      apiStatus = 'All'; // Show all statuses
-    } else if (status === 'Discounted') {
-      apiStatus = 'All'; // Discounted uses 'All' status with discount=true
-    } else if (status === 'Out of Stock') {
-      apiStatus = 'All'; // Handle out of stock client-side
-    } else if (status === 'Active') {
-      apiStatus = 'Active'; // Explicitly set Active status
-    } else if (status === 'Inactive') {
-      apiStatus = 'Inactive';
-    } else if (status === 'Sold') {
-      apiStatus = 'All'; // Handle sold client-side
-    } else if (status === 'Scheduled') {
-      apiStatus = 'Scheduled';
-    } else if (status === 'Expired') {
-      apiStatus = 'Expired';
-    }  else if (status === 'Group Chat Listing') {
-      apiStatus = 'GroupChatListing';
-    }
-    
-    // Normalize sortBy to match backend expectations (case-sensitive)
-    // Backend expects: 'Price Low To High', 'Price High To Low', 'Most Loved', or empty/default
-    let normalizedSortBy = sortBy || '';
-    if (sortBy) {
-      const sortTrimmed = sortBy.trim();
-      const sortLower = sortTrimmed.toLowerCase();
-      
-      // Check for exact matches first (most common case)
-      if (sortTrimmed === 'Price Low To High' || sortTrimmed === 'Price Low to High') {
-        normalizedSortBy = 'Price Low To High';
-      } else if (sortTrimmed === 'Price High To Low' || sortTrimmed === 'Price High to Low') {
-        normalizedSortBy = 'Price High To Low';
-      } else if (sortTrimmed === 'Most Loved') {
-        normalizedSortBy = 'Most Loved';
-      } else if (sortTrimmed === 'Newest to Oldest' || sortTrimmed === 'Newest To Oldest') {
-        normalizedSortBy = 'Newest to Oldest';
-      } else if (sortTrimmed === 'Oldest to Newest' || sortTrimmed === 'Oldest To Newest') {
-        normalizedSortBy = 'Oldest to Newest';
-      } else {
-        // Fallback: try to match by keywords
-        if (sortLower.includes('price') && sortLower.includes('low') && sortLower.includes('high')) {
-          normalizedSortBy = 'Price Low To High';
-        } else if (sortLower.includes('price') && sortLower.includes('high') && sortLower.includes('low')) {
-          normalizedSortBy = 'Price High To Low';
-        } else if (sortLower.includes('most') && sortLower.includes('loved')) {
-          normalizedSortBy = 'Most Loved';
-        } else if (sortLower.includes('newest') && sortLower.includes('oldest')) {
-          // "Newest to Oldest" - newest first
-          normalizedSortBy = 'Newest to Oldest';
-        } else if (sortLower.includes('oldest') && sortLower.includes('newest')) {
-          // "Oldest to Newest" - oldest first
-          normalizedSortBy = 'Oldest to Newest';
-        } else if (sortLower.includes('newest')) {
-          // Just "Newest" - default to newest first
-          normalizedSortBy = 'Newest to Oldest';
-        } else if (sortLower.includes('oldest')) {
-          // Just "Oldest" - default to oldest first
-          normalizedSortBy = 'Oldest to Newest';
-        } else {
-          // Keep original if it matches expected format
-          normalizedSortBy = sortTrimmed;
-        }
-      }
-    }
-    
-    // Extract values from filter objects (genus, variegation, listingType may be arrays of objects)
-    const extractValues = (filterArray) => {
-      if (!filterArray || !Array.isArray(filterArray)) return [];
-      return filterArray.map(item => {
-        if (typeof item === 'string') return item;
-        if (item && typeof item === 'object') return item.value || item.label || item.name || '';
-        return String(item);
-      }).filter(Boolean);
-    };
-
-    const genusValues = extractValues(genus);
-    const variegationValues = extractValues(variegation);
-    const listingTypeValues = extractValues(listingType);
-
-    const effectiveLimit = limit || SELLER_LISTINGS_PAGE_SIZE;
-    const effectiveToken = nextPageToken || '';
-    
-    const response = await getManageListingApi(
-      filterMine,
-      normalizedSortBy,
-      genusValues,
-      variegationValues,
-      listingTypeValues,
-      apiStatus,
-      discountParam,
-      effectiveLimit,
-      plant,
-      pinTag,
-      effectiveToken,
+  const handleLiveBatchExportToMainstream = useCallback(() => {
+    if (liveSelectedIds.length === 0) return;
+    const count = liveSelectedIds.length;
+    Alert.alert(
+      'Export to Mainstream',
+      `Move ${count} listing${count > 1 ? 's' : ''} to your Active listings? They will no longer appear in the Live tab.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Export',
+          onPress: () => {
+            const selectedItems = dataTable.filter(item => liveSelectedIds.includes(item.id));
+            const remainingItems = dataTable.filter(item => !liveSelectedIds.includes(item.id));
+            setDataTable(remainingItems);
+            liveAllListingsRef.current = liveAllListingsRef.current.filter(
+              item => !liveSelectedIds.includes(item.id)
+            );
+            exitLiveSelectMode();
+            showToast(`${count} listing${count > 1 ? 's' : ''} moved to Active.`);
+            const batch = writeBatch(db);
+            selectedItems.forEach(item => {
+              batch.update(doc(db, 'listing', item.id), {
+                status: 'Active',
+                isActiveLiveListing: false,
+                updatedAt: serverTimestamp(),
+              });
+            });
+            batch.commit().catch(() => {
+              showToast('Failed to export listings.', 'error');
+              onRefresh();
+            });
+          },
+        },
+      ]
     );
+  }, [liveSelectedIds, dataTable, exitLiveSelectMode]);
 
-    if (!response?.success) {
-      throw new Error(response?.message || 'Login verification failed.');
-    }
+  const handleLiveBatchDeactivate = useCallback(() => {
+    if (liveSelectedIds.length === 0) return;
+    const count = liveSelectedIds.length;
+    Alert.alert(
+      'Deactivate Listings',
+      `Deactivate ${count} listing${count > 1 ? 's' : ''}? They will be moved to Inactive.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () => {
+            const selectedItems = dataTable.filter(item => liveSelectedIds.includes(item.id));
+            const remainingItems = dataTable.filter(item => !liveSelectedIds.includes(item.id));
+            setDataTable(remainingItems);
+            liveAllListingsRef.current = liveAllListingsRef.current.filter(
+              item => !liveSelectedIds.includes(item.id)
+            );
+            exitLiveSelectMode();
+            showToast(`${count} listing${count > 1 ? 's' : ''} deactivated.`);
+            const batch = writeBatch(db);
+            selectedItems.forEach(item => {
+              batch.update(doc(db, 'listing', item.id), {
+                status: 'Inactive',
+                isActiveLiveListing: false,
+                updatedAt: serverTimestamp(),
+              });
+            });
+            batch.commit().catch(() => {
+              showToast('Some listings failed to deactivate.', 'error');
+              onRefresh();
+            });
+          },
+        },
+      ]
+    );
+  }, [liveSelectedIds, dataTable, exitLiveSelectMode]);
 
-    return response;
-  };
+  const handleLiveEdit = useCallback(() => {
+    if (liveSelectedIds.length !== 1) return;
+    const selectedItem = dataTable.find(item => item.id === liveSelectedIds[0]);
+    if (!selectedItem) return;
+    exitLiveSelectMode();
+    navigation.navigate('ScreenListingDetail', {
+      onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
+      plantCode: selectedItem.plantCode,
+    });
+  }, [liveSelectedIds, dataTable, exitLiveSelectMode, navigation]);
+
 
   const fetchListingsPage = async (targetPage = 1) => {
     try {
       setLoading(true);
-      let desiredPage = Math.max(1, targetPage);
-
-      const tokensCopy = [...pageTokens];
-      let response = null;
 
       if (activeTab === 'Live') {
         const uid =
@@ -520,58 +482,33 @@ const ScreenListing = ({navigation}) => {
         return;
       }
 
-      const fetchPageWithToken = async (pageToken = '') => {
-        return loadData(
-        true,
-        reusableSort,
-        reusableGenus,
-        reusableVariegation,
-        reusableListingType,
-          activeTab,
-        isDiscounted,
-          SELLER_LISTINGS_PAGE_SIZE,
-        search,
-        pinSearch,
-          pageToken,
-        );
-      };
+      // ── Non-Live tabs: fetch from Firestore directly ────────────────────────
+      const uid =
+        userInfo?.uid ||
+        userInfo?.id ||
+        userInfo?.user?.uid ||
+        userInfo?.user?.id ||
+        auth.currentUser?.uid;
 
-      if (activeTab !== 'Live') {
-        if (tokensCopy[desiredPage - 1] === undefined) {
-          let currentIndex = tokensCopy.length - 1;
-          let lastToken = tokensCopy[currentIndex] || '';
-          while (currentIndex < desiredPage - 1) {
-            const interimResponse = await fetchPageWithToken(lastToken);
-            const nextToken = interimResponse?.nextPageToken || null;
-            tokensCopy[currentIndex + 1] = nextToken;
-            lastToken = nextToken || '';
-            currentIndex += 1;
+      if (!uid) {
+        setDataTable([]);
+        setTotalListings(0);
+        setTotalPages(1);
+        setHasMorePages(false);
+        setCurrentPage(1);
+        setRefreshing(false);
+        setLoading(false);
+        return;
+      }
 
-            if (currentIndex === desiredPage - 1) {
-              response = interimResponse;
-              break;
-            }
-
-            if (!nextToken) {
-              desiredPage = currentIndex;
-              response = interimResponse;
-              break;
-            }
-          }
-
-          if (tokensCopy[desiredPage - 1] === undefined) {
-            desiredPage = Math.max(1, tokensCopy.length - 1);
-          }
-        }
-
-        if (!response) {
-          let tokenForPage = tokensCopy[desiredPage - 1] || '';
-
-          if (desiredPage === 1 && activeTab === 'Group Chat Listing') {
-            tokenForPage = null;
-          }
-          response = await fetchPageWithToken(tokenForPage);
-        }
+      // Only re-fetch from Firestore when cache is empty (first load / after refresh)
+      if (allListingsRef.current.length === 0) {
+        const fetchId = ++allFetchIdRef.current;
+        if (__DEV__) console.log('[All tabs] Fetching listings from Firestore…');
+        const { listings: rawListings } = await fetchSellerListingsFromFirestore(uid);
+        if (fetchId !== allFetchIdRef.current) return;
+        allListingsRef.current = rawListings;
+        if (__DEV__) console.log(`[All tabs] Fetched ${rawListings.length} listing(s)`);
       }
 
       const normalizeFilterValues = (filterArray) => {
@@ -652,9 +589,11 @@ const ScreenListing = ({navigation}) => {
             return 'Price High To Low';
           case 'Most Loved':
             return 'Most Loved';
+          case 'Newest':
           case 'Newest to Oldest':
           case 'Newest To Oldest':
             return 'Newest to Oldest';
+          case 'Oldest':
           case 'Oldest to Newest':
           case 'Oldest To Newest':
             return 'Oldest to Newest';
@@ -754,6 +693,13 @@ const ScreenListing = ({navigation}) => {
         return true;
       };
 
+      // Handles Firestore Timestamp objects as well as ISO strings / numbers
+      const toMs = val => {
+        if (!val) return 0;
+        if (typeof val.toDate === 'function') return val.toDate().getTime();
+        return new Date(val).getTime() || 0;
+      };
+
       const sortListingsBySelection = listingsToSort => {
         const sorted = [...listingsToSort];
         switch (normalizedSortValue) {
@@ -775,20 +721,14 @@ const ScreenListing = ({navigation}) => {
             sorted.sort((a, b) => (b.loveCount || 0) - (a.loveCount || 0));
             break;
           case 'Newest to Oldest':
-            sorted.sort((a, b) => {
-              const createdA = new Date(a.createdAt || a.orderDate || 0).getTime();
-              const createdB = new Date(b.createdAt || b.orderDate || 0).getTime();
-              return createdB - createdA;
-            });
+            sorted.sort((a, b) => toMs(b.createdAt || b.orderDate) - toMs(a.createdAt || a.orderDate));
             break;
           case 'Oldest to Newest':
-            sorted.sort((a, b) => {
-              const createdA = new Date(a.createdAt || a.orderDate || 0).getTime();
-              const createdB = new Date(b.createdAt || b.orderDate || 0).getTime();
-              return createdA - createdB;
-            });
+            sorted.sort((a, b) => toMs(a.createdAt || a.orderDate) - toMs(b.createdAt || b.orderDate));
             break;
           default:
+            // Default: newest first (Firestore already returns in createdAt desc order)
+            sorted.sort((a, b) => toMs(b.createdAt || b.orderDate) - toMs(a.createdAt || a.orderDate));
             break;
         }
         return sorted;
@@ -824,172 +764,19 @@ const ScreenListing = ({navigation}) => {
         });
       };
 
-      let aggregatedListings = deduplicateListings(processResponseListings(response?.listings));
-      let nextToken = response?.nextPageToken || null;
-
-      let safetyCounter = 0;
-      const MAX_ADDITIONAL_FETCHES = 5;
-
-      while (
-        aggregatedListings.length < SELLER_LISTINGS_PAGE_SIZE &&
-        nextToken &&
-        safetyCounter < MAX_ADDITIONAL_FETCHES
-      ) {
-        const previousToken = nextToken;
-        const additionalResponse = await fetchPageWithToken(nextToken);
-        const additionalListings = processResponseListings(additionalResponse?.listings);
-        // Deduplicate when concatenating to prevent duplicates
-        aggregatedListings = deduplicateListings(aggregatedListings.concat(additionalListings));
-        nextToken = additionalResponse?.nextPageToken || null;
-        safetyCounter += 1;
-
-        if (nextToken === previousToken) {
-          nextToken = null;
-          break;
-        }
-      }
-
+      // Filter, deduplicate, and sort all cached listings
+      const aggregatedListings = deduplicateListings(
+        processResponseListings(allListingsRef.current),
+      );
       const sortedAggregated = sortListingsBySelection(aggregatedListings);
 
-      const pageListings = sortedAggregated.slice(0, SELLER_LISTINGS_PAGE_SIZE);
+      // Store the full result set for infinite scroll
+      allDisplayListingsRef.current = sortedAggregated;
 
-      const displayedCount = pageListings.length;
-      // Never use backend total for Active tab since we filter out zero-quantity listings client-side
-      const shouldUseBackendTotal =
-        !hasListingTypeFilter &&
-        !hasGenusFilter &&
-        !hasVariegationFilter &&
-        !hasSearchFilter &&
-        !hasPinFilter &&
-        !hasDiscountFilter &&
-        !isSoldTab &&
-        !isOutOfStockTab &&
-        !isActiveTab &&
-        !isLiveTab &&
-        !isGroupChatListing &&
-        typeof response?.total === 'number';
-
-      let computedTotal;
-      let totalFilteredCount = aggregatedListings.length; // Declare outside to use in safeguard
-
-      if (shouldUseBackendTotal) {
-        computedTotal =
-          response.total ??
-          response.count ??
-          (displayedCount + (currentPage - 1) * SELLER_LISTINGS_PAGE_SIZE);
-      } else {
-        // For filtered tabs (Active, Sold, Out of Stock, etc.), we need to count all filtered results
-        // Track unique listings to prevent duplicate counting
-        const uniqueListingKeys = new Set();
-        aggregatedListings.forEach(listing => {
-          const uniqueKey = listing.plantCode || listing.id || listing._id;
-          if (uniqueKey) {
-            uniqueListingKeys.add(uniqueKey);
-          }
-        });
-        totalFilteredCount = uniqueListingKeys.size;
-        let countToken = nextToken;
-        let countSafety = 0;
-        const MAX_TOTAL_FETCHES = 50; // Increased significantly to ensure we count all pages (142 listings / 20 per page = ~7 pages, but we need buffer)
-
-        // For Active tab, we MUST fetch all pages to get accurate count
-        // Continue fetching and counting filtered results until no more pages
-        while (countToken && countSafety < MAX_TOTAL_FETCHES) {
-          try {
-            const additionalResponse = await fetchPageWithToken(countToken);
-            const additionalListings = processResponseListings(additionalResponse?.listings);
-            // Count only unique listings
-            let newUniqueCount = 0;
-            additionalListings.forEach(listing => {
-              const uniqueKey = listing.plantCode || listing.id || listing._id;
-              if (uniqueKey && !uniqueListingKeys.has(uniqueKey)) {
-                uniqueListingKeys.add(uniqueKey);
-                newUniqueCount += 1;
-              }
-            });
-            totalFilteredCount = uniqueListingKeys.size;
-
-            if (additionalResponse?.nextPageToken) {
-              countToken = additionalResponse.nextPageToken;
-            } else {
-              countToken = null;
-              break; // No more pages, we have the accurate total
-            }
-
-            countSafety += 1;
-          } catch (error) {
-            console.error('Error fetching page for total count:', error);
-            break; // Stop on error
-          }
-        }
-
-        // If we hit the safety limit but still have more pages, we need to continue
-        // For Active tab, we should never estimate - we need the exact count
-        if (isActiveTab && countToken && countSafety >= MAX_TOTAL_FETCHES) {
-          console.warn(`⚠️ Active tab: Hit safety limit (${MAX_TOTAL_FETCHES}) but more pages exist. Current count: ${totalFilteredCount}`);
-          // For Active tab, we can't estimate - we need exact count
-          // Continue fetching with a warning
-          let extraSafety = 0;
-          while (countToken && extraSafety < 20) {
-            try {
-              const additionalResponse = await fetchPageWithToken(countToken);
-              const additionalListings = processResponseListings(additionalResponse?.listings);
-              // Count only unique listings
-              additionalListings.forEach(listing => {
-                const uniqueKey = listing.plantCode || listing.id || listing._id;
-                if (uniqueKey && !uniqueListingKeys.has(uniqueKey)) {
-                  uniqueListingKeys.add(uniqueKey);
-                }
-              });
-              totalFilteredCount = uniqueListingKeys.size;
-              
-              if (additionalResponse?.nextPageToken) {
-                countToken = additionalResponse.nextPageToken;
-              } else {
-                countToken = null;
-                break;
-              }
-              extraSafety += 1;
-            } catch (error) {
-              console.error('Error in extra fetch:', error);
-              break;
-            }
-          }
-        }
-
-        computedTotal = totalFilteredCount;
-        
-        // For Active tab, never use backend total - always use filtered count
-        if (isActiveTab) {
-          // Ensure we're using the filtered count, not backend total
-          computedTotal = totalFilteredCount;
-        }
-      }
-
-      // Final safeguard: For Active tab, never use backend total even if computedTotal is somehow wrong
-      if (isActiveTab) {
-        // Ignore backend total completely for Active tab
-        // Always use the filtered count, which excludes zero-quantity listings
-        // If we somehow got the backend total (140), force recalculation
-        if (computedTotal === response?.total || computedTotal >= 140) {
-          console.warn('⚠️ Active tab: Detected backend total being used, forcing recalculation from filtered results');
-          // Use the filtered count we calculated
-          computedTotal = totalFilteredCount;
-        } else {
-          // Make sure we're using the filtered count, not any estimate
-          computedTotal = totalFilteredCount;
-        }
-      }
-
-      tokensCopy[desiredPage] = nextToken;
-      const updatedTokens = tokensCopy.slice(0, desiredPage + 1);
-
-      setPageTokens(updatedTokens);
-      setDataTable(pageListings);
-      setTotalListings(computedTotal);
-      setTotalPages(Math.max(1, Math.ceil(computedTotal / SELLER_LISTINGS_PAGE_SIZE)));
-      setHasMorePages(Boolean(nextToken));
-      setCurrentPage(desiredPage);
+      // Show first page of 10 — infinite scroll appends more
+      setDataTable(sortedAggregated.slice(0, ALL_DISPLAY_PAGE));
+      setTotalListings(sortedAggregated.length);
+      setAllHasMore(sortedAggregated.length > ALL_DISPLAY_PAGE);
     } catch (error) {
       console.log('Error in fetchListingsPage:', error.message);
       Alert.alert('Listing', error.message);
@@ -1023,6 +810,19 @@ const ScreenListing = ({navigation}) => {
       return next;
     });
   }, [liveHasMore, liveLoadingMore]);
+
+  const loadMoreAllListings = useCallback(() => {
+    if (!allHasMore || allLoadingMore) return;
+    setAllLoadingMore(true);
+    setDataTable(prev => {
+      const next = allDisplayListingsRef.current.slice(0, prev.length + ALL_DISPLAY_PAGE);
+      setTimeout(() => {
+        setAllHasMore(next.length < allDisplayListingsRef.current.length);
+        setAllLoadingMore(false);
+      }, 0);
+      return next;
+    });
+  }, [allHasMore, allLoadingMore]);
 
   // ✅ Fetch on mount
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
@@ -1536,30 +1336,41 @@ const ScreenListing = ({navigation}) => {
   };
 
   // Delete Item
-  const onPressDelete = async () => {
-    setLoading(true);
+  const onPressDelete = () => {
+    const item = selectedItemStockUpdate;
+    if (!item) return;
+
     setActionShowSheet(false);
     setDeleteModalVisible(false);
-    try {
-      let plantCode = selectedItemStockUpdate?.plantCode;
-      const response = await postListingDeleteApi(plantCode);
 
-      if (!response?.success) {
-        throw new Error(response?.message || 'Post pin failed.');
-      }
-      resetPaginationState();
-      await fetchListingsPage(1);
-      setActionShowSheet(false);
-      setDeleteModalVisible(false);
-      Alert.alert('Delete Listing', 'Listing deleted successfully!');
-    } catch (error) {
-      console.log('Error pin table action:', error.message);
-      Alert.alert('Delete item', error.message);
-    } finally {
-      setActionShowSheet(false);
-      setDeleteModalVisible(false);
-      setLoading(false);
-    }
+    // Snapshot current state for rollback
+    const prevDataTable = [...dataTable];
+    const prevAllListings = [...allListingsRef.current];
+    const prevAllDisplay = [...allDisplayListingsRef.current];
+    const prevTotal = totalListings;
+
+    const removeItem = arr =>
+      arr.filter(l => l.id !== item.id && l.plantCode !== item.plantCode);
+
+    // Optimistic removal
+    setDataTable(removeItem(dataTable));
+    allListingsRef.current = removeItem(allListingsRef.current);
+    allDisplayListingsRef.current = removeItem(allDisplayListingsRef.current);
+    setTotalListings(prev => Math.max(0, prev - 1));
+
+    showToast('Listing deleted.');
+
+    // Firestore delete in background
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'listing', item.id));
+    batch.commit().catch(() => {
+      // Rollback on failure
+      setDataTable(prevDataTable);
+      allListingsRef.current = prevAllListings;
+      allDisplayListingsRef.current = prevAllDisplay;
+      setTotalListings(prevTotal);
+      showToast('Failed to delete listing.', 'error');
+    });
   };
   // Delete Item
 
@@ -1737,28 +1548,50 @@ const ScreenListing = ({navigation}) => {
         <View style={[styles.container, { flex: 1, paddingBottom: insets.bottom }]}>
           <View style={{ flex: 1, backgroundColor: '#fff' }}>
             {!loading && dataTable && dataTable.length > 0 && (
-              <View style={styles.liveToolbar}>
+              <View style={[styles.liveToolbar, isLiveSelectMode && styles.liveToolbarSelectMode]}>
                 {isLiveSelectMode ? (
-                  <>
-                    <TouchableOpacity onPress={toggleLiveSelectAll} style={styles.liveSelectAllBtn}>
-                      <View style={[styles.liveCheckbox, liveSelectedIds.length === dataTable.length && styles.liveCheckboxChecked]}>
-                        {liveSelectedIds.length === dataTable.length && <Text style={styles.liveCheckmark}>✓</Text>}
-                      </View>
-                      <Text style={styles.liveToolbarText}>Select All</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.liveToolbarCount}>{liveSelectedIds.length} selected</Text>
-                    <View style={styles.liveToolbarActions}>
-                      <TouchableOpacity
-                        onPress={handleLiveBatchDelete}
-                        disabled={liveSelectedIds.length === 0}
-                        style={[styles.liveDeleteBtn, liveSelectedIds.length === 0 && { opacity: 0.4 }]}>
-                        <Text style={styles.liveDeleteBtnText}>Delete</Text>
+                  <View style={styles.liveSelectModeContainer}>
+                    {/* Row 1: Select All + count + Cancel */}
+                    <View style={styles.liveToolbarRow}>
+                      <TouchableOpacity onPress={toggleLiveSelectAll} style={styles.liveSelectAllBtn}>
+                        <View style={[styles.liveCheckbox, liveSelectedIds.length === dataTable.length && styles.liveCheckboxChecked]}>
+                          {liveSelectedIds.length === dataTable.length && <Text style={styles.liveCheckmark}>✓</Text>}
+                        </View>
+                        <Text style={styles.liveToolbarText}>Select All</Text>
                       </TouchableOpacity>
+                      <Text style={styles.liveToolbarCount}>{liveSelectedIds.length} selected</Text>
                       <TouchableOpacity onPress={exitLiveSelectMode} style={styles.liveCancelBtn}>
                         <Text style={styles.liveCancelBtnText}>Cancel</Text>
                       </TouchableOpacity>
                     </View>
-                  </>
+                    {/* Row 2: Action chips */}
+                    <View style={styles.liveActionsRow}>
+                      <TouchableOpacity
+                        onPress={handleLiveBatchExportToMainstream}
+                        disabled={liveSelectedIds.length === 0}
+                        style={[styles.liveActionChip, styles.liveExportChip, liveSelectedIds.length === 0 && { opacity: 0.4 }]}>
+                        <Text style={styles.liveActionChipText}>Export</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleLiveEdit}
+                        disabled={liveSelectedIds.length !== 1}
+                        style={[styles.liveActionChip, styles.liveEditChip, liveSelectedIds.length !== 1 && { opacity: 0.4 }]}>
+                        <Text style={styles.liveEditChipText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleLiveBatchDeactivate}
+                        disabled={liveSelectedIds.length === 0}
+                        style={[styles.liveActionChip, styles.liveDeactivateChip, liveSelectedIds.length === 0 && { opacity: 0.4 }]}>
+                        <Text style={styles.liveActionChipText}>Deactivate</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleLiveBatchDelete}
+                        disabled={liveSelectedIds.length === 0}
+                        style={[styles.liveActionChip, styles.liveDeleteChip, liveSelectedIds.length === 0 && { opacity: 0.4 }]}>
+                        <Text style={styles.liveActionChipText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 ) : (
                   <>
                     <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
@@ -1808,6 +1641,17 @@ const ScreenListing = ({navigation}) => {
           contentContainerStyle={{
             paddingBottom: insets.bottom,
           }}
+          scrollEventThrottle={400}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            if (
+              layoutMeasurement.height + contentOffset.y >= contentSize.height - 200 &&
+              !allLoadingMore &&
+              allHasMore
+            ) {
+              loadMoreAllListings();
+            }
+          }}
         >
           <View
             style={{
@@ -1816,7 +1660,7 @@ const ScreenListing = ({navigation}) => {
             }}>
             {loading ? (
               <View style={styles.contents}>
-                <ListingTableSkeleton rowCount={SELLER_LISTINGS_PAGE_SIZE} />
+                <ListingTableSkeleton rowCount={ALL_DISPLAY_PAGE} />
               </View>
             ) : dataTable && dataTable.length > 0 ? (
               <View style={styles.contents}>
@@ -1835,6 +1679,18 @@ const ScreenListing = ({navigation}) => {
                   activeTab={activeTab}
                   onPressSetToActive={onPressSetToActive}
                 />
+                {allLoadingMore && (
+                  <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#48A7F8" />
+                  </View>
+                )}
+                {!allHasMore && totalListings > 0 && !loading && (
+                  <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, color: '#9DA5A7' }}>
+                      {totalListings} listing{totalListings !== 1 ? 's' : ''} total
+                    </Text>
+                  </View>
+                )}
               </View>
             ) : !loading ? (
               <View style={{ alignItems: 'center', paddingTop: 80, flex: 1 }}>
@@ -1848,57 +1704,6 @@ const ScreenListing = ({navigation}) => {
         </ScrollView>
       )}
 
-      {/* Pagination Controls (hidden for Live tab — uses infinite scroll) */}
-      {activeTab !== 'Live' && (
-      <View style={styles.paginationWrapper}>
-        <View style={styles.paginationContainer}>
-          <TouchableOpacity
-            style={[
-              styles.paginationButton,
-              (currentPage <= 1 || loading) && styles.paginationButtonDisabled,
-            ]}
-            onPress={handlePreviousPage}
-            disabled={currentPage <= 1 || loading}
-            activeOpacity={0.7}>
-            <Text
-              style={[
-                styles.paginationButtonText,
-                (currentPage <= 1 || loading) && styles.paginationButtonTextDisabled,
-              ]}>
-              Previous
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.paginationInfo}>
-            <Text style={styles.paginationText}>
-              Page {currentPage} of {totalPages}
-            </Text>
-            <Text style={styles.paginationSubtext}>
-              {loading ? 'Loading...' : `${totalListings} total listings`}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.paginationButton,
-              (!hasMorePages || loading) &&
-                styles.paginationButtonDisabled,
-            ]}
-            onPress={handleNextPage}
-            disabled={!hasMorePages || loading}
-            activeOpacity={0.7}>
-            <Text
-              style={[
-                styles.paginationButtonText,
-                (!hasMorePages || loading) &&
-                  styles.paginationButtonTextDisabled,
-              ]}>
-              Next
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      )}
 
       <ReusableActionSheet
         code={code}
@@ -2325,5 +2130,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#3B4344',
+  },
+  liveToolbarSelectMode: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    paddingBottom: 10,
+  },
+  liveSelectModeContainer: {
+    width: '100%',
+    gap: 8,
+  },
+  liveToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveActionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  liveActionChip: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveActionChipText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  liveExportChip: {
+    backgroundColor: '#48A7F8',
+  },
+  liveEditChip: {
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#fff',
+  },
+  liveEditChipText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3B4344',
+  },
+  liveDeactivateChip: {
+    backgroundColor: '#E07B3B',
+  },
+  liveDeleteChip: {
+    backgroundColor: '#E74C3C',
   },
 });

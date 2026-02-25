@@ -191,7 +191,7 @@ export const updateListingStatusApi = async (statusData) => {
     const response = await fetch(
       'https://us-central1-i-leaf-u.cloudfunctions.net/updateListingStatusByPlantCode',
       {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
