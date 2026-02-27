@@ -253,10 +253,6 @@ export const isReadyToFly = (order) => {
     return false;
   }
   
-  if (isPastReadyToFlyCutoff(order)) {
-    return false;
-  }
-  
   return true;
 };
 
