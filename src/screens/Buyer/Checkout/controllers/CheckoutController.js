@@ -373,7 +373,7 @@ export const useCheckoutController = (props) => {
         discount: plantData.discount || plantData.discountPercent || plantData.listingDetails?.discountPercent || null,
         listingType: normalizeListingType(plantData.listingType || plantData.listingDetails?.listingType),
         country: plantData.country || plantData.listingDetails?.country || 'TH',
-        shippingMethod: plantData.shippingMethod || 'Plant / UPS Ground Shipping',
+        shippingMethod: plantData.shippingMethod || null,
         hasAirCargo: plantData.hasAirCargo || plantData.listingDetails?.hasAirCargo || false,
         // Store genus and species explicitly for discount validation
         genus: plantData.genus || plantData.listingDetails?.genus || '',
@@ -498,7 +498,7 @@ export const useCheckoutController = (props) => {
           discount: cartItem.discount || cartItem.listingDetails?.discountPercent || null,
           listingType: normalizeListingType(cartItem.listingType || cartItem.listingDetails?.listingType),
           country: cartItem.country || cartItem.listingDetails?.country || 'TH',
-          shippingMethod: cartItem.shippingMethod || 'Plant / UPS Ground Shipping',
+          shippingMethod: cartItem.shippingMethod || null,
           hasAirCargo: cartItem.hasAirCargo || cartItem.listingDetails?.hasAirCargo || false,
           // Store genus and species explicitly for discount validation
           // Note: listingDetails is spread above, so species might already be at root level
@@ -625,7 +625,7 @@ export const useCheckoutController = (props) => {
         discount: product?.discount || cartItem.discount || product?.listingDetails?.discountPercent || cartItem.listingDetails?.discountPercent || null,
         listingType: normalizeListingType(product?.listingType || cartItem.listingType || cartItem.listingDetails?.listingType),
         country: product?.country || cartItem.country || cartItem.listingDetails?.country || 'TH',
-        shippingMethod: product?.shippingMethod || cartItem.shippingMethod || 'Plant / UPS Ground Shipping',
+        shippingMethod: product?.shippingMethod || cartItem.shippingMethod || null,
         hasAirCargo: product?.hasAirCargo || cartItem.hasAirCargo || product?.listingDetails?.hasAirCargo || cartItem.listingDetails?.hasAirCargo || false,
         // Store genus and species explicitly for discount validation
         genus: product?.genus || cartItem.genus || product?.listingDetails?.genus || cartItem.listingDetails?.genus || '',

@@ -35,7 +35,7 @@ import FlightIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import TruckBlueIcon from '../../../assets/buyer-icons/truck-blue.svg';
-import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
+import ShippingMethodLabel from '../../../components/ShippingMethodLabel/ShippingMethodLabel';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ArrowRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import CaretDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -822,7 +822,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
             
             return result;
           })(),
-          shippingMethod: 'Plant / UPS Ground Shipping',
+          shippingMethod: null,
           plantCode: plantCode,
           listingType: plantData.listingType,
           discount:
@@ -868,7 +868,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           quantity: item.quantity || 1,
           title: 'Delivery Details',
           country: item.flagIcon,
-          shippingMethod: item.shippingInfo || 'Plant / UPS Ground Shipping',
+          shippingMethod: item.shippingInfo || null,
           plantCode: item.plantCode,
           listingType: item.listingType || 'Single Plant', // Preserve original listingType, don't override based on discount
           discount: (normalizedOriginal != null && normalizedOriginal > normalizedPrice)
@@ -908,7 +908,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         quantity: item.quantity || 1,
         title: item.title || 'Rare Tropical Plants from Thailand',
         country: item.country || 'TH',
-        shippingMethod: item.shippingMethod || 'Plant / UPS Ground Shipping',
+        shippingMethod: item.shippingMethod || null,
         plantCode: item.plantCode,
         listingType: item.listingType,
         discount: discount,
@@ -1927,19 +1927,9 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                   </View>
                 </View>
 
-                {/* Plant / UPS Shipping */}
+                {/* Shipping Method */}
                 <View style={styles.plantShipping}>
-                  {/* Content */}
-                  <View style={styles.shippingContent}>
-                    <TruckIcon
-                      width={24}
-                      height={24}
-                      style={styles.shippingIcon}
-                    />
-                    <Text style={styles.shippingText}>
-                      {item.shippingMethod || 'Plant / UPS Ground Shipping'}
-                    </Text>
-                  </View>
+                  <ShippingMethodLabel shippingMethod={item.shippingMethod} />
                 </View>
 
                 {/* Flight Info (if available from cart) */}

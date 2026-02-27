@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import TruckIcon from '../../../../assets/buyer-icons/truck-gray.svg';
 import FlightIcon from '../../../../assets/buyer-icons/plane-gray.svg';
+import ShippingMethodLabel from '../../../../components/ShippingMethodLabel/ShippingMethodLabel';
 import styles from './styles/PlantListStyles';
 
 /**
@@ -74,19 +74,9 @@ const PlantList = ({ plantItems = [], renderCountryFlag, PlantItemComponent, onP
               </View>
             </View>
 
-            {/* Plant / UPS Shipping */}
+            {/* Shipping Method */}
             <View style={styles.plantShipping}>
-              {/* Content */}
-              <View style={styles.shippingContent}>
-                <TruckIcon
-                  width={24}
-                  height={24}
-                  style={styles.shippingIcon}
-                />
-                <Text style={styles.shippingText}>
-                  {item.shippingMethod || 'Plant / UPS Ground Shipping'}
-                </Text>
-              </View>
+              <ShippingMethodLabel shippingMethod={item.shippingMethod} />
             </View>
 
             {/* Flight Info (if available from cart) */}
