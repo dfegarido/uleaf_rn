@@ -49,6 +49,7 @@ export const LEAF_TRAIL_STATUS = {
 export const TAB = {
   PAY_TO_BOARD: 'pay_to_board',
   READY_TO_FLY: 'ready_to_fly',
+  NEEDS_TO_STAY: 'needs_to_stay',
   PLANTS_ARE_HOME: 'plants_are_home',
   JOURNEY_MISHAP: 'journey_mishap',
 };
@@ -138,85 +139,6 @@ export const hasCreditRequests = (order) => {
 };
 
 /**
- * Gets the current Eastern Time.
- * Note: JavaScript Date doesn't have native timezone support,
- * so we use UTC offset for Eastern Time.
- * EST = UTC-5, EDT = UTC-4 (handles DST automatically)
- */
-export const getEasternDateTime = () => {
-  return new Date();
-};
-
-/**
- * Converts a date to Eastern Time string for comparison.
- */
-export const toEasternTimeString = (date) => {
-  if (!date) return '';
-  return date.toLocaleString('en-US', { 
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-};
-
-/**
- * Parses a flight date from various formats.
- */
-export const parseFlightDate = (flightDate) => {
-  if (!flightDate) return null;
-  
-  if (flightDate instanceof Date) {
-    return flightDate;
-  }
-  
-  // Firestore Timestamp format
-  if (flightDate._seconds) {
-    return new Date(flightDate._seconds * 1000);
-  }
-  
-  if (typeof flightDate === 'string') {
-    const parsed = new Date(flightDate);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }
-  
-  return null;
-};
-
-/**
- * Checks if an order is past its Ready to Fly cutoff.
- * Cutoff = flight date - 6 days at 1:00 AM ET
- */
-export const isPastReadyToFlyCutoff = (order) => {
-  if (!order) return false;
-  
-  const flightDate = parseFlightDate(order.flightDate || order.cargoDate);
-  if (!flightDate) {
-    return false;
-  }
-  
-  // Create a date string in Eastern Time for accurate comparison
-  const flightDateET = new Date(flightDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  
-  // Set to midnight ET
-  flightDateET.setHours(0, 0, 0, 0);
-  
-  // Calculate cutoff: flight date - 6 days at 1:00 AM ET
-  const cutoffET = new Date(flightDateET);
-  cutoffET.setDate(cutoffET.getDate() - 6);
-  cutoffET.setHours(1, 0, 0, 0);
-  
-  // Get current time in ET
-  const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  
-  return nowET >= cutoffET;
-};
-
-/**
  * ============================================================================
  * TAB FILTERING FUNCTIONS
  * ============================================================================
@@ -249,11 +171,31 @@ export const isReadyToFly = (order) => {
   if (!isReadyToFlyStatus) return false;
   
   if (leafTrailStatus === LEAF_TRAIL_STATUS.MISSING || 
-      leafTrailStatus === LEAF_TRAIL_STATUS.DAMAGED) {
+      leafTrailStatus === LEAF_TRAIL_STATUS.DAMAGED ||
+      leafTrailStatus === LEAF_TRAIL_STATUS.NEEDS_TO_STAY) {
     return false;
   }
   
   return true;
+};
+
+/**
+ * Determines if an order should appear in the "Need to Stay" tab.
+ * These are Ready to Fly orders held at the hub for a later flight.
+ */
+export const isNeedsToStay = (order) => {
+  if (!order) return false;
+
+  const status = getOrderStatus(order);
+  const leafTrailStatus = getLeafTrailStatus(order);
+
+  const isReadyToFlyStatus = (
+    status === ORDER_STATUS.READY_TO_FLY ||
+    status === ORDER_STATUS.READY_TO_FLY_ALT1 ||
+    status === ORDER_STATUS.READY_TO_FLY_ALT2
+  );
+
+  return isReadyToFlyStatus && leafTrailStatus === LEAF_TRAIL_STATUS.NEEDS_TO_STAY;
 };
 
 /**
@@ -379,6 +321,10 @@ export const filterBuyerOrders = (orders, tab, plantOwnerFilter = null) => {
     case TAB.READY_TO_FLY:
       filteredOrders = orders.filter(isReadyToFly);
       break;
+
+    case TAB.NEEDS_TO_STAY:
+      filteredOrders = orders.filter(isNeedsToStay);
+      break;
       
     case TAB.PLANTS_ARE_HOME:
       filteredOrders = orders.filter(isPlantsAreHome);
@@ -417,11 +363,9 @@ export default {
   hasTrackingNumber,
   hasDeliveryDateTime,
   hasCreditRequests,
-  getEasternDateTime,
-  parseFlightDate,
-  isPastReadyToFlyCutoff,
   isPayToBoard,
   isReadyToFly,
+  isNeedsToStay,
   isPlantsAreHome,
   isJourneyMishap,
   filterByPlantOwner,

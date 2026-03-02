@@ -12,14 +12,15 @@ import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
 
 // Import the separate screen components
 import ScreenJourneyMishap from './ScreenJourneyMishap';
+import ScreenNeedsToStay from './ScreenNeedsToStay';
 import ScreenPayToBoard from './ScreenPayToBoard';
 import ScreenPlantsAreHome from './ScreenPlantsAreHome';
 import ScreenReadyToFly from './ScreenReadyToFly';
 
-// Header height constant for safe area calculations
-const HEADER_HEIGHT = 140;
+// Fallback header height — replaced at runtime by onLayout measurement
+const HEADER_HEIGHT_FALLBACK = 160;
 
-const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerFilter, buyerList = []}) => {
+const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerFilter, buyerList = [], onHeaderLayout}) => {
   const insets = useSafeAreaInsets();
   const {user} = useAuth();
   // Search state
@@ -149,6 +150,7 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
   const tabFilters = [
     {filterKey: 'Pay to Board'},
     {filterKey: 'Ready to Fly'},
+    {filterKey: 'Need to Stay'},
     {filterKey: 'Plants are Home'},
     {filterKey: 'Journey Mishap'},
   ];
@@ -160,7 +162,10 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
   };
 
   return (
-    <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
+    <View
+      style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}
+      onLayout={(e) => onHeaderLayout && onHeaderLayout(e.nativeEvent.layout.height)}
+    >
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <View style={styles.searchField}>
@@ -441,6 +446,7 @@ const ScreenOrders = () => {
   const [activeTab, setActiveTab] = useState('Ready to Fly');
   const [plantOwnerFilter, setPlantOwnerFilter] = useState(null); // buyerUid or null for 'All'
   const [buyerList, setBuyerList] = useState([]); // List of buyers who have orders
+  const [headerHeight, setHeaderHeight] = useState(HEADER_HEIGHT_FALLBACK);
 
   // Set initial tab from navigation params if provided
   useEffect(() => {
@@ -464,6 +470,8 @@ const ScreenOrders = () => {
         return <ScreenReadyToFly {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Pay to Board':
         return <ScreenPayToBoard {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
+      case 'Need to Stay':
+        return <ScreenNeedsToStay {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Plants are Home':
         return <ScreenPlantsAreHome {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Journey Mishap':
@@ -481,10 +489,11 @@ const ScreenOrders = () => {
         plantOwnerFilter={plantOwnerFilter}
         setPlantOwnerFilter={setPlantOwnerFilter}
         buyerList={buyerList}
+        onHeaderLayout={(height) => setHeaderHeight(height)}
       />
       
       {/* Content area with dynamic screen based on active tab */}
-      <View style={[styles.contentContainer]}>
+      <View style={[styles.contentContainer, { paddingTop: Math.max(0, headerHeight - insets.top) }]}>
         {renderActiveScreen()}
       </View>
     </SafeAreaView>
@@ -498,7 +507,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingTop: HEADER_HEIGHT,
   },
   stickyHeader: {
     position: 'absolute',

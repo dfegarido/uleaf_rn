@@ -3,7 +3,7 @@ import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect, useCallback} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import VenmoLogoIcon from '../../../assets/buyer-icons/venmo-logo.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
@@ -438,11 +438,11 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['left', 'right']} style={styles.container}>
       {loading ? (
         <ScrollView
           style={{flex: 1}}
-          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}>
+          contentContainerStyle={{paddingTop: 8, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}>
           {Array.from({length: 3}).map((_, index) => (
             <OrderItemCardSkeleton key={`skeleton-${index}`} />
           ))}
@@ -457,7 +457,7 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       ) : (
         <ScrollView
           style={{flex: 1}}
-          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
+          contentContainerStyle={{paddingTop: 8, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
           scrollEventThrottle={400}
           onScroll={(event) => {
             const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;

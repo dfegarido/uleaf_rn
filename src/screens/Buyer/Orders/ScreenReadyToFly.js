@@ -340,11 +340,11 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['left', 'right']} style={styles.container}>
       {loading ? (
         <ScrollView
           style={{flex: 1}}
-          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}>
+          contentContainerStyle={{paddingTop: 8, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}>
           
           {/* Render skeleton loading cards */}
           {Array.from({length: 3}).map((_, index) => (
@@ -363,7 +363,7 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       ) : (
         <ScrollView
           style={{flex: 1}}
-          contentContainerStyle={{paddingTop: 20, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
+          contentContainerStyle={{paddingTop: 8, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
           scrollEventThrottle={400}
           onScroll={(event) => {
             const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
