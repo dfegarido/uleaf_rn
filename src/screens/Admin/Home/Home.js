@@ -160,7 +160,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
     </View>
   );
 };
-  const BehindTheJungle = () => {
+  const BehindTheJungle = ({isFullAdmin = false}) => {
     const navigation = useNavigation();
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
@@ -214,43 +214,59 @@ const LeafTrailGreenhouse = ({navigation}) => {
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>Behind the Jungle</Text>
 
         <View style={styles.grid}>
-          <IconTile title="Live Setup">
-            <LiveSetupIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Payouts">
-            <PayoutsIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Payment Mgmt" onPress={() => navigation.navigate('PaymentManagement')}>
-            <PaymentMgmtIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Schedule" onPress={() => navigation.navigate('Schedule')}>
-            <ScheduleIcon width={48} height={48} />
-          </IconTile>
-          <IconTile 
-            title="Flight Date" 
-            onPress={() => {
-              console.log('Flight Date button pressed, pendingRequestsCount:', pendingRequestsCount);
-              navigation.navigate('FlightDate');
-            }}
-            badgeCount={pendingRequestsCount}
-          >
-            <FlightDateIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="Jungle Acces..." onPress={() => navigation.navigate('JungleAccess')}>
-            <JungleAccessIcon width={48} height={48} />
-          </IconTile>
-          <IconTile title="User Mgmt" onPress={() => navigation.navigate('UserManagement')}>
-            <UserManagementIcon width={48} height={48} />
-          </IconTile>
+          {isFullAdmin && (
+            <IconTile title="Live Setup">
+              <LiveSetupIcon width={48} height={48} />
+            </IconTile>
+          )}
+          {isFullAdmin && (
+            <IconTile title="Payouts">
+              <PayoutsIcon width={48} height={48} />
+            </IconTile>
+          )}
+          {isFullAdmin && (
+            <IconTile title="Payment Mgmt" onPress={() => navigation.navigate('PaymentManagement')}>
+              <PaymentMgmtIcon width={48} height={48} />
+            </IconTile>
+          )}
+          {isFullAdmin && (
+            <IconTile title="Schedule" onPress={() => navigation.navigate('Schedule')}>
+              <ScheduleIcon width={48} height={48} />
+            </IconTile>
+          )}
+          {isFullAdmin && (
+            <IconTile 
+              title="Flight Date" 
+              onPress={() => {
+                console.log('Flight Date button pressed, pendingRequestsCount:', pendingRequestsCount);
+                navigation.navigate('FlightDate');
+              }}
+              badgeCount={pendingRequestsCount}
+            >
+              <FlightDateIcon width={48} height={48} />
+            </IconTile>
+          )}
+          {isFullAdmin && (
+            <IconTile title="Jungle Acces..." onPress={() => navigation.navigate('JungleAccess')}>
+              <JungleAccessIcon width={48} height={48} />
+            </IconTile>
+          )}
+          {isFullAdmin && (
+            <IconTile title="User Mgmt" onPress={() => navigation.navigate('UserManagement')}>
+              <UserManagementIcon width={48} height={48} />
+            </IconTile>
+          )}
           <IconTile title="Taxonomy" onPress={() => navigation.navigate('Taxonomy')}>
             <TaxonomyIcon width={48} height={48} />
           </IconTile>
           <IconTile title="Generate QR" onPress={() => navigation.navigate('GenerateQR')}>
             <GenerateQrIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Invoice Viewer" onPress={() => navigation.navigate('GenerateInvoice')}>
-            <OrderSummaryIcon width={48} height={48} />
-          </IconTile>
+          {isFullAdmin && (
+            <IconTile title="Invoice Viewer" onPress={() => navigation.navigate('GenerateInvoice')}>
+              <OrderSummaryIcon width={48} height={48} />
+            </IconTile>
+          )}
           <IconTile title="Chat Shops" onPress={() => navigation.navigate('ChatShops')}>
             <ChatShopsIcon width={48} height={48} />
           </IconTile>
@@ -262,7 +278,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
     );
   };
 
-  const NewsEventsRewards = () => {
+  const NewsEventsRewards = ({isFullAdmin = false}) => {
     const navigation = useNavigation();
     return (
       <View style={[styles.sectionContainer, {paddingTop: 24}]}>
@@ -273,10 +289,12 @@ const LeafTrailGreenhouse = ({navigation}) => {
             <HappeningsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Happenings</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('AdminDiscounts')}>
-            <DiscountsIcon width={48} height={48} />
-            <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Discounts</Text>
-          </TouchableOpacity>
+          {isFullAdmin && (
+            <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('AdminDiscounts')}>
+              <DiscountsIcon width={48} height={48} />
+              <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Discounts</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('LeafPointsManagement')}>
             <LeafPointsIcon width={48} height={48} />
             <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Leaf Points</Text>
@@ -290,6 +308,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
 const Home = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const {userInfo} = useAuth();
+  const isAdmin =
+    (userInfo?.user?.role ?? userInfo?.role ?? userInfo?.data?.role) === 'admin';
   const [pendingWildgoneCount, setPendingWildgoneCount] = useState(0);
   const [cachedProfilePhoto, setCachedProfilePhoto] = useState(null);
 
@@ -361,10 +382,10 @@ const Home = () => {
             />
           </View>
         </View>
-        <BusinessPerformance navigation={navigation} pendingWildgoneCount={pendingWildgoneCount} />
+        {isAdmin && <BusinessPerformance navigation={navigation} pendingWildgoneCount={pendingWildgoneCount} />}
         <LeafTrailGreenhouse navigation={navigation} />
-        <BehindTheJungle />
-        <NewsEventsRewards />
+        <BehindTheJungle isFullAdmin={isAdmin} />
+        <NewsEventsRewards isFullAdmin={isAdmin} />
       </ScrollView>
     </SafeAreaView>
   );
