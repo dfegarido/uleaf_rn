@@ -31,6 +31,7 @@ import { AuthContext } from '../../auth/AuthProvider';
 import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
+import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
@@ -199,9 +200,11 @@ const MessagesScreen = ({navigation}) => {
           }
           
           // If not found in admin, try supplier collection
+          let isSupplierDoc = false;
           if (!userSnap.exists()) {
             userDocRef = doc(db, 'supplier', uid);
             userSnap = await getDoc(userDocRef);
+            if (userSnap.exists()) isSupplierDoc = true;
           }
 
           if (userSnap.exists()) {
@@ -215,8 +218,9 @@ const MessagesScreen = ({navigation}) => {
               avatarUpdates[uid] = DefaultAvatar;
             }
             
-            // Get username - prefer username, fallback to email
-            const username = data?.username || data?.email || null;
+            const username = isSupplierDoc
+              ? resolveSellerDisplayName(data, isAdmin)
+              : (data?.username || data?.email || null);
             if (username) {
               usernameUpdates[uid] = username;
             }

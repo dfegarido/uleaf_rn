@@ -28,6 +28,7 @@ import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
 import { uploadChatImage } from '../../utils/uploadChatImage';
 import { uploadChatVideo } from '../../utils/uploadChatVideo';
+import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
 import { compressVideo } from '../../utils/videoCompression';
 import { generateVideoThumbnail } from '../../utils/videoThumbnail';
 
@@ -223,7 +224,14 @@ const ChatScreen = ({navigation, route}) => {
   const isSeller = 
     userInfo?.user?.userType === 'supplier' || 
     userInfo?.data?.userType === 'supplier' ||
-    userInfo?.userType === 'supplier';  
+    userInfo?.userType === 'supplier';
+  const isAdminViewer =
+    userInfo?.user?.userType === 'admin' ||
+    userInfo?.data?.userType === 'admin' ||
+    userInfo?.userType === 'admin' ||
+    userInfo?.user?.userType === 'sub_admin' ||
+    userInfo?.data?.userType === 'sub_admin' ||
+    userInfo?.userType === 'sub_admin';
   const canChatListing = userInfo?.canChatListing || false;
   
   // Make sure participants is an array and has at least one element
@@ -1980,22 +1988,23 @@ const ChatScreen = ({navigation, route}) => {
                 }
                 
                 // If not found in admin, try supplier collection
+                let isSupplierDoc = false;
                 if (!userSnap.exists()) {
                   userDocRef = doc(db, 'supplier', uid);
                   userSnap = await getDoc(userDocRef);
+                  if (userSnap.exists()) isSupplierDoc = true;
                 }
 
                 if (userSnap.exists()) {
                   const data = userSnap.data();
                   
-                  // Get latest name - use username instead of firstName/lastName
-                  // Priority: username > email > gardenOrCompanyName > fullName
-                  // Explicitly avoid firstName/lastName fields
-                  const latestName = data?.username || 
-                                     data?.gardenOrCompanyName || 
-                                     data?.fullName || 
-                                     data?.email || 
-                                    '';
+                  const latestName = isSupplierDoc
+                    ? resolveSellerDisplayName(data, isAdminViewer)
+                    : (data?.username || 
+                       data?.gardenOrCompanyName || 
+                       data?.fullName || 
+                       data?.email || 
+                       '');
                   
                   // Get latest avatar URL
                   const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;

@@ -107,7 +107,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   useEffect(() => {
     const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
     if (!userId) return;
-    // If gardenOrCompanyName already exists at root, no need to fetch
+    // If alias already exists at root, use it; else if gardenOrCompanyName exists, no need to fetch
+    if (currentUserInfo?.alias) {
+      setSellerProfile({ alias: currentUserInfo.alias, gardenOrCompanyName: currentUserInfo.gardenOrCompanyName, profileImage: currentUserInfo.profileImage });
+      return;
+    }
     if (currentUserInfo?.gardenOrCompanyName) {
       setSellerProfile({ gardenOrCompanyName: currentUserInfo.gardenOrCompanyName, profileImage: currentUserInfo.profileImage });
       return;
@@ -117,10 +121,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     getDoc(supplierDocRef).then((docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // #region agent log
-        console.log('DEBUG_SELLER_PROFILE', JSON.stringify({ gardenOrCompanyName: data.gardenOrCompanyName, profileImage: data.profileImage, firstName: data.firstName }));
-        // #endregion
-        setSellerProfile({ gardenOrCompanyName: data.gardenOrCompanyName, profileImage: data.profileImage, firstName: data.firstName, lastName: data.lastName });
+        setSellerProfile({ alias: data.alias, gardenOrCompanyName: data.gardenOrCompanyName, profileImage: data.profileImage, firstName: data.firstName, lastName: data.lastName });
       }
     }).catch((err) => console.error('Error fetching seller profile:', err));
   }, [currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
@@ -440,8 +441,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       return;
     }
     
-    // Extract name properly (handles nested structure)
-    const userName = currentUserInfo?.gardenOrCompanyName || 
+    const userName = sellerProfile?.alias ||
+                     currentUserInfo?.alias ||
+                     currentUserInfo?.user?.alias ||
+                     currentUserInfo?.gardenOrCompanyName || 
                      currentUserInfo?.user?.gardenOrCompanyName || 
                      currentUserInfo?.username || 
                      currentUserInfo?.user?.username ||
