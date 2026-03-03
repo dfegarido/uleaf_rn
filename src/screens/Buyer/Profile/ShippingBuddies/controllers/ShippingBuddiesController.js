@@ -366,10 +366,8 @@ export const useShippingBuddiesController = () => {
         );
         return { success: true };
       } else {
-        // Check if this is a user-facing error about receiver requirements
         const errorMessage = result.message || 'Failed to submit receiver request';
-        if (errorMessage.includes('A receiver needs') || errorMessage.includes('cutoff date')) {
-          // Show user-friendly modal for receiver requirement errors
+        if (errorMessage.includes('A receiver needs') || errorMessage.includes('cutoff date') || errorMessage.includes('active orders')) {
           setErrorModalMessage(errorMessage);
           setErrorModalVisible(true);
           return { success: false, message: errorMessage, showErrorModal: true };
@@ -381,9 +379,7 @@ export const useShippingBuddiesController = () => {
       console.error('Error submitting receiver request:', error);
       const errorMessage = error.message || 'Failed to submit receiver request. Please try again.';
       
-      // Check if this is a user-facing error about receiver requirements
-      if (errorMessage.includes('A receiver needs') || errorMessage.includes('cutoff date')) {
-        // Show user-friendly modal for receiver requirement errors
+      if (errorMessage.includes('A receiver needs') || errorMessage.includes('cutoff date') || errorMessage.includes('active orders')) {
         setErrorModalMessage(errorMessage);
         setErrorModalVisible(true);
         return { success: false, message: errorMessage, showErrorModal: true };
