@@ -23,6 +23,7 @@ import Svg, { Path } from 'react-native-svg';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
+import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
@@ -429,7 +430,13 @@ const ChatScreen = ({navigation, route}) => {
 
   // Handle message long press - show tooltip with emoji and reply options
   const handleMessageLongPress = (messageData) => {
-    if (!messageData || messageData.isListing) return;
+    if (!messageData) return;
+
+    // For listing messages coming from outer bubble, enrich with plantCode from messages state
+    if (messageData.isListing && !messageData.plantCode) {
+      const full = messages.find(m => m.id === messageData.id);
+      if (full?.plantCode) messageData.plantCode = full.plantCode;
+    }
     
     // If senderName is missing, try to get it
     if (!messageData.senderName) {
@@ -496,7 +503,11 @@ const ChatScreen = ({navigation, route}) => {
 
   // Handle edit from tooltip
   const handleEditFromTooltip = () => {
-    if (messageTooltip) {
+    if (!messageTooltip) return;
+    if (messageTooltip.isListing) {
+      setMessageTooltip(null);
+      navigation.navigate('ScreenSingleSell', { plantCode: messageTooltip.plantCode, isGroupChatListing: true });
+    } else {
       startEditMessage(messageTooltip);
     }
   };
@@ -641,7 +652,7 @@ const ChatScreen = ({navigation, route}) => {
   const handleReplyFromTooltip = () => {
     if (messageTooltip) {
       const actualMessage = messages.find(m => m.id === messageTooltip.id);
-      if (actualMessage && !actualMessage.isListing) {
+      if (actualMessage) {
         // If replying to own message, get current user's name from participantDataMap or userInfo
         const isOwnMessage = actualMessage.senderId === currentUserUid;
         let senderName = messageTooltip.senderName || actualMessage.senderName;
@@ -699,11 +710,36 @@ const ChatScreen = ({navigation, route}) => {
           }
         }
         
-        setReplyingTo({
-          ...actualMessage,
-          messageId: actualMessage.id, // Explicitly set messageId for reply
-          senderName: senderName,
-        });
+        if (actualMessage.isListing && actualMessage.listingId) {
+          // Fetch listing details for a richer reply preview
+          const listingRef = doc(db, 'listing', actualMessage.listingId);
+          getDoc(listingRef).then((listingSnap) => {
+            const listingData = listingSnap.exists() ? listingSnap.data() : {};
+            const listingName = [listingData.genus, listingData.species, listingData.variegation].filter(Boolean).join(' ');
+            setReplyingTo({
+              ...actualMessage,
+              messageId: actualMessage.id,
+              senderName: senderName,
+              text: listingName || 'Listing',
+              imageUrl: listingData.imagePrimary || null,
+              isListing: true,
+            });
+          }).catch(() => {
+            setReplyingTo({
+              ...actualMessage,
+              messageId: actualMessage.id,
+              senderName: senderName,
+              text: 'Listing',
+              isListing: true,
+            });
+          });
+        } else {
+          setReplyingTo({
+            ...actualMessage,
+            messageId: actualMessage.id,
+            senderName: senderName,
+          });
+        }
       }
       setMessageTooltip(null);
     }
@@ -949,8 +985,8 @@ const ChatScreen = ({navigation, route}) => {
       setMessageTooltip(null);
       return;
     }
-    
-    // Show custom delete confirmation modal
+
+    // Show custom delete confirmation modal (handles both listing and regular messages)
     setMessageToDelete(messageTooltip);
     setShowDeleteConfirm(true);
     setMessageTooltip(null);
@@ -960,28 +996,43 @@ const ChatScreen = ({navigation, route}) => {
   const confirmDeleteMessage = async () => {
     if (!messageToDelete) return;
 
+    const toDelete = messageToDelete;
+    setShowDeleteConfirm(false);
+    setMessageToDelete(null);
+
+    // Snapshot the message for rollback
+    const removed = messages.find(msg => msg.id === toDelete.id);
+
+    // Optimistically remove from UI immediately
+    setMessages(prev => prev.filter(msg => msg.id !== toDelete.id));
+
+    const revertDelete = () => {
+      if (removed) {
+        setMessages(prev => {
+          const index = prev.findIndex(msg => msg.timestamp < removed.timestamp);
+          const next = [...prev];
+          next.splice(index === -1 ? prev.length : index, 0, removed);
+          return next;
+        });
+      }
+    };
+
     try {
-      const messageId = messageToDelete.id;
-      
-      // Close modal first
-      setShowDeleteConfirm(false);
-      
-      // Optimistically remove from UI
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
-      
-      // Delete from Firestore
-      const messageRef = doc(db, 'messages', messageId);
-      await deleteDoc(messageRef);
-      
-      console.log('✅ Message deleted successfully');
-      setMessageToDelete(null);
+      if (toDelete.isListing) {
+        // Delete listing via API, then remove the message doc
+        await postListingDeleteApi(toDelete.plantCode);
+        if (toDelete.id) {
+          await deleteDoc(doc(db, 'messages', toDelete.id));
+        }
+      } else {
+        // Regular message: delete from Firestore
+        const messageRef = doc(db, 'messages', toDelete.id);
+        await deleteDoc(messageRef);
+      }
     } catch (error) {
       console.error('❌ Error deleting message:', error);
-      Alert.alert('Error', 'Failed to delete message. Please try again.');
-      // Reload messages to restore state
-      loadInitialMessages();
-      setShowDeleteConfirm(false);
-      setMessageToDelete(null);
+      revertDelete();
+      Alert.alert('Error', 'Failed to delete. Please try again.');
     }
   };
 
@@ -2467,7 +2518,7 @@ const ChatScreen = ({navigation, route}) => {
                 </View>
               </TouchableOpacity>
               {/* Edit - only for own messages */}
-              {messageTooltip.senderId === currentUserUid && !messageTooltip.isListing && (
+              {messageTooltip.senderId === currentUserUid && (
                 <TouchableOpacity
                   style={styles.tooltipIconButton}
                   onPress={handleEditFromTooltip}>
@@ -2477,7 +2528,7 @@ const ChatScreen = ({navigation, route}) => {
                 </TouchableOpacity>
               )}
               {/* Delete - only for own messages */}
-              {messageTooltip.senderId === currentUserUid && !messageTooltip.isListing && (
+              {messageTooltip.senderId === currentUserUid && (
                 <TouchableOpacity
                   style={styles.tooltipIconButton}
                   onPress={handleDeleteFromTooltip}>
@@ -2548,9 +2599,13 @@ const ChatScreen = ({navigation, route}) => {
           <View style={styles.deleteModalOverlay}>
             <View style={styles.deleteModalContainer}>
               <View style={styles.deleteModalContent}>
-                <Text style={styles.deleteModalTitle}>Delete Message</Text>
+                <Text style={styles.deleteModalTitle}>
+                  {messageToDelete?.isListing ? 'Delete Listing' : 'Delete Message'}
+                </Text>
                 <Text style={styles.deleteModalMessage}>
-                  Are you sure you want to delete this message? This action cannot be undone.
+                  {messageToDelete?.isListing
+                    ? 'Are you sure you want to delete this listing? This action cannot be undone.'
+                    : 'Are you sure you want to delete this message? This action cannot be undone.'}
                 </Text>
               </View>
               

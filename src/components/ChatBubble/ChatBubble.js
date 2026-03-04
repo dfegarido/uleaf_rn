@@ -332,13 +332,8 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
           {/* "You replied to [name]" indicator */}
           {replyTo && isMe && (
             <View style={styles.replyIndicatorContainer}>
-              <Svg width="14" height="14" viewBox="0 0 24 24" style={styles.replyIndicatorIcon}>
-                <Path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12 3C12.5523 3 13 3.44772 13 4V17.5858L18.2929 12.2929C18.6834 11.9024 19.3166 11.9024 19.7071 12.2929C20.0976 12.6834 20.0976 13.3166 19.7071 13.7071L12.7071 20.7071C12.3166 21.0976 11.6834 21.0976 11.2929 20.7071L4.29289 13.7071C3.90237 13.3166 3.90237 12.6834 4.29289 12.2929C4.68342 11.9024 5.31658 11.9024 5.70711 12.2929L11 17.5858V4C11 3.44772 11.4477 3 12 3Z"
-                  fill="#9CA3AF"
-                />
+              <Svg width="14" height="14" viewBox="0 0 16 16" fill="#9CA3AF" style={styles.replyIndicatorIcon}>
+                <Path d="M6.497 1.035C7.593-.088 9.5.688 9.5 2.257V4.54c1.923.215 3.49 1.246 4.593 2.672C15.328 8.808 16 10.91 16 13v.305c0 .632-.465 1.017-.893 1.127-.422.11-.99.005-1.318-.493-.59-.894-1.2-1.482-1.951-1.859-.611-.307-1.359-.496-2.338-.558v2.23c0 1.57-1.908 2.346-3.003 1.222L.893 9.223a1.75 1.75 0 0 1 .001-2.444l5.603-5.744z" />
               </Svg>
               <Text style={styles.replyIndicatorText}>
                 You replied to {originalMessageSenderName}
@@ -559,7 +554,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
             
             {/* Render listing message */}
             {isListing && (
-              <ListingMessage messageId={messageId} currentUserUid={currentUserUid} isSeller={isSeller} isBuyer={isBuyer} listingId={listingId} navigation={navigation} />
+              <ListingMessage messageId={messageId} currentUserUid={currentUserUid} isSeller={isSeller} isBuyer={isBuyer} isMe={isMe} senderName={senderName} listingId={listingId} navigation={navigation} onMessageLongPress={onMessageLongPress} />
             )}
             
             {/* Emoji Reactions - Overlapping on the right side */}

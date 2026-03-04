@@ -177,7 +177,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       messageId: replyingTo.id || null,
       senderId: replyingTo.senderId || null,
       senderName: getSenderName(),
-      text: replyingTo.text || null,
+      text: replyingTo.isListing ? (replyingTo.text || 'Listing') : (replyingTo.text || null),
       imageUrl: replyingTo.imageUrl || null,
       imageUrls: replyingTo.imageUrls || null,
       videoUrl: replyingTo.videoUrl || null,

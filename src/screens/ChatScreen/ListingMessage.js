@@ -1,10 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
 import { db } from '../../../firebase';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
-import EditIcon from '../../assets/icons/greydark/note-edit.svg';
-import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
 import {
   addDoc,
   collection,
@@ -27,12 +25,10 @@ const formatPrice = (value) => {
   return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 
-const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, listingId, navigation }) => {
+const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, isMe=false, senderName, listingId, navigation, onMessageLongPress }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
-  const pressInTimeout = useRef(null);
-  const isLongPress = useRef(false);
   
 
   const [soldTo, setSoldTo] = useState(null);
@@ -138,29 +134,22 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, li
     );
   };
 
-  const handlePressIn = () => {
-    // When the user presses down, start a timer.
-    pressInTimeout.current = setTimeout(() => {
-      // If the timer completes (user is holding), show the modal and flag it as a long press.
-      setImageModalVisible(true);
-      isLongPress.current = true;
-    }, 200); // 200ms delay to distinguish from a tap.
-  };
-
-  const handlePressOut = () => {
-    // When the user releases their finger...
-    clearTimeout(pressInTimeout.current); // Always clear the timer.
-    if (isLongPress.current) {
-      // If it was a long press (peek), close the modal.
-      setImageModalVisible(false);
-      isLongPress.current = false; // Reset the flag.
-    }
-  };
-
   const handlePress = () => {
-    // This only fires on a short tap because the long press is handled above.
-    // Open the modal and let it stay open.
     setImageModalVisible(true);
+  };
+
+  const handleLongPress = () => {
+    if (!listing || !onMessageLongPress) return;
+    onMessageLongPress({
+      id: messageId,
+      isListing: true,
+      listingId,
+      plantCode: listing.plantCode,
+      // Only set senderId to current user if this is their own listing
+      // so Edit/Delete appear only for the owner
+      senderId: isMe ? currentUserUid : null,
+      senderName: isMe ? null : (senderName || null),
+    });
   };
 
   let isSoldOut = listing?.availableQty <= 0;
@@ -185,9 +174,9 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, li
     <>
       <View style={styles.card}>
         <TouchableOpacity
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
           onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={300}
           activeOpacity={0.8}
           style={styles.imageContainer}>
           <Image source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
@@ -209,16 +198,6 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, li
           </View>
           <TouchableWithoutFeedback>
             <View style={styles.detailsContent}>
-              {isSeller && (
-                <View style={styles.sellerActions}>
-                  <TouchableOpacity onPress={handleEdit} style={styles.iconButton}>
-                    <EditIcon width={16} height={16} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleDelete} style={styles.iconButton}>
-                    <TrashIcon width={16} height={16} color="#E7522F" />
-                  </TouchableOpacity>
-                </View>
-              )}
               <Text style={styles.title}>
                 {listing.genus} {listing.species}
               </Text>
@@ -391,15 +370,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 1,
-  },
-  sellerActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 4,
-  },
-  iconButton: {
-    padding: 4,
-    marginLeft: 8,
   },
   price: {
     fontSize: 18,
