@@ -441,8 +441,8 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
               { marginBottom },
               // Add left margin for receiver messages to align with avatar position (avatar width 25 + margin 10 = 35)
               !isMe && !showAvatar && { marginLeft: 35 },
-              // Adjust padding for image messages
-              images.length > 0 && styles.imageBubble,
+              // Adjust padding for image and listing messages
+              (images.length > 0 || isListing) && styles.imageBubble,
               // Add extra margin for stacked images to show cards peeking out
               images.length > 1 && { marginTop: 20, marginRight: 20 },
               // Make bubble position relative so reactions can be absolutely positioned

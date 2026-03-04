@@ -19,7 +19,13 @@ import {
   or,
   deleteDoc
 } from 'firebase/firestore';
-import CloseIcon from '../../assets/icons/white/x-regular.svg'; // Assuming this icon is available
+import CloseIcon from '../../assets/icons/white/x-regular.svg';
+
+const formatPrice = (value) => {
+  const num = Number(value);
+  if (isNaN(num)) return '$0';
+  return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
 
 const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, listingId, navigation }) => {
   const [listing, setListing] = useState(null);
@@ -178,56 +184,67 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, li
   return (
     <>
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
-          <TouchableOpacity
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            onPress={handlePress}
-            activeOpacity={0.8}>
-            <Image source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="contain" />
-            {isSoldOut && (
-              <View style={styles.soldBadge}>
-                <Text style={styles.soldBadgeText}>SOLD</Text>
-                <Text style={styles.soldToText}>{soldTo ? `@${soldTo} claimed in a heartbeat! It is boarding your next Plant Flight.` : ''}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.detailsContainer}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>
-              {listing.genus} {listing.species}
-            </Text>
-            {isSeller && (
-              <View style={styles.sellerActions}>
-                <TouchableOpacity onPress={handleEdit} style={styles.iconButton}>
-                  <EditIcon width={16} height={16} color="#666" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleDelete} style={styles.iconButton}>
-                  <TrashIcon width={16} height={16} color="#E7522F" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-           <Text style={styles.title}>
-              {listing.variegation}
-            </Text>
-          <Text style={styles.price}>${listing.usdPrice}</Text>        
-          {(!isSoldOut && isBuyer) && (
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => navigation.navigate('ScreenPlantDetail', { plantCode: listing.plantCode })}
-            >
-              <Text style={styles.primaryButtonText}>Buy Now</Text>
-            </TouchableOpacity>
+        <TouchableOpacity
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onPress={handlePress}
+          activeOpacity={0.8}
+          style={styles.imageContainer}>
+          <Image source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
+          {isSoldOut && (
+            <View style={styles.soldBadge}>
+              <Text style={styles.soldBadgeText}>SOLD</Text>
+              <Text style={styles.soldToText}>{soldTo ? `@${soldTo} claimed in a heartbeat! It is boarding your next Plant Flight.` : ''}</Text>
+            </View>
           )}
+        </TouchableOpacity>
+        <View style={styles.detailsOverlay} pointerEvents="box-none">
+          <View style={styles.gradientFade}>
+            <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0)' }]} />
+            <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.05)' }]} />
+            <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.12)' }]} />
+            <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.22)' }]} />
+            <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+            <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+          </View>
+          <TouchableWithoutFeedback>
+            <View style={styles.detailsContent}>
+              {isSeller && (
+                <View style={styles.sellerActions}>
+                  <TouchableOpacity onPress={handleEdit} style={styles.iconButton}>
+                    <EditIcon width={16} height={16} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleDelete} style={styles.iconButton}>
+                    <TrashIcon width={16} height={16} color="#E7522F" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <Text style={styles.title}>
+                {listing.genus} {listing.species}
+              </Text>
+              {listing.variegation ? (
+                <Text style={styles.variegation}>{listing.variegation}</Text>
+              ) : null}
+              <Text style={styles.price}>{formatPrice(listing.usdPrice)}</Text>
+              {(!isSoldOut && isBuyer) && (
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={() => navigation.navigate('ScreenPlantDetail', { plantCode: listing.plantCode })}
+                >
+                  <Text style={styles.primaryButtonText}>Buy Now</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </TouchableWithoutFeedback>
         </View>
       </View>
 
       {/* Full-screen image modal */}
       <Modal
         visible={isImageModalVisible}
-        transparent={true}
+        transparent={false}
+        animationType="fade"
+        statusBarTranslucent={true}
         onRequestClose={() => setImageModalVisible(false)}
       >
         <View style={styles.fullScreenImageContainer}>
@@ -244,7 +261,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, li
             imageHeight={Dimensions.get('window').height}
             minScale={0.5}
             maxScale={3}
-            enableSwipeDown={true} // Allow swiping down to close
+            enableSwipeDown={true}
             onSwipeDown={() => setImageModalVisible(false)}
             onClick={() => setImageModalVisible(false)}>
             <Image
@@ -253,6 +270,38 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, li
               resizeMode="contain"
             />
           </ImageZoom>
+          <View style={styles.fullScreenDetailsOverlay} pointerEvents="box-none">
+            <View style={styles.fullScreenGradientFade}>
+              <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0)' }]} />
+              <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.05)' }]} />
+              <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.12)' }]} />
+              <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.22)' }]} />
+              <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+              <View style={[styles.gradientStrip, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+            </View>
+            <View style={styles.fullScreenDetailsContent}>
+              <Text style={styles.fullScreenPlantName}>
+                {listing.genus} {listing.species}
+              </Text>
+              {listing.variegation ? (
+                <Text style={styles.fullScreenVariegation}>
+                  {listing.variegation}
+                </Text>
+              ) : null}
+              <Text style={styles.fullScreenPrice}>{formatPrice(listing.usdPrice)}</Text>
+              {(!isSoldOut && isBuyer) && (
+                <TouchableOpacity
+                  style={styles.fullScreenBuyButton}
+                  onPress={() => {
+                    setImageModalVisible(false);
+                    navigation.navigate('ScreenPlantDetail', { plantCode: listing.plantCode });
+                  }}
+                >
+                  <Text style={styles.fullScreenBuyButtonText}>Buy Now</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </View>
       </Modal>
     </>
@@ -274,25 +323,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E4E7E9',
     overflow: 'hidden',
-    width: 200,
+    width: 220,
     marginVertical: 4,
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     height: 150,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   imageContainer: {
-    position: 'relative',
+    width: '100%',
+    height: 300,
   },
   image: {
     width: '100%',
-    height: 120,
+    height: '100%',
   },
   soldBadge: {
     position: 'absolute',
@@ -312,44 +361,60 @@ const styles = StyleSheet.create({
   soldToText: {
     color: '#fff',
     fontSize: 12,
+    paddingHorizontal: 12,
+    textAlign: 'center',
   },
-  detailsContainer: {
-    padding: 12,
+  detailsOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
-  titleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
+  gradientFade: {
+    height: 40,
+  },
+  gradientStrip: {
+    flex: 1,
+  },
+  detailsContent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 12,
   },
   title: {
-    fontSize: 10,
-    fontWeight: '400',
-    color: '#000',
-    flex: 1, // Allow title to take up available space
-    marginRight: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  variegation: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 1,
   },
   sellerActions: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 4,
   },
   iconButton: {
     padding: 4,
     marginLeft: 8,
   },
   price: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#539461',
-    marginBottom: 12,
+    color: '#7FC98A',
+    marginTop: 2,
   },
   errorText: {
     padding: 12,
     color: 'red',
+    backgroundColor: '#fff',
   },
   fullScreenImageContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)', // Dark overlay
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -359,12 +424,55 @@ const styles = StyleSheet.create({
   },
   fullScreenImageCloseButton: {
     position: 'absolute',
-    top: 50, // Using a value that works well with safe areas
+    top: 50,
     right: 20,
-    zIndex: 10, // Increased zIndex to ensure it's on top
+    zIndex: 10,
     padding: 10,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 20,
+  },
+  fullScreenDetailsOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  fullScreenGradientFade: {
+    height: 50,
+  },
+  fullScreenDetailsContent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
+  fullScreenPlantName: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  fullScreenVariegation: {
+    color: '#ddd',
+    fontSize: 18,
+    marginTop: 2,
+  },
+  fullScreenPrice: {
+    color: '#7FC98A',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginTop: 6,
+  },
+  fullScreenBuyButton: {
+    backgroundColor: '#539461',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  fullScreenBuyButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 
