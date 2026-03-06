@@ -63,8 +63,8 @@ export const getReferralDataApi = async (params = {}) => {
  */
 export const createReferralApi = async (referralData) => {
   try {
-    if (!referralData || !referralData.referrerId || (!referralData.refereeEmail && !referralData.refereePhone)) {
-      throw new Error('Referrer ID and referee contact information are required');
+    if (!referralData || !referralData.referrerId || (!referralData.refereeEmail && !referralData.refereePhone && !referralData.refereeUid)) {
+      throw new Error('Referrer ID and referee (email, phone, or uid) are required');
     }
 
     const authToken = await getStoredAuthToken();

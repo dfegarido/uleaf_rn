@@ -20,6 +20,9 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import {useNavigation} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {postBuyerSignupApi} from '../../components/Api/postBuyerSignupApi';
+import {createReferralApi} from '../../components/Api/referralApi';
+import {doc, getDoc} from 'firebase/firestore';
+import {db} from '../../../firebase';
 import {globalStyles, getComponentStyles} from '../../assets/styles/styles';
 import ValidIcon from '../../assets/buyer-icons/valid.svg';
 import NotValidIcon from '../../assets/buyer-icons/not-valid.svg';
@@ -75,7 +78,6 @@ export default function BuyerCompleteYourAccount() {
           
           // Restore username if previously entered
           if (data.username) setUsername(data.username);
-          // Note: We don't restore password for security reasons
         }
       } catch (e) {
         console.error('Failed to load existing account data', e);
@@ -83,7 +85,7 @@ export default function BuyerCompleteYourAccount() {
     };
 
     loadExistingData();
-  }, []); // Empty dependency array - only run once on mount
+  }, []);
 
   // Clear data when navigating away from buyer signup flow
   useEffect(() => {
@@ -153,6 +155,35 @@ export default function BuyerCompleteYourAccount() {
       signupData.password = password;
       const result = await postBuyerSignupApi(signupData);
       if (result.success) {
+        try {
+          let referrerUid = await AsyncStorage.getItem('pendingReferrerUid');
+
+          const savedInviteCode = (signupData.inviteCode || '').trim();
+          if (savedInviteCode.length === 6) {
+            try {
+              const snap = await getDoc(doc(db, 'referralCodes', savedInviteCode));
+              if (snap.exists() && snap.data().uid) {
+                referrerUid = snap.data().uid;
+              }
+            } catch (e) { /* non-blocking */ }
+          }
+
+          if (referrerUid) {
+            const refereeEmail = signupData.email;
+            const refereePhone = signupData.contactNumber;
+            const refereeUid = result.data?.uid;
+            await createReferralApi({
+              referrerId: referrerUid,
+              refereeEmail: refereeEmail || null,
+              refereePhone: refereePhone || null,
+              refereeUid: refereeUid || null,
+            });
+            await AsyncStorage.removeItem('pendingReferrerUid');
+          }
+        } catch (refErr) {
+          console.warn('Referral creation failed (non-blocking):', refErr);
+        }
+
         await AsyncStorage.removeItem('buyerSignupData');
         navigation.reset({
           index: 0,

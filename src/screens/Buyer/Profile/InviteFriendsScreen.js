@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,19 +6,19 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  TextInput,
+  Share,
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
-import RightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import Svg, { Path } from 'react-native-svg';
+import { AuthContext } from '../../../auth/AuthProvider';
+import { db } from '../../../../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
-// Custom Gift/Payouts Icon Component (from Figma SVG)
 const GiftIcon = ({width = 96, height = 96}) => (
   <Svg width={width} height={height} viewBox="0 0 96 96" fill="none">
-    {/* Main coin/currency design */}
     <Path d="M67.4825 57.6106C66.0146 55.6165 63.357 55.0025 61.163 56.1513L42.501 65.9223C41.9268 66.2229 41.6323 66.8761 41.787 67.5054C41.9418 68.1346 42.5058 68.5767 43.1536 68.5767H58.7698C59.0036 68.5767 59.234 68.5184 59.4395 68.407L65.8424 64.9419C67.1098 64.256 68.0171 63.056 68.3315 61.6497C68.6463 60.2431 68.3368 58.771 67.4825 57.6106Z" fill="#F7B081"/>
     <Path d="M58.77 68.5761C59.0038 68.5761 59.2343 68.5178 59.4398 68.4064L65.8427 64.9412C67.11 64.2553 68.0173 63.0553 68.3318 61.6491C68.58 60.5391 68.4379 59.3888 67.9476 58.3821L49.4492 68.5761H58.77Z" fill="#DB9975"/>
     <Path d="M77.382 60.7186C76.0455 58.5134 73.2219 57.7473 70.9537 58.9743L58.0991 65.9313C57.5323 66.2379 57.2463 66.89 57.4046 67.5148C57.5628 68.1393 58.1248 68.5768 58.769 68.5768H61.9747C63.3129 68.5768 64.4017 69.6654 64.4017 71.0036C64.4017 71.4965 64.6595 71.9536 65.0816 72.2084C65.3049 72.3433 65.5567 72.4111 65.8091 72.4111C66.0337 72.4111 66.2589 72.3573 66.4644 72.2491L75.5006 67.4951C76.6738 66.8776 77.5501 65.7909 77.9051 64.5134C78.2598 63.2358 78.0693 61.8526 77.382 60.7186Z" fill="#F7B081"/>
@@ -39,93 +39,202 @@ const GiftIcon = ({width = 96, height = 96}) => (
   </Svg>
 );
 
-// Copy Icon Component
-const CopyIcon = ({width = 24, height = 24, fill = "black"}) => (
+const CopyIcon = ({width = 18, height = 18, fill = '#539461'}) => (
   <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
     <Path fillRule="evenodd" clipRule="evenodd" d="M7.5 3.75C7.5 3.33579 7.83579 3 8.25 3H20.25C20.6642 3 21 3.33579 21 3.75V15.75C21 16.1642 20.6642 16.5 20.25 16.5H16.5V20.25C16.5 20.6642 16.1642 21 15.75 21H3.75C3.33579 21 3 20.6642 3 20.25V8.25C3 7.83579 3.33579 7.5 3.75 7.5H7.5V3.75ZM4.5 9V19.5H15V9H4.5ZM16.5 15V8.25C16.5 7.83579 16.1642 7.5 15.75 7.5H9V4.5H19.5V15H16.5Z" fill={fill}/>
   </Svg>
 );
 
+const ShareIcon = ({width = 18, height = 18, fill = '#FFFFFF'}) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path d="M4 12V20C4 20.5523 4.44772 21 5 21H19C19.5523 21 20 20.5523 20 20V12" stroke={fill} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 3L12 15M12 3L8 7M12 3L16 7" stroke={fill} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </Svg>
+);
+
+const CheckIcon = ({width = 18, height = 18}) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path d="M5 13L9 17L19 7" stroke="#539461" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </Svg>
+);
+
+const getInviteCode = (uid) => {
+  if (!uid) return '------';
+  let hash = 0;
+  for (let i = 0; i < uid.length; i++) {
+    hash = (hash << 5) - hash + uid.charCodeAt(i);
+    hash |= 0;
+  }
+  return String(Math.abs(hash) % 1000000).padStart(6, '0');
+};
+
 const InviteFriendsScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [zipCode, setZipCode] = useState('');
+  const { userInfo } = useContext(AuthContext);
 
-  const handleSendInvites = () => {
-    if (!zipCode.trim()) {
-      Alert.alert('Error', 'Please enter your zip code');
-      return;
+  // Track which row was just copied for visual feedback
+  const [copiedField, setCopiedField] = useState(null); // 'code' | 'link' | null
+
+  const uid = userInfo?.uid || userInfo?.user?.uid || '';
+  const inviteCode = getInviteCode(uid);
+  const inviteUrl = `https://ileafu.com/refer?code=${inviteCode}`;
+  const inviteMessage = `Join me on iLeafU — the best app for rare plant lovers!\n\nWhen you buy your first plant, you get $20 Jungle Credit and I get 20 Leaf Coins!\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
+
+  // Save invite code -> UID mapping so the backend can resolve referrals
+  useEffect(() => {
+    if (uid && inviteCode && inviteCode !== '------') {
+      setDoc(doc(db, 'referralCodes', inviteCode), { uid }, { merge: true }).catch(() => {});
     }
-    
-    // TODO: Implement invite sending logic
-    Alert.alert('Success', 'Invites sent successfully!');
+  }, [uid, inviteCode]);
+
+  const handleCopy = async (field) => {
+    const content = field === 'code' ? inviteCode : inviteUrl;
+    try {
+      await Share.share({ message: content });
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2500);
+    } catch (error) {
+      if (error?.message !== 'User did not share') {
+        Alert.alert('Error', 'Could not copy. Please try again.');
+      }
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: inviteMessage,
+        url: inviteUrl,
+      });
+    } catch (error) {
+      if (error?.message !== 'User did not share') {
+        Alert.alert('Error', 'Could not open share sheet. Please try again.');
+      }
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
       {/* Header */}
-      <View style={[styles.header, {paddingTop: insets.top}]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <LeftIcon width={24} height={24} fill="#393D40" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Invite Friends</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Form */}
-        <View style={styles.form}>
-          {/* Icon Section */}
-          <View style={styles.iconSection}>
-            <GiftIcon width={96} height={96} />
-          </View>
+      <ScrollView
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}>
 
-          {/* Title Section */}
-          <View style={styles.titleSection}>
-            <Text style={styles.titleText}>
-              Invite your friends and{'\n'}get I LEAF U credits
+        {/* Icon */}
+        <View style={styles.iconSection}>
+          <GiftIcon width={88} height={88} />
+        </View>
+
+        {/* Title */}
+        <Text style={styles.titleText}>
+          Grow the Jungle 🌿
+        </Text>
+
+        {/* Description */}
+        <Text style={styles.noteText}>
+          Invite friends to iLeafU. When your friend buys their first plant:{'\n'}
+          🌱 They get $20 Jungle Credit{'\n'}
+          🍃 You earn 20 Leaf Coins
+        </Text>
+
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Invite Code Row */}
+        <View style={styles.fieldSection}>
+          <Text style={styles.fieldLabel}>Your Invite Code</Text>
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldValue} numberOfLines={1} ellipsizeMode="middle">
+              {inviteCode || '—'}
             </Text>
-          </View>
-
-          {/* Note Section */}
-          <View style={styles.noteSection}>
-            <Text style={styles.noteText}>
-              Invite your friends and get a reward.{'\n'}
-              Your referred friend just needs to make their first purchase for you to receive your reward. Lean more at{' '}
-              <Text style={styles.linkText}>https://ileafu.com/refer</Text>
-            </Text>
-          </View>
-
-          {/* Zip Code Section */}
-          <View style={styles.zipCodeSection}>
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>Invide Code</Text>
-              <View style={styles.textFieldContainer}>
-                <TextInput
-                  style={styles.textField}
-                  placeholder="123456"
-                  placeholderTextColor="#202325"
-                  value={zipCode}
-                  onChangeText={setZipCode}
-                  keyboardType="default"
-                  maxLength={20}
-                />
-                <CopyIcon width={24} height={24} fill="#000000" />
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.sendButton} onPress={handleSendInvites}>
-              <Text style={styles.sendButtonText}>Invite Friends</Text>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={() => handleCopy('code')}
+              activeOpacity={0.7}>
+              {copiedField === 'code' ? (
+                <CheckIcon width={16} height={16} />
+              ) : (
+                <CopyIcon width={16} height={16} fill="#539461" />
+              )}
+              <Text style={styles.copyBtnText}>
+                {copiedField === 'code' ? 'Copied!' : 'Copy'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Invite Link Row */}
+        <View style={styles.fieldSection}>
+          <Text style={styles.fieldLabel}>Your Invite Link</Text>
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldValueSmall} numberOfLines={1} ellipsizeMode="middle">
+              {inviteUrl}
+            </Text>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={() => handleCopy('link')}
+              activeOpacity={0.7}>
+              {copiedField === 'link' ? (
+                <CheckIcon width={16} height={16} />
+              ) : (
+                <CopyIcon width={16} height={16} fill="#539461" />
+              )}
+              <Text style={styles.copyBtnText}>
+                {copiedField === 'link' ? 'Copied!' : 'Copy'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Share Button */}
+        <TouchableOpacity style={styles.shareButton} onPress={handleShare} activeOpacity={0.85}>
+          <ShareIcon width={18} height={18} fill="#FFFFFF" />
+          <Text style={styles.shareButtonText}>Share via WhatsApp, SMS, Email…</Text>
+        </TouchableOpacity>
+
+        {/* How it works */}
+        <View style={styles.stepsSection}>
+          <Text style={styles.stepsTitle}>How it works</Text>
+
+          <View style={styles.step}>
+            <View style={styles.stepBadge}><Text style={styles.stepBadgeText}>1</Text></View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepHeading}>Copy your invite link</Text>
+              <Text style={styles.stepDesc}>Share it with friends.</Text>
+            </View>
+          </View>
+
+          <View style={styles.step}>
+            <View style={styles.stepBadge}><Text style={styles.stepBadgeText}>2</Text></View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepHeading}>Friend signs up</Text>
+              <Text style={styles.stepDesc}>They create an account using your link or code.</Text>
+            </View>
+          </View>
+
+          <View style={styles.step}>
+            <View style={styles.stepBadge}><Text style={styles.stepBadgeText}>3</Text></View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepHeading}>First purchase unlocks rewards</Text>
+              <Text style={styles.stepDesc}>When they buy their first plant: they get $20 Jungle Credit, you get 20 Leaf Coins.</Text>
+            </View>
+          </View>
+        </View>
+
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -138,19 +247,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    width: '100%',
-    height: 60,
-    minHeight: 100,
+    height: 52,
   },
   backButton: {
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
   },
   headerTitle: {
     fontFamily: 'Inter',
-    fontStyle: 'normal',
     fontWeight: '600',
     fontSize: 16,
     lineHeight: 22,
@@ -159,147 +266,165 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerSpacer: {
-    width: 24,
-    height: 24,
+    width: 32,
   },
-  content: {
+  scroll: {
     flex: 1,
-    width: '100%',
-    paddingBottom: 34,
   },
-  form: {
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    padding: 0,
-    width: '100%',
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 48,
   },
   iconSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    gap: 12,
-    width: '100%',
-    height: 120,
-  },
-  titleSection: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 12,
-    width: '100%',
+    paddingTop: 20,
+    paddingBottom: 8,
   },
   titleText: {
     fontFamily: 'Inter',
-    fontStyle: 'normal',
     fontWeight: '700',
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 26,
+    lineHeight: 34,
     color: '#202325',
-    width: '100%',
-  },
-  noteSection: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    padding: 12,
-    paddingHorizontal: 24,
-    gap: 20,
-    width: 375,
-    height: 134,
-    alignSelf: 'stretch',
+    marginTop: 8,
+    marginBottom: 12,
   },
   noteText: {
     fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22, // 140% of 16px
-    color: '#393D40',
-    width: 327,
-    height: 110,
-    alignSelf: 'stretch',
-  },
-  linkText: {
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '500',
-    fontSize: 16,
+    fontWeight: '400',
+    fontSize: 15,
     lineHeight: 22,
-    color: '#539461',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    color: '#5A6169',
+    marginBottom: 4,
   },
-  zipCodeSection: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    gap: 16,
-    width: '100%',
+  
+  divider: {
+    height: 1,
+    backgroundColor: '#EAEDED',
+    marginVertical: 24,
   },
-  inputField: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    padding: 0,
-    gap: 8,
-    width: '100%',
+  fieldSection: {
+    marginBottom: 16,
   },
-  inputLabel: {
+  fieldLabel: {
     fontFamily: 'Inter',
-    fontStyle: 'normal',
     fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22, // 140% of 16px
-    color: '#393D40',
-    width: '100%',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#8A9299',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  textFieldContainer: {
+  fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    gap: 12,
-    width: '100%',
-    height: 68,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F4F7F4',
     borderWidth: 1,
-    borderColor: '#CDD3D4',
+    borderColor: '#D6E4D8',
     borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
   },
-  textField: {
+  fieldValue: {
     fontFamily: 'Inter',
-    fontStyle: 'normal',
     fontWeight: '700',
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 18,
+    lineHeight: 24,
     color: '#202325',
     flex: 1,
-    paddingVertical: 0,
-    textAlignVertical: 'center',
   },
-  sendButton: {
+  fieldValueSmall: {
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#393D40',
+    flex: 1,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D6E4D8',
+  },
+  copyBtnText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#539461',
+  },
+  shareButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    width: '100%',
-    height: 48,
-    minHeight: 48,
+    gap: 10,
+    paddingVertical: 15,
     backgroundColor: '#539461',
-    borderRadius: 12,
+    borderRadius: 14,
+    marginTop: 8,
+    marginBottom: 32,
   },
-  sendButtonText: {
+  shareButtonText: {
     fontFamily: 'Inter',
-    fontStyle: 'normal',
     fontWeight: '600',
-    fontSize: 16,
-    lineHeight: 16,
+    fontSize: 15,
     color: '#FFFFFF',
+  },
+  stepsSection: {
+    gap: 20,
+  },
+  stepsTitle: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#202325',
+    marginBottom: 4,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  stepBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EAF3EC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  stepBadgeText: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 14,
+    color: '#539461',
+  },
+  stepContent: {
+    flex: 1,
+    paddingTop: 4,
+  },
+  stepHeading: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#202325',
+  },
+  stepDesc: {
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#5A6169',
+    marginTop: 2,
   },
 });
 

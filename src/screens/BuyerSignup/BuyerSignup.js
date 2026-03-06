@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
@@ -22,29 +23,45 @@ const GROW_OPTIONS = [
 const BuyerSignup = () => {
   const navigation = useNavigation();
   const [selected, setSelected] = useState([]);
+  const [inviteCode, setInviteCode] = useState('');
+  const [hasDeepLinkReferral, setHasDeepLinkReferral] = useState(false);
 
-  // Load existing data when component mounts
   useEffect(() => {
     const loadExistingData = async () => {
       try {
         const stored = await AsyncStorage.getItem('buyerSignupData');
+        let loadedInviteCode = '';
         if (stored) {
           const data = JSON.parse(stored);
           console.log('Loading existing grow plants data:', data);
-          
-          // Restore growPlants selection
           if (data.growPlants) {
             const savedSelections = data.growPlants.split(',');
             setSelected(savedSelections);
           }
+          if (data.inviteCode) loadedInviteCode = data.inviteCode;
         }
+        const pendingCode = await AsyncStorage.getItem('pendingInviteCode');
+        if (pendingCode && pendingCode.length === 6) {
+          setInviteCode(pendingCode);
+          setHasDeepLinkReferral(true);
+          const prevData = stored ? JSON.parse(stored) : {};
+          await AsyncStorage.setItem('buyerSignupData', JSON.stringify({
+            ...prevData,
+            inviteCode: pendingCode,
+          }));
+          await AsyncStorage.removeItem('pendingInviteCode');
+        } else if (loadedInviteCode) {
+          setInviteCode(loadedInviteCode);
+        }
+        const pendingRef = await AsyncStorage.getItem('pendingReferrerUid');
+        if (pendingRef && !pendingCode) setHasDeepLinkReferral(true);
       } catch (e) {
         console.error('Failed to load existing grow plants data', e);
       }
     };
 
     loadExistingData();
-  }, []); // Empty dependency array - only run once on mount
+  }, []);
 
   // Clear data when navigating away from buyer signup flow
   useEffect(() => {
@@ -80,6 +97,7 @@ const BuyerSignup = () => {
         JSON.stringify({
           ...prevData,
           growPlants: selected.join(','),
+          inviteCode: inviteCode.trim(),
         }),
       );
     } catch (e) {
@@ -96,7 +114,14 @@ const BuyerSignup = () => {
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       <View style={[styles.container, {paddingBottom: 32}]}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Login');
+              }
+            }}>
             <BackSolidIcon width={24} height={24} />
           </TouchableOpacity>
           <Text style={styles.stepText}>1/4</Text>
@@ -118,6 +143,26 @@ const BuyerSignup = () => {
             labelStyle={{fontSize: 16, marginLeft: 0}}
           />
         </View>
+
+        <Text style={styles.inviteLabel}>
+          Invite Code <Text style={styles.inviteOptional}>(optional)</Text>
+        </Text>
+        <TextInput
+          style={styles.inviteInput}
+          placeholder="Enter 6-digit code"
+          value={inviteCode}
+          onChangeText={setInviteCode}
+          maxLength={6}
+          keyboardType="number-pad"
+          autoCorrect={false}
+          placeholderTextColor="#aaa"
+        />
+        {hasDeepLinkReferral && !inviteCode ? (
+          <Text style={styles.deepLinkNotice}>
+            Referral applied from your invite link
+          </Text>
+        ) : null}
+
         <View style={{flex: 1}} />
         <TouchableOpacity
           style={[
@@ -155,9 +200,9 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 32, // Increased from 8 to 16 for better positioning
-    paddingTop: 16, // Increased from 8 to 16 for better positioning
+    marginBottom: 24,
+    marginTop: 8,
+    paddingTop: 0,
   },
   backBtn: {
     padding: 8,
@@ -190,6 +235,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#393D43',
     marginBottom: 8,
+  },
+  inviteLabel: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#393D43',
+    marginBottom: 4,
+  },
+  inviteOptional: {
+    color: '#aaa',
+    fontWeight: '400',
+    fontSize: 13,
+  },
+  inviteInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#202325',
+    backgroundColor: '#fff',
+  },
+  deepLinkNotice: {
+    color: '#4CAF50',
+    fontSize: 12,
+    marginTop: 4,
   },
   continueBtn: {
     marginTop: 12,

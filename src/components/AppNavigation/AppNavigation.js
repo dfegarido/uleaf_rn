@@ -2,9 +2,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   StyleSheet,
   Text,
@@ -1063,6 +1064,56 @@ const AppNavigation = () => {
     };
   }, [isLoggedIn, currentUserInfo, setIsLoggedIn, fallbackTriggered, setUserInfo]);
 
+  const navigationRef = useRef(null);
+
+  // Handle referral deep links: extract invite code, resolve to UID, and store it
+  useEffect(() => {
+    const extractReferrer = async (url) => {
+      if (!url) return;
+      try {
+        const match = url.match(/[?&]code=([^&]+)/);
+        if (match && match[1]) {
+          const code = decodeURIComponent(match[1]).trim();
+          await AsyncStorage.setItem('pendingInviteCode', code);
+          const { doc: docRef, getDoc } = require('firebase/firestore');
+          const { db } = require('../../../firebase');
+          const snap = await getDoc(docRef(db, 'referralCodes', code));
+          if (snap.exists() && snap.data().uid) {
+            await AsyncStorage.setItem('pendingReferrerUid', snap.data().uid);
+            console.log('📎 [DeepLink] Resolved referrer UID from code:', code, '->', snap.data().uid);
+          } else {
+            await AsyncStorage.setItem('pendingReferrerUid', code);
+            console.log('📎 [DeepLink] Stored referrer code as-is:', code);
+          }
+        }
+      } catch (e) {
+        console.error('[DeepLink] Error parsing referral URL:', e);
+      }
+    };
+
+    Linking.getInitialURL().then(extractReferrer);
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      extractReferrer(event.url);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  // Linking config for React Navigation
+  const linking = {
+    prefixes: ['ileafu://', 'https://ileafu.com'],
+    config: {
+      screens: {
+        BuyerAuthStack: {
+          screens: {
+            BuyerSignup: 'refer',
+          },
+        },
+      },
+    },
+  };
+
   // Render loading indicator while we're checking auth status initially
   if (isLoading) {
     return (
@@ -1085,7 +1136,7 @@ const AppNavigation = () => {
 
   return (
     // <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={[]}>
-      <NavigationContainer key={navKey}>
+      <NavigationContainer key={navKey} ref={navigationRef} linking={!isLoggedIn || fallbackTriggered ? linking : undefined}>
         {isLoggedIn && !fallbackTriggered ? (
           isBuyer ? (
             <BuyerTabNavigator />
