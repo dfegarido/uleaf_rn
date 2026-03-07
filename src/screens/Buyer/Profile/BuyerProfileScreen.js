@@ -23,6 +23,7 @@ import {
   getBuddyRequestsApi,
   getMyReceiverRequestApi,
 } from '../../../components/Api';
+import { getReferralInfoApi } from '../../../components/Api/referralApi';
 import {deleteUserApi} from '../../../components/Api';
 
 // Import icons (you'll need to add these to your assets)
@@ -326,6 +327,18 @@ const BuyerProfileScreen = (props) => {
         console.log('[BuyerProfileScreen] Error fetching profile for stats:', error);
       }
 
+      // Fetch referral info (Leaf Points from referrals may live in user_referral_stats)
+      let referralLeafPoints = 0;
+      try {
+        const referralRes = await getReferralInfoApi();
+        if (referralRes?.success && referralRes?.data?.statistics) {
+          const bal = referralRes.data.statistics.availableBalance ?? referralRes.data.statistics.totalRewardsEarned ?? 0;
+          referralLeafPoints = typeof bal === 'number' ? bal : Number(bal) || 0;
+        }
+      } catch (error) {
+        console.log('[BuyerProfileScreen] Error fetching referral info:', error);
+      }
+
       // Fetch buddy count - check if user is receiver or joiner
       let buddyCount = 0;
       try {
@@ -337,32 +350,34 @@ const BuyerProfileScreen = (props) => {
           // First, check if user is a receiver (has joiners)
           const buddyRequestsResult = await retryAsync(() => getBuddyRequestsApi(), 2, 1000);
           console.log('[BuyerProfileScreen] getBuddyRequestsApi result:', JSON.stringify(buddyRequestsResult, null, 2));
-        
-        if (buddyRequestsResult?.success && buddyRequestsResult?.data?.joiners && buddyRequestsResult.data.joiners.length > 0) {
-          // User is a receiver - count all joiners (pending, approved, pending_cancel)
-          buddyCount = buddyRequestsResult.data.joiners.length;
-          console.log('[BuyerProfileScreen] User is receiver, buddyCount:', buddyCount);
-        } else {
-          // If no joiners, check if user is a joiner (has a receiver)
-          const myReceiverRequestResult = await retryAsync(() => getMyReceiverRequestApi(), 2, 1000);
-          console.log('[BuyerProfileScreen] getMyReceiverRequestApi result:', JSON.stringify(myReceiverRequestResult, null, 2));
-          
-          if (myReceiverRequestResult?.success && myReceiverRequestResult?.data?.isJoiner) {
-            // User is a joiner - show 1 to indicate they have a receiver
-            buddyCount = 1;
-            console.log('[BuyerProfileScreen] User is joiner, buddyCount:', buddyCount);
+
+          if (buddyRequestsResult?.success && buddyRequestsResult?.data?.joiners && buddyRequestsResult.data.joiners.length > 0) {
+            // User is a receiver - count all joiners (pending, approved, pending_cancel)
+            buddyCount = buddyRequestsResult.data.joiners.length;
+            console.log('[BuyerProfileScreen] User is receiver, buddyCount:', buddyCount);
+          } else {
+            // If no joiners, check if user is a joiner (has a receiver)
+            const myReceiverRequestResult = await retryAsync(() => getMyReceiverRequestApi(), 2, 1000);
+            console.log('[BuyerProfileScreen] getMyReceiverRequestApi result:', JSON.stringify(myReceiverRequestResult, null, 2));
+
+            if (myReceiverRequestResult?.success && myReceiverRequestResult?.data?.isJoiner) {
+              // User is a joiner - show 1 to indicate they have a receiver
+              buddyCount = 1;
+              console.log('[BuyerProfileScreen] User is joiner, buddyCount:', buddyCount);
+            }
           }
-        }
         }
       } catch (error) {
         console.log('[BuyerProfileScreen] Error fetching buddy count:', error);
         // Don't throw error, just use 0 as fallback
       }
-      
+
       console.log('[BuyerProfileScreen] Final buddyCount:', buddyCount);
 
-      // Get points from fetched profile data (not from state)
-      const leafPoints = profileData?.leafPoints || 0;
+      // Get points from fetched profile data; Leaf Points can come from buyer.leafPoints or referral stats (user_referral_stats)
+      const buyerLeafPoints = profileData?.leafPoints ?? profileData?.referralPointsBalance ?? 0;
+      let leafPoints = Math.max(Number(buyerLeafPoints) || 0, referralLeafPoints);
+
       const plantCredits = profileData?.plantCredits || 0;
       const shippingCredits = profileData?.shippingCredits || 0;
 
@@ -370,7 +385,7 @@ const BuyerProfileScreen = (props) => {
         leafPoints,
         plantCredits,
         shippingCredits,
-        source: 'Fresh API call'
+        source: 'Fresh API call',
       });
 
       setProfileStats({
@@ -556,6 +571,8 @@ const BuyerProfileScreen = (props) => {
               value={profileStats.leafPoints.toString()}
               color="#539461"
               icon={<LeafIcon width={24} height={24} fill="#FFFFFF" />}
+              hasArrow={true}
+              onPress={() => navigation.navigate('InviteFriendsScreen')}
             />
             <CreditCard
               title="My Plant Credits"

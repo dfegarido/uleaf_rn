@@ -1,6 +1,35 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
 /**
+ * Get referral info (stats, recent referrals, available rewards)
+ * @returns {Promise<Object>} Referral info response
+ */
+export const getReferralInfoApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(
+      'https://us-central1-i-leaf-u.cloudfunctions.net/getReferralInfo',
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('Get referral info API error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Get referral data
  * @param {Object} params - Query parameters
  * @param {string} params.referrerId - Referrer ID filter

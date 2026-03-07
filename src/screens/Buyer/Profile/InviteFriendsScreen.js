@@ -8,6 +8,9 @@ import {
   StatusBar,
   Share,
   Alert,
+  Modal,
+  Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +19,21 @@ import Svg, { Path } from 'react-native-svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { db } from '../../../../firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { getReferralInfoApi } from '../../../components/Api/referralApi';
+
+const InfoIcon = ({ width = 20, height = 20, fill = '#393D40' }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+      stroke={fill}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path d="M12 16V12" stroke={fill} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 8H12.01" stroke={fill} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
 const GiftIcon = ({width = 96, height = 96}) => (
   <Svg width={width} height={height} viewBox="0 0 96 96" fill="none">
@@ -68,6 +86,30 @@ const getInviteCode = (uid) => {
   return String(Math.abs(hash) % 1000000).padStart(6, '0');
 };
 
+// Mock referral data for rorounifix@gmail.com (UI preview / testing)
+const MOCK_REFERRAL_DATA = {
+  statistics: {
+    totalReferred: 5,
+    successfulReferrals: 3,
+    totalRewardsEarned: 60,
+    availableBalance: 60,
+    redeemedBalance: 0,
+    ordersWithZeroFees: 2,
+  },
+  recentReferrals: [
+    { id: 'ref1', refereeEmail: 'luffy.plant@example.com', status: 'completed', rewardAmount: 20, rewardCurrency: 'leaf_coins', createdAt: null, completedAt: null },
+    { id: 'ref2', refereeEmail: 'zoro.moss@example.com', status: 'completed', rewardAmount: 20, rewardCurrency: 'leaf_coins', createdAt: null, completedAt: null },
+    { id: 'ref3', refereeEmail: 'nami.fern@example.com', status: 'completed', rewardAmount: 20, rewardCurrency: 'leaf_coins', createdAt: null, completedAt: null },
+    { id: 'ref4', refereeEmail: 'sanji.herb@example.com', status: 'pending', rewardAmount: null, rewardCurrency: null, createdAt: null, completedAt: null },
+    { id: 'ref5', refereeEmail: 'chopper.bonsai@example.com', status: 'pending', rewardAmount: null, rewardCurrency: null, createdAt: null, completedAt: null },
+  ],
+  availableRewards: [
+    { id: 'r1', rewardType: 'leaf_coins', amount: 20, currency: 'leaf_coins', description: 'Referral reward', createdAt: null },
+    { id: 'r2', rewardType: 'leaf_coins', amount: 20, currency: 'leaf_coins', description: 'Referral reward', createdAt: null },
+    { id: 'r3', rewardType: 'leaf_coins', amount: 20, currency: 'leaf_coins', description: 'Referral reward', createdAt: null },
+  ],
+};
+
 const InviteFriendsScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -76,10 +118,15 @@ const InviteFriendsScreen = () => {
   // Track which row was just copied for visual feedback
   const [copiedField, setCopiedField] = useState(null); // 'code' | 'link' | null
 
+  // Your referrals stats
+  const [referralStats, setReferralStats] = useState(null);
+  const [referralLoading, setReferralLoading] = useState(true);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
   const uid = userInfo?.uid || userInfo?.user?.uid || '';
   const inviteCode = getInviteCode(uid);
   const inviteUrl = `https://ileafu.com/refer?code=${inviteCode}`;
-  const inviteMessage = `Join me on iLeafU — the best app for rare plant lovers!\n\nWhen you buy your first plant, you get $20 Jungle Credit and I get 20 Leaf Coins!\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
+  const inviteMessage = `Join me on iLeafU — the best app for rare plant lovers!\n\nWhen you buy your first plant, you get 20 Leaf Coins and I earn 20 Leaf Points!\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
 
   // Save invite code -> UID mapping so the backend can resolve referrals
   useEffect(() => {
@@ -87,6 +134,41 @@ const InviteFriendsScreen = () => {
       setDoc(doc(db, 'referralCodes', inviteCode), { uid }, { merge: true }).catch(() => {});
     }
   }, [uid, inviteCode]);
+
+  // Fetch referral stats on mount (use mock data for rorounifix@gmail.com)
+  const userEmail = userInfo?.email || userInfo?.user?.email || userInfo?.data?.email || '';
+  const useMockReferrals = userEmail === 'rorounifix@gmail.com';
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setReferralLoading(true);
+      if (useMockReferrals) {
+        // Use mock data for preview
+        if (!cancelled) {
+          setReferralStats(MOCK_REFERRAL_DATA);
+        }
+      } else {
+        const res = await getReferralInfoApi();
+        if (!cancelled && res.success && res.data) {
+          setReferralStats(res.data);
+        } else if (!cancelled) {
+          setReferralStats({
+            statistics: {
+              totalReferred: 0,
+              successfulReferrals: 0,
+              totalRewardsEarned: 0,
+              availableBalance: 0,
+            },
+            recentReferrals: [],
+          });
+        }
+      }
+      if (!cancelled) setReferralLoading(false);
+    };
+    if (uid) load();
+    return () => { cancelled = true; };
+  }, [uid, useMockReferrals]);
 
   const handleCopy = async (field) => {
     const content = field === 'code' ? inviteCode : inviteUrl;
@@ -132,6 +214,59 @@ const InviteFriendsScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}>
 
+        {/* Your referrals */}
+        <View style={styles.referralsSection}>
+          <View style={styles.referralsHeader}>
+            <Text style={styles.referralsTitle}>Your referrals</Text>
+            <TouchableOpacity
+              onPress={() => Alert.alert(
+                'Referral rewards',
+                'Invite friends to iLeafU. When they buy their first plant: they get 20 Leaf Coins, you earn 20 Leaf Points.',
+                [{ text: 'OK' }],
+              )}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.infoBtn}>
+              <InfoIcon width={20} height={20} />
+            </TouchableOpacity>
+          </View>
+
+          {referralLoading ? (
+            <ActivityIndicator size="small" color="#539461" style={styles.referralLoader} />
+          ) : (
+            <>
+              <View style={styles.metricsRow}>
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricValue}>
+                    {referralStats?.statistics?.availableBalance ?? referralStats?.statistics?.totalRewardsEarned ?? 0}
+                  </Text>
+                  <Text style={styles.metricLabel}>Leaf Points earned</Text>
+                </View>
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricValue}>{referralStats?.statistics?.ordersWithZeroFees ?? 0}</Text>
+                  <Text style={styles.metricLabel}>Orders with 0 selling fees</Text>
+                </View>
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricValue}>{referralStats?.statistics?.successfulReferrals ?? 0}</Text>
+                  <Text style={styles.metricLabel}>Completed referrals</Text>
+                </View>
+                <View style={styles.metricBox}>
+                  <Text style={styles.metricValue}>
+                    {Math.max(0, (referralStats?.statistics?.totalReferred ?? 0) - (referralStats?.statistics?.successfulReferrals ?? 0))}
+                  </Text>
+                  <Text style={styles.metricLabel}>Pending referrals</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.historyButton}
+                onPress={() => setShowHistoryModal(true)}
+                activeOpacity={0.85}>
+                <Text style={styles.historyButtonText}>View Referral History</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
         {/* Icon */}
         <View style={styles.iconSection}>
           <GiftIcon width={88} height={88} />
@@ -145,8 +280,8 @@ const InviteFriendsScreen = () => {
         {/* Description */}
         <Text style={styles.noteText}>
           Invite friends to iLeafU. When your friend buys their first plant:{'\n'}
-          🌱 They get $20 Jungle Credit{'\n'}
-          🍃 You earn 20 Leaf Coins
+          🌱 They get 20 Leaf Coins{'\n'}
+          🍃 You earn 20 Leaf Points
         </Text>
 
         {/* Divider */}
@@ -228,12 +363,47 @@ const InviteFriendsScreen = () => {
             <View style={styles.stepBadge}><Text style={styles.stepBadgeText}>3</Text></View>
             <View style={styles.stepContent}>
               <Text style={styles.stepHeading}>First purchase unlocks rewards</Text>
-              <Text style={styles.stepDesc}>When they buy their first plant: they get $20 Jungle Credit, you get 20 Leaf Coins.</Text>
+              <Text style={styles.stepDesc}>When they buy their first plant: they get 20 Leaf Coins, you earn 20 Leaf Points.</Text>
             </View>
           </View>
         </View>
 
       </ScrollView>
+
+      {/* Referral History Modal */}
+      <Modal
+        visible={showHistoryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHistoryModal(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowHistoryModal(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Referral History</Text>
+            <ScrollView style={styles.modalList} showsVerticalScrollIndicator={false}>
+              {(referralStats?.recentReferrals ?? []).length === 0 ? (
+                <Text style={styles.modalEmpty}>No referrals yet. Share your link to invite friends!</Text>
+              ) : (
+                (referralStats?.recentReferrals ?? []).map((r) => (
+                  <View key={r.id} style={styles.modalRow}>
+                    <Text style={styles.modalEmail} numberOfLines={1}>{r.refereeEmail}</Text>
+                    <Text style={[styles.modalStatus, r.status === 'completed' && styles.modalStatusCompleted]}>
+                      {r.status || 'pending'}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowHistoryModal(false)}
+              activeOpacity={0.85}>
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -274,6 +444,146 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 48,
+  },
+  referralsSection: {
+    marginTop: 8,
+    marginBottom: 16,
+    backgroundColor: '#F8FAF8',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#EAF3EC',
+  },
+  referralsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  referralsTitle: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#202325',
+  },
+  infoBtn: {
+    padding: 4,
+  },
+  referralLoader: {
+    paddingVertical: 20,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+    marginBottom: 16,
+  },
+  metricBox: {
+    width: '50%',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+  },
+  metricValue: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 22,
+    lineHeight: 28,
+    color: '#202325',
+  },
+  metricLabel: {
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#5A6169',
+    marginTop: 2,
+  },
+  historyButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D6E4D8',
+  },
+  historyButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 15,
+    color: '#539461',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#202325',
+    marginBottom: 16,
+  },
+  modalList: {
+    maxHeight: 240,
+    marginBottom: 16,
+  },
+  modalEmpty: {
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    fontSize: 15,
+    color: '#5A6169',
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EAEDED',
+  },
+  modalEmail: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 14,
+    color: '#202325',
+    flex: 1,
+    marginRight: 12,
+  },
+  modalStatus: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 12,
+    color: '#8A9299',
+    textTransform: 'capitalize',
+  },
+  modalStatusCompleted: {
+    color: '#539461',
+  },
+  modalCloseBtn: {
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 15,
+    color: '#FFFFFF',
   },
   iconSection: {
     paddingTop: 20,

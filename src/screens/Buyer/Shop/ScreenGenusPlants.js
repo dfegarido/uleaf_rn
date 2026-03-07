@@ -127,17 +127,20 @@ const ScreenGenusPlants = ({navigation, route}) => {
   } = useFilters();
   const justFiltered = React.useRef(false);
   const initialLoadComplete = React.useRef(false); // Track if initial load is done
+  const isLoadingRef = React.useRef(false); // Prevent concurrent loadPlants calls
 
   // Plants data state
   const [plants, setPlants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Pagination
-  const [offset, setOffset] = useState(0);
+  // Pagination (cursor-based for Firestore)
+  const [nextPageToken, setNextPageToken] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const limit = 10; // Standardized to 20 per requirement
+  const limit = 10;
+  // Offset only for Price Drop badge (getPriceDropBadgeListingsApi still uses offset)
+  const [offset, setOffset] = useState(0);
   
   // Track active badge for pagination
   const [activeBadge, setActiveBadge] = useState(null);
@@ -228,7 +231,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
     try {
       if (refresh) {
         setRefreshing(true);
-        setOffset(0);
+        setNextPageToken(null);
         setHasMore(true);
       } else {
         setLoadingMore(true);
@@ -239,23 +242,22 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      const currentOffset = refresh ? 0 : offset;
       const baseParams = {
         limit,
-        offset: currentOffset,
+        ...(refresh ? {} : { nextPageToken }),
       };
 
       // Use searchPlants API for faster search results when there's a search query
       if (searchQueryParam && searchQueryParam.trim()) {
         setIsSearchMode(true); // Mark that we're in search mode
         console.log('🔍 [ScreenGenusPlants] Loading plants with search query:', searchQueryParam.trim());
-        console.log('🔍 [ScreenGenusPlants] Refresh:', refresh, 'Current offset:', currentOffset);
+        console.log('🔍 [ScreenGenusPlants] Refresh:', refresh, 'Page token:', nextPageToken ? 'yes' : 'no');
 
         // Use searchPlants API for faster search results
         const searchParams = {
           query: searchQueryParam.trim(),
           limit: limit,
-          offset: currentOffset,
+          offset: refresh ? 0 : (plants.length || 0),
           sortBy: 'relevance',
           sortOrder: 'desc',
         };
@@ -321,23 +323,20 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (refresh) {
         setPlants(newPlants);
-        setOffset(newPlants.length);
       } else {
         setPlants(prev => {
           const existingPlantCodes = new Set(prev.map(p => p.plantCode));
           const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
           return [...prev, ...uniqueNewPlants];
         });
-        setOffset(prev => prev + newPlants.length);
       }
 
         // Use pagination from searchPlants API response
         const pagination = res.data?.pagination || {};
-        const hasMore = pagination.hasMore || false;
-        setHasMore(hasMore);
+        const hasMorePagination = pagination.hasMore || false;
+        setHasMore(hasMorePagination);
         console.log('✅ [ScreenGenusPlants] Loaded', newPlants.length, 'plants from search (using searchPlants API)');
-        console.log('✅ [ScreenGenusPlants] hasMore:', hasMore, 'New offset:', refresh ? newPlants.length : offset + newPlants.length);
-        console.log('✅ [ScreenGenusPlants] Total results:', pagination.total || newPlants.length);
+        console.log('✅ [ScreenGenusPlants] hasMore:', hasMorePagination, 'Total results:', pagination.total || newPlants.length);
       } else {
         // No search query - use getBuyerListings API (fallback to original behavior)
         setIsSearchMode(false);
@@ -366,19 +365,19 @@ const ScreenGenusPlants = ({navigation, route}) => {
         
         if (refresh) {
           setPlants(newPlants);
-          setOffset(newPlants.length);
+          setNextPageToken(res.data?.nextPageToken || null);
         } else {
           setPlants(prev => {
             const existingPlantCodes = new Set(prev.map(p => p.plantCode));
             const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
             return [...prev, ...uniqueNewPlants];
           });
-          setOffset(prev => prev + newPlants.length);
+          setNextPageToken(res.data?.nextPageToken || null);
         }
 
         setHasMore(res.data?.hasNextPage || false);
         console.log('✅ [ScreenGenusPlants] Loaded', newPlants.length, 'plants from getBuyerListings');
-        console.log('✅ [ScreenGenusPlants] hasMore:', res.data?.hasNextPage || false, 'New offset:', refresh ? newPlants.length : offset + newPlants.length);
+        console.log('✅ [ScreenGenusPlants] hasMore:', res.data?.hasNextPage || false);
       }
 
     } catch (error) {
@@ -544,37 +543,51 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       // Apply the filter based on filterType
       if (filterType === 'listingType' && filterValue === 'Wholesale') {
-        // Set local filters to include wholesale
         setLocalFilters(prev => ({
           ...prev,
           listingType: ['Wholesale']
         }));
         
-        // Also apply to global filters so it gets used in API calls
         updateFilters({
           ...globalFilters,
           listingType: ['Wholesale']
         });
         
-        
-        // Mark as applied to prevent infinite loop
         routeFilterApplied.current = true;
         
-        // Load plants with the wholesale filter (only if no badge is active)
         const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $20', 'Unicorn', 'Top 5 Buyer Wish List'];
         const currentBadge = activeBadgeRef.current || activeBadge;
         if (!specialBadges.includes(currentBadge)) {
           setTimeout(() => {
             loadPlants(true);
-          }, 100); // Small delay to ensure filters are set
+          }, 100);
         } else {
           console.log('⏭️ [Wholesale filter] Skipping loadPlants - badge active:', currentBadge);
         }
+      } else if (filterType === 'country' && filterValue) {
+        setLocalFilters(prev => ({
+          ...prev,
+          country: [filterValue]
+        }));
+        
+        applyFilters({
+          ...globalFilters,
+          country: [filterValue]
+        });
+        
+        routeFilterApplied.current = true;
+        
+        setTimeout(() => {
+          loadPlants(true);
+        }, 100);
       }
     }
   }, [filterType, filterValue, updateFilters]);
 
   const loadPlants = async (refresh = false) => {
+    // Prevent concurrent calls — ref is synchronous unlike state
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     try {
       // Don't load regular plants if a special badge is active
       // Check ref first (immediate) then state (for consistency)
@@ -587,7 +600,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (refresh) {
         setRefreshing(true);
-        setOffset(0);
+        setNextPageToken(null);
         setHasMore(true);
       } else {
         setLoadingMore(true);
@@ -600,8 +613,13 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       const baseParams = {
         limit,
-        offset: refresh ? 0 : offset,
+        ...(refresh ? {} : { nextPageToken }),
       };
+
+      // Inject country from route params directly as a failsafe
+      if (filterType === 'country' && filterValue) {
+        baseParams.country = filterValue;
+      }
 
       // Add search term if provided (prioritize route param if from search, otherwise use state)
       const activeSearchTerm = (fromSearch && searchQuery) ? searchQuery.trim() : searchTerm.trim();
@@ -671,9 +689,15 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       
       if (refresh) {
-        setPlants(newPlants);
-        // For refresh, set offset exactly to the number returned (avoids double-refresh accumulating)
-        setOffset(newPlants.length);
+        // Deduplicate by plantCode — safety net against concurrent calls
+        const seen = new Set();
+        const deduped = newPlants.filter(p => {
+          if (seen.has(p.plantCode)) return false;
+          seen.add(p.plantCode);
+          return true;
+        });
+        setPlants(deduped);
+        setNextPageToken(res.data?.nextPageToken || null);
       } else {
         // Filter out duplicates before appending new plants
         setPlants(prev => {
@@ -681,8 +705,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
           const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
           return [...prev, ...uniqueNewPlants];
         });
-        // Increment offset by the page size (use limit for consistency)
-        setOffset(prev => prev + newPlants.length);
+        setNextPageToken(res.data?.nextPageToken || null);
       }
 
       // Check if there are more plants to load using API response
@@ -692,6 +715,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       console.error('Error loading plants:', error);
       Alert.alert('Error', error.message);
     } finally {
+      isLoadingRef.current = false;
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
@@ -712,7 +736,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       // Specific parameters for Top 5 Buyer Wish List badge - no additional params
       const top5WishListParams = {
         limit: 5,
-        offset: 0,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
@@ -751,7 +774,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       
       setPlants(newPlants);
-      setOffset(newPlants.length);
+      setNextPageToken(null);
 
       // For Top 5 Buyer Wish List, only show top 5 items - no pagination
       setHasMore(false);
@@ -782,7 +805,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       const unicornParams = {
         minPrice: 2000,
         limit: 500, // Increased limit to fetch more unicorn plants
-        offset: 0,
         sortBy: 'finalPrice', // Sort by price to find expensive plants faster
         sortOrder: 'desc',
       };
@@ -836,7 +858,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       console.log('🦄 Filtered to', newPlants.length, 'valid plants');
       setPlants(newPlants);
-      setOffset(newPlants.length);
+      setNextPageToken(res.data?.nextPageToken || null);
 
       // For Unicorn category, check if there are more results available
       setHasMore(res.data?.hasNextPage || false);
@@ -903,7 +925,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       
       setPlants(newPlants);
-      setOffset(newPlants.length);
+      setNextPageToken(null);
 
       // For Below $20, load all items at once - no pagination needed
       setHasMore(false);
@@ -932,7 +954,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       // Specific parameters for Latest Nursery Drop badge - query published nursery drop listings
       const nurseryDropParams = {
         limit: 10,
-        offset: 0,
         nurseryDrop: 'true', // Filter for published nursery drop listings
         sortBy: 'nurseryDropDate', // Sort by nursery drop date (most recent first)
         sortOrder: 'desc',
@@ -968,7 +989,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       });
       
       setPlants(newPlants);
-      setOffset(newPlants.length);
+      setNextPageToken(res.data?.nextPageToken || null);
 
       // Enable pagination - check if there are more items
       setHasMore(res.data?.hasNextPage || false);
@@ -997,7 +1018,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       // Specific parameters for New Arrivals badge - limit to 50 most recent items
       const newArrivalsParams = {
         limit: 50,
-        offset: 0,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
@@ -1035,7 +1055,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       
       setPlants(newPlants);
-      setOffset(newPlants.length);
+      setNextPageToken(res.data?.nextPageToken || null);
 
       // For New Arrivals, show up to 50 items with pagination if more are available
       setHasMore(res.data?.hasNextPage || false);
@@ -1140,7 +1160,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
     try {
       if (refresh) {
         setRefreshing(true);
-        setOffset(0);
+        setNextPageToken(null);
         setHasMore(true);
       } else {
         setLoadingMore(true);
@@ -1153,7 +1173,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       const baseParams = {
         limit,
-        offset: refresh ? 0 : offset,
+        ...(refresh ? {} : { nextPageToken }),
       };
 
       // Add search term if provided
@@ -1272,7 +1292,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       if (refresh) {
         setPlants(newPlants);
-        setOffset(newPlants.length);
+        setNextPageToken(res.data?.nextPageToken || null);
       } else {
         // Filter out duplicates before appending new plants
         setPlants(prev => {
@@ -1280,7 +1300,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
           const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
           return [...prev, ...uniqueNewPlants];
         });
-        setOffset(prev => prev + newPlants.length);
+        setNextPageToken(res.data?.nextPageToken || null);
       }
 
       // Check if there are more plants to load using API response
@@ -1364,7 +1384,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         setActiveBadge('Latest Nursery Drop');          // Set state (asynchronous)
         setLoading(true);      // Show loading state
         setPlants([]);         // Clear old data immediately
-        setOffset(0);          // Reset offset
+        setNextPageToken(null); // Reset cursor for new badge load
         justFiltered.current = true;
         loadLatestNurseryDropPlants();
         return;
@@ -1613,13 +1633,13 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       const nurseryDropParams = {
         limit: 10,
-        offset: offset, // Use current offset for pagination
         nurseryDrop: 'true',
         sortBy: 'nurseryDropDate',
         sortOrder: 'desc',
+        ...(nextPageToken ? { nextPageToken } : {}),
       };
 
-      console.log('📄 Loading more Nursery Drop items, offset:', offset);
+      console.log('📄 Loading more Nursery Drop items, nextPageToken:', nextPageToken ? 'yes' : 'no');
       const res = await retryAsync(() => getBuyerListingsApi(nurseryDropParams), 3, 1000);
 
       if (!res?.success) {
@@ -1653,7 +1673,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         console.log(`🔍 Nursery Drop - deduplicated: ${newPlants.length} -> ${uniqueNewPlants.length} unique items`);
         return [...prev, ...uniqueNewPlants];
       });
-      setOffset(prev => prev + newPlants.length);
+      setNextPageToken(res.data?.nextPageToken || null);
       setHasMore(res.data?.hasNextPage || false);
 
     } catch (error) {

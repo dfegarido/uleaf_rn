@@ -858,7 +858,6 @@ const ScreenShop = ({navigation}) => {
     const callFilterApi = async () => {
       try {
         const baseParams = {
-          offset: 0,
           limit: 4, // standardized
           // Note: sortBy and sortOrder are intentionally not set here
           // They will be determined by buildFilterParams based on the applied filters
@@ -1653,11 +1652,17 @@ const ScreenShop = ({navigation}) => {
             <TouchableOpacity
               key={idx}
               onPress={() => {
-                // Clear all filters first, then apply only country filter
-                clearFilters();
-                updateFilters({ country: [item.label] });
+                applyFilters({
+                  sort: 'Newest to Oldest',
+                  price: '',
+                  genus: [],
+                  variegation: [],
+                  country: [item.label],
+                  listingType: [],
+                  shippingIndex: [],
+                  acclimationIndex: [],
+                });
                 
-                // Navigate to genus plants screen with country filter
                 navigation.navigate('ScreenGenusPlants', {
                   genus: 'All',
                   filterType: 'country',

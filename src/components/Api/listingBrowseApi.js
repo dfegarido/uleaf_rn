@@ -1,6 +1,7 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
 import { getCachedResponse, setCachedResponse } from '../../utils/apiResponseCache';
+import { fetchBuyerListingsFromFirestore } from '../../utils/fetchBuyerListingsFromFirestore';
 
 // Simple in-memory TTL cache to reduce duplicate GET requests across session
 const __memCache = {
@@ -236,9 +237,10 @@ export const searchListingApi = async (params = {}) => {
 
 /**
  * Get buyer listings (for buyers to browse)
+ * Uses direct Firestore query from the client (no backend call).
  * @param {Object} params - Query parameters
  * @param {number} params.limit - Number of listings to fetch
- * @param {string} params.nextPageToken - Token for pagination
+ * @param {string} params.nextPageToken - Token for pagination (cursor-based)
  * @param {string} params.category - Category filter
  * @param {string} params.priceRange - Price range filter
  * @param {string} params.location - Location filter
@@ -246,77 +248,21 @@ export const searchListingApi = async (params = {}) => {
  */
 export const getBuyerListingsApi = async (params = {}) => {
   try {
-    const authToken = await getStoredAuthToken();
-    
-    // Set default limit to 20 if not specified
     const finalParams = {
-      limit: 20,
+      limit: 10,
       ...params
     };
-    
-    const queryParams = new URLSearchParams();
-    Object.keys(finalParams).forEach(key => {
-      if (finalParams[key] !== undefined && finalParams[key] !== null) {
-        let value = finalParams[key];
-        
-        // Handle arrays by joining with commas
-        if (Array.isArray(value)) {
-          value = value.join(',');
-        }
-        // Handle objects by converting to JSON string or extracting specific properties
-        else if (typeof value === 'object') {
-          // If it's an object, try to extract meaningful value or stringify
-          if (value.value !== undefined) {
-            value = value.value;
-          } else if (value.label !== undefined) {
-            value = value.label;
-          } else {
-            value = JSON.stringify(value);
-          }
-        }
-        
-        queryParams.append(key, String(value));
-      }
-    });
-    const qs = queryParams.toString();
 
-  // Memory cache key per-user token + endpoint + query
-    const cacheKey = `buyerListings:${authToken?.slice?.(-12) || 'anon'}:${qs}`;
-    const cached = __memCache.get(cacheKey);
-  if (cached) return cached;
+    const result = await fetchBuyerListingsFromFirestore(finalParams);
 
-  // Try persistent cache next for very common queries (e.g., no filters)
-  const userKey = authToken?.slice?.(-12) || 'anon';
-  const persistent = await getCachedResponse('GET_BUYER_LISTINGS', qs, userKey);
-  if (persistent) return persistent;
-
-    const response = await fetch(
-      `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${qs}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
-      );
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to fetch buyer listings');
     }
 
-  const data = await response.json();
-  const result = {
+    return {
       success: true,
-      data,
-  };
-  // Cache for 60s in memory; plus 2 minutes on disk for common revisits
-  __memCache.set(cacheKey, result);
-  await setCachedResponse('GET_BUYER_LISTINGS', qs, userKey, result, 2 * 60 * 1000);
-  return result;
+      data: result.data,
+    };
   } catch (error) {
     console.error('Get buyer listings API error:', error);
     return {
