@@ -9,7 +9,6 @@ import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import {getBuyerCreditRequestsApi, getJourneyMishapDataApi} from '../../../components/Api/orderManagementApi';
 import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
@@ -35,7 +34,6 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const browseMorePlantsRef = React.useRef(null);
   const [hasMore, setHasMore] = useState(false);
 
   // Apply plant owner filter using centralized filtering utility
@@ -591,14 +589,6 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
             <OrderItemCardSkeleton key={`skeleton-${index}`} />
           ))}
           
-          {/* Browse More Plants Component */}
-          <BrowseMorePlants 
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15}}
-          />
         </ScrollView>
       ) : (
         <ScrollView
@@ -616,11 +606,6 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
               handleLoadMore();
             }
             
-            // Load more recommendations when scrolling near bottom
-            if (isCloseToBottom && browseMorePlantsRef?.current) {
-              console.log('🌱 ScreenJourneyMishap: User is near bottom, triggering load more recommendations');
-              browseMorePlantsRef.current.handleLoadMore();
-            }
           }}
           refreshControl={
             <RefreshControl
@@ -692,15 +677,6 @@ const ScreenJourneyMishap = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
             </View>
           )}
 
-          {/* Browse More Plants Component */}
-          {/* <BrowseMorePlants 
-            ref={browseMorePlantsRef}
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
-          /> */}
         </ScrollView>
       )}
     </SafeAreaView>

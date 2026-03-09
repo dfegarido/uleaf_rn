@@ -9,7 +9,6 @@ import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getBuyerOrdersApi, exportBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import { filterByPlantOwner, isReadyToFly, getBuyerUid } from '../../../utils/buyerOrderFiltering';
 
@@ -31,7 +30,6 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
-  const browseMorePlantsRef = React.useRef(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
@@ -351,14 +349,6 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
             <OrderItemCardSkeleton key={`skeleton-${index}`} />
           ))}
           
-          {/* Browse More Plants Component */}
-          <BrowseMorePlants 
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15}}
-          />
         </ScrollView>
       ) : (
         <ScrollView
@@ -378,9 +368,6 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
               handleLoadMore();
             }
 
-            if (distanceFromBottom <= 200 && browseMorePlantsRef?.current) {
-              browseMorePlantsRef.current.handleLoadMore();
-            }
           }}
           refreshControl={
             <RefreshControl
@@ -473,17 +460,6 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
                       </View>
                     )}
 
-          {/* Browse More Plants Component */}
-          {/* <BrowseMorePlants 
-            ref={browseMorePlantsRef}
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
-          /> */}
-
-          
         </ScrollView>
       )}
     </SafeAreaView>

@@ -10,7 +10,6 @@ import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import {getBuyerOrdersApi, getBuyerOrdersGroupedApi} from '../../../components/Api/orderManagementApi';
 import {checkoutApi} from '../../../components/Api/checkoutApi';
@@ -41,7 +40,6 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const browseMorePlantsRef = React.useRef(null);
   const [expandedTransactions, setExpandedTransactions] = useState(new Set());
   const [payingTransaction, setPayingTransaction] = useState(null);
   const [vaultedPaymentId, setVaultedPaymentId] = useState(null);
@@ -446,13 +444,6 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
           {Array.from({length: 3}).map((_, index) => (
             <OrderItemCardSkeleton key={`skeleton-${index}`} />
           ))}
-          <BrowseMorePlants 
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15}}
-          />
         </ScrollView>
       ) : (
         <ScrollView
@@ -468,12 +459,6 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
             if (isCloseToBottom && !loadingMore && !refreshing) {
               console.log('📦 ScreenPayToBoard: User is near bottom, loading more orders');
               handleLoadMore();
-            }
-            
-            // Load more recommendations when scrolling near bottom
-            if (isCloseToBottom && browseMorePlantsRef?.current) {
-              console.log('🌱 ScreenPayToBoard: User is near bottom, triggering load more recommendations');
-              browseMorePlantsRef.current.handleLoadMore();
             }
           }}
           refreshControl={
@@ -646,16 +631,6 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
               ))}
             </View>
           )}
-
-
-          {/* <BrowseMorePlants 
-            ref={browseMorePlantsRef}
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 40}}
-          /> */}
 
         </ScrollView>
       )}

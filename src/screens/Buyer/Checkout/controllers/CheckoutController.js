@@ -2606,11 +2606,6 @@ export const useCheckoutController = (props) => {
         const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
         if (transactionNumber && orderTotal > 0 && vaultedPaymentId) {
           setLoading(true);
-          // const paymentResponse = await createAndCapturePaypalOrder({
-          //   amount: String(0.02),
-          //   ileafuOrderId: 'TXN1762690660039632',
-          //   vaultedPaymentId,
-          // });
           const paymentResponse = await createAndCapturePaypalOrder({
             amount: String(orderTotal),
             ileafuOrderId: transactionNumber,

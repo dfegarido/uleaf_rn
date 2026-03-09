@@ -11,7 +11,6 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { getBuyerOrdersApi, exportBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import RNFS from 'react-native-fs';
 import FileViewer from 'react-native-file-viewer';
-import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import Toast from '../../../components/Toast/Toast';
 import { filterByPlantOwner, isPlantsAreHome } from '../../../utils/buyerOrderFiltering';
@@ -36,7 +35,6 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
-  const browseMorePlantsRef = React.useRef(null);
   const [hasMore, setHasMore] = useState(false);
   
   // Optimistic credit requests state - tracks plantCode+orderId combinations
@@ -526,14 +524,6 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
             <OrderItemCardSkeleton key={`skeleton-${index}`} />
           ))}
           
-          {/* Browse More Plants Component */}
-          <BrowseMorePlants 
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15}}
-          />
         </ScrollView>
       ) : (
         <ScrollView
@@ -551,11 +541,6 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
               handleLoadMore();
             }
             
-            // Load more recommendations when scrolling near bottom
-            if (isCloseToBottom && browseMorePlantsRef?.current) {
-              console.log('🌱 ScreenPlantsAreHome: User is near bottom, triggering load more recommendations');
-              browseMorePlantsRef.current.handleLoadMore();
-            }
           }}
           refreshControl={
             <RefreshControl
@@ -640,17 +625,6 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
             </View>
           )}
 
-          {/* Browse More Plants Component */}
-          {/* <BrowseMorePlants 
-            ref={browseMorePlantsRef}
-            title="More from our Jungle"
-            initialLimit={8}
-            loadMoreLimit={8}
-            showLoadMore={false}
-            containerStyle={{marginTop: 24, paddingHorizontal: 15, marginBottom: 32}}
-          /> */}
-
-          
         </ScrollView>
       )}
       
