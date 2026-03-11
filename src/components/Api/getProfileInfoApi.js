@@ -8,7 +8,7 @@ export const getProfileInfoApi = async () => {
     // Try buyer endpoint first
     try {
       const buyerResponse = await fetch(
-        'https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerInfo',
+        API_ENDPOINTS.GET_BUYER_INFO || 'https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerInfo',
         {
           method: 'GET',
           headers: {
@@ -20,6 +20,7 @@ export const getProfileInfoApi = async () => {
 
       if (buyerResponse.ok) {
         const buyerJson = await buyerResponse.json();
+        console.log('✅ Buyer profile fetched successfully');
         return { 
           ...buyerJson, 
           user: { 
@@ -47,21 +48,28 @@ export const getProfileInfoApi = async () => {
 
       if (adminResponse.ok) {
         const adminJson = await adminResponse.json();
+        console.log('✅ Admin profile fetched successfully:', {
+          success: adminJson.success,
+          hasData: !!adminJson.data,
+          userType: adminJson.data?.role === 'sub_admin' ? 'sub_admin' : 'admin'
+        });
         return { 
           ...adminJson, 
           user: { 
-            ...adminJson.user, 
-            userType: adminJson.user?.role === 'sub_admin' ? 'sub_admin' : 'admin'
+            ...adminJson.data, 
+            userType: adminJson.data?.role === 'sub_admin' ? 'sub_admin' : 'admin'
           } 
         };
+      } else {
+        console.log('Admin endpoint returned non-OK status:', adminResponse.status);
       }
     } catch (adminError) {
-      console.log('Admin endpoint failed, trying supplier endpoint');
+      console.log('Admin endpoint failed, trying supplier endpoint:', adminError.message);
     }
 
     // If buyer and admin endpoints fail, try supplier endpoint
     const supplierResponse = await fetch(
-      'https://getsupplierinfo-nstilwgvua-uc.a.run.app/',
+      API_ENDPOINTS.GET_SUPPLIER_INFO || 'https://getsupplierinfo-nstilwgvua-uc.a.run.app/',
       {
         method: 'GET',
         headers: {
@@ -73,10 +81,12 @@ export const getProfileInfoApi = async () => {
 
     if (!supplierResponse.ok) {
       const errorText = await supplierResponse.text();
+      console.log('❌ Supplier endpoint failed:', supplierResponse.status, errorText);
       throw new Error(`Error ${supplierResponse.status}: ${errorText}`);
     }
 
     const supplierJson = await supplierResponse.json();
+    console.log('✅ Supplier profile fetched successfully');
     return { 
       ...supplierJson, 
       user: { 
@@ -85,7 +95,7 @@ export const getProfileInfoApi = async () => {
       } 
     };
   } catch (error) {
-    console.log('getProfileInfoApi error - all endpoints failed:', error.message);
+    console.error('❌ getProfileInfoApi error - all endpoints failed:', error.message);
     throw new Error('Unable to fetch user profile. User type not supported or network error.');
   }
 };

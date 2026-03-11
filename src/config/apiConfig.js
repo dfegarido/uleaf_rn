@@ -169,6 +169,8 @@ const generateEndpoints = () => ({
   CREATE_ADMIN: `${getBaseUrl()}/createAdmin`,
   ADMIN_LOGIN: `${getBaseUrl()}/adminLogin`,
   GET_ADMIN_INFO: `${getBaseUrl()}/getAdminInfo`,
+  GET_BUYER_INFO: `${getBaseUrl()}/getBuyerInfo`,
+  GET_SUPPLIER_INFO: `${getBaseUrl()}/getSupplierInfo`,
   LIST_ADMINS: `${getBaseUrl()}/listAdmins`,
   UPDATE_ADMIN: `${getBaseUrl()}/updateAdmin`,
   UPDATE_ADMIN_PASSWORD: `${getBaseUrl()}/updateAdminPassword`,
