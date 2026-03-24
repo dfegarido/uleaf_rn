@@ -1,11 +1,86 @@
-import React, { useState } from 'react';
-import { Image, StyleSheet, Text, View, TouchableOpacity, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  ActivityIndicator,
+  Easing,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ListingMessage from '../../screens/ChatScreen/ListingMessage';
 import VideoPlayer from '../VideoPlayer/VideoPlayer';
 import { formatDuration } from '../../utils/videoCompression';
 
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
+
+const SENDER_NAME_SKELETON_W = 128;
+const SENDER_NAME_SKELETON_H = 12;
+
+/** Shimmer sweep + subtle pulse while masked sender name loads (group chat, buyer) */
+const SenderNameSkeletonBar = ({ containerStyle }) => {
+  const sweep = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0.55)).current;
+
+  useEffect(() => {
+    const sweepLoop = Animated.loop(
+      Animated.timing(sweep, {
+        toValue: 1,
+        duration: 1250,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 0.92,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.5,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    sweepLoop.start();
+    pulseLoop.start();
+    return () => {
+      sweepLoop.stop();
+      pulseLoop.stop();
+    };
+  }, [pulse, sweep]);
+
+  const translateX = sweep.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-52, SENDER_NAME_SKELETON_W + 52],
+  });
+
+  return (
+    <View
+      style={[styles.senderNameSkeletonWrap, containerStyle]}
+      accessibilityLabel="Loading sender name"
+      accessibilityState={{ busy: true }}
+    >
+      <Animated.View style={[styles.senderNameSkeletonBase, { opacity: pulse }]} />
+      <Animated.View
+        style={[
+          styles.senderNameSkeletonShimmer,
+          { transform: [{ translateX }] },
+        ]}
+        pointerEvents="none"
+      />
+    </View>
+  );
+};
 
 // Play Icon SVG Component
 const PlayIcon = ({ width = 60, height = 60, color = '#FFFFFF' }) => (
@@ -74,7 +149,7 @@ const renderTextWithMentions = (text, isMe) => {
   return parts.length > 0 ? parts : text;
 };
 
-const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, videoUrl, thumbnailUrl, videoDuration, uploadProgress, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions, isEdited = false, lastEditedAt = null, editHistory = [], onViewEditHistory, localVideoUri }) => {
+const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, isListing = false, navigation, text, isMe, showAvatar, senderName, senderNameLoading = false, senderAvatarUrl, isGroupChat, isFirstInGroup, isLastInGroup, imageUrl, imageUrls, videoUrl, thumbnailUrl, videoDuration, uploadProgress, prevMessageHasStackedImages, replyTo, onMessagePress, onMessageLongPress, onReplyPress, participantDataMap = {}, messages = [], messageId, reactions, isEdited = false, lastEditedAt = null, editHistory = [], onViewEditHistory, localVideoUri }) => {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
@@ -85,8 +160,9 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
   
   // Determine which images to display
   const images = imageUrls && imageUrls.length > 0 ? imageUrls : (imageUrl ? [imageUrl] : []);
-  // Show sender name for group chats, not from current user, only on first message of group
-  const shouldShowSenderName = isGroupChat && !isMe && senderName && isFirstInGroup;
+  // Show sender name (or skeleton while masked name loads) for group chats
+  const shouldShowSenderName =
+    isGroupChat && !isMe && isFirstInGroup && (Boolean(senderName) || senderNameLoading);
   
   // Extract reply data
   const originalMessageSenderName = replyTo?.senderName || 'Unknown';
@@ -323,11 +399,16 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
         )}
         <View style={styles.bubbleContainer}>
           {shouldShowSenderName && (
-            <Text style={[
-              styles.senderName,
-              // Align sender name with bubble's left edge
-              showAvatar ? { marginLeft: 4 } : (!isMe ? { marginLeft: 35 } : {})
-            ]}>{senderName}</Text>
+            senderNameLoading ? (
+              <SenderNameSkeletonBar
+                containerStyle={showAvatar ? { marginLeft: 4 } : !isMe ? { marginLeft: 35 } : {}}
+              />
+            ) : (
+              <Text style={[
+                styles.senderName,
+                showAvatar ? { marginLeft: 4 } : (!isMe ? { marginLeft: 35 } : {}),
+              ]}>{senderName}</Text>
+            )
           )}
           {/* "You replied to [name]" indicator */}
           {replyTo && isMe && (
@@ -733,6 +814,28 @@ const styles = StyleSheet.create({
     marginLeft: 0, // Left aligned
     paddingHorizontal: 0,
     textAlign: 'left',
+  },
+  senderNameSkeletonWrap: {
+    width: SENDER_NAME_SKELETON_W,
+    height: SENDER_NAME_SKELETON_H,
+    borderRadius: 4,
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+    overflow: 'hidden',
+    backgroundColor: '#D1D5DB',
+  },
+  senderNameSkeletonBase: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#B8BEC7',
+  },
+  senderNameSkeletonShimmer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 44,
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
   bubble: {
     padding: 10,

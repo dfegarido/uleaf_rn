@@ -68,6 +68,14 @@ function decodeNextPageToken(token) {
   return null;
 }
 
+/** Omit live-session “active” rows and status Live from buyer shop/browse */
+function shouldExcludeLiveListingFromBuyerBrowse(data) {
+  if (!data) return true;
+  if (data.isActiveLiveListing === true) return true;
+  if (String(data.status || '').trim() === 'Live') return true;
+  return false;
+}
+
 function shouldExcludeSoldListing(listing, isSoldOut, variationsSoldOut) {
   if (!isSoldOut && !variationsSoldOut) return false;
   const updatedAt = listing.updatedAt;
@@ -422,6 +430,7 @@ export async function fetchBuyerListingsFromFirestore(params = {}) {
 
     for (const doc of snapshot.docs) {
       const data = doc.data();
+      if (shouldExcludeLiveListingFromBuyerBrowse(data)) continue;
       const priceData = getPriceFromListing({ ...data, id: doc.id });
       if (!priceData.isValid && (data.listingType === 'Wholesale' || data.listingType === "Grower's Choice")) continue;
 

@@ -16,7 +16,7 @@ import {
   updateDoc,
   where
 } from 'firebase/firestore';
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -233,8 +233,13 @@ const ChatScreen = ({navigation, route}) => {
     userInfo?.user?.userType === 'sub_admin' ||
     userInfo?.data?.userType === 'sub_admin' ||
     userInfo?.userType === 'sub_admin';
+  /** Buyer group chat: avoid showing raw participant/email until Firestore + resolveSellerDisplayName */
+  const maskGroupSenderUntilResolved = isBuyer && !isAdminViewer && chatType === 'group';
   const canChatListing = userInfo?.canChatListing || false;
-  
+
+  const attemptedParticipantNameFetchRef = useRef(new Set());
+  const [, bumpParticipantNameFetch] = useReducer((n) => n + 1, 0);
+
   // Make sure participants is an array and has at least one element
   // For group chats, we want to show the group name
   // For private chats, get the other participant's UID for looking up their username
@@ -263,6 +268,14 @@ const ChatScreen = ({navigation, route}) => {
   const [avatarMap, setAvatarMap] = useState({});
   // Ref to track which UIDs we're currently fetching to avoid duplicate requests
   const fetchingRef = useRef(new Set());
+
+  useEffect(() => {
+    attemptedParticipantNameFetchRef.current.clear();
+    fetchingRef.current.clear();
+    setParticipantDataMap({});
+    bumpParticipantNameFetch();
+  }, [id]);
+
   // Join request state
   const [isPublicGroup, setIsPublicGroup] = useState(false);
   const [isMember, setIsMember] = useState(true);
@@ -481,9 +494,8 @@ const ChatScreen = ({navigation, route}) => {
             senderName = name;
           }
         } else if (chatType === 'group') {
-          // For group chats, get from participantDataMap or participants
           senderName = participantDataMap[messageData.senderId]?.name;
-          if (!senderName) {
+          if (!senderName && !maskGroupSenderUntilResolved) {
             const sender = participants.find(p => p?.uid === messageData.senderId);
             senderName = sender?.name;
           }
@@ -696,9 +708,8 @@ const ChatScreen = ({navigation, route}) => {
               senderName = name;
             }
           } else if (chatType === 'group') {
-            // For group chats, get from participantDataMap or participants
             senderName = participantDataMap[actualMessage.senderId]?.name;
-            if (!senderName) {
+            if (!senderName && !maskGroupSenderUntilResolved) {
               const sender = participants.find(p => p?.uid === actualMessage.senderId);
               senderName = sender?.name;
             }
@@ -2089,8 +2100,9 @@ const ChatScreen = ({navigation, route}) => {
               } catch (err) {
                 // Silent fail
               } finally {
-                // Remove from fetching set
                 fetchingRef.current.delete(uid);
+                attemptedParticipantNameFetchRef.current.add(uid);
+                bumpParticipantNameFetch();
               }
             })();
           }
@@ -2314,18 +2326,21 @@ const ChatScreen = ({navigation, route}) => {
             // Get sender name and avatar for group chats - show on first message of group
             // For private chats, get the other participant's avatar
             let senderName = null;
+            let senderNameLoading = false;
             let senderAvatarUrl = null;
             if (!isMe && item?.senderId) {
               const sender = participants.find(p => p?.uid === item.senderId);
               
               if (chatType === 'group') {
-                // Group chat: Get name from participantDataMap or participants array
-                // Priority 1: Get name from participantDataMap (fetched from Firestore - most reliable)
                 if (participantDataMap[item.senderId]?.name) {
                   senderName = participantDataMap[item.senderId].name;
-                }
-                // Priority 2: Get name from sender in participants array
-                else if (sender) {
+                } else if (maskGroupSenderUntilResolved) {
+                  if (attemptedParticipantNameFetchRef.current.has(item.senderId)) {
+                    senderName = 'Unknown';
+                  } else {
+                    senderNameLoading = true;
+                  }
+                } else if (sender) {
                   senderName = sender?.name || 'Unknown';
                 }
               }
@@ -2360,7 +2375,7 @@ const ChatScreen = ({navigation, route}) => {
                 }
               }
               
-              if (chatType === 'group' && !senderName) {
+              if (chatType === 'group' && !senderName && !senderNameLoading) {
                 senderName = 'Unknown';
               }
             }
@@ -2371,6 +2386,7 @@ const ChatScreen = ({navigation, route}) => {
                 isMe={isMe}
                 showAvatar={showAvatar}
                 senderName={senderName}
+                senderNameLoading={senderNameLoading}
                 senderAvatarUrl={senderAvatarUrl}
                 isGroupChat={chatType === 'group'}
                 isFirstInGroup={isFirstInGroup}

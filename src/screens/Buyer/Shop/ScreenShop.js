@@ -99,6 +99,15 @@ const countryData = [
   },
 ];
 
+/** Deals/news carousel item should open in-app Invite Friends (matches CMS title copy). */
+function isReferFriendsNewsItem(item) {
+  const t = `${item?.name || ''} ${item?.label || ''}`.toLowerCase();
+  if (!t.trim()) return false;
+  const mentionsFriend = t.includes('friend') || t.includes('friends');
+  if (!mentionsFriend) return false;
+  return t.includes('refer') || t.includes('invite');
+}
+
 const ScreenShop = ({navigation}) => {
   const {user} = useAuth();
   const insets = useSafeAreaInsets();
@@ -1386,9 +1395,12 @@ const ScreenShop = ({navigation}) => {
                   key={item.id || idx}
                   style={{width: 275, position: 'relative'}}
                   onPress={() => {
-                    // Handle link navigation if item has a link
+                    if (isReferFriendsNewsItem(item)) {
+                      navigation.navigate('InviteFriendsScreen');
+                      return;
+                    }
                     if (item.link) {
-                      Linking.openURL(item.link).catch(err => 
+                      Linking.openURL(item.link).catch(err =>
                         console.error('Failed to open link:', err)
                       );
                     }
