@@ -58,6 +58,7 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
   const [searchText, setSearchText] = useState('');
   const scrollViewRef = useRef(null);
   const searchInputRef = useRef(null);
+  const lastFetchedQueryRef = useRef(null);
   
   // Check if current user is a seller (supplier) - check explicit userType FIRST
   // IMPORTANT: Check explicit userType field before checking for supplier-specific fields
@@ -97,37 +98,6 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
     userInfo?.role === 'sub_admin' ||
     userInfo?.user?.role === 'admin' ||
     userInfo?.user?.role === 'sub_admin';
-  
-  // Debug logging for user type detection
-  useEffect(() => {
-    if (visible) {
-      console.log('=== NewMessageModal Debug ===');
-      console.log('userInfo is null/undefined:', !userInfo);
-      if (userInfo) {
-        console.log('userInfo?.user?.userType:', userInfo?.user?.userType);
-        console.log('userInfo?.data?.userType:', userInfo?.data?.userType);
-        console.log('userInfo?.userType:', userInfo?.userType);
-        console.log('➡️ explicitUserType:', explicitUserType);
-        console.log('➡️ FINAL DETECTION - isSeller:', isSeller, 'isBuyer:', isBuyer, 'isAdmin:', isAdmin);
-        console.log('userInfo?.gardenOrCompanyName:', userInfo?.gardenOrCompanyName);
-        console.log('userInfo?.user?.gardenOrCompanyName:', userInfo?.user?.gardenOrCompanyName);
-        console.log('userInfo?.data?.gardenOrCompanyName:', userInfo?.data?.gardenOrCompanyName);
-        console.log('userInfo?.liveFlag:', userInfo?.liveFlag);
-        console.log('userInfo?.user?.liveFlag:', userInfo?.user?.liveFlag);
-        console.log('userInfo?.data?.liveFlag:', userInfo?.data?.liveFlag);
-        console.log('userInfo?.status:', userInfo?.status);
-        console.log('userInfo?.user?.status:', userInfo?.user?.status);
-        console.log('userInfo?.data?.status:', userInfo?.data?.status);
-        // Log full userInfo structure for debugging
-        console.log('Full userInfo keys:', Object.keys(userInfo));
-        if (userInfo.user) console.log('userInfo.user keys:', Object.keys(userInfo.user));
-        if (userInfo.data) console.log('userInfo.data keys:', Object.keys(userInfo.data));
-      }
-      console.log('isSeller:', isSeller);
-      console.log('isBuyer:', isBuyer);
-      console.log('===========================');
-    }
-  }, [visible, userInfo, isSeller, isBuyer]);
   
   // Client-side filter function
   // IMPORTANT: This only filters by search term - security rules are enforced in fetchUsers
@@ -182,6 +152,9 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
       setSearchText('');
       // Always fetch users when modal opens to ensure fresh data
       fetchUsers('');
+      lastFetchedQueryRef.current = '';
+    } else {
+      lastFetchedQueryRef.current = null;
     }
   }, [visible]);
   
@@ -194,30 +167,28 @@ const NewMessageModal = ({ visible, onClose, onSelect, userInfo }) => {
   
   // Fetch from API when search text changes (with debounce)
   useEffect(() => {
+    if (!visible) return;
     // Don't fetch if searchText is empty and we already have users (just use client-side filter)
     if (searchText.trim().length === 0) {
       return;
     }
+    if (searchText.trim().length < 2) return;
+    if (lastFetchedQueryRef.current === searchText.trim()) return;
     
     // Fetch from API with search query when searchText changes (with debounce)
     const debounceTimeout = setTimeout(() => {
-      fetchUsers(searchText);
+      const q = searchText.trim();
+      lastFetchedQueryRef.current = q;
+      fetchUsers(q);
     }, 500); // 500ms debounce
     
     return () => clearTimeout(debounceTimeout);
-  }, [searchText]);
+  }, [searchText, visible]);
   
   const fetchUsers = async (query = '') => {
     try {
       setLoading(true);
       
-      // Log user type detection status
-      console.log('=== fetchUsers called ===');
-      console.log('isSeller:', isSeller);
-      console.log('isBuyer:', isBuyer);
-      console.log('isAdmin:', isAdmin);
-      console.log('query:', query);
-      console.log('userInfo exists:', !!userInfo);
       // Build URL with query parameter using apiConfig
       // Increase limit to show more users (both online and offline)
       const limit = query.trim().length >= 2 ? 50 : 50; // Show up to 50 users regardless of search

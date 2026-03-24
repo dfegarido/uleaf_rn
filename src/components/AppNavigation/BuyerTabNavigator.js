@@ -86,12 +86,12 @@ const AnimatedLiveIcon = ({ focused, size }) => {
       Animated.sequence([
         Animated.timing(blinkAnim, {
           toValue: 0.2,
-          duration: 700,
+          duration: 1100,
           useNativeDriver: true,
         }),
         Animated.timing(blinkAnim, {
           toValue: 1,
-          duration: 700,
+          duration: 1100,
           useNativeDriver: true,
         }),
       ]),

@@ -235,10 +235,10 @@ const BuyerProfileScreen = (props) => {
   const loadAllProfileData = async () => {
     setLoading(true);
     try {
+      const profileData = await loadProfileData();
       await Promise.all([
-        loadProfileData(),
         loadAddressBookCount(),
-        loadProfileStats(),
+        loadProfileStats(profileData),
       ]);
   } catch (error) {
       
@@ -277,7 +277,9 @@ const BuyerProfileScreen = (props) => {
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load profile data');
     }
-    setData(res.user || res);
+    const profileData = res.user || res;
+    setData(profileData);
+    return profileData;
   };
 
   const loadAddressBookCount = async () => {
@@ -298,7 +300,7 @@ const BuyerProfileScreen = (props) => {
     }
   };
 
-  const loadProfileStats = async () => {
+  const loadProfileStats = async (prefetchedProfileData = null) => {
     try {
       let netState = await NetInfo.fetch();
       if (!netState.isConnected || !netState.isInternetReachable) {
@@ -306,25 +308,16 @@ const BuyerProfileScreen = (props) => {
       }
 
       // Fetch buyer profile to get credits (don't rely on data state variable)
-      let profileData = null;
-      try {
-        console.log('[BuyerProfileScreen] Fetching profile for credits...');
-        const profileResult = await retryAsync(() => getBuyerProfileApi(), 2, 1000);
-        console.log('[BuyerProfileScreen] Profile result:', {
-          success: profileResult?.success,
-          hasLeafPoints: profileResult?.leafPoints !== undefined,
-          hasPlantCredits: profileResult?.plantCredits !== undefined,
-          hasShippingCredits: profileResult?.shippingCredits !== undefined,
-          leafPoints: profileResult?.leafPoints,
-          plantCredits: profileResult?.plantCredits,
-          shippingCredits: profileResult?.shippingCredits,
-        });
-        
-        if (profileResult?.success) {
-          profileData = profileResult;
+      let profileData = prefetchedProfileData;
+      if (!profileData) {
+        try {
+          const profileResult = await retryAsync(() => getBuyerProfileApi(), 2, 1000);
+          if (profileResult?.success) {
+            profileData = profileResult.user || profileResult;
+          }
+        } catch (error) {
+          // fall through with null profileData
         }
-      } catch (error) {
-        console.log('[BuyerProfileScreen] Error fetching profile for stats:', error);
       }
 
       // Fetch referral info (Leaf Points from referrals may live in user_referral_stats)
@@ -372,21 +365,12 @@ const BuyerProfileScreen = (props) => {
         // Don't throw error, just use 0 as fallback
       }
 
-      console.log('[BuyerProfileScreen] Final buddyCount:', buddyCount);
-
       // Get points from fetched profile data; Leaf Points can come from buyer.leafPoints or referral stats (user_referral_stats)
       const buyerLeafPoints = profileData?.leafPoints ?? profileData?.referralPointsBalance ?? 0;
       let leafPoints = Math.max(Number(buyerLeafPoints) || 0, referralLeafPoints);
 
       const plantCredits = profileData?.plantCredits || 0;
       const shippingCredits = profileData?.shippingCredits || 0;
-
-      console.log('[BuyerProfileScreen] Points from profile:', {
-        leafPoints,
-        plantCredits,
-        shippingCredits,
-        source: 'Fresh API call',
-      });
 
       setProfileStats({
         leafPoints: leafPoints,

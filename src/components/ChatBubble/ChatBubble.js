@@ -157,6 +157,12 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
   const [imageError, setImageError] = useState(false);
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [reactionsModalVisible, setReactionsModalVisible] = useState(false);
+  const [hideMissingListingMessage, setHideMissingListingMessage] = useState(false);
+
+  // If a listing message points to a deleted/missing listing doc, hide the entire row.
+  if (hideMissingListingMessage) {
+    return null;
+  }
   
   // Determine which images to display
   const images = imageUrls && imageUrls.length > 0 ? imageUrls : (imageUrl ? [imageUrl] : []);
@@ -635,7 +641,18 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
             
             {/* Render listing message */}
             {isListing && (
-              <ListingMessage messageId={messageId} currentUserUid={currentUserUid} isSeller={isSeller} isBuyer={isBuyer} isMe={isMe} senderName={senderName} listingId={listingId} navigation={navigation} onMessageLongPress={onMessageLongPress} />
+              <ListingMessage
+                messageId={messageId}
+                currentUserUid={currentUserUid}
+                isSeller={isSeller}
+                isBuyer={isBuyer}
+                isMe={isMe}
+                senderName={senderName}
+                listingId={listingId}
+                navigation={navigation}
+                onMessageLongPress={onMessageLongPress}
+                onMissingListing={() => setHideMissingListingMessage(true)}
+              />
             )}
             
             {/* Emoji Reactions - Overlapping on the right side */}

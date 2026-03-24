@@ -455,10 +455,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     // Extract avatar properly
     const userAvatar = currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`;
     
-    // #region agent log
-    console.log('DEBUG_SELLER_COMMENT', JSON.stringify({userId, userName, userAvatar, keys: Object.keys(currentUserInfo || {}), gardenOrCompanyName: currentUserInfo?.gardenOrCompanyName, profileImage: currentUserInfo?.profileImage, userKeys: Object.keys(currentUserInfo?.user || {})}));
-    // #endregion
-    
     setNewComment(''); // Clear input after sending
     setEditingComment(null); // Clear editing state
 
@@ -481,9 +477,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           });
       }
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LiveBroadcastScreen.js:handleSendComment:catch',message:'Error sending seller comment',data:{error:error.message},timestamp:Date.now(),hypothesisId:'seller-comment'})}).catch(()=>{});
-      // #endregion
       console.error('Error sending comment:', error);
     }
   };

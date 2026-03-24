@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -12,7 +13,7 @@ import {
   where,
 } from 'firebase/firestore';
 import moment from 'moment';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -31,10 +32,12 @@ import { AuthContext } from '../../auth/AuthProvider';
 import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
+import { CACHE_CONFIGS, getCachedImageUri, setCachedImageUri } from '../../utils/imageCache';
 import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
+const PROFILE_CACHE_DAYS = CACHE_CONFIGS.PROFILE_IMAGES.expiryDays;
 
 // Group Icon Component
 const GroupIcon = ({ width = 24, height = 24, color = '#000000' }) => (
@@ -153,11 +156,35 @@ const MessagesScreen = ({navigation}) => {
   const [usernameMap, setUsernameMap] = useState({});
   // Tab selection: 'messages' (default), 'unread', 'groups'
   const [selectedTab, setSelectedTab] = useState('messages');
+  const [memberChats, setMemberChats] = useState([]);
+  const [adminGroupChats, setAdminGroupChats] = useState([]);
+  const [publicGroupChats, setPublicGroupChats] = useState([]);
 
-  // Fetch avatars and usernames from buyer, admin, and supplier collections for given chats' participant UIDs
-  async function fetchAvatarsForChats(chats = []) {
+  const avatarMapRef = useRef(avatarMap);
+  const usernameMapRef = useRef(usernameMap);
+  const fetchedProfileRef = useRef(new Set());
+  const profileFetchingRef = useRef(new Set());
+  const groupAvatarDebugCountRef = useRef(0);
+  const groupAvatarSelectionRef = useRef(new Map()); // chatId -> sender uid[]
+  const groupAvatarFetchMetaRef = useRef(new Map()); // chatId -> timestamp millis
+  const groupAvatarFetchInFlightRef = useRef(new Set()); // chatId currently fetching
+
+  useEffect(() => {
+    avatarMapRef.current = avatarMap;
+  }, [avatarMap]);
+
+  useEffect(() => {
+    usernameMapRef.current = usernameMap;
+  }, [usernameMap]);
+
+  // Fetch avatars/usernames from Firestore with cache-first image resolution.
+  const fetchAvatarsForChats = useCallback(async (chats = [], options = {}) => {
     try {
       if (!Array.isArray(chats) || chats.length === 0) return;
+      const requireUsername = options.requireUsername !== false;
+      // #region agent log
+      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H1',location:'MessagesScreen.js:fetchAvatarsForChats:start',message:'avatar_fetch_start',data:{chatsCount:chats.length,requireUsername},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
 
       // Collect unique other participant UIDs
       const uidsToFetch = new Set();
@@ -182,56 +209,81 @@ const MessagesScreen = ({navigation}) => {
       const avatarUpdates = {};
       const usernameUpdates = {};
       
-      for (const uid of uidsToFetch) {
-        try {
-          // Skip if we already have this user's data in both maps
-          if (avatarMap[uid] && usernameMap[uid]) {
-            continue;
-          }
+      const unresolvedUids = Array.from(uidsToFetch).filter(uid => {
+        const hasAvatar = !!avatarMapRef.current[uid];
+        const hasUsername = !!usernameMapRef.current[uid];
+        if (profileFetchingRef.current.has(uid)) return false;
+        if (requireUsername) {
+          return !(hasAvatar && hasUsername) && !fetchedProfileRef.current.has(uid);
+        }
+        return !hasAvatar && !fetchedProfileRef.current.has(uid);
+      });
 
-          // Try buyer collection first
-          let userDocRef = doc(db, 'buyer', uid);
-          let userSnap = await getDoc(userDocRef);
-          
-          // If not found in buyer, try admin collection
-          if (!userSnap.exists()) {
-            userDocRef = doc(db, 'admin', uid);
-            userSnap = await getDoc(userDocRef);
-          }
-          
-          // If not found in admin, try supplier collection
-          let isSupplierDoc = false;
-          if (!userSnap.exists()) {
-            userDocRef = doc(db, 'supplier', uid);
-            userSnap = await getDoc(userDocRef);
-            if (userSnap.exists()) isSupplierDoc = true;
-          }
+      if (unresolvedUids.length === 0) return;
+      // #region agent log
+      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H2',location:'MessagesScreen.js:fetchAvatarsForChats:unresolved',message:'avatar_unresolved_uids',data:{unresolvedCount:unresolvedUids.length,requireUsername,sample:unresolvedUids.slice(0,8)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      unresolvedUids.forEach(uid => profileFetchingRef.current.add(uid));
 
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            
-            // Get avatar
-            const url = data?.profilePhotoUrl || data?.profileImage || null;
-            if (url && typeof url === 'string') {
-              avatarUpdates[uid] = { uri: url };
-            } else {
-              avatarUpdates[uid] = DefaultAvatar;
+      const resolvedRecords = await Promise.all(
+        unresolvedUids.map(async (uid) => {
+          try {
+            let userDocRef = doc(db, 'buyer', uid);
+            let userSnap = await getDoc(userDocRef);
+
+            if (!userSnap.exists()) {
+              userDocRef = doc(db, 'admin', uid);
+              userSnap = await getDoc(userDocRef);
             }
-            
+
+            let isSupplierDoc = false;
+            if (!userSnap.exists()) {
+              userDocRef = doc(db, 'supplier', uid);
+              userSnap = await getDoc(userDocRef);
+              if (userSnap.exists()) isSupplierDoc = true;
+            }
+
+            if (!userSnap.exists()) {
+              return { uid, avatar: null, username: null, resolved: false };
+            }
+
+            const data = userSnap.data();
+            const url = data?.profilePhotoUrl || data?.profileImage || null;
+            let avatar = null;
+            if (url && typeof url === 'string') {
+              const cachedUri = await getCachedImageUri(url, PROFILE_CACHE_DAYS);
+              avatar = { uri: cachedUri || url };
+              if (!cachedUri) {
+                await setCachedImageUri(url, url, PROFILE_CACHE_DAYS);
+              }
+            }
             const username = isSupplierDoc
               ? resolveSellerDisplayName(data, isAdmin)
               : (data?.username || data?.email || null);
-            if (username) {
-              usernameUpdates[uid] = username;
-            }
-          } else {
-            avatarUpdates[uid] = DefaultAvatar;
+
+            return { uid, avatar, username, resolved: true };
+          } catch (err) {
+            console.warn(`Error fetching data for ${uid}:`, err);
+            return { uid, avatar: null, username: null, resolved: false };
           }
-        } catch (err) {
-          console.warn(`Error fetching data for ${uid}:`, err);
-          avatarUpdates[uid] = DefaultAvatar;
+        })
+      );
+
+      let defaultAvatarCount = 0;
+      resolvedRecords.forEach(({ uid, avatar, username, resolved }) => {
+        // Never overwrite an existing real avatar with fallback/default/null.
+        if (avatar && avatar !== DefaultAvatar) {
+          avatarUpdates[uid] = avatar;
+        } else if (avatar === DefaultAvatar) {
+          defaultAvatarCount += 1;
         }
-      }
+        if (username) usernameUpdates[uid] = username;
+        if (resolved) fetchedProfileRef.current.add(uid);
+        profileFetchingRef.current.delete(uid);
+      });
+      // #region agent log
+      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H3',location:'MessagesScreen.js:fetchAvatarsForChats:resolved',message:'avatar_resolve_result',data:{resolvedRecords:resolvedRecords.length,defaultAvatarCount,usernameUpdates:Object.keys(usernameUpdates).length,avatarUpdates:Object.keys(avatarUpdates).length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
 
       if (Object.keys(avatarUpdates).length > 0) {
         setAvatarMap(prev => ({...prev, ...avatarUpdates}));
@@ -243,170 +295,195 @@ const MessagesScreen = ({navigation}) => {
       console.warn('Error in fetchAvatarsForChats:', err);
       // silent failure
     }
-  }
+  }, [isAdmin, userInfo]);
 
   useEffect(() => {
     setLoading(true);
-    
-    // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
+
     const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-    
     if (!userInfo || !currentUserUid) {
+      setMemberChats([]);
+      setAdminGroupChats([]);
+      setPublicGroupChats([]);
       setLoading(false);
       return;
     }
 
+    const unsubscribers = [];
+
     try {
-      // For admins: fetch their own direct messages + ALL group chats separately
-      // For non-admins: fetch only chats where they're a participant
       const memberChatsQuery = query(
         collection(db, 'chats'),
         where('participantIds', 'array-contains', currentUserUid),
         orderBy('timestamp', 'desc'),
       );
 
-      // Admins also see ALL group chats (both private and public) for moderation
-      let allGroupChatsQuery = null;
-      console.log('🔍 [MessagesScreen] isAdmin:', isAdmin);
-      if (isAdmin) {
-        try {
-          console.log('📊 [MessagesScreen] Admin detected - setting up query for ALL group chats');
-          allGroupChatsQuery = query(
-            collection(db, 'chats'),
-            where('type', '==', 'group'),
-            orderBy('timestamp', 'desc'),
-          );
-        } catch (error) {
-          console.log('❌ [MessagesScreen] Could not create all group chats query:', error);
-        }
-      }
-
-      // For buyers (non-admins), also fetch public groups where they're not members
-      let publicGroupsQuery = null;
-      if (isBuyer && !isAdmin) {
-        try {
-          publicGroupsQuery = query(
-            collection(db, 'chats'),
-            where('type', '==', 'group'),
-            where('isPublic', '==', true),
-            orderBy('timestamp', 'desc'),
-          );
-        } catch (error) {
-          // If query fails (e.g., missing index), we'll just show member chats
-          console.log('Could not fetch public groups (index may be missing):', error);
-        }
-      }
-
-      // Subscribe to member chats
-      const unsubscribeMemberChats = onSnapshot(
-        memberChatsQuery,
-        {includeMetadataChanges: true},
-        async (memberSnapshot) => {
-          try {
-            const memberChats = memberSnapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
-
-            // For admins: fetch ALL group chats for moderation
-            let allGroupChats = [];
-            if (allGroupChatsQuery && isAdmin) {
-              try {
-                console.log('🔄 [MessagesScreen] Fetching ALL group chats for admin...');
-                const allGroupsSnapshot = await getDocs(allGroupChatsQuery);
-                allGroupChats = allGroupsSnapshot.docs
-                  .map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                  }));
-                console.log(`✅ [MessagesScreen] Fetched ${allGroupChats.length} group chats for admin`);
-                console.log('📋 [MessagesScreen] Group chat names:', allGroupChats.map(c => c.name || 'Unnamed'));
-              } catch (error) {
-                console.log('❌ [MessagesScreen] Error fetching all group chats for admin:', error);
-              }
-            } else {
-              console.log('⏭️ [MessagesScreen] Skipping group chats fetch - allGroupChatsQuery:', !!allGroupChatsQuery, 'isAdmin:', isAdmin);
-            }
-
-            // For buyers: fetch public groups where they're not members
-            // Sellers can only see public groups if they are invited
-            let publicGroups = [];
-            if (publicGroupsQuery && (isBuyer || isSeller)) {
-              try {
-                const publicSnapshot = await getDocs(publicGroupsQuery);
-                publicGroups = publicSnapshot.docs
-                  .map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                  }))
-                  .filter(chat => {
-                    const participantIds = Array.isArray(chat.participantIds) ? chat.participantIds : [];
-                    const invitedUsers = Array.isArray(chat.invitedUsers) ? chat.invitedUsers : [];
-                    
-                    // Filter out groups where user is already a member
-                    if (participantIds.includes(currentUserUid)) {
-                      return false;
-                    }
-                    
-                    // For sellers: only show if they are invited
-                    if (isSeller && !invitedUsers.includes(currentUserUid)) {
-                      return false;
-                    }
-                    
-                    // For buyers: show all public groups (they can request to join)
-                    return true;
-                  });
-              } catch (error) {
-                console.log('Error fetching public groups:', error);
-              }
-            }
-
-            // Combine member chats, all group chats (for admins), and public groups (deduplicate by id)
-            const allChatsMap = new Map();
-            memberChats.forEach(chat => allChatsMap.set(chat.id, chat));
-            allGroupChats.forEach(chat => {
-              if (!allChatsMap.has(chat.id)) {
-                allChatsMap.set(chat.id, chat);
-              }
-            });
-            publicGroups.forEach(chat => {
-              if (!allChatsMap.has(chat.id)) {
-                allChatsMap.set(chat.id, chat);
-              }
-            });
-
-            const allChats = Array.from(allChatsMap.values());
-            // Sort by timestamp (most recent first)
-            allChats.sort((a, b) => {
-              const aTime = a.timestamp?.toDate?.() || new Date(0);
-              const bTime = b.timestamp?.toDate?.() || new Date(0);
-              return bTime - aTime;
-            });
-
-            console.log(`📱 [MessagesScreen] Total chats to display: ${allChats.length}`);
-            console.log(`   - Member chats: ${memberChats.length}`);
-            console.log(`   - All group chats (admin): ${allGroupChats.length}`);
-            console.log(`   - Public groups: ${publicGroups.length}`);
-
-            setMessages(allChats);
-            // Fire-and-forget: populate avatarMap for participant UIDs we don't yet have
-            fetchAvatarsForChats(allChats).catch(() => {});
-          } catch (error) {
-            console.error('Error processing chat data:', error);
-          } finally {
-            setLoading(false);
-          }
-        },
-        error => {
-          setLoading(false);
-        },
+      unsubscribers.push(
+        onSnapshot(
+          memberChatsQuery,
+          (snapshot) => {
+            const chats = snapshot.docs.map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }));
+            setMemberChats(chats);
+          },
+          () => setMemberChats([]),
+        )
       );
 
-      return unsubscribeMemberChats;
+      if (isAdmin) {
+        const adminGroupsQuery = query(
+          collection(db, 'chats'),
+          where('type', '==', 'group'),
+          orderBy('timestamp', 'desc'),
+        );
+        unsubscribers.push(
+          onSnapshot(
+            adminGroupsQuery,
+            (snapshot) => {
+              const chats = snapshot.docs.map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }));
+              setAdminGroupChats(chats);
+            },
+            () => setAdminGroupChats([]),
+          )
+        );
+      } else {
+        setAdminGroupChats([]);
+      }
+
+      if (isBuyer || isSeller) {
+        const publicGroupsQuery = query(
+          collection(db, 'chats'),
+          where('type', '==', 'group'),
+          where('isPublic', '==', true),
+          orderBy('timestamp', 'desc'),
+        );
+        unsubscribers.push(
+          onSnapshot(
+            publicGroupsQuery,
+            (snapshot) => {
+              const chats = snapshot.docs
+                .map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }))
+                .filter(chat => {
+                  const participantIds = Array.isArray(chat.participantIds) ? chat.participantIds : [];
+                  const invitedUsers = Array.isArray(chat.invitedUsers) ? chat.invitedUsers : [];
+                  if (participantIds.includes(currentUserUid)) return false;
+                  if (isSeller && !invitedUsers.includes(currentUserUid)) return false;
+                  return true;
+                });
+              setPublicGroupChats(chats);
+            },
+            () => setPublicGroupChats([]),
+          )
+        );
+      } else {
+        setPublicGroupChats([]);
+      }
     } catch (error) {
       setLoading(false);
     }
+
+    return () => {
+      unsubscribers.forEach(unsub => {
+        try { unsub(); } catch (_) { /* noop */ }
+      });
+    };
   }, [userInfo, isBuyer, isSeller, isAdmin]);
+
+  useEffect(() => {
+    const allChatsMap = new Map();
+    memberChats.forEach(chat => allChatsMap.set(chat.id, chat));
+    adminGroupChats.forEach(chat => {
+      if (!allChatsMap.has(chat.id)) allChatsMap.set(chat.id, chat);
+    });
+    publicGroupChats.forEach(chat => {
+      if (!allChatsMap.has(chat.id)) allChatsMap.set(chat.id, chat);
+    });
+
+    const allChats = Array.from(allChatsMap.values()).sort((a, b) => {
+      const aTime = a.timestamp?.toDate?.() || new Date(0);
+      const bTime = b.timestamp?.toDate?.() || new Date(0);
+      return bTime - aTime;
+    });
+
+    setMessages(allChats);
+    fetchAvatarsForChats(allChats).catch(() => {});
+    setLoading(false);
+  }, [memberChats, adminGroupChats, publicGroupChats, fetchAvatarsForChats]);
+
+  // Tab-focused prefetch: when user switches tabs, resolve only currently visible chats.
+  useEffect(() => {
+    if (!Array.isArray(messages) || messages.length === 0) return;
+    const visibleChats = selectedTab === 'groups'
+      ? messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2))
+      : messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
+    // #region agent log
+    fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H4',location:'MessagesScreen.js:tabEffect',message:'tab_visible_chat_prefetch',data:{selectedTab,visibleChats:visibleChats.length,totalMessages:messages.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    fetchAvatarsForChats(visibleChats, { requireUsername: selectedTab !== 'groups' }).catch(() => {});
+  }, [selectedTab, messages, fetchAvatarsForChats]);
+
+  useEffect(() => {
+    if (selectedTab === 'groups') {
+      groupAvatarDebugCountRef.current = 0;
+    }
+  }, [selectedTab]);
+
+  // Keep per-group avatar sender selection aligned to latest message senders.
+  useEffect(() => {
+    const run = async () => {
+      if (!Array.isArray(messages) || messages.length === 0) return;
+      const visibleGroupChats = messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2));
+      if (visibleGroupChats.length === 0) return;
+      // Avoid N+1 burst reads across the entire list; prioritize top visible rows.
+      const MAX_GROUP_SENDER_LOOKUPS = selectedTab === 'groups' ? 8 : 2;
+      const prioritizedGroupChats = visibleGroupChats.slice(0, MAX_GROUP_SENDER_LOOKUPS);
+
+      await Promise.all(
+        prioritizedGroupChats.map(async (chat) => {
+          const chatId = chat?.id;
+          if (!chatId) return;
+
+          const chatTs = chat?.timestamp?.toDate?.()?.getTime?.() || 0;
+          const lastFetchedTs = groupAvatarFetchMetaRef.current.get(chatId) || 0;
+          if (chatTs <= lastFetchedTs) return;
+          if (groupAvatarFetchInFlightRef.current.has(chatId)) return;
+
+          groupAvatarFetchInFlightRef.current.add(chatId);
+          try {
+            const latestMessagesQuery = query(
+              collection(db, 'messages'),
+              where('chatId', '==', chatId),
+              orderBy('timestamp', 'desc'),
+              limit(20),
+            );
+            const snap = await getDocs(latestMessagesQuery);
+            const uniqueSenderUids = [];
+            snap.docs.forEach((d) => {
+              const senderId = d.data()?.senderId;
+              if (senderId && !uniqueSenderUids.includes(senderId)) {
+                uniqueSenderUids.push(senderId);
+              }
+            });
+
+            const latestTwoSenderUids = uniqueSenderUids.slice(0, 2);
+            if (latestTwoSenderUids.length > 0) {
+              groupAvatarSelectionRef.current.set(chatId, latestTwoSenderUids);
+            }
+            groupAvatarFetchMetaRef.current.set(chatId, chatTs);
+
+            // #region agent log
+            fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug-3',hypothesisId:'H7',location:'MessagesScreen.js:groupSenderSelectionEffect',message:'group_sender_selection_updated',data:{chatId,chatTs,senderCandidates:uniqueSenderUids.length,selectedSenders:latestTwoSenderUids},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+          } catch (_) {
+            // keep previous selection on any failure
+          } finally {
+            groupAvatarFetchInFlightRef.current.delete(chatId);
+          }
+        })
+      );
+    };
+
+    run();
+  }, [messages, selectedTab]);
 
   
 
@@ -664,6 +741,12 @@ const MessagesScreen = ({navigation}) => {
         avatarsToShow.push(DefaultAvatar);
       }
     }
+    // #region agent log
+    if (selectedTab === 'groups' && groupAvatarDebugCountRef.current < 24) {
+      groupAvatarDebugCountRef.current += 1;
+      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug-2',hypothesisId:'H5',location:'MessagesScreen.js:GroupAvatar',message:'group_avatar_render_choice',data:{avatarSourcesLen:avatarSources.length,validAvatarsLen:validAvatars.length,selectedTab},timestamp:Date.now()})}).catch(()=>{});
+    }
+    // #endregion
     
     const containerSize = size; // 48×48 (same as single avatar)
     const avatarSize = size / 1.3; // 24×24 (half size for each avatar in group)
@@ -738,30 +821,30 @@ const MessagesScreen = ({navigation}) => {
     const otherParticipants = participants
       .filter(p => p && p.uid && p.uid !== currentUserUid);
     
-    // Filter participants who have valid avatars
-    const participantsWithAvatars = otherParticipants.filter(p => {
-      const uid = p?.uid;
-      // Check if they have avatar in avatarMap or avatarUrl
-      if (uid && avatarMap[uid]) return true;
-      if (p?.avatarUrl) {
-        if (typeof p.avatarUrl === 'string' && p.avatarUrl.trim() !== '') return true;
-        if (typeof p.avatarUrl === 'object' && p.avatarUrl?.uri) return true;
-      }
+    const hasValidAvatarForParticipant = (participant) => {
+      const uid = participant?.uid;
+      const avatarFromMap = uid ? avatarMap[uid] : null;
+      if (isValidAvatar(avatarFromMap)) return true;
+      const rawUrl = participant?.avatarUrl;
+      if (typeof rawUrl === 'string' && rawUrl.trim().startsWith('http')) return true;
+      if (typeof rawUrl === 'object' && typeof rawUrl?.uri === 'string' && rawUrl.uri.trim().startsWith('http')) return true;
       return false;
-    });
-    
-    // Shuffle and take first 2 participants who have avatars
-    // If less than 2 have avatars, supplement with participants without avatars
-    const shuffled = [...participantsWithAvatars].sort(() => Math.random() - 0.5);
-    const selectedParticipants = shuffled.slice(0, 2);
-    
-    // If we don't have enough participants with avatars, add some without
-    if (selectedParticipants.length < 2) {
-      const remaining = otherParticipants
-        .filter(p => !selectedParticipants.includes(p))
-        .slice(0, 2 - selectedParticipants.length);
-      selectedParticipants.push(...remaining);
+    };
+
+    // Sender-based selection: latest two unique senders for this chat.
+    const chatSelectionKey = item.id || item.chatId || item.name || String(otherParticipants.length);
+    let selectedParticipantUids = groupAvatarSelectionRef.current.get(chatSelectionKey);
+    const isExistingSelectionValid = Array.isArray(selectedParticipantUids) && selectedParticipantUids.length > 0;
+
+    if (!isExistingSelectionValid) {
+      selectedParticipantUids = [];
     }
+
+    let selectedParticipants = selectedParticipantUids
+      .map(uid => otherParticipants.find(p => p?.uid === uid))
+      .filter(Boolean)
+      .filter(hasValidAvatarForParticipant)
+      .slice(0, 2);
     
     // Get avatar sources for selected participants
     const avatarSources = selectedParticipants.map(p => {
@@ -778,9 +861,15 @@ const MessagesScreen = ({navigation}) => {
           return { uri: p.avatarUrl.uri };
         }
       }
-      // Return null if no valid avatar (will be replaced with default in GroupAvatar)
+      // Return null if no valid avatar (GroupAvatar keeps default for empty slot)
       return null;
     });
+    // #region agent log
+    if (selectedTab === 'groups' && groupAvatarDebugCountRef.current < 24) {
+      groupAvatarDebugCountRef.current += 1;
+      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug-2',hypothesisId:'H6',location:'MessagesScreen.js:renderItem(group)',message:'group_avatar_input_stats',data:{participants:participants.length,otherParticipants:otherParticipants.length,selectedParticipants:selectedParticipants.length,selectedUids:selectedParticipants.map(p=>p?.uid).filter(Boolean),avatarSourcesValid:avatarSources.filter(Boolean).length,chatId:item.id},timestamp:Date.now()})}).catch(()=>{});
+    }
+    // #endregion
     
     avatarElement = <GroupAvatar avatarSources={avatarSources} size={48} />;
   } else {

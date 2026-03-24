@@ -198,7 +198,7 @@ const ScreenShop = ({navigation}) => {
         }
       };
       logAuthInfo();
-    }, [user, globalFilters]),
+    }, [user]),
   );
 
 

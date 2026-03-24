@@ -25,7 +25,7 @@ const formatPrice = (value) => {
   return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 
-const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, isMe=false, senderName, listingId, navigation, onMessageLongPress }) => {
+const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, isMe=false, senderName, listingId, navigation, onMessageLongPress, onMissingListing }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -85,8 +85,6 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
 
         if (docSnap.exists()) {
           setListing({ id: docSnap.id, ...docSnap.data() });
-        } else {
-          console.log('No such listing document!');
         }
       } catch (error) {
         console.error('Error fetching listing:', error);
@@ -154,6 +152,12 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
 
   let isSoldOut = listing?.availableQty <= 0;
 
+  useEffect(() => {
+    if (!loading && !listing && typeof onMissingListing === 'function') {
+      onMissingListing();
+    }
+  }, [loading, listing, onMissingListing]);
+
   if (loading) {
     return (
       <View style={[styles.card, styles.loadingContainer]}>
@@ -163,11 +167,8 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
   }
 
   if (!listing) {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.errorText}>Message deleted.</Text>
-      </View>
-    );
+    // Hide deleted/missing listing messages entirely for all users.
+    return null;
   }
 
   return (

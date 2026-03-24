@@ -32,6 +32,8 @@ const SearchIcon = ({ width = 20, height = 20, color = '#292929' }) => (
 );
 
 const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
+  const PAGE_SIZE = 30;
+  const SEARCH_PAGE_SIZE = 50;
   const { userInfo } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -43,9 +45,14 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   const [countryFilter, setCountryFilter] = useState('all'); // 'all', 'Philippines', 'Indonesia', 'Thailand'
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const scrollViewRef = useRef(null);
   const searchInputRef = useRef(null);
   const groupNameInputRef = useRef(null);
+  const lastFetchedQueryRef = useRef(null);
+  const queryCacheRef = useRef(new Map());
   
   // Fixed country list
   const availableCountries = ['Philippines', 'Indonesia', 'Thailand'];
@@ -98,27 +105,38 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   // Fetch users when modal becomes visible
   useEffect(() => {
     if (visible) {
-      // Only fetch on initial visibility or when searchText is empty
-      if (users.length === 0 || !searchText.trim()) {
-        fetchUsers(searchText);
-      }
+      // Reset list mode on open and load a small first page only.
+      setSearchText('');
+      lastFetchedQueryRef.current = '';
+      fetchUsers('', { offset: 0, append: false });
     } else {
       // Reset state when modal closes
       setSelectedUsers([]);
       setGroupName('');
       setSearchText('');
+      lastFetchedQueryRef.current = null;
+      setHasMore(false);
+      setNextOffset(0);
+      setLoadingMore(false);
     }
   }, [visible]);
   
   // Filter users when search text changes
   useEffect(() => {
+    if (!visible) return;
+    const trimmed = (searchText || '').trim();
+    // Fetch only for empty state (list mode) or meaningful query (>=2 chars).
+    if (trimmed.length > 0 && trimmed.length < 2) return;
+    if (lastFetchedQueryRef.current === trimmed) return;
+
     // Fetch users with search query when searchText changes (with small debounce)
     const debounceTimeout = setTimeout(() => {
-      fetchUsers(searchText);
+      lastFetchedQueryRef.current = trimmed;
+      fetchUsers(trimmed, { offset: 0, append: false });
     }, 500); // 500ms debounce
     
     return () => clearTimeout(debounceTimeout);
-  }, [searchText]);
+  }, [searchText, visible]);
   
   // Filter users based on userType and country filters
   useEffect(() => {
@@ -143,9 +161,14 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   }, [users, userTypeFilter, countryFilter]);
   
   
-  const fetchUsers = async (query = '') => {
+  const fetchUsers = async (query = '', options = {}) => {
+    const { offset = 0, append = false } = options;
     try {
-      setLoading(true);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
       
       // Determine which user type to search based on current user's role
       // RULE: Sellers can only search for suppliers and admins
@@ -155,16 +178,37 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         isSeller,
         isBuyer,
         isAdmin,
-        query
+        query,
+        offset,
+        append,
       });
       
       const allResults = [];
       const searchQuery = query && query.trim().length >= 2 ? query.trim() : '';
       const encodedQuery = encodeURIComponent(searchQuery);
       const authToken = await getStoredAuthToken();
+      const roleKey = isAdmin ? 'admin' : (isSeller ? 'seller' : (isBuyer ? 'buyer' : 'unknown'));
+      const cacheKey = `${roleKey}:${searchQuery.toLowerCase()}:${offset}`;
+      if (queryCacheRef.current.has(cacheKey)) {
+        const cached = queryCacheRef.current.get(cacheKey);
+        setHasMore(Boolean(cached.hasMore));
+        setNextOffset(cached.nextOffset || 0);
+        if (append) {
+          setUsers(prev => {
+            const existingIds = new Set(prev.map(u => u.id));
+            const merged = [...prev, ...cached.users.filter(u => !existingIds.has(u.id))];
+            setFilteredUsers(merged);
+            return merged;
+          });
+        } else {
+          setUsers(cached.users);
+          setFilteredUsers(cached.users);
+        }
+        return;
+      }
       
-      // API has a limit of 100 for search queries, but 1000 for list mode (empty query)
-      const apiLimit = searchQuery ? 100 : 1000;
+      // Keep list/query mode bounded to reduce first-load latency and payload.
+      const apiLimit = searchQuery ? SEARCH_PAGE_SIZE : PAGE_SIZE;
       
       // IMPORTANT: Check isAdmin FIRST before isSeller/isBuyer
       // Admins might have fields that make them appear as sellers or buyers,
@@ -172,7 +216,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       if (isAdmin) {
         // Fetch buyers
         try {
-          const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=${apiLimit}&offset=0`;
+          const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=${apiLimit}&offset=${offset}`;
           const buyerResponse = await fetch(buyerUrl, {
             method: 'GET',
             headers: {
@@ -200,7 +244,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         
         // Fetch suppliers
         try {
-          const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${apiLimit}&offset=0`;
+          const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${apiLimit}&offset=${offset}`;
           const supplierResponse = await fetch(supplierUrl, {
             method: 'GET',
             headers: {
@@ -234,7 +278,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         // 2. Other seller users (suppliers)
         // Sellers CANNOT message buyer users
         // ============================================
-        const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${apiLimit}&offset=0`;
+        const supplierUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=supplier&limit=${apiLimit}&offset=${offset}`;
         
         const supplierResponse = await fetch(supplierUrl, {
           method: 'GET',
@@ -271,7 +315,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
         // Buyers CANNOT message seller users (suppliers)
         // ============================================
         console.log('✅ Buyer detected: Fetching buyers and admins ONLY (suppliers excluded)');
-        const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=${apiLimit}&offset=0`;
+        const buyerUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodedQuery}&userType=buyer&limit=${apiLimit}&offset=${offset}`;
         
         const buyerResponse = await fetch(buyerUrl, {
           method: 'GET',
@@ -304,7 +348,8 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       try {
         const adminFilters = {
           status: 'active',
-          limit: 1000
+          limit: apiLimit,
+          offset,
         };
         const adminData = await listAdminsApi(adminFilters);
         
@@ -337,7 +382,10 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       
       // Format all results (search results + admins) - use username instead of firstName/lastName
       if (allResults.length > 0) {
-        const formattedUsers = await Promise.all(allResults.map(async user => {
+        const dedupedUsers = Array.from(
+          new Map(allResults.map(u => [u.id, u])).values()
+        );
+        const formattedUsers = await Promise.all(dedupedUsers.map(async user => {
           let avatarUrl = AvatarImage; // Default avatar image
           
           if (user.profileImage) {
@@ -365,12 +413,33 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
           };
         }));
         
-        setUsers(formattedUsers);
-        setFilteredUsers(formattedUsers);
+        const next = offset + apiLimit;
+        const currentHasMore = formattedUsers.length >= apiLimit;
+        const cachePayload = { users: formattedUsers, hasMore: currentHasMore, nextOffset: next };
+        queryCacheRef.current.set(cacheKey, cachePayload);
+        setHasMore(currentHasMore);
+        setNextOffset(next);
+        if (append) {
+          setUsers(prev => {
+            const existingIds = new Set(prev.map(u => u.id));
+            const merged = [...prev, ...formattedUsers.filter(u => !existingIds.has(u.id))];
+            setFilteredUsers(merged);
+            return merged;
+          });
+        } else {
+          setUsers(formattedUsers);
+          setFilteredUsers(formattedUsers);
+        }
       } else {
         // No results found (neither search results nor admins)
-        setUsers([]);
-        setFilteredUsers([]);
+        if (append) {
+          setHasMore(false);
+        } else {
+          setUsers([]);
+          setFilteredUsers([]);
+          setHasMore(false);
+          setNextOffset(0);
+        }
       }
     } catch (error) {
       console.log('Error fetching users:', error);
@@ -379,7 +448,14 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       setFilteredUsers([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    if (loading || loadingMore || !hasMore) return;
+    const query = (searchText || '').trim();
+    fetchUsers(query, { offset: nextOffset, append: true });
   };
   
   const toggleUserSelection = (user) => {
@@ -619,6 +695,16 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
                       </TouchableOpacity>
                     );
                   })}
+                  {hasMore && (
+                    <TouchableOpacity
+                      onPress={handleLoadMore}
+                      style={styles.loadMoreButton}
+                      disabled={loadingMore}>
+                      <Text style={styles.loadMoreText}>
+                        {loadingMore ? 'Loading...' : 'Load more'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 <View style={styles.emptyContainer}>
@@ -1028,6 +1114,19 @@ const styles = StyleSheet.create({
     height: 12,
     backgroundColor: '#e0e0e0',
     borderRadius: 3,
+  },
+  loadMoreButton: {
+    marginTop: 12,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#F3F3F5',
+  },
+  loadMoreText: {
+    color: '#202325',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

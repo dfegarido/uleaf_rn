@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  documentId,
   getDoc,
   getDocs,
   limit,
@@ -27,6 +28,7 @@ import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi'
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
+import { CACHE_CONFIGS, getCachedImageUri, setCachedImageUri } from '../../utils/imageCache';
 import { uploadChatImage } from '../../utils/uploadChatImage';
 import { uploadChatVideo } from '../../utils/uploadChatVideo';
 import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
@@ -93,7 +95,6 @@ const insertDateSeparators = (messages) => {
           // Insert separator if time gap is >= 30 minutes
           if (timeDiff >= THIRTY_MINUTES_MS) {
             separatorsAdded++;
-            console.log(`📅 Inserting separator: ${timeDiffMinutes}min gap between messages`);
             result.push({
               type: 'date',
               text: formatMessageDateTime(nextMessage.timestamp),
@@ -101,16 +102,20 @@ const insertDateSeparators = (messages) => {
             });
           }
         } catch (error) {
-          console.error('❌ Error calculating time difference:', error);
+          // Ignore separator calculation errors; message rendering should continue.
         }
       }
     }
   }
-  
-  console.log(`📅 insertDateSeparators: ${messages.length} messages → ${result.length} total (${separatorsAdded} separators added)`);
-  
+
   return result;
 };
+const INITIAL_MESSAGES_LIMIT = 20;
+const PAGINATION_LIMIT = 20;
+const REALTIME_WINDOW_LIMIT = 80;
+const REPLY_CONTEXT_NEWER_LIMIT = 15;
+const REPLY_CONTEXT_OLDER_LIMIT = 10;
+const PROFILE_CACHE_DAYS = CACHE_CONFIGS.PROFILE_IMAGES.expiryDays;
 import { useUserPresence } from '../../hooks/useUserPresence';
 
 // Reply Icon SVG Component - Curved arrow pointing left
@@ -536,40 +541,51 @@ const ChatScreen = ({navigation, route}) => {
       return;
     }
     
-    // Set up real-time presence listener for all group members
+    // Set up chunked real-time presence listeners to avoid one-listener-per-user overhead.
     const presenceUnsubscribers = [];
-    const onlineUsers = new Set();
+    const participantUids = participants
+      .map(p => p?.uid)
+      .filter(uid => !!uid && uid !== currentUserUid);
+    const MAX_TRACKED_GROUP_MEMBERS = 200;
+    const targetUids = participantUids.slice(0, MAX_TRACKED_GROUP_MEMBERS);
+    const CHUNK_SIZE = 10; // Firestore `in` query limit.
+    const presenceByUid = new Map();
 
-    participants.forEach(participant => {
-      if (!participant?.uid || participant.uid === currentUserUid) return;
+    const recomputeActiveMembers = () => {
+      const onlineUsers = new Set(
+        Array.from(presenceByUid.entries())
+          .filter(([, isActive]) => isActive)
+          .map(([uid]) => uid)
+      );
+      setOnlineUserIds(onlineUsers);
+      setActiveMembers(onlineUsers.size);
+    };
 
-      // Listen to user's presence status
-      const userPresenceRef = doc(db, 'userPresence', participant.uid);
-      const unsubscribe = onSnapshot(userPresenceRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const presenceData = snapshot.data();
+    for (let i = 0; i < targetUids.length; i += CHUNK_SIZE) {
+      const chunkUids = targetUids.slice(i, i + CHUNK_SIZE);
+      if (chunkUids.length === 0) continue;
+      const presenceQuery = query(
+        collection(db, 'userPresence'),
+        where(documentId(), 'in', chunkUids),
+      );
+      const unsubscribe = onSnapshot(presenceQuery, (snapshot) => {
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+        // Reset chunk values before applying the latest snapshot values.
+        chunkUids.forEach(uid => presenceByUid.set(uid, false));
+        snapshot.docs.forEach((presenceDoc) => {
+          const uid = presenceDoc.id;
+          const presenceData = presenceDoc.data();
           const isOnline = presenceData?.isOnline || false;
           const lastSeen = presenceData?.lastSeen;
-          
-          // Check if user is active (online within last 5 minutes)
-          const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
           const isRecentlyActive = lastSeen && lastSeen.toMillis && lastSeen.toMillis() > fiveMinutesAgo;
-          
-          if (isOnline || isRecentlyActive) {
-            onlineUsers.add(participant.uid);
-          } else {
-            onlineUsers.delete(participant.uid);
-          }
-          
-          setOnlineUserIds(new Set(onlineUsers));
-          setActiveMembers(onlineUsers.size);
-        }
+          presenceByUid.set(uid, Boolean(isOnline || isRecentlyActive));
+        });
+        recomputeActiveMembers();
       }, (error) => {
         console.log('Presence listener error:', error);
       });
-
       presenceUnsubscribers.push(unsubscribe);
-    });
+    }
 
     // Cleanup
     return () => {
@@ -1614,7 +1630,7 @@ const ChatScreen = ({navigation, route}) => {
     checkMembershipAndPublicStatus();
   }, [id, chatType, currentUserUid, isBuyer, navigation, name]));
 
-  // Load initial messages (10 latest)
+  // Load initial messages
   const loadInitialMessages = async () => {
     if (!id) return;
 
@@ -1632,7 +1648,7 @@ const ChatScreen = ({navigation, route}) => {
         messagesRef,
         where('chatId', '==', id),
         orderBy('timestamp', 'desc'),
-        limit(10)
+        limit(INITIAL_MESSAGES_LIMIT)
       );
 
       const snapshot = await getDocs(initialQuery);
@@ -1647,8 +1663,8 @@ const ChatScreen = ({navigation, route}) => {
       if (snapshot.docs.length > 0) {
         firstMessageRef.current = snapshot.docs[0]; // Most recent message
         lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1]; // Oldest message
-        // If we got less than 10, there are no more older messages
-        setHasOlderMessages(snapshot.docs.length === 10);
+        // If we got less than page size, there are no more older messages
+        setHasOlderMessages(snapshot.docs.length === INITIAL_MESSAGES_LIMIT);
         setHasNewerMessages(false); // No newer messages on initial load (these are the latest)
       } else {
         setHasOlderMessages(false);
@@ -1666,13 +1682,12 @@ const ChatScreen = ({navigation, route}) => {
       setMessages(messagesWithSeparators);
       setLoading(false);
 
-      // Set up real-time listener for recent messages (to catch reactions and new messages)
-      // Increased limit to 200 to ensure all visible messages get real-time updates
+      // Set up real-time listener for a bounded recent window (reactions, edits, new messages)
       const allMessagesQuery = query(
         messagesRef,
         where('chatId', '==', id),
         orderBy('timestamp', 'desc'),
-        limit(200) // Listen to 200 most recent messages for real-time updates (reactions, edits, new messages)
+        limit(REALTIME_WINDOW_LIMIT)
       );
 
       // Reset flag for initial snapshot
@@ -1795,7 +1810,7 @@ const ChatScreen = ({navigation, route}) => {
         where('chatId', '==', id),
         orderBy('timestamp', 'desc'),
         startAfter(lastMessageRef.current),
-        limit(10)
+        limit(PAGINATION_LIMIT)
       );
 
       const snapshot = await getDocs(moreQuery);
@@ -1807,7 +1822,7 @@ const ChatScreen = ({navigation, route}) => {
 
       if (snapshot.docs.length > 0) {
         lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
-        setHasOlderMessages(snapshot.docs.length === 10);
+        setHasOlderMessages(snapshot.docs.length === PAGINATION_LIMIT);
         
         // Append to end of messages (older messages), removing duplicates
         setMessages(prev => {
@@ -1848,7 +1863,7 @@ const ChatScreen = ({navigation, route}) => {
         where('chatId', '==', id),
         orderBy('timestamp', 'asc'), // Reverse order to get newer messages
         startAfter(firstMessageRef.current),
-        limit(10)
+        limit(PAGINATION_LIMIT)
       );
 
       const snapshot = await getDocs(newerQuery);
@@ -1860,7 +1875,7 @@ const ChatScreen = ({navigation, route}) => {
 
       if (snapshot.docs.length > 0) {
         firstMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
-        setHasNewerMessages(snapshot.docs.length === 10);
+        setHasNewerMessages(snapshot.docs.length === PAGINATION_LIMIT);
         
         // Prepend to beginning of messages (newer messages), removing duplicates
         setMessages(prev => {
@@ -1905,14 +1920,14 @@ const ChatScreen = ({navigation, route}) => {
         ...targetDoc.data(),
       };
 
-      // 2. Fetch 10 messages after (newer than) the target message
+      // 2. Fetch newer messages around target for context
       const messagesCollection = collection(db, 'messages');
       const newerQuery = query(
         messagesCollection,
         where('chatId', '==', id),
         where('timestamp', '>', targetMessage.timestamp),
         orderBy('timestamp', 'asc'),
-        limit(10)
+        limit(REPLY_CONTEXT_NEWER_LIMIT)
       );
 
       const newerSnapshot = await getDocs(newerQuery);
@@ -1922,13 +1937,13 @@ const ChatScreen = ({navigation, route}) => {
         ...doc.data(),
       }));
 
-      // 3. Fetch 5 messages before (older than) the target message for context
+      // 3. Fetch older messages before target for context
       const olderQuery = query(
         messagesCollection,
         where('chatId', '==', id),
         where('timestamp', '<', targetMessage.timestamp),
         orderBy('timestamp', 'desc'),
-        limit(5)
+        limit(REPLY_CONTEXT_OLDER_LIMIT)
       );
 
       const olderSnapshot = await getDocs(olderQuery);
@@ -1959,8 +1974,8 @@ const ChatScreen = ({navigation, route}) => {
       // 6. Update states
       const messagesWithSeparators = insertDateSeparators(uniqueMessages);
       setMessages(messagesWithSeparators);
-      setHasNewerMessages(newerMessages.length === 10);
-      setHasOlderMessages(olderMessages.length === 5);
+      setHasNewerMessages(newerMessages.length === REPLY_CONTEXT_NEWER_LIMIT);
+      setHasOlderMessages(olderMessages.length === REPLY_CONTEXT_OLDER_LIMIT);
       isJumpedToMessage.current = true;
 
       setLoading(false);
@@ -2024,99 +2039,109 @@ const ChatScreen = ({navigation, route}) => {
         // Extract unique sender IDs from visible messages
         const uniqueSenderIds = [...new Set(messages.map(msg => msg.senderId).filter(Boolean))];
 
-        // Get current participantDataMap state
-        setParticipantDataMap(prevMap => {
-          for (const uid of uniqueSenderIds) {
-            // Skip if already have data
-            if (prevMap[uid]) continue;
-            
-            // Skip if currently fetching
-            if (fetchingRef.current.has(uid)) continue;
-
-            // Mark as fetching
-            fetchingRef.current.add(uid);
-            
-            // Fetch participant data asynchronously
-            (async () => {
-              try {
-                // Try buyer collection first
-                let userDocRef = doc(db, 'buyer', uid);
-                let userSnap = await getDoc(userDocRef);
-                
-                // If not found in buyer, try admin collection
-                if (!userSnap.exists()) {
-                  userDocRef = doc(db, 'admin', uid);
-                  userSnap = await getDoc(userDocRef);
-                }
-                
-                // If not found in admin, try supplier collection
-                let isSupplierDoc = false;
-                if (!userSnap.exists()) {
-                  userDocRef = doc(db, 'supplier', uid);
-                  userSnap = await getDoc(userDocRef);
-                  if (userSnap.exists()) isSupplierDoc = true;
-                }
-
-                if (userSnap.exists()) {
-                  const data = userSnap.data();
-                  
-                  const latestName = isSupplierDoc
-                    ? resolveSellerDisplayName(data, isAdminViewer)
-                    : (data?.username || 
-                       data?.gardenOrCompanyName || 
-                       data?.fullName || 
-                       data?.email || 
-                       '');
-                  
-                  // Get latest avatar URL
-                  const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;
-                  
-                  setParticipantDataMap(prevMap => {
-                    // Double-check it's not already there (in case of race condition)
-                    if (prevMap[uid] && prevMap[uid].name === latestName && prevMap[uid].avatarUrl === avatarUrl) {
-                      return prevMap;
-                    }
-                    
-                    const updateData = {};
-                    if (latestName) updateData.name = latestName;
-                    if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
-                      updateData.avatarUrl = avatarUrl;
-                    }
-                    
-                    if (Object.keys(updateData).length > 0) {
-                      const newMap = {...prevMap, [uid]: {...prevMap[uid], ...updateData}};
-                      
-                      // Also update avatarMap for backward compatibility
-                      if (updateData.avatarUrl) {
-                        setAvatarMap(prevAvatarMap => ({...prevAvatarMap, [uid]: { uri: updateData.avatarUrl }}));
-                      }
-                      
-                      return newMap;
-                    }
-                    
-                    return prevMap;
-                  });
-                }
-              } catch (err) {
-                // Silent fail
-              } finally {
-                fetchingRef.current.delete(uid);
-                attemptedParticipantNameFetchRef.current.add(uid);
-                bumpParticipantNameFetch();
-              }
-            })();
-          }
-          
-          return prevMap;
+        const unresolvedIds = uniqueSenderIds.filter((uid) => {
+          if (participantDataMap[uid]) return false;
+          if (fetchingRef.current.has(uid)) return false;
+          return true;
         });
+        if (unresolvedIds.length === 0) return;
+
+        unresolvedIds.forEach(uid => fetchingRef.current.add(uid));
+
+        const resolved = await Promise.all(
+          unresolvedIds.map(async (uid) => {
+            try {
+              let userDocRef = doc(db, 'buyer', uid);
+              let userSnap = await getDoc(userDocRef);
+
+              if (!userSnap.exists()) {
+                userDocRef = doc(db, 'admin', uid);
+                userSnap = await getDoc(userDocRef);
+              }
+
+              let isSupplierDoc = false;
+              if (!userSnap.exists()) {
+                userDocRef = doc(db, 'supplier', uid);
+                userSnap = await getDoc(userDocRef);
+                if (userSnap.exists()) isSupplierDoc = true;
+              }
+
+              if (!userSnap.exists()) return null;
+
+              const data = userSnap.data();
+              const latestName = isSupplierDoc
+                ? resolveSellerDisplayName(data, isAdminViewer)
+                : (data?.username || data?.gardenOrCompanyName || data?.fullName || data?.email || '');
+              const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;
+              let cachedAvatarUri = null;
+              if (avatarUrl && typeof avatarUrl === 'string') {
+                cachedAvatarUri = await getCachedImageUri(avatarUrl, PROFILE_CACHE_DAYS);
+                if (!cachedAvatarUri) {
+                  await setCachedImageUri(avatarUrl, avatarUrl, PROFILE_CACHE_DAYS);
+                  cachedAvatarUri = avatarUrl;
+                }
+              }
+
+              return { uid, latestName, avatarUrl, cachedAvatarUri };
+            } catch (err) {
+              return null;
+            }
+          })
+        );
+
+        const updates = {};
+        const avatarUpdates = {};
+        resolved.forEach((entry) => {
+          if (!entry) return;
+          const { uid, latestName, avatarUrl, cachedAvatarUri } = entry;
+          const updateData = {};
+          if (latestName) updateData.name = latestName;
+          if (cachedAvatarUri && typeof cachedAvatarUri === 'string' && cachedAvatarUri.trim() !== '') {
+            updateData.avatarUrl = cachedAvatarUri;
+            avatarUpdates[uid] = { uri: cachedAvatarUri };
+          } else if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
+            updateData.avatarUrl = avatarUrl;
+            avatarUpdates[uid] = { uri: avatarUrl };
+          }
+          if (Object.keys(updateData).length > 0) {
+            updates[uid] = updateData;
+          }
+        });
+
+        if (Object.keys(updates).length > 0) {
+          setParticipantDataMap(prevMap => {
+            const nextMap = { ...prevMap };
+            Object.keys(updates).forEach((uid) => {
+              nextMap[uid] = { ...nextMap[uid], ...updates[uid] };
+            });
+            return nextMap;
+          });
+        }
+        if (Object.keys(avatarUpdates).length > 0) {
+          setAvatarMap(prevAvatarMap => ({ ...prevAvatarMap, ...avatarUpdates }));
+        }
+
+        unresolvedIds.forEach((uid) => {
+          fetchingRef.current.delete(uid);
+          attemptedParticipantNameFetchRef.current.add(uid);
+        });
+        bumpParticipantNameFetch();
       } catch (err) {
         // Silent fail
+      } finally {
+        // Ensure fetching markers are released on unexpected failures.
+        const uniqueSenderIds = [...new Set(messages.map(msg => msg.senderId).filter(Boolean))];
+        uniqueSenderIds.forEach((uid) => {
+          if (fetchingRef.current.has(uid) && participantDataMap[uid]) {
+            fetchingRef.current.delete(uid);
+          }
+        });
       }
     };
 
     fetchParticipantData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, currentUserUid, id]); // Trigger when messages change (new senders appear)
+  }, [messages.length, currentUserUid, id, isAdminViewer, participantDataMap]); // Trigger when messages change (new senders appear)
 
   // Skeleton message for loading state
   const SkeletonMessage = ({isMe = false, index = 0}) => (
@@ -2260,7 +2285,7 @@ const ChatScreen = ({navigation, route}) => {
             return `message-${index}-${item.timestamp?.toMillis() || Date.now()}`;
           }}
           onEndReached={loadMoreMessages}
-          onEndReachedThreshold={0.5}
+          onEndReachedThreshold={0.2}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           onScrollToIndexFailed={(info) => {
@@ -2909,14 +2934,6 @@ const styles = StyleSheet.create({
     right: 20,
     bottom: 100,
     zIndex: 1000,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   scrollToBottomIcon: {
     width: 44,
@@ -2925,6 +2942,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#539461', // Same color as chat bubble background
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   scrollToBottomArrow: {
     fontSize: 24,

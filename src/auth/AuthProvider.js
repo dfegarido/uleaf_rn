@@ -1,6 +1,13 @@
 // AuthContext.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 // Use Web Firebase SDK to avoid relying on native default app initialization
 import { onIdTokenChanged, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
@@ -48,7 +55,7 @@ export const AuthProvider = ({children}) => {
     checkLoginStatus();
   }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setIsLoading(true);
 
     try {
@@ -62,7 +69,7 @@ export const AuthProvider = ({children}) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async user => {
@@ -109,9 +116,9 @@ export const AuthProvider = ({children}) => {
     }, 300000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [isLoggedIn]);
+  }, [isLoggedIn, logout]);
 
-  const updateProfileImage = async newImage => {
+  const updateProfileImage = useCallback(async newImage => {
     try {
       setUserInfo(prev => {
         const updatedUserInfo = {
@@ -127,20 +134,24 @@ export const AuthProvider = ({children}) => {
     } catch (error) {
       console.log('Error updating profile image:', error);
     }
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      isLoggedIn,
+      setIsLoggedIn,
+      isLoading,
+      logout,
+      userInfo,
+      setUserInfo,
+      user: userInfo,
+      updateProfileImage,
+    }),
+    [isLoggedIn, isLoading, logout, userInfo, updateProfileImage],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        isLoggedIn,
-        setIsLoggedIn,
-        isLoading,
-        logout,
-        userInfo,
-        setUserInfo,
-        user: userInfo, // Add user property that references userInfo
-        updateProfileImage,
-      }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

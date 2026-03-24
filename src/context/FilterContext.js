@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 // Create the filter context
 const FilterContext = createContext();
@@ -29,24 +35,21 @@ export const FilterProvider = ({ children }) => {
   // Keep track of applied filters for API calls
   const [appliedFilters, setAppliedFilters] = useState(null);
 
-  // Function to update global filters
-  const updateFilters = (newFilters) => {
+  const updateFilters = useCallback((newFilters) => {
     console.log('Updating global filters:', newFilters);
     setGlobalFilters(prevFilters => ({
       ...prevFilters,
       ...newFilters
     }));
-  };
+  }, []);
 
-  // Function to apply filters (called when user submits filter form)
-  const applyFilters = (filters) => {
+  const applyFilters = useCallback((filters) => {
     console.log('Applying filters globally:', filters);
     setGlobalFilters(filters);
     setAppliedFilters(filters);
-  };
+  }, []);
 
-  // Function to clear all filters
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     const defaultFilters = {
       sort: 'Newest to Oldest',
       price: '',
@@ -59,10 +62,9 @@ export const FilterProvider = ({ children }) => {
     };
     setGlobalFilters(defaultFilters);
     setAppliedFilters(null);
-  };
+  }, []);
 
-  // Function to build filter parameters for API calls
-  const buildFilterParams = (baseParams = {}) => {
+  const buildFilterParams = useCallback((baseParams = {}) => {
     const params = { ...baseParams };
     const filters = appliedFilters || globalFilters;
 
@@ -153,10 +155,9 @@ export const FilterProvider = ({ children }) => {
 
     console.log('Final filter params from global state:', params);
     return params;
-  };
+  }, [appliedFilters, globalFilters]);
 
-  // Check if filters are currently applied
-  const hasAppliedFilters = () => {
+  const hasAppliedFilters = useCallback(() => {
     if (!appliedFilters) return false;
     
     // Check if any filter has a non-default value
@@ -171,17 +172,28 @@ export const FilterProvider = ({ children }) => {
     
     return hasGenus || hasVariegation || hasCountry || hasListingType || 
            hasShippingIndex || hasAcclimationIndex || hasPrice || hasNonDefaultSort;
-  };
+  }, [appliedFilters]);
 
-  const value = {
-    globalFilters,
-    appliedFilters,
-    updateFilters,
-    applyFilters,
-    clearFilters,
-    buildFilterParams,
-    hasAppliedFilters,
-  };
+  const value = useMemo(
+    () => ({
+      globalFilters,
+      appliedFilters,
+      updateFilters,
+      applyFilters,
+      clearFilters,
+      buildFilterParams,
+      hasAppliedFilters,
+    }),
+    [
+      globalFilters,
+      appliedFilters,
+      updateFilters,
+      applyFilters,
+      clearFilters,
+      buildFilterParams,
+      hasAppliedFilters,
+    ],
+  );
 
   return (
     <FilterContext.Provider value={value}>

@@ -94,13 +94,6 @@ function AdminTabs() {
     const navigation = useNavigation();
     const { unreadCount } = useUnreadMessageCount();
     
-    // Log badge count for debugging
-    console.log('💬 Admin Chat Badge:', {
-      unreadCount,
-      willShow: unreadCount > 0,
-      timestamp: new Date().toISOString(),
-    });
-    
     return (
       <Tab.Navigator
         initialRouteName="Home"

@@ -405,21 +405,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }, [sessionId]);
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:346',message:'startAgora useEffect triggered',data:{hasToken:!!token,hasAppId:!!appId,hasChannelName:!!channelName,tokenLength:token?.length,appId:appId,channelName:channelName},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     const startAgora = async () => {
       if (!token || !appId || !channelName) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:349',message:'startAgora waiting for credentials',data:{hasToken:!!token,hasAppId:!!appId,hasChannelName:!!channelName},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           console.log('Waiting for token, appId, and channelName...');
           return;
       }
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:353',message:'Creating Agora engine',data:{appId:appId,channelName:channelName},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       const rtc = createAgoraRtcEngine();
       rtcEngineRef.current = rtc;
       rtc.initialize({
@@ -504,9 +494,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           }
         },
         onError: (err) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c60bacf-5a2a-412c-8581-ef8cfcaabb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BuyerLiveStreamScreen.js:435',message:'Agora onError fired',data:{error:err,errorCode:err?.code,errorMessage:err?.message},timestamp:Date.now(),hypothesisId:'D,E'})}).catch(()=>{});
-          // #endregion
           console.error('❌ Agora Error:', err);
           setError('Agora Error: ' + (err.message || err));
         },
