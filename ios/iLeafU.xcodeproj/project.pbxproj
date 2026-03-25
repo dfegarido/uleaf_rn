@@ -504,7 +504,7 @@
 				DEVELOPMENT_TEAM = P99A352WVG;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = iLeafU/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "I Leaf U";
+				INFOPLIST_KEY_CFBundleDisplayName = "ileafU";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -536,7 +536,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = P99A352WVG;
 				INFOPLIST_FILE = iLeafU/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "I Leaf U";
+				INFOPLIST_KEY_CFBundleDisplayName = "ileafU";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

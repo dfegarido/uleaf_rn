@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Share,
   Alert,
   Modal,
   Pressable,
   ActivityIndicator,
 } from 'react-native';
+import Share from 'react-native-share';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -126,7 +126,7 @@ const InviteFriendsScreen = () => {
   const uid = userInfo?.uid || userInfo?.user?.uid || '';
   const inviteCode = getInviteCode(uid);
   const inviteUrl = `https://ileafu.com/refer?code=${inviteCode}`;
-  const inviteMessage = `Join me on ileafU — the best app for rare plant lovers!\n\nWhen you buy your first plant, you get 20 Leaf Coins and I earn 20 Leaf Points!\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
+  const inviteMessage = `Join ileafU — the best app for rare plant lovers!\n\nWhen you buy your first plant, you get 20 Leaf Coins and I earn 20 Leaf Points!\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
 
   // Save invite code -> UID mapping so the backend can resolve referrals
   useEffect(() => {
@@ -173,7 +173,18 @@ const InviteFriendsScreen = () => {
   const handleCopy = async (field) => {
     const content = field === 'code' ? inviteCode : inviteUrl;
     try {
-      await Share.share({ message: content });
+      if (field === 'code') {
+        // Copy invite code only (no URL preview cards).
+        await Share.open({ message: content, title: 'ileafU' });
+      } else {
+        // Copy invite link, but force the visible title text.
+        // This prevents iOS from showing stale web-page preview title like "Join I Leaf U".
+        await Share.open({
+          url: content,
+          title: 'Join ileafU',
+          message: 'Join ileafU',
+        });
+      }
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2500);
     } catch (error) {
@@ -185,9 +196,10 @@ const InviteFriendsScreen = () => {
 
   const handleShare = async () => {
     try {
-      await Share.share({
+      await Share.open({
         message: inviteMessage,
         url: inviteUrl,
+        title: 'Join ileafU',
       });
     } catch (error) {
       if (error?.message !== 'User did not share') {
