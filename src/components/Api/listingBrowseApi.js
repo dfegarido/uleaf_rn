@@ -253,7 +253,60 @@ export const getBuyerListingsApi = async (params = {}) => {
       ...params
     };
 
-    const result = await fetchBuyerListingsFromFirestore(finalParams);
+    const rawListingType = Array.isArray(finalParams.listingType)
+      ? finalParams.listingType.join(',')
+      : finalParams.listingType;
+    const normalizedListingType = String(rawListingType || '').toLowerCase();
+
+    // Grower's Choice / Wholesale main listing docs often do not have denormalized
+    // variation pricing + flight fields; backend computes both reliably.
+    const shouldUseBackendBuyerListings =
+      normalizedListingType.includes('wholesale') ||
+      normalizedListingType.includes("grower's choice") ||
+      normalizedListingType.includes('growers choice') ||
+      // Genus browse relies on `plantFlightDate` in the UI, which the client Firestore
+      // path does not currently compute. Backend always computes it.
+      (finalParams.genus && String(finalParams.genus).trim() ? true : false);
+
+    let result;
+    if (shouldUseBackendBuyerListings) {
+      const authToken = await getStoredAuthToken();
+      const queryParams = new URLSearchParams();
+
+      Object.keys(finalParams).forEach((key) => {
+        const value = finalParams[key];
+        if (value === undefined || value === null || value === '') return;
+
+        const paramKey = key === 'nextPageToken' ? 'pageToken' : key;
+        if (Array.isArray(value)) {
+          queryParams.append(paramKey, value.join(','));
+        } else {
+          queryParams.append(paramKey, String(value));
+        }
+      });
+
+      const response = await fetch(
+        `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(`HTTP ${response.status}: ${errorText || 'unknown error'}`);
+      }
+
+      const json = await response.json();
+      result = { success: !!json?.success, data: json?.data || json };
+
+    } else {
+      result = await fetchBuyerListingsFromFirestore(finalParams);
+    }
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to fetch buyer listings');

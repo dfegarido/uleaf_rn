@@ -164,7 +164,6 @@ const MessagesScreen = ({navigation}) => {
   const usernameMapRef = useRef(usernameMap);
   const fetchedProfileRef = useRef(new Set());
   const profileFetchingRef = useRef(new Set());
-  const groupAvatarDebugCountRef = useRef(0);
   const groupAvatarSelectionRef = useRef(new Map()); // chatId -> sender uid[]
   const groupAvatarFetchMetaRef = useRef(new Map()); // chatId -> timestamp millis
   const groupAvatarFetchInFlightRef = useRef(new Set()); // chatId currently fetching
@@ -182,9 +181,6 @@ const MessagesScreen = ({navigation}) => {
     try {
       if (!Array.isArray(chats) || chats.length === 0) return;
       const requireUsername = options.requireUsername !== false;
-      // #region agent log
-      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H1',location:'MessagesScreen.js:fetchAvatarsForChats:start',message:'avatar_fetch_start',data:{chatsCount:chats.length,requireUsername},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
 
       // Collect unique other participant UIDs
       const uidsToFetch = new Set();
@@ -220,9 +216,6 @@ const MessagesScreen = ({navigation}) => {
       });
 
       if (unresolvedUids.length === 0) return;
-      // #region agent log
-      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H2',location:'MessagesScreen.js:fetchAvatarsForChats:unresolved',message:'avatar_unresolved_uids',data:{unresolvedCount:unresolvedUids.length,requireUsername,sample:unresolvedUids.slice(0,8)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       unresolvedUids.forEach(uid => profileFetchingRef.current.add(uid));
 
       const resolvedRecords = await Promise.all(
@@ -281,9 +274,6 @@ const MessagesScreen = ({navigation}) => {
         if (resolved) fetchedProfileRef.current.add(uid);
         profileFetchingRef.current.delete(uid);
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H3',location:'MessagesScreen.js:fetchAvatarsForChats:resolved',message:'avatar_resolve_result',data:{resolvedRecords:resolvedRecords.length,defaultAvatarCount,usernameUpdates:Object.keys(usernameUpdates).length,avatarUpdates:Object.keys(avatarUpdates).length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
 
       if (Object.keys(avatarUpdates).length > 0) {
         setAvatarMap(prev => ({...prev, ...avatarUpdates}));
@@ -415,17 +405,8 @@ const MessagesScreen = ({navigation}) => {
     const visibleChats = selectedTab === 'groups'
       ? messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2))
       : messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
-    // #region agent log
-    fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug',hypothesisId:'H4',location:'MessagesScreen.js:tabEffect',message:'tab_visible_chat_prefetch',data:{selectedTab,visibleChats:visibleChats.length,totalMessages:messages.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     fetchAvatarsForChats(visibleChats, { requireUsername: selectedTab !== 'groups' }).catch(() => {});
   }, [selectedTab, messages, fetchAvatarsForChats]);
-
-  useEffect(() => {
-    if (selectedTab === 'groups') {
-      groupAvatarDebugCountRef.current = 0;
-    }
-  }, [selectedTab]);
 
   // Keep per-group avatar sender selection aligned to latest message senders.
   useEffect(() => {
@@ -470,9 +451,6 @@ const MessagesScreen = ({navigation}) => {
             }
             groupAvatarFetchMetaRef.current.set(chatId, chatTs);
 
-            // #region agent log
-            fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug-3',hypothesisId:'H7',location:'MessagesScreen.js:groupSenderSelectionEffect',message:'group_sender_selection_updated',data:{chatId,chatTs,senderCandidates:uniqueSenderUids.length,selectedSenders:latestTwoSenderUids},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
           } catch (_) {
             // keep previous selection on any failure
           } finally {
@@ -741,12 +719,6 @@ const MessagesScreen = ({navigation}) => {
         avatarsToShow.push(DefaultAvatar);
       }
     }
-    // #region agent log
-    if (selectedTab === 'groups' && groupAvatarDebugCountRef.current < 24) {
-      groupAvatarDebugCountRef.current += 1;
-      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug-2',hypothesisId:'H5',location:'MessagesScreen.js:GroupAvatar',message:'group_avatar_render_choice',data:{avatarSourcesLen:avatarSources.length,validAvatarsLen:validAvatars.length,selectedTab},timestamp:Date.now()})}).catch(()=>{});
-    }
-    // #endregion
     
     const containerSize = size; // 48×48 (same as single avatar)
     const avatarSize = size / 1.3; // 24×24 (half size for each avatar in group)
@@ -864,12 +836,6 @@ const MessagesScreen = ({navigation}) => {
       // Return null if no valid avatar (GroupAvatar keeps default for empty slot)
       return null;
     });
-    // #region agent log
-    if (selectedTab === 'groups' && groupAvatarDebugCountRef.current < 24) {
-      groupAvatarDebugCountRef.current += 1;
-      fetch('http://127.0.0.1:7467/ingest/fed41b63-43a3-4289-8401-f8cf0a041e28',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'630206'},body:JSON.stringify({sessionId:'630206',runId:'groups-avatar-debug-2',hypothesisId:'H6',location:'MessagesScreen.js:renderItem(group)',message:'group_avatar_input_stats',data:{participants:participants.length,otherParticipants:otherParticipants.length,selectedParticipants:selectedParticipants.length,selectedUids:selectedParticipants.map(p=>p?.uid).filter(Boolean),avatarSourcesValid:avatarSources.filter(Boolean).length,chatId:item.id},timestamp:Date.now()})}).catch(()=>{});
-    }
-    // #endregion
     
     avatarElement = <GroupAvatar avatarSources={avatarSources} size={48} />;
   } else {

@@ -652,16 +652,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error(res?.error || 'Failed to load plants');
       }
 
-      // Debug: Log prices to verify sort order from API
-      if (res.data?.listings && res.data.listings.length > 0) {
-        const prices = res.data.listings.slice(0, 10).map(p => ({
-          plantCode: p.plantCode,
-          usdPrice: p.usdPrice,
-          finalPrice: p.finalPrice,
-          loveCount: p.loveCount
-        }));
-      }
-
       const rawPlants = (res.data?.listings || []).map(p => ({
         ...p,
         // Ensure webp field present for UI preference
@@ -1578,8 +1568,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         limit: 10,
         offset: offset, // Use current offset for pagination
       };
-
-      console.log('📄 Loading more Price Drop items, offset:', offset);
       const res = await retryAsync(() => getPriceDropBadgeListingsApi(priceDropParams), 3, 1000);
 
       if (!res?.success) {
@@ -1592,8 +1580,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      console.log('🔍 Price Drop - loaded more:', rawPlants.length);
-      
       // Filter out plants with invalid data
       const newPlants = rawPlants.filter(plant => {
         const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
@@ -1603,8 +1589,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
                            (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
         return hasPlantCode && hasTitle && hasSubtitle;
       });
-      
-      console.log('✅ Price Drop - filtered:', newPlants.length);
       
       // Append to existing plants
       setPlants(prev => [...prev, ...newPlants]);
@@ -1638,8 +1622,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         sortOrder: 'desc',
         ...(nextPageToken ? { nextPageToken } : {}),
       };
-
-      console.log('📄 Loading more Nursery Drop items, nextPageToken:', nextPageToken ? 'yes' : 'no');
       const res = await retryAsync(() => getBuyerListingsApi(nurseryDropParams), 3, 1000);
 
       if (!res?.success) {
@@ -1652,8 +1634,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      console.log('🔍 Nursery Drop - loaded more:', rawPlants.length);
-      
       // Filter out plants with invalid data
       const newPlants = rawPlants.filter(plant => {
         const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
@@ -1664,13 +1644,10 @@ const ScreenGenusPlants = ({navigation, route}) => {
         return hasPlantCode && hasTitle && hasSubtitle;
       });
       
-      console.log('✅ Nursery Drop - filtered:', newPlants.length);
-      
       // Append to existing plants, filtering out duplicates
       setPlants(prev => {
         const existingPlantCodes = new Set(prev.map(p => p.plantCode));
         const uniqueNewPlants = newPlants.filter(p => !existingPlantCodes.has(p.plantCode));
-        console.log(`🔍 Nursery Drop - deduplicated: ${newPlants.length} -> ${uniqueNewPlants.length} unique items`);
         return [...prev, ...uniqueNewPlants];
       });
       setNextPageToken(res.data?.nextPageToken || null);
@@ -1695,7 +1672,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         loadMoreNurseryDropPlants();
       } else if (isSearchMode && searchTerm.trim()) {
         // If we're in search mode, use loadPlantsWithSearch
-        console.log('🔍 [ScreenGenusPlants] Loading more search results for:', searchTerm.trim());
         loadPlantsWithSearch(searchTerm.trim(), false);
       } else {
         loadPlants(false);
@@ -1722,7 +1698,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
         onSearchIconPress={(searchQuery) => {
           // When on ScreenGenusPlants, clicking search icon should trigger search on current screen
           if (searchQuery && searchQuery.trim().length > 0) {
-            console.log('🔍 [ScreenGenusPlants] Search icon pressed, triggering search:', searchQuery);
             // Trigger search on current screen
             loadPlantsWithSearch(searchQuery.trim(), true);
           } else {
