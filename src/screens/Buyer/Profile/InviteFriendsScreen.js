@@ -126,7 +126,7 @@ const InviteFriendsScreen = () => {
   const uid = userInfo?.uid || userInfo?.user?.uid || '';
   const inviteCode = getInviteCode(uid);
   const inviteUrl = `https://ileafu.com/refer?code=${inviteCode}`;
-  const inviteMessage = `Join me on iLeafU — the best app for rare plant lovers!\n\nWhen you buy your first plant, you get 20 Leaf Coins and I earn 20 Leaf Points!\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
+  const inviteMessage = `Join me on ileafU — the best app for rare plant lovers!\n\nWhen you buy your first plant, you get 20 Leaf Coins and I earn 20 Leaf Points!\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
 
   // Save invite code -> UID mapping so the backend can resolve referrals
   useEffect(() => {
