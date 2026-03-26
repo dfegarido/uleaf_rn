@@ -702,14 +702,30 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       throw new Error(res?.message || 'Failed to load sort api');
     }
     console.log(res.data.localPrice || '');
-    setSelectedGenus(res.data.genus || null);
-    setSelectedSpecies(res.data.species || null);
-    setSelectedVariegation(res.data.variegation || null);
+    const currentGenus = res.data.genus || null;
+    const currentSpecies = res.data.species || null;
+    const currentVariegation = res.data.variegation || null;
+
+    setSelectedGenus(currentGenus);
+    setSelectedSpecies(currentSpecies);
+    setSelectedVariegation(currentVariegation);
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
     if (isFromDuplicateSell == false) {
       setImages(res.data.imageCollection || []);
     }
+
+    // In edit mode, preload dependent dropdown options so species/variegation
+    // are available immediately when opening dropdowns.
+    if (currentGenus) {
+      await loadSpeciesData(currentGenus);
+    }
+    if (currentGenus && currentSpecies) {
+      await loadVariegationData(currentGenus, currentSpecies);
+    }
+    // Restore current selections because loaders reset selected values.
+    setSelectedSpecies(currentSpecies);
+    setSelectedVariegation(currentVariegation);
 
     const newPotSize = res.data.variations.map(variation => {
       // Convert approximateHeight string to 'below'/'above' for measure
