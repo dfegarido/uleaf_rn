@@ -15,7 +15,7 @@ import ImageZoom from 'react-native-image-pan-zoom';
 import { db } from '../../../../firebase';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 
-const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
+const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow, onAddToCart }) => {
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'sold'
   const [allListings, setAllListings] = useState([]);
   const [soldListings, setSoldListings] = useState([]);
@@ -117,16 +117,19 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
         <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
       </TouchableOpacity>
       
-      <View style={styles.priceContainer}>
-        <Text style={styles.priceText}>${item.usdPrice}</Text>
-      </View>
-      <View style={styles.detailsContainer}>
-        <Text style={styles.plantName} numberOfLines={2}>
+      <View style={styles.overlayDetailsContainer}>
+        <Text style={styles.plantName} numberOfLines={1}>
           {item.genus} {item.species}
         </Text>
-        <Text style={styles.quantityText}>Quantity: {item.availableQty}</Text>
+        <Text style={styles.priceLabel}>${item.usdPrice}</Text>
+        <Text style={styles.quantityText}>Qty: {item.availableQty}</Text>
         <TouchableOpacity style={styles.buyButton} onPress={() => onBuyNow(item)}>
           <Text style={styles.buyButtonText}>Buy Now</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.addToCartButton}
+          onPress={() => onAddToCart && onAddToCart(item)}>
+          <Text style={styles.addToCartButtonText}>Add to Cart</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -139,10 +142,7 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
                   activeOpacity={0.8}>
         <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
       </TouchableOpacity>
-      <View style={styles.priceContainer}>
-        <Text style={styles.priceText}>${item.usdPrice}</Text>
-      </View>
-      <View style={styles.detailsContainer}>
+      <View style={styles.overlayDetailsContainer}>
         <Text style={styles.plantName} numberOfLines={2}>
           {item.genus} {item.species}
         </Text>
@@ -196,7 +196,7 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
               data={filteredAllListings}
               renderItem={renderListingItem}
               keyExtractor={(item) => item.id}
-              numColumns={3}
+              numColumns={2}
               contentContainerStyle={styles.listContainer}
             />
           ) : (
@@ -204,7 +204,7 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow }) => {
               data={filteredSoldListings}
               renderItem={renderSoldItem}
               keyExtractor={(item) => item.id}
-              numColumns={3}
+              numColumns={2}
               contentContainerStyle={styles.listContainer}
             />
           )}
@@ -314,15 +314,18 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    margin: 4,
+    margin: 6,
     backgroundColor: '#F9F9F9',
-    borderRadius: 8,
+    borderRadius: 14,
     overflow: 'hidden',
-    maxWidth: '31%',
+    maxWidth: '48%',
+    minHeight: 300,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
   },
   plantImage: {
     width: '100%',
-    height: 100,
+    height: 300,
   },
   priceContainer: {
     position: 'absolute',
@@ -338,36 +341,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  detailsContainer: {
-    padding: 8,
+  overlayDetailsContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    paddingTop: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
   },
   plantName: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '800',
     fontFamily: 'Inter-SemiBold',
-    height: 30,
-    color: '#000',
+    textTransform: 'uppercase',
+    color: '#FFF',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+  },
+  priceLabel: {
+    marginTop: 2,
+    color: '#23C16B',
+    fontSize: 18,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
   },
   quantityText: {
     fontSize: 10,
-    color: '#828282',
-    marginVertical: 4,
+    color: '#F0F0F0',
+    marginTop: 2,
+    marginBottom: 6,
     fontFamily: 'Inter',
   },
   buyButton: {
-    backgroundColor: '#539461',
-    borderRadius: 6,
-    paddingVertical: 6,
+    backgroundColor: '#22B553',
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
+    minHeight: 44,
   },
   buyButtonText: {
-    color: 'white',
-    fontSize: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  addToCartButton: {
+    marginTop: 6,
+    backgroundColor: '#539461',
+    borderColor: '#539461',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  addToCartButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: 'bold',
   },
   soldToText: {
     fontSize: 12,
-    color: '#539461',
+    color: '#FFFFFF',
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
   },

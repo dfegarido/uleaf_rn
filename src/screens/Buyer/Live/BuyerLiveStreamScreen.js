@@ -1032,6 +1032,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         onClose={() => setIsShopModalVisible(false)}
         broadcasterId={brodcasterId}
         onBuyNow={handleBuyFromShop}
+        onAddToCart={handleAddToCart}
       />
 
       <LiveShopCheckoutModal

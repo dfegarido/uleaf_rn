@@ -27,7 +27,7 @@ import WholeSalePlantIcon from '../../../assets/sellicon/wholesale.svg';
 import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
 const screenWidth = Dimensions.get('window').width;
@@ -41,6 +41,62 @@ const ScreenSell = ({navigation}) => {
     console.log('[ScreenSell] userInfo.liveFlag =', userInfo?.liveFlag);
     console.log('[ScreenSell] userInfo keys =', userInfo ? Object.keys(userInfo) : 'null');
   }
+
+  // Handle different userInfo shapes (top-level, nested user/data) and
+  // normalize case/whitespace to avoid false negatives in feature gating.
+  const resolvedLiveFlagRaw =
+    userInfo?.liveFlag ??
+    userInfo?.user?.liveFlag ??
+    userInfo?.data?.liveFlag ??
+    null;
+  const resolvedUid =
+    userInfo?.uid ||
+    userInfo?.id ||
+    userInfo?.user?.uid ||
+    userInfo?.user?.id ||
+    userInfo?.data?.uid ||
+    userInfo?.data?.id ||
+    null;
+  const [liveFlagResolved, setLiveFlagResolved] = useState(resolvedLiveFlagRaw);
+  const canUseLiveSale =
+    typeof liveFlagResolved === 'string' &&
+    liveFlagResolved.trim().toLowerCase() === 'yes';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveLiveFlag = async () => {
+      // Prefer liveFlag from AuthContext payload when present.
+      if (resolvedLiveFlagRaw !== undefined && resolvedLiveFlagRaw !== null) {
+        setLiveFlagResolved(resolvedLiveFlagRaw);
+        return;
+      }
+
+      // Fallback: load liveFlag directly from supplier profile document.
+      if (!resolvedUid) {
+        setLiveFlagResolved(null);
+        return;
+      }
+
+      try {
+        const supplierSnap = await getDoc(doc(db, 'supplier', resolvedUid));
+        if (!cancelled && supplierSnap.exists()) {
+          const supplierData = supplierSnap.data();
+          setLiveFlagResolved(supplierData?.liveFlag ?? null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.warn('[ScreenSell] Failed to resolve liveFlag from supplier doc:', e?.message);
+          setLiveFlagResolved(null);
+        }
+      }
+    };
+
+    resolveLiveFlag();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedLiveFlagRaw, resolvedUid]);
 
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
@@ -213,7 +269,7 @@ const ScreenSell = ({navigation}) => {
               </Text>
             </TouchableOpacity>
           </View>
-          {userInfo?.liveFlag === 'Yes' && (
+          {canUseLiveSale && (
             <View
               style={{
                 flexDirection: 'row',
