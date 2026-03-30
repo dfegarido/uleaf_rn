@@ -1,8 +1,8 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, StackActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../../auth/AuthProvider';
+import { normalizeDeepLinkPlantCode } from '../../utils/plantDeepLinkParse';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
 import { ChatScreen } from '../../screens/ChatScreen';
@@ -1013,10 +1014,81 @@ const AppNavigation = () => {
 
   // Create a stable navigation key that changes when login state or user type changes
   // This forces NavigationContainer to remount when switching between auth and app navigators
-  const navKey = isLoggedIn && currentUserInfo 
-    ? `loggedIn_${userType || 'unknown'}` 
-    : 'loggedOut';
+  const navKey =
+    isLoggedIn && currentUserInfo
+      ? `loggedIn_${userType || 'unknown'}`
+      : 'loggedOut';
   const shouldShowAuth = !isLoggedIn || fallbackTriggered;
+
+  const navigationRef = useRef(null);
+  const pendingPlantNavRef = useRef(null);
+  const deepLinkStateRef = useRef({
+    isBuyer: false,
+    isAdmin: false,
+    isLoggedIn: false,
+    fallbackTriggered: false,
+  });
+  deepLinkStateRef.current = {
+    isBuyer,
+    isAdmin,
+    isLoggedIn,
+    fallbackTriggered,
+    hasUserProfile: !!currentUserInfo,
+  };
+
+  const flushPendingPlantNavigation = useCallback(() => {
+    try {
+      const nav = navigationRef.current;
+      if (!nav || (typeof nav.isReady === 'function' && !nav.isReady())) {
+        return;
+      }
+      const state = deepLinkStateRef.current;
+      if (!state.isLoggedIn || state.fallbackTriggered) {
+        return;
+      }
+      if (!state.isBuyer && !state.isAdmin) {
+        return;
+      }
+
+      const pending = pendingPlantNavRef.current;
+      if (pending) {
+        pendingPlantNavRef.current = null;
+        AsyncStorage.removeItem('pendingPlantCode').catch(() => {});
+        const normalizedPending = normalizeDeepLinkPlantCode(pending);
+        if (normalizedPending) {
+          nav.dispatch(
+            StackActions.push('ScreenPlantDetail', {plantCode: normalizedPending}),
+          );
+        }
+        return;
+      }
+
+      AsyncStorage.getItem('pendingPlantCode').then(stored => {
+        const rootNav = navigationRef.current;
+        if (
+          !stored ||
+          !rootNav ||
+          (typeof rootNav.isReady === 'function' && !rootNav.isReady())
+        ) {
+          return;
+        }
+        const s = deepLinkStateRef.current;
+        if (!s.isLoggedIn || s.fallbackTriggered || (!s.isBuyer && !s.isAdmin)) {
+          return;
+        }
+        const normalizedStored = normalizeDeepLinkPlantCode(stored);
+        AsyncStorage.removeItem('pendingPlantCode').catch(() => {});
+        if (!normalizedStored) {
+          return;
+        }
+        rootNav.dispatch(
+          StackActions.push('ScreenPlantDetail', {plantCode: normalizedStored}),
+        );
+      });
+    } catch (e) {
+      console.warn('[DeepLink] flushPendingPlantNavigation:', e);
+    }
+  }, []);
 
   // Log navigation state changes for debugging (must be before any early returns)
   useEffect(() => {
@@ -1030,7 +1102,7 @@ const AppNavigation = () => {
       hasAsyncUserInfo: !!asyncUserInfo,
       shouldShowAuth,
       fallbackTriggered,
-      navKey
+      navKey,
     });
   }, [isLoggedIn, userType, currentUserInfo, fallbackTriggered, navKey, userInfo, asyncUserInfo, isBuyer, isAdmin, shouldShowAuth]);
 
@@ -1067,45 +1139,198 @@ const AppNavigation = () => {
     }
 
     return () => {
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
     };
   }, [isLoggedIn, currentUserInfo, setIsLoggedIn, fallbackTriggered, setUserInfo]);
 
-  const navigationRef = useRef(null);
-
-  // Handle referral deep links: extract invite code, resolve to UID, and store it
+  // Referral + plant listing deep links (https / ileafu://)
+  const initialUrlHandledRef = useRef(false);
   useEffect(() => {
-    const extractReferrer = async (url) => {
-      if (!url) return;
+
+    const isReferUrl = urlStr => {
+      if (!urlStr || typeof urlStr !== 'string') {
+        return false;
+      }
+      if (/^ileafu:\/\/refer(\?|\/|$)/i.test(urlStr)) {
+        return true;
+      }
       try {
-        const match = url.match(/[?&]code=([^&]+)/);
-        if (match && match[1]) {
-          const code = decodeURIComponent(match[1]).trim();
-          await AsyncStorage.setItem('pendingInviteCode', code);
-          const { doc: docRef, getDoc } = require('firebase/firestore');
-          const { db } = require('../../../firebase');
-          const snap = await getDoc(docRef(db, 'referralCodes', code));
-          if (snap.exists() && snap.data().uid) {
-            await AsyncStorage.setItem('pendingReferrerUid', snap.data().uid);
-            console.log('📎 [DeepLink] Resolved referrer UID from code:', code, '->', snap.data().uid);
-          } else {
-            await AsyncStorage.setItem('pendingReferrerUid', code);
-            console.log('📎 [DeepLink] Stored referrer code as-is:', code);
-          }
+        const u = new URL(urlStr);
+        if (u.protocol === 'ileafu:' && u.hostname === 'refer') {
+          return true;
         }
-      } catch (e) {
-        console.error('[DeepLink] Error parsing referral URL:', e);
+      } catch (_) {}
+      try {
+        const u = new URL(urlStr);
+        return /^\/refer(\/|$)/.test(u.pathname || '');
+      } catch (_) {
+        return false;
       }
     };
 
-    Linking.getInitialURL().then(extractReferrer);
+    const extractPlantCode = url => {
+      if (!url || typeof url !== 'string') {
+        return null;
+      }
+      const safeDecode = v => {
+        try {
+          return decodeURIComponent(v.trim());
+        } catch (_) {
+          return v.trim();
+        }
+      };
+      const isIndexDoc = seg =>
+        !seg ||
+        ['index.html', 'default.html', 'index.htm'].includes(seg.toLowerCase());
+      try {
+        const u = new URL(url);
+        if (u.protocol === 'ileafu:' && u.hostname === 'plant') {
+          const q = u.searchParams.get('code');
+          if (q) {
+            return q.trim();
+          }
+          const seg = (u.pathname || '').replace(/^\//, '').replace(/\/$/, '');
+          if (seg) {
+            return safeDecode(seg);
+          }
+        }
+      } catch (_) {}
+      // Prefer ?code= for any /plant/... URL so /plant/index.html?code=REAL wins over path "index.html"
+      try {
+        const u = new URL(url.replace(/^ileafu:/, 'https:'));
+        const p = u.pathname || '';
+        if (p === '/plant' || p.startsWith('/plant/')) {
+          const q = u.searchParams.get('code');
+          if (q && q.trim()) {
+            return q.trim();
+          }
+        }
+      } catch (_) {}
+      const m = url.match(/\/plant\/([^/?#]+)/i);
+      if (m) {
+        const seg = safeDecode(m[1]);
+        if (!isIndexDoc(seg)) {
+          return seg;
+        }
+      }
+      if (/\/plant/i.test(url) && /[?&]code=/i.test(url)) {
+        const qm = url.match(/[?&]code=([^&#]+)/);
+        if (qm) {
+          return safeDecode(qm[1]);
+        }
+      }
+      return null;
+    };
 
-    const subscription = Linking.addEventListener('url', (event) => {
-      extractReferrer(event.url);
+    const pushPlantDetail = (nav, plantCode) => {
+      nav.dispatch(StackActions.push('ScreenPlantDetail', {plantCode}));
+    };
+
+    const IOS_STORE = 'https://apps.apple.com/us/app/ileafu/id6749962372';
+    const ANDROID_STORE = 'https://play.google.com/store/apps/details?id=com.ileafu';
+
+    const handleIncomingUrl = async url => {
+      if (!url) {
+        return;
+      }
+      const rawExtracted = extractPlantCode(url);
+      const plantCode = normalizeDeepLinkPlantCode(rawExtracted);
+      if (plantCode) {
+        const state = deepLinkStateRef.current;
+
+        if (state.isLoggedIn && !state.fallbackTriggered && (state.isBuyer || state.isAdmin)) {
+          const nav = navigationRef.current;
+          if (nav && typeof nav.isReady === 'function' && nav.isReady()) {
+            try {
+              await AsyncStorage.removeItem('pendingPlantCode');
+              pushPlantDetail(nav, plantCode);
+            } catch (e) {
+              console.warn('[DeepLink] push ScreenPlantDetail failed:', e);
+              pendingPlantNavRef.current = plantCode;
+              setTimeout(() => flushPendingPlantNavigation(), 300);
+            }
+          } else {
+            pendingPlantNavRef.current = plantCode;
+            setTimeout(() => flushPendingPlantNavigation(), 300);
+          }
+          return;
+        }
+
+        if (state.isLoggedIn && !state.fallbackTriggered && !state.hasUserProfile) {
+          pendingPlantNavRef.current = plantCode;
+          try {
+            await AsyncStorage.setItem('pendingPlantCode', plantCode);
+          } catch (e) {
+            console.warn('[DeepLink] pendingPlantCode storage:', e);
+          }
+          setTimeout(() => flushPendingPlantNavigation(), 500);
+          return;
+        }
+
+        if (
+          state.isLoggedIn &&
+          !state.fallbackTriggered &&
+          !state.isBuyer &&
+          !state.isAdmin &&
+          state.hasUserProfile
+        ) {
+          const storeUrl = Platform.OS === 'ios' ? IOS_STORE : ANDROID_STORE;
+          Linking.openURL(storeUrl).catch(() => {});
+          return;
+        }
+
+        try {
+          await AsyncStorage.setItem('pendingPlantCode', plantCode);
+        } catch (e) {
+          console.warn('[DeepLink] pendingPlantCode storage:', e);
+        }
+        return;
+      }
+
+      if (isReferUrl(url)) {
+        try {
+          const match = url.match(/[?&]code=([^&]+)/);
+          if (match && match[1]) {
+            const code = decodeURIComponent(match[1]).trim();
+            await AsyncStorage.setItem('pendingInviteCode', code);
+            const {doc: docRef, getDoc} = require('firebase/firestore');
+            const {db} = require('../../../firebase');
+            const snap = await getDoc(docRef(db, 'referralCodes', code));
+            if (snap.exists() && snap.data().uid) {
+              await AsyncStorage.setItem('pendingReferrerUid', snap.data().uid);
+              console.log('📎 [DeepLink] Resolved referrer UID from code:', code, '->', snap.data().uid);
+            } else {
+              await AsyncStorage.setItem('pendingReferrerUid', code);
+              console.log('📎 [DeepLink] Stored referrer code as-is:', code);
+            }
+          }
+        } catch (e) {
+          console.error('[DeepLink] Error parsing referral URL:', e);
+        }
+      }
+    };
+
+    if (!initialUrlHandledRef.current) {
+      initialUrlHandledRef.current = true;
+      Linking.getInitialURL().then(handleIncomingUrl);
+    }
+
+    const subscription = Linking.addEventListener('url', event => {
+      handleIncomingUrl(event.url);
     });
 
     return () => subscription.remove();
-  }, []);
+  }, [flushPendingPlantNavigation]);
+
+  useEffect(() => {
+    if (!isLoggedIn || fallbackTriggered || (!isBuyer && !isAdmin)) {
+      return;
+    }
+    const id = setTimeout(() => flushPendingPlantNavigation(), 0);
+    return () => clearTimeout(id);
+  }, [isLoggedIn, isBuyer, isAdmin, navKey, fallbackTriggered, flushPendingPlantNavigation]);
 
   // Linking config for React Navigation
   const linking = {
@@ -1143,7 +1368,11 @@ const AppNavigation = () => {
 
   return (
     // <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={[]}>
-      <NavigationContainer key={navKey} ref={navigationRef} linking={!isLoggedIn || fallbackTriggered ? linking : undefined}>
+      <NavigationContainer
+        key={navKey}
+        ref={navigationRef}
+        linking={!isLoggedIn || fallbackTriggered ? linking : undefined}
+        onReady={flushPendingPlantNavigation}>
         {isLoggedIn && !fallbackTriggered ? (
           isBuyer ? (
             <BuyerTabNavigator />

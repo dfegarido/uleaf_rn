@@ -6,6 +6,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  InteractionManager,
   Modal,
   Platform,
   SafeAreaView,
@@ -14,8 +15,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import Share from 'react-native-share';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
 import FlightIcon from '../../../assets/buyer-icons/flight.svg';
@@ -36,16 +39,21 @@ import FlakesIcon from '../../../assets/icons/greylight/flakes.svg';
 import HeartIcon from '../../../assets/icons/greylight/heart-regular.svg';
 import ReturnIcon from '../../../assets/icons/greylight/return.svg';
 import CartIcon from '../../../assets/icontabs/buyer-tabs/cart-solid.svg';
+import ShareIcon from '../../../assets/buyer-icons/share-gray.svg';
+import {globalStyles} from '../../../assets/styles/styles';
+import ActionSheet from '../../../components/ActionSheet/ActionSheet';
+import Toast from '../../../components/Toast/Toast';
 import { useAuth } from '../../../auth/AuthProvider';
 import { addToCartApi } from '../../../components/Api/cartApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import {getPlantListingShareUrl} from '../../../utils/plantShareLink';
 import { retryAsync } from '../../../utils/utils';
 
 const ScreenPlantDetail = ({navigation, route}) => {
   const {user} = useAuth();
   const {plantCode} = route.params || {};
-  
+
   // Get screen dimensions for dynamic card sizing
   const screenWidth = Dimensions.get('window').width;
   const sectionPadding = 48; // Total horizontal padding (24 * 2) from sectionContainer
@@ -76,6 +84,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [selectedPotSize, setSelectedPotSize] = useState('2"');
   const [quantity, setQuantity] = useState(1);
   const [modalAction, setModalAction] = useState('add-to-cart'); // 'add-to-cart' or 'buy-now'
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [shareToastVisible, setShareToastVisible] = useState(false);
+  const [shareToastMessage, setShareToastMessage] = useState('');
   const insets = useSafeAreaInsets();
 
   const normalizeQuantity = (value) => {
@@ -307,7 +318,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
       if (!res?.success) {
         throw new Error(res?.error || 'Failed to load plant details');
       }
-      // Extract the nested data object from the response
       setPlantData(res.data);
 
     } catch (error) {
@@ -632,8 +642,71 @@ const ScreenPlantDetail = ({navigation, route}) => {
     // TODO: Implement love functionality API call
   };
 
+  const buildShareMessage = useCallback(() => {
+    const url = getPlantListingShareUrl(plantCode);
+    if (!url) {
+      return {url: '', message: ''};
+    }
+    const titleLine = plantData
+      ? `Check out ${[plantData.genus, plantData.species].filter(Boolean).join(' ')} on iLeafU`.trim()
+      : 'Check out this plant on iLeafU';
+    const message = `${titleLine}\n${url}`;
+    return {url, message};
+  }, [plantCode, plantData]);
+
   const handleShare = () => {
-    // TODO: Implement share functionality
+    if (!plantCode || !String(plantCode).trim()) {
+      Alert.alert('Share', 'This listing cannot be shared right now.');
+      return;
+    }
+    if (!getPlantListingShareUrl(plantCode)) {
+      Alert.alert('Share', 'This listing cannot be shared right now.');
+      return;
+    }
+    setShowShareSheet(true);
+  };
+
+  const handleCopyShareLink = async () => {
+    const url = getPlantListingShareUrl(plantCode);
+    if (!url) {
+      return;
+    }
+    try {
+      await Clipboard.setString(url);
+      setShowShareSheet(false);
+      setShareToastMessage('Link copied');
+      setShareToastVisible(true);
+    } catch (e) {
+      Alert.alert('Copy failed', e?.message || 'Try again.');
+    }
+  };
+
+  const handleNativeShareListing = () => {
+    const {url, message} = buildShareMessage();
+    if (!url) {
+      return;
+    }
+    setShowShareSheet(false);
+    const open = async () => {
+      try {
+        await Share.open({
+          title: 'iLeafU listing',
+          message,
+          url,
+        });
+      } catch (e) {
+        const msg = String(e?.message || e || '');
+        if (
+          !msg.toLowerCase().includes('cancel') &&
+          msg !== 'User did not share'
+        ) {
+          console.warn('Share listing failed:', e);
+        }
+      }
+    };
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(open, Platform.OS === 'ios' ? 400 : 150);
+    });
   };
 
   // Get shipping cost based on listing type and specifications
@@ -890,11 +963,22 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
       <SafeAreaView style={styles.safeArea}>
         {/* Header Navigation */}
-        <View style={[styles.header, Platform.OS === 'android' && { paddingTop: Math.min(insets.top + 12, 50) }]}>
+        <View
+          style={[
+            styles.header,
+            styles.headerWithShare,
+            Platform.OS === 'android' && {paddingTop: Math.min(insets.top + 12, 50)},
+          ]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}>
             <BackIcon width={24} height={24} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleShare}
+            accessibilityLabel="Share listing">
+            <ShareIcon width={20} height={20} />
           </TouchableOpacity>
         </View>
 
@@ -1063,12 +1147,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            {/* <View style={styles.rightControls}>
+            <View style={styles.rightControls}>
               <TouchableOpacity style={styles.socialButton} onPress={handleShare}>
                 <ShareIcon width={32} height={32} />
                 <Text style={styles.socialText}>Share</Text>
               </TouchableOpacity>
-            </View> */}
+            </View>
           </View>
 
           {/* Price and Pot Size */}
@@ -1527,9 +1611,57 @@ const ScreenPlantDetail = ({navigation, route}) => {
           </View>
         </View>
       </Modal>
+
+      <ActionSheet
+        visible={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        heightPercent="30%">
+        <View style={{padding: 20}}>
+          <TouchableOpacity onPress={handleCopyShareLink}>
+            <View
+              style={{
+                borderColor: '#CDD3D4',
+                borderWidth: 1,
+                borderRadius: 10,
+                padding: 14,
+              }}>
+              <Text style={[globalStyles.textLGGreyDark]}>Copy link</Text>
+              <Text style={[globalStyles.textMDGreyLight, {paddingTop: 4}]}>
+                Copy the listing URL to your clipboard
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleNativeShareListing}>
+            <View
+              style={{
+                borderColor: '#CDD3D4',
+                borderWidth: 1,
+                borderRadius: 10,
+                padding: 14,
+                marginTop: 10,
+              }}>
+              <Text style={[globalStyles.textLGGreyDark]}>Share…</Text>
+              <Text style={[globalStyles.textMDGreyLight, {paddingTop: 4}]}>
+                WhatsApp, Messages, and other apps
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </ActionSheet>
+
+      <Toast
+        visible={shareToastVisible}
+        message={shareToastMessage}
+        type="success"
+        duration={2200}
+        position="bottom"
+        onHide={() => setShareToastVisible(false)}
+      />
     </SafeAreaView>
   );
-};const styles = StyleSheet.create({
+};
+
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
@@ -1625,6 +1757,9 @@ const ScreenPlantDetail = ({navigation, route}) => {
     left: 0,
     right: 0,
     zIndex: 20,
+  },
+  headerWithShare: {
+    justifyContent: 'space-between',
   },
   backButton: {
     width: 32,

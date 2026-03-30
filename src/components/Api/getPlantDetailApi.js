@@ -5,7 +5,7 @@ export const getPlantDetailApi = async (plantCode) => {
   try {
     const token = await getStoredAuthToken();
     const response = await fetch(
-      `${API_ENDPOINTS.GET_BUYER_LISTING}?plantCode=${plantCode}`,
+      `${API_ENDPOINTS.GET_BUYER_LISTING}?plantCode=${encodeURIComponent(plantCode)}`,
       {
         method: 'GET',
         headers: {
@@ -32,7 +32,7 @@ export const getPlantDetailApiLive = async (plantCode) => {
   try {
     const token = await getStoredAuthToken();
     const response = await fetch(
-      `${API_ENDPOINTS.GET_BUYER_LISTING_LIVE}?plantCode=${plantCode}`,
+      `${API_ENDPOINTS.GET_BUYER_LISTING_LIVE}?plantCode=${encodeURIComponent(plantCode)}`,
       {
         method: 'GET',
         headers: {

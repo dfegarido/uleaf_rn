@@ -10,6 +10,8 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  InteractionManager,
+  Platform,
 } from 'react-native';
 import Share from 'react-native-share';
 import { useNavigation } from '@react-navigation/native';
@@ -186,42 +188,49 @@ Import Smarter with ileafU.\n\nUse my link: ${inviteUrl}\nOr enter my code: ${in
     return () => { cancelled = true; };
   }, [uid, useMockReferrals]);
 
-  const handleCopy = async (field) => {
-    const content = field === 'code' ? inviteCode : inviteUrl;
-    try {
-      if (field === 'code') {
-        // Copy invite code only (no URL preview cards).
-        await Share.open({ message: content, title: 'ileafU' });
-      } else {
-        // Copy invite link, but force the visible title text.
-        // This prevents iOS from showing stale web-page preview title like "Join I Leaf U".
-        await Share.open({
-          url: content,
-          title: 'Join ileafU',
-          message: 'Join ileafU',
-        });
-      }
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2500);
-    } catch (error) {
-      if (error?.message !== 'User did not share') {
-        Alert.alert('Error', 'Could not copy. Please try again.');
-      }
-    }
+  const runShareAfterInteractions = fn => {
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(fn, Platform.OS === 'ios' ? 250 : 100);
+    });
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.open({
-        message: inviteMessage,
-        url: inviteUrl,
-        title: 'Join ileafU',
-      });
-    } catch (error) {
-      if (error?.message !== 'User did not share') {
-        Alert.alert('Error', 'Could not open share sheet. Please try again.');
+  const handleCopy = async (field) => {
+    const content = field === 'code' ? inviteCode : inviteUrl;
+    runShareAfterInteractions(async () => {
+      try {
+        if (field === 'code') {
+          await Share.open({ message: content, title: 'ileafU' });
+        } else {
+          await Share.open({
+            url: content,
+            title: 'Join ileafU',
+            message: 'Join ileafU',
+          });
+        }
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2500);
+      } catch (error) {
+        if (error?.message !== 'User did not share') {
+          Alert.alert('Error', 'Could not copy. Please try again.');
+        }
       }
-    }
+    });
+  };
+
+  const handleShare = () => {
+    runShareAfterInteractions(async () => {
+      try {
+        await Share.open({
+          message: inviteMessage,
+          url: inviteUrl,
+          title: 'Join ileafU',
+        });
+      } catch (error) {
+        if (error?.message !== 'User did not share') {
+          Alert.alert('Error', 'Could not open share sheet. Please try again.');
+        }
+      }
+    });
   };
 
   return (

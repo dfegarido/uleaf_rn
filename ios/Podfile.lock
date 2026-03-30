@@ -3095,6 +3095,8 @@ PODS:
   - RNCCheckbox (0.5.20):
     - BEMCheckBox (~> 1.4)
     - React-Core
+  - RNCClipboard (1.16.3):
+    - React-Core
   - RNDateTimePicker (8.2.0):
     - React-Core
   - RNFBApp (20.5.0):
@@ -3388,6 +3390,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCCheckbox (from `../node_modules/@react-native-community/checkbox`)"
+  - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
   - "RNFBAuth (from `../node_modules/@react-native-firebase/auth`)"
@@ -3580,6 +3583,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNCCheckbox:
     :path: "../node_modules/@react-native-community/checkbox"
+  RNCClipboard:
+    :path: "../node_modules/@react-native-clipboard/clipboard"
   RNDateTimePicker:
     :path: "../node_modules/@react-native-community/datetimepicker"
   RNFBApp:
@@ -3706,6 +3711,7 @@ SPEC CHECKSUMS:
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   RNCAsyncStorage: b6410dead2732b5c72a7fdb1ecb5651bbcf4674b
   RNCCheckbox: 33b44487ca8008394ce658cc32b26eab04f426ef
+  RNCClipboard: f6679d470d0da2bce2a37b0af7b9e0bf369ecda5
   RNDateTimePicker: 818460dc31b0dc5ec58289003e27dd8d022fb79c
   RNFBApp: 6ceb29fce4c7e09797977fc03319d9cb50a5ad0e
   RNFBAuth: e95e191473f681e6de3068807fe758c4ea095108
