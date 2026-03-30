@@ -188,6 +188,7 @@ const generateEndpoints = () => ({
   GET_SPECIES_FOR_GENUS: `${getBaseUrl()}/getSpeciesForGenus`,
   IMPORT_TAXONOMY_DATA: `${getBaseUrl()}/importTaxonomyData`,
   DOWNLOAD_TAXONOMY_TEMPLATE: `${getBaseUrl()}/downloadTaxonomyTemplate`,
+  DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE: `${getBaseUrl()}/downloadLiveListingBatchTemplate`,
   MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getBaseUrl()}/migratePlantCatalogToTaxonomy`,
   // Genus Request Workflow
   INSERT_GENUS_REQUEST: `${getBaseUrl()}/insertGenusRequest`,

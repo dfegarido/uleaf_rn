@@ -68,6 +68,7 @@ import {
   ScreenListingDetail,
   ScreenSearchListing,
   ScreenBatchUpload,
+  ScreenLiveSaleExcelUpload,
 } from '../../screens/Seller/Listing/';
 import OrderScreen from '../../screens/Seller/Order/OrderScreen';
 import {
@@ -706,6 +707,12 @@ const MainStack = () => {
       <Stack.Screen
         name="BatchUploadScreen"
         component={ScreenBatchUpload}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
+        name="LiveSaleExcelUploadScreen"
+        component={ScreenLiveSaleExcelUpload}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
 

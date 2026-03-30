@@ -8,6 +8,7 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Easing,
 } from 'react-native';
 
 const {height: screenHeight} = Dimensions.get('window');
@@ -28,19 +29,27 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
 
   useEffect(() => {
     if (visible) {
-      Animated.timing(slideAnim, {
+      slideAnim.setValue(0);
+      Animated.spring(slideAnim, {
         toValue: 1,
-        duration: 300,
         useNativeDriver: true,
+        tension: 68,
+        friction: 12,
       }).start();
     } else {
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
     }
   }, [visible, slideAnim]);
+
+  const overlayOpacity = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   return (
     <Modal
@@ -53,7 +62,14 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
         style={styles.keyboardAvoidingView}>
         <View style={styles.container}>
           <TouchableWithoutFeedback onPress={onClose}>
-            <View style={styles.overlay} />
+            <Animated.View
+              style={[
+                styles.overlay,
+                {
+                  opacity: overlayOpacity,
+                },
+              ]}
+            />
           </TouchableWithoutFeedback>
           <Animated.View
             style={[
@@ -88,7 +104,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
     position: 'absolute',

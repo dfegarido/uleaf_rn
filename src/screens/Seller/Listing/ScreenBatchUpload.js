@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  TextInput,
   Image,
   Modal,
   ActivityIndicator,
@@ -23,11 +22,11 @@ import {
   getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
-  postSellSinglePlantApi,
-  uploadImageToBackend,
-  uploadMultipleImagesToBackend,
 } from '../../../components/Api';
-import {getActiveLiveListingApi} from '../../../components/Api/agoraLiveApi';
+import {
+  uploadLiveListingRows,
+  validateLiveListingRow,
+} from '../../../utils/liveListingBulkUpload';
 import {InputDropdownSearch, InputBox} from '../../../components/Input';
 import Toast from '../../../components/Toast/Toast';
 
@@ -38,7 +37,9 @@ const heightOptions = [
 ];
 
 function toOptionList(data) {
-  if (!Array.isArray(data)) return [];
+  if (!Array.isArray(data)) {
+    return [];
+  }
   return data.map((x) => (typeof x === 'string' ? x : (x?.name ?? x?.value ?? '')));
 }
 
@@ -132,13 +133,17 @@ const ScreenBatchUpload = ({navigation, route}) => {
 
   const handleGenusChange = (rowId, genus) => {
     updateRow(rowId, {genus});
-    if (genus) loadSpeciesForRow(rowId, genus);
+    if (genus) {
+      loadSpeciesForRow(rowId, genus);
+    }
   };
 
   const handleSpeciesChange = (rowId, species) => {
     updateRow(rowId, {species});
     const row = rows.find((r) => r.id === rowId);
-    if (row?.genus && species) loadVariegationForRow(rowId, row.genus, species);
+    if (row?.genus && species) {
+      loadVariegationForRow(rowId, row.genus, species);
+    }
   };
 
   const addRow = () => {
@@ -146,7 +151,9 @@ const ScreenBatchUpload = ({navigation, route}) => {
   };
 
   const removeRow = (rowId) => {
-    if (rows.length <= 1) return;
+    if (rows.length <= 1) {
+      return;
+    }
     setRows((prev) => prev.filter((r) => r.id !== rowId));
   };
 
@@ -154,95 +161,50 @@ const ScreenBatchUpload = ({navigation, route}) => {
     launchImageLibrary(
       {mediaType: 'photo', selectionLimit: 1},
       (response) => {
-        if (response.didCancel || response.errorCode || !response.assets?.length) return;
+        if (response.didCancel || response.errorCode || !response.assets?.length) {
+          return;
+        }
         const uri = response.assets[0].uri;
         updateRow(rowId, {image: uri});
       },
     );
   };
 
-  const validateRow = (row) => {
-    if (!row.genus?.trim()) return 'Genus is required';
-    if (!row.species?.trim()) return 'Species is required';
-    if (!row.potSize?.trim()) return 'Pot size is required';
-    const price = parseFloat(row.localPrice);
-    if (Number.isNaN(price) || price < 0) return 'Valid price is required';
-    return null;
-  };
+  const validateRow = validateLiveListingRow;
 
   const onUploadAll = async () => {
-    const validRows = rows.filter((r) => !validateRow(r));
     const invalid = rows.find((r) => validateRow(r));
     if (invalid) {
-      const msg = validateRow(invalid);
-      Alert.alert('Validation', msg);
+      Alert.alert('Validation', validateRow(invalid));
       return;
     }
 
     setUploading(true);
-    let withActiveLiveListing = false;
+    const mapped = rows.map((r) => ({
+      genus: r.genus,
+      species: r.species,
+      variegation: r.variegation,
+      potSize: r.potSize,
+      localPrice: r.localPrice,
+      approximateHeight: r.approximateHeight,
+      image: r.image,
+    }));
     try {
-      const activeRes = await getActiveLiveListingApi();
-      if (activeRes?.success) withActiveLiveListing = true;
-    } catch (_) {}
-
-    let successCount = 0;
-    let failCount = 0;
-    const total = rows.length;
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      setUploadProgress({current: i + 1, total});
-
-      try {
-        let imagePrimary = null;
-        let imageCollection = [];
-        if (row.image) {
-          const urls = await uploadMultipleImagesToBackend([row.image]);
-          if (urls?.length) {
-            imagePrimary = urls[0];
-            imageCollection = urls;
-          }
-        }
-
-        const variegation =
-          row.variegation === 'Choose the most suitable variegation.' ? '' : (row.variegation || '');
-        const data = {
-          listingType: 'Single Plant',
-          genus: row.genus || null,
-          species: row.species || null,
-          variegation,
-          isMutation: false,
-          mutation: null,
-          imagePrimary,
-          imageCollection,
-          potSize: row.potSize,
-          localPrice: parseFloat(row.localPrice),
-          approximateHeight:
-            row.approximateHeight === 'above' ? '12 inches & above' : 'Below 12 inches',
-          status: 'Live',
-          publishType: 'Publish Now',
-          isActiveLiveListing: i === 0 && !withActiveLiveListing,
-        };
-
-        await postSellSinglePlantApi(data);
-        successCount++;
-      } catch (e) {
-        console.warn('Batch upload row failed:', e?.message);
-        failCount++;
+      const {successCount, failCount, total} = await uploadLiveListingRows(mapped, {
+        onProgress: ({current, total: t}) => setUploadProgress({current, total: t}),
+      });
+      if (failCount === 0) {
+        showToast(`${successCount} listing(s) uploaded successfully.`);
+        setRows([createBlankRow()]);
+      } else {
+        showToast(
+          `${successCount} succeeded, ${failCount} failed.`,
+          failCount === total ? 'error' : 'success',
+        );
       }
-    }
-
-    setUploading(false);
-    setUploadProgress({current: 0, total: 0});
-    if (failCount === 0) {
-      showToast(`${successCount} listing(s) uploaded successfully.`);
-      setRows([createBlankRow()]);
-    } else {
-      showToast(
-        `${successCount} succeeded, ${failCount} failed.`,
-        failCount === total ? 'error' : 'success',
-      );
+    } finally {
+      setUploading(false);
+      setUploadProgress({current: 0, total: 0});
     }
   };
 

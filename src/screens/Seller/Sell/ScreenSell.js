@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -106,9 +106,84 @@ const ScreenSell = ({navigation}) => {
   });
 
   const [showSheet, setShowSheet] = useState(false);
+  const [showLiveSaleSheet, setShowLiveSaleSheet] = useState(false);
+  const [liveSaleExistingCount, setLiveSaleExistingCount] = useState(0);
 
   const openSheet = sheetOpen => {
     setShowSheet(!sheetOpen);
+  };
+
+  const liveSellerUid =
+    userInfo?.uid ||
+    userInfo?.id ||
+    userInfo?.user?.uid ||
+    userInfo?.user?.id;
+
+  const fetchExistingLiveListingCount = useCallback(async () => {
+    let existingLiveCount = 0;
+    if (liveSellerUid) {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, 'listing'),
+            where('sellerCode', '==', liveSellerUid),
+            where('status', '==', 'Live'),
+          ),
+        );
+        existingLiveCount = snap.size;
+      } catch (e) {
+        console.warn('Failed to fetch live listing count:', e?.message);
+      }
+    }
+    return existingLiveCount;
+  }, [liveSellerUid]);
+
+  // Warm count while Sell is visible so the Live Sale sheet can open instantly.
+  useEffect(() => {
+    if (!isFocused || userInfo?.liveFlag !== 'Yes') {
+      return;
+    }
+    let cancelled = false;
+    fetchExistingLiveListingCount().then((n) => {
+      if (!cancelled) {
+        setLiveSaleExistingCount(n);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isFocused, userInfo?.liveFlag, fetchExistingLiveListingCount]);
+
+  // Refresh count when the sheet opens (keeps IG index accurate without delaying open).
+  useEffect(() => {
+    if (!showLiveSaleSheet) {
+      return;
+    }
+    let cancelled = false;
+    fetchExistingLiveListingCount().then((n) => {
+      if (!cancelled) {
+        setLiveSaleExistingCount(n);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showLiveSaleSheet, fetchExistingLiveListingCount]);
+
+  const handlePressLiveSaleCard = () => {
+    setShowLiveSaleSheet(true);
+  };
+
+  const handleLiveSaleExcel = () => {
+    setShowLiveSaleSheet(false);
+    navigation.navigate('LiveSaleExcelUploadScreen');
+  };
+
+  const handleLiveSaleManual = () => {
+    setShowLiveSaleSheet(false);
+    navigation.navigate('BatchUploadScreen', {
+      existingLiveCount: liveSaleExistingCount,
+    });
   };
 
   const handlePressSingle = () => {
@@ -278,25 +353,7 @@ const ScreenSell = ({navigation}) => {
               }}>
               <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
                 <TouchableOpacity
-                  onPress={async () => {
-                    const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id;
-                    let existingLiveCount = 0;
-                    if (uid) {
-                      try {
-                        const snap = await getDocs(
-                          query(
-                            collection(db, 'listing'),
-                            where('sellerCode', '==', uid),
-                            where('status', '==', 'Live')
-                          )
-                        );
-                        existingLiveCount = snap.size;
-                      } catch (e) {
-                        console.warn('Failed to fetch live listing count:', e?.message);
-                      }
-                    }
-                    navigation.navigate('BatchUploadScreen', { existingLiveCount });
-                  }}
+                  onPress={handlePressLiveSaleCard}
                   style={{
                     marginTop: 10,
                     justifyContent: 'center',
@@ -325,6 +382,51 @@ const ScreenSell = ({navigation}) => {
 
           <CarouselSell plantItems={mostLoveData} />
         </View>
+
+        <ActionSheet
+          visible={showLiveSaleSheet}
+          onClose={() => setShowLiveSaleSheet(false)}
+          heightPercent={'32%'}>
+          <View style={{padding: 20}}>
+            <TouchableOpacity onPress={handleLiveSaleExcel}>
+              <View
+                style={{
+                  borderColor: '#CDD3D4',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                }}>
+                <View style={{flexDirection: 'column'}}>
+                  <Text style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
+                    Excel upload
+                  </Text>
+                  <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
+                    Download a template, fill rows, then upload your file
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLiveSaleManual}>
+              <View
+                style={{
+                  borderColor: '#CDD3D4',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                  marginTop: 10,
+                }}>
+                <View style={{flexDirection: 'column'}}>
+                  <Text style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
+                    Manual input
+                  </Text>
+                  <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
+                    Enter multiple listings on the batch upload screen
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </ActionSheet>
 
         <ActionSheet
           visible={showSheet}
