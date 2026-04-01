@@ -10,7 +10,7 @@ import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import UsFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
-import { API_ENDPOINTS, API_CONFIG } from '../../../config/apiConfig';
+import { API_CONFIG } from '../../../config/apiConfig';
 import { deleteUserApi } from '../../../components/Api/deleteUserApi';
 import { UserInformationHeader } from './UserInformationHeader';
 
@@ -19,8 +19,11 @@ const UserInformation = () => {
   const route = useRoute();
   const { user } = route.params || {};
   const insets = useSafeAreaInsets();
-  const [isVideoLiveEnabled, setIsVideoLiveEnabled] = useState(false);
   const [isAccountActive, setIsAccountActive] = useState(user?.status?.toLowerCase() === 'active');
+  const [liveSellingEnabled, setLiveSellingEnabled] = useState(
+    () => String(user?.liveFlag || '').toLowerCase() === 'yes',
+  );
+  const [isUpdatingLiveFlag, setIsUpdatingLiveFlag] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
@@ -123,6 +126,8 @@ const UserInformation = () => {
 
   // Check if user is a buyer (check both role and rawRole for compatibility)
   const isBuyer = user?.role?.toLowerCase() === 'buyer' || user?.rawRole?.toLowerCase() === 'buyer';
+  const isSupplier =
+    user?.role === 'Supplier' || user?.rawRole?.toLowerCase() === 'supplier';
 
   // Set editable fields initial values from user data
   useEffect(() => {
@@ -147,6 +152,10 @@ const UserInformation = () => {
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    setLiveSellingEnabled(String(user?.liveFlag || '').toLowerCase() === 'yes');
+  }, [user?.id, user?.liveFlag]);
 
   // Handle user profile update
   const handleProfileUpdate = async () => {
@@ -349,6 +358,53 @@ const UserInformation = () => {
   // Get current status text based on toggle state
   const currentStatus = isAccountActive ? 'Active' : 'Inactive';
 
+  const handleLiveSellingToggle = async () => {
+    if (!isSupplier || isUpdatingLiveFlag) return;
+    const nextFlag = liveSellingEnabled ? 'No' : 'Yes';
+    try {
+      setIsUpdatingLiveFlag(true);
+      const authToken = await getStoredAuthToken();
+      if (!authToken) {
+        throw new Error('Authentication token not available');
+      }
+      const requestData = {
+        userId: user.id || user.userId,
+        liveFlag: nextFlag,
+      };
+      const response = await fetch(`${API_CONFIG.BASE_URL}/updateUserStatus`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(requestData),
+      });
+      const responseText = await response.text();
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error('Invalid response from server');
+      }
+      if (!response.ok) {
+        throw new Error(responseData.message || responseData.error || 'Failed to update live selling');
+      }
+      setLiveSellingEnabled(nextFlag === 'Yes');
+      Alert.alert(
+        'Success',
+        nextFlag === 'Yes'
+          ? 'Live selling is enabled for this supplier.'
+          : 'Live selling is disabled for this supplier.',
+        [{ text: 'OK' }],
+      );
+    } catch (error) {
+      console.error('Error updating liveFlag:', error);
+      Alert.alert('Error', error.message || 'Could not update live selling.', [{ text: 'OK' }]);
+    } finally {
+      setIsUpdatingLiveFlag(false);
+    }
+  };
+
   // Handle user deletion with useCallback to avoid React hook errors
   const confirmDeleteUser = useCallback(async () => {
     try {
@@ -460,6 +516,47 @@ const UserInformation = () => {
               )}
             </View>
           </View>
+
+          {/* Live selling (supplier liveFlag) — enables Live tab / live flows in seller app */}
+          {isSupplier && (
+            <View style={[styles.statusRow, styles.liveSellingToggleRow]}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.statusLabel}>Live selling</Text>
+                <Text style={styles.liveSellingHint}>
+                  When on, this supplier can use live selling (Live listings, sell screen).
+                </Text>
+              </View>
+              <View style={styles.statusContainer}>
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: liveSellingEnabled ? '#23C16B' : '#6B7280' },
+                  ]}>
+                  {liveSellingEnabled ? 'On' : 'Off'}
+                </Text>
+                {isUpdatingLiveFlag ? (
+                  <ActivityIndicator size="small" color="#0ea5e9" style={{ marginLeft: 10 }} />
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleSwitch,
+                      { backgroundColor: liveSellingEnabled ? '#23C16B' : '#D1D5DB' },
+                    ]}
+                    onPress={handleLiveSellingToggle}
+                    activeOpacity={0.8}
+                    disabled={isUpdatingLiveFlag}
+                  >
+                    <View
+                      style={[
+                        styles.toggleHandle,
+                        { transform: [{ translateX: liveSellingEnabled ? 20 : 0 }] },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Form Section */}
@@ -510,7 +607,7 @@ const UserInformation = () => {
                   placeholderTextColor="#647276"
                 />
               ) : (
-                <Text style={styles.formValue}>{editableFields.gardenOrCompanyName || (user.role === 'Seller' ? 'Not provided' : 'N/A')}</Text>
+                <Text style={styles.formValue}>{editableFields.gardenOrCompanyName || (user.role === 'Supplier' ? 'Not provided' : 'N/A')}</Text>
               )}
             </View>
           )}
@@ -590,23 +687,6 @@ const UserInformation = () => {
             <Text style={styles.formLabel}>Email address <Text style={styles.requiredStar}>*</Text></Text>
             <Text style={styles.formValue}>{user.email || (user.username ? `${user.username}@gmail.com` : 'Not provided')}</Text>
           </View>
-          
-          {/* Video Live Features - Only show for certain roles */}
-          {(user.role === 'Seller' || user.role === 'Super Admin') && (
-            <View style={styles.formRow}>
-              <Text style={styles.formLabel}>Allow video live features</Text>
-              <TouchableOpacity 
-                style={styles.checkboxContainer}
-                onPress={() => setIsVideoLiveEnabled(!isVideoLiveEnabled)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.checkbox}>
-                  {isVideoLiveEnabled && <CheckedBoxIcon width={24} height={24} />}
-                </View>
-                <Text style={styles.checkboxLabel}>Allow video live features</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           {/* VIP Status - Only show if user is VIP */}
           {user.isVip && (
@@ -886,6 +966,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 12,
+  },
+  liveSellingHint: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  liveSellingToggleRow: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    alignItems: 'flex-start',
   },
   toggleSwitch: {
     width: 44,
