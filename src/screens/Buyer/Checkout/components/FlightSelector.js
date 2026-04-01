@@ -92,7 +92,12 @@ const FlightSelector = ({
     <View style={styles.plantFlight}>
       {/* Title */}
       <View style={styles.flightTitle}>
-        <Text style={styles.flightTitleText}>Plant Flight</Text>
+        <View style={styles.flightTitleRow}>
+          <Text style={styles.flightTitleText}>Plant Flight</Text>
+          {checkingOrders ? (
+            <Text style={styles.flightLoadingHint}>Loading options…</Text>
+          ) : null}
+        </View>
         {disableFlightSelection ? (
           <Text style={styles.disabledNote}>
             {receiverFlightDate ? (

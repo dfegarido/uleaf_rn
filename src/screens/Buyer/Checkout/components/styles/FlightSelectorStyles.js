@@ -18,6 +18,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
+  flightTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    flex: 1,
+  },
+  flightLoadingHint: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
   cutoffDateContainer: {
     flexDirection: 'row',
     alignItems: 'center',

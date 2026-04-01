@@ -22,6 +22,7 @@ import {
   Modal,
   NativeEventEmitter,
   NativeModules,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,6 +51,7 @@ import NoteIcon from '../../../assets/live-icon/notes.svg';
 import ShopIcon from '../../../assets/live-icon/shopv3.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
 import CartIconSelected from '../../../assets/icontabs/buyer-tabs/cart-icon-selected.svg';
+import ShareReferralIcon from '../../../assets/live-icon/share-referral.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import {
@@ -60,7 +62,9 @@ import {
   updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
 import { addToCartApi } from '../../../components/Api/cartApi';
+import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
+import { shareReferralInvite } from '../../../utils/referralShare';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
@@ -80,12 +84,18 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
   const [liveStats, setLiveStats] = useState({ viewerCount: 0, likeCount: 0 });
   const [activeListing, setActiveListing] = useState(null);
+  const [sessionListingIndexMap, setSessionListingIndexMap] = useState({});
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const flatListRef = useRef(null);
   const { userInfo } = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const currentUserInfo = userInfo || asyncUserInfo;
+  const buyerUid =
+    currentUserInfo?.uid ||
+    currentUserInfo?.id ||
+    currentUserInfo?.user?.uid ||
+    currentUserInfo?.user?.id;
   const [unitPrice, setUnitPrice] = useState(null);
   const [plantDataCountry, setPlantDataCountry] = useState(null);
   const [isPlantDetailLiveModalVisible, setPlantDetailLiveModalVisible] = useState(false);
@@ -372,6 +382,28 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
     return () => unsubscribe();
   }, [sessionId, brodcasterId]);
+
+  // Same IG index ordering as seller (LiveBroadcastScreen): Live listings in session by createdAt
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const q = query(
+      collection(db, 'listing'),
+      where('sessionId', '==', sessionId),
+      where('status', '==', 'Live'),
+      orderBy('createdAt', 'asc'),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const indexMap = {};
+      snapshot.docs.forEach((docSnap, i) => {
+        indexMap[docSnap.id] = `IG${i + 1}`;
+      });
+      setSessionListingIndexMap(indexMap);
+    });
+
+    return () => unsubscribe();
+  }, [sessionId]);
 
   useEffect(() => {
      if (!sessionId) return;
@@ -805,6 +837,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                     <ViewersIcon width={24} height={24} />
                     <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
               </TouchableOpacity>
+              {activeListing && sessionListingIndexMap[activeListing.id] ? (
+                <View style={styles.topIgBadge}>
+                  <Text style={styles.topIgBadgeText}>
+                    {sessionListingIndexMap[activeListing.id]}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -928,30 +967,49 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
           </View> */}
           <View style={styles.sideActions}>
+              <TouchableOpacity
+                style={styles.sideAction}
+                onPress={() => shareReferralInvite(buyerUid)}
+                accessibilityLabel="Share invite">
+                <View style={styles.sideActionIconWrap}>
+                  <ShareReferralIcon width={32} height={32} />
+                </View>
+                <Text style={styles.sideActionNotesText}>Share</Text>
+              </TouchableOpacity>
               {(() => {
                 const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
                 return liveStats?.lovedByUids && liveStats?.lovedByUids.includes(userId) ? (
                   <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                    <ActiveLoveIcon />
+                    <View style={styles.sideActionIconWrap}>
+                      <ActiveLoveIcon width={32} height={32} />
+                    </View>
                     <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
-                    <LoveIcon />
+                    <View style={styles.sideActionIconWrap}>
+                      <LoveIcon width={32} height={32} />
+                    </View>
                     <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
                   </TouchableOpacity>
                 );
               })()}
               <TouchableOpacity onPress={() => setShowStickyNote(!showStickyNote)} style={styles.sideAction}>
-                <NoteIcon width={32} height={32} />
+                <View style={styles.sideActionIconWrap}>
+                  <NoteIcon width={32} height={32} />
+                </View>
                 <Text style={styles.sideActionNotesText}>Notes</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.sideAction} onPress={() => setIsShopModalVisible(true)}>
-                 <ShopIcon width={32} height={32} />
+                <View style={styles.sideActionIconWrap}>
+                  <ShopIcon width={32} height={32} />
+                </View>
                 <Text style={styles.sideActionNotesText}>Shop</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.sideAction} onPress={() => navigation.navigate('ScreenCart')}>
-                 <CartIconSelected width={32} height={32} />
+                <View style={styles.sideActionIconWrap}>
+                  <CartIconSelected width={32} height={32} />
+                </View>
                 <Text style={styles.sideActionNotesText}>Cart</Text>
               </TouchableOpacity>
 
@@ -1003,11 +1061,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
               {!orderStatus && (
                 <>
-                  <TouchableOpacity onPress={() => {
-                    handleAddToCart(activeListing);
-                  }} style={[styles.actionButtonTouch, {flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#539461', width: undefined}]}>
-                    <Text style={[styles.actionText, {color: '#539461'}]}>Add to Cart</Text>
-                  </TouchableOpacity>
+                  <LiveStreamAddToCartButton
+                    onPress={() => handleAddToCart(activeListing)}
+                    style={{ flex: 1, width: undefined }}
+                  />
                   <TouchableOpacity onPress={() => {
                     buyNow(activeListing);
                   }} style={[styles.actionButtonTouch, {flex: 1, width: undefined}]}>
@@ -1031,6 +1088,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         isVisible={isShopModalVisible}
         onClose={() => setIsShopModalVisible(false)}
         broadcasterId={brodcasterId}
+        sessionListingIndexMap={sessionListingIndexMap}
         onBuyNow={handleBuyFromShop}
         onAddToCart={handleAddToCart}
       />
@@ -1123,10 +1181,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    width: 78,
     height: 34,
     marginRight: 54,
-   
+  },
+  topIgBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 34,
+  },
+  topIgBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 11,
   },
   guide: {
     flexDirection: 'row',
@@ -1335,16 +1405,23 @@ const styles = StyleSheet.create({
   sideActions: {
     flexDirection: 'column',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 8,
     gap: 5,
     width: 56,
-    height: 160,
+    minHeight: 200,
   },
   sideAction: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 5,
+    width: '100%',
+  },
+  sideActionIconWrap: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   shop: {
     flexDirection: 'column',

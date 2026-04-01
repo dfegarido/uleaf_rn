@@ -189,7 +189,7 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
       cargoDate,
       lockedFlightDate,
       lockedFlightKey,
-      checkingOrders,
+      plantFlightLoading,
       disablePlantFlightSelection,
       selectedFlightDate,
       shippingCalculation,
@@ -237,7 +237,7 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
       normalizeFlightKey,
       formatFlightDateToISO,
       
-    } = useCheckoutController({ ...listingDetails, onClose });
+    } = useCheckoutController({ ...listingDetails, onClose, checkoutModalVisible: isVisible });
   
   return (
     <Modal
@@ -270,7 +270,7 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
                   lockedFlightDate={lockedFlightDate}
                   flightDateOptions={flightDateOptions}
                   selectedFlightDate={selectedFlightDate}
-                  checkingOrders={checkingOrders}
+                  checkingOrders={plantFlightLoading}
                   shimmerAnim={shimmerAnim}
                   disablePlantFlightSelection={disablePlantFlightSelection}
                   flightLockInfo={flightLockInfo}

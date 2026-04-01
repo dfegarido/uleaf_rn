@@ -44,6 +44,7 @@ export const useCheckoutController = (props) => {
     totalAmount = 0,
     isLive = false,
     onClose,
+    checkoutModalVisible = false,
   } = routeParams;
 
   console.log('📥 [CheckoutController] Extracted params:', {
@@ -1122,10 +1123,12 @@ export const useCheckoutController = (props) => {
   // The backend filters out "Ready to Fly" orders that are past their cutoff
   // Frontend just disables flight selection if a "Ready to Fly" order is returned
 
+  const plantFlightLoading = checkingOrders || isLoadingFlightDates;
+
   // Effects
   useEffect(() => {
     let anim;
-    if (checkingOrders) {
+    if (plantFlightLoading) {
       shimmerAnim.setValue(0);
       anim = Animated.loop(
         Animated.timing(shimmerAnim, {
@@ -1140,7 +1143,7 @@ export const useCheckoutController = (props) => {
     return () => {
       if (anim) anim.stop();
     };
-  }, [checkingOrders, shimmerAnim]);
+  }, [plantFlightLoading, shimmerAnim]);
 
   // Shimmer animation for shipping calculation skeleton
   useEffect(() => {
@@ -1424,6 +1427,8 @@ export const useCheckoutController = (props) => {
   const flightDateOptionsRef = useRef(flightDateOptions);
   const shouldRecheckOrdersRef = useRef(false);
   const pendingFlightDateRef = useRef(null);
+  const existingOrdersCheckRunIdRef = useRef(0);
+  const prevCheckoutModalVisibleRef = useRef(false);
   
   useEffect(() => {
     flightDateOptionsRef.current = flightDateOptions;
@@ -1488,25 +1493,20 @@ export const useCheckoutController = (props) => {
     }
     }, [flightDateOptions, formatFlightDateToISO, normalizeFlightKey]);
 
-  console.log('🔍 [CheckoutController] About to define useFocusEffect for checkExistingOrders...');
+  console.log('🔍 [CheckoutController] About to define checkExistingOrders + useFocusEffect...');
 
-  // Check for existing orders - runs when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      console.log('🎯 [useFocusEffect-checkOrders] Hook triggered');
-      let isCancelled = false;
+  const runCheckExistingOrders = useCallback(async () => {
+    const runId = ++existingOrdersCheckRunIdRef.current;
+    console.log('🔍 [checkExistingOrders] Starting order check...');
+    console.log('🔍 [checkExistingOrders] plantItems.length:', plantItems.length);
 
-    const checkExistingOrders = async () => {
-      console.log('🔍 [checkExistingOrders] Starting order check...');
-      console.log('🔍 [checkExistingOrders] plantItems.length:', plantItems.length);
+    setCheckingOrders(true);
+    try {
+      console.log('🔍 [checkExistingOrders] About to call getBuyerOrdersApi...');
+      const ordersResult = await getBuyerOrdersApi();
+      console.log('🔍 [checkExistingOrders] getBuyerOrdersApi returned');
 
-      setCheckingOrders(true);
-      try {
-        console.log('🔍 [checkExistingOrders] About to call getBuyerOrdersApi...');
-        const ordersResult = await getBuyerOrdersApi();
-        console.log('🔍 [checkExistingOrders] getBuyerOrdersApi returned');
-
-          if (isCancelled) return;
+      if (runId !== existingOrdersCheckRunIdRef.current) return;
           
           console.log('📦 [checkExistingOrders] API response:', {
             success: ordersResult?.success,
@@ -1734,27 +1734,38 @@ export const useCheckoutController = (props) => {
             setLockedFlightKey(null);
             setDisablePlantFlightSelection(false);
           }
-        } catch (error) {
-          if (!isCancelled) {
-            console.error('❌ [checkExistingOrders] Error checking existing orders:', error);
-          }
-        } finally {
-          if (!isCancelled) {
-            setCheckingOrders(false);
-          }
-        }
-      };
+    } catch (error) {
+      if (runId === existingOrdersCheckRunIdRef.current) {
+        console.error('❌ [checkExistingOrders] Error checking existing orders:', error);
+      }
+    } finally {
+      if (runId === existingOrdersCheckRunIdRef.current) {
+        setCheckingOrders(false);
+      }
+    }
+  }, [formatFlightDateToISO, normalizeFlightKey]);
 
-      console.log('🎯 [useFocusEffect-checkOrders] About to call checkExistingOrders()...');
-      checkExistingOrders();
-      console.log('🎯 [useFocusEffect-checkOrders] checkExistingOrders() called (async, will continue in background)');
-
+  // Full checkout screen: re-check when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🎯 [useFocusEffect-checkOrders] Hook triggered');
+      runCheckExistingOrders();
       return () => {
-        console.log('🎯 [useFocusEffect-checkOrders] Cleanup function called');
-        isCancelled = true;
+        console.log('🎯 [useFocusEffect-checkOrders] Cleanup — invalidating pending order check');
+        existingOrdersCheckRunIdRef.current += 1;
+        setCheckingOrders(false);
       };
-    }, [formatFlightDateToISO, normalizeFlightKey]) // Dependencies for useCallback
-  ); // End of useFocusEffect
+    }, [runCheckExistingOrders]),
+  );
+
+  // Live checkout modal: same screen stays focused — re-run when modal opens
+  useEffect(() => {
+    const v = !!checkoutModalVisible;
+    if (v && !prevCheckoutModalVisibleRef.current) {
+      runCheckExistingOrders();
+    }
+    prevCheckoutModalVisibleRef.current = v;
+  }, [checkoutModalVisible, runCheckExistingOrders]);
 
   // Load delivery details
   // Check if user is a joiner with approved receiver
@@ -2723,6 +2734,7 @@ export const useCheckoutController = (props) => {
     lockedFlightDate,
     lockedFlightKey,
     checkingOrders,
+    plantFlightLoading,
     disablePlantFlightSelection,
     selectedFlightDate,
     shippingCalculation,

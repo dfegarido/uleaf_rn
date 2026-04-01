@@ -10,8 +10,6 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
-  InteractionManager,
-  Platform,
 } from 'react-native';
 import Share from 'react-native-share';
 import { useNavigation } from '@react-navigation/native';
@@ -19,9 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import Svg, { Path } from 'react-native-svg';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { db } from '../../../../firebase';
-import { doc, setDoc } from 'firebase/firestore';
 import { getReferralInfoApi } from '../../../components/Api/referralApi';
+import {
+  buildInviteUrl,
+  getInviteCode,
+  publishReferralCodeMapping,
+  runShareAfterInteractions,
+  shareReferralInvite,
+} from '../../../utils/referralShare';
 
 const InfoIcon = ({ width = 20, height = 20, fill = '#393D40' }) => (
   <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
@@ -78,16 +81,6 @@ const CheckIcon = ({width = 18, height = 18}) => (
   </Svg>
 );
 
-const getInviteCode = (uid) => {
-  if (!uid) return '------';
-  let hash = 0;
-  for (let i = 0; i < uid.length; i++) {
-    hash = (hash << 5) - hash + uid.charCodeAt(i);
-    hash |= 0;
-  }
-  return String(Math.abs(hash) % 1000000).padStart(6, '0');
-};
-
 // Mock referral data for rorounifix@gmail.com (UI preview / testing)
 const MOCK_REFERRAL_DATA = {
   statistics: {
@@ -127,30 +120,11 @@ const InviteFriendsScreen = () => {
 
   const uid = userInfo?.uid || userInfo?.user?.uid || '';
   const inviteCode = getInviteCode(uid);
-  const inviteUrl = `https://ileafu.com/refer?code=${inviteCode}`;
-  const inviteMessage = `Join me on ileafU
-
-ileafU is the first marketplace designed for plant imports.
-
-It connects collectors in the United States with 80+ trusted suppliers across Asia, so you can discover and order rare plants in one place — without dealing with individual growers or complicated logistics.
-
-With ileafU, we can:
-Explore plants beyond imagination
-Save on air cargo with the Shipping Buddy system
-Shop confidently with a Live Arrival Guarantee
-
-ileafU manages the logistics from their Bangkok consolidation hub to your doorstep in the U.S., saving you time and unnecessary shipping chaos.
-
-When you buy your first plant, you’ll receive 20 Leaf Coins, and I’ll earn 20 Leaf Points.
-Each Coin or Point is worth about $1 toward future purchases.
-
-Import Smarter with ileafU.\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
+  const inviteUrl = buildInviteUrl(inviteCode);
 
   // Save invite code -> UID mapping so the backend can resolve referrals
   useEffect(() => {
-    if (uid && inviteCode && inviteCode !== '------') {
-      setDoc(doc(db, 'referralCodes', inviteCode), { uid }, { merge: true }).catch(() => {});
-    }
+    publishReferralCodeMapping(uid, inviteCode);
   }, [uid, inviteCode]);
 
   // Fetch referral stats on mount (use mock data for rorounifix@gmail.com)
@@ -188,12 +162,6 @@ Import Smarter with ileafU.\n\nUse my link: ${inviteUrl}\nOr enter my code: ${in
     return () => { cancelled = true; };
   }, [uid, useMockReferrals]);
 
-  const runShareAfterInteractions = fn => {
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(fn, Platform.OS === 'ios' ? 250 : 100);
-    });
-  };
-
   const handleCopy = async (field) => {
     const content = field === 'code' ? inviteCode : inviteUrl;
     runShareAfterInteractions(async () => {
@@ -217,21 +185,7 @@ Import Smarter with ileafU.\n\nUse my link: ${inviteUrl}\nOr enter my code: ${in
     });
   };
 
-  const handleShare = () => {
-    runShareAfterInteractions(async () => {
-      try {
-        await Share.open({
-          message: inviteMessage,
-          url: inviteUrl,
-          title: 'Join ileafU',
-        });
-      } catch (error) {
-        if (error?.message !== 'User did not share') {
-          Alert.alert('Error', 'Could not open share sheet. Please try again.');
-        }
-      }
-    });
-  };
+  const handleShare = () => shareReferralInvite(uid);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

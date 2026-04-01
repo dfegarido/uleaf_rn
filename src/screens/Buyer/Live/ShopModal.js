@@ -14,11 +14,28 @@ import {
 import ImageZoom from 'react-native-image-pan-zoom';
 import { db } from '../../../../firebase';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
+import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 
-const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow, onAddToCart }) => {
+const createdAtMs = (data) => {
+  const ts = data?.createdAt;
+  if (!ts) return 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (ts.seconds != null) return ts.seconds * 1000;
+  return 0;
+};
+
+const ShopModal = ({
+  isVisible,
+  onClose,
+  broadcasterId,
+  onBuyNow,
+  onAddToCart,
+  sessionListingIndexMap = {},
+}) => {
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'sold'
   const [allListings, setAllListings] = useState([]);
   const [soldListings, setSoldListings] = useState([]);
+  const [localIgIndexMap, setLocalIgIndexMap] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const pressInTimeout = useRef(null);
@@ -40,6 +57,15 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow, onAddToCart })
       querySnapshot.forEach((doc) => {
         listings.push({ id: doc.id, ...doc.data() });
       });
+
+      const sortedForIg = [...listings].sort(
+        (a, b) => createdAtMs(a) - createdAtMs(b),
+      );
+      const igMap = {};
+      sortedForIg.forEach((row, i) => {
+        igMap[row.id] = `IG${i + 1}`;
+      });
+      setLocalIgIndexMap(igMap);
 
       // Separate into all and sold
       const unSold = listings.filter(item => item.availableQty !== 0);
@@ -109,14 +135,24 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow, onAddToCart })
     setSelectedImage(item.imagePrimary);
   };
 
+  const igForListing = (item) =>
+    sessionListingIndexMap[item.id] || localIgIndexMap[item.id];
+
   const renderListingItem = ({ item }) => (
     <View style={styles.card}>
-      <TouchableOpacity
-                  onPress={() => handlePress(item)}
-                  activeOpacity={0.8}>
-        <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
-      </TouchableOpacity>
-      
+      <View style={styles.cardImageWrap}>
+        <TouchableOpacity
+          onPress={() => handlePress(item)}
+          activeOpacity={0.8}>
+          <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+        </TouchableOpacity>
+        {igForListing(item) ? (
+          <View style={styles.modalIndexBadge} pointerEvents="none">
+            <Text style={styles.modalIndexBadgeText}>{igForListing(item)}</Text>
+          </View>
+        ) : null}
+      </View>
+
       <View style={styles.overlayDetailsContainer}>
         <Text style={styles.plantName} numberOfLines={1}>
           {item.genus} {item.species}
@@ -126,22 +162,28 @@ const ShopModal = ({ isVisible, onClose, broadcasterId, onBuyNow, onAddToCart })
         <TouchableOpacity style={styles.buyButton} onPress={() => onBuyNow(item)}>
           <Text style={styles.buyButtonText}>Buy Now</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.addToCartButton}
-          onPress={() => onAddToCart && onAddToCart(item)}>
-          <Text style={styles.addToCartButtonText}>Add to Cart</Text>
-        </TouchableOpacity>
+        <LiveStreamAddToCartButton
+          style={styles.addToCartButtonSlot}
+          onPress={() => onAddToCart && onAddToCart(item)}
+        />
       </View>
     </View>
   );
 
   const renderSoldItem = ({ item }) => (
     <View style={styles.card}>
-      <TouchableOpacity
-                  onPress={() => handlePress(item)}
-                  activeOpacity={0.8}>
-        <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
-      </TouchableOpacity>
+      <View style={styles.cardImageWrap}>
+        <TouchableOpacity
+          onPress={() => handlePress(item)}
+          activeOpacity={0.8}>
+          <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+        </TouchableOpacity>
+        {igForListing(item) ? (
+          <View style={styles.modalIndexBadge} pointerEvents="none">
+            <Text style={styles.modalIndexBadgeText}>{igForListing(item)}</Text>
+          </View>
+        ) : null}
+      </View>
       <View style={styles.overlayDetailsContainer}>
         <Text style={styles.plantName} numberOfLines={2}>
           {item.genus} {item.species}
@@ -323,9 +365,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5E5',
   },
+  cardImageWrap: {
+    position: 'relative',
+    width: '100%',
+  },
   plantImage: {
     width: '100%',
     height: 300,
+  },
+  modalIndexBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#333',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  modalIndexBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 11,
   },
   priceContainer: {
     position: 'absolute',
@@ -363,7 +423,7 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     marginTop: 2,
-    color: '#23C16B',
+    color: '#F5F5F7',
     fontSize: 18,
     fontWeight: '800',
     textShadowColor: 'rgba(0,0,0,0.5)',
@@ -389,20 +449,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  addToCartButton: {
+  addToCartButtonSlot: {
     marginTop: 6,
-    backgroundColor: '#539461',
-    borderColor: '#539461',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  addToCartButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   soldToText: {
     fontSize: 12,

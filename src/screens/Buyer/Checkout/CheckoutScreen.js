@@ -174,7 +174,7 @@ const CheckoutScreen = () => {
     cargoDate,
     lockedFlightDate,
     lockedFlightKey,
-    checkingOrders,
+    plantFlightLoading,
     disablePlantFlightSelection,
     selectedFlightDate,
     shippingCalculation,
@@ -267,7 +267,7 @@ const CheckoutScreen = () => {
           lockedFlightDate={lockedFlightDate}
           flightDateOptions={flightDateOptions}
           selectedFlightDate={selectedFlightDate}
-          checkingOrders={checkingOrders}
+          checkingOrders={plantFlightLoading}
           shimmerAnim={shimmerAnim}
           disablePlantFlightSelection={disablePlantFlightSelection}
           flightLockInfo={flightLockInfo}
