@@ -96,10 +96,8 @@ const ScreenListingAction = ({navigation, route}) => {
       selectedIds.includes(item.id),
     );
 
-    // Step 1: Validation
-    const notInactiveItems = selectedItems.filter(
-      item => item.status.toLowerCase() !== 'inactive',
-    );
+    const norm = s => (s || '').trim().toLowerCase();
+    const notInactiveItems = selectedItems.filter(item => norm(item.status) !== 'inactive');
 
     if (notInactiveItems.length > 0) {
       Alert.alert('Validation', 'Some selected listings are not inactive.');
@@ -146,13 +144,19 @@ const ScreenListingAction = ({navigation, route}) => {
       selectedIds.includes(item.id),
     );
 
-    // Step 1: Validation - ensure all are currently active
-    const notActiveItems = selectedItems.filter(
-      item => item.status.toLowerCase() !== 'active',
-    );
+    const norm = s => (s || '').trim().toLowerCase();
+    const notAllowed =
+      activeTab === 'Group Chat Listing'
+        ? selectedItems.filter(item => norm(item.status) !== 'groupchatlisting')
+        : selectedItems.filter(item => norm(item.status) !== 'active');
 
-    if (notActiveItems.length > 0) {
-      Alert.alert('Validation', 'Some selected listings are not active.');
+    if (notAllowed.length > 0) {
+      Alert.alert(
+        'Validation',
+        activeTab === 'Group Chat Listing'
+          ? 'Some selected listings are not group chat listings.'
+          : 'Some selected listings are not active.',
+      );
       setLoading(false);
       return;
     }
@@ -487,7 +491,10 @@ const ScreenListingAction = ({navigation, route}) => {
           )}
 
           {/* Deactivate */}
-          {(activeTab === 'All' || activeTab === 'Active') && (
+          {(activeTab === 'All' ||
+            activeTab === 'Active' ||
+            activeTab === 'Group Chat Listing' ||
+            activeTab === 'Discounted') && (
             <TouchableOpacity onPress={onPressDeactivate}>
               <View style={{padding: 10, flexDirection: 'row'}}>
                 <ExCircleIcon width={20} height={20} />
@@ -499,7 +506,10 @@ const ScreenListingAction = ({navigation, route}) => {
           )}
 
           {/* Apply Discount */}
-          {(activeTab === 'All' || activeTab === 'Active') && (
+          {(activeTab === 'All' ||
+            activeTab === 'Active' ||
+            activeTab === 'Group Chat Listing' ||
+            activeTab === 'Inactive') && (
             <TouchableOpacity onPress={() => setShowSheetDiscount(true)}>
               <View style={{padding: 10, flexDirection: 'row'}}>
                 <DiscountIcon width={20} height={20} />

@@ -75,7 +75,10 @@ const ListingTable = ({
   onPressRemoveDiscountPost,
   onNavigateToDetail,
   activeTab,
-  onPressSetToActive
+  onPressSetToActive,
+  manageSelectMode = false,
+  manageSelectedIds = [],
+  onManageToggleSelect,
 }) => {
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -118,7 +121,11 @@ const ListingTable = ({
           <TouchableOpacity
             style={styles.row}
             key={listing.id + index}
-            onPress={() => onNavigateToDetail(listing.plantCode, listing.id)}>
+            onPress={() =>
+              manageSelectMode
+                ? onManageToggleSelect?.(listing.id)
+                : onNavigateToDetail(listing.plantCode, listing.id)
+            }>
             {/* Image and Checkbox */}
             <View
               style={{
@@ -138,11 +145,24 @@ const ListingTable = ({
               />
               <View style={{position: 'absolute', top: 15, left: 15}}>
                 {module === 'MAIN' ? (
-                  <InputCheckBox
-                    label=""
-                    checked={selectedIds.includes(listing.id)}
-                    onChange={() => navigateToListAction()}
-                  />
+                  activeTab === 'Active' ||
+                  activeTab === 'Group Chat Listing' ||
+                  activeTab === 'Inactive' ||
+                  activeTab === 'Discounted' ? (
+                    manageSelectMode ? (
+                      <InputCheckBox
+                        label=""
+                        checked={manageSelectedIds.includes(listing.id)}
+                        onChange={() => onManageToggleSelect?.(listing.id)}
+                      />
+                    ) : null
+                  ) : (
+                    <InputCheckBox
+                      label=""
+                      checked={selectedIds.includes(listing.id)}
+                      onChange={() => navigateToListAction()}
+                    />
+                  )
                 ) : (
                   listing.status != 'Out of Stock' && (
                     <InputCheckBox
