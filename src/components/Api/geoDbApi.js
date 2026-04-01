@@ -4,6 +4,7 @@
 
 import { GEODATABASE_CONFIG, API_ENDPOINTS } from '../../config/apiConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStaticUSStatesPage } from '../../data/usStatesStatic';
 
 // ============================================================================
 // REQUEST CACHE & DEDUPLICATION
@@ -66,69 +67,22 @@ const deduplicateRequest = async (cacheKey, requestFn) => {
 // ============================================================================
 
 /**
- * Simple function to get US states using the centralized config with pagination support
- * @param {number} limit - Maximum number of states to return (default: 5)
- * @param {number} offset - Number of records to skip (default: 0)
+ * US states for signup/dropdowns — bundled list only (no RapidAPI GeoDB).
+ * Avoids subscription/key issues; cities still load via your backend (getCitiesByStateApi).
+ * @param {number} limit - Page size
+ * @param {number} offset - Pagination offset
  * @returns {Promise<Object>} US states data
  */
 export const getUSStatesSimple = async (limit = 5, offset = 0) => {
   const cacheKey = `us_states_${limit}_${offset}`;
-  
-  // Check cache first
+
   const cached = getCachedResponse(cacheKey);
   if (cached) return cached;
-  
-  // Deduplicate concurrent requests
+
   return await deduplicateRequest(cacheKey, async () => {
-    try {
-      const url = GEODATABASE_CONFIG.ENDPOINTS.US_REGIONS(limit, offset);
-      console.log(`🇺🇸 Fetching US states (limit: ${limit}, offset: ${offset}):`, url);
-      
-      const requestOptions = GEODATABASE_CONFIG.createRequestOptions();
-      
-      const response = await fetch(url, requestOptions);
-      
-      console.log('📡 Response status:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ GeoDB API Error:', response.status, errorText);
-        
-        if (response.status === 429) {
-          console.log('⏱️ Rate limited, please try again...');
-          throw new Error('Rate limited - please try again in a moment');
-        }
-        
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
-      console.log(`✅ US states loaded: ${data.data?.length || 0} (total available: ${data.metadata?.totalCount || 'unknown'})`);
-      
-      const result = {
-        success: true,
-        states: data.data?.map(state => ({
-          name: state.name,
-          code: state.isoCode,
-          id: state.id
-        })) || [],
-        hasMore: data.data && data.data.length === limit && (offset + data.data.length) < (data.metadata?.totalCount || 999),
-        totalCount: data.metadata?.totalCount || 0
-      };
-      
-      // Cache successful response
-      setCachedResponse(cacheKey, result);
-      return result;
-    } catch (error) {
-      console.error('❌ Error loading US states:', error);
-      return {
-        success: false,
-        error: error.message,
-        states: [],
-        hasMore: false,
-        totalCount: 0
-      };
-    }
+    const result = getStaticUSStatesPage(limit, offset);
+    setCachedResponse(cacheKey, result);
+    return result;
   });
 };
 

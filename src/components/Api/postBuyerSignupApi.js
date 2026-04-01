@@ -1,10 +1,10 @@
+import {API_ENDPOINTS} from '../../config/apiConfig';
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
 export const postBuyerSignupApi = async signupData => {
   try {
     const authToken = await getStoredAuthToken();
-    const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/buyerSignup',
+    const response = await fetch(API_ENDPOINTS.BUYER_SIGNUP,
       {
         method: 'POST',
         headers: {

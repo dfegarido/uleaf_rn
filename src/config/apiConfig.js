@@ -160,6 +160,7 @@ export const setApiEnvironment = (useLocal) => {
 const generateEndpoints = () => ({
   // Authentication APIs
   FIREBASE_LOGIN: `${getBaseUrl()}/firebaseLogin`,
+  BUYER_SIGNUP: `${getBaseUrl()}/buyerSignup`,
   SIGN_IN_SUPPLIER: `${getBaseUrl()}/signInSupplier`,
   VALIDATE_SIGN_IN_PIN: `${getBaseUrl()}/validateSignInPin`,
   EXCHANGE_CUSTOM_TOKEN: `${getBaseUrl()}/exchangeCustomToken`,
