@@ -339,7 +339,18 @@ fi
                 header_search_paths << path
               end
             end
-            
+
+            # RNCSlider C++ uses <react/renderer/components/RNCSlider/...>; with use_frameworks! the
+            # podspec's common/cpp path is not always merged into this target — add explicitly.
+            [
+              '$(PODS_TARGET_SRCROOT)/common/cpp',
+              '$(PODS_ROOT)/Headers/Public/React-Core'
+            ].each do |p|
+              next if header_search_paths.any? { |e| e.to_s.include?(p) }
+
+              header_search_paths << "\"#{p}\""
+            end
+
             config.build_settings['HEADER_SEARCH_PATHS'] = header_search_paths
           end
         end

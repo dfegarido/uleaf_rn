@@ -16,8 +16,8 @@
     "build:ios": "npm run build:ios-bundle && cd ios && xcodebuild -workspace iLeafU.xcworkspace -scheme iLeafU -configuration Release -archivePath build/iLeafU.xcarchive archive",
     "build:ios-simulator": "npm run build:ios-bundle && cd ios && xcodebuild -workspace iLeafU.xcworkspace -scheme iLeafU -configuration Release -sdk iphonesimulator -derivedDataPath build",
     "clean": "cd android && ./gradlew clean && cd .. && rm -rf node_modules && npm install",
-    "clean:android": "cd android && ./gradlew clean && rm -rf android/app/build android/build android/android/build android/ios/build",
-    "clean:ios": "cd ios && rm -rf build && cd .. && rm -rf ios/build ios/main.jsbundle",
+    "clean:android": "cd android && ./gradlew clean && rm -rf app/build build app/.cxx",
+    "clean:ios": "rm -rf ios/build && rm -f ios/main.jsbundle",
     "clean:all": "npm run clean:android && npm run clean:ios && rm -rf $TMPDIR/react-* $TMPDIR/metro-* $TMPDIR/haste-* && watchman watch-del-all 2>/dev/null || true",
     "reset-cache": "npx react-native start --reset-cache"
   },
