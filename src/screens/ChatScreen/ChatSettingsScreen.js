@@ -16,6 +16,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   Image,
   Modal,
@@ -30,6 +31,8 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+
+const SCREEN_H = Dimensions.get('window').height;
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import TrashcanIcon from '../../assets/iconchat/trashcan.svg';
@@ -1871,55 +1874,61 @@ const ChatSettingsScreen = ({navigation, route}) => {
                   onChangeText={setSearchText}
                   style={styles.addMemberSearchInput}
                   placeholderTextColor="#647276"
+                  returnKeyType="search"
                 />
               </View>
 
-              {fetchingUsers ? (
-                <View style={styles.skeletonListContainer}>
-                  {Array.from({length: 5}).map((_, idx) => (
-                    <SkeletonUserItem key={`skeleton-${idx}`} index={idx} />
-                  ))}
-                </View>
-              ) : (
-                <FlatList
-                  data={applyUserAndCountryFilter(filteredUsers)}
-                  keyExtractor={item => item.uid}
-                  renderItem={({item}) => {
-                    const isSelected = selectedUsersToAdd.some(u => u.uid === item.uid);
-                    return (
-                      <TouchableOpacity
-                        onPress={() => toggleUserSelection(item)}
-                        style={[
-                          styles.userItem,
-                          isSelected && styles.userItemSelected
-                        ]}>
-                        <Image
-                          source={item.avatarUrl}
-                          style={styles.userItemAvatar}
-                        />
-                        <View style={styles.userItemInfo}>
-                          <Text style={styles.userItemName}>{item.name}</Text>
-                          {item.email && <Text style={styles.userItemEmail}>{item.email}</Text>}
-                        </View>
-                        {/* Checkbox */}
-                        <View style={[
-                          styles.checkbox,
-                          isSelected && styles.checkboxSelected
-                        ]}>
-                          {isSelected && (
-                            <Text style={styles.checkboxCheck}>✓</Text>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  }}
-                  ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>No users found</Text>
-                    </View>
-                  }
-                />
-              )}
+              <View style={styles.addMemberBody}>
+                {fetchingUsers ? (
+                  <View style={styles.skeletonListContainer}>
+                    {Array.from({length: 8}).map((_, idx) => (
+                      <SkeletonUserItem key={`skeleton-${idx}`} index={idx} />
+                    ))}
+                  </View>
+                ) : (
+                  <FlatList
+                    data={applyUserAndCountryFilter(filteredUsers)}
+                    keyExtractor={item => item.uid}
+                    style={styles.addMemberUserList}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                    renderItem={({item}) => {
+                      const isSelected = selectedUsersToAdd.some(u => u.uid === item.uid);
+                      return (
+                        <TouchableOpacity
+                          onPress={() => toggleUserSelection(item)}
+                          style={[
+                            styles.userItem,
+                            isSelected && styles.userItemSelected
+                          ]}>
+                          <Image
+                            source={item.avatarUrl}
+                            style={styles.userItemAvatar}
+                          />
+                          <View style={styles.userItemInfo}>
+                            <Text style={styles.userItemName}>{item.name}</Text>
+                            {item.email && <Text style={styles.userItemEmail}>{item.email}</Text>}
+                          </View>
+                          {/* Checkbox */}
+                          <View style={[
+                            styles.checkbox,
+                            isSelected && styles.checkboxSelected
+                          ]}>
+                            {isSelected && (
+                              <Text style={styles.checkboxCheck}>✓</Text>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    }}
+                    ListEmptyComponent={
+                      <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>No users found</Text>
+                      </View>
+                    }
+                  />
+                )}
+              </View>
             </View>
           </View>
 
@@ -2454,7 +2463,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 34,
-    maxHeight: '80%',
+    width: '100%',
+    height: SCREEN_H * 0.82,
+    maxHeight: SCREEN_H * 0.92,
+  },
+  addMemberBody: {
+    flex: 1,
+    minHeight: 200,
+  },
+  addMemberUserList: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',
