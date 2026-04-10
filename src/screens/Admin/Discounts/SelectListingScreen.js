@@ -9,6 +9,37 @@ import FlagTH from '../../../assets/country-flags/TH.svg';
 import FlagID from '../../../assets/country-flags/ID.svg';
 import FlagPH from '../../../assets/country-flags/PH.svg';
 
+function withoutSoldListings(listings) {
+  return (listings || []).filter(l => {
+    const st = String(l?.status ?? '').trim().toLowerCase();
+    return st !== 'sold';
+  });
+}
+
+function listingHasVariationStock(listing) {
+  const vars = listing?.variations;
+  if (!Array.isArray(vars) || vars.length === 0) return false;
+  return vars.some(v => Number(v?.availableQty ?? v?.quantity ?? 0) > 0);
+}
+
+/** Exclude sold-out live listings (buyer ShopModal treats availableQty === 0 as sold). */
+function withoutSoldLiveListings(listings) {
+  return (listings || []).filter(l => {
+    const st = String(l?.status ?? '').trim().toLowerCase();
+    if (st === 'sold') return false;
+    if (listingHasVariationStock(l)) return true;
+    const qtyRaw = l?.quantity ?? l?.availableQty;
+    if (qtyRaw === undefined || qtyRaw === null) return true;
+    const qty = Number(qtyRaw);
+    if (Number.isNaN(qty)) return true;
+    if (qty > 0) return true;
+    const soldQty = Number(l?.soldQty ?? 0);
+    // No remaining stock on a Live row, or zero stock with recorded sales
+    if (st === 'live' || soldQty > 0) return false;
+    return true;
+  });
+}
+
 const SelectListingScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -63,7 +94,7 @@ const SelectListingScreen = () => {
           return;
         }
         const res = await getAdminListingsApi({ limit: 100, page: 1 });
-        const listings = res?.data?.listings || [];
+        const listings = withoutSoldListings(res?.data?.listings || []);
         if (isMounted && listingType === 'regular') {
           setListingOptions(listings);
           setListingLoading(false);
@@ -104,11 +135,11 @@ const SelectListingScreen = () => {
         }
 
         if (res?.success && res?.data?.listings) {
-          const listings = res.data.listings || [];
+          const listings = withoutSoldLiveListings(res.data.listings || []);
           // All listings with status 'Live' are live sale listings
           // The getAdminListingsApi may not return sessionId in the response,
           // but if status is 'Live', they are live sale listings
-          console.log(`Found ${listings.length} live sale listings with status 'Live'`);
+          console.log(`Found ${listings.length} live sale listings (sold / sold-out removed)`);
           console.log('Sample listing keys:', listings[0] ? Object.keys(listings[0]) : 'No listings');
           console.log('Sample listing sessionId:', listings[0]?.sessionId || 'Not in response');
           
