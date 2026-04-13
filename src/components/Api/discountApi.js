@@ -49,6 +49,9 @@ export const createDiscountApi = async (discountData) => {
       ...(discountData.type === 'freeShipping' && {
         freeUpsShipping: Boolean(discountData.freeUpsShipping),
         freeAirCargo: Boolean(discountData.freeAirCargo),
+        ...(discountData.freeUpsShipping && {
+          freeUpsFirstPlantOnly: discountData.freeUpsFirstPlantOnly !== false,
+        }),
       }),
       // Date and time fields
       startDate: discountData.startDate,
@@ -183,6 +186,9 @@ export const updateDiscountApi = async (discountId, discountData) => {
       ...(discountData.type === 'freeShipping' && {
         freeUpsShipping: Boolean(discountData.freeUpsShipping),
         freeAirCargo: Boolean(discountData.freeAirCargo),
+        ...(discountData.freeUpsShipping && {
+          freeUpsFirstPlantOnly: discountData.freeUpsFirstPlantOnly !== false,
+        }),
       }),
       startDate: discountData.startDate,
       startTime: discountData.startTime,

@@ -410,14 +410,18 @@ const OrderSummary = ({
           {(orderSummary.codeDiscount > 0 || (orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) || (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)) && (
             <View style={styles.discountAppliedSimple}>
               <Text style={styles.discountAppliedSimpleText}>
-                ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied
                 {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 ? (
-                  <Text> • Free shipping applied • You saved {formatCurrencyFull(orderSummary.freeShippingDiscount)}</Text>
-                ) : (orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0) ? (
-                  <Text> • Event Gift discount applied • You saved {formatCurrencyFull(orderSummary.eventGiftDiscount)}</Text>
-                ) : orderSummary.codeDiscount > 0 ? (
-                  <Text> • You saved {formatCurrencyFull(orderSummary.codeDiscount)}</Text>
-                ) : null}
+                  <>You saved {formatCurrencyFull(orderSummary.freeShippingDiscount)} on shipping.</>
+                ) : (
+                  <>
+                    ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied
+                    {(orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0) ? (
+                      <Text> • Event Gift discount applied • You saved {formatCurrencyFull(orderSummary.eventGiftDiscount)}</Text>
+                    ) : orderSummary.codeDiscount > 0 ? (
+                      <Text> • You saved {formatCurrencyFull(orderSummary.codeDiscount)}</Text>
+                    ) : null}
+                  </>
+                )}
               </Text>
             </View>
           )}

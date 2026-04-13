@@ -151,6 +151,8 @@ const FreeShipping = () => {
   // Event detail checkboxes
   const [freeUpsShipping, setFreeUpsShipping] = useState(false);
   const [freeAirCargo, setFreeAirCargo] = useState(false);
+  /** When true, free UPS covers only the first plant’s UPS (and its Next Day share); others pay add-ons. */
+  const [freeUpsFirstPlantOnly, setFreeUpsFirstPlantOnly] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -604,6 +606,18 @@ const FreeShipping = () => {
             </View>
             <Text style={styles.optionText}>Free UPS Shipping (2nd Day + Next Day)</Text>
           </TouchableOpacity>
+          {freeUpsShipping && (
+            <TouchableOpacity style={[styles.optionRow, {paddingLeft: 28}]} activeOpacity={0.7} onPress={() => setFreeUpsFirstPlantOnly(prev => !prev)}>
+              <View style={[styles.checkboxSquare, freeUpsFirstPlantOnly ? styles.checkboxSquareSelected : styles.checkboxSquareDefault]}>
+                {freeUpsFirstPlantOnly && (
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                )}
+              </View>
+              <Text style={styles.optionText}>First plant only — $50 off UPS ($65 if Next Day); rest pay add-ons</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <View style={styles.dividerStrip} />
 
@@ -1252,6 +1266,7 @@ const FreeShipping = () => {
                   type: 'freeShipping',
                   freeAirCargo,
                   freeUpsShipping,
+                  ...(freeUpsShipping ? {freeUpsFirstPlantOnly} : {}),
                   startDate,
                   startTime,
                   endDate: endDateEnabled ? endDate : undefined,

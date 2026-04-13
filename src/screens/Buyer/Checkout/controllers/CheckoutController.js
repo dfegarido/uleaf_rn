@@ -1266,6 +1266,8 @@ export const useCheckoutController = (props) => {
         freeShippingDiscount = {
           freeUpsShipping: appliedDiscount.discountDetails.freeUpsShipping || false,
           freeAirCargo: appliedDiscount.discountDetails.freeAirCargo || false,
+          freeUpsFirstPlantOnly:
+            appliedDiscount.discountDetails.freeUpsFirstPlantOnly === true,
         };
         console.log('🚚 [fetchShippingCalculation] Free shipping discount applied:', freeShippingDiscount);
       }
@@ -1404,6 +1406,8 @@ export const useCheckoutController = (props) => {
       freeShippingDiscount: appliedDiscount.discountDetails?.type === 'freeShipping' ? {
         freeUpsShipping: appliedDiscount.discountDetails.freeUpsShipping,
         freeAirCargo: appliedDiscount.discountDetails.freeAirCargo,
+        freeUpsFirstPlantOnly:
+          appliedDiscount.discountDetails.freeUpsFirstPlantOnly === true,
       } : null,
     });
 
