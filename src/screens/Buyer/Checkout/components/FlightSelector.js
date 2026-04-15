@@ -65,6 +65,25 @@ const FlightSelector = ({
     return Platform.OS === 'android';
   };
 
+  // Cutoff is per flight date from the API; must follow the selected option, not always index 0.
+  const cutoffOptionForDisplay = (() => {
+    if (!flightDateOptions.length) return null;
+    const selIso = selectedFlightDate?.iso;
+    if (selIso) {
+      const byIso = flightDateOptions.find((o) => o.iso === selIso);
+      if (byIso) return byIso;
+      if (normalizeFlightKey) {
+        const key = normalizeFlightKey(selIso);
+        const byKey = flightDateOptions.find(
+          (o) => normalizeFlightKey(o.iso || o.value || '') === key,
+        );
+        if (byKey) return byKey;
+      }
+    }
+    return flightDateOptions[0];
+  })();
+  const displayCutoffDateLabel = cutoffOptionForDisplay?.cutoffDateLabel;
+
   const handleFlightSelection = (option) => {
     console.log('🛫 [FlightSelector] handleFlightSelection called with option:', option);
     
@@ -124,14 +143,14 @@ const FlightSelector = ({
         ) : null}
       </View>
 
-      {/* Cutoff Date Info */}
-      {flightDateOptions.length > 0 && flightDateOptions[0]?.cutoffDateLabel && (
+      {/* Cutoff Date Info — tied to the selected flight, not the first card */}
+      {flightDateOptions.length > 0 && displayCutoffDateLabel ? (
         <View style={styles.cutoffDateContainer}>
           <Text style={styles.cutoffDateLabel}>
-            Order cutoff: <Text style={styles.cutoffDateValue}>{flightDateOptions[0].cutoffDateLabel}</Text>
+            Order cutoff: <Text style={styles.cutoffDateValue}>{displayCutoffDateLabel}</Text>
           </Text>
         </View>
-      )}
+      ) : null}
 
       {/* Options */}
       <View style={styles.flightOptions}>
