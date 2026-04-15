@@ -42,6 +42,35 @@ const toISODateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * getAdminFilters returns flightDates as MMM-DD-YYYY (moment); calendar uses YYYY-MM-DD.
+ * Without normalization every day stays disabled and looks "unclickable".
+ */
+const parseAdminFlightDateTokenToIso = (token) => {
+  if (token == null) return null;
+  const s = typeof token === 'string' ? token.trim() : String(token).trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const mmm = s.match(/^([A-Za-z]{3})-(\d{1,2})-(\d{4})$/);
+  if (mmm) {
+    const monKey = mmm[1].slice(0, 3).toLowerCase();
+    const monthMap = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+    };
+    const mi = monthMap[monKey];
+    if (mi === undefined) return null;
+    const day = parseInt(mmm[2], 10);
+    const year = parseInt(mmm[3], 10);
+    const d = new Date(year, mi, day);
+    if (isNaN(d.getTime())) return null;
+    return toISODateString(d);
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return toISODateString(d);
+  return null;
+};
+
 const SelectedDateChip = ({ date, onRemove }) => (
   <View style={styles.selectedChip}>
     <Text style={styles.selectedChipText}>{formatFlightDate(date)}</Text>
@@ -73,6 +102,16 @@ const PlantFlightFilter = ({
       ? selectedValues.filter(v => typeof v === 'string' && v.trim().length > 0)
       : [];
   }, [Array.isArray(selectedValues) ? selectedValues.join(',') : '']);
+
+  const availableFlightDateIsoSet = useMemo(() => {
+    const set = new Set();
+    const list = Array.isArray(flightDates) ? flightDates : [];
+    list.forEach((entry) => {
+      const iso = parseAdminFlightDateTokenToIso(entry);
+      if (iso) set.add(iso);
+    });
+    return set;
+  }, [Array.isArray(flightDates) ? flightDates.join('|') : '']);
 
   // Initialize draft selection when modal opens
   useEffect(() => {
@@ -131,9 +170,7 @@ const PlantFlightFilter = ({
   const isDateAvailable = (day) => {
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     const dateISO = toISODateString(date);
-    // Check if this date exists in the flightDates array
-    const isAvailable = flightDates.includes(dateISO);
-    return isAvailable;
+    return availableFlightDateIsoSet.has(dateISO);
   };
 
   const handleRemoveDate = (dateToRemove) => {
