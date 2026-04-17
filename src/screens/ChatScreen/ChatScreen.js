@@ -1002,12 +1002,18 @@ const ChatScreen = ({navigation, route}) => {
     }
   };
 
+  // Own messages always; admins may delete any message in group chats (moderation).
+  const canDeleteMessageFromTooltip = (msg) => {
+    if (!msg || !currentUserUid) return false;
+    if (msg.senderId === currentUserUid) return true;
+    return isAdminViewer && chatType === 'group';
+  };
+
   // Handle delete from tooltip
   const handleDeleteFromTooltip = () => {
     if (!messageTooltip) return;
-    
-    // Check if user owns the message
-    if (messageTooltip.senderId !== currentUserUid) {
+
+    if (!canDeleteMessageFromTooltip(messageTooltip)) {
       Alert.alert('Cannot delete', 'You can only delete your own messages.');
       setMessageTooltip(null);
       return;
@@ -1046,8 +1052,16 @@ const ChatScreen = ({navigation, route}) => {
 
     try {
       if (toDelete.isListing) {
-        // Delete listing via API, then remove the message doc
-        await postListingDeleteApi(toDelete.plantCode);
+        // Owner deleting own listing: remove listing + message. Admin removing someone else's
+        // listing post from a group: remove the message only (do not delete the seller's listing).
+        const skipListingProductDelete =
+          isAdminViewer &&
+          chatType === 'group' &&
+          toDelete.senderId &&
+          toDelete.senderId !== currentUserUid;
+        if (!skipListingProductDelete) {
+          await postListingDeleteApi(toDelete.plantCode);
+        }
         if (toDelete.id) {
           await deleteDoc(doc(db, 'messages', toDelete.id));
         }
@@ -2568,8 +2582,8 @@ const ChatScreen = ({navigation, route}) => {
                   </View>
                 </TouchableOpacity>
               )}
-              {/* Delete - only for own messages */}
-              {messageTooltip.senderId === currentUserUid && (
+              {/* Delete: own messages, or admin moderating group chat */}
+              {canDeleteMessageFromTooltip(messageTooltip) && (
                 <TouchableOpacity
                   style={styles.tooltipIconButton}
                   onPress={handleDeleteFromTooltip}>
