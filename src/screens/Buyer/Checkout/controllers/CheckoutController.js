@@ -88,14 +88,14 @@ export const useCheckoutController = (props) => {
   };
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
-      street: '123 Main St',
-      city: 'New York',
-      state: 'NY',
-      zipCode: '10001',
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
       country: 'US',
     },
-    contactPhone: '+1-555-0123',
-    specialInstructions: 'Leave at front door',
+    contactPhone: '',
+    specialInstructions: '',
   });
 
   const [cargoDate, setCargoDate] = useState();
@@ -129,6 +129,8 @@ export const useCheckoutController = (props) => {
   const [receiverFlightDate, setReceiverFlightDate] = useState(null);
   const [disableAddressSelection, setDisableAddressSelection] = useState(false);
   const [disableFlightSelection, setDisableFlightSelection] = useState(false);
+  /** When false, skip loading address book so joiners do not briefly see their own first saved address. */
+  const [joinerCheckComplete, setJoinerCheckComplete] = useState(false);
 
   const [vaultedPaymentId, setVaultedPaymentId] = useState(null);
   const [vaultedPaymentUsername, setVaultedPaymentUsername] = useState(null);
@@ -1785,6 +1787,9 @@ export const useCheckoutController = (props) => {
           console.log('[CheckoutController] Skipping joiner check - no token (likely during logout)');
           return;
         }
+
+        const structuredAddressLine = (addr) =>
+          String(addr?.street || addr?.streetAddress || addr?.address || '').trim();
         console.log('[CheckoutController] Receiver request result:', receiverRequestResult);
         console.log('[CheckoutController] Receiver data:', receiverRequestResult?.data);
         console.log('[CheckoutController] receiverUpsNextDay value:', receiverRequestResult?.data?.receiverUpsNextDay);
@@ -1799,9 +1804,11 @@ export const useCheckoutController = (props) => {
             setDisableAddressSelection(true);
             setDisableFlightSelection(true);
             
-            // Use structured shipping address data if available, otherwise parse the string
-            if (receiverData.shippingAddressData) {
-              // Use structured data directly (preferred)
+            // Prefer structured data only when it has a real street line (API may send empty object)
+            if (
+              receiverData.shippingAddressData &&
+              structuredAddressLine(receiverData.shippingAddressData).length > 0
+            ) {
               const addr = receiverData.shippingAddressData;
               setDeliveryDetails({
                 address: {
@@ -1949,6 +1956,8 @@ export const useCheckoutController = (props) => {
         setIsJoinerApproved(false);
         setDisableAddressSelection(false);
         setDisableFlightSelection(false);
+      } finally {
+        setJoinerCheckComplete(true);
       }
     };
 
@@ -1957,6 +1966,9 @@ export const useCheckoutController = (props) => {
 
   useEffect(() => {
     const loadDeliveryDetails = async () => {
+      if (!joinerCheckComplete) {
+        return;
+      }
       // Skip loading if user is an approved joiner (address already set from receiver)
       if (isJoinerApproved) {
         return;
@@ -1986,7 +1998,7 @@ export const useCheckoutController = (props) => {
     };
 
     loadDeliveryDetails();
-  }, [isJoinerApproved]);
+  }, [isJoinerApproved, joinerCheckComplete]);
 
   // Load user profile and credits
   useEffect(() => {
