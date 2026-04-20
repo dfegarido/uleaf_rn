@@ -7,7 +7,7 @@ import { View,
   Dimensions,
   StatusBar,
   Image} from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import ScreenHeader from '../../../components/Admin/header';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -23,7 +23,6 @@ const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
 const SalesReport = () => {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('Period');
@@ -1030,7 +1029,7 @@ const SalesReport = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
       
       {/* Header */}
