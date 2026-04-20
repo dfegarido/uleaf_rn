@@ -1,6 +1,5 @@
 import React, {useEffect, useState, useContext} from 'react';
-import {
-  View,
+import { View,
   Text,
   RefreshControl,
   Image,
@@ -8,14 +7,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Alert,
   Platform,
   Modal,
-  ActivityIndicator,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  ActivityIndicator} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {InputSearch} from '../../../components/InputGroup/Left';
 import NetInfo from '@react-native-community/netinfo';
 import StatusBadge from './components/ListingStatusBadge';

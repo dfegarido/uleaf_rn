@@ -16,8 +16,7 @@
  */
 
 import React, {useState, useEffect, useContext} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   ScrollView,

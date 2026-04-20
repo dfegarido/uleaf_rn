@@ -1,12 +1,10 @@
 import React, {useState, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from 'react-native';
+  StyleSheet} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {CheckBoxGroup} from '../../components/CheckBox';
 import {globalStyles} from '../../assets/styles/styles';

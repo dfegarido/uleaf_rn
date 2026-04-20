@@ -1,18 +1,15 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   Image,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Modal,
-  Animated,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  Animated} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import ScreenHeader from '../../../components/Admin/header';
 import CalendarIcon from '../../../assets/icons/greylight/calendar-blank-regular.svg';

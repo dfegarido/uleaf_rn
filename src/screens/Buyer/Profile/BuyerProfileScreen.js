@@ -1,6 +1,5 @@
 import React, {useContext, useEffect, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -16,8 +15,7 @@ import Svg, {Path} from 'react-native-svg';
 import {useIsFocused} from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {
-  getBuyerProfileApi,
+import { getBuyerProfileApi,
   getAddressBookEntriesApi,
   deactivateBuyerApi,
   getBuddyRequestsApi,

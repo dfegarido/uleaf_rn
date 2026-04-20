@@ -1,12 +1,10 @@
 import React from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
-  Image,
-} from 'react-native';
+  Image} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {useEffect, useState} from 'react';
 import {checkMaintenanceApi} from '../../components/Api/maintenanceApi';
 

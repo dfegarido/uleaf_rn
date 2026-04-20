@@ -3,8 +3,7 @@ import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, Vi
 import { db } from '../../../firebase';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
-import {
-  addDoc,
+import { addDoc,
   collection,
   doc,
   getDocs,

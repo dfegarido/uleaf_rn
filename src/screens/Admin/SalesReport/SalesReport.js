@@ -1,16 +1,13 @@
 import React, {useState, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
-  Image,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  Image} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import ScreenHeader from '../../../components/Admin/header';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';

@@ -1,19 +1,16 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Image,
   Modal,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  View} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
 import { getSellDraftListingApi } from '../../../components/Api';
 import { retryAsync } from '../../../utils/utils';

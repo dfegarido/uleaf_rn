@@ -1,5 +1,4 @@
-import {
-  addDoc,
+import { addDoc,
   collection,
   deleteDoc,
   doc,
@@ -13,8 +12,7 @@ import {
   where
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -27,8 +25,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import {
-  ChannelProfileType,
+import { ChannelProfileType,
   ClientRoleType,
   createAgoraRtcEngine,
   RtcSurfaceView,

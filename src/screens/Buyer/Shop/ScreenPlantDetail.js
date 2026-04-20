@@ -2,24 +2,21 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
+import { Alert,
   Dimensions,
   Image,
   InteractionManager,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import Share from 'react-native-share';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import CloseIcon from '../../../assets/buyer-icons/close.svg';
 import FlightIcon from '../../../assets/buyer-icons/flight.svg';
 import HeartSolidIcon from '../../../assets/buyer-icons/heart.svg';

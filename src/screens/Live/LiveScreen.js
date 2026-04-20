@@ -1,12 +1,10 @@
-import {
-  collection,
+import { collection,
   onSnapshot,
   query,
   where
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useState } from 'react';
-import {
-  Dimensions,
+import { Dimensions,
   ImageBackground,
   ScrollView,
   StatusBar,

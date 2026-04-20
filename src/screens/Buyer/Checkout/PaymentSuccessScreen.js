@@ -1,13 +1,11 @@
 import React, {useEffect, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
-  Alert,
-} from 'react-native';
+  Alert} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import PaymentManager from '../../utils/PaymentManager';
 

@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  RefreshControl,
-  SafeAreaView,
-  Platform,
-} from 'react-native';
+  RefreshControl} from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import PlusIcon from '../../../assets/icons/greylight/plus-regular.svg';
@@ -19,7 +15,6 @@ import { getFlightChangeRequestsApi } from '../../../components/Api/orderManagem
 
 const RequestChangePlantFlightScreen = () => {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -115,11 +110,11 @@ const RequestChangePlantFlightScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={Platform.OS === 'android' ? ['top'] : []}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={[styles.header, {paddingTop: Platform.OS === 'android' ? Math.max(insets.top + 10, 16) : 16}]}>
+      {/* Header — extra top padding is from SafeAreaView; small nudge for title row */}
+      <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -227,6 +222,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 12,
     paddingBottom: 12,
     paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',

@@ -2,8 +2,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useContext, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   ImageBackground,

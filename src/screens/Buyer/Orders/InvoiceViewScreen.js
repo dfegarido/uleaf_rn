@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+  ScrollView} from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
 import { getInvoicePdfApi, generateInvoiceApi } from '../../../components/Api/orderManagementApi';

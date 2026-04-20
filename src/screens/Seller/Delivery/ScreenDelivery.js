@@ -3,31 +3,27 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import React, { useContext, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   Image,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  View} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import ScanQrIcon from '../../../assets/admin-icons/qr.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { getSellerOrderCounts } from '../../../components/Api/sellerOrderApi';
 import { retryAsync } from '../../../utils/utils';
 import OrderActionSheet from '../Order/components/OrderActionSheet';
 
-import {
-  getDeliveryExportApi,
+import { getDeliveryExportApi,
   getListingTypeApi,
   getOrderListingApi,
   getSortApi,

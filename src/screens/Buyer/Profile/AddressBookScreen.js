@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
+import { View, 
   Text, 
   StyleSheet, 
   ScrollView, 
@@ -14,8 +13,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { retryAsync } from '../../../utils/utils';
-import {
-  getAddressBookEntriesApi,
+import { getAddressBookEntriesApi,
   updateAddressBookEntryApi,
   deleteAddressBookEntryApi,
 } from '../../../components/Api';

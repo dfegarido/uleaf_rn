@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
-import {
-  Alert,
+import { Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
+  View} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import DropdownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
 import { globalStyles } from '../../../../assets/styles/styles';

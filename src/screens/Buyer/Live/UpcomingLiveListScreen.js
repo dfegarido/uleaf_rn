@@ -1,8 +1,7 @@
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
-import {
-  Dimensions,
+import { Dimensions,
   ImageBackground,
   ScrollView,
   StatusBar,

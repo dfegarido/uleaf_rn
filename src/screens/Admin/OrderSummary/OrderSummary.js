@@ -1,7 +1,6 @@
 import React, {useRef, useState, useEffect} from 'react';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Animated,
   Image,
   Platform,

@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import {
-  Image,
-  SafeAreaView,
+import { Image,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,12 +10,10 @@ import {
   View,
   Modal,
   Dimensions,
-  Alert
-} from 'react-native';
+  Alert} from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  Camera,
+import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
+import { Camera,
   useCameraDevice,
   useCameraPermission,
   useCodeScanner

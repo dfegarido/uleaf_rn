@@ -1,5 +1,4 @@
-import {
-  addDoc,
+import { addDoc,
   deleteDoc,
   doc,
   getDoc,
@@ -14,13 +13,11 @@ import {
 } from 'firebase/firestore';
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -29,11 +26,10 @@ import {
   TouchableOpacity,
   View,
   Alert,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 
 const SCREEN_H = Dimensions.get('window').height;
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import TrashcanIcon from '../../assets/iconchat/trashcan.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -192,6 +188,11 @@ const ChatSettingsScreen = ({navigation, route}) => {
   // Invitation state for sellers
   const [isInvited, setIsInvited] = useState(false);
   const [acceptingInvitation, setAcceptingInvitation] = useState(false);
+
+  // Pending join requests (Firestore `chats/{id}/joinRequests`) — admin fetch / approve / reject
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [joinRequestUserDataMap, setJoinRequestUserDataMap] = useState({});
   
   // For private chats, show the other participant
   const otherUserInfo = !isGroupChat && participants && participants.length > 0
@@ -404,6 +405,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
     const fetchJoinRequests = async () => {
       if (!chatId || !isGroupChat || !isAdmin || !isFocused) {
         setJoinRequests([]);
+        setLoadingRequests(false);
         return;
       }
 

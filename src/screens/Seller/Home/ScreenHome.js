@@ -1,22 +1,18 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useCallback, useContext, useEffect, useState } from 'react';
-import {
-  Alert,
+import { Alert,
   Dimensions,
   Image,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  collection,
+  View} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import { collection,
   doc,
   getDoc,
   getDocs,
@@ -35,8 +31,7 @@ import { useUnreadMessageCount } from '../../../hooks/useUnreadMessageCount';
 import BusinessPerformance from './components/BusinessPerformance';
 import HomeDurationDropdown from './components/HomeDurationDropdown';
 
-import {
-  getDateFilterApi,
+import { getDateFilterApi,
   getHomeBusinessPerformanceApi,
   getHomeEventsApi,
   getHomeSummaryApi,

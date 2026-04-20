@@ -1,11 +1,9 @@
 import React, {useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   StatusBar,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Dimensions,
   Image,
@@ -13,9 +11,8 @@ import {
   FlatList,
   Alert,
   Modal,
-  ActivityIndicator,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  ActivityIndicator} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import {InputTextArea} from '../../components/Input';

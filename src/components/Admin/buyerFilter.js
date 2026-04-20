@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,8 +10,8 @@ import {
   TouchableWithoutFeedback,
   View,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 

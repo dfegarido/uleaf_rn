@@ -1,6 +1,5 @@
 import React, {useEffect, useState, useContext} from 'react';
-import {
-  View,
+import { View,
   Text,
   RefreshControl,
   Image,
@@ -8,14 +7,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Alert,
   Platform,
   Modal,
-  ActivityIndicator,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  ActivityIndicator} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {InputGroupLeftIcon} from '../../../components/InputGroup/Left';
 import {globalStyles} from '../../../assets/styles/styles';
@@ -39,8 +36,7 @@ import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import HeartIcon from '../../../assets/icons/greydark/heart-solid.svg';
 import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
-import {
-  getSortApi,
+import { getSortApi,
   getGenusApi,
   getVariegationApi,
   getListingTypeApi,

@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import {
-  Modal,
-  SafeAreaView,
+import { Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View
-} from 'react-native';
+  View} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CheckIcon from '../../assets/admin-icons/check.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 

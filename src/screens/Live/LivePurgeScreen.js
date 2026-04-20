@@ -1,8 +1,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -15,8 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
-import {
-  addViewerToLiveSession,
+import { addViewerToLiveSession,
   removeViewerFromLiveSession
 } from '../../components/Api/agoraLiveApi';
 

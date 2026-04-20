@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -17,8 +16,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
-import {
-  addDoc,
+import { addDoc,
   collection,
   deleteDoc,
   doc,

@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
-  SafeAreaView,
-} from 'react-native';
+  Alert} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import PlusIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import Svg, { Path } from 'react-native-svg';
@@ -34,7 +31,6 @@ const AttachmentIcon = ({width = 24, height = 24, fill = "#202325"}) => (
 
 const ReportAProblemScreen = () => {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const [problemDescription, setProblemDescription] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
 
@@ -55,11 +51,10 @@ const ReportAProblemScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={[styles.header, {paddingTop: insets.top + 10}]}>
+      <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
@@ -124,12 +119,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
     paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
     width: '100%',
-    marginTop: 12,
-    minHeight: 100,
   },
   backButton: {
     width: 24,

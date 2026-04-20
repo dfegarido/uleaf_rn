@@ -37,12 +37,6 @@ const App = () => {
   const [showUpdateScreen, setShowUpdateScreen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
 
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H-app',location:'App.js:mount',message:'App render state',data:{showUpdateScreen,hasUpdateInfo:!!updateInfo},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
-  }, [showUpdateScreen, updateInfo]);
-  // #endregion
-
   // Check app version on startup (runs once; logic kept inside effect for exhaustive-deps)
   useEffect(() => {
     let cancelled = false;

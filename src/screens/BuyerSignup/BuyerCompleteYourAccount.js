@@ -1,6 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   TextInput,
   TouchableOpacity,
@@ -9,9 +8,8 @@ import {
   Linking,
   useColorScheme,
   KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import CheckBox from '@react-native-community/checkbox';
 import IconEyeOpen from '../../assets/icons/greydark/eye-regular.svg';

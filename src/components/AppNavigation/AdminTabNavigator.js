@@ -35,8 +35,7 @@ import ViewShippingScreen from '../../screens/Admin/LeafTrail/Shipping/ViewShipp
 import SortingScreen from '../../screens/Admin/LeafTrail/Sorting/Sorting';
 import SortingDetailsScreen from '../../screens/Admin/LeafTrail/Sorting/ViewSorting';
 import LiveSetup from '../../screens/Admin/LiveSetup/LiveSetup';
-import {
-  AdminAccountInformationScreen,
+import { AdminAccountInformationScreen,
   AdminPrivacyPolicyScreen,
   AdminProfileScreen,
   AdminTermsOfUseScreen,

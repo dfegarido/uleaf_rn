@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TextInput,
@@ -8,16 +7,14 @@ import {
   ScrollView,
   StatusBar,
   Alert,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
   Modal,
-  ActivityIndicator,
-} from 'react-native';
+  ActivityIndicator} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import Svg, { Path } from 'react-native-svg';
@@ -532,7 +529,7 @@ const AddRequestChangePlantFlightScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}} edges={Platform.OS === 'android' ? ['top'] : []}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#FFFFFF'}} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{flex: 1}}
@@ -543,7 +540,7 @@ const AddRequestChangePlantFlightScreen = () => {
             <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
             {/* Header */}
-            <View style={[styles.header, {paddingTop: Platform.OS === 'android' ? Math.max(insets.top + 10, 16) : 16}]}>
+            <View style={styles.header}>
               <TouchableOpacity
                 onPress={() => navigation.goBack()}
                 style={styles.backButton}>
@@ -853,6 +850,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 12,
     paddingBottom: 12,
     paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',

@@ -2,8 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useRef, useState } from 'react'; // keep hook imports grouped
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Image,
   Linking,
@@ -25,8 +24,7 @@ import PromoBadgeList from '../../../components/PromoBadgeList';
 import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
 import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
-import {
-  genus1,
+import { genus1,
   genus2
 } from '../../../assets/buyer-icons/png';
 import ThailandIcon from '../../../assets/buyer-icons/thailand-flag.svg';
@@ -45,8 +43,7 @@ import scindapsusImage from '../../../assets/buyer-icons/png/scindapsus.jpg';
 import syngoniumImage from '../../../assets/buyer-icons/png/syngonium.jpg';
 
 import NetInfo from '@react-native-community/netinfo';
-import {
-  collection,
+import { collection,
   doc,
   getDoc,
   getDocs,
@@ -55,8 +52,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '../../../../firebase';
-import {
-  addToCartApi,
+import { addToCartApi,
   getBuyerEventsApi,
   getBuyerListingsApi,
   getGenusApi,
@@ -64,21 +60,18 @@ import {
   searchPlantsApi,
 } from '../../../components/Api';
 import { browsePlantsByGenusApi } from '../../../components/Api/listingBrowseApi';
-import {
-  getAcclimationIndexApi,
+import { getAcclimationIndexApi,
   getCountryApi,
   getListingTypeApi,
   getShippingIndexApi,
 } from '../../../components/Api/dropdownApi';
 import { InfoCard } from '../../../components/InfoCards';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
-import {
-  CACHE_KEYS,
+import { CACHE_KEYS,
   getCacheData,
   setCacheData,
 } from '../../../utils/dropdownCache';
-import {
-  CACHE_CONFIGS,
+import { CACHE_CONFIGS,
   getCachedImageUri,
   setCachedImageUri
 } from '../../../utils/imageCache';
@@ -200,12 +193,6 @@ const ScreenShop = ({navigation}) => {
       logAuthInfo();
     }, [user]),
   );
-
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H5-shop',location:'ScreenShop.js:mount',message:'ScreenShop mounted (Shop tab root)',data:{},timestamp:Date.now(),runId:'post-fix'})}).catch(()=>{});
-  }, []);
-  // #endregion
 
   // Initial data load effect
   useEffect(() => {

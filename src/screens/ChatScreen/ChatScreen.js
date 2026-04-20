@@ -1,6 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  addDoc,
+import { addDoc,
   arrayUnion,
   collection,
   deleteDoc,

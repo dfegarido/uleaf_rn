@@ -1,7 +1,6 @@
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState, useRef } from 'react';
-import {
-  FlatList,
+import { FlatList,
   Image,
   Modal,
   StyleSheet,

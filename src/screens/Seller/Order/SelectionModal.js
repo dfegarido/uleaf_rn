@@ -1,15 +1,13 @@
 import React from 'react';
-import {
-  FlatList,
+import { FlatList,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BoxIcon from '../../../assets/admin-icons/box-white.svg';
 import OptionsIcon from '../../../assets/admin-icons/options.svg';

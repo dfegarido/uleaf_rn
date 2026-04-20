@@ -1,4 +1,4 @@
-import { Alert, InteractionManager, Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import Share from 'react-native-share';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -42,9 +42,19 @@ export function publishReferralCodeMapping(uid, inviteCode) {
   return setDoc(doc(db, 'referralCodes', inviteCode), { uid }, { merge: true }).catch(() => {});
 }
 
+/**
+ * Defer opening the native share sheet until after the current JS/UI work settles.
+ * Uses requestIdleCallback per RN guidance (InteractionManager.runAfterInteractions is deprecated).
+ */
 export function runShareAfterInteractions(fn) {
-  InteractionManager.runAfterInteractions(() => {
-    setTimeout(fn, Platform.OS === 'ios' ? 250 : 100);
+  const delayMs = Platform.OS === 'ios' ? 250 : 100;
+  const scheduleIdle =
+    typeof requestIdleCallback === 'function'
+      ? callback => requestIdleCallback(callback, {timeout: 500})
+      : callback => setTimeout(callback, 0);
+
+  scheduleIdle(() => {
+    setTimeout(fn, delayMs);
   });
 }
 

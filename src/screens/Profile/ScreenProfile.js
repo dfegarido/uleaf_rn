@@ -1,15 +1,12 @@
 import React, {useContext, useEffect, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
   Image,
-  SafeAreaView,
   Alert,
-  Linking,
-} from 'react-native';
+  Linking} from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
 import {AuthContext} from '../../auth/AuthProvider';
 import {useIsFocused} from '@react-navigation/native';
@@ -18,7 +15,7 @@ import {retryAsync} from '../../utils/utils';
 
 import {getProfileInfoApi} from '../../components/Api';
 
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import ProfileIcon from '../../assets/icons/greydark/profile.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';

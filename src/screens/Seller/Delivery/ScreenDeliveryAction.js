@@ -1,19 +1,16 @@
 import React, {useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Alert,
   Modal,
   ActivityIndicator,
-  Platform,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  Platform} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../../assets/styles/styles';
 import DeliverTableList from './components/DeliverTableList';

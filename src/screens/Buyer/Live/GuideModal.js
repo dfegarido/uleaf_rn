@@ -1,6 +1,5 @@
 import React from 'react';
-import {
-  Modal,
+import { Modal,
   ScrollView,
   StyleSheet,
   Text,

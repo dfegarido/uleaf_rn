@@ -6,8 +6,7 @@ import React, {
   useRef,
   useState
 } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   BackHandler,
   Dimensions,
@@ -24,8 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
 import { AuthContext } from '../../../auth/AuthProvider';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
-import {
-  getMutationApi,
+import { getMutationApi,
   getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
@@ -34,8 +32,7 @@ import {
 } from '../../../components/Api';
 import { getActiveLiveListingApi } from '../../../components/Api/agoraLiveApi';
 import { ImagePickerModal } from '../../../components/ImagePicker';
-import {
-  InputBox,
+import { InputBox,
   InputCheckBox,
   InputDropdown,
   InputDropdownSearch,

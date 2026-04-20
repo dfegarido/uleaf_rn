@@ -1,15 +1,13 @@
 import React, {useEffect, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
-  Image,
-} from 'react-native';
+  Image} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 
 const TabFilter = ({tabFilters, activeTab, setActiveTab, onPressTab, disabled}) => {

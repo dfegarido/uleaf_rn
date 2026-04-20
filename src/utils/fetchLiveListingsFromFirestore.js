@@ -3,8 +3,7 @@
  * Used by the seller Listings tab when the Live tab is selected.
  * Supports cursor-based pagination for infinite scroll.
  */
-import {
-  collection,
+import { collection,
   getDocs,
   limit,
   orderBy,

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
+import { Animated,
   ActivityIndicator,
   Easing,
   Image,

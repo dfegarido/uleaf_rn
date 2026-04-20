@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
   ScrollView,
-  SafeAreaView,
-  Alert,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  Alert} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { updatePlantTaxonomyApi } from '../../../auth/updatePlantTaxonomyApi';
 

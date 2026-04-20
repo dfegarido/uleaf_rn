@@ -1,20 +1,18 @@
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import CubeIcon from '../../../../assets/admin-icons/cube-blue.svg';
 import MapPinIcon from '../../../../assets/admin-icons/map-pin.svg';

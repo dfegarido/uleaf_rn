@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import {
-  Modal,
-  SafeAreaView,
+import { Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
-} from 'react-native';
+  View} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 
 const LEAF_TRAIL_STATUSES = [

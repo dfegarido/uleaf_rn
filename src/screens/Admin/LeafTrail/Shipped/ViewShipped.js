@@ -1,19 +1,17 @@
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import BarcodeIcon from '../../../../assets/admin-icons/big-tracking.svg';
 import CalendarIcon from '../../../../assets/admin-icons/calendar.svg';

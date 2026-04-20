@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Alert,
   ActivityIndicator,
-  ScrollView,
-  SafeAreaView,
-} from 'react-native';
+  ScrollView} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
 import { getUSRegionsApi, getRegionCitiesApi, formatRegionsForApp, formatCitiesForApp } from '../../components/Api/geoDbApi';
 

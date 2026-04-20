@@ -1,6 +1,5 @@
 import React, {useContext, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   StatusBar,
   Image,
@@ -31,14 +30,8 @@ const ScreenLogin = ({navigation}) => {
   const safeBottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 16) : insets.bottom;
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H8',location:'ScreenLogin.js:mount',message:'ScreenLogin mounted',data:{},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
-    // #endregion
     const fetchData = async () => {
       const currentUser = auth?.currentUser;
-      // #region agent log
-      fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H9',location:'ScreenLogin.js:fetchData',message:'fetchData auth.currentUser check',data:{hasCachedUser:!!currentUser,uid:currentUser?.uid||null},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
-      // #endregion
 
       if (currentUser) {
         console.log('here mike');

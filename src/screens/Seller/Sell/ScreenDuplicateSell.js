@@ -1,6 +1,5 @@
 import React, {useEffect, useState, useLayoutEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   Image,
@@ -8,10 +7,8 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
-  RefreshControl,
-  SafeAreaView,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  RefreshControl} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useIsFocused} from '@react-navigation/native';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
 import NetInfo from '@react-native-community/netinfo';

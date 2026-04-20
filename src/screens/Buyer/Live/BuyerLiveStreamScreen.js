@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import {
-  addDoc,
+import { addDoc,
   collection,
   deleteDoc,
   doc,
@@ -14,8 +13,7 @@ import {
   where,
 } from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -30,8 +28,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {
-  ChannelProfileType,
+import { ChannelProfileType,
   ClientRoleType,
   createAgoraRtcEngine,
   RtcSurfaceView,
@@ -54,8 +51,7 @@ import CartIconSelected from '../../../assets/icontabs/buyer-tabs/cart-icon-sele
 import ShareReferralIcon from '../../../assets/live-icon/share-referral.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
-import {
-  addViewerToLiveSession,
+import { addViewerToLiveSession,
   generateAgoraToken,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,

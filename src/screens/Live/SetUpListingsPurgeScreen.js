@@ -1,8 +1,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import { doc, onSnapshot } from 'firebase/firestore';
 import React, { useContext, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,

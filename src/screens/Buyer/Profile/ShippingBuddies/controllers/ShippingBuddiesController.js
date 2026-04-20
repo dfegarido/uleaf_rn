@@ -3,8 +3,7 @@ import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../../../../../auth/AuthProvider';
 import { API_ENDPOINTS } from '../../../../../config/apiConfig';
-import {
-  submitReceiverRequestApi,
+import { submitReceiverRequestApi,
   getBuddyRequestsApi,
   approveRejectBuddyRequestApi,
   getMyReceiverRequestApi,

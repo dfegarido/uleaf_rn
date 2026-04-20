@@ -1,7 +1,6 @@
 import React from 'react';
 import {View, LogBox} from 'react-native';
-import {
-  VictoryChart,
+import { VictoryChart,
   VictoryBar,
   VictoryAxis,
   VictoryStack,

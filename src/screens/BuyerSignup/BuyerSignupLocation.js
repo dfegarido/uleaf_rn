@@ -1,15 +1,13 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import InputDropdownPaginated from '../../components/Input/InputDropdownPaginated';
