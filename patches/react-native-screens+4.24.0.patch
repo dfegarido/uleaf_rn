@@ -1,0 +1,231 @@
+diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+index 3f7b42c..ae78c1e 100644
+--- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
++++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+@@ -283,7 +283,9 @@ Class<RCTComponentViewProtocol> RNSFullWindowOverlayCls(void)
+ 
+ RCT_EXPORT_MODULE()
+ 
++#if !RCT_NEW_ARCH_ENABLED
+ RCT_EXPORT_VIEW_PROPERTY(accessibilityContainerViewIsModal, BOOL)
++#endif // !RCT_NEW_ARCH_ENABLED
+ 
+ #ifdef RCT_NEW_ARCH_ENABLED
+ #else
+diff --git a/node_modules/react-native-screens/ios/RNSModalScreen.mm b/node_modules/react-native-screens/ios/RNSModalScreen.mm
+index b671541..503ada7 100644
+--- a/node_modules/react-native-screens/ios/RNSModalScreen.mm
++++ b/node_modules/react-native-screens/ios/RNSModalScreen.mm
+@@ -55,11 +55,15 @@ Class<RCTComponentViewProtocol> RNSModalScreenCls(void)
+ 
+ RCT_EXPORT_MODULE()
+ 
+-#ifdef RCT_NEW_ARCH_ENABLED
+-#else
++// Same as RNSScreenManager: legacy interop uses the manager's `-view` as paperView under New Arch.
++// Without this, RCTViewManager falls back to RCTView and RNSScreenContainer rejects children.
+ - (UIView *)view
+ {
++#if RCT_NEW_ARCH_ENABLED
++  return [[RNSModalScreen alloc] initWithFrame:CGRectZero];
++#else
+   return [[RNSModalScreen alloc] initWithBridge:self.bridge];
++#endif
+ }
+-#endif // RCT_NEW_ARCH_ENABLED
++
+ @end
+diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
+index 826a6cd..0b98a6f 100644
+--- a/node_modules/react-native-screens/ios/RNSScreen.mm
++++ b/node_modules/react-native-screens/ios/RNSScreen.mm
+@@ -2248,6 +2248,11 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
+ 
+ RCT_EXPORT_MODULE()
+ 
++// In New Architecture mode the Fabric component (RNSScreenView) handles all prop/event
++// updates via updateProps:/handleCommand:. Exporting these from the legacy manager causes
++// RCTLegacyViewManagerInteropCoordinator to call setters on the fallback RCTView
++// (which does not implement them), producing doesNotRecognizeSelector crashes.
++#if !RCT_NEW_ARCH_ENABLED
+ // we want to handle the case when activityState is nil
+ RCT_REMAP_VIEW_PROPERTY(activityState, activityStateOrNil, NSNumber)
+ RCT_EXPORT_VIEW_PROPERTY(customAnimationOnSwipe, BOOL);
+@@ -2293,7 +2298,8 @@ RCT_EXPORT_VIEW_PROPERTY(sheetGrabberVisible, BOOL);
+ RCT_EXPORT_VIEW_PROPERTY(sheetCornerRadius, CGFloat);
+ RCT_EXPORT_VIEW_PROPERTY(sheetInitialDetent, NSInteger);
+ RCT_EXPORT_VIEW_PROPERTY(sheetExpandsWhenScrolledToEdge, BOOL);
+-#endif
++#endif // !TARGET_OS_TV
++#endif // !RCT_NEW_ARCH_ENABLED
+ 
+ #if !TARGET_OS_TV && !TARGET_OS_VISION
+ // See:
+@@ -2318,13 +2324,17 @@ RCT_EXPORT_VIEW_PROPERTY(sheetExpandsWhenScrolledToEdge, BOOL);
+ }
+ #endif // !TARGET_OS_TV
+ 
+-#ifdef RCT_NEW_ARCH_ENABLED
+-#else
++// Legacy interop still instantiates the view manager's `-view` as the inner `paperView`.
++// When this method is missing in New Arch, RCTViewManager falls back to `RCTView`, so
++// `RNSScreenContainer` receives non-RNSScreen children (see RCTLog in RNSScreenContainer).
+ - (UIView *)view
+ {
++#if RCT_NEW_ARCH_ENABLED
++  return [[RNSScreenView alloc] initWithFrame:CGRectZero];
++#else
+   return [[RNSScreenView alloc] initWithBridge:self.bridge];
+-}
+ #endif
++}
+ 
+ + (BOOL)requiresMainQueueSetup
+ {
+diff --git a/node_modules/react-native-screens/ios/RNSScreenContainer.mm b/node_modules/react-native-screens/ios/RNSScreenContainer.mm
+index ae0fd54..231960a 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenContainer.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenContainer.mm
+@@ -5,6 +5,7 @@
+ #ifdef RCT_NEW_ARCH_ENABLED
+ #import <React/RCTConversions.h>
+ #import <React/RCTFabricComponentsPlugins.h>
++#import <React/RCTLegacyViewManagerInteropComponentView.h>
+ #import <react/renderer/components/rnscreens/ComponentDescriptors.h>
+ #import <react/renderer/components/rnscreens/Props.h>
+ 
+@@ -99,15 +100,60 @@ namespace react = facebook::react;
+ RNS_IGNORE_SUPER_CALL_BEGIN
+ - (void)insertReactSubview:(RNSScreenView *)subview atIndex:(NSInteger)atIndex
+ {
++#if RCT_NEW_ARCH_ENABLED
++  // When RNSScreenContainer is mounted via RCTLegacyViewManagerInteropComponentView, children are
++  // delivered through this Paper hook. The child may still be the interop wrapper; unwrap to the
++  // inner paper view (RNSScreenView). Using the wrapper here caused doesNotRecognizeSelector
++  // (e.g. setReactSuperview:) and crashes after login when deeper navigation trees mount.
++  UIView *child = subview;
++  if ([child isKindOfClass:[RCTLegacyViewManagerInteropComponentView class]]) {
++    RCTLegacyViewManagerInteropComponentView *interop = (RCTLegacyViewManagerInteropComponentView *)child;
++    // `contentView` is assigned late in finalizeUpdates; `paperView` forces the adapter/paper view.
++    UIView *inner = interop.contentView ?: interop.paperView;
++    if ([inner isKindOfClass:[RNSScreenView class]]) {
++      child = inner;
++    }
++  }
++  if (![child isKindOfClass:[RNSScreenView class]]) {
++    RCTLogWarn(
++        @"[RNScreens] ScreenContainer insertReactSubview: expected RNSScreenView, got %@ (skipping; RNSScreenManager/RNSModalScreenManager -view must return RNSScreenView/RNSModalScreen under New Arch)",
++        NSStringFromClass(child.class));
++    return;
++  }
++  RNSScreenView *screenChild = (RNSScreenView *)child;
++  screenChild.reactSuperview = self;
++  [_reactSubviews insertObject:screenChild atIndex:atIndex];
++  react::LayoutMetrics screenLayoutMetrics = screenChild.newLayoutMetrics;
++  screenLayoutMetrics.frame = RCTRectFromCGRect(CGRectMake(0, 0, self.bounds.size.width, self.bounds.size.height));
++  [screenChild updateLayoutMetrics:screenLayoutMetrics oldLayoutMetrics:screenChild.oldLayoutMetrics];
++#else
+   subview.reactSuperview = self;
+   [_reactSubviews insertObject:subview atIndex:atIndex];
+   [subview reactSetFrame:CGRectMake(0, 0, self.bounds.size.width, self.bounds.size.height)];
++#endif
+ }
+ 
+ - (void)removeReactSubview:(RNSScreenView *)subview
+ {
++#if RCT_NEW_ARCH_ENABLED
++  UIView *child = subview;
++  if ([child isKindOfClass:[RCTLegacyViewManagerInteropComponentView class]]) {
++    RCTLegacyViewManagerInteropComponentView *interop = (RCTLegacyViewManagerInteropComponentView *)child;
++    UIView *inner = interop.contentView ?: interop.paperView;
++    if ([inner isKindOfClass:[RNSScreenView class]]) {
++      child = inner;
++    }
++  }
++  if (![child isKindOfClass:[RNSScreenView class]]) {
++    return;
++  }
++  RNSScreenView *screenChild = (RNSScreenView *)child;
++  screenChild.reactSuperview = nil;
++  [_reactSubviews removeObject:screenChild];
++#else
+   subview.reactSuperview = nil;
+   [_reactSubviews removeObject:subview];
++#endif
+ }
+ 
+ - (NSArray<UIView *> *)reactSubviews
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+index effc07f..745a955 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+@@ -1560,8 +1560,10 @@ Class<RCTComponentViewProtocol> RNSScreenStackCls(void)
+ 
+ RCT_EXPORT_MODULE()
+ 
++#if !RCT_NEW_ARCH_ENABLED
+ RCT_EXPORT_VIEW_PROPERTY(onFinishTransitioning, RCTDirectEventBlock);
+ RCT_EXPORT_VIEW_PROPERTY(iosPreventReattachmentOfDismissedScreens, BOOL);
++#endif // !RCT_NEW_ARCH_ENABLED
+ 
+ #ifdef RCT_NEW_ARCH_ENABLED
+ #else
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+index 7d8e494..c25af68 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -1272,6 +1272,11 @@ RCT_EXPORT_MODULE()
+ 
+ #endif // RCT_NEW_ARCH_ENABLED
+ 
++// In New Architecture mode the Fabric component (RNSScreenStackHeaderConfig) handles
++// all prop updates via updateProps:. Exporting these from the legacy manager causes
++// RCTLegacyViewManagerInteropCoordinator to call setters on the fallback RCTView
++// (which does not implement them), producing doesNotRecognizeSelector crashes.
++#if !RCT_NEW_ARCH_ENABLED
+ RCT_EXPORT_VIEW_PROPERTY(title, NSString)
+ RCT_EXPORT_VIEW_PROPERTY(titleFontFamily, NSString)
+ RCT_EXPORT_VIEW_PROPERTY(titleFontSize, NSNumber)
+@@ -1304,6 +1309,7 @@ RCT_EXPORT_VIEW_PROPERTY(headerLeftBarButtonItems, NSArray)
+ RCT_EXPORT_VIEW_PROPERTY(headerRightBarButtonItems, NSArray)
+ RCT_EXPORT_VIEW_PROPERTY(onPressHeaderBarButtonItem, RCTDirectEventBlock);
+ RCT_EXPORT_VIEW_PROPERTY(onPressHeaderBarButtonMenuItem, RCTDirectEventBlock);
++#endif // !RCT_NEW_ARCH_ENABLED
+ 
+ @end
+ 
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderSubview.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderSubview.mm
+index 7a7bd42..3ef5cec 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderSubview.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderSubview.mm
+@@ -344,8 +344,10 @@ RNS_IGNORE_SUPER_CALL_END
+ 
+ RCT_EXPORT_MODULE()
+ 
++#if !RCT_NEW_ARCH_ENABLED
+ RCT_EXPORT_VIEW_PROPERTY(type, RNSScreenStackHeaderSubviewType)
+ RCT_EXPORT_VIEW_PROPERTY(hidesSharedBackground, BOOL)
++#endif // !RCT_NEW_ARCH_ENABLED
+ 
+ #ifdef RCT_NEW_ARCH_ENABLED
+ #else
+diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.mm b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+index e570363..7704029 100644
+--- a/node_modules/react-native-screens/ios/RNSSearchBar.mm
++++ b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+@@ -488,6 +488,7 @@ RCT_EXPORT_MODULE()
+ }
+ #endif
+ 
++#if !RCT_NEW_ARCH_ENABLED
+ RCT_EXPORT_VIEW_PROPERTY(obscureBackground, RNSOptionalBoolean)
+ RCT_EXPORT_VIEW_PROPERTY(hideNavigationBar, RNSOptionalBoolean)
+ RCT_EXPORT_VIEW_PROPERTY(hideWhenScrolling, BOOL)
+@@ -517,6 +518,7 @@ RCT_EXPORT_VIEW_PROPERTY(onCancelButtonPress, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onSearchButtonPress, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onSearchFocus, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onSearchBlur, RCTDirectEventBlock)
++#endif // !RCT_NEW_ARCH_ENABLED
+ 
+ #ifndef RCT_NEW_ARCH_ENABLED
+ 

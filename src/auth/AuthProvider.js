@@ -33,6 +33,9 @@ export const AuthProvider = ({children}) => {
     const checkLoginStatus = async () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
+        // #region agent log
+        fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H8',location:'AuthProvider.js:checkLogin',message:'checkLoginStatus token read',data:{hasToken:!!token},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+        // #endregion
         const hasToken = !!token;
         setIsLoggedIn(hasToken);
 
@@ -48,6 +51,9 @@ export const AuthProvider = ({children}) => {
       } catch (e) {
         console.log('Error checking login status', e);
       } finally {
+        // #region agent log
+        fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H1',location:'AuthProvider.js:checkLogin-finally',message:'checkLoginStatus finally: setting isLoading false',data:{},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+        // #endregion
         setIsLoading(false);
       }
     };
@@ -59,7 +65,9 @@ export const AuthProvider = ({children}) => {
     setIsLoading(true);
 
     try {
-      await signOut(auth);
+      if (auth) {
+        await signOut(auth);
+      }
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userInfo');
       setIsLoggedIn(false);
@@ -72,7 +80,13 @@ export const AuthProvider = ({children}) => {
   }, []);
 
   useEffect(() => {
+    if (!auth) {
+      return undefined;
+    }
     const unsubscribe = onIdTokenChanged(auth, async user => {
+      // #region agent log
+      fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H10',location:'AuthProvider.js:onIdTokenChanged',message:'onIdTokenChanged fired',data:{hasUser:!!user,uid:user?.uid||null},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+      // #endregion
       if (user) {
         try {
           const newToken = await user.getIdToken();

@@ -983,6 +983,11 @@ const AppNavigation = () => {
   const {isLoggedIn, isLoading, userInfo, setIsLoggedIn, setUserInfo} = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const [fallbackTriggered, setFallbackTriggered] = useState(false);
+  // #region agent log
+  React.useEffect(() => {
+    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H8',location:'AppNavigation.js:stateChange',message:'nav state change',data:{isLoading,isLoggedIn,hasUserInfo:!!(userInfo||asyncUserInfo),fallbackTriggered},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+  }, [isLoading,isLoggedIn,userInfo,asyncUserInfo,fallbackTriggered]);
+  // #endregion
 
   // Get userInfo and userType from AsyncStorage
   useEffect(() => {
@@ -1348,17 +1353,27 @@ const AppNavigation = () => {
 
   // Render loading indicator while we're checking auth status initially
   if (isLoading) {
+    // #region agent log
+    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H8',location:'AppNavigation.js:renderLoading',message:'rendering loading spinner',data:{},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
         <ActivityIndicator size="large" />
       </View>
     );
   }
+
+  // #region agent log
+  fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H8',location:'AppNavigation.js:pastLoading',message:'past loading check',data:{isLoggedIn,hasUserInfo:!!currentUserInfo,fallbackTriggered,navKey},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+  // #endregion
 
   // If we are logged in but userInfo hasn't loaded yet, show a loader instead of guessing navigation
   // But if fallback has triggered, go straight to login
   if (isLoggedIn && !currentUserInfo && !fallbackTriggered) {
     console.log('⏳ [AppNavigation] Waiting for userInfo: isLoggedIn=', isLoggedIn, 'userInfo=', !!userInfo, 'asyncUserInfo=', !!asyncUserInfo);
+    // #region agent log
+    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H2',location:'AppNavigation.js:waitUserInfo',message:'blocked on userInfo while logged in',data:{hasContextUserInfo:!!userInfo,hasAsyncUserInfo:!!asyncUserInfo},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
         <ActivityIndicator size="large" />
@@ -1366,6 +1381,9 @@ const AppNavigation = () => {
     );
   }
 
+  // #region agent log
+  fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H9',location:'AppNavigation.js:render',message:'AppNavigation render',data:{isLoggedIn,isBuyer,isAdmin,shouldShowAuth,navKey,hasCurrUserInfo:!!currentUserInfo},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+  // #endregion
   return (
     // <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={[]}>
       <NavigationContainer

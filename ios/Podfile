@@ -238,10 +238,16 @@ fi
 
     # Allow non-modular includes for pods that still use quoted/relative imports inside framework headers
     # This unblocks compilation under use_modular_headers! + use_frameworks! :linkage => :static
+    # RNFB* (React Native Firebase) imports React-Core from a framework target; Xcode 15+ treats that as
+    # -Wnon-modular-include-in-framework-module (see RNFBApp + RCTConvert.h / RCTBridgeModule.h).
     begin
       non_modular_targets = [
         'RNScreens',
-        'RNReanimated'
+        'RNReanimated',
+        'RNFBApp',
+        'RNFBAuth',
+        'RNFBStorage',
+        'RNFBFirestore',
       ]
       installer.pods_project.targets.each do |t|
         next unless non_modular_targets.include?(t.name)
@@ -249,10 +255,49 @@ fi
           config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
           # Suppress quoted include warnings that often accompany these headers
           config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+          # Explicit precompiled modules can still pass -Werror=non-modular-include-in-framework-module;
+          # downgrade for both Obj-C and Obj-C++ / C++ so React-Core headers pulled in during PCM/PCH
+          # compilation of RNFB framework targets do not fail the parse and produce a truncated module.
+          %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS].each do |key|
+            flags = config.build_settings[key]
+            flags = flags.is_a?(Array) ? flags.join(' ') : flags.to_s
+            flags = '$(inherited)' if flags.strip.empty?
+            next if flags.include?('non-modular-include-in-framework-module')
+            config.build_settings[key] =
+              "#{flags} -Wno-error=non-modular-include-in-framework-module"
+          end
         end
       end
     rescue => e
       Pod::UI.warn("[post_install] Failed to relax non-modular include settings: #{e.message}")
+    end
+
+    # RN 0.84 ships React-Core as a prebuilt XCFramework whose headers live under
+    # React.framework/Headers/React_Core/ rather than React.framework/Headers/React/. The
+    # React module's umbrella still imports `#import "React/RCTBridgeModule.h"`, which does
+    # not resolve inside the framework and instead resolves via the Pods/Headers/Public
+    # symlink. When a downstream RNFB* framework target (with Clang modules enabled) includes
+    # <React/RCTBridgeModule.h> during its own module PCM build, clang records the symlinked
+    # header as "owned by the React module" but RNFBApp.modulemap has no React dependency,
+    # so only the opaque `@protocol RCTBridgeModule <NSObject>` token is captured into the
+    # RNFB*.pcm -- the body (including RCT_EXPORT_MODULE / RCT_EXPORT_METHOD macros) is lost.
+    # Downstream .m files then fail to parse `RCT_EXPORT_MODULE()` etc.
+    #
+    # Fix: disable Clang module generation for the RNFB framework targets. They are still
+    # built as static frameworks (because of use_frameworks! :linkage => :static), but their
+    # headers are included textually by consumers instead of being imported as a precompiled
+    # module, so the full RCTBridgeModule protocol body is visible at parse time.
+    begin
+      rnfb_targets = %w[RNFBApp RNFBAuth RNFBStorage RNFBFirestore]
+      installer.pods_project.targets.each do |t|
+        next unless rnfb_targets.include?(t.name)
+        t.build_configurations.each do |config|
+          config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
+          config.build_settings['DEFINES_MODULE'] = 'NO'
+        end
+      end
+    rescue => e
+      Pod::UI.warn("[post_install] Failed to disable Clang modules for RNFB targets: #{e.message}")
     end
 
     # Ensure dSYM generation is enabled for all pod targets
@@ -461,5 +506,90 @@ fi
       Pod::UI.warn("[post_install] Failed to copy RNCSlider files: #{e.message}")
     end
 
+  end
+end
+
+# CocoaPods rewrites Pods.xcodeproj *after* `post_install` in some versions. Run this repair in
+# `post_integrate` so dedupe + missing compile units persist to disk.
+post_integrate do |installer|
+  begin
+    # Reload from disk — the in-memory `installer.pods_project` can be out of sync after integration.
+    pods_project_path = File.join(installer.sandbox.root, 'Pods.xcodeproj')
+    pods_project = Xcodeproj::Project.open(pods_project_path)
+
+    codegen_cpp_flags = '-DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -DFOLLY_CFG_NO_COROUTINES=1 -DFOLLY_HAVE_CLOCK_GETTIME=1 -Wno-comma -Wno-shorten-64-to-32 -Wno-documentation -Wno-nullability-completeness -std=c++20'
+
+    react_codegen = pods_project.targets.find { |t| t.name == 'ReactCodegen' }
+    unless react_codegen
+      Pod::UI.warn('[post_integrate] ReactCodegen repair: target not found')
+    else
+      phase = react_codegen.source_build_phase
+      unless phase
+        Pod::UI.warn('[post_integrate] ReactCodegen repair: no Sources phase')
+      else
+        # Deduplicate Sources: one build-file entry per unique fileRef (basename collision bug).
+        seen_file_ref_uuids = {}
+        deduped = 0
+        phase.files.to_a.each do |bf|
+          fr = bf.file_ref
+          next unless fr
+
+          if seen_file_ref_uuids[fr.uuid]
+            phase.files.delete(bf)
+            deduped += 1
+          else
+            seen_file_ref_uuids[fr.uuid] = true
+          end
+        end
+
+        added = 0
+        ios_root = installer.sandbox.root.parent
+        codegen_root = File.expand_path(File.join(ios_root, 'build', 'generated', 'ios', 'ReactCodegen'))
+
+        if File.directory?(codegen_root)
+          refs_by_abs = {}
+          pods_project.files.each do |ref|
+            next unless ref.path
+            begin
+              rp = File.expand_path(ref.real_path.to_s)
+              next unless rp.start_with?(codegen_root + File::SEPARATOR)
+
+              refs_by_abs[rp] = ref
+            rescue StandardError
+              next
+            end
+          end
+
+          in_phase = {}
+          phase.files.each do |bf|
+            fr = bf.file_ref
+            in_phase[fr.uuid] = true if fr
+          end
+
+          Dir.glob(File.join(codegen_root, '**', '*.{cpp,mm}')).sort.each do |abs|
+            abs = File.expand_path(abs)
+            next if abs.include?('RCTAppDependencyProvider.')
+
+            ref = refs_by_abs[abs]
+            next unless ref
+            next if in_phase[ref.uuid]
+
+            bf = phase.add_file_reference(ref)
+            bf.settings = { 'COMPILER_FLAGS' => codegen_cpp_flags } if bf.respond_to?(:settings=)
+            in_phase[ref.uuid] = true
+            added += 1
+          end
+        elsif deduped > 0
+          Pod::UI.warn("[post_integrate] ReactCodegen repair: #{codegen_root} missing — run `pod install` again after codegen exists under ios/build/generated.")
+        end
+
+        if deduped > 0 || added > 0
+          pods_project.save
+          Pod::UI.puts "[post_integrate] ReactCodegen Sources repair: removed #{deduped} duplicate build phase entries; added #{added} missing compile unit(s)".green
+        end
+      end
+    end
+  rescue => e
+    Pod::UI.warn("[post_integrate] ReactCodegen Sources repair failed: #{e.message}")
   end
 end

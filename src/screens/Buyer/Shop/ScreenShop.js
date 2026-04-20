@@ -201,6 +201,11 @@ const ScreenShop = ({navigation}) => {
     }, [user]),
   );
 
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H5-shop',location:'ScreenShop.js:mount',message:'ScreenShop mounted (Shop tab root)',data:{},timestamp:Date.now(),runId:'post-fix'})}).catch(()=>{});
+  }, []);
+  // #endregion
 
   // Initial data load effect
   useEffect(() => {

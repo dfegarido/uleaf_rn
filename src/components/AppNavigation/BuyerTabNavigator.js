@@ -158,6 +158,11 @@ function ShopStackNavigator() {
 }
 
 function BuyerTabNavigator() {
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7925/ingest/9a196955-a083-44bc-acca-b2ca885f3d02',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a9adf'},body:JSON.stringify({sessionId:'0a9adf',hypothesisId:'H14',location:'BuyerTabNavigator.js:mount',message:'BuyerTabNavigator mounted (post-login buyer shell)',data:{},timestamp:Date.now(),runId:'pre-fix'})}).catch(()=>{});
+  }, []);
+  // #endregion
   return (
       <Stack.Navigator>
         <Stack.Screen

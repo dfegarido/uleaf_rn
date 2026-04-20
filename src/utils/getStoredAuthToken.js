@@ -10,7 +10,7 @@ export const getStoredAuthToken = async () => {
   const now = Math.floor(Date.now() / 1000);
 
   if (decoded.exp < now) {
-    const user = auth.currentUser;
+    const user = auth?.currentUser;
 
     if (!user) return null;
 
