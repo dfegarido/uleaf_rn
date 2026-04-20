@@ -11,7 +11,7 @@ import { Alert,
   Text,
   TouchableOpacity,
   View} from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import { collection,
   doc,
   getDoc,
@@ -56,7 +56,6 @@ const screenHeight = Dimensions.get('window').height;
 // ];
 
 const ScreenHome = ({navigation}) => {
-  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const {userInfo} = useContext(AuthContext);
   const { unreadCount } = useUnreadMessageCount();
@@ -419,8 +418,7 @@ const ScreenHome = ({navigation}) => {
   // Dropdown
 
   return (
-    <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       {/* Search and Icons */}
       <View style={styles.stickyHeader}>
         <View style={styles.header}>

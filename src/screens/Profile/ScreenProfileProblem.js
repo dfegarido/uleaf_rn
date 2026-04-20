@@ -112,7 +112,7 @@ const ScreenProfileProblem = ({navigation}) => {
         </Modal>
       )}
       <ScrollView
-        style={[styles.container, {paddingTop: insets.top}]}
+        style={styles.container}
         // contentContainerStyle={{
         //   marginBottom: insets.bottom + 30,
         // }}

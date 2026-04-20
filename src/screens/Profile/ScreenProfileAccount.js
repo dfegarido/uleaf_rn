@@ -377,7 +377,7 @@ const ScreenProfileAccount = ({navigation, route}) => {
             }}
             keyboardShouldPersistTaps="handled">
             {/* Search and Icons */}
-            <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
+            <View style={[styles.stickyHeader, {paddingTop: 12}]}>
               <View style={styles.header}>
                 <TouchableOpacity
                   onPress={() => navigation.goBack()}

@@ -16,7 +16,7 @@ import { ActivityIndicator,
   Text,
   TouchableOpacity,
   View} from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import ScanQrIcon from '../../../assets/admin-icons/qr.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { getSellerOrderCounts } from '../../../components/Api/sellerOrderApi';
@@ -63,7 +63,6 @@ const dateOptions = [
 ];
 
 const ScreenDelivery = ({navigation}) => {
-  const insets = useSafeAreaInsets();
   const [active, setActive] = useState('option1');
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const {userInfo} = useContext(AuthContext);
@@ -672,7 +671,6 @@ const ScreenDelivery = ({navigation}) => {
       style={{
         flex: 1,
         backgroundColor: '#fff',
-        paddingTop: insets.top,
       }}>
       {exportLoading && (
         <Modal transparent animationType="fade">

@@ -11,7 +11,7 @@ import { View,
   ActivityIndicator,
   RefreshControl,
   Platform} from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../../assets/styles/styles';
 import PayoutCard from './components/PayoutCard';
@@ -25,7 +25,6 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
 const ScreenPayout = ({navigation, route}) => {
-  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
   useFocusEffect(() => {
@@ -162,7 +161,7 @@ const ScreenPayout = ({navigation, route}) => {
 
   return (
     <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+      style={{flex: 1, backgroundColor: '#fff'}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>

@@ -87,7 +87,7 @@ const ScreenProfilePassword = ({navigation}) => {
       )}
       <View style={{flex: 1, paddingBottom: insets.bottom}}>
         <ScrollView
-          style={[styles.container, {paddingTop: insets.top}]}
+          style={styles.container}
           // contentContainerStyle={{paddingBottom: 120}}
           // contentContainerStyle={{
           //   marginBottom: insets.bottom + 30,

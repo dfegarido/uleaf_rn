@@ -1994,8 +1994,7 @@ const ScreenListing = ({navigation}) => {
             : () => {};
 
   return (
-    <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       {/* Search and Icons */}
       <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
         <View style={styles.header}>
