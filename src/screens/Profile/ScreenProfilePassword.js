@@ -1,19 +1,16 @@
 import React, {useState, useContext} from 'react';
-import {
-  View,
+import { View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Dimensions,
   Modal,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
+  Alert} from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {InputPassword} from '../../components/Input';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../utils/utils';
@@ -90,7 +87,7 @@ const ScreenProfilePassword = ({navigation}) => {
       )}
       <View style={{flex: 1, paddingBottom: insets.bottom}}>
         <ScrollView
-          style={[styles.container, {paddingTop: insets.top}]}
+          style={styles.container}
           // contentContainerStyle={{paddingBottom: 120}}
           // contentContainerStyle={{
           //   marginBottom: insets.bottom + 30,

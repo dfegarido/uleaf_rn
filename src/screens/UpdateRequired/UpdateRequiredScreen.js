@@ -1,14 +1,12 @@
 import React from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   Linking,
   Platform,
-  Image,
-} from 'react-native';
+  Image} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const UpdateRequiredScreen = ({updateUrl, message}) => {
   const handleUpdate = async () => {

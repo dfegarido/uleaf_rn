@@ -1,6 +1,5 @@
 import React from 'react';
-import {
-  Text,
+import { Text,
   View,
   StyleSheet,
   TouchableOpacity,

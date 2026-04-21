@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   FlatList,
@@ -56,11 +55,17 @@ const PaymentManagement = () => {
       const data = await getPendingPaymentOrdersApi(body);
 
       if (data.success) {
-        const newOrders = data.data;
+        const newOrders = (data.data || []).filter((order) => Boolean(order?.id));
         if (reset) {
           setOrders(newOrders);
         } else {
-          setOrders((prev) => [...prev, ...newOrders]);
+          setOrders((prev) => {
+            const mergedById = new Map(prev.map((order) => [order.id, order]));
+            newOrders.forEach((order) => {
+              mergedById.set(order.id, order);
+            });
+            return Array.from(mergedById.values());
+          });
         }
         setLastDocId(data.lastDocId);
         setHasMore(!!data.lastDocId);

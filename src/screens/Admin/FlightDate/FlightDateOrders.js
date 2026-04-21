@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   StyleSheet,

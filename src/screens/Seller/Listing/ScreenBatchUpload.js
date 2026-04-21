@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -18,13 +17,11 @@ import NetInfo from '@react-native-community/netinfo';
 import {globalStyles} from '../../../assets/styles/styles';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
-import {
-  getSellGenusApi,
+import { getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
 } from '../../../components/Api';
-import {
-  uploadLiveListingRows,
+import { uploadLiveListingRows,
   validateLiveListingRow,
 } from '../../../utils/liveListingBulkUpload';
 import {InputDropdownSearch, InputBox} from '../../../components/Input';

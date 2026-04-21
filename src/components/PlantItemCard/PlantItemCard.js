@@ -78,16 +78,43 @@ const PlantItemCard = ({
 }) => {
   const navigation = useNavigation();
   const { isLoved, toggleLove } = useLovedListings();
+
+  const plantData = data || {};
+  const resolvedPrimary =
+    plantData.imagePrimaryWebp ||
+    plantData.imagePrimary ||
+    (Array.isArray(plantData.imageCollectionWebp) && plantData.imageCollectionWebp[0]) ||
+    (Array.isArray(plantData.imageCollection) && plantData.imageCollection[0]) ||
+    (Array.isArray(plantData.images) && plantData.images[0]) ||
+    plantData.imagePrimaryOriginal;
+  const displayImage = data ? (resolvedPrimary ? { uri: resolvedPrimary } : placeholderImage) : image;
+
+  const imageUriKey = React.useMemo(() => {
+    if (data) {
+      return resolvedPrimary && String(resolvedPrimary).trim()
+        ? String(resolvedPrimary).trim()
+        : '';
+    }
+    if (image && typeof image === 'object' && image.uri) {
+      return String(image.uri).trim();
+    }
+    return '';
+  }, [data, resolvedPrimary, image]);
+
+  const imageUriKeyRef = React.useRef(imageUriKey);
   const [imageError, setImageError] = React.useState(false);
-  const [imageLoading, setImageLoading] = React.useState(true);
+  const [imageLoading, setImageLoading] = React.useState(() => Boolean(imageUriKey));
   const [localLoveCount, setLocalLoveCount] = React.useState(null);
   const [isTogglingLove, setIsTogglingLove] = React.useState(false);
-  // Placeholder state/effect retained after removing caching hooks to keep hook order stable during fast refresh
   const [_removedCacheHook] = React.useState(null);
   React.useEffect(() => { /* no-op */ }, []);
-  
-  // If data prop is provided, use it; otherwise fall back to individual props
-  const plantData = data || {};
+
+  React.useLayoutEffect(() => {
+    if (imageUriKeyRef.current !== imageUriKey) {
+      imageUriKeyRef.current = imageUriKey;
+      setImageLoading(Boolean(imageUriKey));
+    }
+  }, [imageUriKey]);
   
   // Removed AsyncStorage-based image caching effect
   
@@ -129,12 +156,7 @@ const PlantItemCard = ({
 
   // Check if this plant is loved
   const plantIsLoved = plantData.plantCode ? isLoved(plantData.plantCode) : false;
-  
-  const resolvedPrimary = plantData.imagePrimaryWebp || plantData.imagePrimary || (Array.isArray(plantData.imageCollectionWebp) && plantData.imageCollectionWebp[0]) || (Array.isArray(plantData.imageCollection) && plantData.imageCollection[0]) || (Array.isArray(plantData.images) && plantData.images[0]) || plantData.imagePrimaryOriginal;
-  const displayImage = data ? (resolvedPrimary ? { uri: resolvedPrimary } : placeholderImage) : image;
-  
-  // Debug logging
-    
+
   const displayTitle = data ? 
     (plantData.genus || plantData.plantName || 'Unknown Plant') :
     title;
@@ -278,17 +300,14 @@ const PlantItemCard = ({
             source={displayImage} 
             style={styles.image} 
             resizeMode="cover"
-            onError={(error) => {
+            onError={() => {
               setImageError(true);
               setImageLoading(false);
             }}
-            onLoad={() => {
+            onLoadEnd={() => {
               setImageLoading(false);
             }}
-            onLoadStart={() => {
-              setImageLoading(true);
-            }}
-            key={`${plantData?.plantCode || 'default'}-${imageError}`}
+            key={`${plantData?.plantCode || 'default'}-${imageUriKey}-${imageError}`}
           />
           
           {/* Loading Overlay */}

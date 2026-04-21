@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  ScrollView,
+import { ScrollView,
   View,
   Text,
   TouchableOpacity,

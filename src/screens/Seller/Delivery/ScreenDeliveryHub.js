@@ -1,6 +1,5 @@
 import React, {useEffect, useState, useContext} from 'react';
-import {
-  View,
+import { View,
   Text,
   TextInput,
   Image,
@@ -8,15 +7,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Platform,
   Alert,
   Modal,
   ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  RefreshControl} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {useIsFocused} from '@react-navigation/native';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
@@ -28,8 +25,7 @@ import {retryAsync} from '../../../utils/utils';
 import {InputSearch} from '../../../components/InputGroup/Left';
 import {AuthContext} from '../../../auth/AuthProvider';
 
-import {
-  getOrderListingApi,
+import { getOrderListingApi,
   getSortApi,
   getListingTypeApi,
 } from '../../../components/Api';

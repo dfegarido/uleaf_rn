@@ -1,8 +1,6 @@
 import moment from 'moment';
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Image,
-  SafeAreaView,
+import { Image,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -10,11 +8,9 @@ import {
   TouchableOpacity,
   Vibration,
   View,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  Camera,
+  ActivityIndicator} from 'react-native';
+import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
+import { Camera,
   useCameraDevice,
   useCameraPermission,
   useCodeScanner

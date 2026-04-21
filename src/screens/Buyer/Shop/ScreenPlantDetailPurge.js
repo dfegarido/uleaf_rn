@@ -2,8 +2,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
+import { Alert,
   Dimensions,
   Image,
   Modal,

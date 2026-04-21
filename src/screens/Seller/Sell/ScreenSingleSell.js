@@ -1,6 +1,5 @@
 import React, {useLayoutEffect, useState, useEffect, useRef} from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   FlatList,
@@ -16,15 +15,13 @@ import {
   Platform,
 } from 'react-native';
 import {globalStyles} from '../../../assets/styles/styles';
-import {
-  InputBox,
+import { InputBox,
   InputDropdown,
   InputCheckBox,
   InputDropdownSearch,
 } from '../../../components/Input';
 import {ImagePickerModal} from '../../../components/ImagePicker';
-import {
-  // getGenusApi,
+import { // getGenusApi,
   getSpeciesApi,
   getVariegationApi,
   getSellGenusApi,

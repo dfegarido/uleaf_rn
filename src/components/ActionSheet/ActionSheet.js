@@ -1,6 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {
-  Modal,
+import { Modal,
   View,
   StyleSheet,
   TouchableWithoutFeedback,

@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Dimensions,
   FlatList,
   Image,

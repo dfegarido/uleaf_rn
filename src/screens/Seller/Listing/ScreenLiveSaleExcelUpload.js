@@ -1,6 +1,5 @@
 import React, {useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -19,8 +18,7 @@ import {globalStyles} from '../../../assets/styles/styles';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import {API_ENDPOINTS} from '../../../config/apiConfig';
 import Toast from '../../../components/Toast/Toast';
-import {
-  uploadLiveListingRows,
+import { uploadLiveListingRows,
   validateLiveListingRow,
 } from '../../../utils/liveListingBulkUpload';
 import {parseLiveListingExcelFromBase64} from '../../../utils/parseLiveListingExcel';

@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useState, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   Alert,
@@ -14,8 +13,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import {globalStyles} from '../../assets/styles/styles';
-import {
-  InputGroupLeftIcon,
+import { InputGroupLeftIcon,
   InputPasswordLeftIcon,
 } from '../../components/InputGroup/Left';
 import { signInWithEmailAndPassword } from 'firebase/auth';

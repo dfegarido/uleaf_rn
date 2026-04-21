@@ -1,8 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import moment from 'moment';
 import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   FlatList,
   Image,
   Modal,

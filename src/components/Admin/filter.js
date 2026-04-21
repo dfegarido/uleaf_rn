@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
+import { ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,

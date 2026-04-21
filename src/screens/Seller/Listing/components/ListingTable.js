@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Image,
+import { Image,
   ScrollView,
   StyleSheet,
   Text,

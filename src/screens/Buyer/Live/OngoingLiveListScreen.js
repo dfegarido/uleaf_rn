@@ -1,7 +1,6 @@
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
+import { Alert,
   Dimensions,
   ImageBackground,
   ScrollView,

@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -18,8 +17,7 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import Svg, { Path } from 'react-native-svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { getReferralInfoApi } from '../../../components/Api/referralApi';
-import {
-  buildInviteUrl,
+import { buildInviteUrl,
   getInviteCode,
   publishReferralCodeMapping,
   runShareAfterInteractions,

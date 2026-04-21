@@ -1,8 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Dimensions,
   Modal,

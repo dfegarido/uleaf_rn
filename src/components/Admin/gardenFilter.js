@@ -1,7 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import {
-  Modal,
-  SafeAreaView,
+import { Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,9 +8,8 @@ import {
   TouchableWithoutFeedback,
   View,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  Platform} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import GardenIcon from '../../assets/admin-icons/garden-avatar.svg';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';

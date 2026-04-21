@@ -1,18 +1,15 @@
 import React, {useEffect, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   StatusBar,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Platform,
   Alert,
   Modal,
-  ActivityIndicator,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  ActivityIndicator} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import {InputBox} from '../../components/Input';

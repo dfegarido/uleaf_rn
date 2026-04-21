@@ -5,8 +5,7 @@ import React, {
   useRef,
   useContext,
 } from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   FlatList,
@@ -20,16 +19,14 @@ import {
   BackHandler,
 } from 'react-native';
 import {globalStyles} from '../../../assets/styles/styles';
-import {
-  InputBox,
+import { InputBox,
   InputDropdown,
   InputCheckBox,
   InputDropdownSearch,
 } from '../../../components/Input';
 import {ImagePickerModal} from '../../../components/ImagePicker';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
-import {
-  // getGenusApi,
+import { // getGenusApi,
   getSpeciesApi,
   getVariegationApi,
   getSellGenusApi,

@@ -1,5 +1,3 @@
-import { apiCall } from './apiCall';
-
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 
 export const deactivateBuyerApi = async () => {

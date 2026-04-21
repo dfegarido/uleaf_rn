@@ -1,26 +1,22 @@
 import React, {useEffect, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   StatusBar,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   FlatList,
   Platform,
   Modal,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+  Alert} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import {globalStyles} from '../../../assets/styles/styles';
 import PayoutPlantCard from './components/PayoutPlantCard';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
-import {
-  getHomePayoutDetailsApi,
+import { getHomePayoutDetailsApi,
   postPayoutExportApi,
 } from '../../../components/Api';
 

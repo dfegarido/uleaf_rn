@@ -1,6 +1,5 @@
 import React, {useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   Modal,

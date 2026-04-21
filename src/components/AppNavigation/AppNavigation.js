@@ -3,8 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, StackActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Linking,
   Platform,
   StyleSheet,
@@ -12,7 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../../auth/AuthProvider';
 import { normalizeDeepLinkPlantCode } from '../../utils/plantDeepLinkParse';
 import BuyerTabNavigator from './BuyerTabNavigator';
@@ -32,22 +30,19 @@ import SetUpListingsPurgeScreen from '../../screens/Live/SetUpListingsPurgeScree
 import ScanQRSellerScreen from '../../screens/Seller/Delivery/ScanQR/SellerScanQR';
 
 import { ScreenPrivacy, ScreenTerms } from '../../screens/Legal';
-import {
-  ScreenForgotPassword,
+import { ScreenForgotPassword,
   ScreenLogin,
   ScreenLoginForm,
   ScreenLoginOtp,
 } from '../../screens/Login';
-import {
-  ScreenProfile,
+import { ScreenProfile,
   ScreenProfileAccount,
   ScreenProfileChatAdmin,
   ScreenProfilePassword,
   ScreenProfileProblem,
   ScreenProfileRequest,
 } from '../../screens/Profile';
-import {
-  ScreenDelivery,
+import { ScreenDelivery,
   ScreenDeliveryAction,
   ScreenDeliveryCasualty,
   ScreenDeliveryHub,
@@ -56,15 +51,13 @@ import {
   ScreenExportQR,
   ScreenForDelivery
 } from '../../screens/Seller/Delivery';
-import {
-  ScreenHome,
+import { ScreenHome,
   ScreenMyStore,
   ScreenMyStoreDetail,
   ScreenPayout,
   ScreenPayoutDetails,
 } from '../../screens/Seller/Home';
-import {
-  ScreenListing,
+import { ScreenListing,
   ScreenListingAction,
   ScreenListingDetail,
   ScreenSearchListing,
@@ -72,8 +65,7 @@ import {
   ScreenLiveSaleExcelUpload,
 } from '../../screens/Seller/Listing/';
 import OrderScreen from '../../screens/Seller/Order/OrderScreen';
-import {
-  ScreenDraftSell,
+import { ScreenDraftSell,
   ScreenDuplicateSell,
   ScreenGrowersSell,
   ScreenSell,
@@ -82,8 +74,7 @@ import {
   ScreenSingleSellLive,
   ScreenWholesaleSell,
 } from '../../screens/Seller/Sell';
-import {
-  ScreenSignup,
+import { ScreenSignup,
   ScreenSignupActivationCode,
   ScreenSignupActivationCodeNext,
   ScreenSignupNext,
@@ -105,8 +96,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenRequestCredit from '../../screens/Buyer/Orders/ScreenRequestCredit';
 import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
-import {
-  BuyerCompleteYourAccount,
+import { BuyerCompleteYourAccount,
   BuyerGettingToKnow,
 } from '../../screens/BuyerSignup';
 import BuyerSignup from '../../screens/BuyerSignup/BuyerSignup';
@@ -870,26 +860,13 @@ const MainStack = () => {
 
 // Tab navigator containing Home, Vote, Community, and Store screens
 function MainTabNavigator() {
-  const insets = useSafeAreaInsets();
-  
-  // Calculate dynamic bottom padding for Android
-  const bottomPadding = Platform.OS === 'android' 
-    ? Math.max(insets.bottom, 20) 
-    : 20;
-  
-  const dynamicTabBarStyle = {
-    ...styles.tabBar,
-    paddingBottom: bottomPadding,
-    height: 60 + (Platform.OS === 'android' ? Math.max(insets.bottom - 20, 0) : 0),
-  };
-  
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
         tabBarStyle:
           route.name === 'ChatScreen' || route.name === 'MessagesScreen'
             ? {display: 'none'}
-            : dynamicTabBarStyle,
+            : [styles.tabBar],
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused
@@ -926,7 +903,7 @@ function MainTabNavigator() {
                 <View
                   style={{
                     position: 'absolute',
-                    bottom: 8,
+                    bottom: 3,
                     width: 70,
                     height: 70,
                     backgroundColor: 'transparent', // Adjust background color if needed
@@ -1399,9 +1376,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   customLabel: {
-    marginTop: -10,
+    marginTop: -4,
   },
   tabBar: {
+    paddingBottom: 30,
+    height: 80,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#E5E5E5',

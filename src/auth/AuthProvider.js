@@ -59,7 +59,9 @@ export const AuthProvider = ({children}) => {
     setIsLoading(true);
 
     try {
-      await signOut(auth);
+      if (auth) {
+        await signOut(auth);
+      }
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userInfo');
       setIsLoggedIn(false);
@@ -72,6 +74,9 @@ export const AuthProvider = ({children}) => {
   }, []);
 
   useEffect(() => {
+    if (!auth) {
+      return undefined;
+    }
     const unsubscribe = onIdTokenChanged(auth, async user => {
       if (user) {
         try {

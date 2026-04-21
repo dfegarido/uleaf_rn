@@ -1,6 +1,5 @@
 import React, {useState, useCallback, useRef, useMemo, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   Modal,

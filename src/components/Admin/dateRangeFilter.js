@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import {
-  Modal,
-  SafeAreaView,
+import { Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 import CaretLeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 import CaretRightIcon from '../../assets/icons/greylight/caret-right-regular.svg';

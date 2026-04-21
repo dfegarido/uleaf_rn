@@ -1,17 +1,14 @@
-import {
-  useFocusEffect,
+import { useFocusEffect,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import {
-  collection,
+import { collection,
   onSnapshot,
   query,
   where
 } from 'firebase/firestore';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Animated, Easing,
   Image,

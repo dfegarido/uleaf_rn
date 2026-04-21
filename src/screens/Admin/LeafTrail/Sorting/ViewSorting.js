@@ -1,20 +1,18 @@
 import moment from 'moment';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import Options from '../../../../assets/admin-icons/options.svg';
 import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';

@@ -3,8 +3,7 @@
  * Replaces the getBuyerListings Cloud Function for the buyer shop/genus flows.
  * Uses cursor-based pagination and applies post-query filters (country, species, variegation, price, etc.) on the client.
  */
-import {
-  collection,
+import { collection,
   documentId,
   getDocs,
   limit,

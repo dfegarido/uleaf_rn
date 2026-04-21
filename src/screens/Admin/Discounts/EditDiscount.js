@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  ScrollView,
+import { ScrollView,
   View,
   Text,
   TextInput,

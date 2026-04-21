@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Image,
   ScrollView,

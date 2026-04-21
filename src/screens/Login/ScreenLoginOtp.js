@@ -1,6 +1,5 @@
 import React, {useState, useEffect, useContext} from 'react';
-import {
-  View,
+import { View,
   Text,
   TouchableOpacity,
   Alert,
@@ -12,8 +11,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
 import { auth } from '../../../firebase';
-import {
-  postSellerPinCodeApi,
+import { postSellerPinCodeApi,
   postSellerAfterSignInApi,
   postAdminAfterSignInApi,
   getProfileInfoApi,

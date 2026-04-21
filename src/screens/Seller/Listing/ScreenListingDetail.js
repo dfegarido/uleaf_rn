@@ -1,20 +1,17 @@
 import React, {useEffect, useRef, useState, useContext} from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Image,
   Modal,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
+  Alert} from 'react-native';
 import {useIsFocused} from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import DiscountBadge from '../../../components/DiscountBadge/DiscountBadge';
 import {getListingDetails} from '../../../components/Api';
 import NetInfo from '@react-native-community/netinfo';
@@ -32,8 +29,7 @@ import {Platform} from 'react-native';
 import ConfirmDelete from './components/ConfirmDelete';
 import {numberToCurrency} from '../../../utils/numberToCurrency';
 
-import {
-  postListingPublishNowActionApi,
+import { postListingPublishNowActionApi,
   postListingPublishNurseryDropActionApi,
   postListingActivateActionApi,
   postListingDeactivateActionApi,

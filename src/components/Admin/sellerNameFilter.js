@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Modal,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,8 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Animated,
-} from 'react-native';
+  Animated} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 

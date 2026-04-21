@@ -1,7 +1,6 @@
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   FlatList,
   Image,
   Modal,

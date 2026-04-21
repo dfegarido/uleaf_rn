@@ -1,14 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useRef } from 'react';
-import {
-    SafeAreaView,
-    ScrollView,
+import { ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+    View} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { useAuth } from '../../../auth/AuthProvider';
 
 // Import icons

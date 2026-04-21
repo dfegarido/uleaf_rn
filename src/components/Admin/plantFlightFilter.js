@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Modal,
-  SafeAreaView,
+import { Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,8 +8,8 @@ import {
   TouchableWithoutFeedback,
   View,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 import CaretLeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';

@@ -1,19 +1,17 @@
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
 import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';

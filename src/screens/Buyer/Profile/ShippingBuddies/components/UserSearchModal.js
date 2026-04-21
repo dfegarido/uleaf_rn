@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
-import {
-  View,
+import { View,
   Text,
   Modal,
   Pressable,

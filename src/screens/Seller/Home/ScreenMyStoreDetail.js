@@ -1,26 +1,22 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   StatusBar,
   Image,
   Modal,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
+  Alert} from 'react-native';
 import {useIsFocused} from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import {numberToCurrency} from '../../../utils/numberToCurrency';
 
-import {
-  getListingDetails,
+import { getListingDetails,
   postListingPinActionApi,
 } from '../../../components/Api';
 

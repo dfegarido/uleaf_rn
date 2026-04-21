@@ -1,6 +1,5 @@
 import React, {useContext, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   StatusBar,
   Image,
@@ -32,7 +31,7 @@ const ScreenLogin = ({navigation}) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const currentUser = auth.currentUser;
+      const currentUser = auth?.currentUser;
 
       if (currentUser) {
         console.log('here mike');
@@ -70,8 +69,10 @@ const ScreenLogin = ({navigation}) => {
   return (
     <View style={[styles.mainContent, globalStyles.backgroundAccent]}>
       <StatusBar
-        backgroundColor="#DFECDF" // Status bar background color (Android)
-        barStyle="dark-content" // Text color: 'default', 'light-content', 'dark-content'
+        barStyle="dark-content"
+        {...(Platform.OS === 'android'
+          ? {backgroundColor: '#DFECDF'}
+          : {})}
       />
       
       <View style={styles.logoContainer}>

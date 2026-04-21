@@ -1,6 +1,5 @@
 import React from 'react';
-import {
-  Modal,
+import { Modal,
   View,
   Text,
   TouchableOpacity,

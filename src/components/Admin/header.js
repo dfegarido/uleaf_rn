@@ -1,6 +1,5 @@
 import React from 'react';
-import {
-    StyleSheet,
+import { StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,

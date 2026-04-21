@@ -1,5 +1,4 @@
-import {
-  addDoc,
+import { addDoc,
   arrayRemove,
   collection,
   doc,
@@ -14,8 +13,7 @@ import {
 } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
+import { Alert,
   FlatList,
   Image,
   StatusBar,

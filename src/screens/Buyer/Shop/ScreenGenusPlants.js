@@ -1,20 +1,18 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, {useState, useEffect} from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   Alert,
   TextInput,
   Image,
   FlatList,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuth} from '../../../auth/AuthProvider';
 import {useFilters} from '../../../context/FilterContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,8 +23,7 @@ import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {PlantItemCard} from '../../../components/PlantItemCard';
-import {
-  getBuyerListingsApi,
+import { getBuyerListingsApi,
   getPriceDropBadgeListingsApi,
   addToCartApi,
   searchPlantsApi,
@@ -1680,7 +1677,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <GenusHeader
         genus={genus}
         navigation={navigation}

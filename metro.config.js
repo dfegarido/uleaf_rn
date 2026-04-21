@@ -1,4 +1,4 @@
-const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+const {getDefaultConfig} = require('@react-native/metro-config');
 
 /**
  * Metro configuration
@@ -6,22 +6,24 @@ const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
  *
  * @type {import('metro-config').MetroConfig}
  */
-const config = {};
-
 module.exports = (() => {
-  const config = getDefaultConfig(__dirname);
+  const metroConfig = getDefaultConfig(__dirname);
 
-  const {transformer, resolver} = config;
+  const {transformer, resolver} = metroConfig;
 
-  config.transformer = {
+  metroConfig.transformer = {
     ...transformer,
     babelTransformerPath: require.resolve('react-native-svg-transformer'),
   };
-  config.resolver = {
+  metroConfig.resolver = {
     ...resolver,
     assetExts: resolver.assetExts.filter(ext => ext !== 'svg'),
-    sourceExts: [...resolver.sourceExts, 'svg'],
+    sourceExts: [...resolver.sourceExts, 'svg', 'cjs'],
+    // Firebase JS SDK + RN: package "exports" resolution can load the wrong
+    // @firebase/auth build ("Component auth has not been registered yet").
+    // See https://github.com/firebase/firebase-js-sdk/issues/8988
+    unstable_enablePackageExports: false,
   };
 
-  return config;
+  return metroConfig;
 })();

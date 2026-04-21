@@ -1,6 +1,5 @@
 import React from 'react';
-import {
-  View,
+import { View,
   Text,
   ScrollView,
   TouchableOpacity,

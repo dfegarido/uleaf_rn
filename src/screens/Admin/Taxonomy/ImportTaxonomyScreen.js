@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Alert,
   ActivityIndicator,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import DocumentPicker from 'react-native-document-picker';
 
 // Import fallback file selection

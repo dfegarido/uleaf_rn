@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Modal,
-  SafeAreaView,
+import { Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -9,8 +7,8 @@ import {
   TouchableWithoutFeedback,
   View,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 
 const TransactionFilter = ({ isVisible, onClose, onSelectTransaction, onReset, currentTransaction = '' }) => {

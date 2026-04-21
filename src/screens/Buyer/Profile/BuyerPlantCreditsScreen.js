@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useContext } from 'react';
-import {
-  View,
+import { View,
   Text,
   StyleSheet,
   FlatList,

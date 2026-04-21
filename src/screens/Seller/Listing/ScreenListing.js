@@ -1,27 +1,23 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Dimensions,
   Image,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  View} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
 import { AuthContext } from '../../../auth/AuthProvider';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
-import {
-  getAllPlantGenusApi,
+import { getAllPlantGenusApi,
   getListingTypeApi,
   getSortApi,
   getVariegationApi,
@@ -1998,8 +1994,7 @@ const ScreenListing = ({navigation}) => {
             : () => {};
 
   return (
-    <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       {/* Search and Icons */}
       <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
         <View style={styles.header}>

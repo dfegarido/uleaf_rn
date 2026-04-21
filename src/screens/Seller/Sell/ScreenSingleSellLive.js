@@ -1,7 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
+import { ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -16,8 +15,7 @@ import {
   View
 } from 'react-native';
 import { globalStyles } from '../../../assets/styles/styles';
-import {
-  getListingDetails,
+import { getListingDetails,
   getMutationApi,
   getSellGenusApi,
   getSellSpeciesApi,
@@ -27,8 +25,7 @@ import {
   uploadMultipleImagesToBackend
 } from '../../../components/Api';
 import { ImagePickerModal } from '../../../components/ImagePicker';
-import {
-  InputBox,
+import { InputBox,
   InputCheckBox,
   InputDropdown,
   InputDropdownSearch,
