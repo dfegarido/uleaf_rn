@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import { API_ENDPOINTS } from '../../config/apiConfig';
@@ -510,7 +510,11 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
       statusBarTranslucent={true}>
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
-          <View style={styles.modal}>
+          <KeyboardAvoidingView
+            behavior="height"
+            keyboardVerticalOffset={0}
+            style={styles.keyboardAvoidingView}>
+            <View style={styles.modal}>
             {/* Header */}
             <View style={styles.header}>
               <Pressable onPress={onClose} style={styles.cancelButton}>
@@ -648,6 +652,12 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
                 style={styles.searchInput}
                 value={searchText}
                 onChangeText={setSearchText}
+                onFocus={() => {
+                  // Scroll to ensure search input is visible above keyboard
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                  }, 100);
+                }}
               />
             </View>
 
@@ -657,7 +667,11 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
               style={styles.userListScroll}
               contentContainerStyle={styles.userListContent}
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={true}>
+              showsVerticalScrollIndicator={true}
+              maintainVisibleContentPosition={{
+                minIndexForVisible: 0,
+                autoscrollToTopThreshold: 10,
+              }}>
               {loading ? (
                 <View style={styles.userList}>
                   {Array.from({length: 5}).map((_, idx) => (
@@ -715,8 +729,9 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
+    </View>
 
       {/* User Type Filter Modal */}
       <Modal
@@ -814,29 +829,23 @@ export default GroupChatModal;
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   modalContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 600,
     width: '100%',
+    height: '90%',
     zIndex: 1000,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   modal: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 600,
-    width: '100%',
+    flex: 1,
     overflow: 'hidden',
     flexDirection: 'column',
   },
@@ -1029,10 +1038,11 @@ const styles = StyleSheet.create({
   },
   userListScroll: {
     flex: 1,
+    minHeight: 200,
   },
   userListContent: {
     paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingBottom: 100,
   },
   userList: {
     paddingVertical: 8,
