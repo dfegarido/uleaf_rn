@@ -1356,6 +1356,7 @@ const ListingsViewer = ({ navigation }) => {
           searchValue={searchTerm}
           onSearchChange={(text) => setSearchTerm(text || '')}
           onSearchSubmit={() => { setHeaderSearchVisible(false); handleSearch(); }}
+          onSearchClear={() => { setSearchTerm(''); loadListings({ page: 1 }); }}
           inputRef={searchInputRef}
         />
 

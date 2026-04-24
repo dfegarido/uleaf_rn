@@ -23,6 +23,7 @@ const ScreenHeader = ({
     searchValue,
     onSearchChange,
     onSearchSubmit,
+    onSearchClear,
     inputRef,
     searchPlaceholder='Search',
     downloadCsv=false,
@@ -46,16 +47,27 @@ const ScreenHeader = ({
             {selectionMode && <Text style={styles.headerTitle}>{selectedCount} selected</Text>}
 
             {searchActive && (
-                <TextInput
-                    ref={inputRef}
-                    style={styles.headerSearchInput}
-                    placeholder={searchPlaceholder}
-                    placeholderTextColor="#647276"
-                    value={searchValue}
-                    onChangeText={onSearchChange}
-                    onSubmitEditing={onSearchSubmit}
-                    returnKeyType="search"
-                />
+                <View style={styles.searchInputContainer}>
+                    <TextInput
+                        ref={inputRef}
+                        style={styles.headerSearchInput}
+                        placeholder={searchPlaceholder}
+                        placeholderTextColor="#647276"
+                        value={searchValue}
+                        onChangeText={onSearchChange}
+                        onSubmitEditing={onSearchSubmit}
+                        returnKeyType="search"
+                    />
+                    {searchValue && searchValue.length > 0 && (
+                        <TouchableOpacity
+                            style={styles.clearButton}
+                            onPress={onSearchClear}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <CloseIcon width={16} height={16} />
+                        </TouchableOpacity>
+                    )}
+                </View>
             )}
 
             <View style={styles.rightActions}>
@@ -136,6 +148,19 @@ const styles = StyleSheet.create({
         fontFamily: 'Inter',
         fontSize: 14,
         color: '#202325',
+    },
+    searchInputContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F6F7F6',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        height: 40,
+    },
+    clearButton: {
+        padding: 4,
+        marginLeft: 8,
     },
     rightActions: {
         flexDirection: 'row',
