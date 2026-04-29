@@ -30,14 +30,32 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
   }, []);
 
   const handleChange = (text, index) => {
-    if (text !== '' && !/^[0-9]$/.test(text)) return;
-
+    const digits = (text || '').replace(/\D/g, '');
     const newOtpArray = [...otpArray];
-    newOtpArray[index] = text;
+
+    // Handle paste/autofill: distribute multiple digits across subsequent inputs.
+    if (digits.length > 1) {
+      let cursor = index;
+      for (const ch of digits) {
+        if (cursor >= length) break;
+        newOtpArray[cursor] = ch;
+        cursor += 1;
+      }
+      setOtpArray(newOtpArray);
+      onChangeOtp(newOtpArray.join(''));
+
+      const nextFocusIndex = Math.min(index + digits.length, length - 1);
+      inputs.current[nextFocusIndex]?.focus();
+      return;
+    }
+
+    // Single-digit input / clear behavior.
+    const single = digits.slice(0, 1);
+    newOtpArray[index] = single;
     setOtpArray(newOtpArray);
     onChangeOtp(newOtpArray.join(''));
 
-    if (text && index < length - 1) {
+    if (single && index < length - 1) {
       inputs.current[index + 1]?.focus();
     }
   };
@@ -68,11 +86,13 @@ const OtpInput = ({length = 4, onChangeOtp}) => {
               key={i}
               ref={ref => (inputs.current[i] = ref)}
               style={styles.input}
-              maxLength={1}
+              // Allow multi-character paste/autofill to reach onChangeText.
+              // We still render one digit per box via handleChange distribution.
+              maxLength={length}
               keyboardType="number-pad"
               returnKeyType="done"
               textContentType="oneTimeCode"
-              importantForAutofill="no"
+              autoComplete="one-time-code"
               autoFocus={i === 0}
               value={otpArray[i]}
               onChangeText={text => handleChange(text, i)}

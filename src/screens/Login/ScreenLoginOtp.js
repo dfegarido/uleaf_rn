@@ -48,16 +48,16 @@ const ScreenLoginOtp = ({navigation}) => {
   };
 
   const postRequestPinData = async token => {
-    // Use the PIN validation API which works for both sellers and admins
+    // Resend flow must call signInSupplier to generate/send a fresh OTP PIN.
     try {
-      const response = await postSellerPinCodeApi(token, pin);
+      const response = await postSellerAfterSignInApi(token);
       if (response.success) {
         return response;
       }
-      throw new Error(response.error || 'PIN verification failed.');
+      throw new Error(response.error || 'Failed to resend PIN.');
     } catch (error) {
-      console.log('PIN validation failed:', error.message);
-      throw new Error(error.message || 'PIN verification failed.');
+      console.log('PIN resend failed:', error.message);
+      throw new Error(error.message || 'PIN resend failed.');
     }
   };
 
@@ -237,6 +237,12 @@ const ScreenLoginOtp = ({navigation}) => {
     try {
       if (idToken != '') {
         await postRequestPinData(idToken);
+        setPin('');
+        Alert.alert(
+          'Code Sent',
+          'A new authentication code has been sent to your email.',
+          [{text: 'OK'}]
+        );
         setLoading(false);
       }
     } catch (error) {
