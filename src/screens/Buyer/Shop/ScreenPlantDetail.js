@@ -645,8 +645,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
       return {url: '', message: ''};
     }
     const titleLine = plantData
-      ? `Check out ${[plantData.genus, plantData.species].filter(Boolean).join(' ')} on iLeafU`.trim()
-      : 'Check out this plant on iLeafU';
+      ? `Check out ${[plantData.genus, plantData.species].filter(Boolean).join(' ')} on ileafU`.trim()
+      : 'Check out this plant on ileafU';
     const message = `${titleLine}\n${url}`;
     return {url, message};
   }, [plantCode, plantData]);
@@ -687,7 +687,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     const open = async () => {
       try {
         await Share.open({
-          title: 'iLeafU listing',
+          title: 'ileafU listing',
           message,
           url,
         });
