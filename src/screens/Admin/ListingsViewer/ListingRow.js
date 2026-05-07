@@ -19,6 +19,33 @@ const getStatusColor = (status) => {
   }
 };
 
+const formatDateListed = (value) => {
+  if (!value) return null;
+
+  let dateObj = null;
+
+  if (value instanceof Date) {
+    dateObj = value;
+  } else if (typeof value?.toDate === 'function') {
+    dateObj = value.toDate();
+  } else if (typeof value === 'object' && value?._seconds) {
+    dateObj = new Date(value._seconds * 1000);
+  } else if (typeof value === 'number') {
+    dateObj = new Date(value);
+  } else if (typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) dateObj = parsed;
+  }
+
+  if (!dateObj || Number.isNaN(dateObj.getTime())) return null;
+
+  return dateObj.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
 // Helper to resolve a primary image from multiple possible legacy fields and
 // from the images array. Preference order:
 // 1) images array WebP thumb -> large -> original
@@ -145,12 +172,18 @@ const renderCell = (key, listing, activeStatusFilter = null) => {
           displayStatus = isSold ? 'Sold' : (listing.hasDiscount ? 'Discounted' : (listing.status || ''));
         }
         
+        const rawListedDate = listing.listingDate || listing.dateCreated || listing.createdAt;
+        const listedDateText = formatDateListed(rawListedDate);
+
         return (
           <View>
             <Text style={styles.plantCode}>{listing.plantCode}</Text>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) }]}>
               <Text style={styles.statusText}>{String(displayStatus).replace(/_/g, ' ')}</Text>
             </View>
+            {listedDateText ? (
+              <Text style={styles.dateListedText}>Date Listed: {listedDateText}</Text>
+            ) : null}
           </View>
         );
     case 'name':
@@ -374,6 +407,7 @@ const styles = StyleSheet.create({
   plantCode: { fontWeight: '600', fontSize: 16, color: '#202325' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', minHeight: 28, justifyContent: 'center' },
   statusText: { color: '#FFF', fontWeight: '600', textTransform: 'capitalize' },
+  dateListedText: { color: '#647276', fontSize: 12, marginTop: 6 },
   plantName: { color: '#202325', fontWeight: '600' },
   plantVariegation: { color: '#647276' },
   listingTypeText: { fontWeight: '600', color: '#FFFFFF', backgroundColor: '#202325', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },

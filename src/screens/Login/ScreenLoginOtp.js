@@ -30,6 +30,7 @@ const ScreenLoginOtp = ({navigation}) => {
   const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const autoSubmitRef = React.useRef(false);
+  const lastAutoSubmittedPinRef = React.useRef(null);
 
   const postData = async token => {
     // Try seller PIN validation first (might work for both)
@@ -74,6 +75,14 @@ const ScreenLoginOtp = ({navigation}) => {
     }
   }, []);
 
+  // Allow auto-submit again only after user edits code below expected length.
+  useEffect(() => {
+    const EXPECTED_LENGTH = 4;
+    if ((pin || '').length < EXPECTED_LENGTH) {
+      lastAutoSubmittedPinRef.current = null;
+    }
+  }, [pin]);
+
   // Auto-submit when pin reaches expected length (skip for test user)
   useEffect(() => {
     const EXPECTED_LENGTH = 4;
@@ -93,8 +102,15 @@ const ScreenLoginOtp = ({navigation}) => {
     }
     
     // For regular users, require 4-digit PIN
-    if (pin && pin.length === EXPECTED_LENGTH && !loading && !autoSubmitRef.current) {
+    if (
+      pin &&
+      pin.length === EXPECTED_LENGTH &&
+      !loading &&
+      !autoSubmitRef.current &&
+      lastAutoSubmittedPinRef.current !== pin
+    ) {
       autoSubmitRef.current = true; // prevent duplicate auto submissions
+      lastAutoSubmittedPinRef.current = pin; // prevent re-submitting same unchanged wrong PIN
       // small timeout so UI updates (keyboard dismiss, etc.) before action
       setTimeout(async () => {
         try {
