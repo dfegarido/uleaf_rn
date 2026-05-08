@@ -14,7 +14,7 @@ const LEAF_TRAIL_STATUSES = [
   { id: 'inventoryForHub', label: 'Inventory for Hub' },
   { id: 'sorted', label: 'Sorted' },
   { id: 'packed', label: 'Packed' },
-  { id: 'shipped', label: 'Shipped' },
+  { id: 'shipped', label: 'In-transit' },
 ];
 
 const StatusItem = ({ status, isSelected, onSelect }) => {
