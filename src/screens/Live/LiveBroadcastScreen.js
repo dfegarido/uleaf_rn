@@ -81,6 +81,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isLive, setIsLive] = useState(false);
   const flatListRef = useRef(null);
   const snapshotPendingRef = useRef(null);
+  const thumbnailPendingRef = useRef(false);
+  const thumbnailTimerRef = useRef(null);
   const [snapshotPreviewUri, setSnapshotPreviewUri] = useState(null);
   const [snapshotCountdown, setSnapshotCountdown] = useState(0);
   const countdownIntervalRef = useRef(null);
@@ -304,9 +306,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           if (errCode !== 0) {
             console.warn('[Snapshot] Failed, errCode:', errCode);
             snapshotPendingRef.current = null;
+            thumbnailPendingRef.current = false;
             return;
           }
           console.log(`[Snapshot] Captured ${width}x${height} -> ${filePath}`);
+          const isThumbnail = thumbnailPendingRef.current;
+          thumbnailPendingRef.current = false;
+          if (isThumbnail) {
+            handleLiveThumbnailUpload(filePath);
+            return;
+          }
           const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
           setSnapshotPreviewUri(fileUri);
           const pending = snapshotPendingRef.current;
@@ -524,6 +533,28 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     
   // };
 
+  const handleLiveThumbnailUpload = async (filePath) => {
+    try {
+      const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+      const imageUrl = await uploadImageToBackend(fileUri);
+      if (!imageUrl) throw new Error('Upload returned empty URL');
+      await updateDoc(doc(db, 'live', sessionId), { coverPhotoUrl: imageUrl });
+      console.log('[LiveThumb] Updated session coverPhotoUrl:', imageUrl);
+    } catch (err) {
+      console.error('[LiveThumb] Upload/update failed:', err?.message || err);
+    } finally {
+      try { await RNFS.unlink(filePath); } catch (_) {}
+    }
+  };
+
+  const captureLiveThumbnail = () => {
+    const engine = rtcEngineRef.current;
+    if (!engine || !joined) return;
+    const filePath = `${RNFS.CachesDirectoryPath}/live_thumb_${sessionId}_${Date.now()}.jpg`;
+    thumbnailPendingRef.current = true;
+    engine.takeSnapshot(0, filePath);
+  };
+
   const handleSnapshotUpload = async (filePath, plantCode) => {
     try {
       console.log('[Snapshot] Uploading image for', plantCode);
@@ -648,6 +679,28 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       }
     };
   }, [activeListing, joined]);
+
+  // Periodic live thumbnail capture — updates the session's coverPhotoUrl
+  // so the buyer's shop screen shows a fresh preview of what's currently on stream
+  useEffect(() => {
+    if (!joined || !isLive) {
+      if (thumbnailTimerRef.current) {
+        clearInterval(thumbnailTimerRef.current);
+        thumbnailTimerRef.current = null;
+      }
+      return;
+    }
+
+    captureLiveThumbnail();
+    thumbnailTimerRef.current = setInterval(captureLiveThumbnail, 30000);
+
+    return () => {
+      if (thumbnailTimerRef.current) {
+        clearInterval(thumbnailTimerRef.current);
+        thumbnailTimerRef.current = null;
+      }
+    };
+  }, [joined, isLive, sessionId]);
 
   // Effect to fetch order for the active listing
   useEffect(() => {

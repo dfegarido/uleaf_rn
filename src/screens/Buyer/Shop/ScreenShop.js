@@ -66,6 +66,7 @@ import { getAcclimationIndexApi,
   getShippingIndexApi,
 } from '../../../components/Api/dropdownApi';
 import { InfoCard } from '../../../components/InfoCards';
+import LiveSellerStrip from '../../../components/LiveSellerStrip/LiveSellerStrip';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
 import { CACHE_KEYS,
   getCacheData,
@@ -1254,7 +1255,10 @@ const ScreenShop = ({navigation}) => {
             onPress={onWholesalePress}
           />
         </View>
-        
+
+        {/* Live Seller Strip */}
+        <LiveSellerStrip navigation={navigation} />
+
         {/* Chat Shops Section */}
         {!loadingChatShops && chatShops.length > 0 && (
           <>

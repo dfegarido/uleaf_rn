@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./gradlew clean *)"
+      "Bash(./gradlew clean *)",
+      "Bash(grep -rn \"styled-components\\\\|@emotion\\\\|tailwind\\\\|nativewind\\\\|tw\\\\`\\\\|className\" /Users/macm2/projects/olla/ileafu/package.json /Users/macm2/projects/olla/ileafu/src/ --include=\"*.json\" --include=\"*.js\" -l)",
+      "Bash(npx eslint *)",
+      "Bash(node -e \"require\\('@babel/core'\\).parse\\(require\\('fs'\\).readFileSync\\('src/components/LiveSellerStrip/LiveSellerStrip.js','utf8'\\),{presets:['module:metro-react-native-babel-preset'],filename:'LiveSellerStrip.js'}\\)\")"
     ]
   }
 }
