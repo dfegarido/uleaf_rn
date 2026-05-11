@@ -36,8 +36,119 @@ const OrderItemCard = ({
 
   const leafTrailHistory = fullOrderData?.leafTrailHistory || {};
   const shippedData = fullOrderData?.shippedData || {};
-  
-console.log('shippedData', shippedData);
+
+  const formatHubTimestamp = (raw) => {
+    if (raw == null || raw === '') return null;
+    try {
+      if (raw._seconds != null || raw.seconds != null) {
+        const s = raw._seconds ?? raw.seconds;
+        return moment(s * 1000).format('MMM DD, YYYY hh:mmA');
+      }
+      if (raw.toDate && typeof raw.toDate === 'function') {
+        return moment(raw.toDate()).format('MMM DD, YYYY hh:mmA');
+      }
+      const m = moment(raw);
+      return m.isValid() ? m.format('MMM DD, YYYY hh:mmA') : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  /** Merge API leafTrailHistory with raw order fields (older app builds / offline cache). */
+  const getMergedLeafTrailHistory = () => {
+    const order = fullOrderData || {};
+    const hist = { ...(order.leafTrailHistory || {}), ...leafTrailHistory };
+    const hubP = order.hubPackDetails;
+    const packTs = hubP?.dateProcessed || hubP?.dateScanned || hubP?.hubPackedDate;
+    if (packTs && !hist.packed) {
+      hist.packed = { datePacked: packTs };
+    }
+    const tr = (order.shippingData?.trackingNumber || hist.inTransit?.upsTrackingNumber || '').trim();
+    if (tr && !hist.inTransit) {
+      hist.inTransit = { upsTrackingNumber: tr };
+    }
+    const sdIn = order.shippedData || shippedData;
+    if (sdIn?.deliveryDate && sdIn?.deliveryTime && !hist.delivered) {
+      hist.delivered = { deliveryDate: sdIn.deliveryDate, deliveryTime: sdIn.deliveryTime };
+    }
+    if (order.deliveredDate && !hist.delivered?.deliveredDate) {
+      hist.delivered = { ...(hist.delivered || {}), deliveredDate: order.deliveredDate };
+    }
+    return hist;
+  };
+
+  /**
+   * Ready to Fly: one line under the flight header (matches buyer reference),
+   * showing the latest milestone only — not a full checklist.
+   */
+  const renderReadyToFlyShipmentProgress = () => {
+    const order = fullOrderData || {};
+    const hist = getMergedLeafTrailHistory();
+    const lts = (order.leafTrailStatus || '').toLowerCase();
+    const st = (order.status || '').toLowerCase();
+    const trk = (hist.inTransit?.upsTrackingNumber || order.shippingData?.trackingNumber || '').trim();
+
+    const delHist = hist.delivered || {};
+    const hasDeliveryTimestamp =
+      !!(delHist.deliveryDate && delHist.deliveryTime) || !!delHist.deliveredDate;
+    const isOrderDelivered = ['delivered', 'complete', 'completed'].includes(st);
+    const showDelivered =
+      hasDeliveryTimestamp || isOrderDelivered || lts === 'shipped';
+
+    const hubP = order.hubPackDetails;
+    const packRaw = hist.packed?.datePacked || hubP?.dateProcessed || hubP?.dateScanned || hubP?.hubPackedDate;
+    const hasPackMilestone =
+      !!packRaw || lts === 'packed' || lts === 'shipping' || lts === 'shipped';
+
+    const showInTransit =
+      !showDelivered && (!!trk || lts === 'shipping');
+
+    const receivedRaw = hist.received?.dateReceived;
+    const receivedTs = formatHubTimestamp(receivedRaw);
+
+    const rtfDetail = (value) => {
+      const s = value != null && String(value).trim() !== '' ? String(value).trim() : '';
+      return s || '\u2014';
+    };
+
+    /** Bold label + grey detail (design ref). Shipment labels: Packed at the Hub, In Transit, Delivered; hub receive uses existing copy. */
+    let label = null;
+    let detail = null;
+
+    if (showDelivered) {
+      label = 'Delivered';
+      if (delHist.deliveredDate) {
+        detail = formatHubTimestamp(delHist.deliveredDate);
+      }
+      if (!detail && delHist.deliveryDate && delHist.deliveryTime) {
+        const combined = `${delHist.deliveryDate} ${delHist.deliveryTime}`;
+        const parsed = moment(combined);
+        detail = parsed.isValid() ? parsed.format('MMM DD, YYYY hh:mmA') : combined;
+      }
+    } else if (showInTransit) {
+      label = 'In Transit';
+      detail = trk || null;
+    } else if (hasPackMilestone) {
+      label = 'Packed at the Hub';
+      detail = formatHubTimestamp(packRaw);
+    } else if (receivedTs) {
+      label = 'Received at the hub';
+      detail = receivedTs;
+    }
+
+    if (!label) {
+      return null;
+    }
+
+    return (
+      <View style={styles.rtfShipmentLine}>
+        <Text style={styles.leafTrailStatusLabel}>{label}: </Text>
+        <Text style={styles.leafTrailStatusText} numberOfLines={3}>
+          {rtfDetail(detail)}
+        </Text>
+      </View>
+    );
+  };
 
   // Display-only status mappings (do not change backend/data logic).
   const displayStatus = (() => {
@@ -346,46 +457,7 @@ console.log('shippedData', shippedData);
         </View>
       )}
 
-      {(activeTab === 'Ready to Fly' &&<View style={{display: 'flex', flexDirection: 'column'}}>
-            {leafTrailHistory?.received?.dateReceived && 
-              (<View style={{display: 'flex', flexDirection: 'row'}}>
-                  <Text style={styles.leafTrailStatusLabel}>Received at the hub: </Text>
-                  <Text style={styles.leafTrailStatusText}>
-                    {moment(leafTrailHistory?.received?.dateReceived?._seconds ? 
-                    (leafTrailHistory.received.dateReceived._seconds * 1000) : leafTrailHistory.received.dateReceived).format('MMM DD, YYYY hh:mmA')}
-                  </Text>
-                </View>
-              )}
-
-            {leafTrailHistory?.needsToStay?.hubNeedsToStayDate && 
-              (<View style={{display: 'flex', flexDirection: 'row'}}>
-                  <Text style={styles.leafTrailStatusLabel}>Held at the hub: </Text>
-                  <Text style={styles.leafTrailStatusText}>
-                    {moment(leafTrailHistory?.needsToStay?.hubNeedsToStayDate?._seconds ? 
-                    (leafTrailHistory.needsToStay.hubNeedsToStayDate._seconds * 1000) : leafTrailHistory.needsToStay.hubNeedsToStayDate).format('MMM DD, YYYY hh:mmA')}
-                  </Text>
-                </View>
-              )}
-
-            {leafTrailHistory?.packed?.datePacked && 
-              (<View style={{display: 'flex', flexDirection: 'row'}}>
-                  <Text style={styles.leafTrailStatusLabel}>Packed at the hub: </Text>
-                  <Text style={styles.leafTrailStatusText}>
-                    {moment(leafTrailHistory?.packed?.datePacked?._seconds ? 
-                (leafTrailHistory.packed.datePacked._seconds * 1000) : leafTrailHistory.packed.datePacked).format('MMM DD, YYYY hh:mmA')}
-                  </Text>
-                </View>
-            )}
-              
-            {leafTrailHistory?.inTransit?.upsTrackingNumber && 
-              (<View style={{display: 'flex', flexDirection: 'row'}}>
-                  <Text style={styles.leafTrailStatusLabel}>In Transit (UPS Tracking Number): </Text>
-                  <Text style={styles.leafTrailStatusText}>
-                    {leafTrailHistory.inTransit.upsTrackingNumber}
-                  </Text>
-                </View>
-              )}    
-      </View>)}
+      {activeTab === 'Ready to Fly' && renderReadyToFlyShipmentProgress()}
 
       {/* Main Card */}
       <View style={[
@@ -459,6 +531,14 @@ const styles = StyleSheet.create({
     fontSize: 13, 
     color: '#202325' ,
     fontWeight: 'bold',
+  },
+  rtfShipmentLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    gap: 4,
   },
   statusContainer: {
     backgroundColor: '#F5F6F6',
