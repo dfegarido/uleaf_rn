@@ -121,7 +121,7 @@ const ShippingScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Box Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'For Shipping'} search={true}/>
+        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Box Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'In-transit'} search={true}/>
         <FlatList
           data={shippingData?.data || {}}
           keyExtractor={item => item.id}

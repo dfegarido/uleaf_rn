@@ -83,9 +83,14 @@ const PlantCard = React.memo(({ item, index, activeTab, isSelected, onSelect }) 
 
   const formatCamelCase = (camelCaseString) => {
     if (!camelCaseString) return '';
+    const raw = String(camelCaseString).trim();
+    const lower = raw.toLowerCase();
 
-    const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
+    // Display-only status mappings (keep backend/data logic unchanged).
+    if (lower === 'shipping') return 'In-transit';
+    if (lower === 'shipped') return 'Delivered';
 
+    const spacedString = raw.replace(/([A-Z])/g, ' $1');
     return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
   }
 

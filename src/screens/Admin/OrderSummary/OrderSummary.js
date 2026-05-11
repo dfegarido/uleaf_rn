@@ -352,14 +352,19 @@ const OrderSummary = ({navigation}) => {
       if (!camelCaseString) return '';
       const raw = String(camelCaseString).trim();
       const lower = raw.toLowerCase();
-      // Leaf Trail: keep UPS-in-transit vs post-handoff "shipped" visually distinct in admin summary.
+
+      // Display-only mappings (do not change underlying leafTrailStatus values).
+      // Admin Order Summary needs different labels per tab.
+      if (activeTab === 'readyToFly' && lower === 'shipping') return 'In-transit';
+      if (activeTab === 'completed' && lower === 'shipped') return 'Delivered';
+
+      // Default admin-friendly labels
       if (lower === 'shipping') return 'In transit (UPS)';
       if (lower === 'shipped') return 'Shipped';
 
       const spacedString = raw.replace(/([A-Z])/g, ' $1');
-
       return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
-    }
+    };
 
     return {
       id: order.id,
