@@ -153,7 +153,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
         <IconTile title="For Shipping" onPress={() => navigation.navigate('LeafTrailShippingAdminScreen')}>
           <ForShippingIcon width={48} height={48} />
         </IconTile>
-        <IconTile title="In-transit" onPress={() => navigation.navigate('LeafTrailShippedAdminScreen')}> 
+        <IconTile title="Shipped" onPress={() => navigation.navigate('LeafTrailShippedAdminScreen')}> 
           <ShippedIcon width={48} height={48} />
         </IconTile>
       </View>

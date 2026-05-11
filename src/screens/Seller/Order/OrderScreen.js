@@ -83,7 +83,6 @@ const PlantCard = React.memo(({ item, index, activeTab, isSelected, onSelect }) 
 
   const formatCamelCase = (camelCaseString) => {
     if (!camelCaseString) return '';
-    if (camelCaseString === 'shipped') return 'In-transit';
 
     const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
 

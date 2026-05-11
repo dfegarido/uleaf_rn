@@ -53,7 +53,6 @@ const PlantCard = ({ orderType, plant, index, openTagAs }) => {
 
   const formatCamelCase = (camelCaseString) => {
     if (!camelCaseString) return '';
-    if (camelCaseString === 'shipped') return 'In-transit';
 
     const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
 

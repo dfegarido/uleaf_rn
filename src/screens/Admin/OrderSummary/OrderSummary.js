@@ -350,7 +350,6 @@ const OrderSummary = ({navigation}) => {
 
     const formatCamelCase = (camelCaseString) => {
       if (!camelCaseString) return '';
-      if (camelCaseString.toLowerCase() === 'shipped') return 'In-transit';
 
       const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
 
