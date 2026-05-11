@@ -664,9 +664,18 @@ const OrderDetailsScreen = () => {
 
   const getStatusDisplayText = (status) => {
     if (!status) return 'Unknown Status';
-    
+
+    // Display-only mappings (do not change backend/data logic).
+    const raw = String(status).trim();
+    const lower = raw.toLowerCase();
+    if (lower === 'shipping') return 'In-transit';
+    if (lower === 'in transit') return 'In-transit';
+    if (lower === 'in-transit') return 'In-transit';
+    if (lower === 'shipped') return 'Delivered';
+    if (lower === 'delivered') return 'Delivered';
+
     // Format status for display
-    return status.split(/[-_\s]/).map(word => 
+    return raw.split(/[-_\s]/).map(word =>
       word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     ).join(' ');
   };

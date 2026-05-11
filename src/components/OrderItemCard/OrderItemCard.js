@@ -39,6 +39,17 @@ const OrderItemCard = ({
   
 console.log('shippedData', shippedData);
 
+  // Display-only status mappings (do not change backend/data logic).
+  const displayStatus = (() => {
+    const raw = String(status || '').trim();
+    const lower = raw.toLowerCase();
+    if (lower === 'shipping') return 'In-transit';
+    if (lower === 'in transit') return 'In-transit';
+    if (lower === 'in-transit') return 'In-transit';
+    if (lower === 'shipped') return 'Delivered';
+    return status;
+  })();
+
   // Create plant data object for utility function
   const plantData = {
     country: countryCode,
@@ -269,7 +280,7 @@ console.log('shippedData', shippedData);
           {plantStatus ? (
             <Text style={[styles.status, styles.plantStatus]}>{plantStatus}</Text>
           ) : (
-            <Text style={styles.status}>{status}</Text>
+            <Text style={styles.status}>{displayStatus}</Text>
           )}
           {/* Show Pending Payment badge for Pay to Board items */}
           {activeTab === 'Pay to Board' && (
