@@ -350,8 +350,13 @@ const OrderSummary = ({navigation}) => {
 
     const formatCamelCase = (camelCaseString) => {
       if (!camelCaseString) return '';
+      const raw = String(camelCaseString).trim();
+      const lower = raw.toLowerCase();
+      // Leaf Trail: keep UPS-in-transit vs post-handoff "shipped" visually distinct in admin summary.
+      if (lower === 'shipping') return 'In transit (UPS)';
+      if (lower === 'shipped') return 'Shipped';
 
-      const spacedString = camelCaseString.replace(/([A-Z])/g, ' $1');
+      const spacedString = raw.replace(/([A-Z])/g, ' $1');
 
       return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
     }
