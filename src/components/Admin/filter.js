@@ -151,8 +151,9 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     console.log('🔄 [Frontend] Resetting date range filter');
     setReusableStartDate('');
     setReusableEndDate('');
-    // Pass empty dates directly to clear filter
-    const updatedFilters = { ...filters, startDate: formattedStart, endDate: formattedEnd };  
+    const updatedFilters = { ...filters };
+    delete updatedFilters.startDate;
+    delete updatedFilters.endDate;
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);

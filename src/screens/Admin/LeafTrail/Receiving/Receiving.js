@@ -411,6 +411,7 @@ const ReceivingScreen = ({navigation}) => {
     const [selectedItems, setSelectedItems] = useState([]);
     const [generatedLabels, setGeneratedLabels] = useState([]);
     const [showLabelViewer, setShowLabelViewer] = useState(false);
+    const lastReceivingFiltersRef = useRef(undefined);
 
     const openTagAs = (status, id) => {
         setIsMissing(status.isMissing);
@@ -430,8 +431,13 @@ const ReceivingScreen = ({navigation}) => {
     const fetchData = async (filters) => {
             try {
                 setIsLoading(true);
-                const response = await getAdminLeafTrailReceiving(filters);
-                
+                if (filters !== undefined) {
+                    lastReceivingFiltersRef.current = filters;
+                }
+                const effectiveFilters =
+                    filters !== undefined ? filters : lastReceivingFiltersRef.current;
+                const response = await getAdminLeafTrailReceiving(effectiveFilters);
+
                 setReceivingData(response);
                 await getFilters('["forReceiving"]');
                 
