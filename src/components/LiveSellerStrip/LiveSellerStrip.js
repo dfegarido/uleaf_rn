@@ -1,6 +1,6 @@
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
@@ -108,7 +108,20 @@ const LiveSellerStrip = ({ navigation }) => {
     );
   }
 
-  if (liveStreams.length === 0) return null;
+  if (liveStreams.length === 0) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Live Now</Text>
+        <View style={styles.scrollContent}>
+          <Image
+            source={require('../../assets/images/upcomming_live.jpg')}
+            style={styles.placeholderImage}
+            resizeMode="cover"
+          />
+        </View>
+      </View>
+    );
+  }
 
   const visibleStreams = liveStreams.slice(0, 3);
 
@@ -241,6 +254,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#7F8D91',
     marginTop: 2,
+  },
+  placeholderImage: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: 12,
   },
   skeletonCard: {
     opacity: 0.7,

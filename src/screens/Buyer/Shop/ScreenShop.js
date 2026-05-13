@@ -1232,7 +1232,10 @@ const ScreenShop = ({navigation}) => {
         }>
         
         <PromoBadgeList navigation={navigation} />
-        
+
+        {/* Live Seller Strip */}
+        <LiveSellerStrip navigation={navigation} />
+
         <View
           style={{
             flexDirection: 'row',
@@ -1255,9 +1258,6 @@ const ScreenShop = ({navigation}) => {
             onPress={onWholesalePress}
           />
         </View>
-
-        {/* Live Seller Strip */}
-        <LiveSellerStrip navigation={navigation} />
 
         {/* Chat Shops Section */}
         {!loadingChatShops && chatShops.length > 0 && (
