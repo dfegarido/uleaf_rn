@@ -35,6 +35,22 @@ import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
 import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
 
+/** Prefer API `dateOrdered`; else format `createdAt` so the line shows if the function is not redeployed yet. */
+function getDateOrderedDatePart(item) {
+  if (item?.dateOrdered) return String(item.dateOrdered).trim();
+  const c = item?.createdAt;
+  if (c == null || c === '') return '';
+  if (typeof c?.toDate === 'function') {
+    const d = c.toDate();
+    return moment(d).isValid() ? moment(d).format('MMM D, YYYY') : '';
+  }
+  const sec = c?.seconds ?? c?._seconds;
+  if (typeof sec === 'number') {
+    return moment(sec * 1000).format('MMM D, YYYY');
+  }
+  return moment(c).isValid() ? moment(c).format('MMM D, YYYY') : '';
+}
+
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
       const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -75,6 +91,8 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
         }
         openTagAs(status, item.id)
     }
+
+    const dateOrderedDatePart = getDateOrderedDatePart(item);
 
     return (
     <View style={styles.listItemOuterContainer}>
@@ -153,13 +171,21 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
           </Modal>
         
         <View style={styles.cardContainer}>
+             <View style={styles.plantImageColumn}>
              <TouchableOpacity
+                  style={styles.plantImageTouchable}
                   onPressIn={handlePressIn}
                   onPressOut={handlePressOut}
                   onPress={handlePress}
                   activeOpacity={0.8}>
                     <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
             </TouchableOpacity>
+            {!!dateOrderedDatePart && (
+                <Text style={styles.dateOrderedCaption}>
+                  Date Ordered: {dateOrderedDatePart}
+                </Text>
+            )}
+             </View>
             <View style={styles.cardDetails}>
                 <View>
                     <View style={styles.codeRow}>
@@ -435,7 +461,9 @@ const ReceivingScreen = ({navigation}) => {
                     lastReceivingFiltersRef.current = filters;
                 }
                 const effectiveFilters =
-                    filters !== undefined ? filters : lastReceivingFiltersRef.current;
+                    filters !== undefined
+                        ? filters
+                        : (lastReceivingFiltersRef.current ?? { sort: 'desc' });
                 const response = await getAdminLeafTrailReceiving(effectiveFilters);
 
                 setReceivingData(response);
@@ -881,6 +909,23 @@ const styles = StyleSheet.create({
         width: 96,
         height: 128,
         borderRadius: 8,
+    },
+    plantImageColumn: {
+        width: 200,
+        flexShrink: 0,
+        alignItems: 'center',
+    },
+    plantImageTouchable: {
+        alignSelf: 'center',
+    },
+    dateOrderedCaption: {
+        marginTop: 8,
+        fontSize: 12,
+        lineHeight: 17,
+        color: '#2F3436',
+        fontWeight: '400',
+        textAlign: 'center',
+        width: '100%',
     },
     cardDetails: {
         flex: 1,

@@ -99,14 +99,15 @@ export const exportAllOrdersToCsv = async (filters = {sort: 'desc'}) => {
   }
 };
 
-export const getAdminLeafTrailReceiving = async (filters = {sort: 'desc'}) => {
+export const getAdminLeafTrailReceiving = async (filters) => {
   try {
     const token = await getStoredAuthToken();
-    
+    const effectiveFilters = filters ?? { sort: 'desc' };
+
     let cleanedParams = null;
-    if (filters) {
+    if (effectiveFilters) {
       cleanedParams = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value != null)
+        Object.entries(effectiveFilters).filter(([_, value]) => value != null)
       );
     }
 
