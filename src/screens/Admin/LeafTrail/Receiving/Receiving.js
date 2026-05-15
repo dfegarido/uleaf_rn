@@ -35,20 +35,34 @@ import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
 import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
 
-/** Prefer API `dateOrdered`; else format `createdAt` so the line shows if the function is not redeployed yet. */
+const LEAF_TRAIL_DISPLAY_TZ = 'America/New_York';
+
+/** Format timestamps for admin Leaf Trail (matches backend ET date-range filter). */
+function formatLeafTrailDateEastern(value) {
+  if (value == null || value === '') return '';
+  let ms;
+  if (typeof value?.toDate === 'function') {
+    ms = value.toDate().getTime();
+  } else if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
+    const sec = value.seconds ?? value._seconds;
+    ms = sec * 1000;
+  } else {
+    const parsed = new Date(value);
+    ms = parsed.getTime();
+  }
+  if (!ms || Number.isNaN(ms)) return typeof value === 'string' ? value : '';
+  return new Date(ms).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: LEAF_TRAIL_DISPLAY_TZ,
+  });
+}
+
+/** Prefer API `dateOrdered`; else format `createdAt` in Eastern. */
 function getDateOrderedDatePart(item) {
   if (item?.dateOrdered) return String(item.dateOrdered).trim();
-  const c = item?.createdAt;
-  if (c == null || c === '') return '';
-  if (typeof c?.toDate === 'function') {
-    const d = c.toDate();
-    return moment(d).isValid() ? moment(d).format('MMM D, YYYY') : '';
-  }
-  const sec = c?.seconds ?? c?._seconds;
-  if (typeof sec === 'number') {
-    return moment(sec * 1000).format('MMM D, YYYY');
-  }
-  return moment(c).isValid() ? moment(c).format('MMM D, YYYY') : '';
+  return formatLeafTrailDateEastern(item?.createdAt);
 }
 
 // A single card in the list
@@ -120,7 +134,7 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
         )}
         <View style={styles.flightDetailsRow}>
              <AirplaneIcon width={20} height={20} color="#556065"/>
-             <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{moment(item.flightDate).isValid() ? moment(item.flightDate).format('MMM-DD-YYYY') : item.flightDate}</Text></Text>
+             <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{formatLeafTrailDateEastern(item.flightDate) || item.flightDate || '—'}</Text></Text>
         </View>
         {item.receivedDate && (
              <View style={styles.flightDetailsRow}>
