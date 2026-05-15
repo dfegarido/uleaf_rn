@@ -48,6 +48,7 @@ import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import RNFS from 'react-native-fs';
 import { AuthContext } from '../../auth/AuthProvider';
 import { generateAgoraToken, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
+import { sendLiveStartedNotificationApi } from '../../components/Api/sendLiveStartedNotificationApi';
 import { uploadImageToBackend } from '../../components/Api/uploadImageToBackend';
 import { updateListingApi } from '../../components/Api/listingManagementApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen';
@@ -131,6 +132,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       if (response?.success && response?.newStatus === 'live') {
         setIsLive(true);
         setIsLoading(false);
+        try {
+          await sendLiveStartedNotificationApi({
+            liveId: sessionId,
+            title: response?.title || '',
+            sellerId: response?.createdBy || '',
+          });
+        } catch (notifyError) {
+          console.error('Failed to send live started notification:', notifyError.message);
+        }
       } else {
         setIsLive(false);
         setIsLoading(false);

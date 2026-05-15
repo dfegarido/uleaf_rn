@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import UploadIcon from '../../assets/live-icon/upload.svg';
 import { createLiveSession } from '../../components/Api/agoraLiveApi';
+import { scheduleLiveReminderApi } from '../../components/Api/liveReminderApi';
 
 const CreateLiveSessionScreen = ({navigation, route}) => {
   const [title, setTitle] = useState('');
@@ -106,6 +107,16 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
       // Assuming the API returns a channelName or other session details
       // For now, we just navigate on success.
       if (response.success) {
+        try {
+          await scheduleLiveReminderApi({
+            liveId: response.sessionId,
+            scheduledAt: purgeDateTime.toISOString(),
+            title: title.trim(),
+            sellerId: response.createdBy || '',
+          });
+        } catch (reminderError) {
+          console.error('Failed to schedule live reminder emails:', reminderError.message);
+        }
         navigation.replace(liveType === 'purge' ? 'SetUpListingsPurgeScreen' : 'LiveBroadcastScreen', {
           sessionId: response.sessionId,
         });

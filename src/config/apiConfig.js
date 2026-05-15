@@ -373,6 +373,10 @@ const generateEndpoints = () => ({
 
   // Group Chat Notification
   SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,
+
+  // Live Notifications
+  SCHEDULE_LIVE_REMINDER: `${getBaseUrl()}/scheduleLiveReminder`,
+  SEND_LIVE_STARTED_NOTIFICATION: `${getBaseUrl()}/sendLiveStartedNotification`,
 });
 
 // API Endpoints - Initially generated with default environment

@@ -20,6 +20,7 @@ import EditIcon from '../../assets/icons/greydark/note-edit.svg';
 import UploadIcon from '../../assets/live-icon/upload.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { getLiveListingsBySessionApi, updateLiveSession, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
+import { sendLiveStartedNotificationApi } from '../../components/Api/sendLiveStartedNotificationApi';
 import { InputBox } from '../../components/Input';
 
 const SetUpListingsPurgeScreen = ({navigation, route}) => {
@@ -45,6 +46,15 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
       if (response?.success && response?.newStatus === 'live') {
         setIsLive(true);
         setLoading(false);
+        try {
+          await sendLiveStartedNotificationApi({
+            liveId: sessionId,
+            title: response?.title || '',
+            sellerId: response?.createdBy || '',
+          });
+        } catch (notifyError) {
+          console.error('Failed to send live started notification:', notifyError.message);
+        }
       } else {
         setIsLive(false);
         setLoading(false);
