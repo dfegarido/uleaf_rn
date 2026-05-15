@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { View,
+import {
+  View,
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  Text,
 } from 'react-native';
 import SearchIcon from '../../assets/icons/greylight/magnifying-glass-regular';
 
@@ -25,6 +27,10 @@ const SearchHeader = ({
   navigation,
   // Custom handler for search icon press (overrides default navigation behavior)
   onSearchIconPress,
+  // Tap handler for the entire search field (e.g. open dedicated search screen)
+  onPress,
+  // Render as a non-editable button that opens the search screen
+  readOnly,
   // Container style override
   containerStyle,
   searchContainerStyle,
@@ -58,12 +64,18 @@ const SearchHeader = ({
   };
 
   const handleSearchIconPress = () => {
+    // If onPress is provided (e.g. open dedicated search screen), use it
+    if (onPress) {
+      onPress();
+      return;
+    }
+
     // If custom handler is provided, use it
     if (onSearchIconPress) {
       onSearchIconPress(searchText.trim());
       return;
     }
-    
+
     // If navigation is provided and there's any search text, navigate to genus plants screen
     if (navigation && searchText.trim().length > 0) {
       console.log('🔍 [SearchHeader] Navigating to ScreenGenusPlants with search:', searchText.trim());
@@ -90,35 +102,50 @@ const SearchHeader = ({
     }
   };
 
+  const fieldContent = (
+    <View style={styles.textField}>
+      <SearchIcon width={24} height={24} />
+      {readOnly ? (
+        <Text style={[styles.searchInput, styles.searchInputReadOnly]} numberOfLines={1}>
+          {searchText || placeholder}
+        </Text>
+      ) : (
+        <TextInput
+          ref={textInputRef}
+          style={styles.searchInput}
+          placeholder={placeholder}
+          placeholderTextColor="#647276"
+          value={searchText}
+          onChangeText={handleTextChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          multiline={false}
+          numberOfLines={1}
+          autoComplete="off"
+          autoCorrect={false}
+          autoCapitalize="none"
+          spellCheck={false}
+          textContentType="none"
+          dataDetectorTypes="none"
+          keyboardType="default"
+        />
+      )}
+    </View>
+  );
+
   return (
     <View style={[styles.container, containerStyle, style]}>
       <View style={[styles.searchContainer, searchContainerStyle]}>
         <View style={styles.searchField}>
-          <View style={styles.textField}>
-            <TouchableOpacity onPress={handleSearchIconPress} activeOpacity={0.7}>
-              <SearchIcon width={24} height={24} />
+          {readOnly ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleSearchIconPress}>
+              {fieldContent}
             </TouchableOpacity>
-            <TextInput
-              ref={textInputRef}
-              style={styles.searchInput}
-              placeholder={placeholder}
-              placeholderTextColor="#647276"
-              value={searchText}
-              onChangeText={handleTextChange}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              multiline={false}
-              numberOfLines={1}
-              // Disable native autocomplete and suggestions
-              autoComplete="off"
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              textContentType="none"
-              dataDetectorTypes="none"
-              keyboardType="default"
-            />
-          </View>
+          ) : (
+            fieldContent
+          )}
         </View>
       </View>
     </View>
@@ -172,6 +199,9 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     paddingVertical: 0,
     marginLeft: 8,
+  },
+  searchInputReadOnly: {
+    color: '#9AA4A8',
   },
 });
 

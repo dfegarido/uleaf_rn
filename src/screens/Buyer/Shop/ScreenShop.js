@@ -162,8 +162,6 @@ const ScreenShop = ({navigation}) => {
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   
   // Refresh state
@@ -748,53 +746,6 @@ const ScreenShop = ({navigation}) => {
 
   // (Removed) genus image caching helpers – static local images render instantly
 
-  // Custom render function for search results (simpler text display)
-  const renderSearchResult = ({ item }) => (
-    <TouchableOpacity
-      style={styles.searchResultItem}
-      activeOpacity={0.7}
-      onPress={() => {
-        if (item.plantCode) {
-          // Set flag to prevent blur from closing dropdown
-          setIsNavigatingFromSearch(true);
-          // Navigate immediately
-          navigation.navigate('ScreenPlantDetail', {
-            plantCode: item.plantCode
-          });
-          // Close dropdown and reset flag after navigation
-          setIsSearchFocused(false);
-          setTimeout(() => {
-            setIsNavigatingFromSearch(false);
-          }, 100);
-        } else {
-          console.error('❌ Missing plantCode for plant:', item);
-          Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
-          setIsNavigatingFromSearch(false);
-        }
-      }}
-    >
-      <Text style={styles.searchResultName} numberOfLines={2}>
-        {item.title && !item.title.includes('Choose the most suitable variegation') 
-          ? item.title 
-          : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  // Handle plant selection from search
-  const handlePlantSelect = (plant) => {
-    if (plant.plantCode) {
-      setIsNavigatingFromSearch(true);
-      navigation.navigate('ScreenPlantDetail', {
-        plantCode: plant.plantCode
-      });
-      setIsSearchFocused(false);
-      setTimeout(() => {
-        setIsNavigatingFromSearch(false);
-      }, 100);
-    }
-  };
-
   // Filter update functions that sync with global state
   const handleSortChange = (value) => {
     // Sort is a single selection - update only sort, keep other filters
@@ -1089,16 +1040,8 @@ const ScreenShop = ({navigation}) => {
             <SearchHeader
               searchText={searchTerm}
               onSearchTextChange={setSearchTerm}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => {
-                // Handled by SearchHeader component
-              }}
-              isNavigatingFromSearch={isNavigatingFromSearch}
-              setIsNavigatingFromSearch={setIsNavigatingFromSearch}
-              onPlantSelect={handlePlantSelect}
-              renderResultItem={renderSearchResult}
-              searchApiWrapper={retryAsync}
-              navigation={navigation}
+              onPress={() => navigation.navigate('ScreenSearch')}
+              readOnly
             />
           </View>
 
@@ -1961,93 +1904,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#539461',
     marginRight: 8,
-  },
-  // Search Results Styles
-  searchResultsContainer: {
-    position: 'absolute',
-    top: 52, // Position below the search input field
-    left: 13, // Match header paddingHorizontal
-    right: 53, // Account for header icons width
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2, // Thicker border for better definition
-    borderColor: '#d1d5db', // Slightly darker border
-    borderRadius: 12,
-    height: 400, // Fixed height for scrollable results
-    maxHeight: 400, // Maximum height constraint
-    zIndex: 9999, // Ensure it appears on top of everything
-    elevation: 15, // Higher elevation for Android shadow
-    shadowColor: '#000', // For iOS shadow
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25, // Stronger shadow for better visibility
-    shadowRadius: 8,
-    // Ensure completely opaque background
-    opacity: 1,
-    // Additional properties to ensure visibility
-    borderStyle: 'solid',
-    overflow: 'hidden', // Ensure content doesn't bleed
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF', // Ensure solid background
-  },
-  loadingText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'Inter',
-  },
-  searchResultsList: {
-    flex: 1,
-    backgroundColor: '#FFFFFF', // Ensure solid background
-  },
-  searchResultsListContent: {
-    paddingVertical: 8,
-  },
-  searchResultItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FFFFFF', // Ensure solid background for each item
-    // Additional properties for visibility
-    opacity: 1,
-    borderStyle: 'solid',
-  },
-  searchResultName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1f2937',
-    fontFamily: 'Inter',
-  },
-  loadingMoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  loadingMoreText: {
-    marginLeft: 8,
-    fontSize: 12,
-    color: '#666',
-    fontFamily: 'Inter',
-  },
-  noResultsContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF', // Ensure solid background
-  },
-  noResultsText: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'Inter',
   },
 });
 export default ScreenShop;
