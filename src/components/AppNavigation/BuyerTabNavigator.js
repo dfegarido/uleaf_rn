@@ -38,6 +38,7 @@ import UpdatePasswordScreen from '../../screens/Buyer/Profile/UpdatePasswordScre
 import ScreenGenusPlants from '../../screens/Buyer/Shop/ScreenGenusPlants';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 import ScreenPlantDetailPurge from '../../screens/Buyer/Shop/ScreenPlantDetailPurge';
+import ScreenCartSearch from '../../screens/Buyer/Cart/ScreenCartSearch';
 import ScreenSearch from '../../screens/Buyer/Shop/ScreenSearch';
 import ScreenShop from '../../screens/Buyer/Shop/ScreenShop';
 import ScreenWishlist from '../../screens/Buyer/Shop/ScreenWishlist';
@@ -347,6 +348,11 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="ScreenSearch"
         component={ScreenSearch}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="ScreenCartSearch"
+        component={ScreenCartSearch}
         options={{headerShown: false}}
       />
     </Stack.Navigator>

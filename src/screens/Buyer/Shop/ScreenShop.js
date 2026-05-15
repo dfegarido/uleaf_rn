@@ -163,6 +163,34 @@ const ScreenShop = ({navigation}) => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+
+  // Animated search placeholder
+  const PLACEHOLDER_PLANTS = [
+    'Monstera Deliciosa',
+    'Philodendron Pink Princess',
+    'Hoya Kerrii',
+    'Alocasia Polly',
+    'Anthurium Clarinervium',
+    'Begonia Maculata',
+    'Scindapsus Pictus',
+    'Syngonium Podophyllum',
+    'Ficus Lyrata',
+    'Calathea Orbifolia',
+  ];
+  const [animatedPlaceholder, setAnimatedPlaceholder] = useState(PLACEHOLDER_PLANTS[0]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimatedPlaceholder(prev => {
+        let next;
+        do {
+          next = PLACEHOLDER_PLANTS[Math.floor(Math.random() * PLACEHOLDER_PLANTS.length)];
+        } while (next === prev && PLACEHOLDER_PLANTS.length > 1);
+        return next;
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Refresh state
   const [refreshing, setRefreshing] = useState(false);
@@ -1042,6 +1070,7 @@ const ScreenShop = ({navigation}) => {
               onSearchTextChange={setSearchTerm}
               onPress={() => navigation.navigate('ScreenSearch')}
               readOnly
+              animatedPlaceholder={animatedPlaceholder}
             />
           </View>
 

@@ -2,7 +2,6 @@
 import React, {useState, useEffect} from 'react';
 import { View,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Image,
@@ -11,15 +10,10 @@ import { View,
   RefreshControl,
   ActivityIndicator,
   Dimensions,
-  FlatList,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import AvatarIcon from '../../../assets/buyer-icons/avatar.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
-import MinusIcon from '../../../assets/buyer-icons/minus.svg';
-import PlusIcon from '../../../assets/buyer-icons/plus.svg';
-import PlusDisabledIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import {useNavigation} from '@react-navigation/native';
 import CartBar from '../../../components/CartBar';
 import {getCartItemsApi, removeFromCartApi, updateCartItemApi} from '../../../components/Api/cartApi';
@@ -30,12 +24,9 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 
 import PromoBadgeList from '../../../components/PromoBadgeList';
-import CloseIcon from '../../../assets/buyer-icons/close.svg';
-import {selectedCard} from '../../../assets/buyer-icons/png';
-import DownArrowIcon from '../../../assets/buyer-icons/downicon.svg';
-import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import CartItemCard from '../../../components/CartItemCard/CartItemCard';
 
 // Get screen dimensions for responsive design
 const screenWidth = Dimensions.get('window').width;
@@ -82,68 +73,14 @@ const getValidImageSource = (imageUrl, plantCode) => {
 // Header height constant for safe area calculations
 const HEADER_HEIGHT = 110;
 
-const CartHeader = ({insets}) => {
-  // Search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
-  
+const CartHeader = ({insets, cartItems}) => {
   const navigation = useNavigation();
-  // Local import of reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
 
-  // Custom render function for search results (simpler text display)
-  const renderSearchResult = ({ item }) => (
-    <TouchableOpacity
-      style={styles.searchResultItem}
-      activeOpacity={0.7}
-      onPress={() => {
-        if (item.plantCode) {
-          // Set flag to prevent blur from closing dropdown
-          setIsNavigatingFromSearch(true);
-          // Navigate immediately
-          navigation.navigate('ScreenPlantDetail', {
-            plantCode: item.plantCode
-          });
-          // Close dropdown and reset flag after navigation
-          setIsSearchFocused(false);
-          setTimeout(() => {
-            setIsNavigatingFromSearch(false);
-          }, 100);
-        } else {
-          console.error('❌ Missing plantCode for plant:', item);
-          Alert.alert('Error', 'Unable to view plant details. Missing plant code.');
-          setIsNavigatingFromSearch(false);
-        }
-      }}
-    >
-      <Text style={styles.searchResultName} numberOfLines={2}>
-        {item.title && !item.title.includes('Choose the most suitable variegation') 
-          ? item.title 
-          : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  // Handle plant selection from search
-  const handlePlantSelect = (plant) => {
-    if (plant.plantCode) {
-      setIsNavigatingFromSearch(true);
-      navigation.navigate('ScreenPlantDetail', {
-        plantCode: plant.plantCode
-      });
-      setIsSearchFocused(false);
-      setTimeout(() => {
-        setIsNavigatingFromSearch(false);
-      }, 100);
-    }
-  };
-  
   return (
     <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
       <View style={styles.header}>
-        {/* Back Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.navigate('Shop')}>
           <BackIcon width={24} height={24} />
@@ -151,17 +88,9 @@ const CartHeader = ({insets}) => {
 
         <View style={styles.searchContainer}>
           <SearchHeader
-            searchText={searchTerm}
-            onSearchTextChange={setSearchTerm}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => {
-              // Handled by SearchHeader component
-            }}
-            isNavigatingFromSearch={isNavigatingFromSearch}
-            setIsNavigatingFromSearch={setIsNavigatingFromSearch}
-            onPlantSelect={handlePlantSelect}
-            renderResultItem={renderSearchResult}
-            navigation={navigation}
+            placeholder="Search cart..."
+            readOnly
+            onPress={() => navigation.navigate('ScreenCartSearch', { cartItems })}
           />
         </View>
 
@@ -169,7 +98,6 @@ const CartHeader = ({insets}) => {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => {
-              // Wishlist feature temporarily disabled
               console.log('Wishlist feature is temporarily disabled');
             }}>
             <Wishicon width={40} height={40} />
@@ -177,236 +105,14 @@ const CartHeader = ({insets}) => {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.navigate('ScreenProfile')}>
-            {/* Reusable Avatar component will show cached profilePhotoUrl or fallback icon */}
             <Avatar size={40} />
           </TouchableOpacity>
         </View>
       </View>
-      
+
       <PromoBadgeList navigation={navigation} />
 
     </View>
-  );
-};
-
-const CartComponent = ({
-  image,
-  name,
-  subtitle,
-  price,
-  originalPrice,
-  quantity,
-  flightInfo,
-  shippingInfo,
-  flagIcon,
-  checked,
-  onRemove,
-  onPress,
-  onQuantityChange,
-  availableQuantity,
-  isUnavailable,
-  listingType,
-}) => {
-  // Debug image prop
-  console.log('🖼️ CartComponent image prop for', name, ':', image);
-  
-  return (
-  <View style={styles.cartCard}>
-    <View style={[styles.cartTopCard, isUnavailable && styles.unavailableCard]}>
-      {/* Wrapper to allow remove button to work while preventing selection */}
-      <TouchableOpacity
-        style={{flex: 1, flexDirection: 'row', position: 'relative'}}
-        onPress={() => {
-          // Completely prevent any interaction for unavailable items
-          if (isUnavailable) {
-            console.log('⚠️ Item is SOLD (quantity: 0) and cannot be selected:', {
-              plantCode: name,
-              availableQuantity: availableQuantity,
-              isUnavailable: isUnavailable,
-              checked: checked
-            });
-            // Force deselect if somehow checked
-            if (checked) {
-              console.log('⚠️ Force deselecting unavailable item - calling toggleItemSelection');
-              // Call the parent's toggle function to deselect
-              setTimeout(() => {
-                onPress(); // This will call toggleItemSelection which will deselect it
-              }, 0);
-            }
-            return; // Early return to prevent any action
-          }
-          onPress();
-        }}
-        disabled={isUnavailable}
-        activeOpacity={isUnavailable ? 1 : 0.7}
-        accessibilityState={{ disabled: isUnavailable }}
-        pointerEvents={isUnavailable ? 'none' : 'auto'}
-      >
-      {/* Blocking overlay for unavailable items - prevents all touches */}
-      {isUnavailable && (
-        <View 
-          style={styles.blockingOverlay}
-          pointerEvents="auto"
-          onStartShouldSetResponder={() => true}
-          onTouchStart={(e) => {
-            e.stopPropagation();
-            console.log('🚫 Blocked touch on unavailable item');
-          }}
-        />
-      )}
-      <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
-        <View
-          style={[
-            styles.cartImageContainer,
-            {borderColor: (checked && !isUnavailable) ? '#539461' : 'transparent'},
-          ]}>
-          <Image 
-            source={image} 
-            style={[
-              styles.cartImage,
-              isUnavailable && styles.unavailableImage
-            ]} 
-          />
-          {/* Checkbox - Show disabled state for unavailable items, normal state for available */}
-          <View 
-            style={styles.cartCheckOverlay}
-            pointerEvents={isUnavailable ? 'none' : 'auto'}
-          >
-            {isUnavailable ? (
-              // Disabled checkbox for unavailable items - visible but non-interactive
-              <View style={[styles.uncheckedBox, styles.disabledCheckbox]}>
-                <View style={styles.disabledCheckboxInner} />
-              </View>
-            ) : checked ? (
-              <View style={styles.checkedBox}>
-                <Text style={styles.checkmark}>✓</Text>
-              </View>
-            ) : (
-              <View style={styles.uncheckedBox} />
-            )}
-          </View>
-          {/* Show "SOLD" indicator for unavailable items */}
-          {isUnavailable && (
-            <View style={styles.soldOverlay}>
-              <View style={styles.soldBadge}>
-                <Text style={styles.soldText}>SOLD</Text>
-              </View>
-            </View>
-          )}
-          {/* Discount Badge */}
-          {originalPrice && originalPrice > price && (
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>
-                {Math.round(((originalPrice - price) / originalPrice) * 100)}% OFF
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={{flex: 1, marginLeft: 12}}>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-            }}>
-            <Text style={[styles.cartName, isUnavailable && styles.unavailableText]}>{name}</Text>
-            {/* Remove button moved outside to allow removal even when unavailable */}
-          </View>
-          <Text style={styles.cartSubtitle}>{subtitle}</Text>
-          
-          {/* Listing Type Badge */}
-          <View style={[styles.listingTypeBadge, isUnavailable && styles.unavailableBadge]}>
-            <Text style={styles.listingTypeText}>{isUnavailable ? 'Unavailable' : (listingType || 'Single Plant')}</Text>
-          </View>
-          
-          {/* Price and Quantity Row */}
-          <View style={styles.priceQuantityRow}>
-            <View style={styles.priceContainer}>
-              {/* Show original price with strikethrough if there's a discount */}
-              {originalPrice && originalPrice > price && (
-                <Text style={styles.originalPriceText}>
-                  $ {(parseFloat(originalPrice) * quantity).toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  })}
-                </Text>
-              )}
-              {/* Current price (discounted or regular) */}
-              <Text style={styles.totalItemPrice}>$ {(parseFloat(price) * quantity).toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-              })}</Text>
-            </View>
-            
-            {/* Quantity Stepper - Always show, disable decrement when quantity is 1 */}
-            <View style={[styles.quantityStepper, isUnavailable && styles.disabledStepper]}>
-              <TouchableOpacity
-                style={styles.stepperButton}
-                onPress={() => onQuantityChange(quantity - 1)}
-                disabled={quantity <= 1 || isUnavailable}>
-                <MinusIcon width={16} height={16} color={(quantity <= 1 || isUnavailable) ? '#CDD3D4' : '#556065'} />
-              </TouchableOpacity>
-              
-              <View style={styles.quantityContainer}>
-                <Text style={styles.quantityText}>{quantity}</Text>
-              </View>
-              
-              <TouchableOpacity
-                style={styles.stepperButton}
-                onPress={() => {
-                  console.log('🔼 INCREMENT BUTTON PRESSED');
-                  console.log('🔼 Current quantity:', quantity);
-                  console.log('🔼 Available quantity:', availableQuantity);
-                  console.log('🔼 Is disabled?', quantity >= availableQuantity || isUnavailable);
-                  console.log('🔼 Plant name:', name);
-                  onQuantityChange(quantity + 1);
-                }}
-                disabled={quantity >= availableQuantity || isUnavailable}>
-                <PlusIcon width={16} height={16} color={(quantity >= availableQuantity || isUnavailable) ? '#CDD3D4' : '#556065'} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </View>
-      </TouchableOpacity>
-      {/* Remove button - separate to allow removal even when unavailable */}
-      <TouchableOpacity 
-        onPress={onRemove}
-        style={{paddingLeft: 8, justifyContent: 'flex-start', paddingTop: 5}}
-      >
-        <CloseIcon width={16} height={16} />
-      </TouchableOpacity>
-    </View>
-    
-    {/* Warning Message for Out of Stock Items - Matching Figma Design */}
-    {isUnavailable && (
-      <View style={styles.warningContainer}>
-        <View style={styles.warningContent}>
-          <View style={styles.infoIcon}>
-            <View style={styles.infoIconInner}>
-              <Text style={styles.infoIconText}>i</Text>
-            </View>
-          </View>
-          <Text style={styles.warningText}>
-            {availableQuantity === 0 
-              ? 'Snap, This plant has been sold.'
-              : 'This item is no longer available and cannot be selected for checkout.'}
-          </Text>
-        </View>
-      </View>
-    )}
-    
-    {/* Details Section */}
-    <View style={styles.cartDetailsSection}>
-      <View style={styles.cartFooterRow}>
-        <Text style={styles.cartFooterText}>✈️ {flightInfo}</Text>
-        <Text style={{fontSize: 18}}>{flagIcon}</Text>
-      </View>
-      <View style={styles.cartFooterRow}>
-        <Text style={styles.cartFooterText}>🚚 {shippingInfo}</Text>
-      </View>
-    </View>
-  </View>
   );
 };
 
@@ -1041,7 +747,7 @@ const ScreenCart = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <CartHeader insets={insets} />
+        <CartHeader insets={insets} cartItems={cartItems} />
         <ScrollView
           style={[styles.container]}
           contentContainerStyle={{paddingTop: HEADER_HEIGHT + insets.top, paddingBottom: totalBottomPadding}}
@@ -1112,7 +818,7 @@ const ScreenCart = () => {
 
   return (
     <View style={styles.container}>
-      <CartHeader insets={insets} />
+      <CartHeader insets={insets} cartItems={cartItems} />
       <SafeAreaView style={{flex: 1}}>
       <ScrollView
         style={[styles.container]}
@@ -1139,7 +845,7 @@ const ScreenCart = () => {
           </View>
         ) : (
           cartItems.map(item => (
-            <CartComponent
+            <CartItemCard
               key={item.id}
               image={item.image}
               name={item.name}
@@ -1150,7 +856,7 @@ const ScreenCart = () => {
               flightInfo={item.flightInfo}
               shippingInfo={item.shippingInfo}
               flagIcon={item.flagIcon}
-              checked={!item.isUnavailable && selectedItems.has(item.id)} // Never show as checked if unavailable
+              checked={!item.isUnavailable && selectedItems.has(item.id)}
               onRemove={() => removeItem(item.id)}
               onPress={() => toggleItemSelection(item.id)}
               onQuantityChange={(newQuantity) => updateItemQuantity(item.id, newQuantity)}

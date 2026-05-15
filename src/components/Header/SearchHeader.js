@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   View,
   StyleSheet,
   TouchableOpacity,
@@ -31,6 +32,8 @@ const SearchHeader = ({
   onPress,
   // Render as a non-editable button that opens the search screen
   readOnly,
+  // Animated cycling placeholder text (shown in readOnly mode when searchText is empty)
+  animatedPlaceholder,
   // Container style override
   containerStyle,
   searchContainerStyle,
@@ -44,10 +47,31 @@ const SearchHeader = ({
 
   // Use controlled or internal state
   const searchText = controlledSearchText !== undefined ? controlledSearchText : internalSearchText;
-  const isNavigatingFromSearch = externalIsNavigatingFromSearch !== undefined 
-    ? externalIsNavigatingFromSearch 
+  const isNavigatingFromSearch = externalIsNavigatingFromSearch !== undefined
+    ? externalIsNavigatingFromSearch
     : internalIsNavigatingFromSearch;
   const setIsNavigatingFromSearch = externalSetIsNavigatingFromSearch || setInternalIsNavigatingFromSearch;
+
+  // Animated placeholder opacity for readOnly mode
+  const placeholderOpacity = useRef(new Animated.Value(1)).current;
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState(animatedPlaceholder || placeholder);
+
+  useEffect(() => {
+    if (!animatedPlaceholder) return;
+    // Fade out, swap text, fade in
+    Animated.timing(placeholderOpacity, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setDisplayedPlaceholder(animatedPlaceholder);
+      Animated.timing(placeholderOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [animatedPlaceholder]);
 
   const handleTextChange = (text) => {
     if (onSearchTextChange) {
@@ -106,9 +130,22 @@ const SearchHeader = ({
     <View style={styles.textField}>
       <SearchIcon width={24} height={24} />
       {readOnly ? (
-        <Text style={[styles.searchInput, styles.searchInputReadOnly]} numberOfLines={1}>
-          {searchText || placeholder}
-        </Text>
+        animatedPlaceholder ? (
+          <Animated.Text
+            style={[
+              styles.searchInput,
+              styles.searchInputReadOnly,
+              { opacity: placeholderOpacity },
+            ]}
+            numberOfLines={1}
+          >
+            {searchText || displayedPlaceholder}
+          </Animated.Text>
+        ) : (
+          <Text style={[styles.searchInput, styles.searchInputReadOnly]} numberOfLines={1}>
+            {searchText || placeholder}
+          </Text>
+        )
       ) : (
         <TextInput
           ref={textInputRef}
@@ -201,7 +238,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   searchInputReadOnly: {
-    color: '#9AA4A8',
+    color: '#539461',
   },
 });
 
