@@ -718,7 +718,10 @@ const ListingsViewer = ({ navigation }) => {
 
   // Garden handlers
   const handleGardenSelect = (garden) => {
-    setSelectedFilters((prev) => ({ ...prev, garden }));
+    const value = Array.isArray(garden)
+      ? (garden.length ? garden.join(',') : null)
+      : garden || null;
+    setSelectedFilters((prev) => ({ ...prev, garden: value }));
     setGardenModalVisible(false);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };

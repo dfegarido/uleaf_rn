@@ -79,13 +79,38 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     }
   }
 
+  const parseGardenFilterValues = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((g) => typeof g === 'string' && g.trim());
+    }
+    return String(value)
+      .split(',')
+      .map((g) => g.trim())
+      .filter(Boolean);
+  };
+
   const onSelectGarden = (garden) => {
-    const updatedFilters = { ...filters, gardenOrCompanyName: garden };  
+    const gardenOrCompanyName = Array.isArray(garden)
+      ? garden.filter((g) => typeof g === 'string' && g.trim()).join(',')
+      : garden || null;
+    const updatedFilters = { ...filters, gardenOrCompanyName: gardenOrCompanyName || null };
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
     }
-  }
+  };
+
+  const selectedGardenCount = parseGardenFilterValues(filters.gardenOrCompanyName).length;
+
+  const handleGardenPress = () => {
+    if (selectedGardenCount > 0) {
+      onSelectGarden(null);
+      setGardenVisible(false);
+      return;
+    }
+    setGardenVisible(true);
+  };
 
   const onSelectSeller = (seller) => {
     const updatedFilters = { ...filters, sellerName: seller };  
@@ -210,8 +235,21 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
           <Text style={styles.filterButtonText}>Country </Text>
           <DownIcon />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setGardenVisible(true)}>
-          <Text style={styles.filterButtonText}>Garden</Text>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedGardenCount > 0 ? styles.filterButtonActive : null,
+          ]}
+          onPress={handleGardenPress}
+        >
+          <Text style={styles.filterButtonText}>
+            Garden
+            {selectedGardenCount > 0
+              ? selectedGardenCount === 1
+                ? ' ✓'
+                : ` (${selectedGardenCount})`
+              : ''}
+          </Text>
           <DownIcon />
         </TouchableOpacity>
         <TouchableOpacity style={styles.filterButton} onPress={() => setSellerVisible(true)}>
@@ -264,9 +302,11 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
 
       <GardenFilter
         isVisible={isGardenVisible}
-        onClose={() => setGardenVisible(false)}  
+        onClose={() => setGardenVisible(false)}
         onSelectGarden={onSelectGarden}
         gardens={adminFilters?.garden || []}
+        selectedValues={parseGardenFilterValues(filters.gardenOrCompanyName)}
+        currentGarden={filters.gardenOrCompanyName}
       />
 
       <SellerFilter
@@ -329,6 +369,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
         color: '#393D40',
+    },
+    filterButtonActive: {
+        borderColor: '#539461',
+        backgroundColor: '#EFF9F0',
     },
 });
 

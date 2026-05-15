@@ -13,26 +13,60 @@ import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import GardenIcon from '../../assets/admin-icons/garden-avatar.svg';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
+import CheckIcon from '../../assets/admin-icons/check.svg';
 import { getAdminLeafTrailFilters } from '../Api/getAdminLeafTrail';
 import { ActivityIndicator } from 'react-native';
 
 // Represents a single selectable garden in the list
-const GardenItem = ({ name, onSelect, count, isActive }) => (
+const GardenItem = ({ name, onToggle, count, isSelected }) => (
   <TouchableOpacity
-    style={[styles.gardenItemContainer, isActive ? styles.gardenItemActive : null]}
-    onPress={onSelect}
+    style={[styles.gardenItemContainer, isSelected ? styles.gardenItemActive : null]}
+    onPress={onToggle}
+    accessibilityRole="checkbox"
+    accessibilityState={{ checked: !!isSelected }}
   >
-    <View style={[styles.avatar, isActive ? styles.avatarActive : null]}>
+    <View style={[styles.avatar, isSelected ? styles.avatarActive : null]}>
       <GardenIcon />
     </View>
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-      <Text style={[styles.gardenName, isActive ? styles.gardenNameActive : null]}>{name}</Text>
-      {typeof count === 'number' ? <Text style={[styles.gardenCount, isActive ? styles.gardenCountActive : null]}>({count})</Text> : null}
+    <View style={styles.gardenItemLabelRow}>
+      <Text style={[styles.gardenName, isSelected ? styles.gardenNameActive : null]} numberOfLines={1}>
+        {name}
+      </Text>
+      {typeof count === 'number' ? (
+        <Text style={[styles.gardenCount, isSelected ? styles.gardenCountActive : null]}>({count})</Text>
+      ) : null}
+    </View>
+    <View style={isSelected ? styles.checkboxSelected : styles.checkbox}>
+      {isSelected ? (
+        <CheckIcon width={16} height={16} fill="#FFFFFF" />
+      ) : null}
     </View>
   </TouchableOpacity>
 );
 
-const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCounts = {}, fetchFullGardenList, currentGarden = null }) => {
+const parseGardenSelectionInput = (input) => {
+  if (input == null || input === '') return [];
+  if (Array.isArray(input)) {
+    return input
+      .map((g) => (typeof g === 'string' ? g.trim() : String(g).trim()))
+      .filter(Boolean);
+  }
+  return String(input)
+    .split(',')
+    .map((g) => g.trim())
+    .filter(Boolean);
+};
+
+const GardenFilter = ({
+  isVisible,
+  onClose,
+  onSelectGarden,
+  gardens,
+  gardenCounts = {},
+  fetchFullGardenList,
+  currentGarden = null,
+  selectedValues,
+}) => {
   const insets = useSafeAreaInsets();
   // Mock data for the list of gardens
   const allGardens = gardens;
@@ -192,6 +226,7 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
   const [overrideGardens, setOverrideGardens] = React.useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [selectedGardens, setSelectedGardens] = useState([]);
   // pagination for modal list
   const PAGE_SIZE = 6;
   const [visiblePage, setVisiblePage] = React.useState(1);
@@ -227,22 +262,54 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
     return filteredGardens.slice(0, visiblePage * PAGE_SIZE);
   }, [filteredGardens, visiblePage]);
 
-  const handleSelect = (garden) => {
-    // Prevent re-selecting the already-applied garden from clearing the filter
-    // (some callers may toggle on same-value selection). If the tapped garden
-    // is already active, just close the modal and do not re-apply the filter.
-    try {
-      if (currentGarden && String(currentGarden) === String(garden)) {
-        onClose();
-        return;
-      }
-    } catch (e) {
-      // fallthrough to apply
-    }
+  const isGardenSelected = (garden) => {
+    const normThis = normalizeGardenName(garden || '');
+    if (!normThis) return false;
+    return selectedGardens.some(
+      (g) => normalizeGardenName(g) === normThis,
+    );
+  };
 
-    onSelectGarden(garden);
+  const handleToggle = (garden) => {
+    const normThis = normalizeGardenName(garden || '');
+    if (!normThis) return;
+
+    setSelectedGardens((prev) => {
+      const already = prev.some((g) => normalizeGardenName(g) === normThis);
+      if (already) {
+        return prev.filter((g) => normalizeGardenName(g) !== normThis);
+      }
+      return [...prev, garden];
+    });
+  };
+
+  const handleReset = () => {
+    setSelectedGardens([]);
+  };
+
+  const handleApply = () => {
+    onSelectGarden(selectedGardens.length > 0 ? selectedGardens : null);
     onClose();
   };
+
+  const appliedSelectionKey = useMemo(() => {
+    const fromProp =
+      selectedValues !== undefined
+        ? parseGardenSelectionInput(selectedValues)
+        : parseGardenSelectionInput(currentGarden);
+    return fromProp.join('\u0001');
+  }, [selectedValues, currentGarden]);
+
+  // Sync local draft when modal opens or applied filter changes
+  useEffect(() => {
+    if (isVisible) {
+      setSelectedGardens(
+        selectedValues !== undefined
+          ? parseGardenSelectionInput(selectedValues)
+          : parseGardenSelectionInput(currentGarden),
+      );
+    }
+  }, [isVisible, appliedSelectionKey]);
 
   // Reset visible page whenever the source set changes or modal is opened
   React.useEffect(() => {
@@ -325,8 +392,18 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                       allowFontScaling={false}
                       editable={true}
                     />
-                    
                   </View>
+                  <TouchableOpacity
+                    style={styles.showAllGardensLink}
+                    onPress={fetchAllGardens}
+                    disabled={loadingAll}
+                  >
+                    {loadingAll ? (
+                      <ActivityIndicator size="small" color="#539461" />
+                    ) : (
+                      <Text style={styles.showAllGardensLinkText}>Show all gardens</Text>
+                    )}
+                  </TouchableOpacity>
 
                   {/* Scrollable List of Gardens */}
                   <ScrollView
@@ -345,18 +422,18 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                       </View>
                     ) : (
                         filteredGardens.map((garden, index) => {
-                          // determine active state using normalized comparison to avoid
-                          // mismatches caused by quotes/spacing variants
-                          const normCurrent = normalizeGardenName(currentGarden || '');
-                          const normThis = normalizeGardenName(garden || '');
-                          const isActive = normCurrent && normThis && normCurrent === normThis;
+                          const gardenName =
+                            typeof garden === 'string'
+                              ? garden
+                              : garden?.name || garden?.garden || String(garden);
+                          const isSelected = isGardenSelected(gardenName);
                           return (
-                            <View key={garden}>
+                            <View key={`${gardenName}-${index}`}>
                               <GardenItem
-                                name={garden}
-                                count={gardenCounts ? gardenCounts[garden] : undefined}
-                                onSelect={() => handleSelect(garden)}
-                                isActive={isActive}
+                                name={gardenName}
+                                count={gardenCounts ? gardenCounts[gardenName] : undefined}
+                                onToggle={() => handleToggle(gardenName)}
+                                isSelected={isSelected}
                               />
                               {index < filteredGardens.length - 1 && <View style={styles.divider} />}
                             </View>
@@ -366,17 +443,13 @@ const GardenFilter = ({ isVisible, onClose, onSelectGarden, gardens, gardenCount
                   </ScrollView>
                 </View>
                 
-                    {/* Action Buttons */}
+                    {/* Reset + View — same pattern as Country filter */}
                     <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-                      <TouchableOpacity
-                        style={styles.showAllButton}
-                        onPress={() => {
-                          // Always fetch all gardens when "View All" is clicked
-                          fetchAllGardens();
-                        }}
-                        disabled={loadingAll}
-                      >
-                        {loadingAll ? <ActivityIndicator color="#FFF" /> : <Text style={styles.showAllButtonText}>View All</Text>}
+                      <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+                        <Text style={styles.resetButtonText}>Reset</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.viewButton} onPress={handleApply}>
+                        <Text style={styles.viewButtonText}>View</Text>
                       </TouchableOpacity>
                     </View>
 
@@ -450,6 +523,18 @@ const styles = StyleSheet.create({
     color: '#202325',
     height: '100%',
   },
+  showAllGardensLink: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    minHeight: 28,
+    justifyContent: 'center',
+  },
+  showAllGardensLinkText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#539461',
+  },
   listContainer: {
     flex: 1,
     marginTop: 16,
@@ -461,8 +546,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 40,
+    minHeight: 48,
+    paddingVertical: 4,
     marginVertical: 4,
+  },
+  gardenItemLabelRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginRight: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#647276',
+    flexShrink: 0,
+  },
+  checkboxSelected: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#539461',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   avatar: {
     width: 40,
@@ -518,17 +628,35 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   actionContainer: {
+    flexDirection: 'row',
     paddingHorizontal: 24,
     paddingTop: 12,
+    gap: 8,
+    height: 60,
   },
-  showAllButton: {
+  resetButton: {
+    flex: 1,
+    backgroundColor: '#F2F7F3',
+    borderRadius: 12,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#539461',
+  },
+  viewButton: {
+    flex: 1,
     backgroundColor: '#539461',
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  showAllButtonText: {
+  viewButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 16,
