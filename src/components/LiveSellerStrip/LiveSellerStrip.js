@@ -90,7 +90,7 @@ const LiveSellerStrip = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Live Now</Text>
+        <Text style={styles.sectionTitle}>Live Sales</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -111,7 +111,7 @@ const LiveSellerStrip = ({ navigation }) => {
   if (liveStreams.length === 0) {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Live Now</Text>
+        <Text style={styles.sectionTitle}>Live Sales</Text>
         <View style={styles.scrollContent}>
           <Image
             source={require('../../assets/images/upcomming_live.jpg')}
@@ -128,7 +128,7 @@ const LiveSellerStrip = ({ navigation }) => {
   return (
     <View style={styles.section}>
       <View style={styles.titleRow}>
-        <Text style={styles.sectionTitle}>Live Now</Text>
+        <Text style={styles.sectionTitle}>Live Sales</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('OngoingLiveListScreen')}
           activeOpacity={0.6}>
