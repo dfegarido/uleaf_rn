@@ -69,7 +69,10 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
   }
 
   const onSelectFlight = (flight) => {
-    const updatedFilters = { ...filters, flightDate: flight };  
+    const flightDate = Array.isArray(flight)
+      ? flight.filter((d) => typeof d === 'string' && d.trim()).join(',')
+      : flight;
+    const updatedFilters = { ...filters, flightDate: flightDate || null };
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
@@ -252,6 +255,11 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         onClose={() => setFlightVisible(false)}
         onSelectFlight={onSelectFlight}
         flightDates={adminFilters?.flightDates || []}
+        selectedValues={
+          filters.flightDate
+            ? String(filters.flightDate).split(',').map((d) => d.trim()).filter(Boolean)
+            : []
+        }
       />  
 
       <GardenFilter

@@ -36,9 +36,58 @@ import BackIcon from '../../../../assets/admin-icons/back.svg';
 import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
 
 const LEAF_TRAIL_DISPLAY_TZ = 'America/New_York';
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** Format timestamps for admin Leaf Trail (matches backend ET date-range filter). */
-function formatLeafTrailDateEastern(value) {
+/** Resolve plant flight to YYYY-MM-DD (calendar day, not UTC-shifted). */
+function resolvePlantFlightDateIso(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'string') {
+    const s = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const mmm = s.match(/^([A-Za-z]{3})-(\d{1,2})-(\d{4})$/);
+    if (mmm) {
+      const monthMap = {
+        jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+        jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+      };
+      const mi = monthMap[mmm[1].slice(0, 3).toLowerCase()];
+      if (mi) {
+        const y = parseInt(mmm[3], 10);
+        const d = parseInt(mmm[2], 10);
+        return `${y}-${String(mi).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    let dateObj = null;
+    if (typeof value.toDate === 'function') {
+      dateObj = value.toDate();
+    } else {
+      const sec = value.seconds ?? value._seconds;
+      if (typeof sec === 'number') dateObj = new Date(sec * 1000);
+    }
+    if (dateObj && !Number.isNaN(dateObj.getTime())) {
+      const y = dateObj.getUTCFullYear();
+      const mo = dateObj.getUTCMonth() + 1;
+      const da = dateObj.getUTCDate();
+      return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+/** Plant flight is a calendar date — format without UTC/Eastern day rollback (May 2 stays May 2). */
+function formatPlantFlightDateForDisplay(value) {
+  const iso = resolvePlantFlightDateIso(value);
+  if (!iso) return typeof value === 'string' ? String(value) : '';
+  const [y, mo, da] = iso.split('-').map(Number);
+  return `${MONTH_LABELS[mo - 1]} ${da}, ${y}`;
+}
+
+/** Format real timestamps (e.g. Date Ordered fallback) in Eastern. */
+function formatInstantInEastern(value) {
   if (value == null || value === '') return '';
   let ms;
   if (typeof value?.toDate === 'function') {
@@ -62,7 +111,7 @@ function formatLeafTrailDateEastern(value) {
 /** Prefer API `dateOrdered`; else format `createdAt` in Eastern. */
 function getDateOrderedDatePart(item) {
   if (item?.dateOrdered) return String(item.dateOrdered).trim();
-  return formatLeafTrailDateEastern(item?.createdAt);
+  return formatInstantInEastern(item?.createdAt);
 }
 
 // A single card in the list
@@ -134,7 +183,7 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
         )}
         <View style={styles.flightDetailsRow}>
              <AirplaneIcon width={20} height={20} color="#556065"/>
-             <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{formatLeafTrailDateEastern(item.flightDate) || item.flightDate || '—'}</Text></Text>
+             <Text style={styles.flightDateText}>Plant Flight <Text style={{ fontWeight: 'bold' }}>{formatPlantFlightDateForDisplay(item.flightDate) || item.flightDate || '—'}</Text></Text>
         </View>
         {item.receivedDate && (
              <View style={styles.flightDetailsRow}>
