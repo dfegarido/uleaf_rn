@@ -12,10 +12,11 @@ import { addDoc,
   where,
 } from 'firebase/firestore';
 import moment from 'moment';
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert,
   FlatList,
   Image,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -157,6 +158,8 @@ const MessagesScreen = ({navigation}) => {
   const [memberChats, setMemberChats] = useState([]);
   const [adminGroupChats, setAdminGroupChats] = useState([]);
   const [publicGroupChats, setPublicGroupChats] = useState([]);
+  const [chatShops, setChatShops] = useState([]);
+  const [loadingChatShops, setLoadingChatShops] = useState(true);
 
   const avatarMapRef = useRef(avatarMap);
   const usernameMapRef = useRef(usernameMap);
@@ -397,14 +400,48 @@ const MessagesScreen = ({navigation}) => {
     setLoading(false);
   }, [memberChats, adminGroupChats, publicGroupChats, fetchAvatarsForChats]);
 
+  // Fetch chat shops from Firestore
+  useEffect(() => {
+    const loadChatShops = async () => {
+      try {
+        setLoadingChatShops(true);
+        const q = query(
+          collection(db, 'chatShops'),
+          where('userType', '==', 'buyer'),
+        );
+        const snapshot = await getDocs(q);
+        const shops = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        // Sort by priority asc, then createdAt asc
+        const sorted = shops.sort((a, b) => {
+          const aP = a.priority ?? 999;
+          const bP = b.priority ?? 999;
+          if (aP !== bP) return aP - bP;
+          const aT = a.createdAt?.toDate?.() || new Date(0);
+          const bT = b.createdAt?.toDate?.() || new Date(0);
+          return aT - bT;
+        });
+        setChatShops(sorted);
+      } catch (error) {
+        console.error('Error loading chat shops:', error);
+        setChatShops([]);
+      } finally {
+        setLoadingChatShops(false);
+      }
+    };
+    loadChatShops();
+  }, []);
+
   // Tab-focused prefetch: when user switches tabs, resolve only currently visible chats.
   useEffect(() => {
     if (!Array.isArray(messages) || messages.length === 0) return;
     const visibleChats = selectedTab === 'groups'
-      ? messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2))
+      ? messages.filter(msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id))
       : messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
     fetchAvatarsForChats(visibleChats, { requireUsername: selectedTab !== 'groups' }).catch(() => {});
-  }, [selectedTab, messages, fetchAvatarsForChats]);
+  }, [selectedTab, messages, fetchAvatarsForChats, shopGroupIds]);
 
   // Keep per-group avatar sender selection aligned to latest message senders.
   useEffect(() => {
@@ -497,6 +534,29 @@ const MessagesScreen = ({navigation}) => {
       console.error('Error navigating to chat:', error);
       // Fallback: still attempt to navigate with minimal params
       navigation.navigate('ChatScreen', { id: item?.id });
+    }
+  };
+
+  const handleChatShopPress = async (shop) => {
+    try {
+      if (!shop.groupChatId) {
+        Alert.alert('Error', 'No group chat linked to this shop.');
+        return;
+      }
+      const chatDocRef = doc(db, 'chats', shop.groupChatId);
+      const chatDoc = await getDoc(chatDocRef);
+      if (!chatDoc.exists()) {
+        Alert.alert('Error', 'Group chat not found. It may have been deleted.');
+        return;
+      }
+      const chatData = chatDoc.data();
+      navigation.navigate('ChatScreen', {
+        id: shop.groupChatId,
+        ...chatData,
+      });
+    } catch (error) {
+      console.error('Error opening group chat:', error);
+      Alert.alert('Error', 'Failed to open group chat. Please try again.');
     }
   };
 
@@ -930,15 +990,29 @@ const MessagesScreen = ({navigation}) => {
     </View>
   );
 
+  // Set of group chat IDs linked to chat shops
+  const shopGroupIds = useMemo(() => {
+    const ids = new Set();
+    chatShops.forEach(s => { if (s.groupChatId) ids.add(s.groupChatId); });
+    return ids;
+  }, [chatShops]);
+
+  const isShopGroup = (msg) => shopGroupIds.has(msg.id);
+
   // Filter messages based on selected tab
   const getFilteredMessages = () => {
     const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-    
+
     if (selectedTab === 'groups') {
-      // Show only group chats (more than 2 participants)
-      return messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2));
+      // Show only group chats (more than 2 participants), excluding shop-linked groups
+      return messages.filter(
+        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !isShopGroup(msg),
+      );
+    } else if (selectedTab === 'chatshops') {
+      // Chat Shops tab has its own rendering, return empty here
+      return [];
     } else {
-      // 'messages' - show only 1-on-1 chats (exclude groups)
+      // 'messages' - show only 1-on-1 chats (exclude groups and shop-linked groups)
       return messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
     }
   };
@@ -946,20 +1020,23 @@ const MessagesScreen = ({navigation}) => {
   // Calculate unread counts for badges
   const getUnreadCounts = () => {
     const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-    
-    const unreadMessages = messages.filter(msg => 
-      msg.unreadBy && 
-      msg.unreadBy.includes(currentUserUid) &&
-      !msg.isGroup && 
-      (!msg.participants || msg.participants.length <= 2)
+
+    const unreadMessages = messages.filter(
+      msg =>
+        msg.unreadBy &&
+        msg.unreadBy.includes(currentUserUid) &&
+        !msg.isGroup &&
+        (!msg.participants || msg.participants.length <= 2),
     ).length;
-    
-    const unreadGroups = messages.filter(msg => 
-      msg.unreadBy && 
-      msg.unreadBy.includes(currentUserUid) &&
-      (msg.isGroup || (msg.participants && msg.participants.length > 2))
+
+    const unreadGroups = messages.filter(
+      msg =>
+        msg.unreadBy &&
+        msg.unreadBy.includes(currentUserUid) &&
+        (msg.isGroup || (msg.participants && msg.participants.length > 2)) &&
+        !isShopGroup(msg),
     ).length;
-    
+
     return { unreadMessages, unreadGroups };
   };
 
@@ -1019,7 +1096,7 @@ const MessagesScreen = ({navigation}) => {
             onPress={() => setSelectedTab('groups')}>
             <View style={styles.tabContent}>
               <Text style={[styles.tabText, selectedTab === 'groups' && styles.tabTextActive]}>
-                Groups
+                Rooms
               </Text>
               {unreadGroups > 0 && (
                 <View style={styles.tabBadge}>
@@ -1030,41 +1107,103 @@ const MessagesScreen = ({navigation}) => {
               )}
             </View>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, selectedTab === 'chatshops' && styles.tabActive]}
+            onPress={() => setSelectedTab('chatshops')}>
+            <View style={styles.tabContent}>
+              <Text style={[styles.tabText, selectedTab === 'chatshops' && styles.tabTextActive]}>
+                Shops
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
-        <FlatList
-          style={{flex: 1}}
-          data={loading ? [] : filteredMessages}
-          keyExtractor={(item, index) => (item && item.id) ? item.id : `chat-${index}`}
-          renderItem={renderItem}
-          contentContainerStyle={[
-            styles.listContainer,
-            {paddingBottom: totalBottomPadding},
-            filteredMessages.length === 0 && !loading && styles.emptyListContainer,
-          ]}
-          ListEmptyComponent={() =>
-            loading ? (
-              // Show skeleton loading when loading
-              <View style={styles.skeletonContainer}>
-                {Array.from({length: 6}).map((_, idx) => (
-                  <SkeletonChatItem key={idx} index={idx} />
-                ))}
+        {selectedTab === 'chatshops' ? (
+          <View style={{flex: 1}}>
+            {loadingChatShops ? (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateSubtitle}>Loading chat shops...</Text>
+              </View>
+            ) : chatShops.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateTitle}>No Chat Shops</Text>
+                <Text style={styles.emptyStateSubtitle}>Check back later for new shop arrivals.</Text>
               </View>
             ) : (
-              // Show empty state when not loading and no messages
-              <View style={styles.emptyStateContainer}>
-                <Text style={styles.emptyStateTitle}>
-                  {selectedTab === 'groups' ? 'No Group Chats' : 'No Messages Yet'}
-                </Text>
-                <Text style={styles.emptyStateSubtitle}>
-                  {selectedTab === 'unread' ? 'All caught up!' :
-                   selectedTab === 'groups' ? 'Join or create a group chat to get started.' :
-                   'Start a conversation with plant enthusiasts and discover amazing plants!'}
-                </Text>
-              </View>
-            )
-          }
-        />
+              <FlatList
+                style={{flex: 1}}
+                data={chatShops}
+                keyExtractor={(item, index) => (item && item.id) ? item.id : `shop-${index}`}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.chatItem}
+                    onPress={() => handleChatShopPress(item)}
+                    activeOpacity={0.7}>
+                    {item.photoUrl ? (
+                      <Image source={{ uri: item.photoUrl }} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, { backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center' }]}>
+                        <Text style={{ fontSize: 10, color: '#9AA4A8' }}>Shop</Text>
+                      </View>
+                    )}
+                    <View style={styles.chatContent}>
+                      <View style={styles.chatHeader}>
+                        <View style={styles.chatSubHeader}>
+                          <Text style={styles.chatName} numberOfLines={1}>
+                            {item.name || 'Chat Shop'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.chatMessage} numberOfLines={1}>
+                        {item.groupChatName || 'Tap to join the group chat'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                contentContainerStyle={[
+                  styles.listContainer,
+                  {paddingBottom: totalBottomPadding},
+                  chatShops.length === 0 && styles.emptyListContainer,
+                ]}
+              />
+            )}
+          </View>
+        ) : (
+          <FlatList
+            style={{flex: 1}}
+            data={loading ? [] : filteredMessages}
+            keyExtractor={(item, index) => (item && item.id) ? item.id : `chat-${index}`}
+            renderItem={renderItem}
+            contentContainerStyle={[
+              styles.listContainer,
+              {paddingBottom: totalBottomPadding},
+              filteredMessages.length === 0 && !loading && styles.emptyListContainer,
+            ]}
+            ListEmptyComponent={() =>
+              loading ? (
+                // Show skeleton loading when loading
+                <View style={styles.skeletonContainer}>
+                  {Array.from({length: 6}).map((_, idx) => (
+                    <SkeletonChatItem key={idx} index={idx} />
+                  ))}
+                </View>
+              ) : (
+                // Show empty state when not loading and no messages
+                <View style={styles.emptyStateContainer}>
+                  <Text style={styles.emptyStateTitle}>
+                    {selectedTab === 'groups' ? 'No Rooms' : 'No Messages Yet'}
+                  </Text>
+                  <Text style={styles.emptyStateSubtitle}>
+                    {selectedTab === 'unread' ? 'All caught up!' :
+                     selectedTab === 'groups' ? 'Join or create a room to get started.' :
+                     'Start a conversation with plant enthusiasts and discover amazing plants!'}
+                  </Text>
+                </View>
+              )
+            }
+          />
+        )}
 
         <NewMessageModal
           visible={modalVisible}
