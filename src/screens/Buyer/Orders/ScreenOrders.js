@@ -1,14 +1,12 @@
-import NetInfo from '@react-native-community/netinfo';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import CloseIcon from '../../../assets/icons/greylight/x-regular.svg';
+import SearchHeader from '../../../components/Header/SearchHeader';
 import { useAuth } from '../../../auth/AuthProvider';
-import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
 
 // Import the separate screen components
 import ScreenJourneyMishap from './ScreenJourneyMishap';
@@ -23,14 +21,9 @@ const HEADER_HEIGHT_FALLBACK = 160;
 const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerFilter, buyerList = [], onHeaderLayout}) => {
   const insets = useSafeAreaInsets();
   const {user} = useAuth();
-  // Search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
   // Plant Owner dropdown state
   const [plantOwnerModalVisible, setPlantOwnerModalVisible] = useState(false);
   const [selectedPlantOwner, setSelectedPlantOwner] = useState(null);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
   // Local require for reusable Avatar component
   const Avatar = require('../../../components/Avatar/Avatar').default;
@@ -40,8 +33,6 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
     plantOwner: null
   });
 
-  // Don't initialize with buyer's name - start with "All Plant Owners"
-  
   // Plant Owner options - populated from buyerList prop
   const plantOwnerOptions = buyerList.map(buyer => ({
     id: buyer.buyerUid,
@@ -77,74 +68,15 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
 
   const handlePlantOwnerSelect = (owner) => {
     if (owner === null || owner === 'all') {
-      // "All Plant Owners" selected
       setSelectedPlantOwner(null);
       setActiveFilters(prev => ({ ...prev, plantOwner: null }));
       setPlantOwnerFilter(null);
     } else {
-      // Specific buyer selected
       setSelectedPlantOwner(owner);
       setActiveFilters(prev => ({ ...prev, plantOwner: owner }));
-      // Set filter to buyerUid
       setPlantOwnerFilter(owner.buyerUid || owner.id);
     }
     setPlantOwnerModalVisible(false);
-  };
-
-  // Debounced search effect - triggers after user stops typing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim().length >= 2) {
-        console.log('🔍 Orders search triggered for:', searchTerm);
-        performSearch(searchTerm.trim());
-      } else if (searchTerm.trim().length === 0) {
-        setSearchResults([]);
-        setLoadingSearch(false);
-      }
-    }, 800); // 800ms delay for "finished typing" detection
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
-
-  const performSearch = async (searchTerm) => {
-    try {
-      setLoadingSearch(true);
-      console.log('🔍 Starting buyer search for:', searchTerm);
-
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const searchParams = {
-        query: searchTerm,
-        limit: 4,
-        offset: 0
-      };
-
-      const res = await searchBuyersApi(searchParams);
-
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to search buyers.');
-      }
-
-      const buyers = res.data?.buyers || [];
-      console.log(`✅ Buyer search completed: found ${buyers.length} buyers for "${searchTerm}"`);
-      console.log('📋 First buyer data:', buyers[0]); // Debug buyer structure
-      setSearchResults(buyers);
-      
-    } catch (error) {
-      console.error('❌ Error performing buyer search:', error);
-      setSearchResults([]);
-      
-      Alert.alert(
-        'Search Error',
-        'Could not search for buyers. Please check your connection and try again.',
-        [{text: 'OK'}]
-      );
-    } finally {
-      setLoadingSearch(false);
-    }
   };
 
   const tabFilters = [
@@ -168,34 +100,17 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
     >
       <View style={styles.header}>
         <View style={styles.searchContainer}>
-          <View style={styles.searchField}>
-            <View style={styles.textField}>
-              <SearchIcon width={24} height={24} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search plant, invoice #, buddy"
-                placeholderTextColor="#647276"
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => {
-                  // Close search results when input loses focus
-                  setTimeout(() => {
-                    setIsSearchFocused(false);
-                  }, 150); // Small delay to allow for result tap
-                }}
-                multiline={false}
-                numberOfLines={1}
-              />
-            </View>
-          </View>
+          <SearchHeader
+            placeholder="Search plant, invoice #, transaction #..."
+            readOnly
+            onPress={() => navigation.navigate('ScreenOrderSearch')}
+          />
         </View>
 
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => {
-              // Wishlist feature temporarily disabled
               console.log('Wishlist feature is temporarily disabled');
             }}>
             <Wishicon width={40} height={40} />
@@ -207,61 +122,6 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Search Results */}
-      {isSearchFocused && searchTerm.trim().length >= 2 && (
-        <View style={[styles.searchResultsContainer, {top: insets.top + 52}]}>
-          {loadingSearch ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#10b981" />
-              <Text style={styles.loadingText}>Searching buyers...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <View style={styles.searchResultsList}>
-              {searchResults.map((buyer, index) => (
-                <TouchableOpacity
-                  key={`${buyer.id}_${index}`}
-                  style={styles.searchResultItem}
-                  onPress={() => {
-                    // Set the selected buyer as the plant owner filter
-                    const buyerData = {
-                      id: buyer.id,
-                      name: buyer.firstName,
-                      firstName: buyer.firstName,
-                      username: buyer.username
-                    };
-                    handlePlantOwnerSelect(buyerData);
-                    setSearchTerm(''); // Clear search term
-                    setIsSearchFocused(false); // Hide search results
-                  }}
-                >
-                  <View style={styles.buyerSearchResult}>
-                    <View style={styles.buyerInfo}>
-                      <Text style={styles.buyerName} numberOfLines={1}>
-                        {buyer.firstName} {buyer.lastName}
-                      </Text>
-                      <Text style={styles.buyerUsername} numberOfLines={1}>
-                        @{buyer.username}
-                      </Text>
-                    </View>
-                    <View style={styles.buyerAvatar}>
-                      <Text style={styles.avatarText}>
-                        {buyer.firstName?.charAt(0)?.toUpperCase() || '?'}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <Text style={styles.noResultsText}>
-                No buyers found for "{searchTerm}"
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
 
       <View style={styles.tabContainer}>
         <ScrollView

@@ -33,20 +33,11 @@ import {retryAsync} from '../../../utils/utils';
 import PromoBadgeList from '../../../components/PromoBadgeList';
 
 const GenusHeader = ({
-  genus,
   navigation,
-  searchTerm,
-  setSearchTerm,
-  setIsSearchFocused,
-  isNavigatingFromSearch,
-  setIsNavigatingFromSearch,
-  onPlantSelect,
-  renderSearchResult,
   insets,
-  onBadgePress, // handler passed from parent to handle badge clicks in-place
+  onBadgePress,
   profilePhotoUri,
-  activeBadge, // active badge for visual state
-  onSearchIconPress, // handler for search icon press
+  activeBadge,
 }) => {
   return (
     <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
@@ -60,18 +51,9 @@ const GenusHeader = ({
 
       <View style={styles.searchContainer}>
         <SearchHeader
-          searchText={searchTerm}
-          onSearchTextChange={setSearchTerm}
-          onFocus={() => setIsSearchFocused(true)}
-          onBlur={() => {
-            // Handled by SearchHeader component
-          }}
-          isNavigatingFromSearch={isNavigatingFromSearch}
-          setIsNavigatingFromSearch={setIsNavigatingFromSearch}
-          onPlantSelect={onPlantSelect}
-          renderResultItem={renderSearchResult}
-          navigation={navigation}
-          onSearchIconPress={onSearchIconPress}
+          placeholder="Search plants..."
+          readOnly
+          onPress={() => navigation.navigate('ScreenSearch')}
         />
       </View>
 
@@ -87,9 +69,9 @@ const GenusHeader = ({
           style={styles.iconButton}
           onPress={() => navigation.navigate('ScreenProfile')}>
           {profilePhotoUri ? (
-            <Avatar 
-              source={{ uri: profilePhotoUri }} 
-              style={styles.avatar} 
+            <Avatar
+              source={{ uri: profilePhotoUri }}
+              style={styles.avatar}
               size={40}
             />
           ) : (
@@ -98,7 +80,7 @@ const GenusHeader = ({
         </TouchableOpacity>
       </View>
     </View>
-    
+
   <PromoBadgeList navigation={navigation} onBadgePress={onBadgePress} activeBadge={activeBadge} />
     </View>
   );
@@ -146,8 +128,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Search state - initialize with searchQuery if provided
   const [searchTerm, setSearchTerm] = useState(searchQuery || '');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isNavigatingFromSearch, setIsNavigatingFromSearch] = useState(false);
   // Track if we're currently in search mode (have an active search query)
   const [isSearchMode, setIsSearchMode] = useState(false);
   
@@ -172,56 +152,6 @@ const ScreenGenusPlants = ({navigation, route}) => {
       loadProfilePhoto();
     }, [])
   );
-
-  // Custom render function for search results (simpler text display)
-  const renderSearchResult = ({ item }) => (
-    <TouchableOpacity
-      style={styles.searchResultItem}
-      activeOpacity={0.7}
-      onPress={() => {
-        if (item.plantCode) {
-          // Set flag to prevent blur from closing dropdown
-          setIsNavigatingFromSearch(true);
-          // Navigate immediately
-          navigation.navigate('ScreenPlantDetail', {
-            plantCode: item.plantCode,
-          });
-          // Close dropdown and reset flag after navigation
-          setIsSearchFocused(false);
-          setTimeout(() => {
-            setIsNavigatingFromSearch(false);
-          }, 100);
-        } else {
-          console.error('❌ Missing plantCode for plant:', item);
-          Alert.alert(
-            'Error',
-            'Unable to view plant details. Missing plant code.',
-          );
-          setIsNavigatingFromSearch(false);
-        }
-      }}
-    >
-      <Text style={styles.searchResultName} numberOfLines={2}>
-        {item.title && !item.title.includes('Choose the most suitable variegation') 
-          ? item.title 
-          : `${item.genus} ${item.species}${item.variegation && item.variegation !== 'Choose the most suitable variegation.' ? ' ' + item.variegation : ''}`}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  // Handle plant selection from search
-  const handlePlantSelect = (plant) => {
-    if (plant.plantCode) {
-      setIsNavigatingFromSearch(true);
-      navigation.navigate('ScreenPlantDetail', {
-        plantCode: plant.plantCode,
-      });
-      setIsSearchFocused(false);
-      setTimeout(() => {
-        setIsNavigatingFromSearch(false);
-      }, 100);
-    }
-  };
 
   // Helper function to load plants with explicit search query
   const loadPlantsWithSearch = async (searchQueryParam, refresh = false) => {
@@ -1679,29 +1609,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <GenusHeader
-        genus={genus}
         navigation={navigation}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        setIsSearchFocused={setIsSearchFocused}
-        isNavigatingFromSearch={isNavigatingFromSearch}
-        setIsNavigatingFromSearch={setIsNavigatingFromSearch}
-        onPlantSelect={handlePlantSelect}
-        renderSearchResult={renderSearchResult}
         insets={insets}
         onBadgePress={handleBadgePress}
         profilePhotoUri={profilePhotoUri}
         activeBadge={activeBadge}
-        onSearchIconPress={(searchQuery) => {
-          // When on ScreenGenusPlants, clicking search icon should trigger search on current screen
-          if (searchQuery && searchQuery.trim().length > 0) {
-            // Trigger search on current screen
-            loadPlantsWithSearch(searchQuery.trim(), true);
-          } else {
-            // If no search text, just focus the input
-            // This is handled by SearchHeader's default behavior
-          }
-        }}
       />
 
       {/* Plants Grid */}
@@ -1858,15 +1770,6 @@ const styles = StyleSheet.create({
     zIndex: 10001,
     elevation: 10001,
   },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    gap: 10,
-    width: '100%',
-    height: 58,
-  },
   backButton: {
     width: 24,
     height: 24,
@@ -1882,66 +1785,6 @@ const styles = StyleSheet.create({
     zIndex: 10000,
     elevation: 10000,
   },
-  searchField: {
-    width: '100%',
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    padding: 0,
-    gap: 8,
-    width: '100%',
-    height: 40,
-    flex: 0,
-  },
-  textField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-    width: '100%',
-    height: 40,
-    minHeight: 34,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    flex: 0,
-  },
-  searchInput: {
-    width: 145,
-    height: 22,
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#647276',
-    flex: 1,
-    textAlignVertical: 'center',
-    includeFontPadding: false,
-    paddingVertical: 0,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    width: 40,
-    height: 40,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    flex: 0,
-  },
-  profileContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 4,
-    width: 40,
-    height: 40,
-    flex: 0,
-  },
   avatar: {
     width: 40,
     height: 40,
@@ -1952,30 +1795,6 @@ const styles = StyleSheet.create({
     minHeight: 32,
     position: 'relative',
     flex: 0,
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 0,
-    zIndex: 1,
-  },
-  badgeDot: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    left: 1,
-    top: 1,
-    backgroundColor: '#E7522F',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    borderRadius: 4,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -2019,59 +1838,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 0,
   },
-  plantCard: {
-    width: 166,
-    marginBottom: 24,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
   loadMoreContainer: {
     width: '100%',
     alignItems: 'center',
     marginTop: 15,
     paddingHorizontal: 16,
     paddingBottom: 100,
-  },
-  loadMoreButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    width: '100%',
-    maxWidth: 375,
-    height: 48,
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
-  },
-  loadMoreText: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 16,
-    lineHeight: 16,
-    color: '#539461',
-    textAlign: 'center',
-  },
-  loadMoreTextContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 8,
-    height: 16,
-  },
-  loadMoreIcon: {
-    width: 24,
-    height: 24,
   },
   endOfListContainer: {
     width: '100%',
@@ -2109,19 +1881,6 @@ const styles = StyleSheet.create({
     color: '#539461',
     textAlign: 'center',
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#393D40',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
   skeletonCard: {
     width: '100%',
     backgroundColor: '#fff',
@@ -2157,90 +1916,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     borderRadius: 4,
   },
-  // Search Results Styles
-  searchResultsContainer: {
-    position: 'absolute',
-    top: 58, // Position below the controls
-    left: 56, // Account for back button width + gap
-    right: 80, // Account for wishlist and profile buttons
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2, // Thicker border for better definition
-    borderColor: '#d1d5db', // Slightly darker border
-    borderRadius: 12,
-    height: 400, // Fixed height for scrollable results
-    maxHeight: 400, // Maximum height constraint
-    zIndex: 9999, // Ensure it appears on top of everything
-    elevation: 15, // Higher elevation for Android shadow
-    shadowColor: '#000', // For iOS shadow
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25, // Stronger shadow for better visibility
-    shadowRadius: 8,
-    // Ensure completely opaque background
-    opacity: 1,
-    // Additional properties to ensure visibility
-    borderStyle: 'solid',
-    overflow: 'hidden', // Ensure content doesn't bleed
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF', // Ensure solid background
-  },
-  loadingText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'Inter',
-  },
-  searchResultsList: {
-    flex: 1,
-    backgroundColor: '#FFFFFF', // Ensure solid background
-  },
-  searchResultsListContent: {
-    paddingVertical: 8,
-  },
-  loadingMoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-  },
   loadingMoreText: {
     marginLeft: 8,
     fontSize: 12,
-    color: '#666',
-    fontFamily: 'Inter',
-  },
-  searchResultItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FFFFFF', // Ensure solid background for each item
-    // Additional properties for visibility
-    opacity: 1,
-    borderStyle: 'solid',
-  },
-  searchResultName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1f2937',
-    fontFamily: 'Inter',
-  },
-  noResultsContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF', // Ensure solid background
-  },
-  noResultsText: {
-    fontSize: 14,
     color: '#666',
     fontFamily: 'Inter',
   },
