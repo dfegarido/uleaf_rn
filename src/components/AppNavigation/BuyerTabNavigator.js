@@ -75,7 +75,7 @@ const AnimatedLiveIcon = ({ focused, size }) => {
 
   useEffect(() => {
     const liveCollectionRef = collection(db, 'live');
-    const q = query(liveCollectionRef, where('status', '==', 'live'));
+    const q = query(liveCollectionRef, where('status', 'in', ['live', 'waiting']));
 
     const unsubscribe = onSnapshot(q, snapshot => {
       setIsLive(!snapshot.empty);

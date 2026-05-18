@@ -1,6 +1,6 @@
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
@@ -11,8 +11,10 @@ const CARD_HEIGHT = 220;
 const LiveSellerCard = ({ stream, displayName, onPress }) => {
   const blinkAnim = useRef(new Animated.Value(1)).current;
   const [elapsed, setElapsed] = useState(() => formatElapsedTime(stream.createdAt));
+  const isWaiting = stream.status === 'waiting';
 
   useEffect(() => {
+    if (isWaiting) return;
     const blink = Animated.loop(
       Animated.sequence([
         Animated.timing(blinkAnim, { toValue: 0.3, duration: 600, useNativeDriver: true }),
@@ -21,7 +23,7 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
     );
     blink.start();
     return () => blink.stop();
-  }, [blinkAnim]);
+  }, [blinkAnim, isWaiting]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -40,17 +42,29 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
           source={{ uri: stream.coverPhotoUrl }}
           style={styles.cardImage}
           imageStyle={styles.cardImageStyle}>
-          <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
-            <LiveIcon width={14} height={14} />
-            <Text style={styles.liveBadgeText}>Live</Text>
-          </Animated.View>
+          {isWaiting ? (
+            <View style={styles.waitingBadge}>
+              <Text style={styles.waitingBadgeText}>Waiting</Text>
+            </View>
+          ) : (
+            <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
+              <LiveIcon width={14} height={14} />
+              <Text style={styles.liveBadgeText}>Live</Text>
+            </Animated.View>
+          )}
         </ImageBackground>
       ) : (
         <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-          <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
-            <LiveIcon width={14} height={14} />
-            <Text style={styles.liveBadgeText}>Live</Text>
-          </Animated.View>
+          {isWaiting ? (
+            <View style={styles.waitingBadge}>
+              <Text style={styles.waitingBadgeText}>Waiting</Text>
+            </View>
+          ) : (
+            <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
+              <LiveIcon width={14} height={14} />
+              <Text style={styles.liveBadgeText}>Live</Text>
+            </Animated.View>
+          )}
           <Text style={styles.noImageText}>No Image</Text>
         </View>
       )}
@@ -71,18 +85,25 @@ const LiveSellerStrip = ({ navigation }) => {
   useEffect(() => {
     const q = query(
       collection(db, 'live'),
-      where('status', '==', 'live'),
+      where('status', 'in', ['live', 'waiting']),
       orderBy('createdAt', 'desc'),
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const streams = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-      setLiveStreams(streams);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const streams = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setLiveStreams(streams);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('LiveSellerStrip onSnapshot error:', error);
+        setLoading(false);
+      },
+    );
 
     return () => unsubscribe();
   }, []);
@@ -147,7 +168,11 @@ const LiveSellerStrip = ({ navigation }) => {
             displayName={
               stream.title || 'Live Stream'
             }
-            onPress={() =>
+            onPress={() => {
+              if (stream.status === 'waiting') {
+                Alert.alert('Waiting for the Broadcaster...');
+                return;
+              }
               navigation.navigate(
                 stream.liveType === 'purge'
                   ? 'LivePurgeScreen'
@@ -156,8 +181,8 @@ const LiveSellerStrip = ({ navigation }) => {
                   sessionId: stream.sessionId,
                   broadcasterId: stream.createdBy,
                 },
-              )
-            }
+              );
+            }}
           />
         ))}
       </ScrollView>
@@ -233,6 +258,25 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   liveBadgeText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  waitingBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    gap: 4,
+    backgroundColor: '#D4A017',
+    borderRadius: 8,
+    zIndex: 1,
+  },
+  waitingBadgeText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 12,
