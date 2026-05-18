@@ -68,16 +68,38 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     }
   }
 
+  const parseFlightFilterValues = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((d) => typeof d === 'string' && d.trim());
+    }
+    return String(value)
+      .split(',')
+      .map((d) => d.trim())
+      .filter(Boolean);
+  };
+
   const onSelectFlight = (flight) => {
     const flightDate = Array.isArray(flight)
       ? flight.filter((d) => typeof d === 'string' && d.trim()).join(',')
-      : flight;
+      : flight || null;
     const updatedFilters = { ...filters, flightDate: flightDate || null };
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
     }
-  }
+  };
+
+  const selectedFlightCount = parseFlightFilterValues(filters.flightDate).length;
+
+  const handleFlightPress = () => {
+    if (selectedFlightCount > 0) {
+      onSelectFlight(null);
+      setFlightVisible(false);
+      return;
+    }
+    setFlightVisible(true);
+  };
 
   const parseGardenFilterValues = (value) => {
     if (!value) return [];
@@ -327,8 +349,21 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
           </Text>
           <DownIcon width={20} height={20}></DownIcon>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setFlightVisible(true)}>
-          <Text style={styles.filterButtonText}>Plant Flight</Text>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFlightCount > 0 ? styles.filterButtonActive : null,
+          ]}
+          onPress={handleFlightPress}
+        >
+          <Text style={styles.filterButtonText}>
+            Plant Flight
+            {selectedFlightCount > 0
+              ? selectedFlightCount === 1
+                ? ' ✓'
+                : ` (${selectedFlightCount})`
+              : ''}
+          </Text>
           <DownIcon />
         </TouchableOpacity>
         <TouchableOpacity style={styles.filterButton} onPress={() => setCountryVisible(true)}>
@@ -445,6 +480,7 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         onClose={() => setFlightVisible(false)}
         onSelectFlight={onSelectFlight}
         flightDates={adminFilters?.flightDates || []}
+        availableFlightDateIsos={adminFilters?.flightDateIsos || []}
         selectedValues={
           filters.flightDate
             ? String(filters.flightDate).split(',').map((d) => d.trim()).filter(Boolean)

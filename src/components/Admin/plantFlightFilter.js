@@ -44,12 +44,51 @@ const toISODateString = (date) => {
  * getAdminFilters returns flightDates as MMM-DD-YYYY (moment); calendar uses YYYY-MM-DD.
  * Without normalization every day stays disabled and looks "unclickable".
  */
-const parseAdminFlightDateTokenToIso = (token) => {
-  if (token == null) return null;
+export const parseAdminFlightDateTokenToIso = (token) => {
+  if (token == null || token === '') return null;
+
+  if (typeof token === 'object') {
+    let dateObj = null;
+    if (typeof token.toDate === 'function') {
+      dateObj = token.toDate();
+    } else {
+      const sec = token.seconds ?? token._seconds;
+      if (typeof sec === 'number') {
+        dateObj = new Date(sec * 1000);
+      }
+    }
+    if (dateObj && !Number.isNaN(dateObj.getTime())) {
+      const y = dateObj.getUTCFullYear();
+      const mo = dateObj.getUTCMonth() + 1;
+      const da = dateObj.getUTCDate();
+      return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
+    }
+    return null;
+  }
+
   const s = typeof token === 'string' ? token.trim() : String(token).trim();
   if (!s) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const mmm = s.match(/^([A-Za-z]{3})-(\d{1,2})-(\d{4})$/);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+
+  const mdyComma = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2}),\s*(\d{4})$/);
+  if (mdyComma) {
+    const monthMap = {
+      jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+      jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+    };
+    const monKey = mdyComma[1].slice(0, 4).toLowerCase();
+    const monthNum = monthMap[monKey] ?? monthMap[monKey.slice(0, 3)];
+    if (monthNum) {
+      const day = parseInt(mdyComma[2], 10);
+      const year = parseInt(mdyComma[3], 10);
+      if (year && day) {
+        return `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  const mmm = s.match(/^([A-Za-z]{3,4})-(\d{1,2})-(\d{4})$/);
   if (mmm) {
     const monKey = mmm[1].slice(0, 3).toLowerCase();
     const monthMap = {
@@ -68,6 +107,15 @@ const parseAdminFlightDateTokenToIso = (token) => {
   return null;
 };
 
+/** YYYY-MM-DD → MMM-dd-yyyy (matches getAdminFilters flightDates tokens). */
+export const formatIsoToAdminFlightDateToken = (iso) => {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (!m || m < 1 || m > 12) return null;
+  return `${monthNames[m - 1]}-${d}-${y}`;
+};
+
 const SelectedDateChip = ({ date, onRemove }) => (
   <View style={styles.selectedChip}>
     <Text style={styles.selectedChipText}>{formatFlightDate(date)}</Text>
@@ -82,7 +130,8 @@ const PlantFlightFilter = ({
   onClose, 
   onSelectFlight, 
   onReset, 
-  flightDates = [], 
+  flightDates = [],
+  availableFlightDateIsos = [],
   selectedValues = [] 
 }) => {
   const [draftSelection, setDraftSelection] = useState([]);
@@ -102,13 +151,24 @@ const PlantFlightFilter = ({
 
   const availableFlightDateIsoSet = useMemo(() => {
     const set = new Set();
-    const list = Array.isArray(flightDates) ? flightDates : [];
-    list.forEach((entry) => {
-      const iso = parseAdminFlightDateTokenToIso(entry);
-      if (iso) set.add(iso);
+    const isoList = Array.isArray(availableFlightDateIsos) ? availableFlightDateIsos : [];
+    isoList.forEach((iso) => {
+      if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        set.add(iso);
+      }
     });
+    if (set.size === 0) {
+      const list = Array.isArray(flightDates) ? flightDates : [];
+      list.forEach((entry) => {
+        const iso = parseAdminFlightDateTokenToIso(entry);
+        if (iso) set.add(iso);
+      });
+    }
     return set;
-  }, [Array.isArray(flightDates) ? flightDates.join('|') : '']);
+  }, [
+    Array.isArray(availableFlightDateIsos) ? availableFlightDateIsos.join('|') : '',
+    Array.isArray(flightDates) ? flightDates.join('|') : '',
+  ]);
 
   // Initialize draft selection when modal opens
   useEffect(() => {
@@ -188,9 +248,10 @@ const PlantFlightFilter = ({
 
   const handleReset = () => {
     setDraftSelection([]);
-    if (onReset && typeof onReset === 'function') {
-      onReset();
+    if (onSelectFlight && typeof onSelectFlight === 'function') {
+      onSelectFlight(null);
     }
+    onClose();
   };
 
   const renderCalendar = () => {

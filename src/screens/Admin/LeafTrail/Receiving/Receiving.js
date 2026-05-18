@@ -34,6 +34,7 @@ import TagAsOptions from './TagAs';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
 import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
+import { parseAdminFlightDateTokenToIso } from '../../../../components/Admin/plantFlightFilter';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -90,6 +91,15 @@ function getDateOrderedDatePart(item) {
   if (item?.dateOrdered) return String(item.dateOrdered).trim();
   return '';
 }
+
+/** getAdminFilters `statuses` query per Receiving tab (JSON string). */
+const ADMIN_FILTER_STATUSES_BY_TAB = {
+  forReceiving: '["forReceiving"]',
+  inventoryForHub: '["forReceiving"]',
+  received: '["received"]',
+  missing: '["missing"]',
+  damaged: '["damaged"]',
+};
 
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
@@ -478,6 +488,7 @@ const ReceivingScreen = ({navigation}) => {
     const [generatedLabels, setGeneratedLabels] = useState([]);
     const [showLabelViewer, setShowLabelViewer] = useState(false);
     const lastReceivingFiltersRef = useRef(undefined);
+    const tabStatusesRef = useRef(ADMIN_FILTER_STATUSES_BY_TAB.forReceiving);
 
     const openTagAs = (status, id) => {
         setIsMissing(status.isMissing);
@@ -487,12 +498,21 @@ const ReceivingScreen = ({navigation}) => {
         setOrderId(id)
     }
 
-    const getFilters = async (statuses = null) => {
-        setIsLoading(true);
-        const adminFilter = await getAdminLeafTrailFilters(statuses);
-        setAdminFilters(adminFilter);
-        setIsLoading(false);
-    }
+    const refreshAdminFilters = async (statuses, { withPageLoader = false } = {}) => {
+        if (withPageLoader) {
+            setIsLoading(true);
+        }
+        try {
+            const adminFilter = await getAdminLeafTrailFilters(statuses);
+            setAdminFilters(adminFilter);
+        } catch (e) {
+            console.error('Failed to load admin filters:', e);
+        } finally {
+            if (withPageLoader) {
+                setIsLoading(false);
+            }
+        }
+    };
 
     const fetchData = async (filters) => {
             try {
@@ -507,7 +527,7 @@ const ReceivingScreen = ({navigation}) => {
                 const response = await getAdminLeafTrailReceiving(effectiveFilters);
 
                 setReceivingData(response);
-                await getFilters('["forReceiving"]');
+                await refreshAdminFilters(tabStatusesRef.current, { withPageLoader: false });
                 
             } catch (e) {
                 setIsLoading(false);
@@ -526,6 +546,37 @@ const ReceivingScreen = ({navigation}) => {
          fetchData(filters);
     }
 
+    const adminFiltersForActiveTab = React.useMemo(() => {
+        if (!adminFilters) {
+            return adminFilters;
+        }
+        const isoSet = new Set();
+        const addFlightDateToken = (token) => {
+            const iso = parseAdminFlightDateTokenToIso(token);
+            if (iso) {
+                isoSet.add(iso);
+            }
+        };
+        (adminFilters.flightDates || []).forEach(addFlightDateToken);
+        (adminFilters.flightDateIsos || []).forEach((iso) => {
+            if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+                isoSet.add(iso);
+            }
+        });
+        const tabKey = routes[index]?.key;
+        const tabItems = tabKey && receivingData?.[tabKey]?.data ? receivingData[tabKey].data : [];
+        tabItems.forEach((item) => {
+            addFlightDateToken(item?.flightDate);
+            addFlightDateToken(item?.flightDateFormatted);
+        });
+        const mergedFlightDateIsos = [...isoSet].sort((a, b) => b.localeCompare(a));
+        return {
+            ...adminFilters,
+            flightDateIsos: mergedFlightDateIsos,
+            flightDates: adminFilters.flightDates || [],
+        };
+    }, [adminFilters, receivingData, index, routes]);
+
     const renderScene = ({ route }) => {
         switch (route.key) {
             case 'forReceiving':
@@ -533,7 +584,7 @@ const ReceivingScreen = ({navigation}) => {
                     openTagAs={openTagAs} 
                     onFilterChange={onFilterChange} 
                     data={receivingData?.forReceiving || {}} 
-                    adminFilters={adminFilters}
+                    adminFilters={adminFiltersForActiveTab}
                     selectionMode={selectionMode}
                     selectedItems={selectedItems}
                     onToggleSelect={handleToggleSelect}
@@ -543,17 +594,17 @@ const ReceivingScreen = ({navigation}) => {
                     openTagAs={openTagAs} 
                     onFilterChange={onFilterChange} 
                     data={receivingData?.inventoryForHub || {}} 
-                    adminFilters={adminFilters}
+                    adminFilters={adminFiltersForActiveTab}
                     selectionMode={selectionMode}
                     selectedItems={selectedItems}
                     onToggleSelect={handleToggleSelect}
                 />;
             case 'received':
-                return <ReceivedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFilters} />;
+                return <ReceivedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFiltersForActiveTab} />;
             case 'missing':
-                return <MissingTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.missing || {}} adminFilters={adminFilters} />;
+                return <MissingTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.missing || {}} adminFilters={adminFiltersForActiveTab} />;
             case 'damaged':
-                return <DamagedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.damaged || {}} adminFilters={adminFilters} />;
+                return <DamagedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.damaged || {}} adminFilters={adminFiltersForActiveTab} />;
             default:
                 return null;
         }
@@ -585,18 +636,11 @@ const ReceivingScreen = ({navigation}) => {
     );
 
     const tabChange = async (newIndex) => {
-        // Tab indices: 0=forReceiving, 1=inventoryForHub, 2=received, 3=missing, 4=damaged
-        if (newIndex === 0) {
-            await getFilters('["forReceiving"]');
-        } else if (newIndex === 1) {
-            await getFilters('["forReceiving"]');
-        } else if (newIndex === 2) {
-            await getFilters('["received"]');
-        } else if (newIndex === 3) {
-            await getFilters('["missing"]');
-        } else if (newIndex === 4) {
-            await getFilters('["damaged"]');
-        }
+        const tabKey = routes[newIndex]?.key || 'forReceiving';
+        const statuses =
+            ADMIN_FILTER_STATUSES_BY_TAB[tabKey] || ADMIN_FILTER_STATUSES_BY_TAB.forReceiving;
+        tabStatusesRef.current = statuses;
+        await refreshAdminFilters(statuses, { withPageLoader: true });
     }
 
     const handlePrint = async () => {
