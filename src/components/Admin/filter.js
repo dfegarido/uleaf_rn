@@ -178,13 +178,38 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     setBuyerVisible(true);
   };
 
-  const onSelectOrderReceiver = (orderReceiver) => {
-    const updatedFilters = { ...filters, receiverUid: orderReceiver };  
+  const parseOrderReceiverFilterValues = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((id) => typeof id === 'string' && id.trim());
+    }
+    return String(value)
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  };
+
+  const onSelectOrderReceiver = (orderReceivers) => {
+    const receiverUid = Array.isArray(orderReceivers)
+      ? orderReceivers.filter((id) => typeof id === 'string' && id.trim()).join(',')
+      : orderReceivers || null;
+    const updatedFilters = { ...filters, receiverUid: receiverUid || null };
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
     }
-  }
+  };
+
+  const selectedOrderReceiverCount = parseOrderReceiverFilterValues(filters.receiverUid).length;
+
+  const handleOrderReceiverPress = () => {
+    if (selectedOrderReceiverCount > 0) {
+      onSelectOrderReceiver(null);
+      setOrderReceiverVisible(false);
+      return;
+    }
+    setOrderReceiverVisible(true);
+  };
 
   const handleSearchSubmitRange = (startDate, endDate) => {
     // Fix timezone issue: format date in local timezone, not UTC
@@ -244,13 +269,38 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     setShowSheet(true);
   };
 
-  const onSelectReceiver = (receiver) => {
-    const updatedFilters = { ...filters, hubReceiverUserName: receiver };  
+  const parseHubStaffFilterValues = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((id) => typeof id === 'string' && id.trim());
+    }
+    return String(value)
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  };
+
+  const onSelectReceiver = (receivers) => {
+    const hubReceiverUserName = Array.isArray(receivers)
+      ? receivers.filter((id) => typeof id === 'string' && id.trim()).join(',')
+      : receivers || null;
+    const updatedFilters = { ...filters, hubReceiverUserName: hubReceiverUserName || null };
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
     }
-  }
+  };
+
+  const selectedHubStaffCount = parseHubStaffFilterValues(filters.hubReceiverUserName).length;
+
+  const handleHubStaffPress = () => {
+    if (selectedHubStaffCount > 0) {
+      onSelectReceiver(null);
+      setReceiverVisible(false);
+      return;
+    }
+    setReceiverVisible(true);
+  };
 
   return (
     <View style={styles.filterContainer}>
@@ -336,12 +386,38 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
           </Text>
           <DownIcon />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setOrderReceiverVisible(true)}>
-          <Text style={styles.filterButtonText}>Order Receiver</Text>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedOrderReceiverCount > 0 ? styles.filterButtonActive : null,
+          ]}
+          onPress={handleOrderReceiverPress}
+        >
+          <Text style={styles.filterButtonText}>
+            Order Receiver
+            {selectedOrderReceiverCount > 0
+              ? selectedOrderReceiverCount === 1
+                ? ' ✓'
+                : ` (${selectedOrderReceiverCount})`
+              : ''}
+          </Text>
           <DownIcon />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setReceiverVisible(true)}>
-          <Text style={styles.filterButtonText}>Hub Staff</Text>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedHubStaffCount > 0 ? styles.filterButtonActive : null,
+          ]}
+          onPress={handleHubStaffPress}
+        >
+          <Text style={styles.filterButtonText}>
+            Hub Staff
+            {selectedHubStaffCount > 0
+              ? selectedHubStaffCount === 1
+                ? ' ✓'
+                : ` (${selectedHubStaffCount})`
+              : ''}
+          </Text>
           <DownIcon />
         </TouchableOpacity>
       </ScrollView>
@@ -408,6 +484,8 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         onClose={() => setOrderReceiverVisible(false)}
         onSelectOrderReceiver={onSelectOrderReceiver}
         orderReceivers={adminFilters?.buyerReceiver || []}
+        selectedValues={parseOrderReceiverFilterValues(filters.receiverUid)}
+        currentReceiverUid={filters.receiverUid}
       />
 
       <ReceiverFilter
@@ -415,6 +493,8 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         onClose={() => setReceiverVisible(false)}
         onSelectReceiver={onSelectReceiver}
         receivers={adminFilters?.receiver || []}
+        selectedValues={parseHubStaffFilterValues(filters.hubReceiverUserName)}
+        currentHubReceiver={filters.hubReceiverUserName}
       />
 
       <OrderActionSheet
