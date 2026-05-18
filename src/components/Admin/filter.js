@@ -112,13 +112,38 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     setGardenVisible(true);
   };
 
-  const onSelectSeller = (seller) => {
-    const updatedFilters = { ...filters, sellerName: seller };  
+  const parseSellerFilterValues = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((id) => typeof id === 'string' && id.trim());
+    }
+    return String(value)
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  };
+
+  const onSelectSeller = (sellers) => {
+    const sellerName = Array.isArray(sellers)
+      ? sellers.filter((id) => typeof id === 'string' && id.trim()).join(',')
+      : sellers || null;
+    const updatedFilters = { ...filters, sellerName: sellerName || null };
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
     }
-  }
+  };
+
+  const selectedSellerCount = parseSellerFilterValues(filters.sellerName).length;
+
+  const handleSellerPress = () => {
+    if (selectedSellerCount > 0) {
+      onSelectSeller(null);
+      setSellerVisible(false);
+      return;
+    }
+    setSellerVisible(true);
+  };
 
   const parseBuyerFilterValues = (value) => {
     if (!value) return [];
@@ -277,8 +302,21 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
           </Text>
           <DownIcon />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setSellerVisible(true)}>
-          <Text style={styles.filterButtonText}>Seller</Text>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedSellerCount > 0 ? styles.filterButtonActive : null,
+          ]}
+          onPress={handleSellerPress}
+        >
+          <Text style={styles.filterButtonText}>
+            Seller
+            {selectedSellerCount > 0
+              ? selectedSellerCount === 1
+                ? ' ✓'
+                : ` (${selectedSellerCount})`
+              : ''}
+          </Text>
           <DownIcon />
         </TouchableOpacity>
         <TouchableOpacity
@@ -352,6 +390,8 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         onClose={() => setSellerVisible(false)}
         onSelectSeller={onSelectSeller}
         sellers={adminFilters?.seller || []}
+        selectedValues={parseSellerFilterValues(filters.sellerName)}
+        currentSeller={filters.sellerName}
       />
 
       <BuyerFilter

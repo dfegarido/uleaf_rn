@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Image,
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -7,92 +8,248 @@ import { Image,
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  View,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
+import CheckIcon from '../../assets/admin-icons/check.svg';
 
-// Represents a single selectable seller in the list
-const SellerItem = ({ name, avatarUrl, onSelect }) => (
-  <TouchableOpacity style={styles.sellerItemContainer} onPress={onSelect}>
-    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-    <Text style={styles.sellerName}>{name}</Text>
-  </TouchableOpacity>
-);
+const parseSellerSelectionInput = (input) => {
+  if (input == null || input === '') return [];
+  if (Array.isArray(input)) {
+    return input.map((id) => String(id).trim()).filter(Boolean);
+  }
+  return String(input)
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+};
 
-const SellerFilter = ({ isVisible, onClose, onSelectSeller, sellers }) => {
-  // Mock data for the list of sellers
-  const allSellers = sellers;
+const SellerItem = ({ name, avatarUrl, isSelected, onToggle }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const validAvatarUrl =
+    avatarUrl && avatarUrl.trim()
+      ? avatarUrl.trim()
+      : 'https://gravatar.com/avatar/9ea2236ad96f3746617a5aeea3223515?s=400&d=robohash&r=x';
 
+  return (
+    <TouchableOpacity
+      style={[styles.sellerItemContainer, isSelected && styles.sellerItemActive]}
+      onPress={onToggle}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: !!isSelected }}
+    >
+      <View style={styles.avatarWrapper}>
+        {!imageError && validAvatarUrl ? (
+          <Image
+            source={{ uri: validAvatarUrl }}
+            style={styles.avatar}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <Text style={styles.avatarPlaceholderText}>
+              {name ? name.charAt(0).toUpperCase() : '?'}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <Text style={[styles.sellerName, isSelected && styles.sellerNameActive]} numberOfLines={1}>
+        {name || 'Unknown Seller'}
+      </Text>
+
+      <View style={isSelected ? styles.checkboxSelected : styles.checkbox}>
+        {isSelected ? <CheckIcon width={16} height={16} fill="#FFFFFF" /> : null}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const SellerFilter = ({
+  isVisible,
+  onClose,
+  onSelectSeller,
+  sellers = [],
+  selectedValues,
+  currentSeller = null,
+}) => {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAllResults, setShowAllResults] = useState(false);
+  const [selectedSellerIds, setSelectedSellerIds] = useState([]);
+  const scrollRef = React.useRef(null);
 
-  // Filter sellers based on the search query
-  const filteredSellers = allSellers.filter(seller => {
-    const name = seller.name || '';
-    return name.toLowerCase().includes(searchQuery.toLowerCase())
-  });
+  const appliedSelectionKey = useMemo(() => {
+    const fromProp =
+      selectedValues !== undefined
+        ? parseSellerSelectionInput(selectedValues)
+        : parseSellerSelectionInput(currentSeller);
+    return fromProp.join('\u0001');
+  }, [selectedValues, currentSeller]);
 
-  const handleSelect = (seller) => {
-    onSelectSeller(seller?.id || '');
+  useEffect(() => {
+    if (isVisible) {
+      setSelectedSellerIds(
+        selectedValues !== undefined
+          ? parseSellerSelectionInput(selectedValues)
+          : parseSellerSelectionInput(currentSeller),
+      );
+    }
+  }, [isVisible, appliedSelectionKey, selectedValues, currentSeller]);
+
+  useEffect(() => {
+    if (!isVisible) {
+      setSearchQuery('');
+      setShowAllResults(false);
+    }
+  }, [isVisible]);
+
+  const filteredSellers = useMemo(() => {
+    const list = sellers || [];
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      return list.slice(0, 50);
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered = list.filter((seller) => {
+      const name = (seller.name || '').toLowerCase();
+      return name.includes(query);
+    });
+
+    return showAllResults ? filtered : filtered.slice(0, 5);
+  }, [sellers, searchQuery, showAllResults]);
+
+  const isSellerSelected = (sellerId) => selectedSellerIds.includes(sellerId);
+
+  const handleToggle = (seller) => {
+    const id = seller?.id;
+    if (!id) return;
+    setSelectedSellerIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
+    );
+  };
+
+  const handleReset = () => {
+    setSelectedSellerIds([]);
+  };
+
+  const handleApply = () => {
+    onSelectSeller(selectedSellerIds.length > 0 ? selectedSellerIds : null);
     onClose();
   };
+
+  const hasActiveSearch = searchQuery && searchQuery.trim().length >= 2;
+  const canShowMoreSearchResults =
+    hasActiveSearch && !showAllResults && filteredSellers.length >= 5;
 
   return (
     <Modal
       animationType="slide"
-      transparent={true}
+      transparent
       visible={isVisible}
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+    >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={styles.actionSheetContainer}>
-              <SafeAreaView>
-                {/* Header */}
-                <View style={styles.header}>
-                  <Text style={styles.headerTitle}>Seller</Text>
-                  <TouchableOpacity onPress={onClose}>
-                    <CloseIcon />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Content Area */}
-                <View style={styles.contentContainer}>
-                  {/* Search Bar */}
-                  <View style={styles.searchFieldContainer}>
-                    <SearchIcon />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Search"
-                      placeholderTextColor="#647276"
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                    />
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={80}
+                style={{ flex: 1 }}
+              >
+                <SafeAreaView style={{ flex: 1 }}>
+                  <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Seller</Text>
+                    <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+                      <CloseIcon width={24} height={24} />
+                    </TouchableOpacity>
                   </View>
 
-                  {/* Scrollable List of Sellers */}
-                  <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-                    {filteredSellers.map((seller, index) => (
-                      <View key={seller.id}>
-                        <SellerItem
-                          name={seller.name}
-                          avatarUrl={seller.avatar}
-                          onSelect={() => handleSelect(seller)}
-                        />
-                        {index < filteredSellers.length - 1 && <View style={styles.divider} />}
-                      </View>
-                    ))}
-                  </ScrollView>
-                </View>
-                
-                {/* Action Button */}
-                <View style={styles.actionContainer}>
-                  <TouchableOpacity style={styles.viewAllButton} onPress={onClose}>
-                    <Text style={styles.viewAllButtonText}>View</Text>
-                  </TouchableOpacity>
-                </View>
+                  <View style={[styles.contentContainer, { flex: 1 }]}>
+                    <View style={styles.searchFieldContainer}>
+                      <SearchIcon width={24} height={24} />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Search by name"
+                        placeholderTextColor="#647276"
+                        value={searchQuery}
+                        onChangeText={(text) => {
+                          setSearchQuery(text);
+                          setShowAllResults(false);
+                        }}
+                        caretColor="#539461"
+                        selectionColor="#539461"
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        allowFontScaling={false}
+                      />
+                    </View>
 
-              </SafeAreaView>
+                    {canShowMoreSearchResults ? (
+                      <TouchableOpacity
+                        style={styles.showAllLink}
+                        onPress={() => setShowAllResults(true)}
+                      >
+                        <Text style={styles.showAllLinkText}>Show all matching sellers</Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    <ScrollView
+                      ref={scrollRef}
+                      style={styles.listContainer}
+                      showsVerticalScrollIndicator
+                      keyboardShouldPersistTaps="handled"
+                      contentContainerStyle={
+                        filteredSellers.length === 0 ? styles.listContentEmpty : undefined
+                      }
+                    >
+                      {filteredSellers.length === 0 ? (
+                        <View style={styles.emptyStateContainer}>
+                          <Text style={styles.emptyStateText}>No sellers found</Text>
+                          <Text style={styles.emptyStateSubtext}>
+                            {searchQuery
+                              ? 'Try adjusting your search'
+                              : 'No seller data available for these orders'}
+                          </Text>
+                        </View>
+                      ) : (
+                        filteredSellers.map((seller, index) => (
+                          <View key={seller.id || `seller-${index}`}>
+                            <SellerItem
+                              name={seller.name}
+                              avatarUrl={seller.avatar}
+                              isSelected={isSellerSelected(seller.id)}
+                              onToggle={() => handleToggle(seller)}
+                            />
+                            {index < filteredSellers.length - 1 ? (
+                              <View style={styles.divider} />
+                            ) : null}
+                          </View>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.actionContainer,
+                      { paddingBottom: Math.max(insets.bottom, 12) },
+                    ]}
+                  >
+                    <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+                      <Text style={styles.resetButtonText}>Reset</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.viewButton} onPress={handleApply}>
+                      <Text style={styles.viewButtonText}>View</Text>
+                    </TouchableOpacity>
+                  </View>
+                </SafeAreaView>
+              </KeyboardAvoidingView>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -101,7 +258,6 @@ const SellerFilter = ({ isVisible, onClose, onSelectSeller, sellers }) => {
   );
 };
 
-// --- Styles ---
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
@@ -112,29 +268,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 569, // As per Figma
+    maxHeight: 620,
+    height: '80%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: 24,
+    paddingBottom: 12,
     paddingHorizontal: 24,
-    height: 60,
   },
   headerTitle: {
-    fontFamily: 'Inter',
+    flex: 1,
     fontWeight: '700',
     fontSize: 18,
     color: '#202325',
   },
-  closeIconText: {
-    fontSize: 16,
-    color: '#7F8D91',
-  },
   contentContainer: {
-    paddingHorizontal: 24,
     paddingVertical: 8,
+    paddingHorizontal: 24,
+    gap: 8,
   },
   searchFieldContainer: {
     flexDirection: 'row',
@@ -144,28 +298,61 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
-  },
-  searchIconText: {
-    fontSize: 18,
-    color: '#7F8D91',
-    marginRight: 12,
+    gap: 8,
   },
   textInput: {
     flex: 1,
-    fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 16,
     color: '#202325',
-    height: '100%',
+  },
+  showAllLink: {
+    paddingVertical: 4,
+  },
+  showAllLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#539461',
   },
   listContainer: {
-    height: 343,
-    marginTop: 16,
+    flex: 1,
+    minHeight: 200,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#393D40',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#647276',
+    textAlign: 'center',
   },
   sellerItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
+    minHeight: 48,
+    paddingVertical: 4,
     gap: 8,
+  },
+  sellerItemActive: {
+    backgroundColor: '#F0F7F1',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+  },
+  avatarWrapper: {
+    width: 40,
     height: 40,
   },
   avatar: {
@@ -175,11 +362,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#539461',
   },
+  avatarPlaceholder: {
+    backgroundColor: '#E4E7E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholderText: {
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#647276',
+  },
   sellerName: {
-    fontFamily: 'Inter',
+    flex: 1,
     fontWeight: '700',
     fontSize: 16,
     color: '#202325',
+  },
+  sellerNameActive: {
+    color: '#539461',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#539461',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   divider: {
     height: 1,
@@ -187,21 +405,36 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   actionContainer: {
-    paddingHorizontal: 24,
+    flexDirection: 'row',
     paddingTop: 12,
+    paddingHorizontal: 24,
+    gap: 8,
   },
-  viewAllButton: {
+  resetButton: {
+    flex: 1,
     backgroundColor: '#F2F7F3',
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  viewAllButtonText: {
-    fontFamily: 'Inter',
+  resetButtonText: {
     fontWeight: '600',
     fontSize: 16,
     color: '#539461',
+  },
+  viewButton: {
+    flex: 1,
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#FFFFFF',
   },
 });
 
