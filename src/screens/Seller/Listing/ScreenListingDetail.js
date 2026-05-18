@@ -479,7 +479,9 @@ const ScreenListingDetail = ({navigation, route}) => {
 
   return (
     <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+      style={{flex: 1, backgroundColor: '#fff'}}
+      edges={['bottom', 'left', 'right']}
+>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -512,7 +514,7 @@ const ScreenListingDetail = ({navigation, route}) => {
           paddingBottom: insets.bottom,
         }}>
         {/* Sticky Header */}
-        <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
+        <View style={[styles.stickyHeader, {paddingTop: insets.top + 8, paddingBottom: 10}]}>
           <View style={styles.header}>
             <TouchableOpacity
               hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
@@ -548,7 +550,7 @@ const ScreenListingDetail = ({navigation, route}) => {
           </View>
         </View>
         {/* Top blocker area — allows carousel to be visible */}
-        <View style={{height: screenHeight * 0.38}} />
+        <View style={{height: screenHeight * 0.15}} />
 
         {/* Foreground Content */}
         <View style={styles.contents}>
@@ -1264,7 +1266,7 @@ const styles = StyleSheet.create({
     // marginBottom: 20,
   },
   contents: {
-    paddingTop: 20,
+    paddingTop: 0,
     paddingBottom: 40,
     backgroundColor: '#fff',
     borderTopLeftRadius: 30,

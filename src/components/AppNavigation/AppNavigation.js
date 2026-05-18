@@ -65,6 +65,7 @@ import { ScreenListing,
   ScreenLiveSaleExcelUpload,
 } from '../../screens/Seller/Listing/';
 import OrderScreen from '../../screens/Seller/Order/OrderScreen';
+import ScreenOrderSearch from '../../screens/Seller/Order/ScreenOrderSearch';
 import { ScreenDraftSell,
   ScreenDuplicateSell,
   ScreenGrowersSell,
@@ -692,6 +693,12 @@ const MainStack = () => {
       <Stack.Screen
         name="ScreenSearchListing"
         component={ScreenSearchListing}
+        options={{headerShown: false, animation: 'slide_from_right'}}
+      />
+
+      <Stack.Screen
+        name="ScreenOrderSearch"
+        component={ScreenOrderSearch}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
 

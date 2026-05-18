@@ -19,6 +19,7 @@ import SkeletonList from './components/OrderCardSkeleton';
 
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
 
 import NetInfo from '@react-native-community/netinfo';
 import moment from 'moment';
@@ -553,19 +554,27 @@ const OrderScreen = ({navigation}) => {
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
             <View style={styles.stickyHeader}>
         <View style={styles.header}>
-          <View style={{flex: 1}}>
-            {/* <InputGroupLeftIcon
-              IconLeftComponent={SearchIcon}
-              placeholder={'Search I Leaf U'}
-            /> */}
-            <InputSearch
-              placeholder="Search ileafU"
-              value={search}
-              onChangeText={setSearch}
-              onSubmitEditing={handleSearchSubmit}
-              showClear={true} // shows an 'X' icon to clear
-            />
-          </View>
+          <TouchableOpacity
+            style={{flex: 1}}
+            onPress={() => navigation.navigate('ScreenOrderSearch')}>
+            <View
+              style={{
+                justifyContent: 'center',
+                borderColor: '#ccc',
+                borderWidth: 1,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                height: 48,
+                backgroundColor: '#fff',
+              }}>
+              <View style={{flexDirection: 'row'}}>
+                <SearchIcon width={20} height={20} />
+                <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
+                  Search orders...
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
           <View style={styles.headerIcons}>
             {userInfo.liveFlag != 'No' && (
               <TouchableOpacity

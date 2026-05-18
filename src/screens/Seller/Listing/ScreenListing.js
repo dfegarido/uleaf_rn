@@ -52,6 +52,7 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
+import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
 import RefreshIcon from '../../../assets/icons/accent/arrow-clockwise-regular.svg';
 import LiveIcon from '../../../assets/images/live.svg';
 
@@ -1998,15 +1999,27 @@ const ScreenListing = ({navigation}) => {
       {/* Search and Icons */}
       <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
         <View style={styles.header}>
-          <View style={{flex: 1}}>
-            <InputSearch
-              placeholder="Search ileafU"
-              value={search}
-              onChangeText={setSearch}
-              onSubmitEditing={handleSearchSubmit}
-              showClear={true} // shows an 'X' icon to clear
-            />
-          </View>
+          <TouchableOpacity
+            style={{flex: 1}}
+            onPress={() => navigation.navigate('ScreenSearchListing')}>
+            <View
+              style={{
+                justifyContent: 'center',
+                borderColor: '#ccc',
+                borderWidth: 1,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                height: 48,
+                backgroundColor: '#fff',
+              }}>
+              <View style={{flexDirection: 'row'}}>
+                <SearchIcon width={20} height={20} />
+                <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
+                  Search listings...
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
 
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (

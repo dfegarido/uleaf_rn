@@ -424,7 +424,7 @@ const ScreenHome = ({navigation}) => {
         <View style={styles.header}>
           <TouchableOpacity
             style={{flex: 1}}
-            onPress={() => navigation.navigate('ScreenSearchListing')}>
+            onPress={() => navigation.navigate('ScreenOrderSearch')}>
             {/* <InputGroupLeftIcon
                 IconLeftComponent={SearchIcon}
                 placeholder={'Search ileafU'}
@@ -443,7 +443,7 @@ const ScreenHome = ({navigation}) => {
               <View style={{flexDirection: 'row'}}>
                 <SearchIcon width={20} height={20} />
                 <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 10}]}>
-                  Search ileafU
+                  Search orders...
                 </Text>
               </View>
             </View>
