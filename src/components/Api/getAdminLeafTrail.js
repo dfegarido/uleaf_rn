@@ -237,17 +237,30 @@ export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = fals
   }
 };
 
-export const getAdminLeafTrailFilters = async (statuses = null) => {
+export const getAdminLeafTrailFilters = async (
+  statuses = null,
+  { sellerBuyerStatuses = null } = {},
+) => {
   try {
     const token = await getStoredAuthToken();
-    let url = API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_FILTERS
+    let url = API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_FILTERS;
+    const params = new URLSearchParams();
 
     if (statuses) {
       const statusesParam =
         typeof statuses === 'string' ? statuses : JSON.stringify(statuses);
-      url = `${url}?statuses=${encodeURIComponent(statusesParam)}`;
+      params.set('statuses', statusesParam);
     }
-    console.log('urlurl', url);
+    if (sellerBuyerStatuses) {
+      const sellerBuyerParam =
+        typeof sellerBuyerStatuses === 'string'
+          ? sellerBuyerStatuses
+          : JSON.stringify(sellerBuyerStatuses);
+      params.set('sellerBuyerStatuses', sellerBuyerParam);
+    }
+    if (params.toString()) {
+      url = `${url}?${params.toString()}`;
+    }
     
     const response = await fetch(
       url,

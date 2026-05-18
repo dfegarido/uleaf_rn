@@ -101,6 +101,9 @@ const ADMIN_FILTER_STATUSES_BY_TAB = {
   damaged: '["damaged"]',
 };
 
+/** Seller / buyer / order-receiver lists match For Receiving on every Receiving sub-tab. */
+const ADMIN_FILTER_STATUSES_FOR_SELLER_BUYER = '["forReceiving"]';
+
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
       const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -503,7 +506,9 @@ const ReceivingScreen = ({navigation}) => {
             setIsLoading(true);
         }
         try {
-            const adminFilter = await getAdminLeafTrailFilters(statuses);
+            const adminFilter = await getAdminLeafTrailFilters(statuses, {
+                sellerBuyerStatuses: ADMIN_FILTER_STATUSES_FOR_SELLER_BUYER,
+            });
             setAdminFilters(adminFilter);
         } catch (e) {
             console.error('Failed to load admin filters:', e);
