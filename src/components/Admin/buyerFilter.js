@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ActivityIndicator,
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  ActivityIndicator,
   Image,
   Modal,
   ScrollView,
@@ -10,32 +11,43 @@ import { ActivityIndicator,
   TouchableWithoutFeedback,
   View,
   KeyboardAvoidingView,
-  Platform} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  Platform,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
+import CheckIcon from '../../assets/admin-icons/check.svg';
 
-const BuyerItem = ({ name, email, username, avatarUrl, onSelect }) => {
+const parseBuyerSelectionInput = (input) => {
+  if (input == null || input === '') return [];
+  if (Array.isArray(input)) {
+    return input.map((id) => String(id).trim()).filter(Boolean);
+  }
+  return String(input)
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+};
+
+const BuyerItem = ({ name, email, username, avatarUrl, isSelected, onToggle }) => {
   const [imageError, setImageError] = React.useState(false);
-  const validAvatarUrl = avatarUrl && avatarUrl.trim() ? avatarUrl.trim() : 'https://via.placeholder.com/40';
+  const validAvatarUrl =
+    avatarUrl && avatarUrl.trim() ? avatarUrl.trim() : 'https://via.placeholder.com/40';
 
-  // Show email or username as secondary info
-  const getSecondaryInfo = () => {
-    if (email) return email;
-    if (username) return `@${username}`;
-    return null;
-  };
-
-  const secondaryInfo = getSecondaryInfo();
+  const secondaryInfo = email || (username ? `@${username}` : null);
 
   return (
-    <TouchableOpacity style={styles.buyerItemContainer} onPress={onSelect}>
-      {/* Avatar */}
+    <TouchableOpacity
+      style={[styles.buyerItemContainer, isSelected && styles.buyerItemActive]}
+      onPress={onToggle}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: !!isSelected }}
+    >
       <View style={styles.avatarWrapper}>
-        <View style={styles.avatarContainer}>
+        <View style={[styles.avatarContainer, isSelected && styles.avatarContainerActive]}>
           {!imageError && validAvatarUrl ? (
-            <Image 
-              source={{ uri: validAvatarUrl }} 
+            <Image
+              source={{ uri: validAvatarUrl }}
               style={styles.avatar}
               onError={() => setImageError(true)}
             />
@@ -49,65 +61,103 @@ const BuyerItem = ({ name, email, username, avatarUrl, onSelect }) => {
         </View>
       </View>
 
-      {/* Details */}
       <View style={styles.detailsContainer}>
-        <Text style={styles.buyerName}>{name || 'Unknown Buyer'}</Text>
-        {secondaryInfo && (
-          <Text style={styles.buyerSecondaryInfo}>{secondaryInfo}</Text>
-        )}
+        <Text style={[styles.buyerName, isSelected && styles.buyerNameActive]} numberOfLines={1}>
+          {name || 'Unknown Buyer'}
+        </Text>
+        {secondaryInfo ? (
+          <Text style={styles.buyerSecondaryInfo} numberOfLines={1}>
+            {secondaryInfo}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={isSelected ? styles.checkboxSelected : styles.checkbox}>
+        {isSelected ? <CheckIcon width={16} height={16} fill="#FFFFFF" /> : null}
       </View>
     </TouchableOpacity>
   );
 };
 
-const BuyerFilter = ({ isVisible, onClose, onSelectBuyer, onReset, buyers = [], onSearch }) => {
+const BuyerFilter = ({
+  isVisible,
+  onClose,
+  onSelectBuyer,
+  buyers = [],
+  onSearch,
+  selectedValues,
+  currentBuyer = null,
+}) => {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [showAllResults, setShowAllResults] = useState(false);
+  const [selectedBuyerIds, setSelectedBuyerIds] = useState([]);
   const scrollRef = React.useRef(null);
   const searchTimeoutRef = React.useRef(null);
-
-  // Track previous search query to detect when it's cleared
   const prevSearchQueryRef = React.useRef(searchQuery);
 
-  // Debounced search - calls API after user stops typing
-  React.useEffect(() => {
-    // Clear previous timeout
+  const appliedSelectionKey = useMemo(() => {
+    const fromProp =
+      selectedValues !== undefined
+        ? parseBuyerSelectionInput(selectedValues)
+        : parseBuyerSelectionInput(currentBuyer);
+    return fromProp.join('\u0001');
+  }, [selectedValues, currentBuyer]);
+
+  useEffect(() => {
+    if (isVisible) {
+      setSelectedBuyerIds(
+        selectedValues !== undefined
+          ? parseBuyerSelectionInput(selectedValues)
+          : parseBuyerSelectionInput(currentBuyer),
+      );
+    }
+  }, [isVisible, appliedSelectionKey, selectedValues, currentBuyer]);
+
+  useEffect(() => {
+    if (!isVisible) {
+      setSearchQuery('');
+      setIsSearching(false);
+      setShowAllResults(false);
+      prevSearchQueryRef.current = '';
+      return;
+    }
+    setSearchQuery('');
+    setIsSearching(false);
+    setShowAllResults(false);
+    prevSearchQueryRef.current = '';
+  }, [isVisible]);
+
+  useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Detect if search was cleared (went from non-empty to empty)
-    const wasCleared = prevSearchQueryRef.current && prevSearchQueryRef.current.trim().length >= 2 && 
-                       (!searchQuery || searchQuery.trim().length < 2);
-    
-    // If query is empty or too short
+    const wasCleared =
+      prevSearchQueryRef.current &&
+      prevSearchQueryRef.current.trim().length >= 2 &&
+      (!searchQuery || searchQuery.trim().length < 2);
+
     if (!searchQuery || searchQuery.trim().length < 2) {
       setIsSearching(false);
-      // If search was just cleared (was non-empty, now empty), restore full list
       if (wasCleared && onSearch && typeof onSearch === 'function') {
-        console.log('[BuyerFilter] Search cleared, restoring full buyer list');
-        onSearch(''); // Call with empty string to restore full list
+        onSearch('');
       }
       prevSearchQueryRef.current = searchQuery;
       return;
     }
 
-    // Set searching state
     setIsSearching(true);
-
-    // Debounce: Wait 500ms after user stops typing
     searchTimeoutRef.current = setTimeout(() => {
-      console.log('[BuyerFilter] Debounced search triggered for:', searchQuery);
       if (onSearch && typeof onSearch === 'function') {
         onSearch(searchQuery.trim());
       }
       setIsSearching(false);
     }, 500);
 
-    // Update previous search query
     prevSearchQueryRef.current = searchQuery;
 
-    // Cleanup timeout on unmount or when query changes
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -115,206 +165,161 @@ const BuyerFilter = ({ isVisible, onClose, onSelectBuyer, onReset, buyers = [], 
     };
   }, [searchQuery, onSearch]);
 
-  // Debug: Log when component receives props
-  React.useEffect(() => {
-    if (isVisible) {
-      console.log('[BuyerFilter] Modal opened with', buyers.length, 'buyers available');
-      if (buyers.length === 0) {
-        console.warn('[BuyerFilter] ⚠️ No buyers in prop! This might cause "no buyers found"');
-      } else if (buyers.length <= 5) {
-        console.log('[BuyerFilter] ⚠️ Only', buyers.length, 'buyers - might be from previous search');
-      }
-    }
-  }, [isVisible, buyers.length]);
-
-  // Reset search when modal closes or opens
-  React.useEffect(() => {
-    if (!isVisible) {
-      setSearchQuery('');
-      setIsSearching(false);
-    } else {
-      // When modal opens, reset search query to show all buyers
-      console.log('[BuyerFilter] Modal opened, resetting search query');
-      setSearchQuery('');
-      setIsSearching(false);
-      // Reset previous search query ref
-      prevSearchQueryRef.current = '';
-    }
-  }, [isVisible]);
-
-  // Filter buyers based on the search query (name, email, or username)
-  // If search query is empty or less than 2 chars, show all buyers (up to 50 for performance)
-  // If searching, filter and limit to 5 results
-  const filteredBuyers = React.useMemo(() => {
+  const filteredBuyers = useMemo(() => {
     if (!searchQuery || searchQuery.trim().length < 2) {
-      // Show all buyers when no search query (up to 50 for performance)
-      const allBuyers = buyers.slice(0, 50);
-      console.log('[BuyerFilter] No search query, showing all buyers:', allBuyers.length, 'of', buyers.length);
-      return allBuyers;
+      return buyers.slice(0, 50);
     }
-    
-    // Filter when searching
-    const filtered = buyers
-      .filter(buyer => {
-        const query = searchQuery.toLowerCase();
-        const name = (buyer.name || '').toLowerCase();
-        const email = (buyer.email || '').toLowerCase();
-        const username = (buyer.username || '').toLowerCase();
-        
-        return name.includes(query) || email.includes(query) || username.includes(query);
-      })
-      .slice(0, 5); // Limit to 5 suggestions when searching
-    
-    console.log('[BuyerFilter] Search query:', searchQuery, '| Filtered:', filtered.length, 'of', buyers.length);
-    return filtered;
-  }, [buyers, searchQuery]);
 
-  // Debug: Log filtered results
-  React.useEffect(() => {
-    console.log('[BuyerFilter] Search query:', searchQuery, '| Filtered results:', filteredBuyers.length, '(limited to 5)');
-  }, [searchQuery, filteredBuyers.length]);
+    const query = searchQuery.toLowerCase();
+    const filtered = buyers.filter((buyer) => {
+      const name = (buyer.name || '').toLowerCase();
+      const email = (buyer.email || '').toLowerCase();
+      const username = (buyer.username || '').toLowerCase();
+      return name.includes(query) || email.includes(query) || username.includes(query);
+    });
 
-  const handleSelect = (buyer) => {
-    onSelectBuyer(buyer?.id || null);
-    onClose();
+    return showAllResults ? filtered : filtered.slice(0, 5);
+  }, [buyers, searchQuery, showAllResults]);
+
+  const isBuyerSelected = (buyerId) => selectedBuyerIds.includes(buyerId);
+
+  const handleToggle = (buyer) => {
+    const id = buyer?.id;
+    if (!id) return;
+    setSelectedBuyerIds((prev) =>
+      prev.includes(id) ? prev.filter((uid) => uid !== id) : [...prev, id],
+    );
   };
 
   const handleReset = () => {
-    if (onReset && typeof onReset === 'function') {
-      onReset();
-    }
+    setSelectedBuyerIds([]);
   };
+
+  const handleApply = () => {
+    onSelectBuyer(selectedBuyerIds.length > 0 ? selectedBuyerIds : null);
+    onClose();
+  };
+
+  const hasActiveSearch = searchQuery && searchQuery.trim().length >= 2;
+  const canShowMoreSearchResults =
+    hasActiveSearch && !showAllResults && filteredBuyers.length >= 5;
 
   return (
     <Modal
       animationType="slide"
-      transparent={true}
+      transparent
       visible={isVisible}
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+    >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={styles.actionSheetContainer}>
-              <KeyboardAvoidingView 
+              <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={80}
+                style={{ flex: 1 }}
               >
-                <SafeAreaView>
-                {/* Title */}
-                <View style={styles.titleContainer}>
-                  <Text style={styles.titleText}>Buyer</Text>
-                  
-                  {/* Close */}
-                  <TouchableOpacity 
-                    style={styles.closeButton}
-                    onPress={onClose}
-                    activeOpacity={0.7}
-                  >
-                    <CloseIcon width={24} height={24} style={styles.closeIcon} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Content */}
-                <View style={styles.contentContainer}>
-                  {/* Search Field */}
-                  <View style={styles.searchFieldContainer}>
-                    <SearchIcon width={24} height={24} />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Search by name, email, or username"
-                      placeholderTextColor="#647276"
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      onFocus={() => {
-                        setTimeout(() => {
-                          try {
-                            if (scrollRef && scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
-                              scrollRef.current.scrollTo({ y: 0, animated: true });
-                            }
-                          } catch (e) {
-                            // ignore
-                          }
-                        }, 120);
-                      }}
-                      caretColor="#539461"
-                      selectionColor="#539461"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      allowFontScaling={false}
-                      editable={true}
-                    />
-                    {isSearching && (
-                      <ActivityIndicator size="small" color="#539461" />
-                    )}
+                <SafeAreaView style={{ flex: 1 }}>
+                  <View style={styles.titleContainer}>
+                    <Text style={styles.titleText}>Buyer</Text>
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={onClose}
+                      activeOpacity={0.7}
+                    >
+                      <CloseIcon width={24} height={24} />
+                    </TouchableOpacity>
                   </View>
 
-                  {/* Lists */}
-                  <ScrollView 
-                    ref={scrollRef}
-                    style={styles.listsContainer} 
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={[
-                      styles.listsContentContainer,
-                      filteredBuyers.length === 0 && styles.listsContentContainerEmpty
+                  <View style={[styles.contentContainer, { flex: 1 }]}>
+                    <View style={styles.searchFieldContainer}>
+                      <SearchIcon width={24} height={24} />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Search by name, email, or username"
+                        placeholderTextColor="#647276"
+                        value={searchQuery}
+                        onChangeText={(text) => {
+                          setSearchQuery(text);
+                          setShowAllResults(false);
+                        }}
+                        caretColor="#539461"
+                        selectionColor="#539461"
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        allowFontScaling={false}
+                      />
+                      {isSearching ? (
+                        <ActivityIndicator size="small" color="#539461" />
+                      ) : null}
+                    </View>
+
+                    {canShowMoreSearchResults ? (
+                      <TouchableOpacity
+                        style={styles.showAllLink}
+                        onPress={() => setShowAllResults(true)}
+                      >
+                        <Text style={styles.showAllLinkText}>Show all matching buyers</Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    <ScrollView
+                      ref={scrollRef}
+                      style={styles.listsContainer}
+                      showsVerticalScrollIndicator
+                      keyboardShouldPersistTaps="handled"
+                      contentContainerStyle={[
+                        styles.listsContentContainer,
+                        filteredBuyers.length === 0 && styles.listsContentContainerEmpty,
+                      ]}
+                    >
+                      {filteredBuyers.length === 0 ? (
+                        <View style={styles.emptyStateContainer}>
+                          <Text style={styles.emptyStateText}>No buyers found</Text>
+                          <Text style={styles.emptyStateSubtext}>
+                            {searchQuery
+                              ? 'Try adjusting your search'
+                              : 'No buyer data available for these orders'}
+                          </Text>
+                        </View>
+                      ) : (
+                        filteredBuyers.map((buyer, index) => (
+                          <View key={buyer.id || `buyer-${index}`}>
+                            <BuyerItem
+                              name={buyer.name}
+                              email={buyer.email}
+                              username={buyer.username}
+                              avatarUrl={buyer.avatar}
+                              isSelected={isBuyerSelected(buyer.id)}
+                              onToggle={() => handleToggle(buyer)}
+                            />
+                            {index < filteredBuyers.length - 1 ? (
+                              <View style={styles.dividerWrapper}>
+                                <View style={styles.divider} />
+                              </View>
+                            ) : null}
+                          </View>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.actionContainer,
+                      { paddingBottom: Math.max(insets.bottom, 12) },
                     ]}
                   >
-                    {filteredBuyers.length === 0 ? (
-                      <View style={styles.emptyStateContainer}>
-                        <Text style={styles.emptyStateText}>No buyers found</Text>
-                        <Text style={styles.emptyStateSubtext}>
-                          {searchQuery ? 'Try adjusting your search' : 'No buyer data available for these orders'}
-                        </Text>
-                      </View>
-                    ) : (
-                      filteredBuyers.map((buyer, index) => (
-                        <View key={buyer.id}>
-                          {/* Social / Option User List */}
-                          <BuyerItem
-                            name={buyer.name}
-                            email={buyer.email}
-                            username={buyer.username}
-                            avatarUrl={buyer.avatar}
-                            onSelect={() => handleSelect(buyer)}
-                          />
-                          {/* Divider */}
-                          {index < filteredBuyers.length - 1 && (
-                            <View style={styles.dividerWrapper}>
-                              <View style={styles.divider} />
-                            </View>
-                          )}
-                        </View>
-                      ))
-                    )}
-                  </ScrollView>
-                </View>
-
-                {/* Action */}
-                <View style={styles.actionContainer}>
-                  {/* Button View */}
-                  <TouchableOpacity 
-                    style={styles.buttonView} 
-                    onPress={() => {
-                      // "View All" should clear the buyer filter and show all orders
-                      if (onReset && typeof onReset === 'function') {
-                        onReset();
-                      } else {
-                        // Fallback to just closing if onReset is not provided
-                        onClose();
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    {/* Text */}
-                    <View style={styles.buttonTextContainer}>
-                      <Text style={styles.buttonText}>View All</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
+                    <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+                      <Text style={styles.resetButtonText}>Reset</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.viewButton} onPress={handleApply}>
+                      <Text style={styles.viewButtonText}>View</Text>
+                    </TouchableOpacity>
+                  </View>
                 </SafeAreaView>
               </KeyboardAvoidingView>
-
-           
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -323,24 +328,12 @@ const BuyerFilter = ({ isVisible, onClose, onSelectBuyer, onReset, buyers = [], 
   );
 };
 
-// --- Styles ---
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  // Filter: Buyer
-  filterContainer: {
-    flexDirection: 'column',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-start',
-    padding: 0,
-    position: 'relative',
-    width: '100%',
-    height: 569,
-  },
-  // Action Sheet
   actionSheetContainer: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
@@ -348,63 +341,28 @@ const styles = StyleSheet.create({
     maxHeight: 620,
     height: '80%',
   },
-  // Title
   titleContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingTop: 24,
     paddingBottom: 12,
     paddingHorizontal: 24,
-    gap: 16,
-    width: '100%',
-    height: 60,
-    backgroundColor: '#FFFFFF',
-    flex: 0,
   },
-  // Text
   titleText: {
-    width: 287,
-    height: 24,
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
+    flex: 1,
     fontWeight: '700',
     fontSize: 18,
-    lineHeight: 24,
     color: '#202325',
-    flex: 0,
-    flexGrow: 1,
   },
-  // Close
   closeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 0,
-    gap: 12,
-    width: 24,
-    height: 24,
-    flex: 0,
+    padding: 4,
   },
-  // Icon
-  closeIcon: {
-    width: 24,
-    height: 24,
-    flex: 0,
-  },
-  // Content
   contentContainer: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 24,
     gap: 8,
-    width: '100%',
-    height: 415,
-    flex: 0,
-    alignSelf: 'stretch',
   },
-  // Search Field
   searchFieldContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,274 +373,160 @@ const styles = StyleSheet.create({
     height: 48,
     gap: 8,
   },
-  // Text Field
-  textFieldContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-    width: '100%',
-    height: 48,
-    minHeight: 48,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    flex: 0,
-    alignSelf: 'stretch',
-  },
-  // Icon: Left
-  searchIcon: {
-    width: 24,
-    height: 24,
-    flex: 0,
-  },
-  // Placeholder / Text Input
   textInput: {
     flex: 1,
-    fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 16,
     color: '#202325',
-    height: '100%',
   },
-  // Lists
+  showAllLink: {
+    paddingVertical: 4,
+  },
+  showAllLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#539461',
+  },
   listsContainer: {
-    width: '100%',
-    height: 343,
-    flex: 0,
-    alignSelf: 'stretch',
+    flex: 1,
+    minHeight: 200,
   },
   listsContentContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    paddingVertical: 16,
-    paddingHorizontal: 0,
-    gap: 6,
+    paddingVertical: 8,
+    gap: 4,
   },
   listsContentContainerEmpty: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Empty State
   emptyStateContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 24,
+    paddingVertical: 40,
   },
   emptyStateText: {
-    fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 16,
     color: '#393D40',
     marginBottom: 8,
-    textAlign: 'center',
   },
   emptyStateSubtext: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
     fontSize: 14,
     color: '#647276',
     textAlign: 'center',
   },
-  // Social / Option User List
   buyerItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 0,
     width: '100%',
     minHeight: 56,
-    flex: 0,
-    alignSelf: 'stretch',
+    paddingVertical: 4,
   },
-  // Avatar wrapper
+  buyerItemActive: {
+    backgroundColor: '#F0F7F1',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+  },
   avatarWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 0,
-    gap: 10,
-    width: 40,
-    height: 40,
-    flex: 0,
+    marginRight: 8,
   },
-  // Avatar
   avatarContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    padding: 0,
     width: 40,
-    minWidth: 40,
     height: 40,
-    minHeight: 40,
-    borderRadius: 1000,
-    flex: 0,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
-  // avatar image
+  avatarContainerActive: {},
   avatar: {
     width: 40,
     height: 40,
     borderWidth: 1,
     borderColor: '#539461',
-    borderRadius: 1000,
-    flex: 0,
+    borderRadius: 20,
   },
-  // avatar placeholder
   avatarPlaceholder: {
     backgroundColor: '#E4E7E9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarPlaceholderText: {
-    fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 16,
     color: '#647276',
   },
-  // Details
   detailsContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    padding: 0,
-    width: 279,
     flex: 1,
-    marginLeft: 8,
+    marginRight: 8,
   },
-  // Text
   buyerName: {
-    width: '100%',
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
     fontWeight: '700',
     fontSize: 14,
-    lineHeight: 20,
     color: '#202325',
-    flex: 0,
-    alignSelf: 'stretch',
   },
-  buyerSecondaryInfo: {
-    width: '100%',
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '500',
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#647276',
-    marginTop: 2,
-    flex: 0,
-    alignSelf: 'stretch',
-  },
-  // Divider wrapper
-  dividerWrapper: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 0,
-    width: '100%',
-    height: 17,
-    flex: 0,
-    alignSelf: 'stretch',
-  },
-  // Divider
-  divider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#E4E7E9',
-    flex: 0,
-    alignSelf: 'stretch',
-  },
-  // Action
-  actionContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: 12,
-    paddingBottom: 0,
-    paddingHorizontal: 24,
-    gap: 8,
-    width: '100%',
-    height: 60,
-    flex: 0,
-    alignSelf: 'stretch',
-  },
-  // Reset Button
-  resetButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    height: 48,
-    minHeight: 48,
-    backgroundColor: '#F2F7F3',
-    borderRadius: 12,
-    flex: 1,
-  },
-  resetButtonText: {
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '600',
-    fontSize: 16,
-    lineHeight: 16,
+  buyerNameActive: {
     color: '#539461',
   },
-  // Button View
-  buttonView: {
-    flexDirection: 'row',
+  buyerSecondaryInfo: {
+    fontSize: 12,
+    color: '#647276',
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    width: '100%',
-    height: 48,
-    minHeight: 48,
+  },
+  checkboxSelected: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     backgroundColor: '#539461',
-    borderRadius: 12,
-    flex: 1,
-  },
-  // Text container
-  buttonTextContainer: {
-    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 0,
-    paddingHorizontal: 8,
-    gap: 8,
-    width: 79,
-    height: 16,
-    flex: 0,
   },
-  // Button text
-  buttonText: {
-    width: 63,
-    height: 16,
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
+  dividerWrapper: {
+    paddingVertical: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E4E7E9',
+  },
+  actionContainer: {
+    flexDirection: 'row',
+    paddingTop: 12,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  resetButton: {
+    flex: 1,
+    backgroundColor: '#F2F7F3',
+    borderRadius: 12,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resetButtonText: {
     fontWeight: '600',
     fontSize: 16,
-    lineHeight: 16,
+    color: '#539461',
+  },
+  viewButton: {
+    flex: 1,
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
     color: '#FFFFFF',
-    flex: 0,
-  },
-  // System / Home Indicator
-  homeIndicator: {
-    width: '100%',
-    height: 34,
-    backgroundColor: '#FFFFFF',
-    flex: 0,
-  },
-  // Gesture Bar
-  gestureBar: {
-    position: 'absolute',
-    width: 148,
-    height: 5,
-    left: '50%',
-    marginLeft: -74,
-    bottom: 8,
-    backgroundColor: '#202325',
-    borderRadius: 100,
   },
 });
 

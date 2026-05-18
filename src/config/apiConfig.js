@@ -124,17 +124,12 @@ const getBaseUrl = () => {
   
   // Log the actual URL being used (only in development, and only once per session)
   if (__DEV__ && !getBaseUrl._logged) {
-    // API Base URL logging disabled
-    // Uncomment below to debug API configuration
-    /*
-    console.log('API Base URL:', {
+    console.log('[apiConfig] API Base URL:', {
       USE_LOCAL_API,
       LOCAL_BASE_URL: LOCAL_BASE_URL || 'NOT SET',
-      PROD_BASE_URL,
       selectedBaseUrl: baseUrl,
-      environment: USE_LOCAL_API ? 'LOCAL DEVELOPMENT' : 'PRODUCTION',
+      environment: USE_LOCAL_API ? 'LOCAL EMULATOR' : 'PRODUCTION CLOUD',
     });
-    */
     getBaseUrl._logged = true;
   }
   

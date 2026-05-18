@@ -120,13 +120,38 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
     }
   }
 
-  const onSelectBuyer = (buyer) => {
-    const updatedFilters = { ...filters, buyerUid: buyer };  
+  const parseBuyerFilterValues = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((id) => typeof id === 'string' && id.trim());
+    }
+    return String(value)
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  };
+
+  const onSelectBuyer = (buyers) => {
+    const buyerUid = Array.isArray(buyers)
+      ? buyers.filter((id) => typeof id === 'string' && id.trim()).join(',')
+      : buyers || null;
+    const updatedFilters = { ...filters, buyerUid: buyerUid || null };
     setFilters(updatedFilters);
     if (onFilterChange) {
       onFilterChange(updatedFilters);
     }
-  }
+  };
+
+  const selectedBuyerCount = parseBuyerFilterValues(filters.buyerUid).length;
+
+  const handleBuyerPress = () => {
+    if (selectedBuyerCount > 0) {
+      onSelectBuyer(null);
+      setBuyerVisible(false);
+      return;
+    }
+    setBuyerVisible(true);
+  };
 
   const onSelectOrderReceiver = (orderReceiver) => {
     const updatedFilters = { ...filters, receiverUid: orderReceiver };  
@@ -256,8 +281,21 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
           <Text style={styles.filterButtonText}>Seller</Text>
           <DownIcon />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setBuyerVisible(true)}>
-          <Text style={styles.filterButtonText}>Buyer</Text>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedBuyerCount > 0 ? styles.filterButtonActive : null,
+          ]}
+          onPress={handleBuyerPress}
+        >
+          <Text style={styles.filterButtonText}>
+            Buyer
+            {selectedBuyerCount > 0
+              ? selectedBuyerCount === 1
+                ? ' ✓'
+                : ` (${selectedBuyerCount})`
+              : ''}
+          </Text>
           <DownIcon />
         </TouchableOpacity>
         <TouchableOpacity style={styles.filterButton} onPress={() => setOrderReceiverVisible(true)}>
@@ -321,6 +359,8 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         onClose={() => setBuyerVisible(false)}
         onSelectBuyer={onSelectBuyer}
         buyers={adminFilters?.buyer || []}
+        selectedValues={parseBuyerFilterValues(filters.buyerUid)}
+        currentBuyer={filters.buyerUid}
       />
 
       <OrderReceiverFilter
