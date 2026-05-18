@@ -35,7 +35,6 @@ import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
 import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
 
-const LEAF_TRAIL_DISPLAY_TZ = 'America/New_York';
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** Resolve plant flight to YYYY-MM-DD (calendar day, not UTC-shifted). */
@@ -86,32 +85,10 @@ function formatPlantFlightDateForDisplay(value) {
   return `${MONTH_LABELS[mo - 1]} ${da}, ${y}`;
 }
 
-/** Format real timestamps (e.g. Date Ordered fallback) in Eastern. */
-function formatInstantInEastern(value) {
-  if (value == null || value === '') return '';
-  let ms;
-  if (typeof value?.toDate === 'function') {
-    ms = value.toDate().getTime();
-  } else if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
-    const sec = value.seconds ?? value._seconds;
-    ms = sec * 1000;
-  } else {
-    const parsed = new Date(value);
-    ms = parsed.getTime();
-  }
-  if (!ms || Number.isNaN(ms)) return typeof value === 'string' ? value : '';
-  return new Date(ms).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: LEAF_TRAIL_DISPLAY_TZ,
-  });
-}
-
-/** Prefer API `dateOrdered`; else format `createdAt` in Eastern. */
+/** Date Ordered label comes from API only (same source as date-range filter). */
 function getDateOrderedDatePart(item) {
   if (item?.dateOrdered) return String(item.dateOrdered).trim();
-  return formatInstantInEastern(item?.createdAt);
+  return '';
 }
 
 // A single card in the list

@@ -53,16 +53,15 @@ const parseAdminFlightDateTokenToIso = (token) => {
   if (mmm) {
     const monKey = mmm[1].slice(0, 3).toLowerCase();
     const monthMap = {
-      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+      jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+      jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
     };
-    const mi = monthMap[monKey];
-    if (mi === undefined) return null;
+    const monthNum = monthMap[monKey];
+    if (monthNum === undefined) return null;
     const day = parseInt(mmm[2], 10);
     const year = parseInt(mmm[3], 10);
-    const d = new Date(year, mi, day);
-    if (isNaN(d.getTime())) return null;
-    return toISODateString(d);
+    if (!year || !day) return null;
+    return `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
   const d = new Date(s);
   if (!isNaN(d.getTime())) return toISODateString(d);
@@ -114,10 +113,13 @@ const PlantFlightFilter = ({
   // Initialize draft selection when modal opens
   useEffect(() => {
     if (isVisible) {
-      setDraftSelection(memoizedSelectedValues);
+      const normalizedSelection = memoizedSelectedValues
+        .map((v) => parseAdminFlightDateTokenToIso(v))
+        .filter(Boolean);
+      setDraftSelection(normalizedSelection);
       // Set current month to the first selected date or current month
-      if (memoizedSelectedValues.length > 0) {
-        const firstDate = new Date(memoizedSelectedValues[0] + 'T00:00:00');
+      if (normalizedSelection.length > 0) {
+        const firstDate = new Date(normalizedSelection[0] + 'T00:00:00');
         if (!isNaN(firstDate.getTime())) {
           setCurrentMonth(new Date(firstDate.getFullYear(), firstDate.getMonth(), 1));
         }
