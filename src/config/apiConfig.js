@@ -372,6 +372,11 @@ const generateEndpoints = () => ({
   // Live Notifications
   SCHEDULE_LIVE_REMINDER: `${getBaseUrl()}/scheduleLiveReminder`,
   SEND_LIVE_STARTED_NOTIFICATION: `${getBaseUrl()}/sendLiveStartedNotification`,
+
+  // Live Stream Requests
+  CREATE_LIVE_REQUEST: `${getBaseUrl()}/createLiveRequest`,
+  GET_LIVE_REQUESTS: `${getBaseUrl()}/getLiveRequests`,
+  UPDATE_LIVE_REQUEST_STATUS: `${getBaseUrl()}/updateLiveRequestStatus`,
 });
 
 // API Endpoints - Initially generated with default environment

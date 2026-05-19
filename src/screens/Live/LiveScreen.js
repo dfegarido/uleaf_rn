@@ -1,4 +1,6 @@
 import { collection,
+  doc,
+  getDoc,
   onSnapshot,
   query,
   where
@@ -55,8 +57,25 @@ const LiveSellerScreen = ({navigation}) => {
   const [dimensions, setDimensions] = useState(getScreenDimensions());
   const [ongoingCount, setOngoingCount] = useState(0);
   const [upcomingCount, setUpcomingCount] = useState(0);
+  const [liveFlagResolved, setLiveFlagResolved] = useState(null);
   const { userInfo } = useContext(AuthContext);
-  
+
+  const resolvedLiveFlagRaw =
+    userInfo?.liveFlag ??
+    userInfo?.user?.liveFlag ??
+    userInfo?.data?.liveFlag ??
+    null;
+  const resolvedUid =
+    userInfo?.uid ||
+    userInfo?.id ||
+    userInfo?.user?.uid ||
+    userInfo?.user?.id ||
+    null;
+
+  const canUseLiveSale =
+    typeof liveFlagResolved === 'string' &&
+    liveFlagResolved.trim().toLowerCase() === 'yes';
+
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({window}) => {
       const newDimensions = getScreenDimensions();
@@ -67,25 +86,56 @@ const LiveSellerScreen = ({navigation}) => {
   }, []);
 
   useEffect(() => {
-    // Extract uid properly (handles nested structure for suppliers)
-    const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id;
-    
+    let cancelled = false;
+
+    const resolveLiveFlag = async () => {
+      if (resolvedLiveFlagRaw !== undefined && resolvedLiveFlagRaw !== null) {
+        setLiveFlagResolved(resolvedLiveFlagRaw);
+        return;
+      }
+
+      if (!resolvedUid) {
+        setLiveFlagResolved(null);
+        return;
+      }
+
+      try {
+        const supplierSnap = await getDoc(doc(db, 'supplier', resolvedUid));
+        if (!cancelled && supplierSnap.exists()) {
+          const supplierData = supplierSnap.data();
+          setLiveFlagResolved(supplierData?.liveFlag ?? null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.warn('[LiveSellerScreen] Failed to resolve liveFlag:', e?.message);
+          setLiveFlagResolved(null);
+        }
+      }
+    };
+
+    resolveLiveFlag();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedLiveFlagRaw, resolvedUid]);
+
+  useEffect(() => {
     // Guard: don't run queries if uid is not available
-    if (!uid) {
+    if (!resolvedUid) {
       console.log('LiveScreen: uid not available yet, skipping queries');
       return;
     }
-    
+
     const liveCollectionRef = collection(db, 'live');
-    
+
     // Listener for ongoing sessions
-    const ongoingQuery = query(liveCollectionRef, where('createdBy', '==', uid), where('liveType', '==', 'live'));
+    const ongoingQuery = query(liveCollectionRef, where('createdBy', '==', resolvedUid), where('liveType', '==', 'live'));
     const unsubscribeOngoing = onSnapshot(ongoingQuery, (snapshot) => {
       setOngoingCount(snapshot.size);
     });
 
     // Listener for upcoming (scheduled) sessions
-    const upcomingQuery = query(liveCollectionRef, where('createdBy', '==', uid), where('liveType', '==', 'purge'));
+    const upcomingQuery = query(liveCollectionRef, where('createdBy', '==', resolvedUid), where('liveType', '==', 'purge'));
     const unsubscribeUpcoming = onSnapshot(upcomingQuery, (snapshot) => {
       setUpcomingCount(snapshot.size);
     });
@@ -95,7 +145,7 @@ const LiveSellerScreen = ({navigation}) => {
       unsubscribeOngoing();
       unsubscribeUpcoming();
     };
-  }, [userInfo?.uid, userInfo?.id, userInfo?.user?.uid, userInfo?.user?.id]);
+  }, [resolvedUid]);
 
 
   return (
@@ -114,27 +164,42 @@ const LiveSellerScreen = ({navigation}) => {
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
-        <View style={styles.cardContainer}>
-          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('MyLiveSessionsScreen')}>
-            <ImageBackground
-              source={require('../../assets/live-icon/listLive.png')}
-              style={styles.cardBackground}
-              imageStyle={styles.cardImage}>
-              {/* <Text style={styles.cardTitle}>Ongoing Live Sale/Purge</Text> */}
-              <Text style={styles.cardCount}>{ongoingCount} Live</Text>
-            </ImageBackground>
-          </TouchableOpacity>
+        {canUseLiveSale ? (
+          <View style={styles.cardContainer}>
+            <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('MyLiveSessionsScreen')}>
+              <ImageBackground
+                source={require('../../assets/live-icon/listLive.png')}
+                style={styles.cardBackground}
+                imageStyle={styles.cardImage}>
+                <Text style={styles.cardCount}>{ongoingCount} Live</Text>
+              </ImageBackground>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ScreenMyPurges')}>
-            <ImageBackground
-              source={require('../../assets/live-icon/listPurge.png')}
-              style={styles.cardBackground}
-              imageStyle={styles.cardImage}>
-              {/* <Text style={styles.cardTitle}>Upcoming Live Sales and Purges</Text> */}
-              <Text style={styles.cardCount}>{upcomingCount} Purge</Text>
-            </ImageBackground>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ScreenMyPurges')}>
+              <ImageBackground
+                source={require('../../assets/live-icon/listPurge.png')}
+                style={styles.cardBackground}
+                imageStyle={styles.cardImage}>
+                <Text style={styles.cardCount}>{upcomingCount} Purge</Text>
+              </ImageBackground>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.requestContainer}>
+            <View style={styles.requestIconCircle}>
+              <Text style={styles.requestIconText}>LIVE</Text>
+            </View>
+            <Text style={styles.requestTitle}>Go Live with iLeafU</Text>
+            <Text style={styles.requestDescription}>
+              Request permission to host live sales and purge events. Our team will review and approve your request.
+            </Text>
+            <TouchableOpacity
+              style={styles.requestButton}
+              onPress={() => navigation.navigate('RequestLiveScreen')}>
+              <Text style={styles.requestButtonText}>Request to Go Live</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -187,6 +252,53 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  requestContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  requestIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  requestIconText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#539461',
+  },
+  requestTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  requestDescription: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 22,
+  },
+  requestButton: {
+    backgroundColor: '#539461',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  requestButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   // Header styles
   header: {

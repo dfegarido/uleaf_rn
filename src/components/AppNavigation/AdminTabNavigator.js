@@ -262,6 +262,9 @@ function AdminTabs() {
       
       {/* Plant Credits Management */}
       <Stack.Screen name="PlantCreditsManagement" options={{headerShown: false}} component={PlantCreditsManagement} />
+
+      {/* Live Setup Management */}
+      <Stack.Screen name="LiveSetupScreen" options={{headerShown: false}} component={LiveSetup} />
       
       {/* Plant Detail (shared with buyer) */}
       <Stack.Screen name="ScreenPlantDetail" options={{headerShown: false}} component={ScreenPlantDetail} />

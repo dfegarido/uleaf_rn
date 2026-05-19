@@ -1,10 +1,12 @@
 import { useIsFocused } from '@react-navigation/native';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator,
+import {
+  ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   FlatList,
   Image,
   ImageBackground,
@@ -25,6 +27,10 @@ import UploadIcon from '../../assets/live-icon/upload.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { updateLiveSession } from '../../components/Api/agoraLiveApi';
 import { InputBox } from '../../components/Input';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_MARGIN = 8;
+const CARD_WIDTH = (SCREEN_WIDTH - CARD_MARGIN * 6) / 2;
 
 // Skeleton Card Component
 const SkeletonCard = () => {
@@ -71,6 +77,7 @@ const SkeletonCard = () => {
 const MyLiveSessionsScreen = ({ navigation }) => {
   const { userInfo } = useContext(AuthContext);
   const [sessions, setSessions] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false); // For delete/save actions
   const isFocused = useIsFocused();
@@ -84,7 +91,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   useEffect(() => {
     // Extract uid properly (handles nested structure for suppliers)
     const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id;
-    
+
     if (!isFocused || !uid) {
       return;
     }
@@ -98,27 +105,62 @@ const MyLiveSessionsScreen = ({ navigation }) => {
       orderBy('createdAt', 'desc'),
     );
 
-    const unsubscribe = onSnapshot(
+    const unsubscribeLive = onSnapshot(
       q,
       (querySnapshot) => {
         const fetchedSessions = [];
         querySnapshot.forEach((doc) => {
-          fetchedSessions.push({ id: doc.id, ...doc.data() });
+          const data = doc.data();
+          if (data.status !== 'ended') {
+            fetchedSessions.push({ id: doc.id, ...data });
+          }
         });
         setSessions(fetchedSessions);
-        setLoading(false);
       },
       (error) => {
         console.error('Error fetching live sessions:', error);
+      },
+    );
+
+    // Also listen for live requests (pending + approved)
+    const requestsRef = collection(db, 'liveRequests');
+    const qRequests = query(
+      requestsRef,
+      where('sellerUid', '==', uid),
+      orderBy('requestedAt', 'desc'),
+    );
+
+    const unsubscribeRequests = onSnapshot(
+      qRequests,
+      (querySnapshot) => {
+        const fetchedPending = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.status === 'pending' || data.status === 'approved' || data.status === 'rejected') {
+            fetchedPending.push({ id: doc.id, ...data, _isPendingRequest: true });
+          }
+        });
+        setPendingRequests(fetchedPending);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching pending live requests:', error);
         setLoading(false);
       },
     );
 
-    // Cleanup listener on component unmount
-    return () => unsubscribe();
+    // Cleanup listeners on component unmount
+    return () => {
+      unsubscribeLive();
+      unsubscribeRequests();
+    };
   }, [isFocused, userInfo?.uid, userInfo?.id, userInfo?.user?.uid, userInfo?.user?.id]);
 
   const handleCardPress = (item) => {
+    if (item._isPendingRequest) {
+      Alert.alert('Pending Approval', 'This live session is awaiting admin approval. You will be able to broadcast once it is approved.');
+      return;
+    }
     // Navigate based on session status
     if (item.status === 'draft' || item.status === 'live' || item.status === 'waiting') {
       navigation.navigate('LiveBroadcastScreen', { sessionId: item.sessionId });
@@ -131,20 +173,28 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const handleEditPress = (item) => {
     setSelectedSession(item);
     setNewTitle(item.title);
-    if (item.scheduledAt?.seconds) {
-      setNewScheduledAt(new Date(item.scheduledAt.seconds * 1000));
+    if (item._isPendingRequest) {
+      if (item.requestedDate?.seconds) {
+        setNewScheduledAt(new Date(item.requestedDate.seconds * 1000));
+      } else {
+        setNewScheduledAt(new Date());
+      }
     } else {
-      setNewScheduledAt(new Date());
+      if (item.scheduledAt?.seconds) {
+        setNewScheduledAt(new Date(item.scheduledAt.seconds * 1000));
+      } else {
+        setNewScheduledAt(new Date());
+      }
     }
     setNewCoverPhoto(null); // Reset photo on each open
     setEditModalVisible(true);
-    // navigation.navigate('CreateLiveSession', { isPurge: false, sessionId: item.id, sessionData: item });
   };
 
   const handleDeletePress = (item) => {
+    const isRequest = item._isPendingRequest;
     Alert.alert(
-      'Delete Session',
-      `Are you sure you want to delete the session "${item.title}"? This action cannot be undone.`,
+      isRequest ? 'Delete Request' : 'Delete Session',
+      `Are you sure you want to delete the ${isRequest ? 'request' : 'session'} "${item.title}"? This action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -153,10 +203,14 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           onPress: async () => {
             setActionLoading(true);
             try {
-              await deleteDoc(doc(db, 'live', item.id));
+              if (isRequest) {
+                await deleteDoc(doc(db, 'liveRequests', item.id));
+              } else {
+                await deleteDoc(doc(db, 'live', item.id));
+              }
             } catch (error) {
-              console.error('Error deleting session:', error);
-              Alert.alert('Error', 'Could not delete the session. Please try again.');
+              console.error(`Error deleting ${isRequest ? 'request' : 'session'}:`, error);
+              Alert.alert('Error', `Could not delete the ${isRequest ? 'request' : 'session'}. Please try again.`);
             } finally {
               setActionLoading(false);
             }
@@ -188,27 +242,75 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   };
 
   const handleSaveChanges = async () => {
-    if (!newTitle.trim() || !selectedSession) {
-      Alert.alert('Missing Title', 'Please enter a title.');
+    if (!selectedSession) {
       return;
     }
 
     setActionLoading(true);
     try {
-      const sessionData = {
-        title: newTitle.trim(),
-        scheduledAt: newScheduledAt.toISOString(),
-      };
+      if (selectedSession._isPendingRequest) {
+        // Editing a live request
+        if (!newTitle.trim()) {
+          Alert.alert('Missing Title', 'Please enter a title.');
+          setActionLoading(false);
+          return;
+        }
 
-      if (newCoverPhoto) {
-        sessionData.coverPhoto = newCoverPhoto.base64;
-        sessionData.filename = newCoverPhoto.fileName;
-        sessionData.mimeType = newCoverPhoto.type;
+        const updates = {
+          title: newTitle.trim(),
+          requestedDate: newScheduledAt,
+        };
+
+        // Update sessionData cover photo if changed
+        if (newCoverPhoto) {
+          updates.sessionData = {
+            ...(selectedSession.sessionData || {}),
+            coverPhoto: newCoverPhoto.base64,
+            filename: newCoverPhoto.fileName,
+            mimeType: newCoverPhoto.type,
+          };
+        }
+
+        // If approved and anything changed, revert to pending for re-approval
+        if (selectedSession.status === 'approved') {
+          updates.status = 'pending';
+          updates.reviewedAt = null;
+          updates.reviewedBy = null;
+          updates.rejectionReason = null;
+          updates.liveSessionId = null;
+        }
+
+        await updateDoc(doc(db, 'liveRequests', selectedSession.id), updates);
+        Alert.alert(
+          'Success',
+          selectedSession.status === 'approved'
+            ? 'Request updated and sent back for admin approval.'
+            : 'Request updated successfully.'
+        );
+        setEditModalVisible(false);
+      } else {
+        // Editing a live session — existing behavior
+        if (!newTitle.trim()) {
+          Alert.alert('Missing Title', 'Please enter a title.');
+          setActionLoading(false);
+          return;
+        }
+
+        const sessionData = {
+          title: newTitle.trim(),
+          scheduledAt: newScheduledAt.toISOString(),
+        };
+
+        if (newCoverPhoto) {
+          sessionData.coverPhoto = newCoverPhoto.base64;
+          sessionData.filename = newCoverPhoto.fileName;
+          sessionData.mimeType = newCoverPhoto.type;
+        }
+
+        await updateLiveSession(selectedSession.id, sessionData);
+        Alert.alert('Success', 'Session details updated.');
+        setEditModalVisible(false);
       }
-
-      await updateLiveSession(selectedSession.id, sessionData);
-      Alert.alert('Success', 'Session details updated.');
-      setEditModalVisible(false);
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
@@ -217,18 +319,38 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   };
 
   const renderItem = ({ item }) => {
-    const scheduledDate = item.scheduledAt ? moment(item.scheduledAt.seconds * 1000).format('MMM DD, YYYY hh:mmA') : 'Not scheduled';
+    const isPending = item._isPendingRequest;
+    const scheduledDate = isPending
+      ? (item.requestedDate ? moment(item.requestedDate.seconds * 1000).format('MMM DD, YYYY hh:mmA') : 'Not scheduled')
+      : (item.scheduledAt ? moment(item.scheduledAt.seconds * 1000).format('MMM DD, YYYY hh:mmA') : 'Not scheduled');
+    const requestStatusText = isPending
+      ? (item.status === 'pending' ? 'Pending'
+        : item.status === 'approved' ? 'Approved'
+        : item.status === 'rejected' ? 'Rejected'
+        : item.status)
+      : null;
+    const displayStatus = isPending ? requestStatusText : item.status;
+    const requestBadgeStyle = isPending
+      ? (item.status === 'pending' ? styles.status_pending
+        : item.status === 'approved' ? styles.status_approved
+        : item.status === 'rejected' ? styles.status_rejected
+        : styles.status_draft)
+      : null;
+    const badgeStyle = isPending ? requestBadgeStyle : (styles[`status_${item.status}`] || styles.status_draft);
+    const coverPhotoUri = isPending
+      ? (item.sessionData?.coverPhoto ? item.sessionData.coverPhoto : null)
+      : item.coverPhotoUrl;
 
     return (
-      <TouchableOpacity style={styles.card} onPress={() => handleCardPress(item)}>
+      <TouchableOpacity style={[styles.card, isPending && styles.cardPending]} onPress={() => handleCardPress(item)}>
         <ImageBackground
-          source={{ uri: item.coverPhotoUrl }}
+          source={{ uri: coverPhotoUri }}
           style={styles.cardImage}
           imageStyle={{ borderRadius: 8 }}
         >
           <View style={styles.cardOverlay}>
-            <View style={[styles.statusBadge, styles[`status_draft`]]}>
-              <Text style={styles.statusText}>{item.status}</Text>
+            <View style={[styles.statusBadge, badgeStyle]}>
+              <Text style={styles.statusText}>{displayStatus}</Text>
             </View>
           </View>
         </ImageBackground>
@@ -270,13 +392,13 @@ const MyLiveSessionsScreen = ({ navigation }) => {
       </View>
 
       <FlatList
-        data={loading ? [{ id: 'skeleton-1' }, { id: 'skeleton-2' }, { id: 'skeleton-3' }, { id: 'skeleton-4' }] : sessions}
+        data={loading ? [{ id: 'skeleton-1' }, { id: 'skeleton-2' }, { id: 'skeleton-3' }, { id: 'skeleton-4' }] : [...sessions, ...pendingRequests]}
         renderItem={loading ? () => <SkeletonCard /> : renderItem}
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
-          !loading && (
+          !loading && sessions.length === 0 && pendingRequests.length === 0 && (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>You have not created any live sessions.</Text>
             </View>
@@ -292,7 +414,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Session</Text>
+              <Text style={styles.modalTitle}>{selectedSession?._isPendingRequest ? 'Edit Request' : 'Edit Session'}</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <BackSolidIcon />
               </TouchableOpacity>
@@ -305,7 +427,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
                 setValue={setNewTitle}
               />
 
-              <Text style={styles.label}>Live Date & Time</Text>
+              <Text style={styles.label}>{selectedSession?._isPendingRequest ? 'Requested Date & Time' : 'Live Date & Time'}</Text>
               <TouchableOpacity onPress={() => setDatePickerVisibility(true)} style={styles.input}>
                 <Text style={{color: '#000'}}>{newScheduledAt.toLocaleString()}</Text>
               </TouchableOpacity>
@@ -328,6 +450,8 @@ const MyLiveSessionsScreen = ({ navigation }) => {
                   <Image source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
                 ) : selectedSession?.coverPhotoUrl ? (
                   <Image source={{ uri: selectedSession.coverPhotoUrl }} style={styles.coverImage} />
+                ) : selectedSession?.sessionData?.coverPhoto ? (
+                  <Image source={{ uri: selectedSession.sessionData.coverPhoto }} style={styles.coverImage} />
                 ) : (
                   <>
                     <UploadIcon width={48} height={48} />
@@ -366,10 +490,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContainer: { padding: 8 },
+  listContainer: { padding: CARD_MARGIN },
   card: {
-    flex: 1,
-    margin: 8,
+    width: CARD_WIDTH,
+    margin: CARD_MARGIN,
     borderRadius: 8,
     backgroundColor: '#f9f9f9',
     elevation: 2,
@@ -377,6 +501,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
+  },
+  cardPending: {
+    opacity: 0.85,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
   },
   // Skeleton styles
   skeletonImage: {
@@ -416,6 +545,9 @@ const styles = StyleSheet.create({
   status_draft: { backgroundColor: '#64748B' },
   status_live: { backgroundColor: '#DC2626' },
   status_ended: { backgroundColor: '#16A34A' },
+  status_pending: { backgroundColor: '#F59E0B' },
+  status_approved: { backgroundColor: '#539461' },
+  status_rejected: { backgroundColor: '#E7522F' },
   statusText: {
     color: '#fff',
     fontWeight: 'bold',
@@ -433,11 +565,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   deleteButton: {
-    backgroundColor: 'rgba(149, 145, 145, 0.8)',
+    backgroundColor: '#FFFFFF',
     padding: 6,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 3,
   },
   emptyContainer: {
     flex: 1,

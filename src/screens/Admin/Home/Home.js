@@ -50,6 +50,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAdminFlightChangeRequestsApi } from '../../../components/Api/adminOrderApi';
 import { getAdminJourneyMishapDataApi } from '../../../components/Api/orderManagementApi';
 import NetInfo from '@react-native-community/netinfo';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../../../firebase';
 
 
 const AdminHeader = ({onPressProfile = () => {}, insets, profilePhotoUri}) => {
@@ -163,6 +165,31 @@ const LeafTrailGreenhouse = ({navigation}) => {
   const BehindTheJungle = ({isFullAdmin = false}) => {
     const navigation = useNavigation();
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+    const [pendingLiveRequestsCount, setPendingLiveRequestsCount] = useState(0);
+
+    // Fetch pending live stream requests count
+    const fetchPendingLiveRequestsCount = useCallback(async () => {
+      try {
+        const netState = await NetInfo.fetch();
+        if (!netState.isConnected || !netState.isInternetReachable) {
+          console.log('⚠️ No internet connection, skipping live request badge count fetch');
+          return;
+        }
+
+        console.log('🔍 Fetching pending live stream requests for badge...');
+        const q = query(
+          collection(db, 'liveRequests'),
+          where('status', '==', 'pending')
+        );
+        const snapshot = await getDocs(q);
+        const count = snapshot.size;
+
+        console.log('✅ Pending live stream requests count:', count);
+        setPendingLiveRequestsCount(count);
+      } catch (error) {
+        console.error('❌ Error fetching pending live stream requests:', error);
+      }
+    }, []);
 
     // Fetch pending flight change requests count
     const fetchPendingRequestsCount = useCallback(async () => {
@@ -206,7 +233,8 @@ const LeafTrailGreenhouse = ({navigation}) => {
     useFocusEffect(
       useCallback(() => {
         fetchPendingRequestsCount();
-      }, [fetchPendingRequestsCount])
+        fetchPendingLiveRequestsCount();
+      }, [fetchPendingRequestsCount, fetchPendingLiveRequestsCount])
     );
 
     return (
@@ -215,7 +243,11 @@ const LeafTrailGreenhouse = ({navigation}) => {
 
         <View style={styles.grid}>
           {isFullAdmin && (
-            <IconTile title="Live Setup">
+            <IconTile
+              title="Live Setup"
+              onPress={() => navigation.navigate('LiveSetupScreen')}
+              badgeCount={pendingLiveRequestsCount}
+            >
               <LiveSetupIcon width={48} height={48} />
             </IconTile>
           )}

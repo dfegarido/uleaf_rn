@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   Image,
@@ -16,9 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import UploadIcon from '../../assets/live-icon/upload.svg';
 import { createLiveSession } from '../../components/Api/agoraLiveApi';
+import { createLiveRequestApi } from '../../components/Api/liveRequestApi';
 import { scheduleLiveReminderApi } from '../../components/Api/liveReminderApi';
+import { AuthContext } from '../../auth/AuthProvider';
 
 const CreateLiveSessionScreen = ({navigation, route}) => {
+  const {userInfo} = useContext(AuthContext);
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('');
   const [coverPhoto, setCoverPhoto] = useState(null); // { uri, base64, fileName, type }
@@ -28,6 +31,26 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   // State for date and time picker
   const [purgeDateTime, setPurgeDateTime] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+
+  const resolvedLiveFlag =
+    userInfo?.liveFlag ??
+    userInfo?.user?.liveFlag ??
+    userInfo?.data?.liveFlag ??
+    null;
+
+  const canUseLiveSale =
+    typeof resolvedLiveFlag === 'string' &&
+    resolvedLiveFlag.trim().toLowerCase() === 'yes';
+
+  useEffect(() => {
+    if (!canUseLiveSale) {
+      Alert.alert(
+        'Not Authorized',
+        'You need admin approval to create live sessions. Please submit a request first.',
+        [{text: 'OK', onPress: () => navigation.replace('RequestLiveScreen')}]
+      );
+    }
+  }, [canUseLiveSale, navigation]);
 
 
   const handleChoosePhoto = () => {
@@ -92,36 +115,63 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
 
     setIsLoading(true);
     try {
-      const sessionData = {
-        title: title.trim(),
-        coverPhoto: coverPhoto.base64,
-        filename: coverPhoto.fileName,
-        mimeType: coverPhoto.type,
-        liveType,
-        duration: parseInt(duration, 10) || 0, // Add duration in minutes
-        scheduledAt: purgeDateTime.toISOString(),
-      };
+      const isFutureDate = purgeDateTime > new Date();
 
-      const response = await createLiveSession(sessionData);
+      if (isFutureDate) {
+        // Future sessions require admin approval via live request
+        const requestData = {
+          title: title.trim(),
+          liveType,
+          requestedDate: purgeDateTime.toISOString(),
+          description: '',
+          coverPhoto: coverPhoto.base64,
+          filename: coverPhoto.fileName,
+          mimeType: coverPhoto.type,
+          duration: isPurge ? parseInt(duration, 10) || 0 : null,
+        };
 
-      // Assuming the API returns a channelName or other session details
-      // For now, we just navigate on success.
-      if (response.success) {
-        try {
-          await scheduleLiveReminderApi({
-            liveId: response.sessionId,
-            scheduledAt: purgeDateTime.toISOString(),
-            title: title.trim(),
-            sellerId: response.createdBy || '',
-          });
-        } catch (reminderError) {
-          console.error('Failed to schedule live reminder emails:', reminderError.message);
+        const response = await createLiveRequestApi(requestData);
+
+        if (response.success) {
+          Alert.alert(
+            'Request Submitted',
+            'Your live session request has been submitted for admin approval. You will be notified once it is reviewed.',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+        } else {
+          throw new Error(response.error || response.message || 'Failed to submit live request.');
         }
-        navigation.replace(liveType === 'purge' ? 'SetUpListingsPurgeScreen' : 'LiveBroadcastScreen', {
-          sessionId: response.sessionId,
-        });
       } else {
-        throw new Error(response.message || 'Failed to create live session.');
+        // Immediate session — create directly
+        const sessionData = {
+          title: title.trim(),
+          coverPhoto: coverPhoto.base64,
+          filename: coverPhoto.fileName,
+          mimeType: coverPhoto.type,
+          liveType,
+          duration: parseInt(duration, 10) || 0,
+          scheduledAt: purgeDateTime.toISOString(),
+        };
+
+        const response = await createLiveSession(sessionData);
+
+        if (response.success) {
+          try {
+            await scheduleLiveReminderApi({
+              liveId: response.sessionId,
+              scheduledAt: purgeDateTime.toISOString(),
+              title: title.trim(),
+              sellerId: response.createdBy || '',
+            });
+          } catch (reminderError) {
+            console.error('Failed to schedule live reminder emails:', reminderError.message);
+          }
+          navigation.replace(liveType === 'purge' ? 'SetUpListingsPurgeScreen' : 'LiveBroadcastScreen', {
+            sessionId: response.sessionId,
+          });
+        } else {
+          throw new Error(response.message || 'Failed to create live session.');
+        }
       }
     } catch (error) {
       Alert.alert('Error', error.message);
