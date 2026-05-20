@@ -16,12 +16,12 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import { updateLiveRequestStatusApi } from '../../../components/Api/liveRequestApi';
+import { updateLiveSessionStatusApi } from '../../../components/Api/agoraLiveApi';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import CalendarIcon from '../../../assets/admin-icons/calendar.svg';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
@@ -41,12 +41,11 @@ const LiveSetup = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDate, setEditDate] = useState(new Date());
   const [editPhoto, setEditPhoto] = useState(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const scrollViewRef = useRef(null);
 
@@ -148,14 +147,12 @@ const LiveSetup = () => {
   const handleRequestPress = (request) => {
     setSelectedRequest(request);
     setDetailModalVisible(true);
-    setShowRejectInput(false);
     setRejectionReason('');
   };
 
   const closeDetailModal = () => {
     setDetailModalVisible(false);
     setSelectedRequest(null);
-    setShowRejectInput(false);
     setRejectionReason('');
     setIsEditMode(false);
     setEditPhoto(null);
@@ -274,6 +271,15 @@ const LiveSetup = () => {
         throw new Error(response.error || response.message || 'Failed to approve request');
       }
 
+      // Workaround: ensure the created live session is marked as approved
+      if (response.liveSessionId) {
+        try {
+          await updateLiveSessionStatusApi(response.liveSessionId, 'approved');
+        } catch (statusErr) {
+          console.warn('Failed to update live session status to approved:', statusErr.message);
+        }
+      }
+
       const now = new Date();
 
       // Optimistic update
@@ -300,10 +306,21 @@ const LiveSetup = () => {
     }
   };
 
-  const handleReject = async () => {
+  const openRejectModal = () => {
+    if (!selectedRequest) return;
+    setRejectionReason('');
+    setRejectModalVisible(true);
+  };
+
+  const closeRejectModal = () => {
+    setRejectModalVisible(false);
+    setRejectionReason('');
+  };
+
+  const handleConfirmReject = async () => {
     if (!selectedRequest) return;
     if (!rejectionReason.trim()) {
-      setShowRejectInput(true);
+      Alert.alert('Reason Required', 'Please enter a reason for rejection.');
       return;
     }
     try {
@@ -335,6 +352,8 @@ const LiveSetup = () => {
       ));
       setStats(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1), rejectedWeek: prev.rejectedWeek + 1 }));
 
+      setRejectModalVisible(false);
+      setRejectionReason('');
       Alert.alert('Rejected', `Live request for ${selectedRequest.sellerName} has been rejected.`);
       closeDetailModal();
     } catch (error) {
@@ -475,20 +494,7 @@ const LiveSetup = () => {
 
                 <View style={styles.detailSection}>
                   <Text style={styles.detailLabel}>Requested Date & Time</Text>
-                  <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.editInput}>
-                    <Text style={{ color: '#202325' }}>{editDate.toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</Text>
-                  </TouchableOpacity>
-                  <DateTimePickerModal
-                    isVisible={showDatePicker}
-                    mode="datetime"
-                    onConfirm={(date) => {
-                      setEditDate(date);
-                      setShowDatePicker(false);
-                    }}
-                    onCancel={() => setShowDatePicker(false)}
-                    date={editDate}
-                    minimumDate={new Date()}
-                  />
+                  <Text style={[styles.detailValue, { color: '#202325' }]}>{editDate.toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</Text>
                 </View>
 
                 <View style={styles.detailSection}>
@@ -542,20 +548,6 @@ const LiveSetup = () => {
               </View>
             ) : null}
 
-            {selectedRequest.status === 'pending' && showRejectInput && (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>Reason for Rejection</Text>
-                <TextInput
-                  style={styles.rejectInput}
-                  value={rejectionReason}
-                  onChangeText={setRejectionReason}
-                  placeholder="Enter reason..."
-                  placeholderTextColor="#9AA4A8"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            )}
           </ScrollView>
 
           {isEditMode ? (
@@ -581,13 +573,11 @@ const LiveSetup = () => {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.rejectButton]}
-                onPress={handleReject}
+                onPress={openRejectModal}
                 disabled={actionLoading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.rejectButtonText}>
-                  {actionLoading && showRejectInput ? 'Rejecting...' : 'Reject'}
-                </Text>
+                <Text style={styles.rejectButtonText}>Reject</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, styles.approveButton]}
@@ -599,6 +589,55 @@ const LiveSetup = () => {
                   {actionLoading ? 'Approving...' : 'Approve'}
                 </Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Rejection overlay */}
+          {rejectModalVisible && (
+            <View style={styles.rejectOverlay}>
+              <TouchableOpacity style={styles.rejectOverlayBackdrop} onPress={closeRejectModal} />
+              <View style={styles.rejectSheet}>
+                <View style={styles.sheetHeader}>
+                  <Text style={styles.sheetTitle}>Reject Request</Text>
+                  <TouchableOpacity onPress={closeRejectModal} style={styles.closeButton}>
+                    <CloseIcon width={20} height={20} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.sheetBody}>
+                  <Text style={styles.rejectModalLabel}>Why are you rejecting this request?</Text>
+                  <TextInput
+                    style={styles.rejectInput}
+                    value={rejectionReason}
+                    onChangeText={setRejectionReason}
+                    placeholder="Enter reason..."
+                    placeholderTextColor="#9AA4A8"
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.rejectButton]}
+                    onPress={closeRejectModal}
+                    disabled={actionLoading}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.rejectButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.approveButton]}
+                    onPress={handleConfirmReject}
+                    disabled={actionLoading}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.approveButtonText}>
+                      {actionLoading ? 'Rejecting...' : 'Confirm Reject'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           )}
         </SafeAreaView>
@@ -988,7 +1027,8 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 28,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#E8EEEA',
@@ -1069,6 +1109,62 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 12,
     resizeMode: 'cover',
+  },
+  rejectOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+    zIndex: 100,
+  },
+  rejectOverlayBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  rejectSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    zIndex: 101,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8EEEA',
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202325',
+  },
+  sheetBody: {
+    padding: 20,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 28,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E8EEEA',
+    backgroundColor: '#FFFFFF',
+  },
+  rejectModalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#202325',
+    marginBottom: 12,
   },
 });
 

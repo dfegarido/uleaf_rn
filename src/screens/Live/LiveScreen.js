@@ -131,7 +131,14 @@ const LiveSellerScreen = ({navigation}) => {
     // Listener for ongoing sessions
     const ongoingQuery = query(liveCollectionRef, where('createdBy', '==', resolvedUid), where('liveType', '==', 'live'));
     const unsubscribeOngoing = onSnapshot(ongoingQuery, (snapshot) => {
-      setOngoingCount(snapshot.size);
+      let count = 0;
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.status !== 'ended') {
+          count++;
+        }
+      });
+      setOngoingCount(count);
     });
 
     // Listener for upcoming (scheduled) sessions

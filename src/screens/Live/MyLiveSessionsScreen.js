@@ -87,6 +87,8 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const [newScheduledAt, setNewScheduledAt] = useState(new Date());
   const [newCoverPhoto, setNewCoverPhoto] = useState(null);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
     // Extract uid properly (handles nested structure for suppliers)
@@ -111,7 +113,17 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         const fetchedSessions = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          if (data.status !== 'ended') {
+          if (data.status !== 'draft') {
+            // Hide ended sessions older than 24 hours
+            if (data.status === 'ended') {
+              const endedTime = data.endedAt?.seconds
+                ? new Date(data.endedAt.seconds * 1000)
+                : (data.updatedAt?.seconds ? new Date(data.updatedAt.seconds * 1000) : null);
+              if (endedTime) {
+                const hoursSinceEnded = (Date.now() - endedTime.getTime()) / (1000 * 60 * 60);
+                if (hoursSinceEnded >= 24) return;
+              }
+            }
             fetchedSessions.push({ id: doc.id, ...data });
           }
         });
@@ -136,7 +148,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         const fetchedPending = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          if (data.status === 'pending' || data.status === 'approved' || data.status === 'rejected') {
+          if (data.status === 'pending' || data.status === 'rejected' || data.status === 'approved') {
             fetchedPending.push({ id: doc.id, ...data, _isPendingRequest: true });
           }
         });
@@ -158,12 +170,38 @@ const MyLiveSessionsScreen = ({ navigation }) => {
 
   const handleCardPress = (item) => {
     if (item._isPendingRequest) {
+      if (item.status === 'approved') {
+        const scheduledTime = item.requestedDate?.seconds ? new Date(item.requestedDate.seconds * 1000) : null;
+        if (scheduledTime) {
+          const localTimeStr = moment(scheduledTime).format('MMM DD, YYYY hh:mmA');
+          Alert.alert('Approved', `Your live is approved! You can go live at ${localTimeStr}.`);
+        } else {
+          Alert.alert('Approved', 'Your live request has been approved. A live session will be set up shortly.');
+        }
+        return;
+      }
+      if (item.status === 'rejected') {
+        setRejectReason(item.rejectionReason || 'No reason provided.');
+        setRejectReasonModalVisible(true);
+        return;
+      }
       Alert.alert('Pending Approval', 'This live session is awaiting admin approval. You will be able to broadcast once it is approved.');
       return;
     }
     // Navigate based on session status
-    if (item.status === 'draft' || item.status === 'live' || item.status === 'waiting') {
+    if (item.status === 'live' || item.status === 'waiting') {
+      // Extra safety: check scheduled time against local device time
+      const scheduledTime = item.scheduledAt?.seconds ? new Date(item.scheduledAt.seconds * 1000) : null;
+      if (scheduledTime && new Date() < scheduledTime) {
+        const localTimeStr = moment(scheduledTime).format('MMM DD, YYYY hh:mmA');
+        Alert.alert('Not Yet Time', `You can go live at ${localTimeStr}. Please wait until then.`);
+        return;
+      }
       navigation.navigate('LiveBroadcastScreen', { sessionId: item.sessionId });
+    } else if (item.status === 'ended') {
+      const endedAt = item.endedAt?.seconds ? new Date(item.endedAt.seconds * 1000) : null;
+      const endedStr = endedAt ? moment(endedAt).format('MMM DD, YYYY hh:mmA') : 'recently';
+      Alert.alert('Session Ended', `This live session ended on ${endedStr}.`);
     } else {
       // For 'ended' status, you might navigate to a summary screen or show an alert
       alert(`This live session has ended.`);
@@ -323,26 +361,27 @@ const MyLiveSessionsScreen = ({ navigation }) => {
     const scheduledDate = isPending
       ? (item.requestedDate ? moment(item.requestedDate.seconds * 1000).format('MMM DD, YYYY hh:mmA') : 'Not scheduled')
       : (item.scheduledAt ? moment(item.scheduledAt.seconds * 1000).format('MMM DD, YYYY hh:mmA') : 'Not scheduled');
-    const requestStatusText = isPending
-      ? (item.status === 'pending' ? 'Pending'
-        : item.status === 'approved' ? 'Approved'
-        : item.status === 'rejected' ? 'Rejected'
-        : item.status)
-      : null;
-    const displayStatus = isPending ? requestStatusText : item.status;
-    const requestBadgeStyle = isPending
-      ? (item.status === 'pending' ? styles.status_pending
-        : item.status === 'approved' ? styles.status_approved
-        : item.status === 'rejected' ? styles.status_rejected
-        : styles.status_draft)
-      : null;
-    const badgeStyle = isPending ? requestBadgeStyle : (styles[`status_${item.status}`] || styles.status_draft);
+    const statusDisplayMap = {
+      draft: 'Scheduled',
+      waiting: 'Ready',
+      live: 'Live',
+      ended: 'Ended',
+      pending: 'Pending',
+      approved: 'Approved',
+      rejected: 'Rejected',
+    };
+    const displayStatus = statusDisplayMap[item.status] || item.status;
+    const badgeStyle = styles[`status_${item.status}`] || styles.status_draft;
     const coverPhotoUri = isPending
       ? (item.sessionData?.coverPhoto ? item.sessionData.coverPhoto : null)
       : item.coverPhotoUrl;
 
     return (
-      <TouchableOpacity style={[styles.card, isPending && styles.cardPending]} onPress={() => handleCardPress(item)}>
+      <TouchableOpacity
+        style={[styles.card, isPending && item.status === 'pending' && styles.cardPending]}
+        onPress={item.status !== 'ended' ? () => handleCardPress(item) : undefined}
+        activeOpacity={item.status !== 'ended' ? 0.2 : 1}
+      >
         <ImageBackground
           source={{ uri: coverPhotoUri }}
           style={styles.cardImage}
@@ -359,14 +398,18 @@ const MyLiveSessionsScreen = ({ navigation }) => {
             {item.title}
           </Text>
           <Text style={styles.cardDate}>Scheduled for: {scheduledDate}</Text>
-          <View style={styles.deleteButtonContainer}>
-            <TouchableOpacity style={styles.deleteButton} onPress={(e) => { e.stopPropagation(); handleEditPress(item);}}>
-              <EditIcon width={16} height={16} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeletePress(item)}>
-              <TrashIcon width={16} height={16} />
-            </TouchableOpacity>
-          </View>
+          {item.status !== 'ended' && (
+            <View style={styles.deleteButtonContainer}>
+              {item.status !== 'rejected' && (
+                <TouchableOpacity style={styles.deleteButton} onPress={(e) => { e.stopPropagation(); handleEditPress(item);}}>
+                  <EditIcon width={16} height={16} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.deleteButton} onPress={(e) => { e.stopPropagation(); handleDeletePress(item); }}>
+                <TrashIcon width={16} height={16} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -392,7 +435,30 @@ const MyLiveSessionsScreen = ({ navigation }) => {
       </View>
 
       <FlatList
-        data={loading ? [{ id: 'skeleton-1' }, { id: 'skeleton-2' }, { id: 'skeleton-3' }, { id: 'skeleton-4' }] : [...sessions, ...pendingRequests]}
+        data={loading ? [{ id: 'skeleton-1' }, { id: 'skeleton-2' }, { id: 'skeleton-3' }, { id: 'skeleton-4' }] : (() => {
+          const visiblePending = pendingRequests.filter(req => {
+            if (req.status !== 'approved') return true;
+            // Hide approved requests that have no linked live session (permission-only requests)
+            if (!req.liveSessionId) return false;
+            // Hide approved request if the linked live session is already active or ended
+            const linkedSession = sessions.find(s => s.id === req.liveSessionId);
+            if (linkedSession && (linkedSession.status === 'waiting' || linkedSession.status === 'live' || linkedSession.status === 'ended')) {
+              return false;
+            }
+            return true;
+          });
+          return [...sessions, ...visiblePending].sort((a, b) => {
+            const getTime = (item) => {
+              const ts = item.createdAt || item.requestedAt || item.scheduledAt;
+              if (!ts) return 0;
+              if (ts.toMillis) return ts.toMillis();
+              if (ts.seconds) return ts.seconds * 1000;
+              if (ts.getTime) return ts.getTime();
+              return 0;
+            };
+            return getTime(b) - getTime(a);
+          });
+        })()}
         renderItem={loading ? () => <SkeletonCard /> : renderItem}
         keyExtractor={(item) => item.id}
         numColumns={2}
@@ -462,6 +528,45 @@ const MyLiveSessionsScreen = ({ navigation }) => {
 
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
                 <Text style={styles.saveButtonText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rejection Reason Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={rejectReasonModalVisible}
+        onRequestClose={() => setRejectReasonModalVisible(false)}>
+        <View style={styles.rejectOverlay}>
+          <TouchableOpacity
+            style={styles.rejectOverlayBackdrop}
+            onPress={() => setRejectReasonModalVisible(false)}
+            activeOpacity={1}
+          />
+          <View style={styles.rejectSheet}>
+            <View style={styles.rejectSheetHeader}>
+              <Text style={styles.rejectSheetTitle}>Request Rejected</Text>
+              <TouchableOpacity
+                onPress={() => setRejectReasonModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <BackSolidIcon width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.rejectSheetBody}>
+              <Text style={styles.rejectSheetLabel}>Reason for Rejection</Text>
+              <Text style={styles.rejectSheetReason}>{rejectReason}</Text>
+            </View>
+            <View style={styles.rejectSheetActions}>
+              <TouchableOpacity
+                style={styles.rejectSheetButton}
+                onPress={() => setRejectReasonModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.rejectSheetButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -547,6 +652,7 @@ const styles = StyleSheet.create({
   status_ended: { backgroundColor: '#16A34A' },
   status_pending: { backgroundColor: '#F59E0B' },
   status_approved: { backgroundColor: '#539461' },
+  status_waiting: { backgroundColor: '#3B82F6' },
   status_rejected: { backgroundColor: '#E7522F' },
   statusText: {
     color: '#fff',
@@ -649,6 +755,74 @@ const styles = StyleSheet.create({
   coverImage: { width: '100%', height: '100%', borderRadius: 6 },
   saveButton: { backgroundColor: '#539461', padding: 16, borderRadius: 12, alignItems: 'center' },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  rejectOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  rejectOverlayBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  rejectSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    zIndex: 1,
+  },
+  rejectSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  rejectSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202325',
+  },
+  rejectSheetBody: {
+    padding: 20,
+  },
+  rejectSheetLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9AA4A8',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  rejectSheetReason: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#E7522F',
+    lineHeight: 22,
+  },
+  rejectSheetActions: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 28,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  rejectSheetButton: {
+    backgroundColor: '#FDEDEC',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectSheetButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#E7522F',
+  },
 });
 
 export default MyLiveSessionsScreen;

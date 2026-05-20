@@ -31,6 +31,8 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   // State for date and time picker
   const [purgeDateTime, setPurgeDateTime] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
+  const [tempDate, setTempDate] = useState(new Date());
 
   const resolvedLiveFlag =
     userInfo?.liveFlag ??
@@ -80,6 +82,7 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   };
 
   const showDatePicker = () => {
+    setTempDate(purgeDateTime);
     setDatePickerVisibility(true);
   };
 
@@ -87,10 +90,27 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
     setDatePickerVisibility(false);
   };
 
+  const showTimePicker = () => {
+    setTimePickerVisibility(true);
+  };
+
+  const hideTimePicker = () => {
+    setTimePickerVisibility(false);
+  };
+
   const handleConfirmDate = (date) => {
-    console.log("A date has been picked: ", date);
-    setPurgeDateTime(date);
+    const newDate = new Date(date);
+    newDate.setHours(tempDate.getHours(), tempDate.getMinutes());
+    setTempDate(newDate);
     hideDatePicker();
+    showTimePicker();
+  };
+
+  const handleConfirmTime = (date) => {
+    const finalDate = new Date(tempDate);
+    finalDate.setHours(date.getHours(), date.getMinutes());
+    setPurgeDateTime(finalDate);
+    hideTimePicker();
   };
 
   const handleGoLive = async (liveType) => {
@@ -225,15 +245,6 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
             <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()}</Text>
         </TouchableOpacity>
 
-        <DateTimePickerModal
-          isVisible={isDatePickerVisible}
-          mode="datetime"
-          onConfirm={handleConfirmDate}
-          onCancel={hideDatePicker}
-          date={purgeDateTime}
-          minimumDate={new Date()}
-        />
-
           <Text style={styles.label}>Cover Photo</Text>
           <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
             {coverPhoto ? (
@@ -247,6 +258,27 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
             )}
           </TouchableOpacity>
       </ScrollView>
+
+      <DateTimePickerModal
+        isVisible={isDatePickerVisible}
+        mode="date"
+        onConfirm={handleConfirmDate}
+        onCancel={hideDatePicker}
+        date={tempDate}
+        minimumDate={new Date()}
+        pickerComponentStyleIOS={{ height: 200 }}
+        themeVariant="light"
+      />
+
+      <DateTimePickerModal
+        isVisible={isTimePickerVisible}
+        mode="time"
+        onConfirm={handleConfirmTime}
+        onCancel={hideTimePicker}
+        date={tempDate}
+        pickerComponentStyleIOS={{ height: 200 }}
+        themeVariant="light"
+      />
 
       <View style={styles.footer}>
         {!isPurge && (<TouchableOpacity style={styles.goLiveButton} onPress={() => handleGoLive('live')}>
