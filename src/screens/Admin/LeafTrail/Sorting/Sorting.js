@@ -120,7 +120,7 @@ const SortingScreen = ({navigation}) => {
       <ScreenHeader navigation={navigation} title={'Plant Sorting'} />
       
       <FlatList
-        data={sortingData?.data || {}}
+        data={sortingData?.data || []}
         renderItem={({ item }) => <ListItem item={item} navigation={navigation} />}
         keyExtractor={item => item.id}
         ListHeaderComponent={
