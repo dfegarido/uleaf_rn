@@ -383,7 +383,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
     const displayStatus = statusDisplayMap[item.status] || item.status;
     const badgeStyle = styles[`status_${item.status}`] || styles.status_draft;
     const coverPhotoUri = isPending
-      ? (item.sessionData?.coverPhoto ? item.sessionData.coverPhoto : null)
+      ? (item.sessionData?.coverPhotoUrl || item.sessionData?.coverPhoto || null)
       : item.coverPhotoUrl;
 
     return (
