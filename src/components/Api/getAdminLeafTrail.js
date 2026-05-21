@@ -166,32 +166,82 @@ export const getAdminLeafTrailReceiving = async (filters) => {
   }
 };
 
-export const updateLeafTrailStatus = async (orderId, status) => {
+/**
+ * @param {string} orderId
+ * @param {string} status
+ * @param {{ refreshSortingView?: boolean, deliveryInfo?: { trackingNumber: string, deliveryDate: string, deliveryTime: string, isDelayedUPSDelivery?: boolean } }} [options]
+ */
+export const updateLeafTrailStatus = async (orderId, status, options = {}) => {
   try {
     const token = await getStoredAuthToken();
 
-    const url = API_ENDPOINTS.UPDATE_LEAF_TRAIL_STATUS
-    
-    const response = await fetch(
-      url,
-      {
-        method: 'POST', 
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          orderId,
-          status
-        })
-      },
-    );
+    const url = API_ENDPOINTS.UPDATE_LEAF_TRAIL_STATUS;
 
-    const json = await response.json();
-    return json;
+    const body = {
+      orderId,
+      status,
+      refreshSortingView: options.refreshSortingView === true,
+    };
+    if (options.deliveryInfo) {
+      body.trackingNumber = options.deliveryInfo.trackingNumber;
+      body.deliveryDate = options.deliveryInfo.deliveryDate;
+      body.deliveryTime = options.deliveryInfo.deliveryTime;
+      body.isDelayedUPSDelivery = Boolean(options.deliveryInfo.isDelayedUPSDelivery);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message: json?.message || json?.error || `Request failed (${response.status})`,
+        ...json,
+      };
+    }
+    return { success: true, ...json };
   } catch (error) {
     console.error('updateLeafTrailStatus error:', error.message);
-    return error; 
+    return { success: false, message: error.message };
+  }
+};
+
+/** Updates plantStatus only — does not change leafTrailStatus. */
+export const updatePlantStatus = async (orderId, status) => {
+  try {
+    const token = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.UPDATE_PLANT_STATUS, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ orderId, status }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        message: json?.message || json?.error || `Request failed (${response.status})`,
+        ...json,
+      };
+    }
+    return { success: true, ...json };
+  } catch (error) {
+    console.error('updatePlantStatus error:', error.message);
+    return { success: false, message: error.message };
   }
 };
 

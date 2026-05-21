@@ -1,22 +1,31 @@
 import React from 'react';
-import { FlatList,
+import {
+  FlatList,
   Image,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View} from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BoxIcon from '../../../assets/admin-icons/box-white.svg';
-import OptionsIcon from '../../../assets/admin-icons/options.svg';
-import QuestionMarkTooltip from '../../../assets/admin-icons/question-mark.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import CheckBox from '../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
 
-const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, generate }) => (
+const SelectionHeader = ({
+  onBack,
+  selectedCount,
+  onSelectAll,
+  isAllSelected,
+  showQrAction,
+  onQrPress,
+  onLeafTrailPress,
+  onPlantStatusPress,
+}) => (
   <View style={styles.selectionHeader}>
     <View style={styles.controls}>
       <TouchableOpacity onPress={onBack}>
@@ -28,62 +37,71 @@ const SelectionHeader = ({ onBack, selectedCount, onSelectAll, isAllSelected, ge
         <Text style={styles.selectAllText}>Select All</Text>
       </View>
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
-      <TouchableOpacity style={styles.actionButton} onPress={generate}>
-        <BoxIcon fill="#FFFFFF" />
-        <Text style={styles.actionText}>Send QR Codes via Email</Text>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.actions}>
+      <TouchableOpacity style={styles.actionButton} onPress={onLeafTrailPress}>
+        <Text style={styles.actionText}>Change leaf trail status</Text>
       </TouchableOpacity>
+      <View style={{ width: 12 }} />
+      <TouchableOpacity style={styles.actionButton} onPress={onPlantStatusPress}>
+        <Text style={styles.actionText}>Change plant status</Text>
+      </TouchableOpacity>
+      {showQrAction && (
+        <>
+          <View style={{ width: 12 }} />
+          <TouchableOpacity style={styles.actionButton} onPress={onQrPress}>
+            <BoxIcon fill="#FFFFFF" />
+            <Text style={styles.actionText}>Send QR Codes via Email</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </ScrollView>
   </View>
 );
 
-const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
-
-    const setTags = () => {
-      openTagAs(plant?.packingData?.boxNumber || null, plant.id)
-    }
-    
-    return (
-    <View style={styles.plantCardContainer}>
-      <View style={styles.plantCard}>
-        <View>
-          <Image source={{ uri: plant.imageUrl }} style={styles.plantImage} />
-          <View style={styles.checkboxContainer}>
-              <CheckBox
-                  isChecked={isSelected}
-                  onToggle={() => onSelect(plant.id)}
-                  containerStyle={{padding: 0, margin: 0}}
-                  checkedColor="#539461"
-              />
-          </View>
+const PlantCard = ({ plant, isSelected, onSelect }) => (
+  <View style={styles.plantCardContainer}>
+    <View style={styles.plantCard}>
+      <View>
+        <Image source={{ uri: plant.imageUrl }} style={styles.plantImage} />
+        <View style={styles.checkboxContainer}>
+          <CheckBox
+            isChecked={isSelected}
+            onToggle={() => onSelect(plant.id)}
+            containerStyle={{ padding: 0, margin: 0 }}
+            checkedColor="#539461"
+          />
         </View>
-        <View style={styles.plantDetails}>
-          <View>
-            <View style={styles.plantHeader}>
-              <View style={styles.plantCodeContainer}>
-                <Text style={styles.plantCode}>{plant.plantCode}</Text>
-                <QuestionMarkTooltip />
-              </View>
+      </View>
+      <View style={styles.plantDetails}>
+        <View>
+          <View style={styles.plantHeader}>
+            <View style={styles.plantCodeContainer}>
+              <Text style={styles.plantCode}>{plant.plantCode}</Text>
+            </View>
+            {plant.countryCode ? (
               <View style={styles.countryContainer}>
                 <Text style={styles.countryText}>{plant.countryCode}</Text>
                 <CountryFlagIcon code={plant.countryCode} width={24} height={16} />
               </View>
-            </View>
-            <Text style={styles.plantName}>{plant.genus} {plant.species}</Text>
-            <Text style={styles.plantSubtext}>{plant.variegation} • {plant.size}</Text>
+            ) : null}
           </View>
-          <View style={styles.plantFooter}>
-            {plant.listingType && (
-              <View style={styles.typeChip}>
-                <Text style={styles.typeText}>{plant.listingType}</Text>
-              </View>
-            )}
-            {/* <Text style={styles.quantity}>{plant.quantity}X</Text> */}
-          </View>
+          <Text style={styles.plantName}>
+            {plant.genus} {plant.species}
+          </Text>
+          {plant.leafTrailStatus ? (
+            <Text style={styles.plantSubtext}>Leaf Trail: {plant.leafTrailStatus}</Text>
+          ) : null}
+          {plant.plantStatus && plant.plantStatus !== '—' ? (
+            <Text style={styles.plantSubtext}>Plant Status: {plant.plantStatus}</Text>
+          ) : null}
         </View>
       </View>
     </View>
-  )};
+  </View>
+);
 
 const SelectionModal = ({
   visible,
@@ -92,8 +110,10 @@ const SelectionModal = ({
   selectedPlants,
   onSelectPlant,
   onSelectAll,
-  openTagAs,
+  showQrAction,
   generate,
+  onLeafTrailPress,
+  onPlantStatusPress,
 }) => {
   const isAllSelected = plants.length > 0 && selectedPlants.length === plants.length;
 
@@ -109,7 +129,10 @@ const SelectionModal = ({
           selectedCount={selectedPlants.length}
           onSelectAll={onSelectAll}
           isAllSelected={isAllSelected}
-          generate={generate}
+          showQrAction={showQrAction}
+          onQrPress={generate}
+          onLeafTrailPress={onLeafTrailPress}
+          onPlantStatusPress={onPlantStatusPress}
         />
         <FlatList
           data={plants}
@@ -120,7 +143,6 @@ const SelectionModal = ({
               plant={item}
               isSelected={selectedPlants.includes(item.id)}
               onSelect={onSelectPlant}
-              openTagAs={openTagAs}
             />
           )}
           ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
@@ -137,7 +159,7 @@ const styles = StyleSheet.create({
   },
   selectionHeader: {
     backgroundColor: '#202325',
-    paddingTop: 48, // Status bar height
+    paddingTop: 48,
   },
   controls: {
     flexDirection: 'row',
@@ -169,16 +191,17 @@ const styles = StyleSheet.create({
   actions: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    height: 48,
+    alignItems: 'center',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingVertical: 4,
   },
   actionText: {
     fontFamily: 'Inter',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -201,6 +224,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 128,
     borderRadius: 8,
+    backgroundColor: '#E4E7E9',
   },
   checkboxContainer: {
     position: 'absolute',
@@ -248,31 +272,8 @@ const styles = StyleSheet.create({
   },
   plantSubtext: {
     fontFamily: 'Inter',
-    fontSize: 16,
+    fontSize: 14,
     color: '#647276',
-  },
-  plantFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  typeChip: {
-    backgroundColor: '#202325',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  typeText: {
-    color: '#FFFFFF',
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  quantity: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#393D40',
   },
 });
 

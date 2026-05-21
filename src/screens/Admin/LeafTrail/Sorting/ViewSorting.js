@@ -342,7 +342,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const setTagAs = async (status) => {
     setIsLoading(true);
     setTagAsVisible(!isTagAsVisible);
-    const response = await updateLeafTrailStatus(orderId, status);
+    const response = await updateLeafTrailStatus(orderId, status, { refreshSortingView: true });
     if (response.success) {
       setItemDetails(response)
       setRoutes([

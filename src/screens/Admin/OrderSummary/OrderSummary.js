@@ -1,8 +1,11 @@
-import React, {useRef, useState, useEffect} from 'react';
+import React, {useRef, useState, useEffect, useCallback} from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import { ActivityIndicator,
   Animated,
+  Alert,
   Image,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -10,7 +13,6 @@ import { ActivityIndicator,
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
 } from 'react-native';
 import RNFS from 'react-native-fs';
 let Share;
@@ -39,8 +41,6 @@ import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
 import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
-import CheckBox from '../../../components/CheckBox/CheckBox';
-import SelectionModal from './SelectionModal';
 
 // Skeleton component for pagination loading
 const SkeletonBox = ({ width, height, style }) => {
@@ -118,7 +118,7 @@ const OrderSummary = ({navigation}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('readyToFly');
+  const [activeTab, setActiveTab] = useState('all');
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
@@ -128,8 +128,7 @@ const OrderSummary = ({navigation}) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
   const searchInputRef = useRef(null);
-  const [selectedOrders, setSelectedOrders] = useState([]);
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const pendingOrdersRefresh = useRef(false);
   
   // Filter states
   const [selectedFilters, setSelectedFilters] = useState({
@@ -182,10 +181,13 @@ const OrderSummary = ({navigation}) => {
   const [flightDatesDraft, setFlightDatesDraft] = useState([]);
 
   const TABS = [
-    {id: 'readyToFly', label: 'Ready To Fly', active: true, tabWidth: 103, contentWidth: 103, indicatorWidth: 103},
+    {id: 'all', label: 'All', active: true, tabWidth: 56, contentWidth: 56, indicatorWidth: 56},
+    {id: 'readyToFly', label: 'Ready To Fly', active: false, tabWidth: 103, contentWidth: 103, indicatorWidth: 103},
     {id: 'completed', label: 'Plants are Home', active: false, tabWidth: 130, contentWidth: 130, indicatorWidth: 130},
     {id: 'wildgone', label: 'Wildgone', active: false, tabWidth: 100, contentWidth: 93, indicatorWidth: 100, badge: true},
   ];
+
+  const STATUS_INFO_TABS = ['readyToFly', 'completed', 'wildgone', 'all'];
 
   // Sort options (matching Listings Viewer)
   const adminSortOptions = [
@@ -366,10 +368,44 @@ const OrderSummary = ({navigation}) => {
       return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
     };
 
+    let plantStatus;
+    let rawPlantStatus = '';
+    if (activeTab === 'all') {
+      const plantStatusMishapValues = new Set([
+        'missing', 'damaged', 'needstostay', 'cancelled', 'canceled', 'dead',
+      ]);
+      const plantStatusActiveValues = new Set([
+        'active', 'forreceiving', 'received', 'sorted', 'packed', 'shipping', 'shipped', 'delivered',
+      ]);
+      const explicitPlant = String(order.plantStatus || '').toLowerCase().trim();
+      const rawLeaf = String(order.leafTrailStatus || '').toLowerCase().trim();
+      const rawOrderStatus = String(order.status || '').toLowerCase().trim();
+      plantStatus = '—';
+      if (explicitPlant) {
+        rawPlantStatus = order.plantStatus;
+        if (explicitPlant === 'active') {
+          plantStatus = 'Active';
+        } else if (plantStatusMishapValues.has(explicitPlant)) {
+          plantStatus = formatCamelCase(order.plantStatus);
+        }
+      } else if (plantStatusMishapValues.has(rawLeaf)) {
+        plantStatus = formatCamelCase(order.leafTrailStatus);
+      } else if (rawOrderStatus === 'cancelled' || rawOrderStatus === 'canceled') {
+        plantStatus = 'Cancelled';
+      } else if (plantStatusActiveValues.has(rawLeaf)) {
+        plantStatus = 'Active';
+      }
+    }
+
     return {
       id: order.id,
       leafTrailStatus: formatCamelCase(order.leafTrailStatus || '—'),
+      ...(plantStatus != null ? { plantStatus } : {}),
       trackingNumber: order?.shippingData?.trackingNumber || '—',
+      rawTrackingNumber: (order?.shippingData?.trackingNumber || '').toString(),
+      rawDeliveryDate: (order?.shippedData?.deliveryDate || '').toString(),
+      rawDeliveryTime: (order?.shippedData?.deliveryTime || '').toString(),
+      isDelayedUPSDelivery: Boolean(order?.shippedData?.isDelayedUPSDelivery),
       imageUrl: imageUrl,
       transactionNumber: (order.transactionNumber || '—').toString(),
       orderDate: safeFormatDate(order.orderDate || order.createdAt, order.orderDateFormatted || order.createdAtFormatted),
@@ -419,7 +455,20 @@ const OrderSummary = ({navigation}) => {
           : '').toString() || '',
       isJoinerOrder: order.isJoinerOrder || false,
       plantFlight: safeFormatDate(order.flightDate, order.flightDateFormatted) || '—',
+      countryCode: (order.plantSourceCountry || '').toString(),
+      rawLeafTrailStatus: (order.leafTrailStatus || '').toString(),
+      rawPlantStatus: rawPlantStatus || (order.plantStatus || '').toString(),
+      rawOrderStatus: (order.status || '').toString(),
     };
+  };
+
+  const openOrderDetail = (order) => {
+    navigation.navigate('OrderSummaryDetail', {
+      order,
+      onOrderUpdated: () => {
+        pendingOrdersRefresh.current = true;
+      },
+    });
   };
 
   const showToast = (message, type = 'success') => {
@@ -442,9 +491,10 @@ const OrderSummary = ({navigation}) => {
       
       // 1. Map Status to backend format
       const statusMapping = {
+        'all': 'all',
         'readyToFly': 'Ready to Fly',
         'completed': 'delivered',
-        'wildgone': 'cancelled'
+        'wildgone': 'wildgone',
       };
       const mappedStatus = statusMapping[activeTab] || activeTab;
 
@@ -934,6 +984,15 @@ const OrderSummary = ({navigation}) => {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingOrdersRefresh.current) {
+        pendingOrdersRefresh.current = false;
+        fetchOrders(currentPage);
+      }
+    }, [currentPage, activeTab]),
+  );
+
   // Pre-load common filter options on component mount
   useEffect(() => {
     // Pre-load genus options
@@ -984,8 +1043,6 @@ const OrderSummary = ({navigation}) => {
   useEffect(() => {
     setCurrentPage(1);
     fetchOrders(1);
-    setSelectedOrders([]);
-    setIsSelectionMode(false);
   }, [activeTab]);
 
   // Load orders when search term changes (with debounce)
@@ -1321,98 +1378,6 @@ const OrderSummary = ({navigation}) => {
         return selectedFilters.plantFlight !== null && selectedFilters.plantFlight.length > 0;
       default:
         return false;
-    }
-  };
-
-  const handleSelectOrder = (orderId) => {
-    const newSelection = selectedOrders.includes(orderId)
-      ? selectedOrders.filter(id => id !== orderId)
-      : [...selectedOrders, orderId];
-
-    setSelectedOrders(newSelection);
-
-    if (newSelection.length > 0 && !isSelectionMode) {
-      setIsSelectionMode(true);
-    } else if (newSelection.length === 0 && isSelectionMode) {
-      setIsSelectionMode(false);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedOrders.length === orders.length) {
-      setSelectedOrders([]);
-    } else {
-      setSelectedOrders(orders.map(o => o.id));
-    }
-  };
-
-  const generate = async () => {
-    try {        
-        setIsSelectionMode(false);
-        setLoading(true);
-        const token =  await getStoredAuthToken();
-        
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-
-        const queryParams = new URLSearchParams();
-        queryParams.append('orderIds', selectedOrders);
-        
-        const queryString = queryParams.toString();
-        const url = queryString ? `${API_ENDPOINTS.QR_GENERATOR}?${queryString}` : API_ENDPOINTS.QR_GENERATOR;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            if (response.status === 404) {
-              throw new Error('No QR codes available for email at this time.');
-            } else if (response.status === 401) {
-              throw new Error('Your session has expired. Please log in again.');
-            } else if (response.status === 403) {
-              throw new Error('You do not have permission to access QR codes.');
-            } else if (response.status === 500) {
-              throw new Error('Server error. Please try again later.');
-            } else {
-              throw new Error('Unable to send QR codes email. Please try again.');
-            }
-        }
-    
-        const data = await response.json();
-        
-        if (!data.success || data.error) {
-            if (data.error && data.error.includes('No orders found')) {
-              throw new Error('No QR codes available for email at this time.');
-            } else {
-              throw new Error(data.error || 'Unable to send QR codes email. Please try again.');
-            }
-        }
-    
-        Alert.alert('Success', 'QR codes PDF has been sent to your email address. Please check your inbox.');
-          
-    } catch (err) {
-        console.error('Error sending QR codes email:', err);
-        
-        let userFriendlyMessage;
-        
-        if (err.message.includes('No authentication token')) {
-            userFriendlyMessage = 'Please log in again to send QR codes email.';
-        } else if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
-            userFriendlyMessage = 'No internet connection. Please check your network and try again.';
-        } else {
-            userFriendlyMessage = err.message || 'Unable to send QR codes email. Please try again.';
-        }
-  
-        Alert.alert('Email Failed', userFriendlyMessage);
-    } finally {
-        setSelectedOrders([]);
-        setLoading(false);
     }
   };
 
@@ -1753,8 +1718,11 @@ const OrderSummary = ({navigation}) => {
                 contentContainerStyle={styles.tableContentContainer}
                 nestedScrollEnabled={true}
               >
-                {orders.map((order, i) => (
-                  <View key={order.id || i} style={styles.tableRow}>
+                {orders.map((order, i) => {
+                  const rowBody = (
+                  <View
+                    style={[styles.tableRow, activeTab === 'all' && styles.tableRowPressable]}
+                  >
                     {/* Image */}
                     <View style={[styles.tableCell, {width: 116}]}>
                       {order.imageUrl ? (
@@ -1768,16 +1736,6 @@ const OrderSummary = ({navigation}) => {
                           <Text style={styles.placeholderText}>No Image</Text>
                         </View>
                       )}
-                      {activeTab === 'readyToFly' && (
-                        <View style={styles.checkboxContainer}>
-                          <CheckBox
-                            checked={selectedOrders.includes(order.id)}
-                            onToggle={() => handleSelectOrder(order.id)}
-                            containerStyle={{padding: 0, margin: 0}}
-                            checkedColor="#539461"
-                          />
-                        </View>
-                      )}
                     </View>
 
                     {/* Order Info */}
@@ -1788,10 +1746,15 @@ const OrderSummary = ({navigation}) => {
                         <Text style={styles.orderDate}>Flight Date: {order.plantFlight}</Text>
                         <Text style={styles.orderDate}>Hub Received: {order.hubReceivedDate}</Text>
                         <Text style={styles.orderDate}>Hub Packed: {order.hubPackedDate}</Text>
-                        {(activeTab === 'readyToFly' || activeTab === 'completed') && (
+                        {STATUS_INFO_TABS.includes(activeTab) && (
                           <>
                             <Text style={styles.orderDate}>Leaf Trail Status: {order.leafTrailStatus}</Text>
-                            <Text style={styles.orderDate}>UPS Tracking #: {order.trackingNumber}</Text>
+                            {activeTab === 'all' && order.plantStatus ? (
+                              <Text style={styles.orderDate}>Plant Status: {order.plantStatus}</Text>
+                            ) : null}
+                            {(activeTab === 'readyToFly' || activeTab === 'completed' || activeTab === 'all') && (
+                              <Text style={styles.orderDate}>UPS Tracking #: {order.trackingNumber}</Text>
+                            )}
                           </>
                         )}
                       </View>
@@ -1935,7 +1898,20 @@ const OrderSummary = ({navigation}) => {
                       <Text style={styles.orderDate}>{order.plantFlight}</Text>
                     </View>
                   </View>
-                ))}
+                  );
+                  if (activeTab === 'all') {
+                    return (
+                      <TouchableOpacity
+                        key={order.id || i}
+                        onPress={() => openOrderDetail(order)}
+                        activeOpacity={0.85}
+                      >
+                        {rowBody}
+                      </TouchableOpacity>
+                    );
+                  }
+                  return React.cloneElement(rowBody, { key: order.id || i });
+                })}
               </ScrollView>
             )}
           </View>
@@ -2008,16 +1984,13 @@ const OrderSummary = ({navigation}) => {
         onHide={() => setToastVisible(false)}
       />
 
-      <SelectionModal
-        visible={isSelectionMode && activeTab === 'readyToFly'}
-        onClose={() => { setIsSelectionMode(false); setSelectedOrders([]); }}
-        plants={orders}
-        selectedPlants={selectedOrders}
-        onSelectPlant={handleSelectOrder}
-        onSelectAll={handleSelectAll}
-        openTagAs={() => {}}
-        generate={generate}
-      />
+      {loading && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
     </SafeAreaProvider>
   );
 };
@@ -2025,6 +1998,12 @@ const OrderSummary = ({navigation}) => {
 export default OrderSummary;
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -2137,6 +2116,9 @@ const styles = StyleSheet.create({
   tableContentContainer: {
     flexGrow: 1,
   },
+  tableRowPressable: {
+    backgroundColor: '#FAFBFB',
+  },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2158,12 +2140,6 @@ const styles = StyleSheet.create({
     height: 116,
     borderRadius: 12,
     backgroundColor: '#F5F6F6',
-  },
-  checkboxContainer: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    zIndex: 10,
   },
   placeholderImage: {
     width: 116,

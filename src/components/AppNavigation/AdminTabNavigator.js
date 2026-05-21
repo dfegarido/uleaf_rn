@@ -68,6 +68,7 @@ import SalesReport from '../../screens/Admin/SalesReport/SalesReport';
 import JourneyMishapDetail from '../../screens/Admin/SalesReport/JourneyMishapDetail';
 import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 import OrderSummary from '../../screens/Admin/OrderSummary/OrderSummary';
+import OrderSummaryDetail from '../../screens/Admin/OrderSummary/OrderSummaryDetail';
 import ChatShops from '../../screens/Admin/ChatShops/ChatShops';
 import LeafPointsManagement from '../../screens/Admin/LeafPoints/LeafPointsManagement';
 import PlantCreditsManagement from '../../screens/Admin/PlantCredits/PlantCreditsManagement';
@@ -242,6 +243,7 @@ function AdminTabs() {
       <Stack.Screen name="AdminDiscountSelectListing" options={{headerShown: false}} component={SelectListingScreen} />
       {/* Order Summary */}
       <Stack.Screen name="OrderSummary" options={{headerShown: false}} component={OrderSummary} />
+      <Stack.Screen name="OrderSummaryDetail" options={{headerShown: false}} component={OrderSummaryDetail} />
       
       {/* Flight Date */}
       <Stack.Screen name="FlightDate" options={{headerShown: false}} component={require('../../screens/Admin/FlightDate/FlightDate').default} />

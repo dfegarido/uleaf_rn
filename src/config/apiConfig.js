@@ -336,6 +336,7 @@ const generateEndpoints = () => ({
 
   // Leaf Trail endpoints
   UPDATE_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateLeafTrailStatus`,
+  UPDATE_PLANT_STATUS: `${getBaseUrl()}/updatePlantStatus`,
   GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getBaseUrl()}/getAdminLeafTrailReceiving`,
   EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
   GET_ADMIN_LEAF_TRAIL_SORTING: `${getBaseUrl()}/getAdminLeafTrailSorting`,
