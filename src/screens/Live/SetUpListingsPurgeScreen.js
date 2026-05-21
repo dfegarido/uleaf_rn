@@ -23,6 +23,16 @@ import { getLiveListingsBySessionApi, updateLiveSession, updateLiveSessionStatus
 import { sendLiveStartedNotificationApi } from '../../components/Api/sendLiveStartedNotificationApi';
 import { InputBox } from '../../components/Input';
 
+const getLocalTzAbbr = () => {
+  try {
+    const str = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' });
+    const parts = str.split(' ');
+    return parts.length > 1 ? parts.pop() : '';
+  } catch {
+    return '';
+  }
+};
+
 const SetUpListingsPurgeScreen = ({navigation, route}) => {
   const {sessionId, live=false} = route.params;
   const { userInfo } = useContext(AuthContext);
@@ -289,7 +299,7 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
 
               <Text style={styles.label}>Purge Date & Time</Text>
               <TouchableOpacity onPress={() => setDatePickerVisibility(true)} style={styles.input}>
-                <Text style={{color: '#000'}}>{newScheduledAt.toLocaleString()}</Text>
+                <Text style={{color: '#000'}}>{newScheduledAt.toLocaleString()} {getLocalTzAbbr()}</Text>
               </TouchableOpacity>
 
               <DateTimePickerModal
@@ -302,6 +312,8 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
                 onCancel={() => setDatePickerVisibility(false)}
                 date={newScheduledAt}
                 minimumDate={new Date()}
+                display="spinner"
+                pickerComponentStyleIOS={{ height: 200 }}
               />
 
               <Text style={styles.label}>Cover Photo</Text>

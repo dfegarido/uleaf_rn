@@ -20,6 +20,16 @@ import { createLiveRequestApi } from '../../components/Api/liveRequestApi';
 import { scheduleLiveReminderApi } from '../../components/Api/liveReminderApi';
 import { AuthContext } from '../../auth/AuthProvider';
 
+const getLocalTzAbbr = () => {
+  try {
+    const str = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' });
+    const parts = str.split(' ');
+    return parts.length > 1 ? parts.pop() : '';
+  } catch {
+    return '';
+  }
+};
+
 const CreateLiveSessionScreen = ({navigation, route}) => {
   const {userInfo} = useContext(AuthContext);
   const [title, setTitle] = useState('');
@@ -31,8 +41,6 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   // State for date and time picker
   const [purgeDateTime, setPurgeDateTime] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
-  const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
-  const [tempDate, setTempDate] = useState(new Date());
 
   const resolvedLiveFlag =
     userInfo?.liveFlag ??
@@ -82,7 +90,6 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   };
 
   const showDatePicker = () => {
-    setTempDate(purgeDateTime);
     setDatePickerVisibility(true);
   };
 
@@ -90,27 +97,9 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
     setDatePickerVisibility(false);
   };
 
-  const showTimePicker = () => {
-    setTimePickerVisibility(true);
-  };
-
-  const hideTimePicker = () => {
-    setTimePickerVisibility(false);
-  };
-
-  const handleConfirmDate = (date) => {
-    const newDate = new Date(date);
-    newDate.setHours(tempDate.getHours(), tempDate.getMinutes());
-    setTempDate(newDate);
+  const handleConfirmDateTime = (date) => {
+    setPurgeDateTime(date);
     hideDatePicker();
-    showTimePicker();
-  };
-
-  const handleConfirmTime = (date) => {
-    const finalDate = new Date(tempDate);
-    finalDate.setHours(date.getHours(), date.getMinutes());
-    setPurgeDateTime(finalDate);
-    hideTimePicker();
   };
 
   const handleGoLive = async (liveType) => {
@@ -242,7 +231,7 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
 
         <Text style={styles.label}>{isPurge ? 'Purge' : 'Live'} Date & Time</Text>
             <TouchableOpacity onPress={showDatePicker} style={styles.input}>
-            <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()}</Text>
+            <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()} {getLocalTzAbbr()}</Text>
         </TouchableOpacity>
 
           <Text style={styles.label}>Cover Photo</Text>
@@ -261,23 +250,13 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
 
       <DateTimePickerModal
         isVisible={isDatePickerVisible}
-        mode="date"
-        onConfirm={handleConfirmDate}
+        mode="datetime"
+        onConfirm={handleConfirmDateTime}
         onCancel={hideDatePicker}
-        date={tempDate}
+        date={purgeDateTime}
         minimumDate={new Date()}
+        display="spinner"
         pickerComponentStyleIOS={{ height: 200 }}
-        themeVariant="light"
-      />
-
-      <DateTimePickerModal
-        isVisible={isTimePickerVisible}
-        mode="time"
-        onConfirm={handleConfirmTime}
-        onCancel={hideTimePicker}
-        date={tempDate}
-        pickerComponentStyleIOS={{ height: 200 }}
-        themeVariant="light"
       />
 
       <View style={styles.footer}>
