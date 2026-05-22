@@ -81,6 +81,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [selectedPotSize, setSelectedPotSize] = useState('2"');
   const [quantity, setQuantity] = useState(1);
   const [modalAction, setModalAction] = useState('add-to-cart'); // 'add-to-cart' or 'buy-now'
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareToastVisible, setShareToastVisible] = useState(false);
   const [shareToastMessage, setShareToastMessage] = useState('');
@@ -347,14 +348,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const handleConfirmAddToCart = async () => {
-    setLoading(true);
+    if (isAddingToCart) {
+      return;
+    }
     if (plantSoldOut) {
       showSoldOutAlert();
-      setLoading(false);
       return;
     }
     if (quantity < 1) {
-      setLoading(false);
       Alert.alert('Invalid Quantity', 'Please select a quantity of at least 1');
       return;
     }
@@ -362,7 +363,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
     // Check stock limits
     const currentAvailableStock = getAvailableStock();
     if (quantity > currentAvailableStock) {
-      setLoading(false);
       Alert.alert('Stock Limit', `Only ${currentAvailableStock} items available in stock. Please reduce your quantity.`);
       return;
     }
@@ -370,6 +370,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
     setShowAddToCartModal(false);
 
     if (modalAction === 'buy-now') {
+      setLoading(true);
       // Navigate to checkout screen with plant data
       const discountedPriceData = getDiscountedPrice();
       const unitPrice = parseFloat(discountedPriceData.discountedPrice);
@@ -411,6 +412,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         fromBuyNow: true,
       });
     } else {
+      setIsAddingToCart(true);
       // Add to cart using API
       try {
         // Validate before sending to API
@@ -468,7 +470,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
         // You could emit an event or call a context method here
         
       } catch (error) {
-        setLoading(false);
         // Enhanced error handling with specific messages
         let errorMessage = 'Failed to add item to cart';
         if (error.message.includes('No active listing found')) {
@@ -484,10 +485,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
         }
         
         Alert.alert('Error', errorMessage);
+      } finally {
+        setIsAddingToCart(false);
       }
     }
 
-    setLoading(false);
+    if (modalAction === 'buy-now') {
+      setLoading(false);
+    }
   };
 
   const handleCloseModal = () => {
@@ -1593,11 +1598,19 @@ const ScreenPlantDetail = ({navigation, route}) => {
             <View style={styles.modalAction}>
               <View style={styles.modalActionContent}>
                 <TouchableOpacity
-                  style={styles.addToCartModalButton}
+                  style={[
+                    styles.addToCartModalButton,
+                    (isAddingToCart || loading) && styles.disabledStepperButton,
+                  ]}
                   onPress={handleConfirmAddToCart}
+                  disabled={isAddingToCart || (modalAction === 'buy-now' && loading)}
                 >
                   <Text style={styles.addToCartModalButtonText}>
-                    {modalAction === 'buy-now' ? 'Buy Now' : 'Add to Cart'}
+                    {isAddingToCart
+                      ? 'Adding...'
+                      : modalAction === 'buy-now'
+                        ? 'Buy Now'
+                        : 'Add to Cart'}
                   </Text>
                 </TouchableOpacity>
               </View>
