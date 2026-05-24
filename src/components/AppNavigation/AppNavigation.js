@@ -149,8 +149,11 @@ const DeliveryStack = () => (
 );
 
 const AuthStack = () => {
+  const {loginPhase} = useContext(AuthContext);
+  const initialRoute = loginPhase === 'credentials_entered' ? 'LoginOtp' : 'Login';
+
   return (
-    <Stack.Navigator>
+    <Stack.Navigator initialRouteName={initialRoute}>
       <Stack.Screen
         name="Login"
         component={ScreenLogin}
@@ -159,25 +162,7 @@ const AuthStack = () => {
       <Stack.Screen
         name="LoginForm"
         component={ScreenLoginForm}
-        options={({navigation}) => ({
-          headerShown: true, // Ensure the header is shown
-          title: '', // Optionally hide the header title
-          animation: 'slide_from_right', // Screen transition animation
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() =>
-                navigation.canGoBack() ? navigation.goBack() : null
-              }>
-              <BackSolidIcon width={20} height={20} />
-            </TouchableOpacity>
-          ),
-          headerStyle: {
-            elevation: 0, // For Android
-            shadowOpacity: 0, // For iOS
-            borderBottomWidth: 0, // For iOS
-          },
-          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-        })}
+        options={{headerShown: false, animation: 'fade'}}
       />
       <Stack.Screen
         name="BuyerTabs"
@@ -192,30 +177,12 @@ const AuthStack = () => {
       <Stack.Screen
         name="LoginOtp"
         component={ScreenLoginOtp}
-        options={({navigation}) => ({
-          headerShown: true, // Ensure the header is shown
-          title: '', // Optionally hide the header title
-          animation: 'slide_from_right', // Screen transition animation
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() =>
-                navigation.canGoBack() ? navigation.goBack() : null
-              }>
-              <BackSolidIcon width={20} height={20} />
-            </TouchableOpacity>
-          ),
-          headerStyle: {
-            elevation: 0, // For Android
-            shadowOpacity: 0, // For iOS
-            borderBottomWidth: 0, // For iOS
-          },
-          headerShadowVisible: false, // ✅ React Navigation 6.1+ (Android/iOS)
-        })}
+        options={{headerShown: false, animation: 'fade'}}
       />
       <Stack.Screen
         name="ForgotPassword"
         component={ScreenForgotPassword}
-        options={{headerShown: false, animation: 'slide_from_right'}}
+        options={{headerShown: false, animation: 'fade'}}
       />
       <Stack.Screen
         name="Signup"
@@ -362,7 +329,7 @@ const AuthStack = () => {
       <Stack.Screen
         name="BuyerAuthStack"
         component={BuyerAuthStack}
-        options={{headerShown: false, animation: 'slide_from_right'}}
+        options={{headerShown: false, animation: 'fade'}}
       />
       <Stack.Screen
         name="TermsOfUseScreen"
@@ -427,22 +394,22 @@ const BuyerAuthStack = () => {
       <Stack.Screen
         name="BuyerSignup"
         component={BuyerSignup}
-        options={{headerShown: false, animation: 'slide_from_right'}}
+        options={{headerShown: false, animation: 'fade'}}
       />
       <Stack.Screen
         name="BuyerSignupLocation"
         component={BuyerSignupLocation}
-        options={{headerShown: false, animation: 'slide_from_right'}}
+        options={{headerShown: false, animation: 'fade'}}
       />
       <Stack.Screen
         name="BuyerGettingToKnow"
         component={BuyerGettingToKnow}
-        options={{headerShown: false, animation: 'slide_from_right'}}
+        options={{headerShown: false, animation: 'fade'}}
       />
       <Stack.Screen
         name="BuyerCompleteYourAccount"
         component={BuyerCompleteYourAccount}
-        options={{headerShown: false, animation: 'slide_from_right'}}
+        options={{headerShown: false, animation: 'fade'}}
       />
     </Stack.Navigator>
   );

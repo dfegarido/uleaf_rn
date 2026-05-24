@@ -21,6 +21,15 @@ const colors = {
   bgMuted: '#F5F6F6',
   bgCardSurfaceLightAccent: '#f2f7f3', // light green
   bgAccentSoft: '#C0DAC2',
+  // Modern login redesign tokens
+  sage: '#6BA368',
+  sageDark: '#4E8A4B',
+  bgWelcome: '#F7F8F2',
+  textSecondary: '#7A7A7A',
+  inputBorder: '#E0E5DB',
+  oliveText: '#243024',
+  cream: '#F0EDE5',
+  lightSage: '#D4E5D2',
 };
 
 // const fontWeightSize = {

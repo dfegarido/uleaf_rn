@@ -1,22 +1,22 @@
 import React, {useState, useEffect} from 'react';
-import { View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Linking,
-  useColorScheme,
-  KeyboardAvoidingView,
-  Platform} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Linking, useColorScheme, KeyboardAvoidingView, Platform} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 
 import CheckBox from '@react-native-community/checkbox';
 import IconEyeOpen from '../../assets/icons/greydark/eye-regular.svg';
 import IconEyeClose from '../../assets/icons/greydark/eye-closed-regular.svg';
-import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import {useNavigation} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import OrganicBackground from '../../components/OrganicBackground/OrganicBackground';
+import StepIndicator from '../../components/StepIndicator/StepIndicator';
 import {postBuyerSignupApi} from '../../components/Api/postBuyerSignupApi';
 import {createReferralApi} from '../../components/Api/referralApi';
 import {doc, getDoc} from 'firebase/firestore';
@@ -115,6 +115,32 @@ export default function BuyerCompleteYourAccount() {
   const isUsernameValid = /^[A-Za-z0-9]{4,15}$/.test(username);
   const canSubmit =
     isUsernameValid && isPasswordValid && password === retypePassword && agree;
+
+  // Entrance animation
+  const entranceProgress = useSharedValue(0);
+  useEffect(() => {
+    entranceProgress.value = withTiming(1, {duration: 800, easing: Easing.out(Easing.ease)});
+  }, []);
+
+  const fadeUp = (delay = 0) =>
+    useAnimatedStyle(() => ({
+      opacity: interpolate(entranceProgress.value, [0, 1], [0, 1]),
+      transform: [
+        {
+          translateY: interpolate(entranceProgress.value, [0, 1], [20 + delay * 0.5, 0]),
+        },
+      ],
+    }));
+
+  // Button press scale
+  const backBtnScale = useSharedValue(1);
+  const submitBtnScale = useSharedValue(1);
+  const backBtnStyle = useAnimatedStyle(() => ({
+    transform: [{scale: backBtnScale.value}],
+  }));
+  const submitBtnStyle = useAnimatedStyle(() => ({
+    transform: [{scale: submitBtnScale.value}],
+  }));
 
   const showCustomAlert = (title, message, buttons = [{text: 'OK'}]) => {
     setAlertConfig({title, message, buttons});
@@ -254,188 +280,224 @@ export default function BuyerCompleteYourAccount() {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
-      <KeyboardAvoidingView 
-        style={{flex: 1}} 
+    <SafeAreaView style={{flex: 1, backgroundColor: 'transparent'}}>
+      <OrganicBackground />
+      <KeyboardAvoidingView
+        style={{flex: 1}}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          enableOnAndroid={true}
-        >
-      <View style={styles.topRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <BackSolidIcon width={24} height={24} />
-        </TouchableOpacity>
-        <Text style={styles.step}>4/4</Text>
-      </View>
-      <Text style={styles.title}>Complete your account</Text>
+        <View style={{flex: 1}}>
+          <Animated.View style={[fadeUp(0), {marginTop: 8, marginBottom: 24, alignItems: 'center'}]}>
+            <StepIndicator currentStep={4} />
+          </Animated.View>
 
-      <Text style={styles.label}>
-        Username<Text style={styles.required}>*</Text>
-      </Text>
-      <TextInput
-        style={styles.input}
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-        autoCorrect={false}
-        maxLength={15}
-        placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
-      />
-      <Text style={styles.helper}>
-        Use 4-15 characters with no spaces or symbols.
-      </Text>
+          <ScrollView
+            style={{flex: 1}}
+            contentContainerStyle={[styles.container, {backgroundColor: 'transparent'}]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            enableOnAndroid={true}
+          >
+            <Animated.View style={fadeUp(1)}>
+              <Text style={styles.title}>Complete your account</Text>
+            </Animated.View>
 
-      <Text style={styles.label}>
-        Password<Text style={styles.required}>*</Text>
-      </Text>
-      <View style={styles.passwordRow}>
-        <TextInput
-          style={[styles.input, {flex: 1, paddingRight: 40}]}
-          placeholder="8@N~!r8HiN6"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
-        />
-        <TouchableOpacity
-          onPress={() => setShowPassword(v => !v)}
-          style={styles.eyeIcon}>
-          {showPassword ? (
-            <IconEyeClose width={20} height={20} />
-          ) : (
-            <IconEyeOpen width={20} height={20} />
-          )}
-        </TouchableOpacity>
-      </View>
+            <Animated.View style={fadeUp(2)}>
+              <Text style={styles.label}>
+                Username<Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={15}
+                placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
+              />
+              <Text style={styles.helper}>
+                Use 4-15 characters with no spaces or symbols.
+              </Text>
 
-      {/* Password strength bar and requirements */}
-      <View style={styles.passwordStrengthBox}>
-        <View style={styles.strengthBarContainer}>
-          <View
-            style={[
-              styles.strengthBar,
-              {
-                backgroundColor:
-                  password.length === 0
-                    ? colorScheme === 'dark'
-                      ? '#444'
-                      : '#eee'
-                    : isPasswordValid
-                    ? '#4CAF50'
-                    : '#FFC107',
-                width: `${
-                  (passwordChecks.filter(Boolean).length /
-                    PASSWORD_REQUIREMENTS.length) *
-                  100
-                }%`,
-              },
-            ]}
-          />
-        </View>
-        <Text style={styles.strengthText}>
-          {isPasswordValid
-            ? 'Good Password'
-            : password.length > 0
-            ? 'Weak Password'
-            : ''}
-        </Text>
-        {PASSWORD_REQUIREMENTS.map((req, idx) => (
-          <View key={req.label} style={styles.requirementRow}>
-            {/* Use SVG icons instead of text for check/circle */}
-            {passwordChecks[idx] ? (
-              <ValidIcon width={20} height={20} style={{marginRight: 6}} />
-            ) : (
-              <NotValidIcon width={20} height={20} style={{marginRight: 6}} />
-            )}
-            <Text
-              style={[
-                styles.requirementText,
-                {
-                  color: passwordChecks[idx]
-                    ? '#4CAF50'
-                    : colorScheme === 'dark'
-                    ? '#555'
-                    : '#aaa',
-                },
-              ]}>
-              {req.label}
-            </Text>
+              <Text style={styles.label}>
+                Password<Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, {flex: 1, paddingRight: 40}]}
+                  placeholder="8@N~!r8HiN6"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(v => !v)}
+                  style={styles.eyeIcon}>
+                  {showPassword ? (
+                    <IconEyeClose width={20} height={20} />
+                  ) : (
+                    <IconEyeOpen width={20} height={20} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.passwordStrengthBox}>
+                <View style={styles.strengthBarContainer}>
+                  <View
+                    style={[
+                      styles.strengthBar,
+                      {
+                        backgroundColor:
+                          password.length === 0
+                            ? colorScheme === 'dark'
+                              ? '#444'
+                              : '#eee'
+                            : isPasswordValid
+                            ? '#4CAF50'
+                            : '#FFC107',
+                        width: `${
+                          (passwordChecks.filter(Boolean).length /
+                            PASSWORD_REQUIREMENTS.length) *
+                          100
+                        }%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.strengthText}>
+                  {isPasswordValid
+                    ? 'Good Password'
+                    : password.length > 0
+                    ? 'Weak Password'
+                    : ''}
+                </Text>
+                {PASSWORD_REQUIREMENTS.map((req, idx) => (
+                  <View key={req.label} style={styles.requirementRow}>
+                    {passwordChecks[idx] ? (
+                      <ValidIcon width={20} height={20} style={{marginRight: 6}} />
+                    ) : (
+                      <NotValidIcon width={20} height={20} style={{marginRight: 6}} />
+                    )}
+                    <Text
+                      style={[
+                        styles.requirementText,
+                        {
+                          color: passwordChecks[idx]
+                            ? '#4CAF50'
+                            : colorScheme === 'dark'
+                            ? '#555'
+                            : '#aaa',
+                        },
+                      ]}>
+                      {req.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <Text style={styles.label}>
+                Re-type password<Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, {flex: 1, paddingRight: 40}]}
+                  placeholder="Re-type password"
+                  value={retypePassword}
+                  onChangeText={setRetypePassword}
+                  secureTextEntry={!showRetypePassword}
+                  autoCapitalize="none"
+                  placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowRetypePassword(v => !v)}
+                  style={styles.eyeIcon}>
+                  {showRetypePassword ? (
+                    <IconEyeClose width={20} height={20} />
+                  ) : (
+                    <IconEyeOpen width={20} height={20} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <CheckBox
+                  value={agree}
+                  onValueChange={setAgree}
+                  tintColors={{
+                    true: '#388E3C',
+                    false: colorScheme === 'dark' ? '#888' : '#aaa',
+                  }}
+                />
+                <Text style={styles.checkboxText}>
+                  I agree to the{' '}
+                  <Text
+                    style={styles.link}
+                    onPress={() => navigation.navigate('TermsOfUseScreen')}>
+                    Terms of Use
+                  </Text>{' '}
+                  and{' '}
+                  <Text
+                    style={styles.link}
+                    onPress={() => navigation.navigate('PrivacyPolicyScreen')}>
+                    Privacy Policy
+                  </Text>
+                  .
+                </Text>
+              </View>
+            </Animated.View>
+
+          </ScrollView>
+          <View style={{paddingHorizontal: 24, paddingBottom: 24, paddingTop: 12, backgroundColor: 'transparent'}}>
+            {error ? <Text style={[styles.errorText, {marginBottom: 8}]}>{error}</Text> : null}
+            <Animated.View style={{flexDirection: 'row', gap: 12}}>
+              <Animated.View style={[backBtnStyle, {flex: 1}]}>
+                <TouchableOpacity
+                  activeOpacity={0.95}
+                  onPressIn={() => {
+                    backBtnScale.value = withSpring(0.96, {stiffness: 400, damping: 15});
+                  }}
+                  onPressOut={() => {
+                    backBtnScale.value = withSpring(1, {stiffness: 400, damping: 15});
+                  }}
+                  style={[
+                    globalStyles.secondaryButtonAccent,
+                    {borderRadius: 10, paddingVertical: 12, marginVertical: 0},
+                  ]}
+                  onPress={() => navigation.goBack()}>
+                  <Text style={{color: '#539461', fontWeight: '700', fontSize: 16, textAlign: 'center'}}>Back</Text>
+                </TouchableOpacity>
+              </Animated.View>
+              <Animated.View style={[submitBtnStyle, {flex: 1}]}>
+                <TouchableOpacity
+                  activeOpacity={0.95}
+                  onPressIn={() => {
+                    submitBtnScale.value = withSpring(0.96, {stiffness: 400, damping: 15});
+                  }}
+                  onPressOut={() => {
+                    submitBtnScale.value = withSpring(1, {stiffness: 400, damping: 15});
+                  }}
+                  style={{
+                    backgroundColor: canSubmit ? '#388E3C' : '#BDBDBD',
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  disabled={!canSubmit || loading}
+                  onPress={handleSubmit}>
+                  <Text style={styles.buttonText}>
+                    {loading ? 'Creating...' : 'Create Account'}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </Animated.View>
           </View>
-        ))}
-      </View>
-
-      <Text style={styles.label}>
-        Re-type password<Text style={styles.required}>*</Text>
-      </Text>
-      <View style={styles.passwordRow}>
-        <TextInput
-          style={[styles.input, {flex: 1, paddingRight: 40}]}
-          placeholder="Re-type password"
-          value={retypePassword}
-          onChangeText={setRetypePassword}
-          secureTextEntry={!showRetypePassword}
-          autoCapitalize="none"
-          placeholderTextColor={colorScheme === 'dark' ? '#888' : '#aaa'}
-        />
-        <TouchableOpacity
-          onPress={() => setShowRetypePassword(v => !v)}
-          style={styles.eyeIcon}>
-          {showRetypePassword ? (
-            <IconEyeClose width={20} height={20} />
-          ) : (
-            <IconEyeOpen width={20} height={20} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.checkboxRow}>
-        <CheckBox
-          value={agree}
-          onValueChange={setAgree}
-          tintColors={{
-            true: '#388E3C',
-            false: colorScheme === 'dark' ? '#888' : '#aaa',
-          }}
-        />
-        <Text style={styles.checkboxText}>
-          I agree to the{' '}
-          <Text
-            style={styles.link}
-            onPress={() => navigation.navigate('TermsOfUseScreen')}>
-            Terms of Use
-          </Text>{' '}
-          and{' '}
-          <Text
-            style={styles.link}
-            onPress={() => navigation.navigate('PrivacyPolicyScreen')}>
-            Privacy Policy
-          </Text>
-          .
-        </Text>
-      </View>
-
-      <TouchableOpacity
-        style={[
-          styles.button,
-          {backgroundColor: canSubmit ? '#388E3C' : '#BDBDBD'},
-        ]}
-        disabled={!canSubmit || loading}
-        onPress={handleSubmit}>
-        <Text style={styles.buttonText}>
-          {loading ? 'Creating...' : 'Create Account'}
-        </Text>
-      </TouchableOpacity>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
-      
-      {/* Custom Alert */}
+
       <CustomAlert
         visible={alertVisible}
         title={alertConfig.title}

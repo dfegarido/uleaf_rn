@@ -17,7 +17,7 @@ module.exports = (() => {
   };
   metroConfig.resolver = {
     ...resolver,
-    assetExts: resolver.assetExts.filter(ext => ext !== 'svg'),
+    assetExts: [...resolver.assetExts.filter(ext => ext !== 'svg'), 'lottie'],
     sourceExts: [...resolver.sourceExts, 'svg', 'cjs'],
     // Firebase JS SDK + RN: package "exports" resolution can load the wrong
     // @firebase/auth build ("Component auth has not been registered yet").

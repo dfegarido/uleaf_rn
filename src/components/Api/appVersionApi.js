@@ -16,9 +16,13 @@ export const getAppVersionApi = async () => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
-      );
+      const message = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+      if (response.status === 404) {
+        console.warn(
+          `[getAppVersion] 404 - Function not found. If using the Firebase emulator, restart it so it picks up the latest backend code.`,
+        );
+      }
+      throw new Error(message);
     }
 
     const data = await response.json();

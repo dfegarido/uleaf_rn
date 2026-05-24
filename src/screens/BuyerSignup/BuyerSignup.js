@@ -1,15 +1,22 @@
 import React, {useState, useEffect} from 'react';
-import { View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import {CheckBoxGroup} from '../../components/CheckBox';
 import {globalStyles} from '../../assets/styles/styles';
-import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
+import InfoIcon from '../../assets/buyer-icons/information.svg';
+import CustomAlert from '../../components/CustomAlert/CustomAlert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import OrganicBackground from '../../components/OrganicBackground/OrganicBackground';
+import StepIndicator from '../../components/StepIndicator/StepIndicator';
 
 const GROW_OPTIONS = [
   {label: 'Indoor greenhouse', value: 'indoor_greenhouse'},
@@ -23,6 +30,7 @@ const BuyerSignup = () => {
   const [selected, setSelected] = useState([]);
   const [inviteCode, setInviteCode] = useState('');
   const [hasDeepLinkReferral, setHasDeepLinkReferral] = useState(false);
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
 
   useEffect(() => {
     const loadExistingData = async () => {
@@ -108,26 +116,45 @@ const BuyerSignup = () => {
     navigation.navigate('Login');
   };
 
+  // Entrance animation
+  const entranceProgress = useSharedValue(0);
+  useEffect(() => {
+    entranceProgress.value = withTiming(1, {duration: 800, easing: Easing.out(Easing.ease)});
+  }, []);
+
+  const fadeUp = (delay = 0) =>
+    useAnimatedStyle(() => ({
+      opacity: interpolate(entranceProgress.value, [0, 1], [0, 1]),
+      transform: [
+        {
+          translateY: interpolate(entranceProgress.value, [0, 1], [20 + delay * 0.5, 0]),
+        },
+      ],
+    }));
+
+  // Button press scale
+  const backBtnScale = useSharedValue(1);
+  const continueBtnScale = useSharedValue(1);
+  const backBtnStyle = useAnimatedStyle(() => ({
+    transform: [{scale: backBtnScale.value}],
+  }));
+  const continueBtnStyle = useAnimatedStyle(() => ({
+    transform: [{scale: continueBtnScale.value}],
+  }));
+
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: 'transparent'}}>
+      <OrganicBackground />
       <View style={[styles.container, {paddingBottom: 32}]}>
-        <View style={styles.topRow}>
-          <TouchableOpacity
-            onPress={() => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                navigation.navigate('Login');
-              }
-            }}>
-            <BackSolidIcon width={24} height={24} />
-          </TouchableOpacity>
-          <Text style={styles.stepText}>1/4</Text>
-        </View>
-        <Text style={styles.title}>Start joining us</Text>
-        <Text style={styles.subtitleBold}>How do you grow your plants?</Text>
-        <Text style={styles.subtitle}>Choose any that applies.</Text>
-        <View style={{marginTop: 24, marginBottom: 32}}>
+        <Animated.View style={[fadeUp(0), {marginTop: 8, marginBottom: 24, alignItems: 'center'}]}>
+          <StepIndicator currentStep={1} />
+        </Animated.View>
+        <Animated.View style={fadeUp(1)}>
+          <Text style={styles.title}>Start joining us</Text>
+          <Text style={styles.subtitleBold}>How do you grow your plants?</Text>
+          <Text style={styles.subtitle}>Choose any that applies.</Text>
+        </Animated.View>
+        <Animated.View style={[fadeUp(2), {marginTop: 24, marginBottom: 32}]}>
           <CheckBoxGroup
             options={GROW_OPTIONS}
             selectedValues={selected}
@@ -140,50 +167,89 @@ const BuyerSignup = () => {
             boxStyle={{marginLeft: 0, marginRight: 12}}
             labelStyle={{fontSize: 16, marginLeft: 0}}
           />
-        </View>
+        </Animated.View>
 
-        <Text style={styles.inviteLabel}>
-          Invite Code <Text style={styles.inviteOptional}>(optional)</Text>
-        </Text>
-        <TextInput
-          style={styles.inviteInput}
-          placeholder="Enter 6-digit code"
-          value={inviteCode}
-          onChangeText={setInviteCode}
-          maxLength={6}
-          keyboardType="number-pad"
-          autoCorrect={false}
-          placeholderTextColor="#aaa"
-        />
-        {hasDeepLinkReferral && !inviteCode ? (
-          <Text style={styles.deepLinkNotice}>
-            Referral applied from your invite link
-          </Text>
-        ) : null}
+        <Animated.View style={fadeUp(3)}>
+          <View style={styles.inviteLabelRow}>
+            <Text style={styles.inviteLabel}>
+              Invite Code <Text style={styles.inviteOptional}>(optional)</Text>
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+              onPress={() => setInfoModalVisible(true)}>
+              <InfoIcon width={18} height={18} style={styles.inviteInfoIcon} />
+            </TouchableOpacity>
+          </View>
+          <TextInput
+            style={styles.inviteInput}
+            placeholder="Enter 6-digit code"
+            value={inviteCode}
+            onChangeText={setInviteCode}
+            maxLength={6}
+            keyboardType="number-pad"
+            autoCorrect={false}
+            placeholderTextColor="#aaa"
+          />
+          {hasDeepLinkReferral && !inviteCode ? (
+            <Text style={styles.deepLinkNotice}>
+              Referral applied from your invite link
+            </Text>
+          ) : null}
+        </Animated.View>
 
         <View style={{flex: 1}} />
-        <TouchableOpacity
-          style={[
-            globalStyles.primaryButton,
-            styles.continueBtn,
-            {marginBottom: 8},
-            selected.length === 0 && styles.disabledButton,
-          ]}
-          onPress={handleContinue}
-          disabled={selected.length === 0}>
-          <Text style={[
-            globalStyles.primaryButtonText,
-            selected.length === 0 && styles.disabledButtonText,
-          ]}>
-            Continue
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleLogin}
-          style={[styles.loginLinkContainer, {marginBottom: 8}]}>
-          <Text style={styles.loginLink}>Log in to your existing account</Text>
-        </TouchableOpacity>
+        <Animated.View style={[fadeUp(4), styles.buttonRow]}>
+          <Animated.View style={[backBtnStyle, {flex: 1}]}>
+            <TouchableOpacity
+              activeOpacity={0.95}
+              onPressIn={() => {
+                backBtnScale.value = withSpring(0.96, {stiffness: 400, damping: 15});
+              }}
+              onPressOut={() => {
+                backBtnScale.value = withSpring(1, {stiffness: 400, damping: 15});
+              }}
+              style={[
+                globalStyles.secondaryButtonAccent,
+                styles.backButton,
+              ]}
+              onPress={handleLogin}>
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+          </Animated.View>
+          <Animated.View style={[continueBtnStyle, {flex: 1}]}>
+            <TouchableOpacity
+              activeOpacity={0.95}
+              onPressIn={() => {
+                continueBtnScale.value = withSpring(0.96, {stiffness: 400, damping: 15});
+              }}
+              onPressOut={() => {
+                continueBtnScale.value = withSpring(1, {stiffness: 400, damping: 15});
+              }}
+              style={[
+                globalStyles.primaryButton,
+                styles.nextButton,
+                selected.length === 0 && styles.disabledButton,
+              ]}
+              onPress={handleContinue}
+              disabled={selected.length === 0}>
+              <Text style={[
+                globalStyles.primaryButtonText,
+                selected.length === 0 && styles.disabledButtonText,
+              ]}>
+                Next
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
       </View>
+      <CustomAlert
+        visible={infoModalVisible}
+        title="Invite Code"
+        message="Have a friend on iLeafU? Ask them for their 6-digit invite code. When you make your first purchase, they earn 20 Leaf Points and you receive 20 Leaf Coins."
+        buttons={[{text: 'Got it', onPress: () => setInfoModalVisible(false)}]}
+        onDismiss={() => setInfoModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -192,30 +258,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 8, // Further reduced to match good positioning
-    backgroundColor: '#fff',
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 8,
-    paddingTop: 0,
-  },
-  backBtn: {
-    padding: 8,
-    marginRight: 8,
-  },
-  backArrow: {
-    fontSize: 22,
-    color: '#393D43',
-    fontWeight: 'bold',
-  },
-  stepText: {
-    marginLeft: 'auto',
-    fontSize: 16,
-    color: '#393D43',
-    fontWeight: '500',
+    paddingTop: 8,
+    backgroundColor: 'transparent',
   },
   title: {
     fontSize: 26,
@@ -234,11 +278,18 @@ const styles = StyleSheet.create({
     color: '#393D43',
     marginBottom: 8,
   },
+  inviteLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   inviteLabel: {
     fontSize: 15,
     fontWeight: 'bold',
     color: '#393D43',
-    marginBottom: 4,
+  },
+  inviteInfoIcon: {
+    marginLeft: 6,
   },
   inviteOptional: {
     color: '#aaa',
@@ -260,9 +311,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  continueBtn: {
-    marginTop: 12,
-    marginBottom: 16,
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  backButton: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginVertical: 0,
+  },
+  backButtonText: {
+    color: '#539461',
+    fontWeight: '700',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  nextButton: {
+    marginVertical: 0,
   },
   disabledButton: {
     backgroundColor: '#E5E7EB',
@@ -270,16 +336,6 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: {
     color: '#9CA3AF',
-  },
-  loginLinkContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  loginLink: {
-    color: '#539461',
-    fontSize: 16,
-    fontWeight: '800',
-    textDecorationLine: 'none',
   },
 });
 

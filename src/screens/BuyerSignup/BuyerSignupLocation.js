@@ -1,20 +1,22 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import { View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  KeyboardAvoidingView,
-  Platform} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import {globalStyles} from '../../assets/styles/styles';
 import InputDropdownPaginated from '../../components/Input/InputDropdownPaginated';
 import InputBox from '../../components/Input/InputBox';
 import InfoIcon from '../../assets/buyer-icons/information.svg';
-import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import OrganicBackground from '../../components/OrganicBackground/OrganicBackground';
+import StepIndicator from '../../components/StepIndicator/StepIndicator';
 import {getUSStatesSimple} from '../../components/Api/geoDbApi';
 
 const RESTRICTED_LOCATIONS = {
@@ -223,85 +225,143 @@ const BuyerSignupLocation = () => {
 
   const canContinue = !!(state && zip);
 
+  // Entrance animation
+  const entranceProgress = useSharedValue(0);
+  useEffect(() => {
+    entranceProgress.value = withTiming(1, {duration: 800, easing: Easing.out(Easing.ease)});
+  }, []);
+
+  const fadeUp = (delay = 0) =>
+    useAnimatedStyle(() => ({
+      opacity: interpolate(entranceProgress.value, [0, 1], [0, 1]),
+      transform: [
+        {
+          translateY: interpolate(entranceProgress.value, [0, 1], [20 + delay * 0.5, 0]),
+        },
+      ],
+    }));
+
+  // Button press scale
+  const backBtnScale = useSharedValue(1);
+  const continueBtnScale = useSharedValue(1);
+  const backBtnStyle = useAnimatedStyle(() => ({
+    transform: [{scale: backBtnScale.value}],
+  }));
+  const continueBtnStyle = useAnimatedStyle(() => ({
+    transform: [{scale: continueBtnScale.value}],
+  }));
+
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: 'transparent'}}>
+      <OrganicBackground />
       <KeyboardAvoidingView
         style={{flex: 1}}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          enableOnAndroid={true}>
-          <View style={styles.container}>
-            <View style={styles.topRow}>
-              <TouchableOpacity onPress={() => navigation.goBack()}>
-                <BackSolidIcon width={24} height={24} />
-              </TouchableOpacity>
-              <Text style={styles.stepText}>2/4</Text>
+        <View style={{flex: 1}}>
+          <Animated.View style={[fadeUp(0), {marginTop: 8, marginBottom: 24, alignItems: 'center'}]}>
+            <StepIndicator currentStep={2} />
+          </Animated.View>
+
+          <ScrollView
+            style={{flex: 1}}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            enableOnAndroid={true}>
+            <View style={styles.container}>
+              <Animated.View style={fadeUp(1)}>
+                <Text style={styles.title}>{'Your location & your\nplants'}</Text>
+                <Text style={styles.subtitle}>
+                  This information will help us with packaging considerations and send
+                  alerts related to weather conditions.
+                </Text>
+              </Animated.View>
+
+              <Animated.View style={fadeUp(2)}>
+                <View style={styles.infoBox}>
+                  <InfoIcon width={20} height={20} style={styles.infoBoxIcon} />
+                  <Text style={styles.infoBoxText}>
+                    Our green marketplace blooms just for buyers in the continental United States.
+                    Accounts won't grow beyond this region.
+                  </Text>
+                </View>
+              </Animated.View>
+
+              <Animated.View style={fadeUp(3)}>
+                <Text style={styles.label}>
+                  State<Text style={{color: '#FF5247'}}>*</Text>
+                </Text>
+                <InputDropdownPaginated
+                  options={states.map(s => s.name)}
+                  selectedOption={state}
+                  onSelect={selectedName => setState(selectedName)}
+                  placeholder={
+                    state ? state : statesLoading ? 'Loading US states...' : 'Select your state'
+                  }
+                  disabled={statesLoading}
+                  onLoadMore={loadMoreStates}
+                  hasMore={statesHasMore}
+                  loadingMore={loadingMoreStates}
+                />
+
+                <Text style={styles.label}>
+                  Zip code<Text style={{color: '#FF5247'}}>*</Text>
+                </Text>
+                <InputBox
+                  placeholder="Enter zip code"
+                  value={zip}
+                  setValue={setZip}
+                  isNumeric={true}
+                />
+              </Animated.View>
+
+              <View style={{flex: 1, minHeight: 24}} />
             </View>
-
-            <Text style={styles.title}>{'Your location & your\nplants'}</Text>
-            <Text style={styles.subtitle}>
-              This information will help us with packaging considerations and send
-              alerts related to weather conditions.
-            </Text>
-
-            <View style={styles.infoBox}>
-              <InfoIcon width={20} height={20} style={styles.infoBoxIcon} />
-              <Text style={styles.infoBoxText}>
-                Our green marketplace blooms just for buyers in the continental United States.
-                Accounts won't grow beyond this region.
-              </Text>
-            </View>
-
-            <Text style={styles.label}>
-              State<Text style={{color: '#FF5247'}}>*</Text>
-            </Text>
-            <InputDropdownPaginated
-              options={states.map(s => s.name)}
-              selectedOption={state}
-              onSelect={selectedName => setState(selectedName)}
-              placeholder={
-                state ? state : statesLoading ? 'Loading US states...' : 'Select your state'
-              }
-              disabled={statesLoading}
-              onLoadMore={loadMoreStates}
-              hasMore={statesHasMore}
-              loadingMore={loadingMoreStates}
-            />
-
-            <Text style={styles.label}>
-              Zip code<Text style={{color: '#FF5247'}}>*</Text>
-            </Text>
-            <InputBox
-              placeholder="Enter zip code"
-              value={zip}
-              setValue={setZip}
-              isNumeric={true}
-            />
-
-            <View style={{flex: 1, minHeight: 24}} />
+          </ScrollView>
+          <View style={styles.bottomBar}>
+            <Animated.View style={[fadeUp(4), {flexDirection: 'row', gap: 12}]}>
+              <Animated.View style={[backBtnStyle, {flex: 1}]}>
+                <TouchableOpacity
+                  activeOpacity={0.95}
+                  onPressIn={() => {
+                    backBtnScale.value = withSpring(0.96, {stiffness: 400, damping: 15});
+                  }}
+                  onPressOut={() => {
+                    backBtnScale.value = withSpring(1, {stiffness: 400, damping: 15});
+                  }}
+                  style={[globalStyles.secondaryButtonAccent, {borderRadius: 10, paddingVertical: 12, marginVertical: 0}]}
+                  onPress={() => navigation.goBack()}>
+                  <Text style={{color: '#539461', fontWeight: '700', fontSize: 16, textAlign: 'center'}}>Back</Text>
+                </TouchableOpacity>
+              </Animated.View>
+              <Animated.View style={[continueBtnStyle, {flex: 1}]}>
+                <TouchableOpacity
+                  activeOpacity={0.95}
+                  onPressIn={() => {
+                    continueBtnScale.value = withSpring(0.96, {stiffness: 400, damping: 15});
+                  }}
+                  onPressOut={() => {
+                    continueBtnScale.value = withSpring(1, {stiffness: 400, damping: 15});
+                  }}
+                  style={[
+                    globalStyles.primaryButton,
+                    {marginVertical: 0, borderRadius: 10, paddingVertical: 12},
+                    !canContinue && styles.disabledButton,
+                  ]}
+                  onPress={handleContinue}
+                  disabled={!canContinue}>
+                  <Text
+                    style={[
+                      globalStyles.primaryButtonText,
+                      !canContinue && styles.disabledButtonText,
+                    ]}>
+                    Next
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </Animated.View>
           </View>
-        </ScrollView>
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={[
-              globalStyles.primaryButton,
-              {marginBottom: 8},
-              !canContinue && styles.disabledButton,
-            ]}
-            onPress={handleContinue}
-            disabled={!canContinue}>
-            <Text
-              style={[
-                globalStyles.primaryButtonText,
-                !canContinue && styles.disabledButtonText,
-              ]}>
-              Continue
-            </Text>
-          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -317,20 +377,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 8,
-    backgroundColor: '#fff',
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 32,
-    paddingTop: 16,
-  },
-  stepText: {
-    marginLeft: 'auto',
-    fontSize: 16,
-    color: '#393D43',
-    fontWeight: '500',
+    backgroundColor: 'transparent',
   },
   title: {
     fontSize: 24,
@@ -370,7 +417,7 @@ const styles = StyleSheet.create({
   bottomBar: {
     paddingHorizontal: 24,
     paddingBottom: 24,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   disabledButton: {
     backgroundColor: '#E5E7EB',

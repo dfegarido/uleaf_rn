@@ -28,15 +28,23 @@ export const AuthProvider = ({children}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
+  const [loginPhase, setLoginPhase] = useState(null);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
         const hasToken = !!token;
-        setIsLoggedIn(hasToken);
-
+        const storedPhase = await AsyncStorage.getItem('loginPhase');
         const storedUserInfo = await AsyncStorage.getItem('userInfo');
+
+        // Backward compatibility: if token exists but no loginPhase, assume already fully logged in
+        const phase = storedPhase || (hasToken && storedUserInfo ? 'otp_verified' : null);
+        setLoginPhase(phase);
+
+        // Only treat as logged in if token exists AND OTP was verified
+        setIsLoggedIn(hasToken && phase === 'otp_verified');
+
         // Only set userInfo from storage if we actually have a token
         if (hasToken && storedUserInfo) {
           setUserInfo(JSON.parse(storedUserInfo));
@@ -64,7 +72,9 @@ export const AuthProvider = ({children}) => {
       }
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userInfo');
+      await AsyncStorage.removeItem('loginPhase');
       setIsLoggedIn(false);
+      setLoginPhase(null);
       setUserInfo(null);
     } catch (e) {
       console.log('Logout error:', e);
@@ -151,8 +161,10 @@ export const AuthProvider = ({children}) => {
       setUserInfo,
       user: userInfo,
       updateProfileImage,
+      loginPhase,
+      setLoginPhase,
     }),
-    [isLoggedIn, isLoading, logout, userInfo, updateProfileImage],
+    [isLoggedIn, isLoading, logout, userInfo, updateProfileImage, loginPhase],
   );
 
   return (
