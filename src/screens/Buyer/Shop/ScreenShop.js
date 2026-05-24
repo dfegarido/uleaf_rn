@@ -858,6 +858,37 @@ const ScreenShop = ({navigation}) => {
     callFilterApi();
   };
 
+  const handleModalReset = () => {
+    switch (code) {
+      case 'SORT':
+        updateFilters({ sort: 'Newest to Oldest' });
+        break;
+      case 'PRICE':
+        updateFilters({ price: '' });
+        break;
+      case 'GENUS':
+        updateFilters({ genus: [] });
+        break;
+      case 'VARIEGATION':
+        updateFilters({ variegation: [] });
+        break;
+      case 'COUNTRY':
+        updateFilters({ country: [] });
+        break;
+      case 'LISTING_TYPE':
+        updateFilters({ listingType: [] });
+        break;
+      case 'SHIPPING_INDEX':
+        updateFilters({ shippingIndex: [] });
+        break;
+      case 'ACCLIMATION_INDEX':
+        updateFilters({ acclimationIndex: [] });
+        break;
+      default:
+        clearFilters();
+    }
+  };
+
   // Function to clear a specific filter
   const clearSpecificFilter = (filterLabel) => {
     let filterUpdate = {};
@@ -1720,7 +1751,7 @@ const ScreenShop = ({navigation}) => {
         acclimationIndexValue={globalFilters.acclimationIndex}
         acclimationIndexChange={handleAcclimationIndexChange}
         handleSearchSubmit={handleFilterView}
-        clearFilters={clearFilters}
+        clearFilters={handleModalReset}
       />
     </SafeAreaView>
   );

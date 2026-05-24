@@ -1515,6 +1515,7 @@ const OrderSummary = ({navigation}) => {
           sortValue={selectedFilters.sort}
           sortChange={handleSortChange}
           handleSearchSubmit={handleSortView}
+          clearFilters={() => handleResetFilter('Sort')}
         />
 
         {/* Genus Modal */}

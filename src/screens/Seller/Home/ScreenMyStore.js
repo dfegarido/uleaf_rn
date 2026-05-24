@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useContext} from 'react';
+import React, {useCallback, useEffect, useState, useContext, useRef} from 'react';
 import { View,
   Text,
   RefreshControl,
@@ -33,19 +33,36 @@ import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
 import PinIcon from '../../../assets/icons/greylight/pin.svg';
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
-import HeartIcon from '../../../assets/icons/greydark/heart-solid.svg';
-import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
-import { getSortApi,
-  getGenusApi,
+import { getGenusApi,
   getVariegationApi,
   getListingTypeApi,
-  getManageListingApi,
-  postListingPinActionApi,
   getSortStoreApi,
 } from '../../../components/Api';
+import {auth} from '../../../../firebase';
+import {
+  fetchSellerListingsFromFirestore,
+  getListingPriceInfo,
+  getListingTypeDisplayLabel,
+  isListingPinned,
+  prepareMyStoreActiveListings,
+} from '../../../utils/fetchSellerListingsFromFirestore';
 
 const screenHeight = Dimensions.get('window').height;
+const PAGE_SIZE = 10;
+
+const CARD_GRADIENT_OPACITIES = [0, 0.08, 0.18, 0.32, 0.48, 0.62];
+
+const CardBottomGradient = () => (
+  <View style={{height: 56}}>
+    {CARD_GRADIENT_OPACITIES.map((opacity, index) => (
+      <View
+        key={index}
+        style={{flex: 1, backgroundColor: `rgba(0,0,0,${opacity})`}}
+      />
+    ))}
+  </View>
+);
 
 const ScreenMyStore = ({navigation}) => {
   const insets = useSafeAreaInsets();
@@ -59,17 +76,8 @@ const ScreenMyStore = ({navigation}) => {
     }
   });
 
-  const onPressItem = ({data}) => {
-    navigation.navigate('ScreenMyStoreDetail', data);
-  };
-
   const [code, setCode] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
-
-  const onPressFilter = pressCode => {
-    setCode(pressCode);
-    setShowSheet(true);
-  };
 
   const [dataTable, setDataTable] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -79,164 +87,259 @@ const ScreenMyStore = ({navigation}) => {
   const [reusableGenus, setReusableGenus] = useState([]);
   const [reusableVariegation, setReusableVariegation] = useState([]);
   const [reusableListingType, setReusableListingType] = useState([]);
-  const handleFilterView = () => {
-    setNextToken('');
-    setNextTokenParam('');
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
-  };
-  // For reusable action sheet
-
   // List table
   const [refreshing, setRefreshing] = useState(false);
-
-  // ✅ Your loadData (unchanged)
-  const [nextToken, setNextToken] = useState('');
-  const [nextTokenParam, setNextTokenParam] = useState('');
   const [totalDataCount, setTotalDataCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const allListingsRef = useRef([]);
+  const displayListingsRef = useRef([]);
+  const [pinSearch, setPinSearch] = useState(false);
 
-  const loadData = async (
-    filterMine,
-    sortBy,
-    genus,
-    variegation,
-    listingType,
-    status,
-    discount,
-    limit,
-    plant,
-    pinTag,
-    nextPageToken,
-  ) => {
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
+  const getSellerUid = () =>
+    userInfo?.uid ||
+    userInfo?.id ||
+    userInfo?.user?.uid ||
+    userInfo?.user?.id ||
+    auth.currentUser?.uid;
 
-    const getManageListingApiData = await getManageListingApi(
-      filterMine,
-      sortBy,
-      genus,
-      variegation,
-      listingType,
-      status,
-      discount,
-      limit,
-      plant,
-      pinTag,
-      nextPageToken,
-    );
-
-    if (!getManageListingApiData?.success) {
-      throw new Error(
-        getManageListingApiData?.message || 'Login verification failed.',
-      );
-    }
-
-    // console.log(getManageListingApiData.listings[0]);
-    // console.log(getManageListingApiData?.nextPageToken);
-    setNextToken(getManageListingApiData?.nextPageToken);
-    setTotalDataCount(getManageListingApiData?.total);
-    // setDataTable(getManageListingApiData?.listings || []);
-    setDataTable(
-      prev =>
-        nextTokenParam
-          ? [...prev, ...(getManageListingApiData?.listings || [])] // append
-          : getManageListingApiData?.listings || [], // replace
-    );
-    // console.log(getManageListingApiData);
+  const applyFilteredListings = prepared => {
+    displayListingsRef.current = prepared;
+    setTotalDataCount(prepared.length);
+    setDataTable(prepared.slice(0, PAGE_SIZE));
+    setHasMore(prepared.length > PAGE_SIZE);
   };
 
-  // ✅ Error-handling wrapper
-  const fetchData = async () => {
-    try {
-      // setErrorMessage('');
-      await loadData(
-        true,
-        reusableSort,
-        reusableGenus,
-        reusableVariegation,
-        reusableListingType,
-        'Active',
-        false,
-        10,
-        search,
-        pinSearch,
-        nextTokenParam,
-      );
-    } catch (error) {
-      console.log('Error in fetchData:', error.message);
+  const applyFiltersFromCache = useCallback(
+    (overrides = {}) => {
+      const prepared = prepareMyStoreActiveListings(allListingsRef.current, {
+        sortBy:
+          overrides.sortBy !== undefined ? overrides.sortBy : reusableSort,
+        genus: overrides.genus !== undefined ? overrides.genus : reusableGenus,
+        variegation:
+          overrides.variegation !== undefined
+            ? overrides.variegation
+            : reusableVariegation,
+        listingType:
+          overrides.listingType !== undefined
+            ? overrides.listingType
+            : reusableListingType,
+        search: overrides.search !== undefined ? overrides.search : search,
+        pinOnly:
+          overrides.pinOnly !== undefined ? overrides.pinOnly : pinSearch,
+      });
+      applyFilteredListings(prepared);
+    },
+    [
+      reusableSort,
+      reusableGenus,
+      reusableVariegation,
+      reusableListingType,
+      search,
+      pinSearch,
+    ],
+  );
 
-      Alert.alert('Listing', error.message);
-    } finally {
-      setRefreshing(false);
+  const fetchData = useCallback(
+    async ({forceRefresh = false, filterOverrides = {}} = {}) => {
+      try {
+        const netState = await NetInfo.fetch();
+        if (!netState.isConnected || !netState.isInternetReachable) {
+          throw new Error('No internet connection.');
+        }
+
+        const uid = getSellerUid();
+        if (!uid) {
+          allListingsRef.current = [];
+          applyFilteredListings([]);
+          return;
+        }
+
+        if (forceRefresh || allListingsRef.current.length === 0) {
+          const {listings} = await fetchSellerListingsFromFirestore(uid);
+          allListingsRef.current = listings;
+        }
+
+        applyFiltersFromCache(filterOverrides);
+      } catch (error) {
+        console.log('Error in fetchData:', error.message);
+        Alert.alert('Listing', error.message);
+      } finally {
+        setRefreshing(false);
+        setLoading(false);
+      }
+    },
+    [applyFiltersFromCache],
+  );
+
+  const isFilterActive = filterLabel => {
+    switch (filterLabel) {
+      case 'Sort':
+        return Boolean(reusableSort && String(reusableSort).trim());
+      case 'Genus':
+        return Array.isArray(reusableGenus) && reusableGenus.length > 0;
+      case 'Variegation':
+        return Array.isArray(reusableVariegation) && reusableVariegation.length > 0;
+      case 'Listing Type':
+        return Array.isArray(reusableListingType) && reusableListingType.length > 0;
+      default:
+        return false;
     }
   };
 
-  // ✅ Fetch on mount
+  const clearSpecificFilter = filterLabel => {
+    switch (filterLabel) {
+      case 'Sort':
+        setReusableSort('');
+        applyFiltersFromCache({sortBy: ''});
+        break;
+      case 'Genus':
+        setReusableGenus([]);
+        applyFiltersFromCache({genus: []});
+        break;
+      case 'Variegation':
+        setReusableVariegation([]);
+        applyFiltersFromCache({variegation: []});
+        break;
+      case 'Listing Type':
+        setReusableListingType([]);
+        applyFiltersFromCache({listingType: []});
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleModalReset = () => {
+    switch (code) {
+      case 'SORT':
+        setReusableSort('');
+        applyFiltersFromCache({sortBy: ''});
+        break;
+      case 'GENUS':
+        setReusableGenus([]);
+        applyFiltersFromCache({genus: []});
+        break;
+      case 'VARIEGATION':
+        setReusableVariegation([]);
+        applyFiltersFromCache({variegation: []});
+        break;
+      case 'LISTINGTYPE':
+        setReusableListingType([]);
+        applyFiltersFromCache({listingType: []});
+        break;
+      default:
+        break;
+    }
+    setShowSheet(false);
+  };
+
+  const onPressFilter = pressCode => {
+    const filterLabelMap = {
+      SORT: 'Sort',
+      GENUS: 'Genus',
+      VARIEGATION: 'Variegation',
+      LISTINGTYPE: 'Listing Type',
+    };
+    const filterLabel = filterLabelMap[pressCode];
+
+    if (filterLabel && isFilterActive(filterLabel)) {
+      clearSpecificFilter(filterLabel);
+      return;
+    }
+
+    setCode(pressCode);
+    setShowSheet(true);
+  };
+
+  const handleListingPress = useCallback(
+    data => {
+      const plantCode = data?.plantCode || data?.id;
+      if (!plantCode) {
+        Alert.alert('Listing', 'This listing is missing a plant code.');
+        return;
+      }
+      navigation.navigate('ScreenListingDetail', {
+        plantCode,
+        onGoBack: () => {
+          allListingsRef.current = [];
+          setIsInitialFetchRefresh(prev => !prev);
+        },
+      });
+    },
+    [navigation],
+  );
+
   const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (isFocused) {
-      setLoading(true);
-      fetchData();
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
-    }
-  }, [isInitialFetchRefresh, isFocused]);
+    if (!isFocused) return;
+    setLoading(true);
+    fetchData();
+  }, [isInitialFetchRefresh, isFocused, fetchData]);
 
-  // ✅ Pull-to-refresh
+  useEffect(() => {
+    if (!isFocused || allListingsRef.current.length === 0) return;
+    applyFiltersFromCache();
+  }, [isFocused, applyFiltersFromCache]);
+
   const onRefresh = () => {
     setRefreshing(true);
-    setNextToken('');
-    setNextTokenParam('');
-    fetchData();
+    allListingsRef.current = [];
+    fetchData({forceRefresh: true});
   };
-  // List table
 
-  // Pin search
-  const [pinSearch, setPinSearch] = useState(false);
+  const handleFilterView = () => {
+    setShowSheet(false);
+    if (allListingsRef.current.length > 0) {
+      applyFiltersFromCache();
+      return;
+    }
+    setIsInitialFetchRefresh(prev => !prev);
+  };
 
   const onPressPinSearch = paramPinSearch => {
     setPinSearch(paramPinSearch);
-    setNextToken('');
-    setNextTokenParam('');
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    const pinOverride = {pinOnly: paramPinSearch};
+    if (allListingsRef.current.length > 0) {
+      applyFiltersFromCache(pinOverride);
+      return;
+    }
+    setLoading(true);
+    fetchData({forceRefresh: true, filterOverrides: pinOverride});
   };
-  // Pin search
 
-  // Search
   const handleSearchSubmit = e => {
-    const searchText = e.nativeEvent.text;
+    const searchText =
+      typeof e?.nativeEvent?.text === 'string' ? e.nativeEvent.text : search;
     setSearch(searchText);
-    console.log('Searching for:', searchText);
-    // trigger your search logic here
-
-    setNextToken('');
-    setNextTokenParam('');
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    if (allListingsRef.current.length > 0) {
+      applyFiltersFromCache({search: searchText});
+    } else {
+      setIsInitialFetchRefresh(prev => !prev);
+    }
   };
-  // Search
 
-  // Load more
-  useEffect(() => {
-    if (nextTokenParam) {
-      setLoading(true);
-      fetchData();
+  const handleSearchChange = text => {
+    setSearch(text);
+    if (text === '' && allListingsRef.current.length > 0) {
+      applyFiltersFromCache({search: ''});
+    }
+  };
+
+  const loadMoreListings = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    setDataTable(prev => {
+      const next = displayListingsRef.current.slice(0, prev.length + PAGE_SIZE);
       setTimeout(() => {
-        setLoading(false); // or setLoading(false)
-      }, 500);
-    }
-  }, [nextTokenParam]);
-
-  const onPressLoadMore = () => {
-    if (nextToken != nextTokenParam) {
-      console.log('click more');
-      setNextTokenParam(nextToken);
-    }
-  };
-  // Load more
+        setHasMore(next.length < displayListingsRef.current.length);
+        setLoadingMore(false);
+      }, 0);
+      return next;
+    });
+  }, [hasMore, loadingMore]);
 
   // For dropdown
   const [sortOptions, setSortOptions] = useState([]);
@@ -344,33 +447,8 @@ const ScreenMyStore = ({navigation}) => {
   };
   // For dropdown
 
-  // Pin Action
-  const onPressTableListPin = async (plantCode, pinTag) => {
-    setLoading(true);
-    try {
-      const updatedPinTag = !pinTag;
-
-      const response = await postListingPinActionApi(plantCode, updatedPinTag);
-
-      if (!response?.success) {
-        throw new Error(response?.message || 'Post pin failed.');
-      }
-
-      setNextToken('');
-      setNextTokenParam('');
-      fetchData();
-    } catch (error) {
-      console.log('Error pin table action:', error.message);
-      Alert.alert('Pin item', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Pin Action
-
   return (
-    <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
       {loading && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
@@ -379,49 +457,37 @@ const ScreenMyStore = ({navigation}) => {
         </Modal>
       )}
 
-      {/* Search and Icons */}
-      <View style={[styles.stickyHeader]}>
+      <View style={[styles.stickyHeader, {paddingBottom: 10}]}>
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={{
-              // padding: 5,
-              // backgroundColor: '#fff',
-              flexDirection: 'row',
-              justifyContent: 'flex-start',
-              alignItems: 'flex-start',
-            }}>
-            <LeftIcon width={30} hegiht={30} />
+            style={styles.backButton}>
+            <LeftIcon width={30} height={30} />
           </TouchableOpacity>
 
-          <View style={{flex: 1}}>
+          <View style={styles.searchField}>
             <InputSearch
               placeholder="Search ileafU"
               value={search}
-              onChangeText={setSearch}
+              onChangeText={handleSearchChange}
               onSubmitEditing={handleSearchSubmit}
-              showClear={true} // shows an 'X' icon to clear
+              showClear={true}
             />
           </View>
 
           <View style={styles.headerIcons}>
-            {userInfo.liveFlag != 'No' && (
+            {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => {}}
+                onPress={() => navigation.navigate('LiveSellerScreen')}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
-                {/* <Text style={styles.liveTag}>LIVE</Text> */}
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={[
                 styles.iconButton,
-                {
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 10,
-                  borderRadius: 10,
-                },
+                styles.pinButton,
+                pinSearch && styles.pinButtonActive,
               ]}
               onPress={() => onPressPinSearch(!pinSearch)}>
               {pinSearch ? (
@@ -432,82 +498,100 @@ const ScreenMyStore = ({navigation}) => {
             </TouchableOpacity>
           </View>
         </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterScrollContent}>
+          <TouchableOpacity onPress={() => onPressFilter('SORT')}>
+            <View
+              style={[
+                styles.filterChip,
+                isFilterActive('Sort') && styles.filterChipActive,
+              ]}>
+              <SortIcon width={20} height={20} />
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  isFilterActive('Sort') && styles.filterChipTextActive,
+                ]}>
+                Sort
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
+            <View
+              style={[
+                styles.filterChip,
+                isFilterActive('Genus') && styles.filterChipActive,
+              ]}>
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  isFilterActive('Genus') && styles.filterChipTextActive,
+                ]}>
+                Genus
+              </Text>
+              <DownIcon width={20} height={20} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
+            <View
+              style={[
+                styles.filterChip,
+                isFilterActive('Variegation') && styles.filterChipActive,
+              ]}>
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  isFilterActive('Variegation') && styles.filterChipTextActive,
+                ]}>
+                Variegation
+              </Text>
+              <DownIcon width={20} height={20} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
+            <View
+              style={[
+                styles.filterChip,
+                styles.filterChipLast,
+                isFilterActive('Listing Type') && styles.filterChipActive,
+              ]}>
+              <Text
+                style={[
+                  globalStyles.textSMGreyDark,
+                  isFilterActive('Listing Type') && styles.filterChipTextActive,
+                ]}>
+                Listing Type
+              </Text>
+              <DownIcon width={20} height={20} />
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
-      {/* Filter Cards */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{flexGrow: 0, paddingVertical: 10, paddingHorizontal: 20}} // ✅ prevents extra vertical space
-        contentContainerStyle={{
-          flexDirection: 'row',
-          gap: 10,
-          alignItems: 'flex-start',
-        }}>
-        <TouchableOpacity onPress={() => onPressFilter('SORT')}>
-          <View
-            style={{
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: '#CDD3D4',
-              padding: 10,
-              flexDirection: 'row',
-            }}>
-            <SortIcon width={20} height={20}></SortIcon>
-            <Text style={globalStyles.textSMGreyDark}>Sort</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => onPressFilter('GENUS')}>
-          <View
-            style={{
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: '#CDD3D4',
-              padding: 10,
-              flexDirection: 'row',
-            }}>
-            <Text style={globalStyles.textSMGreyDark}>Genus</Text>
-            <DownIcon width={20} height={20}></DownIcon>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => onPressFilter('VARIEGATION')}>
-          <View
-            style={{
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: '#CDD3D4',
-              padding: 10,
-              flexDirection: 'row',
-            }}>
-            <Text style={globalStyles.textSMGreyDark}>Variegation</Text>
-            <DownIcon width={20} height={20}></DownIcon>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => onPressFilter('LISTINGTYPE')}>
-          <View
-            style={{
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: '#CDD3D4',
-              padding: 10,
-              flexDirection: 'row',
-              marginRight: 30,
-            }}>
-            <Text style={globalStyles.textSMGreyDark}>Listing Type</Text>
-            <DownIcon width={20} height={20}></DownIcon>
-          </View>
-        </TouchableOpacity>
-      </ScrollView>
-      {/* Filter Cards */}
 
       {/* Contents */}
       <ScrollView
-        // style={[styles.container, {paddingTop: insets.top}]}
         style={[styles.container]}
         contentContainerStyle={{
           marginBottom: insets.bottom + 30,
+        }}
+        scrollEventThrottle={400}
+        onScroll={({nativeEvent}) => {
+          const {layoutMeasurement, contentOffset, contentSize} = nativeEvent;
+          if (
+            layoutMeasurement.height + contentOffset.y >=
+              contentSize.height - 200 &&
+            hasMore &&
+            !loadingMore
+          ) {
+            loadMoreListings();
+          }
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -535,21 +619,30 @@ const ScreenMyStore = ({navigation}) => {
                 </View>
               )}
 
-              <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
-                {dataTable.map((dataparse, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={{
-                      flexDirection: 'column',
-                      padding: 5,
-                      width: '50%',
-                    }}
-                    onPress={() => onPressItem({data: dataparse})}>
-                    <View>
-                      {/* Image + Discount + Heart */}
-                      <View style={{position: 'relative'}}>
+              <View style={styles.cardGrid}>
+                {dataTable.map((dataparse, index) => {
+                  const plantTitle =
+                    `${dataparse.genus ?? ''} ${dataparse.species ?? ''}`.trim() ||
+                    'Unknown Plant';
+                  const plantSubtitle =
+                    dataparse.variegation || dataparse.mutation || '';
+                  const {
+                    totalLocalPrice,
+                    totalLocalPriceNew,
+                    hasNewPrice,
+                    finalCurrencySymbol,
+                  } = getListingPriceInfo(dataparse);
+                  const listingTypeLabel = getListingTypeDisplayLabel(dataparse);
+
+                  return (
+                    <TouchableOpacity
+                      key={dataparse.plantCode || dataparse.id || String(index)}
+                      style={styles.cardWrapper}
+                      activeOpacity={0.85}
+                      onPress={() => handleListingPress(dataparse)}>
+                      <View style={styles.card}>
                         <Image
-                          style={styles.image}
+                          style={styles.cardImage}
                           source={{
                             uri:
                               dataparse.imagePrimary ||
@@ -558,304 +651,88 @@ const ScreenMyStore = ({navigation}) => {
                           resizeMode="cover"
                         />
 
-                        {/* Discount Badge */}
-                        {dataparse.discountPercent ? (
-                          <View
-                            style={{position: 'absolute', bottom: 10, left: 5}}>
+                        <View style={styles.cardTopOverlay}>
+                          <View style={styles.cardTopOverlayLeft}>
+                            {isListingPinned(dataparse) ? (
+                              <View style={styles.pinnedBadge}>
+                                <PinAccentIcon width={16} height={16} />
+                              </View>
+                            ) : null}
+                            <View style={styles.listingTypeBadge}>
+                              <Text
+                                style={styles.listingTypeBadgeText}
+                                numberOfLines={1}>
+                                {listingTypeLabel}
+                              </Text>
+                            </View>
+                          </View>
+                          {dataparse.discountPercent ? (
                             <BadgeWithTransparentNotch
                               borderRadius={10}
                               text={dataparse.discountPercent + '% OFF'}
                               height={30}
                               width={80}
                             />
-                          </View>
-                        ) : null}
-
-                        {/* Heart Count */}
-                        <View
-                          style={{position: 'absolute', bottom: 10, right: 5}}>
-                          <View
-                            style={{
-                              backgroundColor: '#F5F6F6',
-                              padding: 5,
-                              borderRadius: 10,
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                            }}>
-                            <HeartIcon width={20} height={20} />
-                            <Text style={globalStyles.textSMGreyDark}>
-                              {dataparse.wishListCount ?? 0}
-                            </Text>
-                          </View>
+                          ) : (
+                            <View />
+                          )}
                         </View>
 
-                        {/* Listing Type */}
-                        {dataparse.listingType != 'Single Plant' ? (
-                          <View
-                            style={{position: 'absolute', top: 10, left: 5}}>
-                            <View
-                              style={{
-                                backgroundColor: '#202325',
-                                padding: 5,
-                                borderRadius: 10,
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                              }}>
-                              <Text style={globalStyles.textSMWhite}>
-                                {dataparse.listingType ?? ''}
-                              </Text>
-                            </View>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      {/* Plant Name + Pin */}
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginTop: 8,
-                        }}>
-                        <Text style={[globalStyles.textMDGreyDark, {flex: 1}]}>
-                          {`${dataparse.genus ?? ''} ${
-                            dataparse.species ?? ''
-                          }`}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() =>
-                            onPressTableListPin(
-                              dataparse.plantCode,
-                              dataparse.pinTag,
-                            )
-                          }>
-                          {dataparse.pinTag ? (
-                            <PinAccentIcon width={20} height={20} />
-                          ) : (
-                            <PinIcon width={20} height={20} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Sub Plant Name */}
-                      <Text
-                        style={[globalStyles.textMDGreyLight, {paddingTop: 4}]}>
-                        {dataparse.variegation || dataparse.mutation || ''}
-                      </Text>
-
-                      {/* Pot Sizes */}
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          flexWrap: 'wrap',
-                          marginTop: 6,
-                        }}>
-                        {(() => {
-                          // Initialize an empty array
-                          let finalPotSizes = [];
-
-                          // Priority 1: Try from variations
-                          if (
-                            Array.isArray(dataparse.variations) &&
-                            dataparse.variations.length > 0
-                          ) {
-                            const variation = dataparse.variations[0];
-
-                            if (Array.isArray(variation.potSize)) {
-                              finalPotSizes = variation.potSize;
-                            } else if (typeof variation.potSize === 'string') {
-                              finalPotSizes = [variation.potSize];
-                            }
-                          }
-
-                          // Priority 2: Fallback to dataparse.potSize
-                          if (
-                            finalPotSizes.length === 0 &&
-                            (Array.isArray(dataparse.potSize) ||
-                              typeof dataparse.potSize === 'string')
-                          ) {
-                            finalPotSizes = Array.isArray(dataparse.potSize)
-                              ? dataparse.potSize
-                              : [dataparse.potSize];
-                          }
-
-                          return finalPotSizes.map((parsePotSize, index2) => (
-                            <View
-                              key={`${index}-${index2}`}
-                              style={[
-                                styles.badgeContainer,
-                                {marginRight: 4, marginBottom: 4},
-                              ]}>
+                        <View style={styles.cardBottomOverlay}>
+                          <CardBottomGradient />
+                          <View style={styles.cardDetailsContent}>
+                            <Text style={styles.overlayTitle} numberOfLines={2}>
+                              {plantTitle}
+                            </Text>
+                            {plantSubtitle ? (
                               <Text
-                                style={[
-                                  styles.badge,
-                                  globalStyles.textMDGreyDark,
-                                  {backgroundColor: '#E4E7E9'},
-                                ]}>
-                                {parsePotSize}
+                                style={styles.overlaySubtitle}
+                                numberOfLines={1}>
+                                {plantSubtitle}
                               </Text>
-                            </View>
-                          ));
-                        })()}
-                      </View>
-
-                      {/* Price + Strike-through if discounted */}
-
-                      {(() => {
-                        let totalLocalPrice = 0;
-                        let totalLocalPriceNew = 0;
-                        let hasNewPrice = false;
-                        let finalCurrencySymbol =
-                          dataparse?.localCurrencySymbol || '';
-
-                        const parseSafeFloat = val => {
-                          const num = parseFloat(val);
-                          return isNaN(num) ? 0 : num;
-                        };
-
-                        const isNonEmpty = val =>
-                          val !== null &&
-                          val !== undefined &&
-                          (typeof val === 'number' ||
-                            (typeof val === 'string' && val.trim() !== ''));
-
-                        if (
-                          Array.isArray(dataparse?.variations) &&
-                          dataparse?.variations.length > 0
-                        ) {
-                          dataparse?.variations.forEach(variation => {
-                            const localPrice = parseSafeFloat(
-                              variation.localPrice,
-                            );
-                            const localPriceNew = isNonEmpty(
-                              variation.localPriceNew,
-                            )
-                              ? parseSafeFloat(variation.localPriceNew) !=
-                                parseSafeFloat(variation.localPrice)
-                                ? parseSafeFloat(variation.localPriceNew)
-                                : 0
-                              : 0;
-                            // console.log(variation);
-                            totalLocalPrice += localPrice;
-                            if (localPriceNew > 0) {
-                              totalLocalPriceNew += localPriceNew;
-                              hasNewPrice = true;
-                            } else {
-                              totalLocalPriceNew += localPrice;
-                            }
-
-                            if (variation.localCurrencySymbol) {
-                              finalCurrencySymbol =
-                                variation.localCurrencySymbol;
-                            }
-                          });
-                        } else {
-                          const localPrice = parseSafeFloat(
-                            dataparse?.localPrice,
-                          );
-                          const localPriceNew = isNonEmpty(
-                            dataparse?.localPriceNew,
-                          )
-                            ? parseSafeFloat(dataparse.localPriceNew) !=
-                              parseSafeFloat(dataparse.localPrice)
-                              ? parseSafeFloat(dataparse.localPriceNew)
-                              : 0
-                            : 0;
-
-                          totalLocalPrice = localPrice;
-                          totalLocalPriceNew = localPriceNew;
-                          localPriceNew > 0 ? localPriceNew : localPrice;
-                          hasNewPrice = localPriceNew > 0;
-
-                          if (dataparse?.localCurrencySymbol) {
-                            finalCurrencySymbol =
-                              dataparse?.localCurrencySymbol;
-                          }
-                        }
-
-                        return (
-                          <View style={[styles.cell, {flexDirection: 'row'}]}>
-                            {hasNewPrice ? (
-                              <>
+                            ) : null}
+                            <View style={styles.overlayPriceRow}>
+                              {hasNewPrice ? (
+                                <>
+                                  <Text
+                                    style={[
+                                      globalStyles.textMDAccent,
+                                      styles.overlayPrice,
+                                    ]}>
+                                    {finalCurrencySymbol}
+                                    {numberToCurrency(
+                                      totalLocalPriceNew.toFixed(2),
+                                    )}
+                                  </Text>
+                                  <Text style={styles.overlayStrikeText}>
+                                    {finalCurrencySymbol}
+                                    {numberToCurrency(totalLocalPrice.toFixed(2))}
+                                  </Text>
+                                </>
+                              ) : (
                                 <Text
                                   style={[
                                     globalStyles.textMDAccent,
-                                    {paddingRight: 10},
-                                  ]}>
-                                  {finalCurrencySymbol}
-                                  {numberToCurrency(
-                                    totalLocalPriceNew.toFixed(2),
-                                  )}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.strikeText,
-                                    globalStyles.textMDGreyLight,
+                                    styles.overlayPrice,
                                   ]}>
                                   {finalCurrencySymbol}
                                   {numberToCurrency(totalLocalPrice.toFixed(2))}
                                 </Text>
-                              </>
-                            ) : (
-                              <Text style={globalStyles.textMDGreyLight}>
-                                {finalCurrencySymbol}
-                                {numberToCurrency(totalLocalPrice.toFixed(2))}
-                              </Text>
-                            )}
+                              )}
+                            </View>
                           </View>
-                        );
-                      })()}
-
-                      {/* <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                        }}>
-                        <Text
-                          style={[
-                            dataparse.discountPrice
-                              ? globalStyles.textMDAccent
-                              : globalStyles.textMDGreyDark,
-                            {
-                              paddingRight: 10,
-                              fontWeight: 'bold',
-                            },
-                          ]}>
-                          {dataparse.localCurrencySymbol}
-                          {dataparse.localPrice?.toFixed(2) ?? '0.00'}
-                        </Text>
-
-                        {!isNaN(parseFloat(dataparse.discountPrice)) ? (
-                          <Text
-                            style={[
-                              globalStyles.textMDGreyDark,
-                              styles.strikeText,
-                            ]}>
-                            {dataparse.localCurrencySymbol}
-                            {parseFloat(dataparse.discountPrice).toFixed(2)}
-                          </Text>
-                        ) : null}
-                      </View> */}
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </View>
-          {dataTable.length >= 10 && (
-            <TouchableOpacity
-              onPress={() => onPressLoadMore()}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                marginTop: 10,
-                marginBottom: 50,
-              }}>
-              <Text style={globalStyles.textLGAccent}>Load More</Text>
-              <ArrowDownIcon width={25} height={20} />
-            </TouchableOpacity>
+          {loadingMore && (
+            <View style={styles.loadMoreFooter}>
+              <ActivityIndicator size="small" color="#699E73" />
+            </View>
           )}
         </View>
       </ScrollView>
@@ -877,6 +754,7 @@ const ScreenMyStore = ({navigation}) => {
         listingTypeValue={reusableListingType}
         listingTypeChange={setReusableListingType}
         handleSearchSubmit={handleFilterView}
+        clearFilters={handleModalReset}
       />
     </SafeAreaView>
   );
@@ -896,6 +774,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 10,
     paddingRight: 20,
+  },
+  backButton: {
+    marginRight: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchField: {
+    flex: 1,
+    marginRight: 8,
+  },
+  pinButton: {
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    padding: 10,
+    borderRadius: 10,
+  },
+  pinButtonActive: {
+    borderColor: '#23C16B',
+    backgroundColor: '#E8F5E9',
+  },
+  cardTopOverlayLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  pinnedBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderRadius: 8,
+    padding: 4,
+  },
+  filterScroll: {
+    flexGrow: 0,
+    paddingTop: 8,
+    paddingBottom: 0,
+    paddingHorizontal: 20,
+  },
+  filterScrollContent: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  filterChip: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  filterChipActive: {
+    borderColor: '#23C16B',
+    backgroundColor: '#E8F5E9',
+  },
+  filterChipTextActive: {
+    color: '#23C16B',
+    fontWeight: '600',
+  },
+  filterChipLast: {
+    marginRight: 30,
   },
   search: {
     flex: 1,
@@ -928,29 +868,116 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   contents: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: '#fff',
     minHeight: screenHeight,
   },
-  image: {
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  cardWrapper: {
+    width: '48%',
+    marginBottom: 12,
+  },
+  card: {
     width: '100%',
-    height: 220,
+    aspectRatio: 3 / 4,
+    backgroundColor: '#E4E7E9',
     borderRadius: 12,
-    backgroundColor: '#ccc',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 2},
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  badgeContainer: {
-    justifyContent: 'center',
+  cardImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E4E7E9',
+  },
+  cardTopOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    zIndex: 2,
+  },
+  listingTypeBadge: {
+    backgroundColor: 'rgba(32, 35, 37, 0.88)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    maxWidth: '70%',
+  },
+  listingTypeBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardBottomOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
+  },
+  cardDetailsContent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingHorizontal: 10,
+    paddingTop: 4,
+    paddingBottom: 10,
+  },
+  overlayTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 3,
+  },
+  overlaySubtitle: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    marginTop: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+  },
+  overlayPriceRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 6,
+    gap: 6,
   },
-  badge: {
-    padding: 5,
-    borderColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
+  overlayPrice: {
+    fontSize: 15,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 4,
   },
-  strikeText: {
-    textDecorationLine: 'line-through', // This adds the line in the middle
-    color: 'black',
+  overlayStrikeText: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 13,
+    textDecorationLine: 'line-through',
   },
 
   loadingOverlay: {
@@ -958,5 +985,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadMoreFooter: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -63,6 +63,22 @@ const ReusableActionSheet = ({
   const resetAcclimationIndexSelection = () => acclimationIndexChange([]);
   const resetPriceSelection = () => priceChange('');
 
+  const onResetPress = (localReset) => {
+    if (typeof clearFilters === 'function') {
+      clearFilters();
+      return;
+    }
+    if (typeof localReset === 'function') {
+      localReset();
+    }
+  };
+
+  const onViewPress = () => {
+    if (typeof handleSearchSubmit === 'function') {
+      handleSearchSubmit();
+    }
+  };
+
   // Simple pulsing skeleton used for variegation placeholders
   const VariegationSkeleton = ({style}) => {
     const anim = useRef(new Animated.Value(1)).current;
@@ -127,14 +143,14 @@ const ReusableActionSheet = ({
                 borderTopWidth: 1,
                 borderTopColor: '#E5E5E5',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity onPress={() => onResetPress()} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
-                    Clear
+                    Reset
                   </Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity style={{width: '45%'}} onPress={handleSearchSubmit}>
+              <TouchableOpacity style={{width: '45%'}} onPress={onViewPress}>
                 <View style={globalStyles.primaryButton}>
                   <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
                     View
@@ -181,8 +197,12 @@ const ReusableActionSheet = ({
               }}>
               <TouchableOpacity
                 onPress={() => {
-                  sortChange('');
-                  handleSearchSubmit();
+                  if (typeof clearFilters === 'function') {
+                    clearFilters();
+                  } else {
+                    sortChange('');
+                  }
+                  onViewPress();
                 }}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
@@ -193,7 +213,7 @@ const ReusableActionSheet = ({
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleSearchSubmit}
+                onPress={onViewPress}
                 style={{width: '45%'}}>
                 <View style={globalStyles.primaryButton}>
                   <Text
@@ -240,7 +260,7 @@ const ReusableActionSheet = ({
                 width: '100%',
                 paddingHorizontal: 20,
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity onPress={() => onResetPress(resetPriceSelection)} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -251,7 +271,7 @@ const ReusableActionSheet = ({
 
               <TouchableOpacity
                 style={{width: '45%'}}
-                onPress={handleSearchSubmit}>
+                onPress={onViewPress}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -317,13 +337,13 @@ const ReusableActionSheet = ({
             </ScrollView>
 
             <View style={styles.genusActionBar}>
-              <TouchableOpacity onPress={resetGenusSelection} style={styles.genusActionButton}>
+              <TouchableOpacity onPress={() => onResetPress(resetGenusSelection)} style={styles.genusActionButton}>
                 <View style={[globalStyles.lightGreenButton, styles.genusResetButton]}>
                   <Text style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>Reset</Text>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.genusActionButton} onPress={handleSearchSubmit}>
+              <TouchableOpacity style={styles.genusActionButton} onPress={onViewPress}>
                 <View style={[globalStyles.primaryButton, styles.genusViewButton]}>
                   <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>View</Text>
                 </View>
@@ -369,13 +389,12 @@ const ReusableActionSheet = ({
                     .filter(opt => opt.value !== 'Choose the most suitable variegation.')
                     .map((opt) => {
                       const selected = safeVariegationValue.includes(opt.value);
-                      // Outer tap only adds selection when currently unselected. Inner 'x' handles removal.
-                      const onOuterPress = () => {
-                        if (selected) return; // let the inner close button handle unselect
-                        variegationChange([...safeVariegationValue, opt.value]);
-                      };
-                      const onClosePress = () => {
-                        variegationChange(safeVariegationValue.filter(v => v !== opt.value));
+                      const onPillPress = () => {
+                        if (selected) {
+                          variegationChange(safeVariegationValue.filter(v => v !== opt.value));
+                        } else {
+                          variegationChange([...safeVariegationValue, opt.value]);
+                        }
                       };
 
                       return (
@@ -383,7 +402,7 @@ const ReusableActionSheet = ({
                           key={opt.value}
                           style={[styles.filterPill, selected ? styles.filterPillActive : styles.filterPillInactive]}
                           activeOpacity={0.8}
-                          onPress={onOuterPress}
+                          onPress={onPillPress}
                         >
                           <View style={styles.filterPillContent}>
                             <Text
@@ -393,16 +412,6 @@ const ReusableActionSheet = ({
                             >
                               {opt.label}
                             </Text>
-
-                            {selected && (
-                              <TouchableOpacity
-                                onPress={onClosePress}
-                                style={styles.pillClose}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={styles.pillCloseText}>×</Text>
-                              </TouchableOpacity>
-                            )}
                           </View>
                         </TouchableOpacity>
                       );
@@ -412,13 +421,13 @@ const ReusableActionSheet = ({
             </ScrollView>
 
             <View style={styles.variegationActionRow}>
-              <TouchableOpacity onPress={resetSelection} style={styles.variegationActionButton}>
+              <TouchableOpacity onPress={() => onResetPress(resetSelection)} style={styles.variegationActionButton}>
                 <View style={styles.clearButton}>
-                  <Text style={styles.clearButtonText}>Clear</Text>
+                  <Text style={styles.clearButtonText}>Reset</Text>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.variegationActionButton} onPress={handleSearchSubmit}>
+              <TouchableOpacity style={styles.variegationActionButton} onPress={onViewPress}>
                 <View style={styles.viewButton}>
                   <Text style={styles.viewButtonText}>View</Text>
                 </View>
@@ -481,7 +490,7 @@ const ReusableActionSheet = ({
                 width: '100%',
               }}>
               <TouchableOpacity
-                onPress={resetListingTypeSelection}
+                onPress={() => onResetPress(resetListingTypeSelection)}
                 style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
@@ -493,7 +502,7 @@ const ReusableActionSheet = ({
 
               <TouchableOpacity
                 style={{width: '45%'}}
-                onPress={handleSearchSubmit}>
+                onPress={onViewPress}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -551,7 +560,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={clearFilters} style={{width: '45%'}}>
+              <TouchableOpacity onPress={() => onResetPress(resetListingTypeSelection)} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -562,7 +571,7 @@ const ReusableActionSheet = ({
 
               <TouchableOpacity
                 style={{width: '45%'}}
-                onPress={handleSearchSubmit}>
+                onPress={onViewPress}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -623,7 +632,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={resetCountrySelection} style={{width: '45%'}}>
+              <TouchableOpacity onPress={() => onResetPress(resetCountrySelection)} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -633,7 +642,7 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
               <TouchableOpacity
                 style={{width: '45%'}}
-                onPress={handleSearchSubmit}>
+                onPress={onViewPress}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -694,7 +703,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={resetShippingIndexSelection} style={{width: '45%'}}>
+              <TouchableOpacity onPress={() => onResetPress(resetShippingIndexSelection)} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -704,7 +713,7 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
               <TouchableOpacity
                 style={{width: '45%'}}
-                onPress={handleSearchSubmit}>
+                onPress={onViewPress}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>
@@ -765,7 +774,7 @@ const ReusableActionSheet = ({
                 bottom: 10,
                 width: '100%',
               }}>
-              <TouchableOpacity onPress={resetAcclimationIndexSelection} style={{width: '45%'}}>
+              <TouchableOpacity onPress={() => onResetPress(resetAcclimationIndexSelection)} style={{width: '45%'}}>
                 <View style={[globalStyles.lightGreenButton]}>
                   <Text
                     style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>
@@ -775,7 +784,7 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
               <TouchableOpacity
                 style={{width: '45%'}}
-                onPress={handleSearchSubmit}>
+                onPress={onViewPress}>
                 <View style={globalStyles.primaryButton}>
                   <Text
                     style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>

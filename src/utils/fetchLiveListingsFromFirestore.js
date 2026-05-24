@@ -12,6 +12,7 @@ import { collection,
   where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { listingMatchesGenusFilter } from './fetchSellerListingsFromFirestore';
 
 function formatTimestamp(timestamp) {
   if (!timestamp) return null;
@@ -161,7 +162,7 @@ export async function fetchLiveListingsFromFirestore(uid, {
     const searchQ = (filters.search || '').trim().toLowerCase();
 
     if (genusVals.length) {
-      result = result.filter((l) => genusVals.includes(l.genus));
+      result = result.filter((l) => listingMatchesGenusFilter(l, genusVals));
     }
     if (variegationVals.length) {
       result = result.filter((l) => variegationVals.includes(l.variegation));

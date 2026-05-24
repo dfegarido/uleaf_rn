@@ -38,7 +38,11 @@ import Toast from '../../../components/Toast/Toast';
 import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../../../../firebase';
 import { fetchLiveListingsFromFirestore } from '../../../utils/fetchLiveListingsFromFirestore';
-import { fetchSellerListingsFromFirestore } from '../../../utils/fetchSellerListingsFromFirestore';
+import {
+  fetchSellerListingsFromFirestore,
+  listingMatchesGenusFilter,
+  prepareMyStoreActiveListings,
+} from '../../../utils/fetchSellerListingsFromFirestore';
 import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
@@ -591,6 +595,25 @@ const ScreenListing = ({navigation}) => {
         if (__DEV__) console.log(`[All tabs] Fetched ${rawListings.length} listing(s)`);
       }
 
+      // Active tab uses the same rules as My Store (status Active + in stock, filters, sort).
+      if (activeTab === 'Active') {
+        const sortedAggregated = prepareMyStoreActiveListings(allListingsRef.current, {
+          sortBy: reusableSort,
+          genus: reusableGenus,
+          variegation: reusableVariegation,
+          listingType: reusableListingType,
+          search,
+          pinOnly: pinSearch,
+        });
+        allDisplayListingsRef.current = sortedAggregated;
+        setDataTable(sortedAggregated.slice(0, ALL_DISPLAY_PAGE));
+        setTotalListings(sortedAggregated.length);
+        setAllHasMore(sortedAggregated.length > ALL_DISPLAY_PAGE);
+        setRefreshing(false);
+        setLoading(false);
+        return;
+      }
+
       const normalizeFilterValues = (filterArray) => {
         if (!Array.isArray(filterArray) || filterArray.length === 0) {
           return [];
@@ -639,9 +662,7 @@ const ScreenListing = ({navigation}) => {
       const listingTypeFilters = normalizeFilterValues(reusableListingType).map(value =>
         value.toLowerCase(),
       );
-      const genusFilters = normalizeFilterValues(reusableGenus).map(value =>
-        value.toLowerCase(),
-      );
+      const genusFilters = normalizeFilterValues(reusableGenus);
       const variegationFilters = normalizeFilterValues(reusableVariegation).map(value =>
         value.toLowerCase(),
       );
@@ -722,8 +743,7 @@ const ScreenListing = ({navigation}) => {
           return false;
         }
 
-        const genusNormalized = (listing.genus || '').trim().toLowerCase();
-        if (genusFilters.length > 0 && !genusFilters.includes(genusNormalized)) {
+        if (!listingMatchesGenusFilter(listing, genusFilters)) {
           return false;
         }
 
@@ -1191,7 +1211,39 @@ const ScreenListing = ({navigation}) => {
     setIsInitialFetchRefresh(prev => !prev);
   };
 
+  const handleModalReset = () => {
+    switch (code) {
+      case 'SORT':
+        setReusableSort('');
+        break;
+      case 'GENUS':
+        setReusableGenus([]);
+        break;
+      case 'VARIEGATION':
+        setReusableVariegation([]);
+        break;
+      case 'LISTINGTYPE':
+        setReusableListingType([]);
+        break;
+      default:
+        break;
+    }
+  };
+
   const onPressFilter = pressCode => {
+    const filterLabelMap = {
+      SORT: 'Sort',
+      GENUS: 'Genus',
+      VARIEGATION: 'Variegation',
+      LISTINGTYPE: 'Listing Type',
+    };
+    const filterLabel = filterLabelMap[pressCode];
+
+    if (filterLabel && isFilterActive(filterLabel)) {
+      clearSpecificFilter(filterLabel);
+      return;
+    }
+
     setCode(pressCode);
     setShowSheet(true);
   };
@@ -2416,6 +2468,7 @@ const ScreenListing = ({navigation}) => {
         listingTypeValue={reusableListingType}
         listingTypeChange={setReusableListingType}
         handleSearchSubmit={handleFilterView}
+        clearFilters={handleModalReset}
       />
       <ListingActionSheet
         code={actionSheetCode}
