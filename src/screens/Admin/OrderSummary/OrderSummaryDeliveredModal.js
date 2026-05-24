@@ -15,6 +15,8 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import CloseIcon from '../../../assets/admin-icons/x.svg';
 import CheckBox from '../../../components/CheckBox/CheckBox';
 
+const UPS_TRACKING_MAX_LENGTH = 20;
+
 const OrderSummaryDeliveredModal = ({
   visible,
   onClose,
@@ -34,7 +36,7 @@ const OrderSummaryDeliveredModal = ({
 
   useEffect(() => {
     if (!visible) return;
-    setTrackingNumber(initialTracking || '');
+    setTrackingNumber(String(initialTracking || '').slice(0, UPS_TRACKING_MAX_LENGTH));
     setDeliveryDate(initialDeliveryDate || '');
     setDeliveryTime(initialDeliveryTime || '');
     setIsDelayed(Boolean(initialIsDelayed));
@@ -79,7 +81,10 @@ const OrderSummaryDeliveredModal = ({
             placeholder="e.g. 1Z999AA10123456784"
             placeholderTextColor="#7F8D91"
             value={trackingNumber}
-            onChangeText={setTrackingNumber}
+            onChangeText={(text) =>
+              setTrackingNumber(text.slice(0, UPS_TRACKING_MAX_LENGTH))
+            }
+            maxLength={UPS_TRACKING_MAX_LENGTH}
             autoCapitalize="characters"
             editable={!saving}
           />
