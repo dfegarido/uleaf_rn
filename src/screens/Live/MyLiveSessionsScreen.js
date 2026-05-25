@@ -253,6 +253,10 @@ const MyLiveSessionsScreen = ({ navigation }) => {
             try {
               if (isRequest) {
                 await deleteDoc(doc(db, 'liveRequests', item.id));
+                // Also delete the linked live session so buyers don't see an orphan
+                if (item.liveSessionId) {
+                  await deleteDoc(doc(db, 'live', item.liveSessionId));
+                }
               } else {
                 await deleteDoc(doc(db, 'live', item.id));
               }
@@ -311,8 +315,9 @@ const MyLiveSessionsScreen = ({ navigation }) => {
 
         // Update sessionData cover photo if changed
         if (newCoverPhoto) {
+          const { coverPhotoUrl, coverPhotoPath, ...restSessionData } = selectedSession.sessionData || {};
           updates.sessionData = {
-            ...(selectedSession.sessionData || {}),
+            ...restSessionData,
             coverPhoto: newCoverPhoto.base64,
             filename: newCoverPhoto.fileName,
             mimeType: newCoverPhoto.type,
@@ -325,7 +330,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           updates.reviewedAt = null;
           updates.reviewedBy = null;
           updates.rejectionReason = null;
-          updates.liveSessionId = null;
+          // Keep liveSessionId linked so re-approval updates the same doc instead of creating an orphan duplicate
         }
 
         await updateDoc(doc(db, 'liveRequests', selectedSession.id), updates);

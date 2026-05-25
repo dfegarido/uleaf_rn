@@ -2076,7 +2076,7 @@ const ScreenListing = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo?.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => navigation.navigate('LiveSellerScreen')}
+                onPress={() => navigation.navigate('MyLiveSessionsScreen')}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />  
                 {/* <LiveIcon width={40} height={40} />

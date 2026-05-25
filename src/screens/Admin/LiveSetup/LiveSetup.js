@@ -208,8 +208,9 @@ const LiveSetup = () => {
       };
 
       if (editPhoto) {
+        const { coverPhotoUrl, coverPhotoPath, ...restSessionData } = selectedRequest.sessionData || {};
         updates.sessionData = {
-          ...(selectedRequest.sessionData || {}),
+          ...restSessionData,
           coverPhoto: editPhoto.base64,
           filename: editPhoto.fileName,
           mimeType: editPhoto.type,

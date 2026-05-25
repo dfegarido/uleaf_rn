@@ -467,7 +467,7 @@ const ScreenOrder = ({navigation}) => {
           <View style={styles.headerIcons}>
             {userInfo.liveFlag != 'No' && (
               <TouchableOpacity
-                onPress={() => {}}
+                onPress={() => navigation.navigate('MyLiveSessionsScreen')}
                 style={styles.iconButton}>
                 <LiveIcon width={40} height={40} />
                 {/* <Text style={styles.liveTag}>LIVE</Text> */}

@@ -59,8 +59,8 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
         try {
           await sendLiveStartedNotificationApi({
             liveId: sessionId,
-            title: response?.title || '',
-            sellerId: response?.createdBy || '',
+            title: sessionDetails?.title || '',
+            sellerId: sessionDetails?.createdBy || '',
           });
         } catch (notifyError) {
           console.error('Failed to send live started notification:', notifyError.message);
