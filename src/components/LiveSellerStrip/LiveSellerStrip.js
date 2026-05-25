@@ -1,9 +1,35 @@
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import moment from 'moment';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
+
+const formatScheduledTime = (scheduledAt) => {
+  if (!scheduledAt) return 'Date TBD';
+  const date = scheduledAt.seconds ? new Date(scheduledAt.seconds * 1000) : new Date(scheduledAt);
+  const now = moment().startOf('day');
+  const target = moment(date).startOf('day');
+  if (target.isSame(now, 'day')) {
+    return `Today, ${moment(date).format('h:mmA')}`;
+  }
+  if (target.isSame(now.clone().add(1, 'day'), 'day')) {
+    return `Tomorrow, ${moment(date).format('h:mmA')}`;
+  }
+  return moment(date).format('MMM DD, h:mmA');
+};
+
+const getUpcomingBadgeText = (scheduledAt) => {
+  if (!scheduledAt) return 'Date TBD';
+  const targetMs = scheduledAt.seconds ? scheduledAt.seconds * 1000 : new Date(scheduledAt).getTime();
+  const diff = targetMs - Date.now();
+  if (diff <= 0) return 'Live now';
+  if (diff > 60 * 60 * 1000) return formatScheduledTime(scheduledAt);
+  const minutes = Math.floor(diff / 60000);
+  const seconds = Math.floor((diff % 60000) / 1000);
+  return `Live in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
 
 const CARD_WIDTH = 150;
 const CARD_HEIGHT = 220;
@@ -12,9 +38,14 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
   const blinkAnim = useRef(new Animated.Value(1)).current;
   const [elapsed, setElapsed] = useState(() => formatElapsedTime(stream.createdAt));
   const isWaiting = stream.status === 'waiting';
+  const isUpcoming = stream.status === 'draft';
+  const [upcomingText, setUpcomingText] = useState(() => getUpcomingBadgeText(stream.scheduledAt));
+
+  const scheduledMs = stream.scheduledAt?.seconds ? stream.scheduledAt.seconds * 1000 : 0;
+  const isCountdown = isUpcoming && scheduledMs > 0 && scheduledMs - Date.now() <= 60 * 60 * 1000;
 
   useEffect(() => {
-    if (isWaiting) return;
+    if (isWaiting || isUpcoming) return;
     const blink = Animated.loop(
       Animated.sequence([
         Animated.timing(blinkAnim, { toValue: 0.3, duration: 600, useNativeDriver: true }),
@@ -23,7 +54,7 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
     );
     blink.start();
     return () => blink.stop();
-  }, [blinkAnim, isWaiting]);
+  }, [blinkAnim, isWaiting, isUpcoming]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -31,6 +62,15 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
     }, 1000);
     return () => clearInterval(timer);
   }, [stream.createdAt]);
+
+  // Countdown tick for upcoming streams within 1 hour
+  useEffect(() => {
+    if (!isUpcoming || !stream.scheduledAt) return;
+    const interval = setInterval(() => {
+      setUpcomingText(getUpcomingBadgeText(stream.scheduledAt));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isUpcoming, stream.scheduledAt]);
 
   return (
     <TouchableOpacity
@@ -42,7 +82,11 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
           source={{ uri: stream.coverPhotoUrl }}
           style={styles.cardImage}
           imageStyle={styles.cardImageStyle}>
-          {isWaiting ? (
+          {isUpcoming ? (
+            <View style={[styles.upcomingBadge, isCountdown && styles.countdownBadge]}>
+              <Text style={[styles.upcomingBadgeText, isCountdown && styles.countdownBadgeText]}>{upcomingText}</Text>
+            </View>
+          ) : isWaiting ? (
             <View style={styles.waitingBadge}>
               <Text style={styles.waitingBadgeText}>Waiting</Text>
             </View>
@@ -55,7 +99,11 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
         </ImageBackground>
       ) : (
         <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-          {isWaiting ? (
+          {isUpcoming ? (
+            <View style={[styles.upcomingBadge, isCountdown && styles.countdownBadge]}>
+              <Text style={[styles.upcomingBadgeText, isCountdown && styles.countdownBadgeText]}>{upcomingText}</Text>
+            </View>
+          ) : isWaiting ? (
             <View style={styles.waitingBadge}>
               <Text style={styles.waitingBadgeText}>Waiting</Text>
             </View>
@@ -72,7 +120,7 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
         <Text style={styles.sellerName} numberOfLines={1}>
           {displayName}
         </Text>
-        <Text style={styles.elapsedTime}>{elapsed}</Text>
+        <Text style={styles.elapsedTime}>{isUpcoming ? upcomingText : elapsed}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -85,7 +133,7 @@ const LiveSellerStrip = ({ navigation }) => {
   useEffect(() => {
     const q = query(
       collection(db, 'live'),
-      where('status', 'in', ['live', 'waiting']),
+      where('status', 'in', ['live', 'waiting', 'draft']),
       orderBy('createdAt', 'desc'),
     );
 
@@ -96,6 +144,21 @@ const LiveSellerStrip = ({ navigation }) => {
           id: d.id,
           ...d.data(),
         }));
+
+        // Sort: live first, then waiting, then draft (by scheduledAt ascending)
+        streams.sort((a, b) => {
+          const statusOrder = { live: 0, waiting: 1, draft: 2 };
+          if (statusOrder[a.status] !== statusOrder[b.status]) {
+            return statusOrder[a.status] - statusOrder[b.status];
+          }
+          if (a.status === 'draft' && b.status === 'draft') {
+            const aTime = a.scheduledAt?.seconds || 0;
+            const bTime = b.scheduledAt?.seconds || 0;
+            return aTime - bTime;
+          }
+          return 0;
+        });
+
         setLiveStreams(streams);
         setLoading(false);
       },
@@ -151,7 +214,7 @@ const LiveSellerStrip = ({ navigation }) => {
       <View style={styles.titleRow}>
         <Text style={styles.sectionTitle}>Live Sales</Text>
         <TouchableOpacity
-          onPress={() => navigation.navigate('OngoingLiveListScreen')}
+          onPress={() => navigation.navigate('Live')}
           activeOpacity={0.6}>
           <Text style={styles.viewAllText}>View All</Text>
         </TouchableOpacity>
@@ -171,6 +234,11 @@ const LiveSellerStrip = ({ navigation }) => {
             onPress={() => {
               if (stream.status === 'waiting') {
                 Alert.alert('Waiting for the Broadcaster...');
+                return;
+              }
+              if (stream.status === 'draft') {
+                const time = formatScheduledTime(stream.scheduledAt);
+                Alert.alert('Upcoming Live', `This live is scheduled for ${time}. Come back then!`);
                 return;
               }
               navigation.navigate(
@@ -280,6 +348,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 12,
+    color: '#FFFFFF',
+  },
+  upcomingBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.64)',
+    borderRadius: 8,
+    zIndex: 1,
+  },
+  upcomingBadgeText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  countdownBadge: {
+    backgroundColor: '#E7522F',
+  },
+  countdownBadgeText: {
     color: '#FFFFFF',
   },
   cardInfo: {
