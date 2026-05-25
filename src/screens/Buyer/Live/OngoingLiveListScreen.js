@@ -73,7 +73,7 @@ const LiveVideoCard = ({ navigation, stream, cardWidth, index }) => {
           imageStyle={styles.thumbnailImage}>
           {stream.status === 'live' && (<View style={styles.topOverlay}>
             <View style={styles.liveStatusLeft}>
-              <LiveIcon width={16} height={16} />
+              <LiveIcon width={16} height={16} color="#FFFFFF" />
               <Text style={styles.liveLabel}>{stream.liveType === 'live' ? 'Live' : 'Live Purge'}</Text>
             </View>
             <View style={styles.viewersContainer}>

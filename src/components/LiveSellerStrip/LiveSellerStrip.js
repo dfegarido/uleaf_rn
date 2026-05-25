@@ -48,7 +48,7 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
             </View>
           ) : (
             <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
-              <LiveIcon width={14} height={14} />
+              <LiveIcon width={14} height={14} color="#FFFFFF" />
               <Text style={styles.liveBadgeText}>Live</Text>
             </Animated.View>
           )}
@@ -61,7 +61,7 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
             </View>
           ) : (
             <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
-              <LiveIcon width={14} height={14} />
+              <LiveIcon width={14} height={14} color="#FFFFFF" />
               <Text style={styles.liveBadgeText}>Live</Text>
             </Animated.View>
           )}

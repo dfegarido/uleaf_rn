@@ -16,6 +16,7 @@ import CheckoutScreen from '../../screens/Buyer/Checkout/CheckoutScreen';
 import { BuyerLiveStreamScreen } from '../../screens/Buyer/Live';
 import LiveScreen from '../../screens/Buyer/Live/LiveScreen'; // Disabled for now
 import OngoingLiveListScreen from '../../screens/Buyer/Live/OngoingLiveListScreen';
+import ScreenLiveSearch from '../../screens/Buyer/Live/ScreenLiveSearch';
 import UpcomingLiveListScreen from '../../screens/Buyer/Live/UpcomingLiveListScreen';
 import { OrderDetailsScreen } from '../../screens/Buyer/Orders';
 import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
@@ -110,17 +111,19 @@ const AnimatedLiveIcon = ({ focused, size }) => {
     return () => animation.stop();
   }, [isLive, focused, blinkAnim]);
 
+  if (focused) {
+    return <LiveIconSelected width={size} height={size} />;
+  }
+
   if (isLive) {
-    return ( 
-    <Animated.View style={{ opacity: blinkAnim }}>
-      <LiveIconSelected width={size} height={size} />
-    </Animated.View>
+    return (
+      <Animated.View style={{ opacity: blinkAnim }}>
+        <LiveIconSelected width={size} height={size} />
+      </Animated.View>
     );
   }
 
-  return (
-    <LiveIcon width={size} height={size} />
-  );
+  return <LiveIcon width={size} height={size} />;
 };
 
 // Placeholder component for Live tab
@@ -352,6 +355,11 @@ function BuyerTabNavigator() {
         options={{headerShown: false}}
       />
       <Stack.Screen
+        name="ScreenLiveSearch"
+        component={ScreenLiveSearch}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
         name="ScreenCartSearch"
         component={ScreenCartSearch}
         options={{headerShown: false}}
@@ -444,12 +452,6 @@ function BuyerTabs() {
         headerShown: false,
       })}>
       <Tab.Screen
-        listeners={({navigation}) => ({
-          tabPress: e => {
-            e.preventDefault();
-            navigation.navigate('LiveScreen');
-          },
-        })}
         name="Live"
         component={LiveScreen}
       />
