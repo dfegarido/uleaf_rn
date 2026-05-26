@@ -38,7 +38,7 @@ import BuyerFilter from '../../../components/Admin/buyerFilter';
 import ReceiverFilter from '../../../components/Admin/receiverFilter';
 import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
-import { getAdminLeafTrailFilters } from '../../../components/Api/getAdminLeafTrail';
+import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS } from './OrderSummaryStatusSheet';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
 
@@ -93,6 +93,7 @@ const filterTabs = [
   { label: 'Joiner', rightIcon: DownIcon },
   { label: 'Plant Flight', rightIcon: DownIcon },
   { label: 'Date Range', rightIcon: DownIcon },
+  { label: 'Leaf Trail', rightIcon: DownIcon },
 ];
 
 
@@ -142,6 +143,7 @@ const OrderSummary = ({navigation}) => {
     joiner: null,
     dateRange: null,
     plantFlight: [],
+    leafTrailStatus: null,
   });
   
   // Modal states
@@ -179,6 +181,9 @@ const OrderSummary = ({navigation}) => {
   const [flightModalVisible, setFlightModalVisible] = useState(false);
   const [flightDatesState, setFlightDatesState] = useState([]);
   const [flightDatesDraft, setFlightDatesDraft] = useState([]);
+
+  const [leafTrailModalVisible, setLeafTrailModalVisible] = useState(false);
+  const [leafTrailDraft, setLeafTrailDraft] = useState([]);
 
   const TABS = [
     {id: 'all', label: 'All', active: true, tabWidth: 56, contentWidth: 56, indicatorWidth: 56},
@@ -532,6 +537,9 @@ const OrderSummary = ({navigation}) => {
         plantFlight: selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0
           ? (Array.isArray(selectedFilters.plantFlight) ? selectedFilters.plantFlight.join(',') : selectedFilters.plantFlight)
           : undefined,
+        leafTrailStatus: selectedFilters.leafTrailStatus && selectedFilters.leafTrailStatus.length > 0
+          ? selectedFilters.leafTrailStatus.join(',')
+          : undefined,
       };
 
       const cleanedParams = Object.fromEntries(
@@ -605,6 +613,9 @@ const OrderSummary = ({navigation}) => {
         dateRange: selectedFilters.dateRange || undefined,
         plantFlight: selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0 
           ? (Array.isArray(selectedFilters.plantFlight) ? selectedFilters.plantFlight.join(',') : selectedFilters.plantFlight)
+          : undefined,
+        leafTrailStatus: selectedFilters.leafTrailStatus && selectedFilters.leafTrailStatus.length > 0
+          ? selectedFilters.leafTrailStatus
           : undefined,
       });
 
@@ -1119,6 +1130,8 @@ const OrderSummary = ({navigation}) => {
       setDateRangeModalVisible(true);
     } else if (filterLabel === 'Plant Flight') {
       setFlightModalVisible(true);
+    } else if (filterLabel === 'Leaf Trail') {
+      setLeafTrailModalVisible(true);
     }
   };
 
@@ -1158,6 +1171,10 @@ const OrderSummary = ({navigation}) => {
         break;
       case 'Plant Flight':
         setSelectedFilters((prev) => ({ ...prev, plantFlight: [] }));
+        break;
+      case 'Leaf Trail':
+        setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: null }));
+        setLeafTrailDraft([]);
         break;
       default:
         break;
@@ -1268,6 +1285,23 @@ const OrderSummary = ({navigation}) => {
     setFlightDatesDraft(arr);
   };
 
+  const handleLeafTrailChange = (values) => {
+    const arr = Array.isArray(values) ? values : [];
+    if (leafTrailModalVisible) {
+      setLeafTrailDraft(arr);
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: arr }));
+    }
+  };
+  const handleLeafTrailView = () => {
+    setSelectedFilters((prev) => ({
+      ...prev,
+      leafTrailStatus: Array.isArray(leafTrailDraft) ? leafTrailDraft : [],
+    }));
+    setLeafTrailModalVisible(false);
+    setCurrentPage(1);
+  };
+
   // Initialize drafts when modals open
   useEffect(() => {
     if (genusModalVisible) {
@@ -1286,6 +1320,16 @@ const OrderSummary = ({navigation}) => {
       setListingTypeDraft(Array.isArray(selectedFilters.listingType) ? selectedFilters.listingType.slice() : []);
     }
   }, [listingTypeModalVisible]);
+
+  useEffect(() => {
+    if (leafTrailModalVisible) {
+      setLeafTrailDraft(
+        Array.isArray(selectedFilters.leafTrailStatus)
+          ? selectedFilters.leafTrailStatus.slice()
+          : [],
+      );
+    }
+  }, [leafTrailModalVisible]);
 
   // Genus modal opened - data should already be pre-loaded
   useEffect(() => {
@@ -1376,6 +1420,8 @@ const OrderSummary = ({navigation}) => {
         return selectedFilters.dateRange !== null;
       case 'Plant Flight':
         return selectedFilters.plantFlight !== null && selectedFilters.plantFlight.length > 0;
+      case 'Leaf Trail':
+        return selectedFilters.leafTrailStatus !== null && selectedFilters.leafTrailStatus.length > 0;
       default:
         return false;
     }
@@ -1550,6 +1596,23 @@ const OrderSummary = ({navigation}) => {
             setVariegationDraft([]);
             setSelectedFilters((prev) => ({ ...prev, variegation: null }));
             setVariegationModalVisible(false);
+            setCurrentPage(1);
+          }}
+        />
+
+        {/* Leaf Trail Status Modal */}
+        <ReusableActionSheet
+          code="LEAFTRAIL"
+          visible={leafTrailModalVisible}
+          onClose={() => setLeafTrailModalVisible(false)}
+          leafTrailStatusOptions={ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS}
+          leafTrailStatusValue={leafTrailModalVisible ? leafTrailDraft : (selectedFilters.leafTrailStatus || [])}
+          leafTrailStatusChange={handleLeafTrailChange}
+          handleSearchSubmit={handleLeafTrailView}
+          clearFilters={() => {
+            setLeafTrailDraft([]);
+            setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: null }));
+            setLeafTrailModalVisible(false);
             setCurrentPage(1);
           }}
         />

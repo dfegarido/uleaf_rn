@@ -64,6 +64,9 @@ export const getAdminOrdersApi = async (filters = {}) => {
     if (filters.listingType && Array.isArray(filters.listingType) && filters.listingType.length > 0) {
       queryParams.append('listingType', filters.listingType.join(','));
     }
+    if (filters.leafTrailStatus && Array.isArray(filters.leafTrailStatus) && filters.leafTrailStatus.length > 0) {
+      queryParams.append('leafTrailStatus', filters.leafTrailStatus.join(','));
+    }
     
     // Handle single value filters
     if (filters.garden) queryParams.append('garden', filters.garden);

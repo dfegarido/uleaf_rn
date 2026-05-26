@@ -25,6 +25,23 @@ export const LEAF_TRAIL_STATUS_OPTIONS = [
   { label: 'Delivered', value: 'delivered' },
 ];
 
+/**
+ * Multi-select filter options for Admin Order Summary.
+ * Values match leafTrailStatus stored on order docs (verified against production Firestore).
+ */
+export const ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS = [
+  { label: 'Active', value: 'active' },
+  { label: 'For receiving', value: 'forReceiving' },
+  { label: 'Received', value: 'received' },
+  { label: 'Sorted', value: 'sorted' },
+  { label: 'Packed', value: 'packed' },
+  { label: 'Shipping', value: 'shipping' },
+  { label: 'Shipped', value: 'shipped' },
+  { label: 'Missing', value: 'missing' },
+  { label: 'Damaged', value: 'damaged' },
+  { label: 'Needs to stay', value: 'needsToStay' },
+];
+
 export const PLANT_STATUS_OPTIONS = [
   { label: 'Missing', value: 'missing' },
   { label: 'Damaged', value: 'damaged' },
