@@ -16,7 +16,11 @@ import BarcodeIcon from '../../../../assets/admin-icons/barcode.svg';
 import DimensionIcon from '../../../../assets/admin-icons/dimension.svg';
 import ScaleIcon from '../../../../assets/admin-icons/scale.svg';
 import FilterBar from '../../../../components/Admin/filter';
+import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import { getAdminLeafTrailFilters, getAdminLeafTrailShipped } from '../../../../components/Api/getAdminLeafTrail';
 
 const ShippedListItem = ({ item, navigation }) => (
@@ -72,6 +76,7 @@ const ShippedListItem = ({ item, navigation }) => (
 
 // --- MAIN SCREEN ---
 const ShippedScreen = ({navigation}) => {
+  const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [shippedData, setShippedData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -110,7 +115,13 @@ const ShippedScreen = ({navigation}) => {
       getFilters();
     }, []);
 
-  
+  const hubHeaderActions = useLeafTrailHubActions({
+    exportLines: [],
+    exportStageLabel: 'delivered-boxes',
+    printDisabled: true,
+    exportDisabled: true,
+  });
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.screenContainer} edges={['top']}>
@@ -122,14 +133,38 @@ const ShippedScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Tracking Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'Delivered'} search={true}/>
+        <ScreenHeader
+          onSearchChange={setSearchValue}
+          searchValue={searchValue}
+          onSearchSubmit={handleSearch}
+          searchPlaceholder="Search Tracking Number"
+          searchActive={searchActive}
+          onSearchPress={() => setSearchActive(!searchActive)}
+          navigation={navigation}
+          title={'Delivered'}
+          search={true}
+          printButton={!!hubSpecEnabled}
+          onPrint={hubHeaderActions.onPrint}
+          downloadCsv={!!hubSpecEnabled}
+          onDownloadCsv={hubHeaderActions.onExport}
+          downloadLoading={hubHeaderActions.exportLoading}
+          scarQr={hubSpecEnabled}
+          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipped}
+        />
         <FlatList
           data={shippedData?.data || []}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <ShippedListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
-              <FilterBar adminFilters={adminFilters} onFilterChange={fetchData}/>
+              {hubSpecEnabled ? (
+                <LeafTrailHubToolbar
+                  adminFilters={adminFilters}
+                  onFilterChange={fetchData}
+                />
+              ) : (
+                <FilterBar adminFilters={adminFilters} onFilterChange={fetchData} />
+              )}
               <Text style={styles.countText}>{shippedData?.total || 0} tracking number(s)</Text>
             </>
           }

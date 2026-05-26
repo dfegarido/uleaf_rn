@@ -13,7 +13,11 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray.svg';
 import FilterBar from '../../../../components/Admin/filter';
+import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import { getAdminLeafTrailFilters, getAdminLeafTrailPacking } from '../../../../components/Api/getAdminLeafTrail';
 
 const PackingListItem = ({ item, navigation }) => (
@@ -54,6 +58,7 @@ const PackingListItem = ({ item, navigation }) => (
 
 // --- MAIN SCREEN ---
 const PackingScreen = ({navigation}) => {
+  const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [packingData, setPackingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -92,6 +97,16 @@ const PackingScreen = ({navigation}) => {
       fetchData();
   }, []); // The empty array ensures this effect runs only once
 
+  const hubHeaderActions = useLeafTrailHubActions({
+    exportLines: [],
+    exportStageLabel: 'packing-trays',
+    onPrintPress: () => {},
+    printDisabled: true,
+    exportDisabled: false,
+    emptyPrintMessage: 'Open a tray to print plant barcodes.',
+    emptyExportMessage: 'Open a tray to export plant data.',
+  });
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.screenContainer} edges={['top']}>
@@ -103,14 +118,38 @@ const PackingScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Tray Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'Packing'} search={true} />
+        <ScreenHeader
+          onSearchChange={setSearchValue}
+          searchValue={searchValue}
+          onSearchSubmit={handleSearch}
+          searchPlaceholder="Search Tray Number"
+          searchActive={searchActive}
+          onSearchPress={() => setSearchActive(!searchActive)}
+          navigation={navigation}
+          title={'Packing'}
+          search={true}
+          printButton={!!hubSpecEnabled}
+          onPrint={hubHeaderActions.onPrint}
+          downloadCsv={!!hubSpecEnabled}
+          onDownloadCsv={hubHeaderActions.onExport}
+          downloadLoading={hubHeaderActions.exportLoading}
+          scarQr={hubSpecEnabled}
+          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.packing}
+        />
         <FlatList
           data={packingData?.data || {}}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <PackingListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
-              <FilterBar adminFilters={adminFilters} onFilterChange={fetchData}/>
+              {hubSpecEnabled ? (
+                <LeafTrailHubToolbar
+                  adminFilters={adminFilters}
+                  onFilterChange={fetchData}
+                />
+              ) : (
+                <FilterBar adminFilters={adminFilters} onFilterChange={fetchData} />
+              )}
               <Text style={styles.countText}>{packingData?.total || 0} tray(es)</Text>
             </>
           }

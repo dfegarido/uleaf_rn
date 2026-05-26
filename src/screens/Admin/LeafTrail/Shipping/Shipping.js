@@ -16,7 +16,11 @@ import CubeIcon from '../../../../assets/admin-icons/cube.svg';
 import DimensionIcon from '../../../../assets/admin-icons/dimension.svg';
 import ScaleIcon from '../../../../assets/admin-icons/scale.svg';
 import FilterBar from '../../../../components/Admin/filter';
+import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import { getAdminLeafTrailFilters, getAdminLeafTrailShipping } from '../../../../components/Api/getAdminLeafTrail';
 
 const ShippingListItem = ({ item, navigation }) => (
@@ -72,6 +76,7 @@ const ShippingListItem = ({ item, navigation }) => (
 
 // --- MAIN SCREEN ---
 const ShippingScreen = ({navigation}) => {
+  const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [shippingData, setShippingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -109,7 +114,16 @@ const ShippingScreen = ({navigation}) => {
       getFilters();
     }, []); // The empty array ensures this effect runs only once
 
-  
+  const hubHeaderActions = useLeafTrailHubActions({
+    exportLines: [],
+    exportStageLabel: 'in-transit-boxes',
+    onPrintPress: () => {},
+    printDisabled: true,
+    exportDisabled: false,
+    emptyPrintMessage: 'Open a box to print plant barcodes.',
+    emptyExportMessage: 'Open a box to export plant data.',
+  });
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.screenContainer} edges={['top']}>
@@ -121,15 +135,38 @@ const ShippingScreen = ({navigation}) => {
             </View>
           </Modal>
         )}
-        <ScreenHeader onSearchChange={setSearchValue} searchValue={searchValue} onSearchSubmit={handleSearch} searchPlaceholder="Search Box Number" searchActive={searchActive} onSearchPress={() => setSearchActive(!searchActive)} navigation={navigation} title={'In-Transit'} search={true}/>
+        <ScreenHeader
+          onSearchChange={setSearchValue}
+          searchValue={searchValue}
+          onSearchSubmit={handleSearch}
+          searchPlaceholder="Search Box Number"
+          searchActive={searchActive}
+          onSearchPress={() => setSearchActive(!searchActive)}
+          navigation={navigation}
+          title={'In-Transit'}
+          search={true}
+          printButton={!!hubSpecEnabled}
+          onPrint={hubHeaderActions.onPrint}
+          downloadCsv={!!hubSpecEnabled}
+          onDownloadCsv={hubHeaderActions.onExport}
+          downloadLoading={hubHeaderActions.exportLoading}
+          scarQr={hubSpecEnabled}
+          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipping}
+        />
         <FlatList
           data={shippingData?.data || {}}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <ShippingListItem item={item} navigation={navigation} />}
           ListHeaderComponent={
             <>
-              {/* 👇 Corrected: Added the FilterBar here */}
-              <FilterBar adminFilters={adminFilters} onFilterChange={fetchData}/>
+              {hubSpecEnabled ? (
+                <LeafTrailHubToolbar
+                  adminFilters={adminFilters}
+                  onFilterChange={fetchData}
+                />
+              ) : (
+                <FilterBar adminFilters={adminFilters} onFilterChange={fetchData} />
+              )}
               <Text style={styles.countText}>{shippingData?.total || 0} box(es)</Text>
             </>
           }

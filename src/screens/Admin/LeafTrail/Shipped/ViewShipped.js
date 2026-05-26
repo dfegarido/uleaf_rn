@@ -20,7 +20,14 @@ import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import MapPinIcon from '../../../../assets/admin-icons/map-pin.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { addLeafTrailShippingDetails, getOrdersByTrackingNumber } from '../../../../components/Api/getAdminLeafTrail';
+import {
+  addLeafTrailShippingDetails,
+  generateThermalLabels,
+  getOrdersByTrackingNumber,
+} from '../../../../components/Api/getAdminLeafTrail';
+import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
@@ -220,6 +227,7 @@ const PlantCard = ({ plant }) => {
 )};
 
 const ViewShippedScreen = ({ navigation, route }) => {
+  const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const { item } = route.params;
   const [plantList, setPlantList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -278,9 +286,38 @@ const ViewShippedScreen = ({ navigation, route }) => {
   const dimensions = shippedDetails?.packingData?.dimensions;
   const weight = shippedDetails?.packingData?.weight;
 
+  const handlePrintBarcodes = async () => {
+    if (!plantList.length) {
+      Alert.alert('Print', 'No plants to print.');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const response = await generateThermalLabels(plantList.map((p) => p.id));
+      if (!response?.success) {
+        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
+      }
+    } catch (e) {
+      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.screen}>
-      <Header title="Shipping Details" navigation={navigation} />
+      {hubSpecEnabled ? (
+        <LeafTrailDetailHeader
+          title="Shipping Details"
+          navigation={navigation}
+          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipped}
+          exportLines={plantList}
+          exportStageLabel="delivered-box"
+          onPrintPress={handlePrintBarcodes}
+        />
+      ) : (
+        <Header title="Shipping Details" navigation={navigation} />
+      )}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <TrackingInfo trackingNumber={shippedDetails.trackingNumber} label="Tracking Number" />
 

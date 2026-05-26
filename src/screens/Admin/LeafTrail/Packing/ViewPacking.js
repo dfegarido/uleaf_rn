@@ -18,7 +18,16 @@ import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { addLeafTrailBoxNumber, getOrdersBySortingTray, updateLeafTrailStatus, updatePlantsToNeedsToStay } from '../../../../components/Api/getAdminLeafTrail';
+import {
+  addLeafTrailBoxNumber,
+  generateThermalLabels,
+  getOrdersBySortingTray,
+  updateLeafTrailStatus,
+  updatePlantsToNeedsToStay,
+} from '../../../../components/Api/getAdminLeafTrail';
+import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import AssignBoxModal from './AssignBoxModal';
@@ -166,6 +175,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
 )};
 
 const ViewPackingScreen = ({ navigation, route }) => {
+  const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const { item } = route.params;
   const [selectedPlants, setSelectedPlants] = useState([]);
   const [plantList, setPlantList] = useState([]);
@@ -294,9 +304,39 @@ const ViewPackingScreen = ({ navigation, route }) => {
     setIsSelectionMode(false);
   };
 
+  const handlePrintBarcodes = async () => {
+    if (!plantList.length) {
+      Alert.alert('Print', 'No plants in this tray to print.');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const ids = selectedPlants.length > 0 ? selectedPlants : plantList.map((p) => p.id);
+      const response = await generateThermalLabels(ids);
+      if (!response?.success) {
+        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
+      }
+    } catch (e) {
+      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.screen}>
-      <Header title="Tray Details" navigation={navigation} />
+      {hubSpecEnabled ? (
+        <LeafTrailDetailHeader
+          title="Tray Details"
+          navigation={navigation}
+          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.packing}
+          exportLines={plantList}
+          exportStageLabel="packing-tray"
+          onPrintPress={handlePrintBarcodes}
+        />
+      ) : (
+        <Header title="Tray Details" navigation={navigation} />
+      )}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <TrayInfo trayNumber={packingDetails.sortingTrayNumber} label="Tray Number" />
 

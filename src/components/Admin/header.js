@@ -1,12 +1,13 @@
 import React from 'react';
-import { StyleSheet,
+import { ActivityIndicator,
+    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
-import DownloadIcon from '../../assets/admin-icons/download.svg';
+import DownloadIcon from '../../assets/icons/accent/download.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import SearchIcon from '../../assets/icons/greylight/magnifying-glass-regular';
 import PrintIcon from '../../assets/icons/greylight/printer.svg';
@@ -36,6 +37,8 @@ const ScreenHeader = ({
     selectedCount=0,
     onSelectAll,
     totalItemsCount=0,
+    onScanPress,
+    scanQrParams,
 }) => {
     return (
         <View style={styles.header}>
@@ -43,7 +46,11 @@ const ScreenHeader = ({
                 {selectionMode ? <CloseIcon /> : <BackSolidIcon />}
             </TouchableOpacity>
 
-            {!searchActive && !selectionMode && <Text style={styles.headerTitle}>{title}</Text>}
+            {!searchActive && !selectionMode && (
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                    {title}
+                </Text>
+            )}
             {selectionMode && <Text style={styles.headerTitle}>{selectedCount} selected</Text>}
 
             {searchActive && (
@@ -86,8 +93,9 @@ const ScreenHeader = ({
                     <TouchableOpacity 
                         style={styles.headerAction} 
                         onPress={onPrint}
+                        accessibilityLabel="Print barcode"
                     >
-                        <PrintIcon />
+                        <PrintIcon width={22} height={22} />
                     </TouchableOpacity>
                 )}
 
@@ -96,14 +104,28 @@ const ScreenHeader = ({
                         style={[styles.headerAction, downloadLoading && styles.headerActionDisabled]} 
                         onPress={onDownloadCsv}
                         disabled={downloadLoading}
+                        accessibilityLabel="Export data"
                     >
-                        <DownloadIcon style={downloadLoading && { opacity: 0.5 }} />
+                        {downloadLoading ? (
+                            <ActivityIndicator size="small" color="#539461" />
+                        ) : (
+                            <DownloadIcon width={22} height={22} />
+                        )}
                     </TouchableOpacity>
                 )}
 
                 {scarQr && !searchActive && (
-                    <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen')}>
-                        <ScanQrIcon />
+                    <TouchableOpacity
+                        style={styles.headerActionScan}
+                        onPress={() => {
+                            if (typeof onScanPress === 'function') {
+                                onScanPress();
+                                return;
+                            }
+                            navigation.navigate('LeafTrailScanQRAdminScreen', scanQrParams || {});
+                        }}
+                        accessibilityLabel="Scan QR code">
+                        <ScanQrIcon width={40} height={40} />
                     </TouchableOpacity>
                 )}
 
@@ -135,9 +157,11 @@ const styles = StyleSheet.create({
         height: 58,
     },
     headerTitle: {
+        flex: 1,
         fontSize: 18,
         fontWeight: '700',
         color: '#202325',
+        marginHorizontal: 8,
     },
     headerSearchInput: {
         flex: 1,
@@ -165,7 +189,8 @@ const styles = StyleSheet.create({
     rightActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 6,
+        flexShrink: 0,
     },
     selectAllButton: {
         paddingHorizontal: 12,
@@ -187,6 +212,13 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#CDD3D4',
         borderRadius: 12,
+    },
+    /** Scan uses qr.svg’s built-in rounded rect — no extra TouchableOpacity border. */
+    headerActionScan: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerActionDisabled: {
         opacity: 0.5,

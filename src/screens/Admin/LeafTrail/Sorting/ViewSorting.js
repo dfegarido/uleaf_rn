@@ -1,5 +1,5 @@
 import moment from 'moment';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   FlatList,
@@ -19,11 +19,20 @@ import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import { addSortingTrayNumber, updateLeafTrailStatus, updatePlantsToSorted, updatePlantsToNeedsToStay} from '../../../../components/Api/getAdminLeafTrail';
+import {
+  addSortingTrayNumber,
+  generateThermalLabels,
+  updateLeafTrailStatus,
+  updatePlantsToSorted,
+  updatePlantsToNeedsToStay,
+} from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import SelectionModal from './SelectionModal';
+import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 
 const Header = ({ title, navigation }) => (
   <View style={styles.headerContainer}>
@@ -304,7 +313,7 @@ const MissingPlantsTab = ({itemDetails, openTagAs}) => (
 
 // --- Main Screen Component ---
 const SortingDetailsScreen = ({ navigation, route }) => {
-  
+  const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [index, setIndex] = useState(0);
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
   const [journeyMishapCount, setJourneyMishapCount] = useState(itemDetails?.journeyMishapCount || 0);
@@ -330,6 +339,16 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlants, setSelectedPlants] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  const exportLines = useMemo(
+    () => [
+      ...(receivedPlantsData || []),
+      ...(sortedPlantsData || []),
+      ...(missingPlantsData || []),
+      ...(needsToStayPlantsData || []),
+    ],
+    [receivedPlantsData, sortedPlantsData, missingPlantsData, needsToStayPlantsData],
+  );
 
   const openTagAs = (status, id) => {
     setIsMissing(status.isMissing);
@@ -465,9 +484,44 @@ const SortingDetailsScreen = ({ navigation, route }) => {
 
   }
 
+  const handlePrintBarcodes = async () => {
+    if (!exportLines.length) {
+      Alert.alert('Print', 'No plants to print on this receiver.');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const ids =
+        selectedPlants.length > 0
+          ? selectedPlants
+          : exportLines.map((p) => p.id).filter(Boolean);
+      const response = await generateThermalLabels(ids);
+      if (!response?.success) {
+        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
+      } else if (response?.labels?.length) {
+        Alert.alert('Success', `Generated ${response.labels.length} label(s).`);
+      }
+    } catch (e) {
+      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.screen}>
-      <Header title="Receiver's Details" navigation={navigation} />
+      {hubSpecEnabled ? (
+        <LeafTrailDetailHeader
+          title="Receiver's Details"
+          navigation={navigation}
+          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.sorting}
+          exportLines={exportLines}
+          exportStageLabel="sorting-box"
+          onPrintPress={handlePrintBarcodes}
+        />
+      ) : (
+        <Header title="Receiver's Details" navigation={navigation} />
+      )}
       {/* The main content that scrolls behind the tabs */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <UserProfile user={{

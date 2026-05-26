@@ -22,6 +22,7 @@ import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import { getAdminScanQr, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
@@ -57,7 +58,8 @@ const ScanQRScreen = ({ navigation, route }) => {
   const [buttomData, setButtomData] = useState("scan");
   const [isScanning, setIsScanning] = useState(false);
   const [plantData, setPlantData] = useState();
-  const { leafTrailStatus=null } = route.params || {};
+  const { leafTrailStatus = null, intakeMode: intakeModeParam = false } = route.params || {};
+  const intakeMode = intakeModeParam === true && isLeafTrailHubSpecEnabled();
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const pressInTimeout = useRef(null);
   const isLongPress = useRef(false);
@@ -140,6 +142,13 @@ const ScanQRScreen = ({ navigation, route }) => {
     setTagAsVisible(!isTagAsVisible);
   }
 
+  const resetForNextScan = () => {
+    setPlantData(null);
+    setLatestScannedData(null);
+    setButtomData('scan');
+    setIsScanning(false);
+  };
+
   const setTagAs = async (status) => {
       setIsLoading(true);
       setTagAsVisible(!isTagAsVisible);
@@ -197,12 +206,12 @@ const ScanQRScreen = ({ navigation, route }) => {
         {buttomData === 'scan' && (
           <View style={styles.bottomSheet}>
             <View style={styles.titleContainer}>
-              <Text style={styles.titleText}>Scan QR Code</Text>
+              <Text style={styles.titleText}>
+                {intakeMode ? 'Receive plant' : 'Scan QR Code'}
+              </Text>
             </View>
             <View style={styles.noteContainer}>
-              <Text style={styles.noteText}>
-                Align the QR Code with the camera.
-              </Text>
+              <Text style={styles.noteText}>Align the QR Code with the camera.</Text>
             </View>
           </View>
         )}
@@ -240,8 +249,33 @@ const ScanQRScreen = ({ navigation, route }) => {
             <View style={styles.contentInnerContainer}>
               {/* Title */}
               <View style={styles.titleSection}>
-                <Text style={styles.titleText}>Scan Success!</Text>
+                <Text style={styles.titleText}>
+                  {intakeMode &&
+                  String(plantData?.leafTrailStatus || '').toLowerCase() === 'received'
+                    ? 'Marked as Received'
+                    : 'Scan Success!'}
+                </Text>
               </View>
+
+              {intakeMode &&
+                String(plantData?.leafTrailStatus || '').toLowerCase() !== 'received' && (
+                <View style={styles.intakeWarningBox}>
+                  <Text style={styles.intakeWarningText}>
+                    This plant is not in For Receiving (current status: {plantData?.leafTrailStatus || 'unknown'}).
+                  </Text>
+                </View>
+              )}
+
+              {intakeMode && (
+                <View style={styles.intakeActionRow}>
+                  <TouchableOpacity style={styles.intakeSecondaryButton} onPress={resetForNextScan}>
+                    <Text style={styles.intakeSecondaryButtonText}>Scan next</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.intakePrimaryButton} onPress={() => navigation.goBack()}>
+                    <Text style={styles.intakePrimaryButtonText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Details Section */}
               <View style={styles.detailsSection}>
@@ -326,9 +360,11 @@ const ScanQRScreen = ({ navigation, route }) => {
                                     <Text style={styles.plantCountryText}>{plantData?.countryCode || ''}</Text>
                                     <CountryFlagIcon code={plantData?.countryCode || ''} width={24} height={16} />
                                 </View>
-                                <TouchableOpacity onPress={openTagAs}>
-                                                            <OptionsIcon />
-                                                          </TouchableOpacity>
+                                {!intakeMode ? (
+                                  <TouchableOpacity onPress={openTagAs}>
+                                    <OptionsIcon />
+                                  </TouchableOpacity>
+                                ) : null}
                             </View>
                             <Text style={styles.plantGenus}>{plantData?.genus || ''}</Text>
                             <View style={styles.plantVariegationSize}>
@@ -770,6 +806,52 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 14,
     color: '#647276',
+  },
+  intakeWarningBox: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFF3E0',
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  intakeWarningText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#E65100',
+  },
+  intakeActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  intakePrimaryButton: {
+    flex: 1,
+    backgroundColor: '#23C16B',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  intakePrimaryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  intakeSecondaryButton: {
+    flex: 1,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#23C16B',
+  },
+  intakeSecondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1B7A43',
   },
 });
 

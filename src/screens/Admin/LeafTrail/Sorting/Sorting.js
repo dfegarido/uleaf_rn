@@ -14,7 +14,11 @@ import { ActivityIndicator,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import FilterBar from '../../../../components/Admin/filter';
+import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import { getAdminLeafTrailFilters, getAdminLeafTrailSorting } from '../../../../components/Api/getAdminLeafTrail';
 
 // --- REUSABLE COMPONENTS (unchanged) ---
@@ -64,6 +68,7 @@ const ListItem = ({ item, navigation}) => (
 
 // --- MAIN SCREEN COMPONENT (Updated) ---
 const SortingScreen = ({navigation}) => {
+  const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [sortingData, setSortingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,6 +107,16 @@ const SortingScreen = ({navigation}) => {
        fetchData(filters);
   }
 
+  const hubHeaderActions = useLeafTrailHubActions({
+    exportLines: [],
+    exportStageLabel: 'sorting-receivers',
+    onPrintPress: () => {},
+    printDisabled: true,
+    exportDisabled: false,
+    emptyPrintMessage: 'Open a receiver to print plant barcodes.',
+    emptyExportMessage: 'Open a receiver to export plant data.',
+  });
+
   return (
     // SafeAreaView ensures content is within the screen's safe boundaries, avoiding notches and the status bar.
     <SafeAreaView style={styles.screenContainer}>
@@ -117,7 +132,17 @@ const SortingScreen = ({navigation}) => {
           </View>
         </Modal>
       )}
-      <ScreenHeader navigation={navigation} title={'Plant Sorting'} />
+      <ScreenHeader
+        navigation={navigation}
+        title={'Plant Sorting'}
+        printButton={!!hubSpecEnabled}
+        onPrint={hubHeaderActions.onPrint}
+        downloadCsv={!!hubSpecEnabled}
+        onDownloadCsv={hubHeaderActions.onExport}
+        downloadLoading={hubHeaderActions.exportLoading}
+        scarQr={hubSpecEnabled}
+        scanQrParams={LEAF_TRAIL_SCAN_PARAMS.sorting}
+      />
       
       <FlatList
         data={sortingData?.data || []}
@@ -125,8 +150,14 @@ const SortingScreen = ({navigation}) => {
         keyExtractor={item => item.id}
         ListHeaderComponent={
           <>
-            {/* 👇 Corrected: Added the FilterBar here */}
-            <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+            {hubSpecEnabled ? (
+              <LeafTrailHubToolbar
+                adminFilters={adminFilters}
+                onFilterChange={onFilterChange}
+              />
+            ) : (
+              <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+            )}
             <Text style={styles.countText}>{sortingData?.total || 0} receiver(s)</Text>
           </>
         }

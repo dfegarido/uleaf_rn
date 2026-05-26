@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
 import moment from 'moment';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { ActivityIndicator,
     Alert,
     FlatList,
@@ -27,7 +28,9 @@ import ReceivedIcon from '../../../../assets/admin-icons/received.svg';
 import CheckedBoxIcon from '../../../../assets/admin-icons/checked-box.svg';
 import DownloadIcon from '../../../../assets/admin-icons/download.svg';
 import FilterBar from '../../../../components/Admin/filter';
+import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
+import { isLeafTrailHubSpecEnabled, isTrail1ForReceivingEnabled } from '../../../../config/featureFlags';
 import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus, generateThermalLabels, emailThermalLabels } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
@@ -35,62 +38,13 @@ import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
 import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
 import { parseAdminFlightDateTokenToIso } from '../../../../components/Admin/plantFlightFilter';
-
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** Resolve plant flight to YYYY-MM-DD (calendar day, not UTC-shifted). */
-function resolvePlantFlightDateIso(value) {
-  if (value == null || value === '') return null;
-  if (typeof value === 'string') {
-    const s = value.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-    const mmm = s.match(/^([A-Za-z]{3})-(\d{1,2})-(\d{4})$/);
-    if (mmm) {
-      const monthMap = {
-        jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-        jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
-      };
-      const mi = monthMap[mmm[1].slice(0, 3).toLowerCase()];
-      if (mi) {
-        const y = parseInt(mmm[3], 10);
-        const d = parseInt(mmm[2], 10);
-        return `${y}-${String(mi).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      }
-    }
-    return null;
-  }
-  if (typeof value === 'object') {
-    let dateObj = null;
-    if (typeof value.toDate === 'function') {
-      dateObj = value.toDate();
-    } else {
-      const sec = value.seconds ?? value._seconds;
-      if (typeof sec === 'number') dateObj = new Date(sec * 1000);
-    }
-    if (dateObj && !Number.isNaN(dateObj.getTime())) {
-      const y = dateObj.getUTCFullYear();
-      const mo = dateObj.getUTCMonth() + 1;
-      const da = dateObj.getUTCDate();
-      return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
-    }
-  }
-  return null;
-}
-
-/** Plant flight is a calendar date — format without UTC/Eastern day rollback (May 2 stays May 2). */
-function formatPlantFlightDateForDisplay(value) {
-  const iso = resolvePlantFlightDateIso(value);
-  if (!iso) return typeof value === 'string' ? String(value) : '';
-  const [y, mo, da] = iso.split('-').map(Number);
-  return `${MONTH_LABELS[mo - 1]} ${da}, ${y}`;
-}
-
-/** Date Ordered label comes from API only (same source as date-range filter). */
-function getDateOrderedDatePart(item) {
-  if (item?.dateOrdered) return String(item.dateOrdered).trim();
-  return '';
-}
+import ForReceivingPlantCard from './ForReceivingPlantCard';
+import {
+  formatPlantFlightDateForDisplay,
+  getDateOrderedDatePart,
+} from './receivingPlantFormatters';
+import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
+import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 
 /** getAdminFilters `statuses` query per Receiving tab (JSON string). */
 const ADMIN_FILTER_STATUSES_BY_TAB = {
@@ -280,16 +234,37 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
 
 // --- TAB SCREENS ---
 
-const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs, selectionMode, selectedItems, onToggleSelect}) => {
+const ForReceivingTab = ({
+    data,
+    onFilterChange,
+    adminFilters,
+    openTagAs,
+    selectionMode,
+    selectedItems,
+    onToggleSelect,
+    trail1IntakeMode,
+    hubSpecEnabled,
+}) => {
+    const listHeaderPrefix = (
+        <>
+            {hubSpecEnabled ? (
+                <LeafTrailHubToolbar
+                    adminFilters={adminFilters}
+                    onFilterChange={onFilterChange}
+                    showReceiptStatus={!trail1IntakeMode}
+                />
+            ) : (
+                <FilterBar showScan={!trail1IntakeMode} onFilterChange={onFilterChange} adminFilters={adminFilters} />
+            )}
+            <Text style={styles.countText}>{data?.total ?? 0} plant(s)</Text>
+        </>
+    );
+
     if (!(data?.data) || data.data.length === 0) {   
         return (
             <>
                 <FlatList
-                    ListHeaderComponent={
-                    <>
-                        <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters}/>
-                        <Text style={styles.countText}>{data.total} plant(s)</Text>
-                    </>}
+                    ListHeaderComponent={listHeaderPrefix}
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                     contentContainerStyle={styles.listContentContainer}
                     ListFooterComponent={
@@ -306,26 +281,28 @@ const ForReceivingTab = ({data, onFilterChange, adminFilters, openTagAs, selecti
                 data={data.data}
                 keyExtractor={item => item.id}
                 renderItem={({ item }) => (
-                    <PlantListItem 
-                        openTagAs={openTagAs} 
-                        item={item} 
-                        type="forReceiving"
+                    <ForReceivingPlantCard
+                        openTagAs={openTagAs}
+                        item={item}
                         selectionMode={selectionMode}
                         isSelected={(selectedItems || []).includes(item.id)}
                         onToggleSelect={onToggleSelect}
+                        compact={trail1IntakeMode}
                     />
                 )}
-                ListHeaderComponent={
-                <>
-                    <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={adminFilters}/>
-                    <Text style={styles.countText}>{data.total} plant(s)</Text>
-                </>}
-                ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-                contentContainerStyle={styles.listContentContainer}
+                ListHeaderComponent={listHeaderPrefix}
+                ItemSeparatorComponent={() => <View style={{height: 10}} />}
+                contentContainerStyle={styles.forReceivingListContent}
             />
 )};
 
-const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+const ReceivedTab = ({
+    data,
+    onFilterChange,
+    adminFilters,
+    openTagAs,
+    hubSpecEnabled,
+}) => {
     // Sort buyers alphabetically by name for the Received tab only
     const sortedAdminFilters = React.useMemo(() => {
         if (!adminFilters) return adminFilters;
@@ -348,7 +325,20 @@ const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
         return (
             <>
                 <FlatList
-                    ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ListHeaderComponent={
+                        <>
+                            {hubSpecEnabled ? (
+                                <LeafTrailHubToolbar
+                                    adminFilters={sortedAdminFilters}
+                                    onFilterChange={onFilterChange}
+                                    showReceiptStatus
+                                />
+                            ) : (
+                                <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
+                            )}
+                            <Text style={styles.countText}>{data.total} plant(s)</Text>
+                        </>
+                    }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                     contentContainerStyle={styles.listContentContainer}
                     ListFooterComponent={
@@ -365,19 +355,69 @@ const ReceivedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="received" />}
-        ListHeaderComponent={<><FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={
+            <>
+                {hubSpecEnabled ? (
+                    <LeafTrailHubToolbar
+                        adminFilters={sortedAdminFilters}
+                        onFilterChange={onFilterChange}
+                        showReceiptStatus
+                    />
+                ) : (
+                    <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
+                )}
+                <Text style={styles.countText}>{data.total} plant(s)</Text>
+            </>
+        }
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 )};
 
-const InventoryForHubTab = ({data, onFilterChange, adminFilters, openTagAs, selectionMode, selectedItems, onToggleSelect}) => {
+const ReceivingTabListHeader = ({
+    hubSpecEnabled,
+    onFilterChange,
+    adminFilters,
+    showLegacyScan,
+    total,
+}) => (
+    <>
+        {hubSpecEnabled ? (
+            <LeafTrailHubToolbar
+                adminFilters={adminFilters}
+                onFilterChange={onFilterChange}
+                showReceiptStatus={showLegacyScan}
+            />
+        ) : (
+            <FilterBar showScan={showLegacyScan} onFilterChange={onFilterChange} adminFilters={adminFilters} />
+        )}
+        <Text style={styles.countText}>{total ?? 0} plant(s)</Text>
+    </>
+);
+
+const InventoryForHubTab = ({
+    data,
+    onFilterChange,
+    adminFilters,
+    openTagAs,
+    selectionMode,
+    selectedItems,
+    onToggleSelect,
+    hubSpecEnabled,
+}) => {
     
     if (!(data?.data) || data.data.length === 0) {   
         return (
             <>
                 <FlatList
-                    ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ListHeaderComponent={
+                        <ReceivingTabListHeader
+                            hubSpecEnabled={hubSpecEnabled}
+                            onFilterChange={onFilterChange}
+                            adminFilters={adminFilters}
+                            total={data.total}
+                        />
+                    }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                     contentContainerStyle={styles.listContentContainer}
                     ListFooterComponent={
@@ -403,19 +443,33 @@ const InventoryForHubTab = ({data, onFilterChange, adminFilters, openTagAs, sele
                 onToggleSelect={onToggleSelect}
             />
         )}
-        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={
+            <ReceivingTabListHeader
+                hubSpecEnabled={hubSpecEnabled}
+                onFilterChange={onFilterChange}
+                adminFilters={adminFilters}
+                total={data.total}
+            />
+        }
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 )};
 
-const MissingTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+const MissingTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabled}) => {
     
     if (!(data?.data) || data.data.length === 0) {   
         return (
             <>
                 <FlatList
-                    ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ListHeaderComponent={
+                        <ReceivingTabListHeader
+                            hubSpecEnabled={hubSpecEnabled}
+                            onFilterChange={onFilterChange}
+                            adminFilters={adminFilters}
+                            total={data.total}
+                        />
+                    }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                     contentContainerStyle={styles.listContentContainer}
                     ListFooterComponent={<View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
@@ -431,18 +485,32 @@ const MissingTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="missing" />}
-        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={
+            <ReceivingTabListHeader
+                hubSpecEnabled={hubSpecEnabled}
+                onFilterChange={onFilterChange}
+                adminFilters={adminFilters}
+                total={data.total}
+            />
+        }
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 )};
 
-const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
+const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabled}) => {
     if (!(data?.data) || data.data.length === 0) {   
         return (
             <>
                 <FlatList
-                    ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+                    ListHeaderComponent={
+                        <ReceivingTabListHeader
+                            hubSpecEnabled={hubSpecEnabled}
+                            onFilterChange={onFilterChange}
+                            adminFilters={adminFilters}
+                            total={data.total}
+                        />
+                    }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                     contentContainerStyle={styles.listContentContainer}
                     ListFooterComponent={
@@ -461,21 +529,35 @@ const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs}) => {
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="damaged" />}
-        ListHeaderComponent={<><FilterBar onFilterChange={onFilterChange} adminFilters={adminFilters} /><Text style={styles.countText}>{data.total} plant(s)</Text></>}
+        ListHeaderComponent={
+            <ReceivingTabListHeader
+                hubSpecEnabled={hubSpecEnabled}
+                onFilterChange={onFilterChange}
+                adminFilters={adminFilters}
+                total={data.total}
+            />
+        }
         ItemSeparatorComponent={() => <View style={{height: 6}}/>}
         contentContainerStyle={styles.listContentContainer}
     />
 )};
 
+const DEFAULT_RECEIVING_ROUTES = [
+    { key: 'forReceiving', title: 'For Receiving' },
+    { key: 'inventoryForHub', title: ' Inventory for Hub' },
+    { key: 'received', title: 'Received' },
+    { key: 'missing', title: 'Missing' },
+    { key: 'damaged', title: 'Damaged' },
+];
+
 const ReceivingScreen = ({navigation}) => {
+    const hubSpecEnabled = isLeafTrailHubSpecEnabled();
+    const trail1IntakeMode = isTrail1ForReceivingEnabled();
     const [index, setIndex] = useState(0);
-    const [routes] = useState([
-        { key: 'forReceiving', title: 'For Receiving' },
-        { key: 'inventoryForHub', title: ' Inventory for Hub' },
-        { key: 'received', title: 'Received' },
-        { key: 'missing', title: 'Missing' },
-        { key: 'damaged', title: 'Damaged' },
-    ]);
+    const routes = useMemo(
+        () => (trail1IntakeMode ? [DEFAULT_RECEIVING_ROUTES[0]] : DEFAULT_RECEIVING_ROUTES),
+        [trail1IntakeMode],
+    );
     const [receivingData, setReceivingData] = useState(null);
     const [adminFilters, setAdminFilters] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -543,9 +625,18 @@ const ReceivingScreen = ({navigation}) => {
             }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, []),
+    );
+
+    const openLeafTrailScan = useCallback(() => {
+        const params = trail1IntakeMode
+            ? LEAF_TRAIL_SCAN_PARAMS.receivingIntake
+            : LEAF_TRAIL_SCAN_PARAMS.receiving;
+        navigation.navigate('LeafTrailScanQRAdminScreen', params);
+    }, [navigation, trail1IntakeMode]);
 
     const onFilterChange = (filters) => {
          fetchData(filters);
@@ -590,9 +681,11 @@ const ReceivingScreen = ({navigation}) => {
                     onFilterChange={onFilterChange} 
                     data={receivingData?.forReceiving || {}} 
                     adminFilters={adminFiltersForActiveTab}
-                    selectionMode={selectionMode}
+                    selectionMode={trail1IntakeMode ? false : selectionMode}
                     selectedItems={selectedItems}
                     onToggleSelect={handleToggleSelect}
+                    trail1IntakeMode={trail1IntakeMode}
+                    hubSpecEnabled={hubSpecEnabled}
                 />;
             case 'inventoryForHub':
                 return <InventoryForHubTab 
@@ -603,13 +696,38 @@ const ReceivingScreen = ({navigation}) => {
                     selectionMode={selectionMode}
                     selectedItems={selectedItems}
                     onToggleSelect={handleToggleSelect}
+                    hubSpecEnabled={hubSpecEnabled}
                 />;
             case 'received':
-                return <ReceivedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.received || {}} adminFilters={adminFiltersForActiveTab} />;
+                return (
+                    <ReceivedTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.received || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                        hubSpecEnabled={hubSpecEnabled}
+                    />
+                );
             case 'missing':
-                return <MissingTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.missing || {}} adminFilters={adminFiltersForActiveTab} />;
+                return (
+                    <MissingTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.missing || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                        hubSpecEnabled={hubSpecEnabled}
+                    />
+                );
             case 'damaged':
-                return <DamagedTab openTagAs={openTagAs} onFilterChange={onFilterChange} data={receivingData?.damaged || {}} adminFilters={adminFiltersForActiveTab} />;
+                return (
+                    <DamagedTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.damaged || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                        hubSpecEnabled={hubSpecEnabled}
+                    />
+                );
             default:
                 return null;
         }
@@ -649,6 +767,31 @@ const ReceivingScreen = ({navigation}) => {
     }
 
     const handlePrint = async () => {
+        if (trail1IntakeMode && routes[index]?.key === 'forReceiving') {
+            const ids = (getCurrentTabData()?.data || []).map((p) => p.id).filter(Boolean);
+            if (!ids.length) {
+                Alert.alert('No plants', 'There are no plants in this list to print.');
+                return;
+            }
+            try {
+                setLoadingMessage('Generating your labels, please wait...');
+                setIsLoading(true);
+                const response = await generateThermalLabels(ids);
+                if (response.success && response.labels) {
+                    setGeneratedLabels(response.labels);
+                    setShowLabelViewer(true);
+                } else {
+                    Alert.alert('Error', response.message || 'Failed to generate thermal labels');
+                }
+            } catch (error) {
+                console.error('Error generating thermal labels:', error);
+                Alert.alert('Error', error.message || 'Failed to generate thermal labels');
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
         if (selectionMode) {
             // Generate thermal labels for selected items
             if (selectedItems.length > 0) {
@@ -731,6 +874,22 @@ const ReceivingScreen = ({navigation}) => {
         const currentTabData = getCurrentTabData();
         return currentTabData?.data?.length || 0;
     };
+
+    const hubExportLines = getCurrentTabData()?.data || [];
+    const hubTabKey = routes[index]?.key || 'forReceiving';
+    const hubPrintOnHeader =
+        hubSpecEnabled &&
+        (trail1IntakeMode ? index === 0 : index === 0 || index === 1);
+    const hubHeaderActions = useLeafTrailHubActions({
+        exportLines: hubSpecEnabled ? hubExportLines : [],
+        exportStageLabel: hubTabKey,
+        onPrintPress: handlePrint,
+        printDisabled: !hubPrintOnHeader,
+        exportDisabled: !hubSpecEnabled,
+        emptyPrintMessage:
+            'Print is available on For Receiving and Received tabs, or open a plant list with plants.',
+        emptyExportMessage: 'No plants to export on this tab. Try another tab or adjust filters.',
+    });
 
     const downloadAllLabels = async () => {
         try {
@@ -876,10 +1035,19 @@ const ReceivingScreen = ({navigation}) => {
                 </Modal>
                 <ScreenHeader 
                     navigation={navigation} 
-                    printButton={index === 0 || index === 1} 
-                    onPrint={handlePrint} 
-                    scarQr={!selectionMode} 
-                    title={'Receiving of Plants'}
+                    printButton={
+                        hubSpecEnabled
+                            ? true
+                            : !trail1IntakeMode && (index === 0 || index === 1)
+                    }
+                    onPrint={hubSpecEnabled ? hubHeaderActions.onPrint : handlePrint}
+                    downloadCsv={!!hubSpecEnabled}
+                    onDownloadCsv={hubHeaderActions.onExport}
+                    downloadLoading={hubHeaderActions.exportLoading}
+                    scarQr={!selectionMode}
+                    onScanPress={hubSpecEnabled ? openLeafTrailScan : undefined}
+                    scanQrParams={hubSpecEnabled ? undefined : LEAF_TRAIL_SCAN_PARAMS.receiving}
+                    title={trail1IntakeMode ? 'For Receiving' : 'Receiving of Plants'}
                     selectionMode={selectionMode}
                     onCancelSelection={handleCancelSelection}
                     selectedCount={selectedItems.length}
@@ -891,14 +1059,15 @@ const ReceivingScreen = ({navigation}) => {
                     renderScene={renderScene}
                     onIndexChange={(newIndex) => {
                         setIndex(newIndex);
-                        // Update filters based on the new tab
-                        tabChange(newIndex);
+                        if (!trail1IntakeMode) {
+                            tabChange(newIndex);
+                        }
                         // Clear selection mode when switching tabs
                         if (selectionMode) {
                             handleCancelSelection();
                         }
                     }}
-                    renderTabBar={renderTabBar}
+                    renderTabBar={trail1IntakeMode ? () => null : renderTabBar}
                 />
             </SafeAreaView>
 
@@ -959,6 +1128,11 @@ const styles = StyleSheet.create({
     listContentContainer: {
         paddingHorizontal: 15,
         paddingBottom: 40
+    },
+    forReceivingListContent: {
+        paddingHorizontal: 12,
+        paddingBottom: 40,
+        paddingTop: 4,
     },
     countText: {
         textAlign: 'right',
