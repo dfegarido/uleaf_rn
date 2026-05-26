@@ -1048,6 +1048,35 @@ const AppNavigation = () => {
     }
   }, []);
 
+  const flushPendingLiveNavigation = useCallback(() => {
+    try {
+      const nav = navigationRef.current;
+      if (!nav || (typeof nav.isReady === 'function' && !nav.isReady())) {
+        return;
+      }
+      const state = deepLinkStateRef.current;
+      if (!state.isLoggedIn || state.fallbackTriggered) {
+        return;
+      }
+      if (!state.isBuyer && !state.isAdmin) {
+        return;
+      }
+
+      AsyncStorage.getItem('pendingLiveSessionId').then(sessionId => {
+        if (!sessionId) return;
+        AsyncStorage.getItem('pendingLiveSellerId').then(sellerId => {
+          AsyncStorage.removeItem('pendingLiveSessionId').catch(() => {});
+          AsyncStorage.removeItem('pendingLiveSellerId').catch(() => {});
+          nav.dispatch(
+            StackActions.push('BuyerLiveStreamScreen', { sessionId, broadcasterId: sellerId || '' }),
+          );
+        });
+      });
+    } catch (e) {
+      console.warn('[DeepLink] flushPendingLiveNavigation:', e);
+    }
+  }, []);
+
   // Log navigation state changes for debugging (must be before any early returns)
   useEffect(() => {
     console.log('🧭 [AppNavigation] State changed:', {
@@ -1128,6 +1157,72 @@ const AppNavigation = () => {
       }
     };
 
+    const isLiveUrl = urlStr => {
+      if (!urlStr || typeof urlStr !== 'string') {
+        return false;
+      }
+      if (/^ileafu:\/\/live(\?|\/|$)/i.test(urlStr)) {
+        return true;
+      }
+      try {
+        const u = new URL(urlStr);
+        if (u.protocol === 'ileafu:' && u.hostname === 'live') {
+          return true;
+        }
+      } catch (_) {}
+      try {
+        const u = new URL(urlStr);
+        return /^\/live(\/|$)/.test(u.pathname || '');
+      } catch (_) {
+        return false;
+      }
+    };
+
+    const extractLiveSessionParams = url => {
+      if (!url || typeof url !== 'string') {
+        return null;
+      }
+      const safeDecode = v => {
+        try {
+          return decodeURIComponent(v.trim());
+        } catch (_) {
+          return v.trim();
+        }
+      };
+      try {
+        const u = new URL(url);
+        if (u.protocol === 'ileafu:' && u.hostname === 'live') {
+          return {
+            sessionId: safeDecode(u.searchParams.get('sessionId') || ''),
+            sellerId: safeDecode(u.searchParams.get('seller') || ''),
+          };
+        }
+      } catch (_) {}
+      try {
+        const u = new URL(url.replace(/^ileafu:/, 'https:'));
+        const p = u.pathname || '';
+        if (p === '/live' || p.startsWith('/live/')) {
+          return {
+            sessionId: safeDecode(u.searchParams.get('session') || ''),
+            sellerId: safeDecode(u.searchParams.get('seller') || ''),
+          };
+        }
+      } catch (_) {}
+      const m = url.match(/\/live\/([^/?#]+)/i);
+      if (m) {
+        return { sessionId: safeDecode(m[1]), sellerId: '' };
+      }
+      if (/[?&]session=([^&#]+)/i.test(url)) {
+        const sm = url.match(/[?&]session=([^&#]+)/i);
+        const selm = url.match(/[?&]seller=([^&#]+)/i);
+        return {
+          sessionId: sm ? safeDecode(sm[1]) : '',
+          sellerId: selm ? safeDecode(selm[1]) : '',
+        };
+      }
+      return null;
+    };
+
     const extractPlantCode = url => {
       if (!url || typeof url !== 'string') {
         return null;
@@ -1184,6 +1279,10 @@ const AppNavigation = () => {
 
     const pushPlantDetail = (nav, plantCode) => {
       nav.dispatch(StackActions.push('ScreenPlantDetail', {plantCode}));
+    };
+
+    const pushLiveStream = (nav, sessionId, sellerId) => {
+      nav.dispatch(StackActions.push('BuyerLiveStreamScreen', { sessionId, broadcasterId: sellerId || '' }));
     };
 
     const IOS_STORE = 'https://apps.apple.com/us/app/ileafu/id6749962372';
@@ -1247,6 +1346,65 @@ const AppNavigation = () => {
         return;
       }
 
+      const liveParams = extractLiveSessionParams(url);
+      if (liveParams && liveParams.sessionId) {
+        const { sessionId, sellerId } = liveParams;
+        const state = deepLinkStateRef.current;
+
+        if (state.isLoggedIn && !state.fallbackTriggered && (state.isBuyer || state.isAdmin)) {
+          const nav = navigationRef.current;
+          if (nav && typeof nav.isReady === 'function' && nav.isReady()) {
+            try {
+              await AsyncStorage.removeItem('pendingLiveSessionId');
+              await AsyncStorage.removeItem('pendingLiveSellerId');
+              pushLiveStream(nav, sessionId, sellerId);
+            } catch (e) {
+              console.warn('[DeepLink] push BuyerLiveStreamScreen failed:', e);
+            }
+          } else {
+            try {
+              await AsyncStorage.setItem('pendingLiveSessionId', sessionId);
+              if (sellerId) await AsyncStorage.setItem('pendingLiveSellerId', sellerId);
+            } catch (e) {
+              console.warn('[DeepLink] pendingLiveSession storage:', e);
+            }
+            setTimeout(() => flushPendingLiveNavigation(), 300);
+          }
+          return;
+        }
+
+        if (state.isLoggedIn && !state.fallbackTriggered && !state.hasUserProfile) {
+          try {
+            await AsyncStorage.setItem('pendingLiveSessionId', sessionId);
+            if (sellerId) await AsyncStorage.setItem('pendingLiveSellerId', sellerId);
+          } catch (e) {
+            console.warn('[DeepLink] pendingLiveSession storage:', e);
+          }
+          setTimeout(() => flushPendingLiveNavigation(), 500);
+          return;
+        }
+
+        if (
+          state.isLoggedIn &&
+          !state.fallbackTriggered &&
+          !state.isBuyer &&
+          !state.isAdmin &&
+          state.hasUserProfile
+        ) {
+          const storeUrl = Platform.OS === 'ios' ? IOS_STORE : ANDROID_STORE;
+          Linking.openURL(storeUrl).catch(() => {});
+          return;
+        }
+
+        try {
+          await AsyncStorage.setItem('pendingLiveSessionId', sessionId);
+          if (sellerId) await AsyncStorage.setItem('pendingLiveSellerId', sellerId);
+        } catch (e) {
+          console.warn('[DeepLink] pendingLiveSession storage:', e);
+        }
+        return;
+      }
+
       if (isReferUrl(url)) {
         try {
           const match = url.match(/[?&]code=([^&]+)/);
@@ -1290,6 +1448,14 @@ const AppNavigation = () => {
     return () => clearTimeout(id);
   }, [isLoggedIn, isBuyer, isAdmin, navKey, fallbackTriggered, flushPendingPlantNavigation]);
 
+  useEffect(() => {
+    if (!isLoggedIn || fallbackTriggered || (!isBuyer && !isAdmin)) {
+      return;
+    }
+    const id = setTimeout(() => flushPendingLiveNavigation(), 0);
+    return () => clearTimeout(id);
+  }, [isLoggedIn, isBuyer, isAdmin, navKey, fallbackTriggered, flushPendingLiveNavigation]);
+
   // Linking config for React Navigation
   const linking = {
     prefixes: ['ileafu://', 'https://ileafu.com'],
@@ -1330,7 +1496,10 @@ const AppNavigation = () => {
         key={navKey}
         ref={navigationRef}
         linking={!isLoggedIn || fallbackTriggered ? linking : undefined}
-        onReady={flushPendingPlantNavigation}>
+        onReady={() => {
+          flushPendingPlantNavigation();
+          flushPendingLiveNavigation();
+        }}>
         {isLoggedIn && !fallbackTriggered ? (
           isBuyer ? (
             <BuyerTabNavigator />

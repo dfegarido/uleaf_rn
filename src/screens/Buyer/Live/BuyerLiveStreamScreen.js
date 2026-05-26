@@ -60,7 +60,7 @@ import { addViewerToLiveSession,
 import { addToCartApi } from '../../../components/Api/cartApi';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
-import { shareReferralInvite } from '../../../utils/referralShare';
+import { shareLiveStream } from '../../../utils/liveShareLink';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
@@ -965,8 +965,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           <View style={styles.sideActions}>
               <TouchableOpacity
                 style={styles.sideAction}
-                onPress={() => shareReferralInvite(buyerUid)}
-                accessibilityLabel="Share invite">
+                onPress={() => shareLiveStream(sessionId, brodcasterId)}
+                accessibilityLabel="Share live">
                 <View style={styles.sideActionIconWrap}>
                   <ShareReferralIcon width={32} height={32} />
                 </View>
