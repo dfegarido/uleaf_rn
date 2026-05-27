@@ -36,7 +36,6 @@ import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagI
 import TagAsOptions from './TagAs';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
-import LoadingModal from '../../../../components/LoadingModal/LoadingModal';
 import { parseAdminFlightDateTokenToIso } from '../../../../components/Admin/plantFlightFilter';
 import ForReceivingPlantCard from './ForReceivingPlantCard';
 import {
@@ -550,6 +549,20 @@ const DEFAULT_RECEIVING_ROUTES = [
     { key: 'damaged', title: 'Damaged' },
 ];
 
+const ReceivingLoadingOverlay = ({ message }) => (
+    <View style={styles.loadingOverlay}>
+        <View style={styles.loadingCard}>
+            <View style={styles.loadingTopRow}>
+                <View style={styles.loadingDot} />
+                <Text style={styles.loadingTagText}>For Receiving</Text>
+            </View>
+            <ActivityIndicator size="large" color="#2F8C4F" />
+            <Text style={styles.loadingTitle}>Fetching incoming plants</Text>
+            <Text style={styles.loadingMessage}>{message}</Text>
+        </View>
+    </View>
+);
+
 const ReceivingScreen = ({navigation}) => {
     const hubSpecEnabled = isLeafTrailHubSpecEnabled();
     const trail1IntakeMode = isTrail1ForReceivingEnabled();
@@ -561,7 +574,7 @@ const ReceivingScreen = ({navigation}) => {
     const [receivingData, setReceivingData] = useState(null);
     const [adminFilters, setAdminFilters] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [loadingMessage, setLoadingMessage] = useState('Growing your plants, please wait...');
+    const [loadingMessage, setLoadingMessage] = useState('Preparing For Receiving data...');
     const [error, setError] = useState(null);
     const [isTagAsVisible, setTagAsVisible] = useState(false);
     const [isMissing, setIsMissing] = useState(false);
@@ -953,9 +966,7 @@ const ReceivingScreen = ({navigation}) => {
                 <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
                 {isLoading && !showLabelViewer && (
                         <Modal transparent animationType="fade">
-                          <LoadingModal 
-                            message={loadingMessage} 
-                          />
+                          <ReceivingLoadingOverlay message={loadingMessage} />
                         </Modal>
                       )}
                 
@@ -1027,9 +1038,7 @@ const ReceivingScreen = ({navigation}) => {
                         
                         {/* Loading Modal - inside Label Viewer */}
                         {isLoading && (
-                            <LoadingModal 
-                                message={loadingMessage} 
-                            />
+                            <ReceivingLoadingOverlay message={loadingMessage} />
                         )}
                     </View>
                 </Modal>
@@ -1107,6 +1116,60 @@ const styles = StyleSheet.create({
     screenContainer: {
         flex: 1,
         backgroundColor: '#FFFFFF',
+    },
+    loadingOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(17, 24, 20, 0.35)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+    },
+    loadingCard: {
+        width: '100%',
+        maxWidth: 340,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        paddingVertical: 24,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E1EEE5',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    loadingTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 14,
+        gap: 8,
+    },
+    loadingDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#2F8C4F',
+    },
+    loadingTagText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#2B6E42',
+    },
+    loadingTitle: {
+        marginTop: 14,
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1E2A22',
+        textAlign: 'center',
+    },
+    loadingMessage: {
+        marginTop: 6,
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#5E6A62',
+        textAlign: 'center',
     },
     // Tab Bar
     tabBar: {
