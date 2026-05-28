@@ -293,7 +293,7 @@ export const updatePlantStatus = async (orderId, status) => {
   }
 };
 
-export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = false) => {
+export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = false, scanOptions = {}) => {
   try {
     if (isScanning) {
       return;
@@ -306,6 +306,9 @@ export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = fals
 
     if (leafTrailStatus) {
       filters.leafTrailStatus = leafTrailStatus
+    }
+    if (scanOptions?.expectedBoxKey) {
+      filters.expectedBoxKey = scanOptions.expectedBoxKey;
     }
     const urlParam = new URLSearchParams(filters).toString()
     const url = `${API_ENDPOINTS.GET_ADMIN_SCAN_QR}?${urlParam}`
@@ -324,6 +327,9 @@ export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = fals
     const json = await response.json();
 
     if (!response.ok) {
+      if (response.status === 409 && json?.error === 'WRONG_BOX') {
+        return { wrongBox: true, ...json };
+      }
       const errorMessage = json.error || json.message || `Error ${response.status}`;
       throw new Error(errorMessage);
     }

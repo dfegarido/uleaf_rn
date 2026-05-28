@@ -368,7 +368,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
          { key: 'received', title: 'For Sorting Plants', count: response.receivedPlantsCount },
          { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
          { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
-         { key: 'needsToStay', title: 'Need to Stay', count: needsToStayPlantsCount },
+         { key: 'needsToStay', title: 'Need to Stay', count: response.needsToStayOrderCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
       setMissingPlantsData(response?.missingPlantsData || []);

@@ -58,8 +58,17 @@ const ScanQRScreen = ({ navigation, route }) => {
   const [buttomData, setButtomData] = useState("scan");
   const [isScanning, setIsScanning] = useState(false);
   const [plantData, setPlantData] = useState();
-  const { leafTrailStatus = null, intakeMode: intakeModeParam = false } = route.params || {};
+  const {
+    leafTrailStatus = null,
+    intakeMode: intakeModeParam = false,
+    sortingBoxMode: sortingBoxModeParam = false,
+    expectedBoxKey = '',
+    boxReceiverName = '',
+  } = route.params || {};
   const intakeMode = intakeModeParam === true && isLeafTrailHubSpecEnabled();
+  const sortingBoxMode =
+    sortingBoxModeParam === true && isLeafTrailHubSpecEnabled();
+  const [setAsideConfirmed, setSetAsideConfirmed] = useState(false);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const pressInTimeout = useRef(null);
   const isLongPress = useRef(false);
@@ -94,7 +103,23 @@ const ScanQRScreen = ({ navigation, route }) => {
           }
           
           setLatestScannedData(filters.orderId + filters.plantCode);
-          const response = await getAdminScanQr(filters, leafTrailStatus, isScanning);
+          const response = await getAdminScanQr(
+            filters,
+            leafTrailStatus,
+            isScanning,
+            sortingBoxMode ? { expectedBoxKey } : {},
+          );
+
+          if (response?.wrongBox) {
+            setPlantData(response);
+            setButtomData('wrongBox');
+            setSetAsideConfirmed(false);
+            Vibration.vibrate([0, 120, 60, 120]);
+            setTimeout(() => {
+              setIsScanning(false);
+            }, 3000);
+            return;
+          }
 
           setPlantData(response);
           setButtomData('success');
@@ -105,6 +130,9 @@ const ScanQRScreen = ({ navigation, route }) => {
         }
       } catch (error) {
         setButtomData('invalid');
+        if (sortingBoxMode) {
+          Vibration.vibrate([0, 120, 60, 120]);
+        }
       } finally {
         setTimeout(() => {
           setIsScanning(false);
@@ -147,6 +175,7 @@ const ScanQRScreen = ({ navigation, route }) => {
     setLatestScannedData(null);
     setButtomData('scan');
     setIsScanning(false);
+    setSetAsideConfirmed(false);
   };
 
   const setTagAs = async (status) => {
@@ -207,7 +236,11 @@ const ScanQRScreen = ({ navigation, route }) => {
           <View style={styles.bottomSheet}>
             <View style={styles.titleContainer}>
               <Text style={styles.titleText}>
-                {intakeMode ? 'Receive plant' : 'Scan QR Code'}
+                {intakeMode
+                  ? 'Receive plant'
+                  : sortingBoxMode
+                    ? 'Sort plant'
+                    : 'Scan QR Code'}
               </Text>
             </View>
             <View style={styles.noteContainer}>
@@ -243,6 +276,39 @@ const ScanQRScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {buttomData === 'wrongBox' && (
+          <View style={styles.bottomSheet}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.titleTextInvalid}>Wrong box</Text>
+            </View>
+            <View style={styles.noteContainer}>
+              <Text style={styles.noteText}>
+                This plant does not belong here
+                {boxReceiverName ? ` (${boxReceiverName})` : ''}.
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.setAsideButton,
+                  setAsideConfirmed && styles.setAsideButtonConfirmed,
+                ]}
+                onPress={() => setSetAsideConfirmed(true)}>
+                <Text
+                  style={[
+                    styles.setAsideButtonText,
+                    setAsideConfirmed && styles.setAsideButtonTextConfirmed,
+                  ]}>
+                  {setAsideConfirmed
+                    ? 'Set aside confirmed'
+                    : 'Confirm that you set aside'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.intakeSecondaryButton} onPress={resetForNextScan}>
+                <Text style={styles.intakeSecondaryButtonText}>Scan next plant</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
            {/* Content Bottom Sheet */}
           <ScrollView style={buttomData !== 'success' ? styles.displayNone : styles.contentContainer} showsVerticalScrollIndicator={false}>
             
@@ -250,10 +316,14 @@ const ScanQRScreen = ({ navigation, route }) => {
               {/* Title */}
               <View style={styles.titleSection}>
                 <Text style={styles.titleText}>
-                  {intakeMode &&
-                  String(plantData?.leafTrailStatus || '').toLowerCase() === 'received'
-                    ? 'Marked as Received'
-                    : 'Scan Success!'}
+                  {sortingBoxMode &&
+                  String(plantData?.leafTrailStatus || '').toLowerCase() === 'sorted'
+                    ? 'Marked as Sorted'
+                    : intakeMode &&
+                        String(plantData?.leafTrailStatus || '').toLowerCase() ===
+                          'received'
+                      ? 'Marked as Received'
+                      : 'Scan Success!'}
                 </Text>
               </View>
 
@@ -266,7 +336,7 @@ const ScanQRScreen = ({ navigation, route }) => {
                 </View>
               )}
 
-              {intakeMode && (
+              {(intakeMode || sortingBoxMode) && (
                 <View style={styles.intakeActionRow}>
                   <TouchableOpacity style={styles.intakeSecondaryButton} onPress={resetForNextScan}>
                     <Text style={styles.intakeSecondaryButtonText}>Scan next</Text>
@@ -852,6 +922,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#1B7A43',
+  },
+  setAsideButton: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E7522F',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    width: '100%',
+  },
+  setAsideButtonConfirmed: {
+    backgroundColor: '#FFF3E0',
+    borderColor: '#E65100',
+  },
+  setAsideButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#E7522F',
+  },
+  setAsideButtonTextConfirmed: {
+    color: '#E65100',
   },
 });
 
