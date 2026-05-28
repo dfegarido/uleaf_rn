@@ -92,6 +92,54 @@ export const emailThermalLabels = async (orderIds) => {
   }
 };
 
+export const generateReceiverBoxLabels = async (boxes) => {
+  try {
+    const token = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.GENERATE_RECEIVER_BOX_LABELS, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ boxes }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('generateReceiverBoxLabels error:', error.message);
+    throw error;
+  }
+};
+
+export const assignReceiverBoxes = async (assignments) => {
+  try {
+    const token = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.ASSIGN_RECEIVER_BOXES, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ assignments }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('assignReceiverBoxes error:', error.message);
+    throw error;
+  }
+};
+
 export const exportAllOrdersToCsv = async (filters = {sort: 'desc'}) => {
   try {
     const token = await getStoredAuthToken();

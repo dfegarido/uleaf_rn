@@ -31,7 +31,15 @@ import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled, isTrail1ForReceivingEnabled } from '../../../../config/featureFlags';
-import { getAdminLeafTrailFilters, getAdminLeafTrailReceiving, updateLeafTrailStatus, generateThermalLabels, emailThermalLabels } from '../../../../components/Api/getAdminLeafTrail';
+import {
+    getAdminLeafTrailFilters,
+    getAdminLeafTrailReceiving,
+    updateLeafTrailStatus,
+    generateThermalLabels,
+    emailThermalLabels,
+    assignReceiverBoxes,
+    generateReceiverBoxLabels,
+} from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
@@ -56,6 +64,38 @@ const ADMIN_FILTER_STATUSES_BY_TAB = {
 
 /** Seller / buyer / order-receiver lists match For Receiving on every Receiving sub-tab. */
 const ADMIN_FILTER_STATUSES_FOR_SELLER_BUYER = '["forReceiving"]';
+
+const getReceiverNameForBox = (item) => {
+    if (item?.user?.name) return item.user.name.trim();
+    const firstName = item?.receiverInfo?.firstName || item?.receiverInfo?.receiverFirstName || '';
+    const lastName = item?.receiverInfo?.lastName || item?.receiverInfo?.receiverLastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || 'Unassigned Receiver';
+};
+
+const getReceiverFirstNameForBox = (receiverName) => {
+    if (!receiverName || receiverName === 'Unassigned Receiver') return 'zzz';
+    return receiverName.trim().split(/\s+/)[0].toLowerCase();
+};
+
+const getJoinerNameForBox = (item) => {
+    const joinerInfo = item?.joinerInfo || {};
+    const firstName =
+        joinerInfo.firstName ||
+        joinerInfo.joinerFirstName ||
+        item?.buyerInfo?.firstName ||
+        '';
+    const lastName =
+        joinerInfo.lastName ||
+        joinerInfo.joinerLastName ||
+        item?.buyerInfo?.lastName ||
+        '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || joinerInfo.username || joinerInfo.joinerUsername || null;
+};
+
+const getReceiverBoxKey = (receiverName) =>
+    `RX-${String(receiverName || 'UNASSIGNED').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'UNASSIGNED'}`;
 
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
@@ -297,11 +337,66 @@ const ForReceivingTab = ({
 
 const ReceivedTab = ({
     data,
+    forReceivingData,
     onFilterChange,
     adminFilters,
     openTagAs,
     hubSpecEnabled,
+    onAssignBoxes,
+    onPrintBoxLabels,
+    boxActionsLoading,
 }) => {
+    const [activeBox, setActiveBox] = useState(null);
+
+    const receiverBoxes = React.useMemo(() => {
+        const receivedItems = data?.data || [];
+        const incomingItems = forReceivingData || [];
+        const deduped = new Map();
+        [...incomingItems, ...receivedItems].forEach((item) => {
+            if (item?.id) deduped.set(item.id, item);
+        });
+        const items = [...deduped.values()];
+        const grouped = new Map();
+
+        items.forEach((item) => {
+            const receiverName = getReceiverNameForBox(item);
+            const existing = grouped.get(receiverName) || {
+                receiverName,
+                items: [],
+                scannedCount: 0,
+                unscannedCount: 0,
+                joiners: new Set(),
+            };
+
+            existing.items.push(item);
+            if (item?.sellerScanned) {
+                existing.scannedCount += 1;
+            } else {
+                existing.unscannedCount += 1;
+            }
+
+            const joinerName = getJoinerNameForBox(item);
+            if (joinerName) {
+                existing.joiners.add(joinerName);
+            }
+
+            grouped.set(receiverName, existing);
+        });
+
+        return [...grouped.values()]
+            .map((box) => ({
+                ...box,
+                joiners: [...box.joiners].sort((a, b) => a.localeCompare(b)),
+            }))
+            .sort((a, b) => {
+                const firstNameSort = getReceiverFirstNameForBox(a.receiverName).localeCompare(
+                    getReceiverFirstNameForBox(b.receiverName),
+                );
+                if (firstNameSort !== 0) return firstNameSort;
+                return a.receiverName.localeCompare(b.receiverName);
+            });
+    }, [data, forReceivingData]);
+
     // Sort buyers alphabetically by name for the Received tab only
     const sortedAdminFilters = React.useMemo(() => {
         if (!adminFilters) return adminFilters;
@@ -324,6 +419,9 @@ const ReceivedTab = ({
         return (
             <>
                 <FlatList
+                    key="received-box-grid"
+                    data={[]}
+                    numColumns={2}
                     ListHeaderComponent={
                         <>
                             {hubSpecEnabled ? (
@@ -350,28 +448,121 @@ const ReceivedTab = ({
      }
 
     return (
-    <FlatList
-        data={data.data}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="received" />}
-        ListHeaderComponent={
-            <>
-                {hubSpecEnabled ? (
-                    <LeafTrailHubToolbar
-                        adminFilters={sortedAdminFilters}
-                        onFilterChange={onFilterChange}
-                        showReceiptStatus
-                    />
-                ) : (
-                    <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
-                )}
-                <Text style={styles.countText}>{data.total} plant(s)</Text>
-            </>
-        }
-        ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-        contentContainerStyle={styles.listContentContainer}
-    />
-)};
+        <FlatList
+            key="received-box-grid"
+            data={receiverBoxes}
+            keyExtractor={(item) => item.receiverName}
+            numColumns={2}
+            columnWrapperStyle={styles.receiverBoxesRow}
+            renderItem={({ item }) => (
+                <TouchableOpacity
+                    style={styles.receiverBoxCard}
+                    activeOpacity={0.85}
+                    onPress={() => setActiveBox(item)}>
+                    <View style={styles.receiverBoxTopAccent} />
+                    <Text style={styles.receiverBoxTitle} numberOfLines={2}>
+                        {item.receiverName}
+                    </Text>
+                    <Text style={styles.receiverBoxSubtitle}>Receiver Box</Text>
+
+                    <View style={styles.receiverBoxDivider} />
+
+                    <Text style={styles.receiverBoxCount}>{item.items.length} plant(s)</Text>
+                    <View style={styles.receiverBoxStatusRow}>
+                        <View style={[styles.receiverBoxStatusChip, styles.receiverBoxScannedChip]}>
+                            <Text style={[styles.receiverBoxStatusText, styles.receiverBoxScannedText]}>
+                                Scanned {item.scannedCount}
+                            </Text>
+                        </View>
+                        <View style={[styles.receiverBoxStatusChip, styles.receiverBoxUnscannedChip]}>
+                            <Text style={[styles.receiverBoxStatusText, styles.receiverBoxUnscannedText]}>
+                                Unscanned {item.unscannedCount}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <Text style={styles.receiverBoxJoinersLabel}>Joiners</Text>
+                    <Text style={styles.receiverBoxJoiners} numberOfLines={2}>
+                        {item.joiners.length ? item.joiners.join(', ') : 'No joiners'}
+                    </Text>
+                    <Text style={styles.receiverBoxHint}>Tap to open box</Text>
+                </TouchableOpacity>
+            )}
+            ListHeaderComponent={
+                <>
+                    {hubSpecEnabled ? (
+                        <LeafTrailHubToolbar
+                            adminFilters={sortedAdminFilters}
+                            onFilterChange={onFilterChange}
+                            showReceiptStatus
+                        />
+                    ) : (
+                        <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
+                    )}
+                    <View style={styles.receivedSummaryRow}>
+                        <Text style={styles.receivedSummaryPill}>{receiverBoxes.length} box(es)</Text>
+                        <Text style={styles.countText}>{data.total} plant(s)</Text>
+                    </View>
+                    <View style={styles.receivedActionsRow}>
+                        <TouchableOpacity
+                            style={[styles.receivedActionButton, boxActionsLoading && styles.buttonDisabled]}
+                            onPress={onAssignBoxes}
+                            disabled={boxActionsLoading}>
+                            <Text style={styles.receivedActionButtonText}>Assign Receiver Boxes</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.receivedActionButtonSecondary, boxActionsLoading && styles.buttonDisabled]}
+                            onPress={() => onPrintBoxLabels(receiverBoxes)}
+                            disabled={boxActionsLoading || !receiverBoxes.length}>
+                            <Text style={styles.receivedActionButtonSecondaryText}>Print Box Labels</Text>
+                        </TouchableOpacity>
+                    </View>
+                </>
+            }
+            contentContainerStyle={styles.listContentContainer}
+            ListFooterComponent={
+                <Modal
+                    visible={!!activeBox}
+                    animationType="slide"
+                    transparent={false}
+                    onRequestClose={() => setActiveBox(null)}>
+                    <SafeAreaView style={styles.receiverBoxModalContainer} edges={['top']}>
+                        <View style={styles.receiverBoxModalHeader}>
+                            <TouchableOpacity
+                                style={styles.receiverBoxModalBack}
+                                onPress={() => setActiveBox(null)}>
+                                <BackIcon width={22} height={22} />
+                            </TouchableOpacity>
+                            <View style={styles.receiverBoxModalTitleWrap}>
+                                <Text style={styles.receiverBoxModalTitle} numberOfLines={1}>
+                                    {activeBox?.receiverName || 'Receiver Box'}
+                                </Text>
+                                <Text style={styles.receiverBoxModalMeta}>
+                                    {(activeBox?.items || []).length} plant(s) · Scanned {activeBox?.scannedCount || 0} · Unscanned {activeBox?.unscannedCount || 0}
+                                </Text>
+                            </View>
+                        </View>
+                        <FlatList
+                            data={activeBox?.items || []}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <ForReceivingPlantCard
+                                    item={item}
+                                    openTagAs={openTagAs}
+                                    compact={false}
+                                    statusPillLabel={item?.sellerScanned ? 'Scanned' : 'Unscanned'}
+                                    statusPillVariant={item?.sellerScanned ? 'scanned' : 'unscanned'}
+                                />
+                            )}
+                            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+                            contentContainerStyle={styles.receiverBoxModalListContent}
+                        />
+                    </SafeAreaView>
+                </Modal>
+            }
+        />
+    );
+};
 
 const ReceivingTabListHeader = ({
     hubSpecEnabled,
@@ -548,17 +739,23 @@ const DEFAULT_RECEIVING_ROUTES = [
     { key: 'missing', title: 'Missing' },
     { key: 'damaged', title: 'Damaged' },
 ];
+const TRAIL1_RECEIVING_ROUTES = [DEFAULT_RECEIVING_ROUTES[0], DEFAULT_RECEIVING_ROUTES[2]];
 
-const ReceivingLoadingOverlay = ({ message }) => (
+const ReceivingLoadingOverlay = ({ message, contextLabel = 'Receiving', title = 'Fetching plant data' }) => (
     <View style={styles.loadingOverlay}>
         <View style={styles.loadingCard}>
             <View style={styles.loadingTopRow}>
                 <View style={styles.loadingDot} />
-                <Text style={styles.loadingTagText}>For Receiving</Text>
+                <Text style={styles.loadingTagText}>{contextLabel}</Text>
             </View>
-            <ActivityIndicator size="large" color="#2F8C4F" />
-            <Text style={styles.loadingTitle}>Fetching incoming plants</Text>
+            <View style={styles.loadingSpinnerWrap}>
+                <ActivityIndicator size="large" color="#2F8C4F" />
+            </View>
+            <Text style={styles.loadingTitle}>{title}</Text>
             <Text style={styles.loadingMessage}>{message}</Text>
+            <View style={styles.loadingProgressTrack}>
+                <View style={styles.loadingProgressFill} />
+            </View>
         </View>
     </View>
 );
@@ -568,7 +765,7 @@ const ReceivingScreen = ({navigation}) => {
     const trail1IntakeMode = isTrail1ForReceivingEnabled();
     const [index, setIndex] = useState(0);
     const routes = useMemo(
-        () => (trail1IntakeMode ? [DEFAULT_RECEIVING_ROUTES[0]] : DEFAULT_RECEIVING_ROUTES),
+        () => (trail1IntakeMode ? TRAIL1_RECEIVING_ROUTES : DEFAULT_RECEIVING_ROUTES),
         [trail1IntakeMode],
     );
     const [receivingData, setReceivingData] = useState(null);
@@ -585,8 +782,11 @@ const ReceivingScreen = ({navigation}) => {
     const [selectedItems, setSelectedItems] = useState([]);
     const [generatedLabels, setGeneratedLabels] = useState([]);
     const [showLabelViewer, setShowLabelViewer] = useState(false);
+    const [labelContext, setLabelContext] = useState('thermal');
+    const [boxActionsLoading, setBoxActionsLoading] = useState(false);
     const lastReceivingFiltersRef = useRef(undefined);
     const tabStatusesRef = useRef(ADMIN_FILTER_STATUSES_BY_TAB.forReceiving);
+    const lastAssignedSignatureRef = useRef('');
 
     const openTagAs = (status, id) => {
         setIsMissing(status.isMissing);
@@ -627,6 +827,30 @@ const ReceivingScreen = ({navigation}) => {
                 const response = await getAdminLeafTrailReceiving(effectiveFilters);
 
                 setReceivingData(response);
+                const forReceivingItems = response?.forReceiving?.data || [];
+                const assignmentSignature = forReceivingItems
+                    .map((item) => `${item?.id || ''}:${getReceiverNameForBox(item)}`)
+                    .sort()
+                    .join('|');
+                if (assignmentSignature && assignmentSignature !== lastAssignedSignatureRef.current) {
+                    const assignments = forReceivingItems
+                        .filter((item) => item?.id)
+                        .map((item) => ({
+                            orderId: item.id,
+                            receiverName: getReceiverNameForBox(item),
+                            receiverFirstName: getReceiverFirstNameForBox(getReceiverNameForBox(item)),
+                            boxKey: getReceiverBoxKey(getReceiverNameForBox(item)),
+                            joiners: getJoinerNameForBox(item) ? [getJoinerNameForBox(item)] : [],
+                        }));
+                    if (assignments.length) {
+                        try {
+                            await assignReceiverBoxes(assignments);
+                            lastAssignedSignatureRef.current = assignmentSignature;
+                        } catch (assignError) {
+                            console.error('Failed to assign receiver boxes:', assignError);
+                        }
+                    }
+                }
                 await refreshAdminFilters(tabStatusesRef.current, { withPageLoader: false });
                 
             } catch (e) {
@@ -654,6 +878,67 @@ const ReceivingScreen = ({navigation}) => {
     const onFilterChange = (filters) => {
          fetchData(filters);
     }
+
+    const handleAssignReceiverBoxes = async () => {
+        try {
+            const forReceivingItems = receivingData?.forReceiving?.data || [];
+            if (!forReceivingItems.length) {
+                Alert.alert('Assign Receiver Boxes', 'No For Receiving plants found.');
+                return;
+            }
+            setBoxActionsLoading(true);
+            const assignments = forReceivingItems
+                .filter((item) => item?.id)
+                .map((item) => ({
+                    orderId: item.id,
+                    receiverName: getReceiverNameForBox(item),
+                    receiverFirstName: getReceiverFirstNameForBox(getReceiverNameForBox(item)),
+                    boxKey: getReceiverBoxKey(getReceiverNameForBox(item)),
+                    joiners: getJoinerNameForBox(item) ? [getJoinerNameForBox(item)] : [],
+                }));
+            const response = await assignReceiverBoxes(assignments);
+            if (response?.success) {
+                Alert.alert('Success', `Assigned ${response.updatedCount || assignments.length} plant(s) to receiver boxes.`);
+            } else {
+                Alert.alert('Assign Receiver Boxes', response?.message || 'Failed to assign receiver boxes.');
+            }
+        } catch (e) {
+            Alert.alert('Assign Receiver Boxes', e?.message || 'Failed to assign receiver boxes.');
+        } finally {
+            setBoxActionsLoading(false);
+        }
+    };
+
+    const handlePrintReceiverBoxLabels = async (receiverBoxes) => {
+        try {
+            if (!receiverBoxes?.length) {
+                Alert.alert('Print Box Labels', 'No receiver boxes available.');
+                return;
+            }
+            setLoadingMessage('Generating receiver box labels, please wait...');
+            setIsLoading(true);
+            setBoxActionsLoading(true);
+            const boxesPayload = receiverBoxes.map((box) => ({
+                boxKey: getReceiverBoxKey(box.receiverName),
+                receiverName: box.receiverName,
+                joiners: box.joiners || [],
+                plantCount: box.items?.length || 0,
+            }));
+            const response = await generateReceiverBoxLabels(boxesPayload);
+            if (response?.success && response?.labels?.length) {
+                setLabelContext('receiverBoxes');
+                setGeneratedLabels(response.labels);
+                setShowLabelViewer(true);
+            } else {
+                Alert.alert('Print Box Labels', response?.message || 'Failed to generate receiver box labels.');
+            }
+        } catch (e) {
+            Alert.alert('Print Box Labels', e?.message || 'Failed to generate receiver box labels.');
+        } finally {
+            setIsLoading(false);
+            setBoxActionsLoading(false);
+        }
+    };
 
     const adminFiltersForActiveTab = React.useMemo(() => {
         if (!adminFilters) {
@@ -717,8 +1002,12 @@ const ReceivingScreen = ({navigation}) => {
                         openTagAs={openTagAs}
                         onFilterChange={onFilterChange}
                         data={receivingData?.received || {}}
+                        forReceivingData={receivingData?.forReceiving?.data || []}
                         adminFilters={adminFiltersForActiveTab}
                         hubSpecEnabled={hubSpecEnabled}
+                        onAssignBoxes={handleAssignReceiverBoxes}
+                        onPrintBoxLabels={handlePrintReceiverBoxLabels}
+                        boxActionsLoading={boxActionsLoading}
                     />
                 );
             case 'missing':
@@ -791,6 +1080,7 @@ const ReceivingScreen = ({navigation}) => {
                 setIsLoading(true);
                 const response = await generateThermalLabels(ids);
                 if (response.success && response.labels) {
+                    setLabelContext('thermal');
                     setGeneratedLabels(response.labels);
                     setShowLabelViewer(true);
                 } else {
@@ -814,6 +1104,7 @@ const ReceivingScreen = ({navigation}) => {
                     const response = await generateThermalLabels(selectedItems);
                     
                     if (response.success && response.labels) {
+                        setLabelContext('thermal');
                         // Store generated labels and show viewer
                         setGeneratedLabels(response.labels);
                         setShowLabelViewer(true);
@@ -890,6 +1181,10 @@ const ReceivingScreen = ({navigation}) => {
 
     const hubExportLines = getCurrentTabData()?.data || [];
     const hubTabKey = routes[index]?.key || 'forReceiving';
+    const activeLoadingContextLabel =
+        hubTabKey === 'received' ? 'Received' : hubTabKey === 'forReceiving' ? 'For Receiving' : 'Receiving';
+    const activeLoadingTitle =
+        hubTabKey === 'received' ? 'Preparing receiver boxes' : 'Fetching incoming plants';
     const hubPrintOnHeader =
         hubSpecEnabled &&
         (trail1IntakeMode ? index === 0 : index === 0 || index === 1);
@@ -938,6 +1233,10 @@ const ReceivingScreen = ({navigation}) => {
 
     const sendViaEmail = async () => {
         try {
+            if (labelContext === 'receiverBoxes') {
+                Alert.alert('Send via Email', 'Email delivery is currently available only for thermal plant labels.');
+                return;
+            }
             setLoadingMessage('Sending your labels via email, please wait...');
             setIsLoading(true);
             // Get the order IDs from the generated labels
@@ -966,7 +1265,11 @@ const ReceivingScreen = ({navigation}) => {
                 <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
                 {isLoading && !showLabelViewer && (
                         <Modal transparent animationType="fade">
-                          <ReceivingLoadingOverlay message={loadingMessage} />
+                          <ReceivingLoadingOverlay
+                              message={loadingMessage}
+                              contextLabel={activeLoadingContextLabel}
+                              title={activeLoadingTitle}
+                          />
                         </Modal>
                       )}
                 
@@ -985,7 +1288,7 @@ const ReceivingScreen = ({navigation}) => {
                                 <BackIcon width={24} height={24} />
                             </TouchableOpacity>
                             <Text style={styles.labelViewerTitle}>
-                                Generated Labels ({generatedLabels.length})
+                                {labelContext === 'receiverBoxes' ? 'Receiver Box Labels' : 'Generated Labels'} ({generatedLabels.length})
                             </Text>
                             <View style={styles.headerSpacer} />
                         </View>
@@ -1005,9 +1308,12 @@ const ReceivingScreen = ({navigation}) => {
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
-                                style={[styles.emailButton, isLoading && styles.buttonDisabled]}
+                                style={[
+                                    styles.emailButton,
+                                    (isLoading || labelContext === 'receiverBoxes') && styles.buttonDisabled,
+                                ]}
                                 onPress={sendViaEmail}
-                                disabled={isLoading}
+                                disabled={isLoading || labelContext === 'receiverBoxes'}
                             >
                                 <View style={styles.buttonContent}>
                                     <Text style={styles.emailButtonText}>
@@ -1038,7 +1344,11 @@ const ReceivingScreen = ({navigation}) => {
                         
                         {/* Loading Modal - inside Label Viewer */}
                         {isLoading && (
-                            <ReceivingLoadingOverlay message={loadingMessage} />
+                            <ReceivingLoadingOverlay
+                                message={loadingMessage}
+                                contextLabel={activeLoadingContextLabel}
+                                title={activeLoadingTitle}
+                            />
                         )}
                     </View>
                 </Modal>
@@ -1056,7 +1366,7 @@ const ReceivingScreen = ({navigation}) => {
                     scarQr={!selectionMode}
                     onScanPress={hubSpecEnabled ? openLeafTrailScan : undefined}
                     scanQrParams={hubSpecEnabled ? undefined : LEAF_TRAIL_SCAN_PARAMS.receiving}
-                    title={trail1IntakeMode ? 'For Receiving' : 'Receiving of Plants'}
+                    title={trail1IntakeMode ? 'Receiving of Plants' : 'Receiving of Plants'}
                     selectionMode={selectionMode}
                     onCancelSelection={handleCancelSelection}
                     selectedCount={selectedItems.length}
@@ -1076,7 +1386,7 @@ const ReceivingScreen = ({navigation}) => {
                             handleCancelSelection();
                         }
                     }}
-                    renderTabBar={trail1IntakeMode ? () => null : renderTabBar}
+                    renderTabBar={routes.length > 1 ? renderTabBar : () => null}
                 />
             </SafeAreaView>
 
@@ -1119,32 +1429,36 @@ const styles = StyleSheet.create({
     },
     loadingOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(17, 24, 20, 0.35)',
+        backgroundColor: 'rgba(17, 24, 20, 0.4)',
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 24,
     },
     loadingCard: {
         width: '100%',
-        maxWidth: 340,
+        maxWidth: 350,
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        paddingVertical: 24,
-        paddingHorizontal: 20,
+        borderRadius: 20,
+        paddingVertical: 22,
+        paddingHorizontal: 18,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#E1EEE5',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 6,
+        borderColor: '#DDEDE2',
+        shadowColor: '#0F1D15',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 9,
     },
     loadingTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 14,
+        marginBottom: 10,
         gap: 8,
+        backgroundColor: '#EAF7EF',
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 5,
     },
     loadingDot: {
         width: 8,
@@ -1153,23 +1467,50 @@ const styles = StyleSheet.create({
         backgroundColor: '#2F8C4F',
     },
     loadingTagText: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '700',
-        color: '#2B6E42',
+        color: '#1F6F3D',
+        letterSpacing: 0.2,
+    },
+    loadingSpinnerWrap: {
+        marginTop: 6,
+        marginBottom: 8,
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: '#F3FBF6',
+        borderWidth: 1,
+        borderColor: '#DCEFE3',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     loadingTitle: {
-        marginTop: 14,
+        marginTop: 4,
         fontSize: 18,
         fontWeight: '700',
         color: '#1E2A22',
         textAlign: 'center',
     },
     loadingMessage: {
-        marginTop: 6,
-        fontSize: 14,
-        lineHeight: 20,
+        marginTop: 7,
+        fontSize: 13,
+        lineHeight: 19,
         color: '#5E6A62',
         textAlign: 'center',
+    },
+    loadingProgressTrack: {
+        marginTop: 14,
+        width: '100%',
+        height: 6,
+        borderRadius: 999,
+        backgroundColor: '#EAF3ED',
+        overflow: 'hidden',
+    },
+    loadingProgressFill: {
+        width: '68%',
+        height: '100%',
+        borderRadius: 999,
+        backgroundColor: '#2F8C4F',
     },
     // Tab Bar
     tabBar: {
@@ -1202,6 +1543,186 @@ const styles = StyleSheet.create({
         color: '#647276',
         fontSize: 14,
         paddingVertical: 8,
+    },
+    receivedSummaryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    receivedActionsRow: {
+        flexDirection: 'row',
+        gap: 8,
+        paddingHorizontal: 15,
+        paddingBottom: 8,
+    },
+    receivedActionButton: {
+        flex: 1,
+        backgroundColor: '#2F8C4F',
+        borderRadius: 10,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    receivedActionButtonText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    receivedActionButtonSecondary: {
+        flex: 1,
+        backgroundColor: '#EFF8F2',
+        borderRadius: 10,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#BFE4CB',
+    },
+    receivedActionButtonSecondaryText: {
+        color: '#1F6F3D',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    receivedSummaryPill: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#2F8C4F',
+        backgroundColor: '#EAF7EF',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 999,
+    },
+    receiverBoxesRow: {
+        gap: 10,
+        marginBottom: 10,
+        alignItems: 'stretch',
+    },
+    receiverBoxCard: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#DFEAE2',
+        padding: 12,
+        minHeight: 190,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 7,
+        elevation: 3,
+        overflow: 'hidden',
+    },
+    receiverBoxTopAccent: {
+        height: 4,
+        borderRadius: 999,
+        backgroundColor: '#2F8C4F',
+        marginBottom: 8,
+    },
+    receiverBoxTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1F2A23',
+    },
+    receiverBoxSubtitle: {
+        marginTop: 2,
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#7A8680',
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+    },
+    receiverBoxDivider: {
+        height: 1,
+        backgroundColor: '#ECF0EE',
+        marginVertical: 8,
+    },
+    receiverBoxCount: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#202325',
+    },
+    receiverBoxStatusRow: {
+        marginTop: 8,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    receiverBoxStatusChip: {
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+    },
+    receiverBoxScannedChip: {
+        backgroundColor: '#EAF8EE',
+    },
+    receiverBoxUnscannedChip: {
+        backgroundColor: '#FDECEA',
+    },
+    receiverBoxStatusText: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    receiverBoxScannedText: {
+        color: '#1F7A45',
+    },
+    receiverBoxUnscannedText: {
+        color: '#B2422E',
+    },
+    receiverBoxJoinersLabel: {
+        marginTop: 10,
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#5E6A62',
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+    },
+    receiverBoxJoiners: {
+        marginTop: 2,
+        fontSize: 12,
+        color: '#38423D',
+        lineHeight: 18,
+        minHeight: 36,
+    },
+    receiverBoxHint: {
+        marginTop: 8,
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#2F8C4F',
+    },
+    receiverBoxModalContainer: {
+        flex: 1,
+        backgroundColor: '#F5F7F8',
+    },
+    receiverBoxModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E3E9E5',
+        paddingHorizontal: 10,
+        paddingVertical: 10,
+    },
+    receiverBoxModalBack: {
+        width: 34,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    receiverBoxModalTitleWrap: {
+        flex: 1,
+        marginLeft: 6,
+    },
+    receiverBoxModalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1F2A23',
+    },
+    receiverBoxModalMeta: {
+        marginTop: 2,
+        fontSize: 12,
+        color: '#5E6A62',
+    },
+    receiverBoxModalListContent: {
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        paddingBottom: 30,
     },
     // List Item
     listItemOuterContainer: {

@@ -98,6 +98,8 @@ const ForReceivingPlantCard = ({
   isSelected,
   onToggleSelect,
   compact = false,
+  statusPillLabel = 'For Receiving',
+  statusPillVariant = 'forReceiving',
 }) => {
   const flightLabel = formatPlantFlightDateForDisplay(item.flightDate) || item.flightDate || '—';
   const dateOrdered = getDateOrderedDatePart(item);
@@ -115,8 +117,20 @@ const ForReceivingPlantCard = ({
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
-        <View style={styles.statusPill}>
-          <Text style={styles.statusPillText}>For Receiving</Text>
+        <View
+          style={[
+            styles.statusPill,
+            statusPillVariant === 'scanned' && styles.statusPillScanned,
+            statusPillVariant === 'unscanned' && styles.statusPillUnscanned,
+          ]}>
+          <Text
+            style={[
+              styles.statusPillText,
+              statusPillVariant === 'scanned' && styles.statusPillTextScanned,
+              statusPillVariant === 'unscanned' && styles.statusPillTextUnscanned,
+            ]}>
+            {statusPillLabel}
+          </Text>
         </View>
         <Text style={styles.qtyBadge}>{qty}x</Text>
       </View>
@@ -223,6 +237,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#B86A00',
     letterSpacing: 0.2,
+  },
+  statusPillScanned: {
+    backgroundColor: '#EAF8EE',
+  },
+  statusPillUnscanned: {
+    backgroundColor: '#FDECEA',
+  },
+  statusPillTextScanned: {
+    color: '#1F7A45',
+  },
+  statusPillTextUnscanned: {
+    color: '#B2422E',
   },
   qtyBadge: {
     fontSize: 15,

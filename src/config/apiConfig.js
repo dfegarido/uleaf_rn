@@ -197,6 +197,7 @@ const generateEndpoints = () => ({
   QR_GENERATOR_ORDERS: `${getBaseUrl()}/qrGenerator/orders`,
   THERMAL_LABEL_GENERATOR: `${getBaseUrl()}/thermalLabelGenerator`,
   EMAIL_THERMAL_LABELS: `${getBaseUrl()}/emailThermalLabels`,
+  GENERATE_RECEIVER_BOX_LABELS: `${getBaseUrl()}/generateReceiverBoxLabels`,
   
   // Cart APIs
   ADD_TO_CART: `${getBaseUrl()}/addToCart`,
@@ -346,6 +347,7 @@ const generateEndpoints = () => ({
   GET_ADMIN_LEAF_TRAIL_FILTERS: `${getBaseUrl()}/getAdminFilters`,
   GET_ADMIN_SCAN_QR: `${getBaseUrl()}/getAdminScanQr`,
   ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
+  ASSIGN_RECEIVER_BOXES: `${getBaseUrl()}/assignReceiverBoxes`,
   ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
   UPDATE_PLANTS_TO_SORTED: `${getBaseUrl()}/updatePlantsToSorted`,
   UPDATE_PLANTS_TO_NEEDS_TO_STAY: `${getBaseUrl()}/updatePlantsToNeedsToStay`,
