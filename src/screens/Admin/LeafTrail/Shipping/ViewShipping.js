@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
 import moment from 'moment';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   FlatList,
@@ -20,10 +21,12 @@ import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.sv
 import TrackIcon from '../../../../assets/admin-icons/tracking-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import {
+  addLeafTrailShippingDetails,
   addLeafTrailTrackingNumber,
   generateThermalLabels,
   getOrdersByBoxNumber,
 } from '../../../../components/Api/getAdminLeafTrail';
+import DeliveryDateTimeInput from './DeliveryDateTimeInput';
 import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
@@ -180,47 +183,96 @@ const ViewShippingScreen = ({ navigation, route }) => {
   
   const [plantList, setPlantList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingTracking, setIsSavingTracking] = useState(false);
+  const [isSavingDelivery, setIsSavingDelivery] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState(item?.trackingNumber || '');
   const [shippingDetails, setShippingDetails] = useState(item);
+  const [deliveryDate, setDeliveryDate] = useState(item?.deliveryDate || null);
+  const [deliveryTime, setDeliveryTime] = useState(item?.deliveryTime || null);
+  const [isDelayed, setIsDelayed] = useState(item?.isDelayedUPSDelivery || false);
 
   const fetchData = async () => {
-      setIsLoading(true);
-      try {
-          // Assuming we can get plants by boxNumber or sortingTrayNumber
-          const response = await getOrdersByBoxNumber(item.boxNumber);
-          setPlantList(response.data.filter(p => p?.packingData?.boxNumber === item.boxNumber));
-      } catch (e) {
-          console.error("Failed to fetch plant data:", e);
-          Alert.alert("Error", "Failed to fetch plant data.");
-      } finally {
-          setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const response = await getOrdersByBoxNumber(item.boxNumber);
+      const plants = (response.data || []).filter(
+        (p) => p?.packingData?.boxNumber === item.boxNumber,
+      );
+      setPlantList(plants);
+      const sample = plants[0];
+      if (sample?.shippingData?.trackingNumber) {
+        setTrackingNumber(sample.shippingData.trackingNumber);
       }
+      if (sample?.shippedData?.deliveryDate) {
+        setDeliveryDate(sample.shippedData.deliveryDate);
+      }
+      if (sample?.shippedData?.deliveryTime) {
+        setDeliveryTime(sample.shippedData.deliveryTime);
+      }
+      if (sample?.shippedData?.isDelayedUPSDelivery != null) {
+        setIsDelayed(sample.shippedData.isDelayedUPSDelivery);
+      }
+    } catch (e) {
+      console.error('Failed to fetch plant data:', e);
+      Alert.alert('Error', 'Failed to fetch plant data.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [item]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [item.boxNumber]),
+  );
 
   const handleSaveTrackingNumber = async () => {
     if (!trackingNumber.trim()) {
         Alert.alert("Validation Error", "Please enter a tracking number.");
         return;
     }
-    setIsSaving(true);
+    setIsSavingTracking(true);
     try {
-        const orderIds = plantList.map(p => p.id);
-        const response = await addLeafTrailTrackingNumber({orderIds, trackingNumber});
-        if (response.success) {
-            setShippingDetails(prev => ({...prev, trackingNumber}));
-            Alert.alert("Success", "Tracking number updated successfully.");
-        } else {
-            throw new Error(response.error || "Failed to update tracking number.");
-        }
+      const orderIds = plantList.map((p) => p.id);
+      const response = await addLeafTrailTrackingNumber({ orderIds, trackingNumber });
+      if (response.success) {
+        setShippingDetails((prev) => ({ ...prev, trackingNumber }));
+        Alert.alert('Success', 'Tracking number updated successfully.');
+      } else {
+        throw new Error(response.error || 'Failed to update tracking number.');
+      }
     } catch (error) {
-        Alert.alert("Error", error.message);
+      Alert.alert('Error', error.message);
     } finally {
-        setIsSaving(false);
+      setIsSavingTracking(false);
+    }
+  };
+
+  const handleSaveDeliveryDetails = async () => {
+    if (!deliveryDate || !deliveryTime) {
+      Alert.alert('Validation Error', 'Please select both delivery date and time.');
+      return;
+    }
+    setIsSavingDelivery(true);
+    try {
+      const orderIds = plantList.map((p) => p.id);
+      const response = await addLeafTrailShippingDetails({
+        orderIds,
+        deliveryDate,
+        deliveryTime,
+        isDelayed,
+      });
+      if (response.success) {
+        Alert.alert('Success', 'Delivery details saved. Box moved to Delivered.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        throw new Error(response.error || 'Failed to update delivery details.');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setIsSavingDelivery(false);
     }
   };
 
@@ -269,11 +321,22 @@ const ViewShippingScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <BoxInfo boxNumber={shippingDetails.boxNumber} label="Box Number" />
 
-        <TrackingInput 
-            trackingNumber={trackingNumber}
-            setTrackingNumber={setTrackingNumber}
-            onSave={handleSaveTrackingNumber}
-            isLoading={isSaving}
+        <TrackingInput
+          trackingNumber={trackingNumber}
+          setTrackingNumber={setTrackingNumber}
+          onSave={handleSaveTrackingNumber}
+          isLoading={isSavingTracking}
+        />
+
+        <DeliveryDateTimeInput
+          deliveryDate={deliveryDate}
+          setDeliveryDate={setDeliveryDate}
+          deliveryTime={deliveryTime}
+          setDeliveryTime={setDeliveryTime}
+          isDelayed={isDelayed}
+          setIsDelayed={setIsDelayed}
+          onSave={handleSaveDeliveryDetails}
+          isLoading={isSavingDelivery}
         />
 
         <View style={styles.deliveryDetailsSection}>
@@ -320,7 +383,7 @@ const ViewShippingScreen = ({ navigation, route }) => {
             )}
         </View>
       </ScrollView>
-      {(isLoading || isSaving) && (
+      {(isLoading || isSavingTracking || isSavingDelivery) && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />

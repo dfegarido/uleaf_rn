@@ -9,7 +9,7 @@ import { Modal,
   View,
   KeyboardAvoidingView,
   Platform} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 import CaretLeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
@@ -134,6 +134,7 @@ const PlantFlightFilter = ({
   availableFlightDateIsos = [],
   selectedValues = [] 
 }) => {
+  const insets = useSafeAreaInsets();
   const [draftSelection, setDraftSelection] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const scrollRef = React.useRef(null);
@@ -322,13 +323,13 @@ const PlantFlightFilter = ({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.actionSheetContainer}>
+            <View style={[styles.actionSheetContainer, { paddingBottom: Math.max(insets.bottom, 0) }]}>
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={80}
                 style={{flex: 1}}
               >
-                <SafeAreaView style={{flex: 1}}>
+                <View style={{flex: 1}}>
                 {/* Title */}
                 <View style={styles.titleContainer}>
                   <Text style={styles.titleText}>Plant Flight Dates</Text>
@@ -420,7 +421,7 @@ const PlantFlightFilter = ({
                   </TouchableOpacity>
                 </View>
 
-                </SafeAreaView>
+                </View>
               </KeyboardAvoidingView>
             </View>
           </TouchableWithoutFeedback>
@@ -443,6 +444,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: 700,
     height: '85%',
+    width: '100%',
   },
   titleContainer: {
     flexDirection: 'row',

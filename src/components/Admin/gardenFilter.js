@@ -9,7 +9,7 @@ import { Modal,
   View,
   KeyboardAvoidingView,
   Platform} from 'react-native';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import GardenIcon from '../../assets/admin-icons/garden-avatar.svg';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
@@ -348,9 +348,9 @@ const GardenFilter = ({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.actionSheetContainer}>
+            <View style={[styles.actionSheetContainer, { paddingBottom: Math.max(insets.bottom, 0) }]}>
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={80} style={{flex: 1}}>
-                <SafeAreaView style={{flex: 1}}>
+                <View style={{flex: 1}}>
                 {/* Header */}
                 <View style={styles.header}>
                   <Text style={styles.headerTitle}>Garden</Text>
@@ -444,7 +444,7 @@ const GardenFilter = ({
                 </View>
                 
                     {/* Reset + View — same pattern as Country filter */}
-                    <View style={[styles.actionContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+                    <View style={styles.actionContainer}>
                       <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
                         <Text style={styles.resetButtonText}>Reset</Text>
                       </TouchableOpacity>
@@ -453,7 +453,7 @@ const GardenFilter = ({
                       </TouchableOpacity>
                     </View>
 
-                </SafeAreaView>
+                </View>
               </KeyboardAvoidingView>
             </View>
           </TouchableWithoutFeedback>
@@ -474,8 +474,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: 620, // increased to better accommodate keyboard
+    maxHeight: 620,
     height: '80%',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -631,6 +632,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 24,
     paddingTop: 12,
+    paddingBottom: 12,
     gap: 8,
     height: 60,
   },

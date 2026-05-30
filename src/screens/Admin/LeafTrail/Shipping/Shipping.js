@@ -1,6 +1,8 @@
-import moment from 'moment';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator,
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -8,9 +10,9 @@ import { ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import CubeIcon from '../../../../assets/admin-icons/cube.svg';
 import DimensionIcon from '../../../../assets/admin-icons/dimension.svg';
@@ -19,14 +21,40 @@ import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
-import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
-import { getAdminLeafTrailFilters, getAdminLeafTrailShipping } from '../../../../components/Api/getAdminLeafTrail';
+import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
+import {
+  generateThermalLabels,
+  getAdminLeafTrailFilters,
+  getAdminLeafTrailShipping,
+  getOrdersByBoxNumber,
+} from '../../../../components/Api/getAdminLeafTrail';
+
+const compareBoxes = (a, b) =>
+  String(a.boxNumber || '').localeCompare(String(b.boxNumber || ''), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+
+async function fetchPlantsForBoxes(boxItems) {
+  const boxNumbers = [
+    ...new Set(
+      (boxItems || [])
+        .map((b) => String(b.boxNumber || '').trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (!boxNumbers.length) return [];
+
+  const responses = await Promise.all(
+    boxNumbers.map((boxNumber) => getOrdersByBoxNumber(boxNumber)),
+  );
+  return responses.flatMap((r) => r?.data || []);
+}
 
 const ShippingListItem = ({ item, navigation }) => (
   <TouchableOpacity onPress={() => navigation.navigate('ViewShippingScreen', { item })}>
     <View style={styles.listItemContainer}>
-      {/* Top card with box info */}
       <View style={styles.card}>
         <View style={styles.boxIconCircle}>
           <CubeIcon />
@@ -34,29 +62,37 @@ const ShippingListItem = ({ item, navigation }) => (
         <View style={styles.cardContent}>
           <View style={styles.infoRow}>
             <Text style={styles.fulfillmentNumber}>{item.boxNumber}</Text>
-            <Text style={styles.plantCount}>{item.packedPlantsCount} <Text style={{ color: '#556065' }}> plant(s)</Text></Text>
+            <Text style={styles.plantCount}>
+              {item.packedPlantsCount}{' '}
+              <Text style={{ color: '#556065' }}> plant(s)</Text>
+            </Text>
           </View>
           <View style={styles.specsRow}>
             <View style={styles.specItem}>
               <DimensionIcon />
               <Text style={styles.specText}>
-                {item?.packingData?.dimensions?.length || 0}x{item?.packingData?.dimensions?.width || 0}x{item?.packingData?.dimensions?.height || 0} in
+                {item?.packingData?.dimensions?.length || 0}x
+                {item?.packingData?.dimensions?.width || 0}x
+                {item?.packingData?.dimensions?.height || 0} in
               </Text>
             </View>
             <View style={styles.specItem}>
               <ScaleIcon />
-              <Text style={styles.specText}>{item?.packingData?.weight?.value || 0} {item?.packingData?.weight?.unit || ''}</Text>
+              <Text style={styles.specText}>
+                {item?.packingData?.weight?.value || 0}{' '}
+                {item?.packingData?.weight?.unit || ''}
+              </Text>
             </View>
           </View>
         </View>
       </View>
 
-      {/* Details section with user info */}
       <View style={styles.detailsContainer}>
         <View style={styles.flightDetailsRow}>
           <AirplaneIcon />
           <Text style={styles.detailsText}>
-            Plant Flight <Text style={{ fontWeight: 'bold' }}>{item.flightDateFormatted || 'Date TBD'}</Text>
+            Plant Flight{' '}
+            <Text style={{ fontWeight: 'bold' }}>{item.flightDateFormatted || 'Date TBD'}</Text>
           </Text>
         </View>
         <View style={styles.userRow}>
@@ -74,113 +110,178 @@ const ShippingListItem = ({ item, navigation }) => (
   </TouchableOpacity>
 );
 
-// --- MAIN SCREEN ---
-const ShippingScreen = ({navigation}) => {
+const ShippingScreen = ({ navigation }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [shippingData, setShippingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [adminFilters, setAdminFilters] = useState(null);
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const [activeFilters, setActiveFilters] = useState(null);
+  const activeFiltersRef = useRef(null);
+  activeFiltersRef.current = activeFilters;
 
   const getFilters = async () => {
-    setIsLoading(true);
     const adminFilter = await getAdminLeafTrailFilters('["packed", "shipping"]');
     setAdminFilters(adminFilter);
-    setIsLoading(false);
-  }
+  };
 
   const fetchData = async (filters) => {
+    setIsLoading(true);
     try {
-         const response = await getAdminLeafTrailShipping(filters);
-        setShippingData(response);
+      const response = await getAdminLeafTrailShipping(filters);
+      setShippingData(response);
     } catch (e) {
-        setError(e);
-        console.error("Failed to fetch plant data:", e);
+      console.error('Failed to fetch shipping data:', e);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleSearch = () => {
-    fetchData({search: searchValue})
-    setSearchActive(false);
-    setSearchValue('');
-  }
-
-  useEffect(() => {
-      fetchData();
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(activeFiltersRef.current);
       getFilters();
-    }, []); // The empty array ensures this effect runs only once
+    }, []),
+  );
 
-  const hubHeaderActions = useLeafTrailHubActions({
-    exportLines: [],
-    exportStageLabel: 'in-transit-boxes',
-    onPrintPress: () => {},
-    printDisabled: true,
-    exportDisabled: false,
-    emptyPrintMessage: 'Open a box to print plant barcodes.',
-    emptyExportMessage: 'Open a box to export plant data.',
-  });
+  const onFilterChange = (filters) => {
+    setActiveFilters(filters);
+    fetchData(filters);
+  };
+
+  const boxes = useMemo(() => {
+    return [...(shippingData?.data || [])].sort(compareBoxes);
+  }, [shippingData?.data]);
+
+  const handleSearch = () => {
+    const trimmed = String(searchValue || '').trim();
+    const next = { ...(activeFilters || {}) };
+    if (trimmed) {
+      next.search = trimmed;
+    } else {
+      delete next.search;
+    }
+    const payload = Object.keys(next).length ? next : null;
+    setActiveFilters(payload);
+    fetchData(payload);
+    setSearchActive(false);
+  };
+
+  const handleSearchClear = () => {
+    setSearchValue('');
+    const next = { ...(activeFilters || {}) };
+    delete next.search;
+    const payload = Object.keys(next).length ? next : null;
+    setActiveFilters(payload);
+    fetchData(payload);
+  };
+
+  const handlePrintList = useCallback(async () => {
+    if (actionLoading) return;
+    if (!boxes.length) {
+      Alert.alert('Print', 'No boxes in the current list.');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const plants = await fetchPlantsForBoxes(boxes);
+      if (!plants.length) {
+        Alert.alert('Print', 'No plants found in the current box list.');
+        return;
+      }
+      const ids = plants.map((p) => p.id).filter(Boolean);
+      const response = await generateThermalLabels(ids);
+      if (!response?.success) {
+        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
+      }
+    } catch (e) {
+      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
+    } finally {
+      setActionLoading(false);
+    }
+  }, [actionLoading, boxes]);
+
+  const handleExportList = useCallback(async () => {
+    if (actionLoading) return;
+    if (!boxes.length) {
+      Alert.alert('Export', 'No boxes in the current list.');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const plants = await fetchPlantsForBoxes(boxes);
+      if (!plants.length) {
+        Alert.alert('Export', 'No plants found in the current box list.');
+        return;
+      }
+      await exportLeafTrailLinesToCsv(plants, { stageLabel: 'in-transit-boxes' });
+    } catch (e) {
+      if (e?.message !== 'User did not share') {
+        Alert.alert('Export failed', e?.message || 'Could not export data.');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  }, [actionLoading, boxes]);
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.screenContainer} edges={['top']}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        {isLoading && (
-          <Modal transparent animationType="fade">
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#699E73" />
-            </View>
-          </Modal>
-        )}
-        <ScreenHeader
-          onSearchChange={setSearchValue}
-          searchValue={searchValue}
-          onSearchSubmit={handleSearch}
-          searchPlaceholder="Search Box Number"
-          searchActive={searchActive}
-          onSearchPress={() => setSearchActive(!searchActive)}
-          navigation={navigation}
-          title={'In-Transit'}
-          search={true}
-          printButton={!!hubSpecEnabled}
-          onPrint={hubHeaderActions.onPrint}
-          downloadCsv={!!hubSpecEnabled}
-          onDownloadCsv={hubHeaderActions.onExport}
-          downloadLoading={hubHeaderActions.exportLoading}
-          scarQr={hubSpecEnabled}
-          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipping}
-        />
-        <FlatList
-          data={shippingData?.data || {}}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => <ShippingListItem item={item} navigation={navigation} />}
-          ListHeaderComponent={
-            <>
-              {hubSpecEnabled ? (
-                <LeafTrailHubToolbar
-                  adminFilters={adminFilters}
-                  onFilterChange={fetchData}
-                />
-              ) : (
-                <FilterBar adminFilters={adminFilters} onFilterChange={fetchData} />
-              )}
-              <Text style={styles.countText}>{shippingData?.total || 0} box(es)</Text>
-            </>
-          }
-          ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
-          contentContainerStyle={styles.listContentContainer}
-        />
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <SafeAreaView style={styles.screenContainer} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      {(isLoading || actionLoading) && (
+        <Modal transparent animationType="fade">
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
+      )}
+      <ScreenHeader
+        onSearchChange={setSearchValue}
+        searchValue={searchValue}
+        onSearchSubmit={handleSearch}
+        onSearchClear={handleSearchClear}
+        searchPlaceholder="Search Box Number"
+        searchActive={searchActive}
+        onSearchPress={() => setSearchActive(!searchActive)}
+        navigation={navigation}
+        title="In-Transit"
+        search
+        printButton={!!hubSpecEnabled}
+        onPrint={handlePrintList}
+        downloadCsv={!!hubSpecEnabled}
+        onDownloadCsv={handleExportList}
+        downloadLoading={actionLoading}
+        scarQr={hubSpecEnabled}
+        scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipping}
+      />
+      {hubSpecEnabled ? (
+        <LeafTrailHubToolbar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+      ) : (
+        <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+      )}
+      {activeFilters?.search ? (
+        <Text style={styles.searchHint}>Showing boxes matching “{activeFilters.search}”</Text>
+      ) : null}
+      <Text style={styles.countText}>{shippingData?.total ?? boxes.length} box(es)</Text>
+      <FlatList
+        data={boxes}
+        keyExtractor={(item) => String(item.boxNumber || item.id)}
+        renderItem={({ item }) => <ShippingListItem item={item} navigation={navigation} />}
+        ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+        ListEmptyComponent={
+          !isLoading ? (
+            <Text style={styles.emptyText}>No boxes in transit.</Text>
+          ) : null
+        }
+        contentContainerStyle={styles.listContentContainer}
+      />
+    </SafeAreaView>
   );
-}
+};
 
 export default ShippingScreen;
 
-// --- STYLES ---
 const styles = StyleSheet.create({
   loadingOverlay: {
     flex: 1,
@@ -192,37 +293,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  // Tabs
-  tabsOuterContainer: {
-    borderBottomWidth: 1,
-    borderColor: '#CDD3D4',
-  },
-  tabsInnerContainer: {
-    paddingHorizontal: 14,
-    gap: 16,
-  },
-  tab: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    gap: 12,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#647276',
-  },
-  activeTabText: {
-    color: '#202325',
-    fontWeight: '600',
-  },
-  activeTabIndicator: {
-    height: 3,
-    width: '100%',
-    backgroundColor: '#202325',
-  },
-  // List
   listContentContainer: {
     paddingBottom: 40,
+  },
+  searchHint: {
+    color: '#647276',
+    fontSize: 14,
+    paddingHorizontal: 15,
+    paddingTop: 4,
   },
   countText: {
     textAlign: 'right',
@@ -231,7 +309,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 15,
   },
-  // List Item
+  emptyText: {
+    textAlign: 'center',
+    color: '#647276',
+    fontSize: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 15,
+  },
   listItemContainer: {
     backgroundColor: '#F5F6F6',
     padding: 12,

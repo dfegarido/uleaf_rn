@@ -619,7 +619,7 @@ export const getOrdersByBoxNumber = async (boxNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `${API_ENDPOINTS.GET_ORDERS_BY_BOX_NUMBER}?boxNumber=${boxNumber}`,
+      `${API_ENDPOINTS.GET_ORDERS_BY_BOX_NUMBER}?boxNumber=${encodeURIComponent(boxNumber)}`,
       {
         method: 'GET', 
         headers: {
