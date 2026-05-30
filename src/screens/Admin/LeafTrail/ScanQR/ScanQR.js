@@ -62,12 +62,17 @@ const ScanQRScreen = ({ navigation, route }) => {
     leafTrailStatus = null,
     intakeMode: intakeModeParam = false,
     sortingBoxMode: sortingBoxModeParam = false,
+    packingTrayMode: packingTrayModeParam = false,
     expectedBoxKey = '',
     boxReceiverName = '',
+    expectedSortingTrayNumber = '',
+    trayLabel = '',
   } = route.params || {};
   const intakeMode = intakeModeParam === true && isLeafTrailHubSpecEnabled();
   const sortingBoxMode =
     sortingBoxModeParam === true && isLeafTrailHubSpecEnabled();
+  const packingTrayMode =
+    packingTrayModeParam === true && isLeafTrailHubSpecEnabled();
   const [setAsideConfirmed, setSetAsideConfirmed] = useState(false);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const pressInTimeout = useRef(null);
@@ -107,12 +112,26 @@ const ScanQRScreen = ({ navigation, route }) => {
             filters,
             leafTrailStatus,
             isScanning,
-            sortingBoxMode ? { expectedBoxKey } : {},
+            {
+              ...(sortingBoxMode ? { expectedBoxKey } : {}),
+              ...(packingTrayMode ? { expectedSortingTrayNumber } : {}),
+            },
           );
 
           if (response?.wrongBox) {
             setPlantData(response);
             setButtomData('wrongBox');
+            setSetAsideConfirmed(false);
+            Vibration.vibrate([0, 120, 60, 120]);
+            setTimeout(() => {
+              setIsScanning(false);
+            }, 3000);
+            return;
+          }
+
+          if (response?.wrongTray) {
+            setPlantData(response);
+            setButtomData('wrongTray');
             setSetAsideConfirmed(false);
             Vibration.vibrate([0, 120, 60, 120]);
             setTimeout(() => {
@@ -130,7 +149,7 @@ const ScanQRScreen = ({ navigation, route }) => {
         }
       } catch (error) {
         setButtomData('invalid');
-        if (sortingBoxMode) {
+        if (sortingBoxMode || packingTrayMode) {
           Vibration.vibrate([0, 120, 60, 120]);
         }
       } finally {
@@ -240,7 +259,9 @@ const ScanQRScreen = ({ navigation, route }) => {
                   ? 'Receive plant'
                   : sortingBoxMode
                     ? 'Sort plant'
-                    : 'Scan QR Code'}
+                    : packingTrayMode
+                      ? 'Pack plant'
+                      : 'Scan QR Code'}
               </Text>
             </View>
             <View style={styles.noteContainer}>
@@ -309,6 +330,39 @@ const ScanQRScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {buttomData === 'wrongTray' && (
+          <View style={styles.bottomSheet}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.titleTextInvalid}>Wrong tray</Text>
+            </View>
+            <View style={styles.noteContainer}>
+              <Text style={styles.noteText}>
+                This plant does not belong in this tray
+                {trayLabel ? ` (${trayLabel})` : ''}.
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.setAsideButton,
+                  setAsideConfirmed && styles.setAsideButtonConfirmed,
+                ]}
+                onPress={() => setSetAsideConfirmed(true)}>
+                <Text
+                  style={[
+                    styles.setAsideButtonText,
+                    setAsideConfirmed && styles.setAsideButtonTextConfirmed,
+                  ]}>
+                  {setAsideConfirmed
+                    ? 'Set aside confirmed'
+                    : 'Confirm that you set aside'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.intakeSecondaryButton} onPress={resetForNextScan}>
+                <Text style={styles.intakeSecondaryButtonText}>Scan next plant</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
            {/* Content Bottom Sheet */}
           <ScrollView style={buttomData !== 'success' ? styles.displayNone : styles.contentContainer} showsVerticalScrollIndicator={false}>
             
@@ -319,11 +373,14 @@ const ScanQRScreen = ({ navigation, route }) => {
                   {sortingBoxMode &&
                   String(plantData?.leafTrailStatus || '').toLowerCase() === 'sorted'
                     ? 'Marked as Sorted'
-                    : intakeMode &&
-                        String(plantData?.leafTrailStatus || '').toLowerCase() ===
-                          'received'
-                      ? 'Marked as Received'
-                      : 'Scan Success!'}
+                    : packingTrayMode &&
+                        String(plantData?.leafTrailStatus || '').toLowerCase() === 'packed'
+                      ? 'Marked as Packed'
+                      : intakeMode &&
+                          String(plantData?.leafTrailStatus || '').toLowerCase() ===
+                            'received'
+                        ? 'Marked as Received'
+                        : 'Scan Success!'}
                 </Text>
               </View>
 
@@ -336,7 +393,7 @@ const ScanQRScreen = ({ navigation, route }) => {
                 </View>
               )}
 
-              {(intakeMode || sortingBoxMode) && (
+              {(intakeMode || sortingBoxMode || packingTrayMode) && (
                 <View style={styles.intakeActionRow}>
                   <TouchableOpacity style={styles.intakeSecondaryButton} onPress={resetForNextScan}>
                     <Text style={styles.intakeSecondaryButtonText}>Scan next</Text>

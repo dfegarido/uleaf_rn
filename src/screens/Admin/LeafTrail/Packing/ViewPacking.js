@@ -1,5 +1,5 @@
 import moment from 'moment';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   FlatList,
@@ -11,7 +11,8 @@ import { ActivityIndicator,
   TouchableOpacity,
   View,
   Platform} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
 import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
@@ -31,16 +32,25 @@ import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import AssignBoxModal from './AssignBoxModal';
-import SelectionModal from './SelectionModal';
+import PackingSelectionFooter from './PackingSelectionFooter';
+import PackingTraySummary from './PackingTraySummary';
 import TagAsOptions from './TagAs';
+import { computePackingTrayMetrics } from '../../../../utils/packingTrayMetrics';
 
-const Header = ({ title, navigation }) => (
+const isAssignableForBox = (plant) =>
+  !String(plant?.packingData?.boxNumber || '').trim();
+
+const Header = ({ title, navigation, scanQrParams }) => (
   <View style={styles.headerContainer}>
     <TouchableOpacity onPress={() => navigation.goBack()}>
       <BackSolidIcon />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>{title}</Text>
-    <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen', {leafTrailStatus: 'packed'})}>
+    <TouchableOpacity
+      style={styles.headerAction}
+      onPress={() =>
+        navigation.navigate('LeafTrailScanQRAdminScreen', scanQrParams || { leafTrailStatus: 'packed' })
+      }>
              <ScanQrIcon />
     </TouchableOpacity>
   </View>
@@ -89,18 +99,13 @@ const ShippingInfo = ({ upsShipping, plantFlight }) => (
   </View>
 );
 
-const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
-  
+const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
+  const boxNumber = String(plant?.packingData?.boxNumber || '').trim();
   const setTags = () => {
-    openTagAs(plant?.packingData?.boxNumber || null, plant.id)
-  }
+    openTagAs(boxNumber || null, plant.id);
+  };
 
-  const onCheckPress = () => {
-    onSelect(plant.id);
-  }
-  
   return (
-
   <View style={styles.plantCardContainer}>
     {plant?.isJoinerOrder && (
       <View style={styles.joinerUserRow}>
@@ -117,31 +122,21 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
     <View style={styles.plantCard}>
       <View>
         <Image source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
-        {plant?.leafTrailStatus === 'packed' && (
+        {plant?.leafTrailStatus === 'packed' && !boxNumber ? (
           <View style={styles.packedBadgeContainer}>
             <View style={styles.packedBadge}>
               <Text style={styles.packedBadgeText}>PACKED</Text>
             </View>
           </View>
-        )}
-        {/* {!(plant?.packingData?.boxNumber) && (
+        ) : null}
+        {canSelect ? (
           <View style={styles.checkboxContainer}>
-             <CheckBox
-                checked={isSelected}
-                onToggle={onCheckPress}
-                containerStyle={{padding: 0, margin: 0}}
-                checkedColor="#539461"
+            <CheckBox
+              isChecked={isSelected}
+              onToggle={() => onSelect(plant.id)}
             />
           </View>
-        )} */}
-        <View style={styles.checkboxContainer}>
-             <CheckBox
-                checked={isSelected}
-                onToggle={onCheckPress}
-                containerStyle={{padding: 0, margin: 0}}
-                checkedColor="#539461"
-            />
-          </View>
+        ) : null}
       </View>
       <View style={styles.plantDetails}>
         <View>
@@ -162,11 +157,18 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
           <Text style={styles.plantSubtext}>{plant.variegation} • {plant.potSizeVariation}</Text>
         </View>
         <View style={styles.plantFooter}>
-          {plant.listingType && (
-            <View style={styles.typeChip}>
-              <Text style={styles.typeText}>{plant.listingType}</Text>
-            </View>
-          )}
+          <View style={styles.plantFooterLeft}>
+            {plant.listingType ? (
+              <View style={styles.typeChip}>
+                <Text style={styles.typeText}>{plant.listingType}</Text>
+              </View>
+            ) : null}
+            {boxNumber ? (
+              <View style={styles.boxChip}>
+                <Text style={styles.boxChipText}>Box {boxNumber}</Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.quantity}>{plant.orderQty}X</Text>
         </View>
       </View>
@@ -175,17 +177,36 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs }) => {
 )};
 
 const ViewPackingScreen = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const { item } = route.params;
   const [selectedPlants, setSelectedPlants] = useState([]);
   const [plantList, setPlantList] = useState([]);
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [hasBoxNumber, setHasBoxNumber] = useState(false);
-  const [orderId, setOrderId] = useState(false);
+  const [orderId, setOrderId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAssignBoxVisible, setIsAssignBoxVisible] = useState(false);
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-   
+
+  const trayScanParams = useMemo(
+    () => LEAF_TRAIL_SCAN_PARAMS.packingTray({ sortingTrayNumber: item?.sortingTrayNumber }),
+    [item?.sortingTrayNumber],
+  );
+
+  const trayMetrics = useMemo(
+    () => computePackingTrayMetrics(plantList),
+    [plantList],
+  );
+
+  const assignablePlants = useMemo(
+    () => plantList.filter(isAssignableForBox),
+    [plantList],
+  );
+
+  const isAllSelected =
+    assignablePlants.length > 0 &&
+    assignablePlants.every((p) => selectedPlants.includes(p.id));
+
   const openTagAs = (hasBox, id) => {
     setHasBoxNumber(!!hasBox);
     setTagAsVisible(!isTagAsVisible);
@@ -194,8 +215,9 @@ const ViewPackingScreen = ({ navigation, route }) => {
 
   const setTagAs = async (status) => {
     if (status === 'packing') {
-        setIsAssignBoxVisible(true);
-        setTagAsVisible(!isTagAsVisible);
+      setSelectedPlants(orderId ? [orderId] : []);
+      setIsAssignBoxVisible(true);
+      setTagAsVisible(false);
     } else {
       setIsLoading(true);
       setTagAsVisible(!isTagAsVisible);
@@ -212,96 +234,103 @@ const ViewPackingScreen = ({ navigation, route }) => {
   }
 
   const stay = async () => {
-    setIsSelectionMode(false);
+    if (!selectedPlants.length) return;
     setIsLoading(true);
 
     try {
-        const response = await updatePlantsToNeedsToStay({orderIds: selectedPlants})
-        if (response.success) {
-          setIsLoading(false);
-          Alert.alert('Success', 'Plants tagged as Needs to Stay');
-          navigation.goBack();
-        } else {
-          setIsLoading(false);
-          Alert.alert('Error', response.message || 'Failed to update status');
-        }
+      const response = await updatePlantsToNeedsToStay({ orderIds: selectedPlants });
+      if (response.success) {
+        await fetchData();
+        setSelectedPlants([]);
+        Alert.alert('Success', 'Plants tagged as Needs to Stay');
+      } else {
+        Alert.alert('Error', response.message || 'Failed to update status');
+      }
     } catch (error) {
-        setIsLoading(false);
-        Alert.alert('Error', error.message);
+      Alert.alert('Error', error?.message || 'Failed to update status');
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSaveBox = async (boxDetails) => {
+    const ids =
+      selectedPlants.length > 0
+        ? selectedPlants
+        : orderId
+          ? [orderId]
+          : [];
+    if (!ids.length) {
+      Alert.alert('No plants selected', 'Select at least one plant to assign a box number.');
+      return;
+    }
+
     setIsLoading(true);
     setIsAssignBoxVisible(false);
-    setIsSelectionMode(false)
 
-    const ids = selectedPlants.length === 0 ? [orderId] : selectedPlants;
-    const response = await addLeafTrailBoxNumber({orderIds: ids, boxDetails})
-    if (response.success) {
-      await fetchData();
-      setIsLoading(false)
-      setOrderId(false);
-      setSelectedPlants([]);
-      Alert.alert('Success');
-    } else {
-      setIsLoading(false)
-      setOrderId(false);
-      setSelectedPlants([]);
-      Alert.alert('Error', error.message);
-    }  
+    try {
+      const response = await addLeafTrailBoxNumber({ orderIds: ids, boxDetails });
+      if (response.success) {
+        await fetchData();
+        setOrderId(null);
+        setSelectedPlants([]);
+        Alert.alert('Success', `Box ${boxDetails.boxNumber} assigned.`);
+      } else {
+        Alert.alert('Error', response?.message || 'Could not assign box.');
+      }
+    } catch (error) {
+      Alert.alert('Error', error?.message || 'Could not assign box.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSelectPlant = (plantId) => {
-    const newSelection = selectedPlants.includes(plantId)
-        ? selectedPlants.filter(id => id !== plantId)
-        : [...selectedPlants, plantId];
-
-    setSelectedPlants(newSelection);
-    
-    if (newSelection.length > 0 && !isSelectionMode) {
-        setIsSelectionMode(true);
-    } else if (newSelection.length === 0 && isSelectionMode) {
-        setIsSelectionMode(false);
-    }
+    setSelectedPlants((prev) =>
+      prev.includes(plantId)
+        ? prev.filter((id) => id !== plantId)
+        : [...prev, plantId],
+    );
   };
 
   const handleSelectAll = () => {
-    if (selectedPlants.length === plantList.length) {
+    if (isAllSelected) {
       setSelectedPlants([]);
     } else {
-      // Select all
-      setSelectedPlants(plantList.map(p => p.id));
+      setSelectedPlants(assignablePlants.map((p) => p.id));
     }
-    
-  }
-
-  const fetchData = async () => {
-          setIsLoading(true)
-          try {
-              const response = await getOrdersBySortingTray(item.sortingTrayNumber);
-              
-              setPlantList(response.data);
-          } catch (e) {
-              setError(e);
-              console.error("Failed to fetch plant data:", e);
-          } finally {
-              setIsLoading(false);
-          }
   };
 
-  useEffect(() => {
-        fetchData();
-  }, [item]); // The empty array ensures this effect runs only once
+  const openAssignSheet = () => {
+    if (!selectedPlants.length) {
+      Alert.alert('Select plants', 'Check one or more plants without a box number first.');
+      return;
+    }
+    setIsAssignBoxVisible(true);
+  };
+
+  const fetchData = useCallback(async () => {
+    if (!item?.sortingTrayNumber) return;
+    setIsLoading(true);
+    try {
+      const response = await getOrdersBySortingTray(item.sortingTrayNumber);
+      setPlantList(response.data || []);
+    } catch (e) {
+      console.error('Failed to fetch plant data:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [item?.sortingTrayNumber]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData]),
+  );
 
   const packingDetails = {
     ...item,
     plants: item.sortedPlantsData || [],
-  };
-
-  const assignBox = () => {
-    setIsAssignBoxVisible(true);
-    setIsSelectionMode(false);
   };
 
   const handlePrintBarcodes = async () => {
@@ -329,16 +358,21 @@ const ViewPackingScreen = ({ navigation, route }) => {
         <LeafTrailDetailHeader
           title="Tray Details"
           navigation={navigation}
-          scanQrParams={LEAF_TRAIL_SCAN_PARAMS.packing}
+          scanQrParams={trayScanParams}
           exportLines={plantList}
           exportStageLabel="packing-tray"
           onPrintPress={handlePrintBarcodes}
         />
       ) : (
-        <Header title="Tray Details" navigation={navigation} />
+        <Header title="Tray Details" navigation={navigation} scanQrParams={trayScanParams} />
       )}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          selectedPlants.length > 0 && { paddingBottom: 200 + insets.bottom },
+        ]}>
         <TrayInfo trayNumber={packingDetails.sortingTrayNumber} label="Tray Number" />
+        <PackingTraySummary metrics={trayMetrics} />
 
         <View style={styles.deliveryDetailsSection}>
           <Text style={styles.sectionTitle}>Delivery Details</Text>
@@ -359,7 +393,12 @@ const ViewPackingScreen = ({ navigation, route }) => {
         <View style={styles.plantListSection}>
             <View style={styles.plantListHeader}>
                 <Text style={styles.sectionTitle}>Plant List</Text>
-                <Text style={styles.plantListCount}>{plantList.length} plant(s)</Text>
+                <Text style={styles.plantListCount}>
+                  {plantList.length} plant(s)
+                  {assignablePlants.length < plantList.length
+                    ? ` · ${assignablePlants.length} need box`
+                    : ''}
+                </Text>
             </View>
             <FlatList
                 data={plantList}
@@ -370,6 +409,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
                         plant={plant}
                         isSelected={selectedPlants.includes(plant.id)}
                         onSelect={handleSelectPlant}
+                        canSelect={isAssignableForBox(plant)}
                     />
                 )}
                 scrollEnabled={false} // Disable FlatList's own scrolling
@@ -389,21 +429,20 @@ const ViewPackingScreen = ({ navigation, route }) => {
                   </View>
                 </Modal>
               )}
+      <PackingSelectionFooter
+        selectedCount={selectedPlants.length}
+        assignableCount={assignablePlants.length}
+        isAllSelected={isAllSelected}
+        onSelectAll={handleSelectAll}
+        onClear={() => setSelectedPlants([])}
+        onAssignBox={openAssignSheet}
+        onNeedsToStay={stay}
+      />
       <AssignBoxModal
         visible={isAssignBoxVisible}
         onClose={() => setIsAssignBoxVisible(false)}
         onSave={handleSaveBox}
-      />
-      <SelectionModal
-        visible={isSelectionMode}
-        onClose={() => { setIsSelectionMode(false); setSelectedPlants([]); }}
-        plants={plantList.filter(plant => !(plant?.packingData?.boxNumber))}
-        selectedPlants={selectedPlants}
-        onSelectPlant={handleSelectPlant}
-        onSelectAll={handleSelectAll}
-        openTagAs={openTagAs}
-        assignBox={assignBox}
-        stay={stay}
+        selectedCount={selectedPlants.length || (orderId ? 1 : 0)}
       />
     </SafeAreaView>
   );
@@ -651,6 +690,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  plantFooterLeft: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+  },
+  boxChip: {
+    backgroundColor: '#EAF7EF',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#B8DFC4',
+  },
+  boxChipText: {
+    color: '#1B7A43',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 12,
   },
   typeChip: {
     backgroundColor: '#202325',

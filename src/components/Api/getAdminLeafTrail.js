@@ -310,6 +310,9 @@ export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = fals
     if (scanOptions?.expectedBoxKey) {
       filters.expectedBoxKey = scanOptions.expectedBoxKey;
     }
+    if (scanOptions?.expectedSortingTrayNumber) {
+      filters.expectedSortingTrayNumber = scanOptions.expectedSortingTrayNumber;
+    }
     const urlParam = new URLSearchParams(filters).toString()
     const url = `${API_ENDPOINTS.GET_ADMIN_SCAN_QR}?${urlParam}`
     
@@ -329,6 +332,9 @@ export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = fals
     if (!response.ok) {
       if (response.status === 409 && json?.error === 'WRONG_BOX') {
         return { wrongBox: true, ...json };
+      }
+      if (response.status === 409 && json?.error === 'WRONG_TRAY') {
+        return { wrongTray: true, ...json };
       }
       const errorMessage = json.error || json.message || `Error ${response.status}`;
       throw new Error(errorMessage);
@@ -585,7 +591,7 @@ export const getOrdersBySortingTray = async (trayNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `${API_ENDPOINTS.GET_ORDERS_BY_SORTING_TRAY}?sortingTrayNumber=${trayNumber}`,
+      `${API_ENDPOINTS.GET_ORDERS_BY_SORTING_TRAY}?sortingTrayNumber=${encodeURIComponent(trayNumber)}`,
       {
         method: 'GET', 
         headers: {

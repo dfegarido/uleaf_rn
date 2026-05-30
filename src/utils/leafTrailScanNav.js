@@ -11,6 +11,13 @@ export const LEAF_TRAIL_SCAN_PARAMS = {
     boxReceiverName: box?.receiverName || '',
   }),
   packing: { leafTrailStatus: 'packed' },
+  /** Trail #4: scan inside an open tray — validates expectedSortingTrayNumber on the server. */
+  packingTray: (tray) => ({
+    leafTrailStatus: 'packed',
+    packingTrayMode: true,
+    expectedSortingTrayNumber: tray?.sortingTrayNumber || '',
+    trayLabel: tray?.sortingTrayNumber || '',
+  }),
   shipping: { leafTrailStatus: 'shipping' },
   shipped: { leafTrailStatus: 'shipped' },
 };

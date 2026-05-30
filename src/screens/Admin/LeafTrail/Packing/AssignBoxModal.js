@@ -1,59 +1,64 @@
-import React, { useState } from 'react';
-import { Alert,
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
-import DropdownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { globalStyles } from '../../../../assets/styles/styles';
 
 const FormInput = ({ label, placeholder, value, onChangeText, keyboardType = 'default' }) => (
-  <View style={styles.inputSection}>
-    <View style={styles.inputContainer}>
-      <Text style={styles.label}>{label}<Text style={globalStyles.textXSRed}>*</Text></Text>
-      <View style={styles.textField}>
-        <TextInput
-          placeholder={placeholder}
-          placeholderTextColor="#647276"
-          style={styles.input}
-          value={value}
-          onChangeText={onChangeText}
-          keyboardType={keyboardType}
-        />
-      </View>
-    </View>
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>
+      {label}
+      <Text style={globalStyles.textXSRed}>*</Text>
+    </Text>
+    <TextInput
+      placeholder={placeholder}
+      placeholderTextColor="#647276"
+      style={styles.input}
+      value={value}
+      onChangeText={onChangeText}
+      keyboardType={keyboardType}
+    />
   </View>
 );
 
-const AssignBoxModal = ({ visible, onClose, onSave }) => {
+/** Bottom sheet on the same screen — not a full-screen navigation. */
+const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
+  const insets = useSafeAreaInsets();
   const [boxNumber, setBoxNumber] = useState('');
   const [length, setLength] = useState('');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
-  const [weightUnit, setWeightUnit] = useState('lbs'); // Default unit
+  const [weightUnit] = useState('lbs');
+
+  useEffect(() => {
+    if (!visible) {
+      setBoxNumber('');
+      setLength('');
+      setWidth('');
+      setHeight('');
+      setWeight('');
+    }
+  }, [visible]);
 
   const handleSave = () => {
-
     if (!boxNumber.trim()) {
-          Alert.alert('Missing Box Number', 'Please enter a Box Number.');
-          return;
-    }
-    if (!length) {
-      Alert.alert('Missing length', 'Please enter a length.');
+      Alert.alert('Missing Box Number', 'Please enter a box number.');
       return;
     }
-    if (!width) {
-      Alert.alert('Missing width', 'Please enter a width.');
-      return;
-    }
-    if (!height) {
-      Alert.alert('Missing height', 'Please enter a height.');
+    if (!length || !width || !height) {
+      Alert.alert('Missing dimensions', 'Please enter length, width, and height.');
       return;
     }
     if (!weight) {
@@ -61,192 +66,151 @@ const AssignBoxModal = ({ visible, onClose, onSave }) => {
       return;
     }
 
-    const boxDetails = {
-      boxNumber,
+    onSave({
+      boxNumber: boxNumber.trim(),
       dimensions: { length, width, height },
       weight: { value: weight, unit: weightUnit },
-    };
-    onSave(boxDetails);
-
-    setBoxNumber('')
-    setLength('')
-    setWidth('')
-    setHeight('')
-    setWeight('')
-    onClose(); // Close modal after saving
+    });
   };
 
   return (
-    <Modal
-      animationType="slide"
-      transparent={false}
-      visible={visible}
-      onRequestClose={onClose}>
-      <SafeAreaView style={styles.screen}>
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={onClose}>
-            <BackSolidIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Box Assignment</Text>
-          <View style={{ width: 24 }} />
-        </View>
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={styles.handle} />
+          <Text style={styles.title}>Assign box #</Text>
+          <Text style={styles.subtitle}>
+            {selectedCount > 0
+              ? `Applying to ${selectedCount} selected plant${selectedCount === 1 ? '' : 's'}.`
+              : 'Enter box details for the selected plants.'}
+          </Text>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.formContainer}>
+          <ScrollView
+            style={styles.formScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
             <FormInput
               label="Box Number"
               placeholder="Enter box number"
               value={boxNumber}
               onChangeText={setBoxNumber}
             />
-            <FormInput
-              label="Length (in)"
-              placeholder="Enter length"
-              value={length}
-              onChangeText={setLength}
-              keyboardType="numeric"
-            />
-            <FormInput
-              label="Width (in)"
-              placeholder="Enter width"
-              value={width}
-              onChangeText={setWidth}
-              keyboardType="numeric"
-            />
-            <FormInput
-              label="Height (in)"
-              placeholder="Enter height"
-              value={height}
-              onChangeText={setHeight}
-              keyboardType="numeric"
-            />
-
-            {/* Weight Input */}
-            <View style={styles.inputSection}>
-                <View style={styles.weightInputRow}>
-                    <View style={{flex: 1}}>
-                        <Text style={styles.label}>Weight<Text style={globalStyles.textXSRed}>*</Text></Text>
-                        <View style={styles.textField}>
-                            <TextInput
-                            placeholder="Enter weight"
-                            placeholderTextColor="#647276"
-                            style={styles.input}
-                            value={weight}
-                            onChangeText={setWeight}
-                            keyboardType="numeric"
-                            />
-                        </View>
-                    </View>
-                    <View>
-                        <Text style={styles.label}>Unit<Text style={globalStyles.textXSRed}>*</Text></Text>
-                        <TouchableOpacity style={styles.unitSelector}>
-                            <Text style={styles.unitText}>{weightUnit}</Text>
-                            <DropdownIcon />
-                        </TouchableOpacity>
-                    </View>
-                </View>
+            <View style={styles.dimRow}>
+              <View style={styles.dimCell}>
+                <FormInput
+                  label="Length (in)"
+                  placeholder="L"
+                  value={length}
+                  onChangeText={setLength}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.dimCell}>
+                <FormInput
+                  label="Width (in)"
+                  placeholder="W"
+                  value={width}
+                  onChangeText={setWidth}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.dimCell}>
+                <FormInput
+                  label="Height (in)"
+                  placeholder="H"
+                  value={height}
+                  onChangeText={setHeight}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
-          </View>
-        </ScrollView>
+            <FormInput
+              label={`Weight (${weightUnit})`}
+              placeholder="Enter weight"
+              value={weight}
+              onChangeText={setWeight}
+              keyboardType="numeric"
+            />
+          </ScrollView>
 
-        {/* Action Button */}
-        <View style={styles.actionContainer}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Submit</Text>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
+            <Text style={styles.saveButtonText}>Save box assignment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  flex: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    height: 58,
+  sheet: {
     backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    maxHeight: '85%',
   },
-  headerTitle: {
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 18,
+  handle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CDD3D4',
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
     color: '#202325',
+    textAlign: 'center',
   },
-  scrollContent: {
-    paddingBottom: 100, // Space for the save button
+  subtitle: {
+    fontSize: 14,
+    color: '#647276',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
   },
-  formContainer: {
-    paddingTop: 18,
+  formScroll: {
+    maxHeight: 340,
   },
-  inputSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  inputContainer: {
-    gap: 8,
+  inputGroup: {
+    marginBottom: 12,
   },
   label: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '600',
     color: '#393D40',
-    lineHeight: 22.4,
-  },
-  textField: {
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    height: 48,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+    marginBottom: 6,
   },
   input: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    color: '#202325',
-    height: '100%',
-  },
-  weightInputRow: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'flex-end',
-  },
-  unitSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#CDD3D4',
     borderRadius: 12,
     height: 48,
-    paddingHorizontal: 16,
-    gap: 12,
-    width: 100,
-  },
-  unitText: {
-    fontFamily: 'Inter',
+    paddingHorizontal: 14,
     fontSize: 16,
-    color: '#647276',
-    flex: 1,
+    color: '#202325',
+    backgroundColor: '#FAFBFB',
   },
-  actionContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 34, // For home indicator
-    backgroundColor: '#FFFFFF',
+  dimRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dimCell: {
+    flex: 1,
   },
   saveButton: {
     backgroundColor: '#539461',
@@ -254,12 +218,21 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontFamily: 'Inter',
-    fontWeight: '600',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  cancelButtonText: {
+    color: '#647276',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 
