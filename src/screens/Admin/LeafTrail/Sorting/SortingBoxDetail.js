@@ -18,8 +18,8 @@ import {
   SORTING_BOX_COLOR_COMPLETE,
   SORTING_BOX_COLOR_INCOMPLETE,
   computeSortingBoxMetrics,
-  isAwaitingSortPlant,
-  isSortedPlant,
+  isAwaitingSortPlant as plantAwaitingSort,
+  isSortedPlant as plantIsSorted,
   sortPlantsForSortingBoxList,
   sortingPlantStatusLabel,
 } from '../../../../utils/sortingBoxMetrics';
@@ -27,7 +27,7 @@ import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
 import SortingTrayAssign from './SortingTrayAssign';
 
 const SortingPlantRow = ({ plant, index }) => {
-  const sorted = isSortedPlant(plant);
+  const sorted = plantIsSorted(plant);
   const statusLabel = sortingPlantStatusLabel(plant);
   return (
     <View
@@ -94,12 +94,12 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   );
 
   const awaitingPlants = useMemo(
-    () => alphabeticalPlants.filter(isAwaitingSortPlant),
+    () => alphabeticalPlants.filter(plantAwaitingSort),
     [alphabeticalPlants],
   );
 
   const sortedPlantsList = useMemo(
-    () => alphabeticalPlants.filter(isSortedPlant),
+    () => alphabeticalPlants.filter(plantIsSorted),
     [alphabeticalPlants],
   );
 
@@ -111,7 +111,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   React.useEffect(() => {
     if (visible && box?.boxKey) {
       setPlantTab(BOX_PLANT_TABS.awaiting);
-      prevSortedCountRef.current = (box?.plants || []).filter(isSortedPlant).length;
+      prevSortedCountRef.current = (box?.plants || []).filter(plantIsSorted).length;
     }
   }, [visible, box?.boxKey]);
 

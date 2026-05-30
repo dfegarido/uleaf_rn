@@ -108,6 +108,16 @@ const getJoinerNameForBox = (item) => {
 const getReceiverBoxKey = (receiverName) =>
     `RX-${String(receiverName || 'UNASSIGNED').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'UNASSIGNED'}`;
 
+const normalizeReceivingLeafTrailStatus = (status) =>
+    String(status || '').trim().toLowerCase().replace(/\s+/g, '');
+
+/** Hub admin receive scan — not seller inventoryForHub.sellerScanned. */
+const isHubReceivedPlant = (item) => {
+    const status = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
+    if (status === 'received') return true;
+    if (item?.receivedDate) return true;
+    return false;
+};
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
       const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -380,7 +390,7 @@ const ReceivedTab = ({
             };
 
             existing.items.push(item);
-            if (item?.sellerScanned) {
+            if (isHubReceivedPlant(item)) {
                 existing.scannedCount += 1;
             } else {
                 existing.unscannedCount += 1;
@@ -561,8 +571,8 @@ const ReceivedTab = ({
                                     item={item}
                                     openTagAs={openTagAs}
                                     compact={false}
-                                    statusPillLabel={item?.sellerScanned ? 'Scanned' : 'Unscanned'}
-                                    statusPillVariant={item?.sellerScanned ? 'scanned' : 'unscanned'}
+                                    statusPillLabel={isHubReceivedPlant(item) ? 'Scanned' : 'Unscanned'}
+                                    statusPillVariant={isHubReceivedPlant(item) ? 'scanned' : 'unscanned'}
                                 />
                             )}
                             ItemSeparatorComponent={() => <View style={{ height: 10 }} />}

@@ -11,16 +11,14 @@ import {
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import { addSortingTrayNumber } from '../../../../components/Api/getAdminLeafTrail';
 import { forceUppercaseHubLabel } from '../../../../utils/leafTrailScanNav';
+import { isSortedPlant } from '../../../../utils/sortingBoxMetrics';
 
 /**
  * Assign one tray # to all sorted plants in the open receiver box (Packing uses tray next).
  */
 const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
   const sortedPlants = useMemo(
-    () =>
-      (plants || []).filter(
-        (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'sorted',
-      ),
+    () => (plants || []).filter(isSortedPlant),
     [plants],
   );
 
