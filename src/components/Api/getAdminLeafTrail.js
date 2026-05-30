@@ -647,7 +647,7 @@ export const getOrdersByTrackingNumber = async (trackingNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `${API_ENDPOINTS.GET_ORDERS_BY_TRACKING_NUMBER}?trackingNumber=${trackingNumber}`,
+      `${API_ENDPOINTS.GET_ORDERS_BY_TRACKING_NUMBER}?trackingNumber=${encodeURIComponent(trackingNumber)}`,
       {
         method: 'GET', 
         headers: {

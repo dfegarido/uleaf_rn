@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
 import moment from 'moment';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   FlatList,
@@ -172,21 +173,42 @@ const ViewShippedScreen = ({ navigation, route }) => {
   const [isDelayed, setIsDelayed] = useState(item?.isDelayedUPSDelivery || false);
 
   const fetchData = async () => {
-      setIsLoading(true);
-      try {
-          const response = await getOrdersByTrackingNumber(item.trackingNumber);
-          setPlantList(response.data.filter(p => p?.shippingData?.trackingNumber === item.trackingNumber));
-      } catch (e) {
-          console.error("Failed to fetch plant data:", e);
-          Alert.alert("Error", "Failed to fetch plant data.");
-      } finally {
-          setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const response = await getOrdersByTrackingNumber(item.trackingNumber);
+      const plants = (response.data || []).filter(
+        (p) => p?.shippingData?.trackingNumber === item.trackingNumber,
+      );
+      setPlantList(plants);
+      const sample = plants[0];
+      if (sample?.shippedData?.deliveryDate) {
+        setDeliveryDate(sample.shippedData.deliveryDate);
       }
+      if (sample?.shippedData?.deliveryTime) {
+        setDeliveryTime(sample.shippedData.deliveryTime);
+      }
+      if (sample?.shippedData?.isDelayedUPSDelivery != null) {
+        setIsDelayed(sample.shippedData.isDelayedUPSDelivery);
+      }
+      if (sample?.packingData?.boxNumber) {
+        setShippedDetails((prev) => ({
+          ...prev,
+          packingData: sample.packingData,
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch plant data:', e);
+      Alert.alert('Error', 'Failed to fetch plant data.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [item]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [item.trackingNumber]),
+  );
 
   const handleSaveDeliveryDetails = async () => {
     if (!deliveryDate || !deliveryTime) {
