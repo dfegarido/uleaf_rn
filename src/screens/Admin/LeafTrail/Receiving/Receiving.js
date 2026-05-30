@@ -28,7 +28,6 @@ import ReceivedIcon from '../../../../assets/admin-icons/received.svg';
 import CheckedBoxIcon from '../../../../assets/admin-icons/checked-box.svg';
 import DownloadIcon from '../../../../assets/admin-icons/download.svg';
 import FilterBar from '../../../../components/Admin/filter';
-import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled, isTrail1ForReceivingEnabled } from '../../../../config/featureFlags';
 import {
@@ -56,10 +55,11 @@ import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 /** getAdminFilters `statuses` query per Receiving tab (JSON string). */
 const ADMIN_FILTER_STATUSES_BY_TAB = {
   forReceiving: '["forReceiving"]',
-  inventoryForHub: '["forReceiving"]',
+  inventoryForHub: '["received","needsToStay"]',
   received: '["received"]',
   missing: '["missing"]',
   damaged: '["damaged"]',
+  needsToStay: '["needsToStay"]',
 };
 
 /** Seller / buyer / order-receiver lists match For Receiving on every Receiving sub-tab. */
@@ -118,6 +118,41 @@ const isHubReceivedPlant = (item) => {
     if (item?.receivedDate) return true;
     return false;
 };
+const getReceivingListStatusPill = (type, item) => {
+    if (type === 'missing') {
+        return { label: 'Missing', variant: 'missing' };
+    }
+    if (type === 'damaged') {
+        return { label: 'Damaged', variant: 'damaged' };
+    }
+    if (type === 'needsToStay') {
+        return { label: 'Need to Stay', variant: 'needsToStay' };
+    }
+    if (type === 'forInventoryHub') {
+        const status = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
+        if (status === 'needstostay') {
+            return { label: 'Need to Stay', variant: 'needsToStay' };
+        }
+        return { label: 'At Hub', variant: 'inventoryReceived' };
+    }
+    return { label: 'For Receiving', variant: 'forReceiving' };
+};
+
+const ReceivingListPlantCard = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
+    const pill = getReceivingListStatusPill(type, item);
+    return (
+        <ForReceivingPlantCard
+            item={item}
+            openTagAs={openTagAs}
+            selectionMode={selectionMode}
+            isSelected={isSelected}
+            onToggleSelect={onToggleSelect}
+            statusPillLabel={pill.label}
+            statusPillVariant={pill.variant}
+        />
+    );
+};
+
 // A single card in the list
 const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
       const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -150,14 +185,17 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
     };
 
     const setTags = () => {
-        let status = {isMissing: true, isDamaged: true};
-        if (item.leafTrailStatus === "missing") {
-        status = {isDamaged: true, forShipping: true}
-        } else if (item.leafTrailStatus === "damaged") {
-        status = {isMissing: true, forShipping: true}
+        const normalizedStatus = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
+        let status = { isMissing: true, isDamaged: true, isNeedsToStay: true };
+        if (normalizedStatus === 'missing') {
+            status = { isDamaged: true, forShipping: true };
+        } else if (normalizedStatus === 'damaged') {
+            status = { isMissing: true, forShipping: true };
+        } else if (normalizedStatus === 'needstostay') {
+            status = { isMissing: true, isDamaged: true, forShipping: true };
         }
-        openTagAs(status, item.id)
-    }
+        openTagAs(status, item.id);
+    };
 
     const dateOrderedDatePart = getDateOrderedDatePart(item);
 
@@ -171,6 +209,11 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
         {type === 'damaged' && (
              <View style={styles.missingStatusContainer}>
                 <Text style={styles.missingStatusText}>Damaged</Text>
+            </View>
+        )}
+        {type === 'needsToStay' && (
+             <View style={styles.missingStatusContainer}>
+                <Text style={styles.needsToStayStatusText}>Need to Stay</Text>
             </View>
         )}
         
@@ -307,15 +350,7 @@ const ForReceivingTab = ({
 }) => {
     const listHeaderPrefix = (
         <>
-            {hubSpecEnabled ? (
-                <LeafTrailHubToolbar
-                    adminFilters={adminFilters}
-                    onFilterChange={onFilterChange}
-                    showReceiptStatus={!trail1IntakeMode}
-                />
-            ) : (
-                <FilterBar showScan={!trail1IntakeMode} onFilterChange={onFilterChange} adminFilters={adminFilters} />
-            )}
+            <FilterBar showScan={!trail1IntakeMode} onFilterChange={onFilterChange} adminFilters={adminFilters} />
             <Text style={styles.countText}>{data?.total ?? 0} plant(s)</Text>
         </>
     );
@@ -445,15 +480,7 @@ const ReceivedTab = ({
                     numColumns={2}
                     ListHeaderComponent={
                         <>
-                            {hubSpecEnabled ? (
-                                <LeafTrailHubToolbar
-                                    adminFilters={sortedAdminFilters}
-                                    onFilterChange={onFilterChange}
-                                    showReceiptStatus
-                                />
-                            ) : (
-                                <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
-                            )}
+                            <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
                             <Text style={styles.countText}>{data.total} plant(s)</Text>
                         </>
                     }
@@ -511,15 +538,7 @@ const ReceivedTab = ({
             )}
             ListHeaderComponent={
                 <>
-                    {hubSpecEnabled ? (
-                        <LeafTrailHubToolbar
-                            adminFilters={sortedAdminFilters}
-                            onFilterChange={onFilterChange}
-                            showReceiptStatus
-                        />
-                    ) : (
-                        <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
-                    )}
+                    <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
                     <View style={styles.receivedSummaryRow}>
                         <Text style={styles.receivedSummaryPill}>{receiverBoxes.length} box(es)</Text>
                         <Text style={styles.countText}>{data.total} plant(s)</Text>
@@ -586,22 +605,13 @@ const ReceivedTab = ({
 };
 
 const ReceivingTabListHeader = ({
-    hubSpecEnabled,
     onFilterChange,
     adminFilters,
     showLegacyScan,
     total,
 }) => (
     <>
-        {hubSpecEnabled ? (
-            <LeafTrailHubToolbar
-                adminFilters={adminFilters}
-                onFilterChange={onFilterChange}
-                showReceiptStatus={showLegacyScan}
-            />
-        ) : (
-            <FilterBar showScan={showLegacyScan} onFilterChange={onFilterChange} adminFilters={adminFilters} />
-        )}
+        <FilterBar showScan={showLegacyScan} onFilterChange={onFilterChange} adminFilters={adminFilters} />
         <Text style={styles.countText}>{total ?? 0} plant(s)</Text>
     </>
 );
@@ -630,7 +640,7 @@ const InventoryForHubTab = ({
                         />
                     }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-                    contentContainerStyle={styles.listContentContainer}
+                    contentContainerStyle={styles.forReceivingListContent}
                     ListFooterComponent={
                          <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
                             <Text style={{fontSize: 16, color: '#647276'}}>No For Inventory Hub plants found.</Text>
@@ -645,9 +655,9 @@ const InventoryForHubTab = ({
         data={data.data}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-            <PlantListItem 
-                openTagAs={openTagAs} 
-                item={item} 
+            <ReceivingListPlantCard
+                openTagAs={openTagAs}
+                item={item}
                 type="forInventoryHub"
                 selectionMode={selectionMode}
                 isSelected={(selectedItems || []).includes(item.id)}
@@ -662,8 +672,8 @@ const InventoryForHubTab = ({
                 total={data.total}
             />
         }
-        ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-        contentContainerStyle={styles.listContentContainer}
+        ItemSeparatorComponent={() => <View style={{height: 10}} />}
+        contentContainerStyle={styles.forReceivingListContent}
     />
 )};
 
@@ -682,7 +692,7 @@ const MissingTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabl
                         />
                     }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-                    contentContainerStyle={styles.listContentContainer}
+                    contentContainerStyle={styles.forReceivingListContent}
                     ListFooterComponent={<View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
                         <Text style={{fontSize: 16, color: '#647276'}}>No Missing plants found.</Text>
                     </View>}
@@ -695,7 +705,9 @@ const MissingTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabl
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="missing" />}
+        renderItem={({ item }) => (
+            <ReceivingListPlantCard openTagAs={openTagAs} item={item} type="missing" />
+        )}
         ListHeaderComponent={
             <ReceivingTabListHeader
                 hubSpecEnabled={hubSpecEnabled}
@@ -704,8 +716,8 @@ const MissingTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabl
                 total={data.total}
             />
         }
-        ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-        contentContainerStyle={styles.listContentContainer}
+        ItemSeparatorComponent={() => <View style={{height: 10}} />}
+        contentContainerStyle={styles.forReceivingListContent}
     />
 )};
 
@@ -723,7 +735,7 @@ const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabl
                         />
                     }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-                    contentContainerStyle={styles.listContentContainer}
+                    contentContainerStyle={styles.forReceivingListContent}
                     ListFooterComponent={
                         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
                             <Text style={{fontSize: 16, color: '#647276'}}>No Damaged plants found.</Text>
@@ -739,7 +751,9 @@ const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabl
     <FlatList
         data={data.data}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <PlantListItem openTagAs={openTagAs} item={item} type="damaged" />}
+        renderItem={({ item }) => (
+            <ReceivingListPlantCard openTagAs={openTagAs} item={item} type="damaged" />
+        )}
         ListHeaderComponent={
             <ReceivingTabListHeader
                 hubSpecEnabled={hubSpecEnabled}
@@ -748,19 +762,62 @@ const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabl
                 total={data.total}
             />
         }
-        ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-        contentContainerStyle={styles.listContentContainer}
+        ItemSeparatorComponent={() => <View style={{height: 10}} />}
+        contentContainerStyle={styles.forReceivingListContent}
     />
 )};
 
+const NeedsToStayTab = ({ data, onFilterChange, adminFilters, openTagAs }) => {
+    if (!(data?.data) || data.data.length === 0) {
+        return (
+            <FlatList
+                ListHeaderComponent={
+                    <ReceivingTabListHeader
+                        onFilterChange={onFilterChange}
+                        adminFilters={adminFilters}
+                        total={data?.total}
+                    />
+                }
+                ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+                contentContainerStyle={styles.forReceivingListContent}
+                ListFooterComponent={
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#647276' }}>No Need to Stay plants found.</Text>
+                    </View>
+                }
+            />
+        );
+    }
+
+    return (
+        <FlatList
+            data={data.data}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+                <ReceivingListPlantCard openTagAs={openTagAs} item={item} type="needsToStay" />
+            )}
+            ListHeaderComponent={
+                <ReceivingTabListHeader
+                    onFilterChange={onFilterChange}
+                    adminFilters={adminFilters}
+                    total={data.total}
+                />
+            }
+            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+            contentContainerStyle={styles.forReceivingListContent}
+        />
+    );
+};
+
 const DEFAULT_RECEIVING_ROUTES = [
     { key: 'forReceiving', title: 'For Receiving' },
-    { key: 'inventoryForHub', title: ' Inventory for Hub' },
+    { key: 'inventoryForHub', title: 'Inventory for Hub' },
     { key: 'received', title: 'Received' },
     { key: 'missing', title: 'Missing' },
     { key: 'damaged', title: 'Damaged' },
+    { key: 'needsToStay', title: 'Need to Stay' },
 ];
-const TRAIL1_RECEIVING_ROUTES = [DEFAULT_RECEIVING_ROUTES[0], DEFAULT_RECEIVING_ROUTES[2]];
+const TRAIL1_RECEIVING_ROUTES = DEFAULT_RECEIVING_ROUTES;
 
 const ReceivingLoadingOverlay = ({ message, contextLabel = 'Receiving', title = 'Fetching plant data' }) => (
     <View style={styles.loadingOverlay}>
@@ -797,6 +854,7 @@ const ReceivingScreen = ({navigation}) => {
     const [isTagAsVisible, setTagAsVisible] = useState(false);
     const [isMissing, setIsMissing] = useState(false);
     const [isDamaged, setIsDamaged] = useState(false);
+    const [isNeedsToStay, setIsNeedsToStay] = useState(false);
     const [forShipping, setForShipping] = useState(false);
     const [orderId, setOrderId] = useState(false);
     const [selectionMode, setSelectionMode] = useState(false);
@@ -812,10 +870,11 @@ const ReceivingScreen = ({navigation}) => {
     const openTagAs = (status, id) => {
         setIsMissing(status.isMissing);
         setIsDamaged(status.isDamaged);
+        setIsNeedsToStay(status.isNeedsToStay);
         setForShipping(status.forShipping);
         setTagAsVisible(!isTagAsVisible);
-        setOrderId(id)
-    }
+        setOrderId(id);
+    };
 
     const refreshAdminFilters = async (statuses, { withPageLoader = false } = {}) => {
         if (withPageLoader) {
@@ -1051,6 +1110,15 @@ const ReceivingScreen = ({navigation}) => {
                         hubSpecEnabled={hubSpecEnabled}
                     />
                 );
+            case 'needsToStay':
+                return (
+                    <NeedsToStayTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.needsToStay || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                    />
+                );
             default:
                 return null;
         }
@@ -1190,6 +1258,8 @@ const ReceivingScreen = ({navigation}) => {
                 return receivingData?.missing || {};
             case 'damaged':
                 return receivingData?.damaged || {};
+            case 'needsToStay':
+                return receivingData?.needsToStay || {};
             default:
                 return {};
         }
@@ -1399,10 +1469,7 @@ const ReceivingScreen = ({navigation}) => {
                     renderScene={renderScene}
                     onIndexChange={(newIndex) => {
                         setIndex(newIndex);
-                        if (!trail1IntakeMode) {
-                            tabChange(newIndex);
-                        }
-                        // Clear selection mode when switching tabs
+                        tabChange(newIndex);
                         if (selectionMode) {
                             handleCancelSelection();
                         }
@@ -1415,6 +1482,7 @@ const ReceivingScreen = ({navigation}) => {
                 setTagAs={setTagAs}
                 isMissing={isMissing}
                 isDamaged={isDamaged}
+                isNeedsToStay={isNeedsToStay}
                 forShipping={forShipping}
                 onClose={() => setTagAsVisible(false)}/>
         </SafeAreaProvider>
@@ -1758,6 +1826,7 @@ const styles = StyleSheet.create({
         padding: 12,
         flexDirection: 'row',
         gap: 12,
+        overflow: 'hidden',
     },
     checkboxButton: {
         justifyContent: 'center',
@@ -1779,7 +1848,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     plantImageColumn: {
-        width: 200,
+        width: 96,
         flexShrink: 0,
         alignItems: 'center',
     },
@@ -1797,6 +1866,7 @@ const styles = StyleSheet.create({
     },
     cardDetails: {
         flex: 1,
+        minWidth: 0,
         justifyContent: 'space-between',
     },
     codeRow: {
@@ -1805,6 +1875,7 @@ const styles = StyleSheet.create({
         // gap: 6,
     },
     plantCode: {
+        flexShrink: 1,
         fontSize: 14,
         color: '#647276',
     },
@@ -1885,6 +1956,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#E7522F',
+    },
+    needsToStayStatusText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#B7791F',
     },
     scannedStatusText: {
         fontSize: 18,

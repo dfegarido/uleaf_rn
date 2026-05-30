@@ -111,7 +111,7 @@ const ForReceivingPlantCard = ({
   const traits = [item.variegation, item.size].filter(Boolean).join(' · ');
 
   const openTagMenu = () => {
-    openTagAs({ isMissing: true, isDamaged: true }, item.id);
+    openTagAs({ isMissing: true, isDamaged: true, isNeedsToStay: true }, item.id);
   };
 
   return (
@@ -122,12 +122,20 @@ const ForReceivingPlantCard = ({
             styles.statusPill,
             statusPillVariant === 'scanned' && styles.statusPillScanned,
             statusPillVariant === 'unscanned' && styles.statusPillUnscanned,
+            statusPillVariant === 'missing' && styles.statusPillMissing,
+            statusPillVariant === 'damaged' && styles.statusPillDamaged,
+            statusPillVariant === 'needsToStay' && styles.statusPillNeedsToStay,
+            statusPillVariant === 'inventoryReceived' && styles.statusPillInventoryReceived,
           ]}>
           <Text
             style={[
               styles.statusPillText,
               statusPillVariant === 'scanned' && styles.statusPillTextScanned,
               statusPillVariant === 'unscanned' && styles.statusPillTextUnscanned,
+              statusPillVariant === 'missing' && styles.statusPillTextMissing,
+              statusPillVariant === 'damaged' && styles.statusPillTextDamaged,
+              statusPillVariant === 'needsToStay' && styles.statusPillTextNeedsToStay,
+              statusPillVariant === 'inventoryReceived' && styles.statusPillTextInventoryReceived,
             ]}>
             {statusPillLabel}
           </Text>
@@ -250,6 +258,30 @@ const styles = StyleSheet.create({
   statusPillTextUnscanned: {
     color: '#B2422E',
   },
+  statusPillMissing: {
+    backgroundColor: '#FDECEA',
+  },
+  statusPillDamaged: {
+    backgroundColor: '#FDECEA',
+  },
+  statusPillNeedsToStay: {
+    backgroundColor: '#FFF4E5',
+  },
+  statusPillInventoryReceived: {
+    backgroundColor: '#EAF8EE',
+  },
+  statusPillTextMissing: {
+    color: '#B2422E',
+  },
+  statusPillTextDamaged: {
+    color: '#B2422E',
+  },
+  statusPillTextNeedsToStay: {
+    color: '#B7791F',
+  },
+  statusPillTextInventoryReceived: {
+    color: '#1F7A45',
+  },
   qtyBadge: {
     fontSize: 15,
     fontWeight: '700',
@@ -324,6 +356,7 @@ const styles = StyleSheet.create({
   },
   bodyContent: {
     flex: 1,
+    minWidth: 0,
     justifyContent: 'space-between',
     minHeight: 104,
   },

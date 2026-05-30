@@ -15,10 +15,12 @@ const CSV_HEADERS = [
   'Order Date',
   'Plant Flight',
   "Buyer's Name",
+  'Joiner',
   'Qty',
   'Genus',
   'Species',
   'Garden Name',
+  'Seller',
   'US$ Price',
 ];
 
@@ -46,6 +48,28 @@ export function mapLeafTrailLineToExportRow(line = {}) {
     (Array.isArray(line.usdPrices) ? line.usdPrices[0] : '') ??
     '';
 
+  const joinerName =
+    line.joinerName ||
+    [line.joinerFirstName, line.joinerLastName].filter(Boolean).join(' ').trim() ||
+    (line.joinerInfo
+      ? [
+          line.joinerInfo.joinerFirstName || line.joinerInfo.firstName,
+          line.joinerInfo.joinerLastName || line.joinerInfo.lastName,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim() ||
+        line.joinerInfo.joinerUsername ||
+        line.joinerInfo.username ||
+        ''
+      : '');
+
+  const sellerName =
+    line.sellerName ||
+    line.sellerDisplayName ||
+    line.sellerCode ||
+    '';
+
   return {
     transactionNumber: line.transactionNumber || line.trxNumber || '',
     orderDate:
@@ -60,10 +84,12 @@ export function mapLeafTrailLineToExportRow(line = {}) {
       line.flightDate ||
       '',
     buyerName,
+    joinerName,
     qty,
     genus: line.genus || '',
     species: line.species || '',
     gardenName: line.gardenOrCompanyName || line.gardenName || line.garden || '',
+    sellerName,
     usdPrice: usd,
   };
 }
@@ -77,10 +103,12 @@ export function buildLeafTrailCsvContent(lines = []) {
       r.orderDate,
       r.plantFlight,
       r.buyerName,
+      r.joinerName,
       r.qty,
       r.genus,
       r.species,
       r.gardenName,
+      r.sellerName,
       r.usdPrice,
     ]
       .map(escapeCsvCell)
