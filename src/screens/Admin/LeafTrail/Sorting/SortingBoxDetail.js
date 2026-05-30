@@ -22,6 +22,7 @@ import {
   sortPlantsForSortingBoxList,
 } from '../../../../utils/sortingBoxMetrics';
 import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
+import SortingTrayAssign from './SortingTrayAssign';
 
 const SortingPlantRow = ({ plant, index }) => {
   const isUnsorted = normalizeLeafTrailStatus(plant.leafTrailStatus) === 'received';
@@ -154,7 +155,9 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           <ScanQrIcon width={28} height={28} />
           <View style={styles.scanCtaTextWrap}>
             <Text style={styles.scanCtaTitle}>Scan to sort plants</Text>
-            <Text style={styles.scanCtaSub}>Tap to open camera</Text>
+            <Text style={styles.scanCtaSub}>
+              Scan a plant QR — it will be tagged as sorted
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -204,7 +207,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: 88 + insets.bottom },
+            { paddingBottom: 200 + insets.bottom },
           ]}
           showsVerticalScrollIndicator={false}
           onRefresh={onRefresh}
@@ -217,6 +220,11 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
         />
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <SortingTrayAssign
+            plants={box?.plants || []}
+            onAssigned={onRefresh}
+            variant="footer"
+          />
           <TouchableOpacity
             style={styles.finishButton}
             onPress={() => setFinishPromptVisible(true)}

@@ -167,6 +167,18 @@ const SortingScreen = ({ navigation }) => {
     }));
   }, [sortingData?.receiverBoxes]);
 
+  /** Aggregate received/sorted totals across all hub boxes for the summary row. */
+  const hubTotals = useMemo(() => {
+    return receiverBoxes.reduce(
+      (acc, box) => ({
+        forReceivingCount: acc.forReceivingCount + (box.forReceivingCount || 0),
+        receivedCount: acc.receivedCount + (box.receivedCount || 0),
+        sortedCount: acc.sortedCount + (box.sortedCount || 0),
+      }),
+      { forReceivingCount: 0, receivedCount: 0, sortedCount: 0 },
+    );
+  }, [receiverBoxes]);
+
   const hubHeaderActions = useLeafTrailHubActions({
     exportLines: receiverBoxes.flatMap((b) => b.plants || []),
     exportStageLabel: 'sorting-receivers',
@@ -184,6 +196,32 @@ const SortingScreen = ({ navigation }) => {
       ) : (
         <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
       )}
+      {hubSpecEnabled && receiverBoxes.length > 0 ? (
+        <View style={styles.receivedSummaryRow}>
+          <View style={styles.receivedSummaryCell}>
+            <Text style={styles.receivedSummaryValue}>{hubTotals.receivedCount}</Text>
+            <Text style={styles.receivedSummaryLabel}>
+              {'of '}
+              <Text style={styles.receivedSummaryTotal}>{hubTotals.forReceivingCount}</Text>
+              {' received'}
+            </Text>
+          </View>
+          <View style={styles.receivedSummarySep} />
+          <View style={styles.receivedSummaryCell}>
+            <Text style={[styles.receivedSummaryValue, styles.receivedSummaryValueGreen]}>
+              {hubTotals.sortedCount}
+            </Text>
+            <Text style={styles.receivedSummaryLabel}>sorted</Text>
+          </View>
+          <View style={styles.receivedSummarySep} />
+          <View style={styles.receivedSummaryCell}>
+            <Text style={styles.receivedSummaryValue}>
+              {Math.max(0, hubTotals.receivedCount - hubTotals.sortedCount)}
+            </Text>
+            <Text style={styles.receivedSummaryLabel}>to sort</Text>
+          </View>
+        </View>
+      ) : null}
       <Text style={styles.countText}>
         {hubSpecEnabled
           ? `${sortingData?.receiverBoxCount || receiverBoxes.length} box(es)`
@@ -274,6 +312,44 @@ const styles = StyleSheet.create({
   listContentContainer: {
     paddingBottom: 34,
     paddingHorizontal: 8,
+  },
+  receivedSummaryRow: {
+    flexDirection: 'row',
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    backgroundColor: '#F4F7F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDE7E1',
+    paddingVertical: 10,
+  },
+  receivedSummaryCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  receivedSummarySep: {
+    width: 1,
+    backgroundColor: '#DDE7E1',
+    marginVertical: 4,
+  },
+  receivedSummaryValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#202325',
+  },
+  receivedSummaryValueGreen: {
+    color: '#2F8C4F',
+  },
+  receivedSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#647276',
+  },
+  receivedSummaryTotal: {
+    fontWeight: '700',
+    color: '#202325',
   },
   countText: {
     textAlign: 'right',
