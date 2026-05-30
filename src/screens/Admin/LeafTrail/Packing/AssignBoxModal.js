@@ -15,7 +15,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { globalStyles } from '../../../../assets/styles/styles';
 
-const FormInput = ({ label, placeholder, value, onChangeText, keyboardType = 'default' }) => (
+import { forceUppercaseHubLabel } from '../../../../utils/leafTrailScanNav';
+
+const FormInput = ({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  keyboardType = 'default',
+  uppercase = false,
+}) => (
   <View style={styles.inputGroup}>
     <Text style={styles.label}>
       {label}
@@ -26,8 +35,14 @@ const FormInput = ({ label, placeholder, value, onChangeText, keyboardType = 'de
       placeholderTextColor="#647276"
       style={styles.input}
       value={value}
-      onChangeText={onChangeText}
+      onChangeText={
+        uppercase
+          ? (text) => onChangeText(forceUppercaseHubLabel(text))
+          : onChangeText
+      }
       keyboardType={keyboardType}
+      autoCapitalize={uppercase ? 'characters' : 'sentences'}
+      autoCorrect={false}
     />
   </View>
 );
@@ -67,7 +82,7 @@ const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
     }
 
     onSave({
-      boxNumber: boxNumber.trim(),
+      boxNumber: forceUppercaseHubLabel(boxNumber.trim()),
       dimensions: { length, width, height },
       weight: { value: weight, unit: weightUnit },
     });
@@ -97,6 +112,7 @@ const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
               placeholder="Enter box number"
               value={boxNumber}
               onChangeText={setBoxNumber}
+              uppercase
             />
             <View style={styles.dimRow}>
               <View style={styles.dimCell}>

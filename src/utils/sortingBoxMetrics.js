@@ -2,9 +2,9 @@
 export const SORTING_BOX_COLOR_INCOMPLETE = '#FDE8F0';
 export const SORTING_BOX_COLOR_COMPLETE = '#DFF5E6';
 
-/** Lowercase leafTrailStatus for comparisons. */
+/** Lowercase leafTrailStatus for comparisons (handles "Sorted", "For Receiving", etc.). */
 export function normalizeLeafTrailStatus(status) {
-  return String(status || '').trim().toLowerCase();
+  return String(status || '').trim().toLowerCase().replace(/\s+/g, '');
 }
 
 /**
@@ -65,14 +65,107 @@ export function computeSortingBoxMetrics(plants = []) {
   };
 }
 
-/** Unsorted (received, not yet sorted) plants appear first. */
+/** True when hub sort scan set leafTrailStatus to sorted. */
+export function isSortedPlant(plant) {
+  return normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'sorted';
+}
+
+/** Plants still waiting for a sort scan in this receiver box. */
+export function isAwaitingSortPlant(plant) {
+  if (isSortedPlant(plant)) return false;
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  return (
+    status === 'received' ||
+    status === 'forreceiving' ||
+    status === 'needstostay' ||
+    status === 'missing' ||
+    status === 'damaged'
+  );
+}
+
+export function sortingPlantStatusLabel(plant) {
+  if (isSortedPlant(plant)) return 'Sorted';
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  if (status === 'received') return 'Awaiting sort';
+  if (status === 'forreceiving') return 'For receiving';
+  if (status === 'needstostay') return 'Needs to stay';
+  if (status === 'missing') return 'Missing';
+  if (status === 'damaged') return 'Damaged';
+  return 'Awaiting sort';
+}
+
+/** Stable box key from display receiver name — one box per receiver. */
+export function buildReceiverBoxKeyFromName(receiverName) {
+  const name = String(receiverName || '').trim() || 'Unassigned Receiver';
+  return (
+    `RX-${String(name)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')}` || 'RX-UNASSIGNED'
+  );
+}
+
+/** Merge API boxes that share the same receiver into one card. */
+export function mergeSortingReceiverBoxesByReceiver(boxes = []) {
+  const merged = new Map();
+
+  boxes.forEach((box) => {
+    const receiverName = String(box?.receiverName || 'Unassigned Receiver').trim();
+    const boxKey = buildReceiverBoxKeyFromName(receiverName);
+    const existing = merged.get(boxKey);
+
+    if (!existing) {
+      merged.set(boxKey, {
+        ...box,
+        boxKey,
+        receiverName,
+        receiverFirstName:
+          box.receiverFirstName ||
+          receiverName.split(/\s+/)[0].toLowerCase(),
+        joiners: [...(box.joiners || [])],
+        plants: [...(box.plants || [])],
+      });
+      return;
+    }
+
+    existing.plants.push(...(box.plants || []));
+    existing.joiners = [
+      ...new Set([...(existing.joiners || []), ...(box.joiners || [])]),
+    ].sort((a, b) => a.localeCompare(b));
+    if (!existing.avatar && box.avatar) existing.avatar = box.avatar;
+    if (!existing.username && box.username) existing.username = box.username;
+    if (!existing.buyerUid && box.buyerUid) existing.buyerUid = box.buyerUid;
+  });
+
+  return [...merged.values()].map((box) => {
+    const metrics = computeSortingBoxMetrics(box.plants);
+    return {
+      ...box,
+      ...metrics,
+      plants: sortPlantsForSortingBoxList(box.plants),
+      joiners: [...(box.joiners || [])].sort((a, b) => a.localeCompare(b)),
+    };
+  });
+}
+
+/** Display sort key: genus + species, then plant code. */
+function sortingPlantSortKey(plant) {
+  const name = [plant?.genus, plant?.species].filter(Boolean).join(' ').trim();
+  if (name) return name.toLowerCase();
+  return String(plant?.plantCode || '').trim().toLowerCase();
+}
+
+/** Plants in a receiver box — A→Z by name, then plant code. */
 export function sortPlantsForSortingBoxList(plants = []) {
   return [...plants].sort((a, b) => {
-    const aUnsorted =
-      normalizeLeafTrailStatus(a.leafTrailStatus) === 'received' ? 0 : 1;
-    const bUnsorted =
-      normalizeLeafTrailStatus(b.leafTrailStatus) === 'received' ? 0 : 1;
-    if (aUnsorted !== bUnsorted) return aUnsorted - bUnsorted;
-    return String(a.plantCode || '').localeCompare(String(b.plantCode || ''));
+    const nameCmp = sortingPlantSortKey(a).localeCompare(sortingPlantSortKey(b), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+    if (nameCmp !== 0) return nameCmp;
+    return String(a.plantCode || '').localeCompare(String(b.plantCode || ''), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
   });
 }

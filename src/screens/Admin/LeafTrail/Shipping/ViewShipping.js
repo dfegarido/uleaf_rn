@@ -29,7 +29,7 @@ import {
 import DeliveryDateTimeInput from './DeliveryDateTimeInput';
 import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
-import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
 const Header = ({ title, navigation }) => (
@@ -69,7 +69,9 @@ const TrackingInput = ({ trackingNumber, setTrackingNumber, onSave, isLoading })
                     placeholder="Tracking Number"
                     placeholderTextColor="#647276"
                     value={trackingNumber}
-                    onChangeText={setTrackingNumber}
+                    onChangeText={(text) => setTrackingNumber(forceUppercaseHubLabel(text))}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
                 />
             </View>
             <TouchableOpacity style={styles.saveButton} onPress={onSave} disabled={isLoading}>
@@ -185,7 +187,9 @@ const ViewShippingScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingTracking, setIsSavingTracking] = useState(false);
   const [isSavingDelivery, setIsSavingDelivery] = useState(false);
-  const [trackingNumber, setTrackingNumber] = useState(item?.trackingNumber || '');
+  const [trackingNumber, setTrackingNumber] = useState(
+    forceUppercaseHubLabel(item?.trackingNumber || ''),
+  );
   const [shippingDetails, setShippingDetails] = useState(item);
   const [deliveryDate, setDeliveryDate] = useState(item?.deliveryDate || null);
   const [deliveryTime, setDeliveryTime] = useState(item?.deliveryTime || null);
@@ -201,7 +205,7 @@ const ViewShippingScreen = ({ navigation, route }) => {
       setPlantList(plants);
       const sample = plants[0];
       if (sample?.shippingData?.trackingNumber) {
-        setTrackingNumber(sample.shippingData.trackingNumber);
+        setTrackingNumber(forceUppercaseHubLabel(sample.shippingData.trackingNumber));
       }
       if (sample?.shippedData?.deliveryDate) {
         setDeliveryDate(sample.shippedData.deliveryDate);
@@ -227,16 +231,21 @@ const ViewShippingScreen = ({ navigation, route }) => {
   );
 
   const handleSaveTrackingNumber = async () => {
-    if (!trackingNumber.trim()) {
+    const normalizedTracking = forceUppercaseHubLabel(String(trackingNumber || '').trim());
+    if (!normalizedTracking) {
         Alert.alert("Validation Error", "Please enter a tracking number.");
         return;
     }
     setIsSavingTracking(true);
     try {
       const orderIds = plantList.map((p) => p.id);
-      const response = await addLeafTrailTrackingNumber({ orderIds, trackingNumber });
+      const response = await addLeafTrailTrackingNumber({
+        orderIds,
+        trackingNumber: normalizedTracking,
+      });
       if (response.success) {
-        setShippingDetails((prev) => ({ ...prev, trackingNumber }));
+        setTrackingNumber(normalizedTracking);
+        setShippingDetails((prev) => ({ ...prev, trackingNumber: normalizedTracking }));
         Alert.alert('Success', 'Tracking number updated successfully.');
       } else {
         throw new Error(response.error || 'Failed to update tracking number.');

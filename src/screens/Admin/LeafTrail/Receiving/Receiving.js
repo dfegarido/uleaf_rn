@@ -66,11 +66,22 @@ const ADMIN_FILTER_STATUSES_BY_TAB = {
 const ADMIN_FILTER_STATUSES_FOR_SELLER_BUYER = '["forReceiving"]';
 
 const getReceiverNameForBox = (item) => {
+    const storedName = item?.receivingBoxData?.receiverName
+        ? String(item.receivingBoxData.receiverName).trim()
+        : '';
+    if (storedName && storedName.toLowerCase() !== 'unassigned receiver') {
+        return storedName;
+    }
     if (item?.user?.name) return item.user.name.trim();
     const firstName = item?.receiverInfo?.firstName || item?.receiverInfo?.receiverFirstName || '';
     const lastName = item?.receiverInfo?.lastName || item?.receiverInfo?.receiverLastName || '';
     const fullName = `${firstName} ${lastName}`.trim();
-    return fullName || 'Unassigned Receiver';
+    if (fullName) return fullName;
+    const buyerInfo = item?.buyerInfo || {};
+    const fromBuyerInfo = `${buyerInfo.firstName || ''} ${buyerInfo.lastName || ''}`.trim();
+    if (fromBuyerInfo) return fromBuyerInfo;
+    if (item?.buyerName) return String(item.buyerName).trim();
+    return 'Unassigned Receiver';
 };
 
 const getReceiverFirstNameForBox = (receiverName) => {

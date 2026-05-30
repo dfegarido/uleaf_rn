@@ -23,6 +23,7 @@ import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.sv
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import { getAdminScanQr, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { normalizeLeafTrailStatus } from '../../../../utils/sortingBoxMetrics';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
@@ -371,24 +372,34 @@ const ScanQRScreen = ({ navigation, route }) => {
               <View style={styles.titleSection}>
                 <Text style={styles.titleText}>
                   {sortingBoxMode &&
-                  String(plantData?.leafTrailStatus || '').toLowerCase() === 'sorted'
+                  normalizeLeafTrailStatus(plantData?.leafTrailStatus) === 'sorted'
                     ? 'Marked as Sorted'
                     : packingTrayMode &&
-                        String(plantData?.leafTrailStatus || '').toLowerCase() === 'packed'
+                        normalizeLeafTrailStatus(plantData?.leafTrailStatus) === 'packed'
                       ? 'Marked as Packed'
                       : intakeMode &&
-                          String(plantData?.leafTrailStatus || '').toLowerCase() ===
-                            'received'
+                          normalizeLeafTrailStatus(plantData?.leafTrailStatus) === 'received'
                         ? 'Marked as Received'
                         : 'Scan Success!'}
                 </Text>
               </View>
 
               {intakeMode &&
-                String(plantData?.leafTrailStatus || '').toLowerCase() !== 'received' && (
+                normalizeLeafTrailStatus(plantData?.leafTrailStatus) !== 'received' && (
                 <View style={styles.intakeWarningBox}>
                   <Text style={styles.intakeWarningText}>
                     This plant is not in For Receiving (current status: {plantData?.leafTrailStatus || 'unknown'}).
+                  </Text>
+                </View>
+              )}
+
+              {sortingBoxMode &&
+                normalizeLeafTrailStatus(plantData?.leafTrailStatus) !== 'sorted' && (
+                <View style={styles.intakeWarningBox}>
+                  <Text style={styles.intakeWarningText}>
+                    This plant was not marked sorted (current status:{' '}
+                    {plantData?.leafTrailStatus || 'unknown'}). It may still need to be received at
+                    the hub first.
                   </Text>
                 </View>
               )}

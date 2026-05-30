@@ -32,7 +32,7 @@ import CheckBox from '../../../../components/CheckBox/CheckBox';
 import SelectionModal from './SelectionModal';
 import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
-import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 
 const Header = ({ title, navigation }) => (
   <View style={styles.headerContainer}>
@@ -57,10 +57,12 @@ const UserProfile = ({ user }) => (
 );
 
 const GreenhouseInputs = ({addTrayNumber, itemDetails}) => { 
-  const [trayNumber, setTrayNumber] = useState(itemDetails?.sortingTrayNumber || '');
+  const [trayNumber, setTrayNumber] = useState(
+    forceUppercaseHubLabel(itemDetails?.sortingTrayNumber || ''),
+  );
   
   const addTray = () => {
-    addTrayNumber(trayNumber)
+    addTrayNumber(forceUppercaseHubLabel(trayNumber))
   }
   
   return (
@@ -72,7 +74,9 @@ const GreenhouseInputs = ({addTrayNumber, itemDetails}) => {
                 placeholderTextColor="#647276"
                 style={styles.input}
                 value={trayNumber}
-                onChangeText={setTrayNumber}
+                onChangeText={(text) => setTrayNumber(forceUppercaseHubLabel(text))}
+                autoCapitalize="characters"
+                autoCorrect={false}
             />
         </View>
         <TouchableOpacity style={styles.button} onPress={() => addTray()}>

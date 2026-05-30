@@ -165,7 +165,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
             ) : null}
             {boxNumber ? (
               <View style={styles.boxChip}>
-                <Text style={styles.boxChipText}>Box {boxNumber}</Text>
+                <Text style={styles.boxChipText}>{boxNumber}</Text>
               </View>
             ) : null}
           </View>
@@ -274,7 +274,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
         await fetchData();
         setOrderId(null);
         setSelectedPlants([]);
-        Alert.alert('Success', `Box ${boxDetails.boxNumber} assigned.`);
+        Alert.alert('Success', `${boxDetails.boxNumber} assigned.`);
       } else {
         Alert.alert('Error', response?.message || 'Could not assign box.');
       }

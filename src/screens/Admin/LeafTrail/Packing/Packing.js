@@ -19,7 +19,7 @@ import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
-import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
 import {
   generateThermalLabels,
@@ -136,7 +136,8 @@ const PackingScreen = ({ navigation }) => {
   }, [packingData?.data]);
 
   const handleSearch = () => {
-    const trimmed = String(searchValue || '').trim();
+    const trimmed = forceUppercaseHubLabel(String(searchValue || '').trim());
+    setSearchValue(trimmed);
     const next = { ...(activeFilters || {}) };
     if (trimmed) {
       next.search = trimmed;
@@ -217,7 +218,7 @@ const PackingScreen = ({ navigation }) => {
         </Modal>
       )}
       <ScreenHeader
-        onSearchChange={setSearchValue}
+        onSearchChange={(text) => setSearchValue(forceUppercaseHubLabel(text))}
         searchValue={searchValue}
         onSearchSubmit={handleSearch}
         onSearchClear={handleSearchClear}

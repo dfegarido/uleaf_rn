@@ -23,6 +23,9 @@ import {
   getAdminLeafTrailFilters,
   getAdminLeafTrailSorting,
 } from '../../../../components/Api/getAdminLeafTrail';
+import {
+  mergeSortingReceiverBoxesByReceiver,
+} from '../../../../utils/sortingBoxMetrics';
 import SortingBoxDetail from './SortingBoxDetail';
 import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
 
@@ -83,33 +86,51 @@ const compareSortingBoxes = (a, b) => {
   return String(a.receiverName || '').localeCompare(String(b.receiverName || ''));
 };
 
-const SortingBoxCard = ({ box, displayBoxNumber, onPress }) => (
-  <TouchableOpacity
-    style={[styles.receiverBoxCard, { backgroundColor: box.boxColor || '#FDE8F0' }]}
-    activeOpacity={0.85}
-    onPress={onPress}>
-    <View style={styles.boxNumberBadge}>
-      <Text style={styles.boxNumberText}>{displayBoxNumber}</Text>
-    </View>
-    <Text style={styles.receiverBoxTitle} numberOfLines={2}>
-      {box.receiverName}
-      {box.username ? (
-        <Text style={styles.receiverBoxHandle}> @{box.username}</Text>
-      ) : null}
-    </Text>
-    {box.joiners?.length > 0 ? (
-      <View style={styles.joinersBlock}>
-        <Text style={styles.joinersLabel}>Joiners</Text>
-        <Text style={styles.joinersList} numberOfLines={3}>
-          {box.joiners.join(', ')}
-        </Text>
+const SortingBoxCard = ({ box, onPress }) => {
+  const plantCount = box?.plants?.length || box?.forReceivingCount || 0;
+  const receiverInitial = String(box?.receiverName || '?').trim().charAt(0).toUpperCase();
+
+  return (
+    <TouchableOpacity
+      style={[styles.receiverBoxCard, { backgroundColor: box.boxColor || '#FDE8F0' }]}
+      activeOpacity={0.85}
+      onPress={onPress}>
+      <View style={styles.receiverBoxTopRow}>
+        {box.avatar ? (
+          <Image source={{ uri: box.avatar }} style={styles.receiverAvatar} />
+        ) : (
+          <View style={styles.receiverAvatarFallback}>
+            <Text style={styles.receiverAvatarInitial}>{receiverInitial}</Text>
+          </View>
+        )}
+        <View style={styles.receiverBoxHeading}>
+          <Text style={styles.receiverBoxTitle} numberOfLines={2}>
+            {box.receiverName}
+          </Text>
+          {box.username ? (
+            <Text style={styles.receiverBoxHandle} numberOfLines={1}>
+              @{box.username}
+            </Text>
+          ) : null}
+        </View>
       </View>
-    ) : null}
-    <View style={styles.receiverBoxDivider} />
-    <SortingBoxPrintedSummary metrics={box} variant="card" />
-    <Text style={styles.receiverBoxHint}>Tap to open box</Text>
-  </TouchableOpacity>
-);
+      <Text style={styles.receiverBoxSubtitle}>
+        Receiver · {plantCount} plant{plantCount === 1 ? '' : 's'}
+      </Text>
+      {box.joiners?.length > 0 ? (
+        <View style={styles.joinersBlock}>
+          <Text style={styles.joinersLabel}>Joiners</Text>
+          <Text style={styles.joinersList} numberOfLines={2}>
+            {box.joiners.join(', ')}
+          </Text>
+        </View>
+      ) : null}
+      <View style={styles.receiverBoxDivider} />
+      <SortingBoxPrintedSummary metrics={box} variant="card" />
+      <Text style={styles.receiverBoxHint}>Tap to open box</Text>
+    </TouchableOpacity>
+  );
+};
 
 const SortingScreen = ({ navigation }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
@@ -119,7 +140,9 @@ const SortingScreen = ({ navigation }) => {
   const [activeBox, setActiveBox] = useState(null);
   const [activeFilters, setActiveFilters] = useState(null);
   const activeFiltersRef = useRef(null);
+  const activeBoxRef = useRef(null);
   activeFiltersRef.current = activeFilters;
+  activeBoxRef.current = activeBox;
 
   const getFilters = async () => {
     const adminFilter = await getAdminLeafTrailFilters(
@@ -128,29 +151,39 @@ const SortingScreen = ({ navigation }) => {
     setAdminFilters(adminFilter);
   };
 
-  const fetchData = async (filters) => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (filters, { silent = false } = {}) => {
+    if (!silent) {
+      setIsLoading(true);
+    }
     try {
       const response = await getAdminLeafTrailSorting(filters);
       setSortingData(response);
-      if (activeBox?.boxKey) {
+      const openBoxKey = activeBoxRef.current?.boxKey;
+      if (openBoxKey) {
         const refreshed = (response?.receiverBoxes || []).find(
-          (b) => b.boxKey === activeBox.boxKey,
+          (b) => b.boxKey === openBoxKey,
         );
         if (refreshed) setActiveBox(refreshed);
       }
     } catch (e) {
       console.error('Failed to fetch plant data:', e);
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, []);
+
+  const refreshSortingData = useCallback(() => {
+    fetchData(activeFiltersRef.current, { silent: true });
+  }, [fetchData]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchData(activeFiltersRef.current);
+      const silent = Boolean(activeBoxRef.current?.boxKey);
+      fetchData(activeFiltersRef.current, { silent });
       getFilters();
-    }, []),
+    }, [fetchData]),
   );
 
   const onFilterChange = (filters) => {
@@ -158,13 +191,10 @@ const SortingScreen = ({ navigation }) => {
     fetchData(filters);
   };
 
-  /** Grid reads left→right, top→bottom; numbers must be 1,2,3… in that same order. */
+  /** One card per receiver — merged and sorted A→Z by first name. */
   const receiverBoxes = useMemo(() => {
-    const boxes = [...(sortingData?.receiverBoxes || [])].sort(compareSortingBoxes);
-    return boxes.map((box, index) => ({
-      ...box,
-      boxNumber: index + 1,
-    }));
+    const merged = mergeSortingReceiverBoxesByReceiver(sortingData?.receiverBoxes || []);
+    return [...merged].sort(compareSortingBoxes);
   }, [sortingData?.receiverBoxes]);
 
   /** Aggregate received/sorted totals across all hub boxes for the summary row. */
@@ -224,16 +254,19 @@ const SortingScreen = ({ navigation }) => {
       ) : null}
       <Text style={styles.countText}>
         {hubSpecEnabled
-          ? `${sortingData?.receiverBoxCount || receiverBoxes.length} box(es)`
+          ? `${receiverBoxes.length} receiver box(es)`
           : `${sortingData?.total || 0} receiver(s)`}
       </Text>
+      {hubSpecEnabled && receiverBoxes.length > 0 ? (
+        <Text style={styles.sectionTitle}>All boxes by receiver</Text>
+      ) : null}
     </>
   );
 
   return (
     <SafeAreaView style={styles.screenContainer}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {isLoading && (
+      {isLoading && !activeBox && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
@@ -259,10 +292,9 @@ const SortingScreen = ({ navigation }) => {
           numColumns={2}
           keyExtractor={(item) => item.boxKey}
           columnWrapperStyle={styles.receiverBoxesRow}
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <SortingBoxCard
               box={item}
-              displayBoxNumber={index + 1}
               onPress={() => setActiveBox(item)}
             />
           )}
@@ -292,7 +324,7 @@ const SortingScreen = ({ navigation }) => {
         box={activeBox}
         navigation={navigation}
         onClose={() => setActiveBox(null)}
-        onRefresh={() => fetchData(activeFilters)}
+        onRefresh={refreshSortingData}
       />
     </SafeAreaView>
   );
@@ -377,32 +409,54 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 200,
     overflow: 'hidden',
-    position: 'relative',
   },
-  boxNumberBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    minWidth: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    justifyContent: 'center',
+  receiverBoxTopRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    gap: 10,
+    marginBottom: 6,
   },
-  boxNumberText: {
+  receiverAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#539461',
+  },
+  receiverAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F3EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  receiverAvatarInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2F8C4F',
+  },
+  receiverBoxHeading: {
+    flex: 1,
+  },
+  receiverBoxSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#647276',
+    marginBottom: 8,
+  },
+  sectionTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#202325',
+    paddingHorizontal: 15,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   receiverBoxTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#1F2A23',
-    paddingRight: 36,
   },
   receiverBoxHandle: {
     fontSize: 14,

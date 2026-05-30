@@ -18,19 +18,22 @@ import {
   SORTING_BOX_COLOR_COMPLETE,
   SORTING_BOX_COLOR_INCOMPLETE,
   computeSortingBoxMetrics,
-  normalizeLeafTrailStatus,
+  isAwaitingSortPlant,
+  isSortedPlant,
   sortPlantsForSortingBoxList,
+  sortingPlantStatusLabel,
 } from '../../../../utils/sortingBoxMetrics';
 import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
 import SortingTrayAssign from './SortingTrayAssign';
 
 const SortingPlantRow = ({ plant, index }) => {
-  const isUnsorted = normalizeLeafTrailStatus(plant.leafTrailStatus) === 'received';
+  const sorted = isSortedPlant(plant);
+  const statusLabel = sortingPlantStatusLabel(plant);
   return (
     <View
       style={[
         styles.plantCard,
-        isUnsorted ? styles.plantCardPending : styles.plantCardDone,
+        sorted ? styles.plantCardDone : styles.plantCardPending,
       ]}>
       <View style={styles.plantIndexWrap}>
         <Text style={styles.plantIndex}>{index + 1}</Text>
@@ -55,14 +58,14 @@ const SortingPlantRow = ({ plant, index }) => {
         <View
           style={[
             styles.statusPill,
-            isUnsorted ? styles.statusPillPending : styles.statusPillDone,
+            sorted ? styles.statusPillDone : styles.statusPillPending,
           ]}>
           <Text
             style={[
               styles.statusPillText,
-              isUnsorted ? styles.statusPillTextPending : styles.statusPillTextDone,
+              sorted ? styles.statusPillTextDone : styles.statusPillTextPending,
             ]}>
-            {isUnsorted ? 'Awaiting sort' : 'Sorted'}
+            {statusLabel}
           </Text>
         </View>
       </View>
@@ -70,27 +73,56 @@ const SortingPlantRow = ({ plant, index }) => {
   );
 };
 
+const BOX_PLANT_TABS = {
+  awaiting: 'awaiting',
+  sorted: 'sorted',
+};
+
 const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   const insets = useSafeAreaInsets();
   const [finishPromptVisible, setFinishPromptVisible] = useState(false);
+  const [plantTab, setPlantTab] = useState(BOX_PLANT_TABS.awaiting);
 
   const metrics = useMemo(
     () => computeSortingBoxMetrics(box?.plants || []),
     [box?.plants],
   );
 
-  const sortedPlants = useMemo(
+  const alphabeticalPlants = useMemo(
     () => sortPlantsForSortingBoxList(box?.plants || []),
     [box?.plants],
   );
 
-  const unsortedCount = useMemo(
-    () =>
-      sortedPlants.filter(
-        (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'received',
-      ).length,
-    [sortedPlants],
+  const awaitingPlants = useMemo(
+    () => alphabeticalPlants.filter(isAwaitingSortPlant),
+    [alphabeticalPlants],
   );
+
+  const sortedPlantsList = useMemo(
+    () => alphabeticalPlants.filter(isSortedPlant),
+    [alphabeticalPlants],
+  );
+
+  const visiblePlants =
+    plantTab === BOX_PLANT_TABS.sorted ? sortedPlantsList : awaitingPlants;
+
+  const prevSortedCountRef = React.useRef(0);
+
+  React.useEffect(() => {
+    if (visible && box?.boxKey) {
+      setPlantTab(BOX_PLANT_TABS.awaiting);
+      prevSortedCountRef.current = (box?.plants || []).filter(isSortedPlant).length;
+    }
+  }, [visible, box?.boxKey]);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    const sortedCount = sortedPlantsList.length;
+    if (sortedCount > prevSortedCountRef.current) {
+      setPlantTab(BOX_PLANT_TABS.sorted);
+    }
+    prevSortedCountRef.current = sortedCount;
+  }, [visible, sortedPlantsList.length]);
 
   const statusTint = metrics.isComplete
     ? SORTING_BOX_COLOR_COMPLETE
@@ -128,11 +160,6 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
       <View style={styles.heroCard}>
         <View style={styles.heroTop}>
           <View style={styles.heroIdentity}>
-            {box.boxNumber != null ? (
-              <View style={styles.boxBadge}>
-                <Text style={styles.boxBadgeText}>Box {box.boxNumber}</Text>
-              </View>
-            ) : null}
             <Text style={styles.heroName}>{box.receiverName}</Text>
             {box.username ? (
               <Text style={styles.heroUsername}>@{box.username}</Text>
@@ -164,14 +191,53 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Plants in this box</Text>
-        <View style={styles.sectionBadges}>
-          <Text style={styles.sectionBadge}>{sortedPlants.length} total</Text>
-          {unsortedCount > 0 ? (
-            <Text style={[styles.sectionBadge, styles.sectionBadgeWarn]}>
-              {unsortedCount} to sort
-            </Text>
-          ) : null}
-        </View>
+      </View>
+
+      <View style={styles.plantTabsRow}>
+        <TouchableOpacity
+          style={[
+            styles.plantTab,
+            plantTab === BOX_PLANT_TABS.awaiting && styles.plantTabActive,
+          ]}
+          onPress={() => setPlantTab(BOX_PLANT_TABS.awaiting)}
+          activeOpacity={0.85}>
+          <Text
+            style={[
+              styles.plantTabText,
+              plantTab === BOX_PLANT_TABS.awaiting && styles.plantTabTextActive,
+            ]}>
+            Awaiting to sort
+          </Text>
+          <Text
+            style={[
+              styles.plantTabCount,
+              plantTab === BOX_PLANT_TABS.awaiting && styles.plantTabCountActive,
+            ]}>
+            {awaitingPlants.length}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.plantTab,
+            plantTab === BOX_PLANT_TABS.sorted && styles.plantTabActive,
+          ]}
+          onPress={() => setPlantTab(BOX_PLANT_TABS.sorted)}
+          activeOpacity={0.85}>
+          <Text
+            style={[
+              styles.plantTabText,
+              plantTab === BOX_PLANT_TABS.sorted && styles.plantTabTextActive,
+            ]}>
+            Sorted
+          </Text>
+          <Text
+            style={[
+              styles.plantTabCount,
+              plantTab === BOX_PLANT_TABS.sorted && styles.plantTabCountActive,
+            ]}>
+            {sortedPlantsList.length}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -198,8 +264,9 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
         </View>
 
         <FlatList
-          data={sortedPlants}
+          data={visiblePlants}
           keyExtractor={(item) => item.id}
+          extraData={plantTab}
           ListHeaderComponent={listHeader}
           renderItem={({ item, index }) => (
             <SortingPlantRow plant={item} index={index} />
@@ -214,7 +281,11 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           refreshing={false}
           ListEmptyComponent={
             <View style={styles.emptyPlants}>
-              <Text style={styles.emptyPlantsText}>No plants in this box yet.</Text>
+              <Text style={styles.emptyPlantsText}>
+                {plantTab === BOX_PLANT_TABS.sorted
+                  ? 'No sorted plants yet. Scan plants to sort them.'
+                  : 'All plants in this box are sorted.'}
+              </Text>
             </View>
           }
         />
@@ -441,6 +512,59 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#202325',
+  },
+  plantTabsRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#E8ECEA',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  plantTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  plantTabActive: {
+    backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  plantTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#647276',
+  },
+  plantTabTextActive: {
+    color: '#202325',
+  },
+  plantTabCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#647276',
+    backgroundColor: '#DDE3E5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  plantTabCountActive: {
+    color: '#1B7A43',
+    backgroundColor: '#EAF7EF',
   },
   sectionBadges: {
     flexDirection: 'row',

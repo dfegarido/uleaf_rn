@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import { addSortingTrayNumber } from '../../../../components/Api/getAdminLeafTrail';
-import { normalizeLeafTrailStatus } from '../../../../utils/sortingBoxMetrics';
+import { forceUppercaseHubLabel } from '../../../../utils/leafTrailScanNav';
 
 /**
  * Assign one tray # to all sorted plants in the open receiver box (Packing uses tray next).
@@ -34,15 +34,15 @@ const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
     return allSame ? first : '';
   }, [sortedPlants]);
 
-  const [trayNumber, setTrayNumber] = useState(existingTray);
+  const [trayNumber, setTrayNumber] = useState(forceUppercaseHubLabel(existingTray));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setTrayNumber(existingTray);
+    setTrayNumber(forceUppercaseHubLabel(existingTray));
   }, [existingTray]);
 
   const saveTray = async () => {
-    const trimmed = String(trayNumber || '').trim();
+    const trimmed = forceUppercaseHubLabel(String(trayNumber || '').trim());
     if (!trimmed) {
       Alert.alert('Tray number', 'Enter a tray number to assign.');
       return;
@@ -92,8 +92,9 @@ const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
             placeholderTextColor="#647276"
             style={styles.input}
             value={trayNumber}
-            onChangeText={setTrayNumber}
+            onChangeText={(text) => setTrayNumber(forceUppercaseHubLabel(text))}
             autoCapitalize="characters"
+            autoCorrect={false}
             editable={!saving}
           />
         </View>

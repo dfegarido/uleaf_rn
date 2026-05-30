@@ -21,3 +21,8 @@ export const LEAF_TRAIL_SCAN_PARAMS = {
   shipping: { leafTrailStatus: 'shipping' },
   shipped: { leafTrailStatus: 'shipped' },
 };
+
+/** Tray # and box # — always uppercase as the user types. */
+export function forceUppercaseHubLabel(value) {
+  return String(value ?? '').toUpperCase();
+}
