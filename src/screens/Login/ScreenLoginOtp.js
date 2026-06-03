@@ -298,17 +298,26 @@ const ScreenLoginOtp = ({navigation}) => {
     setResendModalVisible(false);
     setLoading(true);
     try {
-      if (idToken != '') {
-        await postRequestPinData(idToken);
-        setPin('');
-        startResendCountdown();
+      const user = auth.currentUser;
+      const token = user ? await user.getIdToken(true) : idToken;
+      if (!token) {
+        Alert.alert(
+          'Session expired',
+          'Please go back and sign in again to request a new code.',
+          [{text: 'OK'}],
+        );
+        return;
       }
+      setIdToken(token);
+      await postRequestPinData(token);
+      setPin('');
+      startResendCountdown();
     } catch (error) {
       console.error('Resend PIN error:', error);
       Alert.alert(
         'Resend Failed',
-        'Unable to resend the authentication code. Please try again.',
-        [{text: 'OK'}]
+        error?.message || 'Unable to resend the authentication code. Please try again.',
+        [{text: 'OK'}],
       );
     } finally {
       setLoading(false);
