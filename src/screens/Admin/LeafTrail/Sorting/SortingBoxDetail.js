@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -115,6 +116,14 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
     }
   }, [visible, box?.boxKey]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (visible && box?.boxKey) {
+        onRefresh?.();
+      }
+    }, [visible, box?.boxKey, onRefresh]),
+  );
+
   React.useEffect(() => {
     if (!visible) return;
     const sortedCount = sortedPlantsList.length;
@@ -183,7 +192,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           <View style={styles.scanCtaTextWrap}>
             <Text style={styles.scanCtaTitle}>Scan to sort plants</Text>
             <Text style={styles.scanCtaSub}>
-              Scan a plant QR — it will be tagged as sorted
+              Scan a plant QR — sorted plants move to the Sorted tab and count toward fulfill
             </Text>
           </View>
         </TouchableOpacity>
@@ -239,6 +248,10 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           </Text>
         </TouchableOpacity>
       </View>
+      <Text style={styles.plantListHint}>
+        {metrics.totalPlantsToFulfill} plant(s) to fulfill · Scanned sorted plants appear under
+        Sorted, not Awaiting
+      </Text>
     </View>
   );
 
@@ -516,11 +529,18 @@ const styles = StyleSheet.create({
   plantTabsRow: {
     flexDirection: 'row',
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 8,
     backgroundColor: '#E8ECEA',
     borderRadius: 12,
     padding: 4,
     gap: 4,
+  },
+  plantListHint: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#647276',
   },
   plantTab: {
     flex: 1,

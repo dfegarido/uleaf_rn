@@ -51,6 +51,13 @@ import {
 } from './receivingPlantFormatters';
 import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import {
+    buildReceiverBoxAssignments,
+    groupItemsIntoSortedReceiverBoxes,
+    isHubReceivedPlant,
+    mergeReceivingItemsForReceiverBoxes,
+    receiverBoxAssignmentSignature,
+} from './receiverBoxUtils';
 
 /** getAdminFilters `statuses` query per Receiving tab (JSON string). */
 const ADMIN_FILTER_STATUSES_BY_TAB = {
@@ -65,59 +72,8 @@ const ADMIN_FILTER_STATUSES_BY_TAB = {
 /** Seller / buyer / order-receiver lists match For Receiving on every Receiving sub-tab. */
 const ADMIN_FILTER_STATUSES_FOR_SELLER_BUYER = '["forReceiving"]';
 
-const getReceiverNameForBox = (item) => {
-    const storedName = item?.receivingBoxData?.receiverName
-        ? String(item.receivingBoxData.receiverName).trim()
-        : '';
-    if (storedName && storedName.toLowerCase() !== 'unassigned receiver') {
-        return storedName;
-    }
-    if (item?.user?.name) return item.user.name.trim();
-    const firstName = item?.receiverInfo?.firstName || item?.receiverInfo?.receiverFirstName || '';
-    const lastName = item?.receiverInfo?.lastName || item?.receiverInfo?.receiverLastName || '';
-    const fullName = `${firstName} ${lastName}`.trim();
-    if (fullName) return fullName;
-    const buyerInfo = item?.buyerInfo || {};
-    const fromBuyerInfo = `${buyerInfo.firstName || ''} ${buyerInfo.lastName || ''}`.trim();
-    if (fromBuyerInfo) return fromBuyerInfo;
-    if (item?.buyerName) return String(item.buyerName).trim();
-    return 'Unassigned Receiver';
-};
-
-const getReceiverFirstNameForBox = (receiverName) => {
-    if (!receiverName || receiverName === 'Unassigned Receiver') return 'zzz';
-    return receiverName.trim().split(/\s+/)[0].toLowerCase();
-};
-
-const getJoinerNameForBox = (item) => {
-    const joinerInfo = item?.joinerInfo || {};
-    const firstName =
-        joinerInfo.firstName ||
-        joinerInfo.joinerFirstName ||
-        item?.buyerInfo?.firstName ||
-        '';
-    const lastName =
-        joinerInfo.lastName ||
-        joinerInfo.joinerLastName ||
-        item?.buyerInfo?.lastName ||
-        '';
-    const fullName = `${firstName} ${lastName}`.trim();
-    return fullName || joinerInfo.username || joinerInfo.joinerUsername || null;
-};
-
-const getReceiverBoxKey = (receiverName) =>
-    `RX-${String(receiverName || 'UNASSIGNED').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'UNASSIGNED'}`;
-
 const normalizeReceivingLeafTrailStatus = (status) =>
     String(status || '').trim().toLowerCase().replace(/\s+/g, '');
-
-/** Hub admin receive scan — not seller inventoryForHub.sellerScanned. */
-const isHubReceivedPlant = (item) => {
-    const status = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
-    if (status === 'received') return true;
-    if (item?.receivedDate) return true;
-    return false;
-};
 const getReceivingListStatusPill = (type, item) => {
     if (type === 'missing') {
         return { label: 'Missing', variant: 'missing' };
@@ -397,60 +353,17 @@ const ReceivedTab = ({
     onFilterChange,
     adminFilters,
     openTagAs,
-    hubSpecEnabled,
-    onAssignBoxes,
     onPrintBoxLabels,
     boxActionsLoading,
 }) => {
     const [activeBox, setActiveBox] = useState(null);
 
     const receiverBoxes = React.useMemo(() => {
-        const receivedItems = data?.data || [];
-        const incomingItems = forReceivingData || [];
-        const deduped = new Map();
-        [...incomingItems, ...receivedItems].forEach((item) => {
-            if (item?.id) deduped.set(item.id, item);
-        });
-        const items = [...deduped.values()];
-        const grouped = new Map();
-
-        items.forEach((item) => {
-            const receiverName = getReceiverNameForBox(item);
-            const existing = grouped.get(receiverName) || {
-                receiverName,
-                items: [],
-                scannedCount: 0,
-                unscannedCount: 0,
-                joiners: new Set(),
-            };
-
-            existing.items.push(item);
-            if (isHubReceivedPlant(item)) {
-                existing.scannedCount += 1;
-            } else {
-                existing.unscannedCount += 1;
-            }
-
-            const joinerName = getJoinerNameForBox(item);
-            if (joinerName) {
-                existing.joiners.add(joinerName);
-            }
-
-            grouped.set(receiverName, existing);
-        });
-
-        return [...grouped.values()]
-            .map((box) => ({
-                ...box,
-                joiners: [...box.joiners].sort((a, b) => a.localeCompare(b)),
-            }))
-            .sort((a, b) => {
-                const firstNameSort = getReceiverFirstNameForBox(a.receiverName).localeCompare(
-                    getReceiverFirstNameForBox(b.receiverName),
-                );
-                if (firstNameSort !== 0) return firstNameSort;
-                return a.receiverName.localeCompare(b.receiverName);
-            });
+        const items = mergeReceivingItemsForReceiverBoxes(
+            forReceivingData || [],
+            data?.data || [],
+        );
+        return groupItemsIntoSortedReceiverBoxes(items);
     }, [data, forReceivingData]);
 
     // Sort buyers alphabetically by name for the Received tab only
@@ -471,7 +384,9 @@ const ReceivedTab = ({
         };
     }, [adminFilters]);
     
-    if (!(data?.data) || data.data.length === 0) {   
+    const plantTotal = data?.total ?? 0;
+
+    if (!receiverBoxes.length) {
         return (
             <>
                 <FlatList
@@ -481,14 +396,14 @@ const ReceivedTab = ({
                     ListHeaderComponent={
                         <>
                             <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
-                            <Text style={styles.countText}>{data.total} plant(s)</Text>
+                            <Text style={styles.countText}>{plantTotal} plant(s)</Text>
                         </>
                     }
                     ItemSeparatorComponent={() => <View style={{height: 6}}/>}
                     contentContainerStyle={styles.listContentContainer}
                     ListFooterComponent={
                          <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-                            <Text style={{fontSize: 16, color: '#647276'}}>No received plants found.</Text>
+                            <Text style={{fontSize: 16, color: '#647276'}}>No receiver boxes found.</Text>
                         </View>}
                 />
             </>
@@ -499,7 +414,7 @@ const ReceivedTab = ({
         <FlatList
             key="received-box-grid"
             data={receiverBoxes}
-            keyExtractor={(item) => item.receiverName}
+            keyExtractor={(item) => `box-${item.boxNumber}-${item.receiverName}`}
             numColumns={2}
             columnWrapperStyle={styles.receiverBoxesRow}
             renderItem={({ item }) => (
@@ -508,10 +423,15 @@ const ReceivedTab = ({
                     activeOpacity={0.85}
                     onPress={() => setActiveBox(item)}>
                     <View style={styles.receiverBoxTopAccent} />
+                    <View style={styles.receiverBoxNumberRow}>
+                        <View style={styles.receiverBoxNumberBadge}>
+                            <Text style={styles.receiverBoxNumberText}>{item.boxNumber}</Text>
+                        </View>
+                        <Text style={styles.receiverBoxSubtitle}>Receiver Box</Text>
+                    </View>
                     <Text style={styles.receiverBoxTitle} numberOfLines={2}>
                         {item.receiverName}
                     </Text>
-                    <Text style={styles.receiverBoxSubtitle}>Receiver Box</Text>
 
                     <View style={styles.receiverBoxDivider} />
 
@@ -541,20 +461,18 @@ const ReceivedTab = ({
                     <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
                     <View style={styles.receivedSummaryRow}>
                         <Text style={styles.receivedSummaryPill}>{receiverBoxes.length} box(es)</Text>
-                        <Text style={styles.countText}>{data.total} plant(s)</Text>
+                        <Text style={styles.countText}>{plantTotal} plant(s)</Text>
                     </View>
                     <View style={styles.receivedActionsRow}>
                         <TouchableOpacity
-                            style={[styles.receivedActionButton, boxActionsLoading && styles.buttonDisabled]}
-                            onPress={onAssignBoxes}
-                            disabled={boxActionsLoading}>
-                            <Text style={styles.receivedActionButtonText}>Assign Receiver Boxes</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.receivedActionButtonSecondary, boxActionsLoading && styles.buttonDisabled]}
+                            style={[
+                                styles.receivedActionButton,
+                                styles.receivedActionButtonFull,
+                                boxActionsLoading && styles.buttonDisabled,
+                            ]}
                             onPress={() => onPrintBoxLabels(receiverBoxes)}
                             disabled={boxActionsLoading || !receiverBoxes.length}>
-                            <Text style={styles.receivedActionButtonSecondaryText}>Print Box Labels</Text>
+                            <Text style={styles.receivedActionButtonText}>Print Box Labels</Text>
                         </TouchableOpacity>
                     </View>
                 </>
@@ -575,7 +493,9 @@ const ReceivedTab = ({
                             </TouchableOpacity>
                             <View style={styles.receiverBoxModalTitleWrap}>
                                 <Text style={styles.receiverBoxModalTitle} numberOfLines={1}>
-                                    {activeBox?.receiverName || 'Receiver Box'}
+                                    {activeBox?.boxNumber
+                                        ? `Box ${activeBox.boxNumber} · ${activeBox.receiverName || 'Receiver'}`
+                                        : activeBox?.receiverName || 'Receiver Box'}
                                 </Text>
                                 <Text style={styles.receiverBoxModalMeta}>
                                     {(activeBox?.items || []).length} plant(s) · Scanned {activeBox?.scannedCount || 0} · Unscanned {activeBox?.unscannedCount || 0}
@@ -906,37 +826,35 @@ const ReceivingScreen = ({navigation}) => {
                         : (lastReceivingFiltersRef.current ?? { sort: 'desc' });
                 const response = await getAdminLeafTrailReceiving(effectiveFilters);
 
+                setError(null);
                 setReceivingData(response);
-                const forReceivingItems = response?.forReceiving?.data || [];
-                const assignmentSignature = forReceivingItems
-                    .map((item) => `${item?.id || ''}:${getReceiverNameForBox(item)}`)
-                    .sort()
-                    .join('|');
-                if (assignmentSignature && assignmentSignature !== lastAssignedSignatureRef.current) {
-                    const assignments = forReceivingItems
-                        .filter((item) => item?.id)
-                        .map((item) => ({
-                            orderId: item.id,
-                            receiverName: getReceiverNameForBox(item),
-                            receiverFirstName: getReceiverFirstNameForBox(getReceiverNameForBox(item)),
-                            boxKey: getReceiverBoxKey(getReceiverNameForBox(item)),
-                            joiners: getJoinerNameForBox(item) ? [getJoinerNameForBox(item)] : [],
-                        }));
-                    if (assignments.length) {
-                        try {
-                            await assignReceiverBoxes(assignments);
-                            lastAssignedSignatureRef.current = assignmentSignature;
-                        } catch (assignError) {
-                            console.error('Failed to assign receiver boxes:', assignError);
-                        }
-                    }
-                }
                 await refreshAdminFilters(tabStatusesRef.current, { withPageLoader: false });
+
+                const itemsForBoxes = mergeReceivingItemsForReceiverBoxes(
+                    response?.forReceiving?.data || [],
+                    response?.received?.data || [],
+                );
+                const assignments = buildReceiverBoxAssignments(itemsForBoxes);
+                const assignmentSignature = receiverBoxAssignmentSignature(assignments);
+                if (assignmentSignature && assignmentSignature !== lastAssignedSignatureRef.current) {
+                    assignReceiverBoxes(assignments)
+                        .then(() => {
+                            lastAssignedSignatureRef.current = assignmentSignature;
+                        })
+                        .catch((assignError) => {
+                            console.error('Failed to auto-assign receiver boxes:', assignError);
+                        });
+                }
                 
             } catch (e) {
                 setIsLoading(false);
                 setError(e);
                 console.error("Failed to fetch plant data:", e);
+                Alert.alert(
+                    'Receiving of Plants',
+                    e?.message ||
+                        'Could not load receiving plants. Check API connectivity and admin login.',
+                );
             } finally {
                 setIsLoading(false);
             }
@@ -959,36 +877,6 @@ const ReceivingScreen = ({navigation}) => {
          fetchData(filters);
     }
 
-    const handleAssignReceiverBoxes = async () => {
-        try {
-            const forReceivingItems = receivingData?.forReceiving?.data || [];
-            if (!forReceivingItems.length) {
-                Alert.alert('Assign Receiver Boxes', 'No For Receiving plants found.');
-                return;
-            }
-            setBoxActionsLoading(true);
-            const assignments = forReceivingItems
-                .filter((item) => item?.id)
-                .map((item) => ({
-                    orderId: item.id,
-                    receiverName: getReceiverNameForBox(item),
-                    receiverFirstName: getReceiverFirstNameForBox(getReceiverNameForBox(item)),
-                    boxKey: getReceiverBoxKey(getReceiverNameForBox(item)),
-                    joiners: getJoinerNameForBox(item) ? [getJoinerNameForBox(item)] : [],
-                }));
-            const response = await assignReceiverBoxes(assignments);
-            if (response?.success) {
-                Alert.alert('Success', `Assigned ${response.updatedCount || assignments.length} plant(s) to receiver boxes.`);
-            } else {
-                Alert.alert('Assign Receiver Boxes', response?.message || 'Failed to assign receiver boxes.');
-            }
-        } catch (e) {
-            Alert.alert('Assign Receiver Boxes', e?.message || 'Failed to assign receiver boxes.');
-        } finally {
-            setBoxActionsLoading(false);
-        }
-    };
-
     const handlePrintReceiverBoxLabels = async (receiverBoxes) => {
         try {
             if (!receiverBoxes?.length) {
@@ -999,7 +887,8 @@ const ReceivingScreen = ({navigation}) => {
             setIsLoading(true);
             setBoxActionsLoading(true);
             const boxesPayload = receiverBoxes.map((box) => ({
-                boxKey: getReceiverBoxKey(box.receiverName),
+                boxNumber: box.boxNumber,
+                boxKey: `BOX-${box.boxNumber}`,
                 receiverName: box.receiverName,
                 joiners: box.joiners || [],
                 plantCount: box.items?.length || 0,
@@ -1084,8 +973,6 @@ const ReceivingScreen = ({navigation}) => {
                         data={receivingData?.received || {}}
                         forReceivingData={receivingData?.forReceiving?.data || []}
                         adminFilters={adminFiltersForActiveTab}
-                        hubSpecEnabled={hubSpecEnabled}
-                        onAssignBoxes={handleAssignReceiverBoxes}
                         onPrintBoxLabels={handlePrintReceiverBoxLabels}
                         boxActionsLoading={boxActionsLoading}
                     />
@@ -1651,6 +1538,9 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         alignItems: 'center',
     },
+    receivedActionButtonFull: {
+        flex: 1,
+    },
     receivedActionButtonText: {
         color: '#FFFFFF',
         fontSize: 12,
@@ -1704,6 +1594,26 @@ const styles = StyleSheet.create({
         borderRadius: 999,
         backgroundColor: '#2F8C4F',
         marginBottom: 8,
+    },
+    receiverBoxNumberRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
+    receiverBoxNumberBadge: {
+        minWidth: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#2F8C4F',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 8,
+    },
+    receiverBoxNumberText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '800',
     },
     receiverBoxTitle: {
         fontSize: 16,

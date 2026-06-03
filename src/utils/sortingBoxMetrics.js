@@ -94,6 +94,81 @@ export function sortingPlantStatusLabel(plant) {
   return 'Awaiting sort';
 }
 
+/** Whether this plant is included in Total Plants to Fulfill (received − missing − damaged − need to stay). */
+export function plantCountsTowardSortingFulfill(plant) {
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  if (status === 'forreceiving') return false;
+  if (status === 'missing' || status === 'damaged' || status === 'needstostay') return false;
+  return true;
+}
+
+/**
+ * User-facing copy after a receiver-box sort scan — explains fulfill count vs plant lists.
+ * @returns {{ tone: 'success' | 'warning', lines: string[] }}
+ */
+export function describeSortingScanPlantOutcome(plant) {
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  const displayStatus = String(plant?.leafTrailStatus || status || 'unknown').trim();
+
+  if (status === 'sorted') {
+    return {
+      tone: 'success',
+      lines: [
+        'This plant is listed under the Sorted tab in this receiver box (not Awaiting to sort).',
+        'It counts toward Total Plants to Fulfill for this box.',
+        'Go back to the box and open Sorted to confirm.',
+      ],
+    };
+  }
+
+  if (status === 'forreceiving') {
+    return {
+      tone: 'warning',
+      lines: [
+        'This plant is not hub-received yet.',
+        'It will not appear in Total Plants to Fulfill or Awaiting to sort until it is received at the hub.',
+        `Current status: ${displayStatus}.`,
+      ],
+    };
+  }
+
+  if (status === 'missing' || status === 'damaged' || status === 'needstostay') {
+    const reason =
+      status === 'needstostay'
+        ? 'Need to stay'
+        : status === 'missing'
+          ? 'Missing'
+          : 'Damaged';
+    return {
+      tone: 'warning',
+      lines: [
+        `This plant is excluded from Total Plants to Fulfill (${reason}).`,
+        'It will not appear under Awaiting to sort for fulfillment work.',
+        `Current status: ${displayStatus}.`,
+      ],
+    };
+  }
+
+  if (status === 'received') {
+    return {
+      tone: 'warning',
+      lines: [
+        'This scan did not mark the plant as sorted.',
+        'It should still appear under Awaiting to sort in this receiver box.',
+        `Current status: ${displayStatus}.`,
+      ],
+    };
+  }
+
+  return {
+    tone: 'warning',
+    lines: [
+      'This plant is not part of the fulfill workflow for this receiver box.',
+      `Current status: ${displayStatus}.`,
+    ],
+  };
+}
+
 /** Stable box key from display receiver name — one box per receiver. */
 export function buildReceiverBoxKeyFromName(receiverName) {
   const name = String(receiverName || '').trim() || 'Unassigned Receiver';

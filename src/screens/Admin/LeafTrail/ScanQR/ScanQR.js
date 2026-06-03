@@ -23,7 +23,10 @@ import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.sv
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import { getAdminScanQr, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
-import { normalizeLeafTrailStatus } from '../../../../utils/sortingBoxMetrics';
+import {
+  describeSortingScanPlantOutcome,
+  normalizeLeafTrailStatus,
+} from '../../../../utils/sortingBoxMetrics';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
@@ -80,6 +83,10 @@ const ScanQRScreen = ({ navigation, route }) => {
   const isLongPress = useRef(false);
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const sortingScanOutcome = sortingBoxMode && plantData
+    ? describeSortingScanPlantOutcome(plantData)
+    : null;
 
   // --- Side Effect: Request Camera Permission ---
   useEffect(() => {
@@ -292,7 +299,7 @@ const ScanQRScreen = ({ navigation, route }) => {
             </View>
             <View style={styles.noteContainer}>
               <Text style={styles.noteText}>
-                This plant code and transaction number is not found, Please contract the supplier.
+                This plant code and transaction number were not found. Please contact the supplier.
               </Text>
             </View>
           </View>
@@ -393,16 +400,27 @@ const ScanQRScreen = ({ navigation, route }) => {
                 </View>
               )}
 
-              {sortingBoxMode &&
-                normalizeLeafTrailStatus(plantData?.leafTrailStatus) !== 'sorted' && (
-                <View style={styles.intakeWarningBox}>
-                  <Text style={styles.intakeWarningText}>
-                    This plant was not marked sorted (current status:{' '}
-                    {plantData?.leafTrailStatus || 'unknown'}). It may still need to be received at
-                    the hub first.
-                  </Text>
+              {sortingScanOutcome ? (
+                <View
+                  style={
+                    sortingScanOutcome.tone === 'success'
+                      ? styles.intakeSuccessBox
+                      : styles.intakeWarningBox
+                  }>
+                  {sortingScanOutcome.lines.map((line, lineIdx) => (
+                    <Text
+                      key={line}
+                      style={[
+                        sortingScanOutcome.tone === 'success'
+                          ? styles.intakeSuccessText
+                          : styles.intakeWarningText,
+                        lineIdx > 0 && styles.intakeOutcomeLineGap,
+                      ]}>
+                      {line}
+                    </Text>
+                  ))}
                 </View>
-              )}
+              ) : null}
 
               {(intakeMode || sortingBoxMode || packingTrayMode) && (
                 <View style={styles.intakeActionRow}>
@@ -958,6 +976,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#E65100',
+  },
+  intakeSuccessBox: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#EAF7EF',
+    borderWidth: 1,
+    borderColor: '#BFE4CB',
+  },
+  intakeSuccessText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#1F6F3D',
+  },
+  intakeOutcomeLineGap: {
+    marginTop: 6,
   },
   intakeActionRow: {
     flexDirection: 'row',
