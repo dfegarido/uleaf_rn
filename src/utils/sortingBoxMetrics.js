@@ -11,7 +11,7 @@ export function normalizeLeafTrailStatus(status) {
  * Trail #3 metrics — aligned with UI mockup + handwritten note.
  *
  * Card (mockup): For Receiving N · Received X of N · Sorted Y of N
- * Detail (note): Total Plants to Fulfill = Received − Missing − Damaged − Need to Stay
+ * Detail (note): Total Plants to Fulfill = Received − Missing − Damaged − Need to Stay − Others
  *
  * Box complete (pink → light green) when every plant is received and sorted vs For Receiving total.
  */
@@ -20,6 +20,9 @@ export function computeSortingBoxMetrics(plants = []) {
 
   const needsToStayCount = plants.filter(
     (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'needstostay',
+  ).length;
+  const othersCount = plants.filter(
+    (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'others',
   ).length;
   const missingCount = plants.filter(
     (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'missing',
@@ -41,7 +44,7 @@ export function computeSortingBoxMetrics(plants = []) {
   /** Handwritten: "Total Plants to Fulfill" */
   const totalPlantsToFulfill = Math.max(
     0,
-    receivedCount - missingCount - damagedCount - needsToStayCount,
+    receivedCount - missingCount - damagedCount - needsToStayCount - othersCount,
   );
 
   const isComplete =
@@ -54,6 +57,7 @@ export function computeSortingBoxMetrics(plants = []) {
     receivedCount,
     sortedCount,
     needsToStayCount,
+    othersCount,
     missingCount,
     damagedCount,
     missingDamagedCount,
@@ -78,6 +82,7 @@ export function isAwaitingSortPlant(plant) {
     status === 'received' ||
     status === 'forreceiving' ||
     status === 'needstostay' ||
+    status === 'others' ||
     status === 'missing' ||
     status === 'damaged'
   );
@@ -89,6 +94,7 @@ export function sortingPlantStatusLabel(plant) {
   if (status === 'received') return 'Awaiting sort';
   if (status === 'forreceiving') return 'For receiving';
   if (status === 'needstostay') return 'Needs to stay';
+  if (status === 'others') return 'Others';
   if (status === 'missing') return 'Missing';
   if (status === 'damaged') return 'Damaged';
   return 'Awaiting sort';
@@ -98,7 +104,9 @@ export function sortingPlantStatusLabel(plant) {
 export function plantCountsTowardSortingFulfill(plant) {
   const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
   if (status === 'forreceiving') return false;
-  if (status === 'missing' || status === 'damaged' || status === 'needstostay') return false;
+  if (status === 'missing' || status === 'damaged' || status === 'needstostay' || status === 'others') {
+    return false;
+  }
   return true;
 }
 
@@ -132,13 +140,15 @@ export function describeSortingScanPlantOutcome(plant) {
     };
   }
 
-  if (status === 'missing' || status === 'damaged' || status === 'needstostay') {
+  if (status === 'missing' || status === 'damaged' || status === 'needstostay' || status === 'others') {
     const reason =
       status === 'needstostay'
         ? 'Need to stay'
-        : status === 'missing'
-          ? 'Missing'
-          : 'Damaged';
+        : status === 'others'
+          ? 'Others'
+          : status === 'missing'
+            ? 'Missing'
+            : 'Damaged';
     return {
       tone: 'warning',
       lines: [

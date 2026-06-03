@@ -411,7 +411,13 @@ const OrderSummary = ({
             <View style={styles.discountAppliedSimple}>
               <Text style={styles.discountAppliedSimpleText}>
                 {orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0 ? (
-                  <>You saved {formatCurrencyFull(orderSummary.freeShippingDiscount)} on shipping.</>
+                  <>
+                    You saved {formatCurrencyFull(orderSummary.freeShippingDiscount)} on UPS (
+                    {orderSummary.freeShippingFirstPlantBreakdown?.plantCount
+                      ? `${orderSummary.freeShippingFirstPlantBreakdown.plantCount} plants × ${formatCurrencyFull(orderSummary.freeShippingFirstPlantBreakdown.perPlantUpsRetain)} still apply`
+                      : 'first-plant base waived'}
+                    ).
+                  </>
                 ) : (
                   <>
                     ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied

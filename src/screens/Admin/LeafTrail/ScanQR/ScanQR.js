@@ -483,6 +483,10 @@ const ScanQRScreen = ({ navigation, route }) => {
 
               <TagAsOptions visible={isTagAsVisible}
                 setTagAs={setTagAs}
+                isMissing
+                isDamaged
+                isNeedsToStay
+                isOthers
                 onClose={() => setTagAsVisible(false)}/>
 
               {isLoading && (

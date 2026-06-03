@@ -37,6 +37,7 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
     receivedCount = 0,
     sortedCount = 0,
     needsToStayCount = 0,
+    othersCount = 0,
     missingCount = 0,
     damagedCount = 0,
     totalPlantsToFulfill = 0,
@@ -67,7 +68,7 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
     );
   }
 
-  const fulfillHint = `${receivedCount} − ${missingCount} − ${damagedCount} − ${needsToStayCount}`;
+  const fulfillHint = `${receivedCount} − ${missingCount} − ${damagedCount} − ${needsToStayCount} − ${othersCount}`;
 
   return (
     <View style={styles.wrapDetail}>
@@ -82,13 +83,18 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
       <ProgressRow label="Received at hub" current={receivedCount} total={denom} color="#539461" />
       <ProgressRow label="Sorted" current={sortedCount} total={denom} color="#2F8C4F" />
 
-      {(needsToStayCount > 0 || missingCount > 0 || damagedCount > 0) && (
+      {(needsToStayCount > 0 || othersCount > 0 || missingCount > 0 || damagedCount > 0) && (
         <View style={styles.excludedSection}>
           <Text style={styles.excludedHeading}>Excluded from fulfill</Text>
           <View style={styles.chipRow}>
             {needsToStayCount > 0 ? (
               <View style={[styles.chip, styles.chipStay]}>
                 <Text style={styles.chipText}>Need to Stay · {needsToStayCount}</Text>
+              </View>
+            ) : null}
+            {othersCount > 0 ? (
+              <View style={[styles.chip, styles.chipOthers]}>
+                <Text style={styles.chipText}>Others · {othersCount}</Text>
               </View>
             ) : null}
             {missingCount > 0 ? (
@@ -181,6 +187,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   chipStay: { backgroundColor: '#FFF8E6' },
+  chipOthers: { backgroundColor: '#EEF1F2' },
   chipMissing: { backgroundColor: '#FDECEA' },
   chipDamaged: { backgroundColor: '#FDECEA' },
   chipText: { fontSize: 13, fontWeight: '600', color: '#5C4030' },

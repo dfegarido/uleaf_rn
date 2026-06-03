@@ -111,7 +111,7 @@ const ForReceivingPlantCard = ({
   const traits = [item.variegation, item.size].filter(Boolean).join(' · ');
 
   const openTagMenu = () => {
-    openTagAs({ isMissing: true, isDamaged: true, isNeedsToStay: true }, item.id);
+    openTagAs({ isMissing: true, isDamaged: true, isNeedsToStay: true, isOthers: true }, item.id);
   };
 
   return (

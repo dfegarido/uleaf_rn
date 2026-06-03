@@ -67,6 +67,7 @@ const ADMIN_FILTER_STATUSES_BY_TAB = {
   missing: '["missing"]',
   damaged: '["damaged"]',
   needsToStay: '["needsToStay"]',
+  others: '["others"]',
 };
 
 /** Seller / buyer / order-receiver lists match For Receiving on every Receiving sub-tab. */
@@ -83,6 +84,9 @@ const getReceivingListStatusPill = (type, item) => {
     }
     if (type === 'needsToStay') {
         return { label: 'Need to Stay', variant: 'needsToStay' };
+    }
+    if (type === 'others') {
+        return { label: 'Others', variant: 'others' };
     }
     if (type === 'forInventoryHub') {
         const status = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
@@ -142,13 +146,15 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
 
     const setTags = () => {
         const normalizedStatus = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
-        let status = { isMissing: true, isDamaged: true, isNeedsToStay: true };
+        let status = { isMissing: true, isDamaged: true, isNeedsToStay: true, isOthers: true };
         if (normalizedStatus === 'missing') {
-            status = { isDamaged: true, forShipping: true };
+            status = { isDamaged: true, isNeedsToStay: true, isOthers: true, forShipping: true };
         } else if (normalizedStatus === 'damaged') {
-            status = { isMissing: true, forShipping: true };
+            status = { isMissing: true, isNeedsToStay: true, isOthers: true, forShipping: true };
         } else if (normalizedStatus === 'needstostay') {
-            status = { isMissing: true, isDamaged: true, forShipping: true };
+            status = { isMissing: true, isDamaged: true, isOthers: true, forShipping: true };
+        } else if (normalizedStatus === 'others') {
+            status = { isMissing: true, isDamaged: true, isNeedsToStay: true, forShipping: true };
         }
         openTagAs(status, item.id);
     };
@@ -170,6 +176,11 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
         {type === 'needsToStay' && (
              <View style={styles.missingStatusContainer}>
                 <Text style={styles.needsToStayStatusText}>Need to Stay</Text>
+            </View>
+        )}
+        {type === 'others' && (
+             <View style={styles.missingStatusContainer}>
+                <Text style={styles.othersStatusText}>Others</Text>
             </View>
         )}
         
@@ -687,6 +698,48 @@ const DamagedTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabl
     />
 )};
 
+const OthersTab = ({ data, onFilterChange, adminFilters, openTagAs }) => {
+    if (!(data?.data) || data.data.length === 0) {
+        return (
+            <FlatList
+                ListHeaderComponent={
+                    <ReceivingTabListHeader
+                        onFilterChange={onFilterChange}
+                        adminFilters={adminFilters}
+                        total={data?.total}
+                    />
+                }
+                ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+                contentContainerStyle={styles.forReceivingListContent}
+                ListFooterComponent={
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#647276' }}>No Others plants found.</Text>
+                    </View>
+                }
+            />
+        );
+    }
+
+    return (
+        <FlatList
+            data={data.data}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+                <ReceivingListPlantCard openTagAs={openTagAs} item={item} type="others" />
+            )}
+            ListHeaderComponent={
+                <ReceivingTabListHeader
+                    onFilterChange={onFilterChange}
+                    adminFilters={adminFilters}
+                    total={data.total}
+                />
+            }
+            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+            contentContainerStyle={styles.forReceivingListContent}
+        />
+    );
+};
+
 const NeedsToStayTab = ({ data, onFilterChange, adminFilters, openTagAs }) => {
     if (!(data?.data) || data.data.length === 0) {
         return (
@@ -736,6 +789,7 @@ const DEFAULT_RECEIVING_ROUTES = [
     { key: 'missing', title: 'Missing' },
     { key: 'damaged', title: 'Damaged' },
     { key: 'needsToStay', title: 'Need to Stay' },
+    { key: 'others', title: 'Others' },
 ];
 const TRAIL1_RECEIVING_ROUTES = DEFAULT_RECEIVING_ROUTES;
 
@@ -775,6 +829,7 @@ const ReceivingScreen = ({navigation}) => {
     const [isMissing, setIsMissing] = useState(false);
     const [isDamaged, setIsDamaged] = useState(false);
     const [isNeedsToStay, setIsNeedsToStay] = useState(false);
+    const [isOthers, setIsOthers] = useState(false);
     const [forShipping, setForShipping] = useState(false);
     const [orderId, setOrderId] = useState(false);
     const [selectionMode, setSelectionMode] = useState(false);
@@ -791,6 +846,7 @@ const ReceivingScreen = ({navigation}) => {
         setIsMissing(status.isMissing);
         setIsDamaged(status.isDamaged);
         setIsNeedsToStay(status.isNeedsToStay);
+        setIsOthers(status.isOthers);
         setForShipping(status.forShipping);
         setTagAsVisible(!isTagAsVisible);
         setOrderId(id);
@@ -1006,6 +1062,15 @@ const ReceivingScreen = ({navigation}) => {
                         adminFilters={adminFiltersForActiveTab}
                     />
                 );
+            case 'others':
+                return (
+                    <OthersTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.others || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                    />
+                );
             default:
                 return null;
         }
@@ -1147,6 +1212,8 @@ const ReceivingScreen = ({navigation}) => {
                 return receivingData?.damaged || {};
             case 'needsToStay':
                 return receivingData?.needsToStay || {};
+            case 'others':
+                return receivingData?.others || {};
             default:
                 return {};
         }
@@ -1370,6 +1437,7 @@ const ReceivingScreen = ({navigation}) => {
                 isMissing={isMissing}
                 isDamaged={isDamaged}
                 isNeedsToStay={isNeedsToStay}
+                isOthers={isOthers}
                 forShipping={forShipping}
                 onClose={() => setTagAsVisible(false)}/>
         </SafeAreaProvider>
@@ -1871,6 +1939,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#B7791F',
+    },
+    othersStatusText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#647276',
     },
     scannedStatusText: {
         fontSize: 18,

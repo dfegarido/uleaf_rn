@@ -36,7 +36,7 @@ const OptionItem = ({ isCrossIcon, isCheckIcon, title, hasRightArrow = false, se
   </TouchableOpacity>
 )};
 
-const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=false, forShipping=false }) => {
+const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=false, isNeedsToStay=false, isOthers=false, forShipping=false }) => {
   return (
     <Modal
       animationType="slide"
@@ -79,6 +79,34 @@ const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=f
                     <View style={styles.divider} />
                   </View>
                 </View>
+              {isNeedsToStay && (
+                <View>
+                  <OptionItem
+                    isCheckIcon={true}
+                    title="Tag as needs to stay"
+                    hasRightArrow
+                    setTagAs={setTagAs}
+                    status="needsToStay"
+                  />
+                  <View style={styles.dividerContainer}>
+                    <View style={styles.divider} />
+                  </View>
+                </View>
+              )}
+              {isOthers && (
+                <View>
+                  <OptionItem
+                    isCheckIcon={true}
+                    title="Tag as Others"
+                    hasRightArrow
+                    setTagAs={setTagAs}
+                    status="others"
+                  />
+                  <View style={styles.dividerContainer}>
+                    <View style={styles.divider} />
+                  </View>
+                </View>
+              )}
             </View>
           </View>
         </Pressable>

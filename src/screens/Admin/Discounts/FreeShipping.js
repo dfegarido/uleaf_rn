@@ -615,7 +615,7 @@ const FreeShipping = () => {
                   </Svg>
                 )}
               </View>
-              <Text style={styles.optionText}>First plant only — $50 off UPS ($65 if Next Day); rest pay add-ons</Text>
+              <Text style={styles.optionText}>First plant only — coupon = full UPS minus (plant count × $5 or $6.50 with Next Day). Not tied to plant sale price.</Text>
             </TouchableOpacity>
           )}
         </View>

@@ -146,7 +146,7 @@ const SortingScreen = ({ navigation }) => {
 
   const getFilters = async () => {
     const adminFilter = await getAdminLeafTrailFilters(
-      '["received", "damaged", "missing", "sorted", "needsToStay"]',
+      '["received", "damaged", "missing", "sorted", "needsToStay", "others"]',
     );
     setAdminFilters(adminFilter);
   };

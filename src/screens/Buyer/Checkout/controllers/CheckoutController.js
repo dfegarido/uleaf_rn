@@ -815,6 +815,7 @@ export const useCheckoutController = (props) => {
       codeDiscount: roundToCents(codeDiscount),
       shippingDiscount: roundToCents(shippingDiscount),
       freeShippingDiscount: roundToCents(freeShippingDiscount),
+      freeShippingFirstPlantBreakdown: shippingCalculation?.freeShippingFirstPlantBreakdown || null,
       isFreeShippingDiscount: appliedDiscount.discountDetails?.type === 'freeShipping',
       eventGiftDiscount: roundToCents(eventGiftDiscountAmount),
       isEventGiftDiscount: isEventGiftDiscount,
