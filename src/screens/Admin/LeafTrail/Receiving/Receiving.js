@@ -34,11 +34,35 @@ import {
     getAdminLeafTrailFilters,
     getAdminLeafTrailReceiving,
     updateLeafTrailStatus,
+    updatePlantStatus,
     generateThermalLabels,
     emailThermalLabels,
     assignReceiverBoxes,
     generateReceiverBoxLabels,
 } from '../../../../components/Api/getAdminLeafTrail';
+import OrderSummaryStatusSheet, {
+    LEAF_TRAIL_STATUS_OPTIONS,
+    buildReceivingPlantStatusOptions,
+    receivingPlantStatusUsesLeafTrail,
+} from '../../OrderSummary/OrderSummaryStatusSheet';
+import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
+import ReceivingPlantCountHeader from './ReceivingPlantCountHeader';
+import {
+    useReceivingSelection,
+    useSelectionCount,
+    useSelectionListVersion,
+} from './useReceivingSelection';
+
+const LIST_SEP_10 = () => <View style={{ height: 10 }} />;
+const LIST_SEP_6 = () => <View style={{ height: 6 }} />;
+
+const FLATLIST_PERF_PROPS = {
+    removeClippedSubviews: Platform.OS === 'android',
+    initialNumToRender: 10,
+    maxToRenderPerBatch: 8,
+    windowSize: 8,
+    updateCellsBatchingPeriod: 64,
+};
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
@@ -73,6 +97,16 @@ const ADMIN_FILTER_STATUSES_BY_TAB = {
 /** Seller / buyer / order-receiver lists match For Receiving on every Receiving sub-tab. */
 const ADMIN_FILTER_STATUSES_FOR_SELLER_BUYER = '["forReceiving"]';
 
+/** Tabs that show per-plant cards (select all, bulk status, print/export/scan). */
+const TABS_WITH_PLANT_SELECTION = new Set(['forReceiving', 'inventoryForHub']);
+
+const formatStatusLabel = (value) => {
+    if (!value) return '';
+    const raw = String(value).trim();
+    const spaced = raw.replace(/([A-Z])/g, ' $1');
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
+
 const normalizeReceivingLeafTrailStatus = (status) =>
     String(status || '').trim().toLowerCase().replace(/\s+/g, '');
 const getReceivingListStatusPill = (type, item) => {
@@ -98,15 +132,15 @@ const getReceivingListStatusPill = (type, item) => {
     return { label: 'For Receiving', variant: 'forReceiving' };
 };
 
-const ReceivingListPlantCard = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
+const ReceivingListPlantCard = ({ item, type, openTagAs, showCheckbox, isSelected, selectionStore }) => {
     const pill = getReceivingListStatusPill(type, item);
     return (
         <ForReceivingPlantCard
             item={item}
             openTagAs={openTagAs}
-            selectionMode={selectionMode}
+            showCheckbox={showCheckbox}
             isSelected={isSelected}
-            onToggleSelect={onToggleSelect}
+            selectionStore={selectionStore}
             statusPillLabel={pill.label}
             statusPillVariant={pill.variant}
         />
@@ -114,7 +148,7 @@ const ReceivingListPlantCard = ({ item, type, openTagAs, selectionMode, isSelect
 };
 
 // A single card in the list
-const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onToggleSelect }) => {
+const PlantListItem = ({ item, type, openTagAs, showCheckbox, isSelected, onToggleSelect }) => {
       const [isImageModalVisible, setImageModalVisible] = useState(false);
       const pressInTimeout = useRef(null);
       const isLongPress = useRef(false);
@@ -249,6 +283,7 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
         
         <View style={styles.cardContainer}>
              <View style={styles.plantImageColumn}>
+             <View style={styles.plantImageWrap}>
              <TouchableOpacity
                   style={styles.plantImageTouchable}
                   onPressIn={handlePressIn}
@@ -257,6 +292,20 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
                   activeOpacity={0.8}>
                     <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
             </TouchableOpacity>
+            {showCheckbox ? (
+                <TouchableOpacity
+                    onPress={() => onToggleSelect(item.id)}
+                    style={styles.imageCheckbox}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    activeOpacity={0.85}>
+                    {isSelected ? (
+                        <CheckedBoxIcon width={24} height={24} />
+                    ) : (
+                        <View style={styles.uncheckedBox} />
+                    )}
+                </TouchableOpacity>
+            ) : null}
+             </View>
             {!!dateOrderedDatePart && (
                 <Text style={styles.dateOrderedCaption}>
                   Date Ordered: {dateOrderedDatePart}
@@ -271,22 +320,9 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
                         <View style={{flex: 1}} />
                         <Text style={styles.countryText}>{item.country}</Text>
                         <CountryFlagIcon code={item.country} width={24} height={16} />
-                        {selectionMode ? (
-                            <TouchableOpacity 
-                                onPress={() => onToggleSelect(item.id)}
-                                style={styles.checkboxButton}
-                            >
-                                {isSelected ? (
-                                    <CheckedBoxIcon width={24} height={24} />
-                                ) : (
-                                    <View style={styles.uncheckedBox} />
-                                )}
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity onPress={setTags}>
-                               <Options style={{paddingRight: 10}} />
-                            </TouchableOpacity>
-                        )}
+                        <TouchableOpacity onPress={setTags}>
+                           <Options style={{paddingRight: 10}} />
+                        </TouchableOpacity>
                     </View>
                     <Text style={styles.plantGenus}>{item.genus} {item.species}</Text>
                     <Text style={styles.plantVariegation}>{item.variegation} • {item.size}</Text>
@@ -304,59 +340,100 @@ const PlantListItem = ({ item, type, openTagAs, selectionMode, isSelected, onTog
 
 // --- TAB SCREENS ---
 
-const ForReceivingTab = ({
+const ForReceivingTab = React.memo(function ForReceivingTab({
     data,
     onFilterChange,
     adminFilters,
     openTagAs,
-    selectionMode,
-    selectedItems,
-    onToggleSelect,
+    showCheckbox,
+    selectionStore,
     trail1IntakeMode,
-    hubSpecEnabled,
-}) => {
-    const listHeaderPrefix = (
-        <>
-            <FilterBar showScan={!trail1IntakeMode} onFilterChange={onFilterChange} adminFilters={adminFilters} />
-            <Text style={styles.countText}>{data?.total ?? 0} plant(s)</Text>
-        </>
+}) {
+    const plantCount = data?.total ?? data?.data?.length ?? 0;
+    const listData = useMemo(() => data?.data || [], [data?.data]);
+    const listVersion = useSelectionListVersion(selectionStore);
+    const selectedCount = useSelectionCount(selectionStore);
+    const onClearSelection = useCallback(() => selectionStore.clear(), [selectionStore]);
+    const onSelectAll = useCallback(() => {
+        const ids = listData.map((item) => item.id).filter(Boolean);
+        selectionStore.selectAll(ids);
+    }, [listData, selectionStore]);
+    const isAllSelected = plantCount > 0 && selectedCount === plantCount;
+
+    const listHeaderPrefix = useMemo(
+        () => (
+            <>
+                <FilterBar showScan={!trail1IntakeMode} onFilterChange={onFilterChange} adminFilters={adminFilters} />
+                {showCheckbox ? (
+                    <ReceivingPlantCountHeader
+                        plantCount={plantCount}
+                        isAllSelected={isAllSelected}
+                        onSelectAll={onSelectAll}
+                        selectedCount={selectedCount}
+                        onClearSelection={onClearSelection}
+                    />
+                ) : (
+                    <Text style={styles.countText}>{plantCount} plant(s)</Text>
+                )}
+            </>
+        ),
+        [
+            trail1IntakeMode,
+            onFilterChange,
+            adminFilters,
+            showCheckbox,
+            plantCount,
+            isAllSelected,
+            onSelectAll,
+            selectedCount,
+            onClearSelection,
+        ],
     );
 
-    if (!(data?.data) || data.data.length === 0) {   
+    const keyExtractor = useCallback((item) => item.id, []);
+
+    const renderItem = useCallback(
+        ({ item }) => (
+            <ForReceivingPlantCard
+                openTagAs={openTagAs}
+                item={item}
+                showCheckbox={showCheckbox}
+                isSelected={selectionStore.has(item.id)}
+                selectionStore={selectionStore}
+                compact={trail1IntakeMode}
+            />
+        ),
+        [openTagAs, showCheckbox, selectionStore, trail1IntakeMode],
+    );
+
+    if (!listData.length) {
         return (
-            <>
-                <FlatList
-                    ListHeaderComponent={listHeaderPrefix}
-                    ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-                    contentContainerStyle={styles.listContentContainer}
-                    ListFooterComponent={
-                            <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-                                <Text style={{fontSize: 16, color: '#647276'}}>No For Receiving plants found.</Text>
-                            </View>}
-                />
-            </>
-        )
-     }
+            <FlatList
+                ListHeaderComponent={listHeaderPrefix}
+                ItemSeparatorComponent={LIST_SEP_6}
+                contentContainerStyle={styles.listContentContainer}
+                ListFooterComponent={
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#647276' }}>No For Receiving plants found.</Text>
+                    </View>
+                }
+            />
+        );
+    }
 
     return (
-            <FlatList
-                data={data.data}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                    <ForReceivingPlantCard
-                        openTagAs={openTagAs}
-                        item={item}
-                        selectionMode={selectionMode}
-                        isSelected={(selectedItems || []).includes(item.id)}
-                        onToggleSelect={onToggleSelect}
-                        compact={trail1IntakeMode}
-                    />
-                )}
-                ListHeaderComponent={listHeaderPrefix}
-                ItemSeparatorComponent={() => <View style={{height: 10}} />}
-                contentContainerStyle={styles.forReceivingListContent}
-            />
-)};
+        <FlatList
+            data={listData}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            extraData={listVersion}
+            ListHeaderComponent={listHeaderPrefix}
+            ItemSeparatorComponent={LIST_SEP_10}
+            contentContainerStyle={styles.forReceivingListContent}
+            {...FLATLIST_PERF_PROPS}
+        />
+    );
+});
 
 const ReceivedTab = ({
     data,
@@ -547,66 +624,98 @@ const ReceivingTabListHeader = ({
     </>
 );
 
-const InventoryForHubTab = ({
+const InventoryForHubTab = React.memo(function InventoryForHubTab({
     data,
     onFilterChange,
     adminFilters,
     openTagAs,
-    selectionMode,
-    selectedItems,
-    onToggleSelect,
-    hubSpecEnabled,
-}) => {
-    
-    if (!(data?.data) || data.data.length === 0) {   
-        return (
-            <>
-                <FlatList
-                    ListHeaderComponent={
-                        <ReceivingTabListHeader
-                            hubSpecEnabled={hubSpecEnabled}
-                            onFilterChange={onFilterChange}
-                            adminFilters={adminFilters}
-                            total={data.total}
-                        />
-                    }
-                    ItemSeparatorComponent={() => <View style={{height: 6}}/>}
-                    contentContainerStyle={styles.forReceivingListContent}
-                    ListFooterComponent={
-                         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-                            <Text style={{fontSize: 16, color: '#647276'}}>No For Inventory Hub plants found.</Text>
-                        </View>}
-                />
-            </>
-        )
-     }
+    showCheckbox,
+    selectionStore,
+}) {
+    const plantCount = data?.total ?? data?.data?.length ?? 0;
+    const listData = useMemo(() => data?.data || [], [data?.data]);
+    const listVersion = useSelectionListVersion(selectionStore);
+    const selectedCount = useSelectionCount(selectionStore);
+    const onClearSelection = useCallback(() => selectionStore.clear(), [selectionStore]);
+    const onSelectAll = useCallback(() => {
+        const ids = listData.map((item) => item.id).filter(Boolean);
+        selectionStore.selectAll(ids);
+    }, [listData, selectionStore]);
+    const isAllSelected = plantCount > 0 && selectedCount === plantCount;
 
-    return(
-    <FlatList
-        data={data.data}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
+    const listHeaderPrefix = useMemo(
+        () => (
+            <>
+                <FilterBar showScan onFilterChange={onFilterChange} adminFilters={adminFilters} />
+                {showCheckbox ? (
+                    <ReceivingPlantCountHeader
+                        plantCount={plantCount}
+                        isAllSelected={isAllSelected}
+                        onSelectAll={onSelectAll}
+                        selectedCount={selectedCount}
+                        onClearSelection={onClearSelection}
+                    />
+                ) : (
+                    <Text style={styles.countText}>{plantCount} plant(s)</Text>
+                )}
+            </>
+        ),
+        [
+            onFilterChange,
+            adminFilters,
+            showCheckbox,
+            plantCount,
+            isAllSelected,
+            onSelectAll,
+            selectedCount,
+            onClearSelection,
+        ],
+    );
+
+    const keyExtractor = useCallback((item) => item.id, []);
+
+    const renderItem = useCallback(
+        ({ item }) => (
             <ReceivingListPlantCard
                 openTagAs={openTagAs}
                 item={item}
                 type="forInventoryHub"
-                selectionMode={selectionMode}
-                isSelected={(selectedItems || []).includes(item.id)}
-                onToggleSelect={onToggleSelect}
+                showCheckbox={showCheckbox}
+                isSelected={selectionStore.has(item.id)}
+                selectionStore={selectionStore}
             />
-        )}
-        ListHeaderComponent={
-            <ReceivingTabListHeader
-                hubSpecEnabled={hubSpecEnabled}
-                onFilterChange={onFilterChange}
-                adminFilters={adminFilters}
-                total={data.total}
+        ),
+        [openTagAs, showCheckbox, selectionStore],
+    );
+
+    if (!listData.length) {
+        return (
+            <FlatList
+                ListHeaderComponent={listHeaderPrefix}
+                ItemSeparatorComponent={LIST_SEP_6}
+                contentContainerStyle={styles.forReceivingListContent}
+                ListFooterComponent={
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#647276' }}>No For Inventory Hub plants found.</Text>
+                    </View>
+                }
             />
-        }
-        ItemSeparatorComponent={() => <View style={{height: 10}} />}
-        contentContainerStyle={styles.forReceivingListContent}
-    />
-)};
+        );
+    }
+
+    return (
+        <FlatList
+            data={listData}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            extraData={listVersion}
+            ListHeaderComponent={listHeaderPrefix}
+            ItemSeparatorComponent={LIST_SEP_10}
+            contentContainerStyle={styles.forReceivingListContent}
+            {...FLATLIST_PERF_PROPS}
+        />
+    );
+});
 
 const MissingTab = ({data, onFilterChange, adminFilters, openTagAs, hubSpecEnabled}) => {
     
@@ -831,9 +940,14 @@ const ReceivingScreen = ({navigation}) => {
     const [isNeedsToStay, setIsNeedsToStay] = useState(false);
     const [isOthers, setIsOthers] = useState(false);
     const [forShipping, setForShipping] = useState(false);
-    const [orderId, setOrderId] = useState(false);
-    const [selectionMode, setSelectionMode] = useState(false);
-    const [selectedItems, setSelectedItems] = useState([]);
+    const [orderId, setOrderId] = useState(null);
+    const { store: selectionStore } = useReceivingSelection();
+    const [leafSheetVisible, setLeafSheetVisible] = useState(false);
+    const [plantSheetVisible, setPlantSheetVisible] = useState(false);
+    const [plantStatusSheetOptions, setPlantStatusSheetOptions] = useState(
+        () => buildReceivingPlantStatusOptions(),
+    );
+    const [exportBusy, setExportBusy] = useState(false);
     const [generatedLabels, setGeneratedLabels] = useState([]);
     const [showLabelViewer, setShowLabelViewer] = useState(false);
     const [labelContext, setLabelContext] = useState('thermal');
@@ -848,8 +962,17 @@ const ReceivingScreen = ({navigation}) => {
         setIsNeedsToStay(status.isNeedsToStay);
         setIsOthers(status.isOthers);
         setForShipping(status.forShipping);
-        setTagAsVisible(!isTagAsVisible);
         setOrderId(id);
+        setPlantStatusSheetOptions(buildReceivingPlantStatusOptions(status));
+        setTagAsVisible(true);
+    };
+
+    const openLeafTrailSheetFromCardMenu = () => {
+        setLeafSheetVisible(true);
+    };
+
+    const openPlantSheetFromCardMenu = () => {
+        setPlantSheetVisible(true);
     };
 
     const refreshAdminFilters = async (statuses, { withPageLoader = false } = {}) => {
@@ -922,12 +1045,34 @@ const ReceivingScreen = ({navigation}) => {
         }, []),
     );
 
+    const activeTabKey = routes[index]?.key || 'forReceiving';
+    const supportsPlantSelection = TABS_WITH_PLANT_SELECTION.has(activeTabKey);
+    const showPlantCheckboxes = supportsPlantSelection;
+
     const openLeafTrailScan = useCallback(() => {
         const params = trail1IntakeMode
             ? LEAF_TRAIL_SCAN_PARAMS.receivingIntake
             : LEAF_TRAIL_SCAN_PARAMS.receiving;
         navigation.navigate('LeafTrailScanQRAdminScreen', params);
     }, [navigation, trail1IntakeMode]);
+
+    const handleScanPress = useCallback(() => {
+        const selectedIds = selectionStore.toArray();
+        if (supportsPlantSelection && selectedIds.length > 0) {
+            const params = trail1IntakeMode
+                ? LEAF_TRAIL_SCAN_PARAMS.receivingIntake
+                : LEAF_TRAIL_SCAN_PARAMS.receiving;
+            navigation.navigate('LeafTrailScanQRAdminScreen', {
+                ...params,
+                preselectedOrderIds: selectedIds,
+            });
+            return;
+        }
+        if (supportsPlantSelection && !selectedIds.length) {
+            Alert.alert('No selection', 'Select at least one plant, or use Scan QR to scan without a selection.');
+        }
+        openLeafTrailScan();
+    }, [supportsPlantSelection, selectionStore, trail1IntakeMode, navigation, openLeafTrailScan]);
 
     const onFilterChange = (filters) => {
          fetchData(filters);
@@ -996,7 +1141,32 @@ const ReceivingScreen = ({navigation}) => {
         };
     }, [adminFilters, receivingData, index, routes]);
 
-    const renderScene = ({ route }) => {
+    const getCurrentTabData = useCallback(() => {
+        switch (routes[index].key) {
+            case 'forReceiving':
+                return receivingData?.forReceiving || {};
+            case 'inventoryForHub':
+                return receivingData?.inventoryForHub || {};
+            case 'received':
+                return receivingData?.received || {};
+            case 'missing':
+                return receivingData?.missing || {};
+            case 'damaged':
+                return receivingData?.damaged || {};
+            case 'needsToStay':
+                return receivingData?.needsToStay || {};
+            case 'others':
+                return receivingData?.others || {};
+            default:
+                return {};
+        }
+    }, [receivingData, index, routes]);
+
+    const clearSelectedItems = useCallback(() => {
+        selectionStore.clear();
+    }, [selectionStore]);
+
+    const renderScene = useCallback(({ route }) => {
         switch (route.key) {
             case 'forReceiving':
                 return <ForReceivingTab 
@@ -1004,11 +1174,9 @@ const ReceivingScreen = ({navigation}) => {
                     onFilterChange={onFilterChange} 
                     data={receivingData?.forReceiving || {}} 
                     adminFilters={adminFiltersForActiveTab}
-                    selectionMode={trail1IntakeMode ? false : selectionMode}
-                    selectedItems={selectedItems}
-                    onToggleSelect={handleToggleSelect}
+                    showCheckbox={showPlantCheckboxes}
+                    selectionStore={selectionStore}
                     trail1IntakeMode={trail1IntakeMode}
-                    hubSpecEnabled={hubSpecEnabled}
                 />;
             case 'inventoryForHub':
                 return <InventoryForHubTab 
@@ -1016,10 +1184,8 @@ const ReceivingScreen = ({navigation}) => {
                     onFilterChange={onFilterChange} 
                     data={receivingData?.inventoryForHub || {}} 
                     adminFilters={adminFiltersForActiveTab}
-                    selectionMode={selectionMode}
-                    selectedItems={selectedItems}
-                    onToggleSelect={handleToggleSelect}
-                    hubSpecEnabled={hubSpecEnabled}
+                    showCheckbox={showPlantCheckboxes}
+                    selectionStore={selectionStore}
                 />;
             case 'received':
                 return (
@@ -1074,21 +1240,36 @@ const ReceivingScreen = ({navigation}) => {
             default:
                 return null;
         }
-    };
+    }, [
+        openTagAs,
+        onFilterChange,
+        receivingData,
+        adminFiltersForActiveTab,
+        showPlantCheckboxes,
+        selectionStore,
+        trail1IntakeMode,
+        hubSpecEnabled,
+        handlePrintReceiverBoxLabels,
+        boxActionsLoading,
+    ]);
 
     const setTagAs = async (status) => {
+        if (!orderId) {
+            Alert.alert('Error', 'Order ID is missing.');
+            return;
+        }
         setIsLoading(true);
-        setTagAsVisible(!isTagAsVisible);
+        setTagAsVisible(false);
         const response = await updateLeafTrailStatus(orderId, status);
         if (response.success) {
           await fetchData();
-          setIsLoading(false)
+          setIsLoading(false);
           Alert.alert('Success', 'Order status updated successfully!');
         } else {
-          setIsLoading(false)
-          Alert.alert('Error', error.message);
+          setIsLoading(false);
+          Alert.alert('Error', response?.message || 'Failed to update status.');
         }
-    }
+    };
 
     const renderTabBar = props => (
         <TabBar
@@ -1109,138 +1290,165 @@ const ReceivingScreen = ({navigation}) => {
         await refreshAdminFilters(statuses, { withPageLoader: true });
     }
 
-    const handlePrint = async () => {
-        if (trail1IntakeMode && routes[index]?.key === 'forReceiving') {
-            const ids = (getCurrentTabData()?.data || []).map((p) => p.id).filter(Boolean);
-            if (!ids.length) {
-                Alert.alert('No plants', 'There are no plants in this list to print.');
-                return;
-            }
-            try {
-                setLoadingMessage('Generating your labels, please wait...');
-                setIsLoading(true);
-                const response = await generateThermalLabels(ids);
-                if (response.success && response.labels) {
-                    setLabelContext('thermal');
-                    setGeneratedLabels(response.labels);
-                    setShowLabelViewer(true);
-                } else {
-                    Alert.alert('Error', response.message || 'Failed to generate thermal labels');
-                }
-            } catch (error) {
-                console.error('Error generating thermal labels:', error);
-                Alert.alert('Error', error.message || 'Failed to generate thermal labels');
-            } finally {
-                setIsLoading(false);
-            }
+    const runThermalPrint = async (ids) => {
+        if (!ids.length) {
+            Alert.alert('No selection', 'Select at least one plant to print labels for.');
             return;
         }
-
-        if (selectionMode) {
-            // Generate thermal labels for selected items
-            if (selectedItems.length > 0) {
-                try {
-                    setLoadingMessage('Generating your labels, please wait...');
-                    setIsLoading(true);
-                    const response = await generateThermalLabels(selectedItems);
-                    
-                    if (response.success && response.labels) {
-                        setLabelContext('thermal');
-                        // Store generated labels and show viewer
-                        setGeneratedLabels(response.labels);
-                        setShowLabelViewer(true);
-                        // Exit selection mode
-                        setSelectionMode(false);
-                        setSelectedItems([]);
-                    } else {
-                        Alert.alert('Error', response.message || 'Failed to generate thermal labels');
-                    }
-                } catch (error) {
-                    console.error('Error generating thermal labels:', error);
-                    Alert.alert('Error', error.message || 'Failed to generate thermal labels');
-                } finally {
-                    setIsLoading(false);
-                }
+        try {
+            setLoadingMessage('Generating your labels, please wait...');
+            setIsLoading(true);
+            const response = await generateThermalLabels(ids);
+            if (response.success && response.labels) {
+                setLabelContext('thermal');
+                setGeneratedLabels(response.labels);
+                setShowLabelViewer(true);
+                selectionStore.clear();
             } else {
-                Alert.alert('No Selection', 'Please select at least one item to print labels for.');
+                Alert.alert('Error', response.message || 'Failed to generate thermal labels');
             }
-        } else {
-            // Enter selection mode
-            setSelectionMode(true);
+        } catch (error) {
+            console.error('Error generating thermal labels:', error);
+            Alert.alert('Error', error.message || 'Failed to generate thermal labels');
+        } finally {
+            setIsLoading(false);
         }
-    }
+    };
 
-    const handleCancelSelection = () => {
-        setSelectionMode(false);
-        setSelectedItems([]);
-    }
+    const handlePrint = async () => {
+        if (supportsPlantSelection) {
+            await runThermalPrint(selectionStore.toArray());
+            return;
+        }
+    };
 
-    const handleToggleSelect = (itemId) => {
-        setSelectedItems(prev => {
-            if (prev.includes(itemId)) {
-                return prev.filter(id => id !== itemId);
+    const handleExportSelected = async () => {
+        const allLines = getCurrentTabData()?.data || [];
+        const selectedSet = new Set(selectionStore.toArray());
+        const lines = supportsPlantSelection
+            ? allLines.filter((row) => selectedSet.has(row.id))
+            : allLines;
+        if (!lines.length) {
+            Alert.alert(
+                'Nothing to export',
+                supportsPlantSelection
+                    ? 'Select at least one plant to export.'
+                    : 'No plants on this tab to export.',
+            );
+            return;
+        }
+        try {
+            setExportBusy(true);
+            await exportLeafTrailLinesToCsv(lines, { stageLabel: activeTabKey });
+        } catch (e) {
+            if (e?.message !== 'User did not share') {
+                Alert.alert('Export failed', e?.message || 'Could not export data.');
+            }
+        } finally {
+            setExportBusy(false);
+        }
+    };
+
+    const applyLeafTrailForCard = async (status) => {
+        if (!orderId) {
+            Alert.alert('Error', 'Order ID is missing.');
+            return;
+        }
+        setLoadingMessage('Updating leaf trail status...');
+        setIsLoading(true);
+        try {
+            const response = await updateLeafTrailStatus(orderId, status);
+            if (response?.success) {
+                await fetchData();
+                Alert.alert('Success', 'Leaf trail status updated.');
             } else {
-                return [...prev, itemId];
+                Alert.alert('Error', response?.message || 'Failed to update status.');
             }
-        });
-    };
-
-    const handleSelectAll = () => {
-        // Get all items from the current tab
-        const currentTabData = getCurrentTabData();
-        const allItemIds = currentTabData?.data?.map(item => item.id) || [];
-        
-        // If all items are already selected, deselect all. Otherwise, select all.
-        if (selectedItems.length === allItemIds.length) {
-            setSelectedItems([]);
-        } else {
-            setSelectedItems(allItemIds);
+        } catch (e) {
+            Alert.alert('Error', e?.message || 'Failed to update status.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const getCurrentTabData = () => {
-        switch (routes[index].key) {
-            case 'forReceiving':
-                return receivingData?.forReceiving || {};
-            case 'inventoryForHub':
-                return receivingData?.inventoryForHub || {};
-            case 'received':
-                return receivingData?.received || {};
-            case 'missing':
-                return receivingData?.missing || {};
-            case 'damaged':
-                return receivingData?.damaged || {};
-            case 'needsToStay':
-                return receivingData?.needsToStay || {};
-            case 'others':
-                return receivingData?.others || {};
-            default:
-                return {};
+    const applyPlantStatusForCard = async (status) => {
+        if (!orderId) {
+            Alert.alert('Error', 'Order ID is missing.');
+            return;
+        }
+        setLoadingMessage('Updating plant status...');
+        setIsLoading(true);
+        try {
+            const response = await updatePlantStatus(orderId, status);
+            if (response?.success) {
+                await fetchData();
+                Alert.alert('Success', 'Plant status updated.');
+            } else {
+                Alert.alert('Error', response?.message || 'Failed to update plant status.');
+            }
+        } catch (e) {
+            Alert.alert('Error', e?.message || 'Failed to update plant status.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const getTotalItemsCount = () => {
-        const currentTabData = getCurrentTabData();
-        return currentTabData?.data?.length || 0;
+    const onLeafTrailStatusSelect = (value) => {
+        setLeafSheetVisible(false);
+        if (String(value).toLowerCase() === 'delivered') {
+            Alert.alert(
+                'Delivered status',
+                'Delivered requires tracking details per order. Use Order Summary for delivery details.',
+            );
+            return;
+        }
+        Alert.alert(
+            'Update leaf trail status',
+            `Set this plant to "${formatStatusLabel(value)}"?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Update', onPress: () => applyLeafTrailForCard(value) },
+            ],
+        );
+    };
+
+    const onPlantStatusSelect = (value) => {
+        setPlantSheetVisible(false);
+        const option = plantStatusSheetOptions.find((o) => o.value === value);
+        const label = option?.label || formatStatusLabel(value);
+        const useLeafTrail = receivingPlantStatusUsesLeafTrail(value, plantStatusSheetOptions);
+        Alert.alert(
+            'Update plant status',
+            `Set this plant to "${label}"?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Update',
+                    onPress: () =>
+                        useLeafTrail
+                            ? applyLeafTrailForCard(value)
+                            : applyPlantStatusForCard(value),
+                },
+            ],
+        );
     };
 
     const hubExportLines = getCurrentTabData()?.data || [];
-    const hubTabKey = routes[index]?.key || 'forReceiving';
     const activeLoadingContextLabel =
-        hubTabKey === 'received' ? 'Received' : hubTabKey === 'forReceiving' ? 'For Receiving' : 'Receiving';
+        activeTabKey === 'received' ? 'Received' : activeTabKey === 'forReceiving' ? 'For Receiving' : 'Receiving';
     const activeLoadingTitle =
-        hubTabKey === 'received' ? 'Preparing receiver boxes' : 'Fetching incoming plants';
+        activeTabKey === 'received' ? 'Preparing receiver boxes' : 'Fetching incoming plants';
     const hubPrintOnHeader =
         hubSpecEnabled &&
         (trail1IntakeMode ? index === 0 : index === 0 || index === 1);
     const hubHeaderActions = useLeafTrailHubActions({
         exportLines: hubSpecEnabled ? hubExportLines : [],
-        exportStageLabel: hubTabKey,
+        exportStageLabel: activeTabKey,
         onPrintPress: handlePrint,
         printDisabled: !hubPrintOnHeader,
         exportDisabled: !hubSpecEnabled,
         emptyPrintMessage:
-            'Print is available on For Receiving and Received tabs, or open a plant list with plants.',
+            'Print is available on For Receiving and Inventory for Hub tabs.',
         emptyExportMessage: 'No plants to export on this tab. Try another tab or adjust filters.',
     });
 
@@ -1406,17 +1614,15 @@ const ReceivingScreen = ({navigation}) => {
                     }
                     onPrint={hubSpecEnabled ? hubHeaderActions.onPrint : handlePrint}
                     downloadCsv={!!hubSpecEnabled}
-                    onDownloadCsv={hubHeaderActions.onExport}
-                    downloadLoading={hubHeaderActions.exportLoading}
-                    scarQr={!selectionMode}
-                    onScanPress={hubSpecEnabled ? openLeafTrailScan : undefined}
+                    onDownloadCsv={handleExportSelected}
+                    downloadLoading={exportBusy}
+                    scarQr={
+                        hubSpecEnabled ||
+                        (!trail1IntakeMode && (index === 0 || index === 1))
+                    }
+                    onScanPress={hubSpecEnabled ? handleScanPress : handleScanPress}
                     scanQrParams={hubSpecEnabled ? undefined : LEAF_TRAIL_SCAN_PARAMS.receiving}
-                    title={trail1IntakeMode ? 'Receiving of Plants' : 'Receiving of Plants'}
-                    selectionMode={selectionMode}
-                    onCancelSelection={handleCancelSelection}
-                    selectedCount={selectedItems.length}
-                    onSelectAll={selectionMode ? handleSelectAll : null}
-                    totalItemsCount={getTotalItemsCount()}
+                    title="Receiving of Plants"
                 />
                 <TabView
                     navigationState={{ index, routes }}
@@ -1424,22 +1630,41 @@ const ReceivingScreen = ({navigation}) => {
                     onIndexChange={(newIndex) => {
                         setIndex(newIndex);
                         tabChange(newIndex);
-                        if (selectionMode) {
-                            handleCancelSelection();
-                        }
+                        clearSelectedItems();
                     }}
                     renderTabBar={routes.length > 1 ? renderTabBar : () => null}
                 />
+
             </SafeAreaView>
 
-            <TagAsOptions visible={isTagAsVisible}
+            <OrderSummaryStatusSheet
+                visible={leafSheetVisible}
+                title="Change leaf trail status"
+                options={LEAF_TRAIL_STATUS_OPTIONS}
+                onClose={() => setLeafSheetVisible(false)}
+                onSelect={onLeafTrailStatusSelect}
+            />
+            <OrderSummaryStatusSheet
+                visible={plantSheetVisible}
+                title="Change plant status"
+                options={plantStatusSheetOptions}
+                onClose={() => setPlantSheetVisible(false)}
+                onSelect={onPlantStatusSelect}
+            />
+
+            <TagAsOptions
+                visible={isTagAsVisible}
                 setTagAs={setTagAs}
                 isMissing={isMissing}
                 isDamaged={isDamaged}
                 isNeedsToStay={isNeedsToStay}
                 isOthers={isOthers}
                 forShipping={forShipping}
-                onClose={() => setTagAsVisible(false)}/>
+                showStatusActions={supportsPlantSelection}
+                onLeafTrailStatusPress={openLeafTrailSheetFromCardMenu}
+                onPlantStatusPress={openPlantSheetFromCardMenu}
+                onClose={() => setTagAsVisible(false)}
+            />
         </SafeAreaProvider>
     );
 }
@@ -1829,6 +2054,16 @@ const styles = StyleSheet.create({
         width: 96,
         flexShrink: 0,
         alignItems: 'center',
+    },
+    plantImageWrap: {
+        position: 'relative',
+        alignSelf: 'center',
+    },
+    imageCheckbox: {
+        position: 'absolute',
+        top: 4,
+        left: 4,
+        zIndex: 2,
     },
     plantImageTouchable: {
         alignSelf: 'center',

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { memo, useRef, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -94,9 +94,9 @@ const MetaChip = ({ label, value }) => {
 const ForReceivingPlantCard = ({
   item,
   openTagAs,
-  selectionMode,
+  showCheckbox = false,
   isSelected,
-  onToggleSelect,
+  selectionStore,
   compact = false,
   statusPillLabel = 'For Receiving',
   statusPillVariant = 'forReceiving',
@@ -172,7 +172,22 @@ const ForReceivingPlantCard = ({
       ) : null}
 
       <View style={styles.bodyRow}>
-        <PlantImagePeek uri={item.plantImage} />
+        <View style={styles.imageWrap}>
+          <PlantImagePeek uri={item.plantImage} />
+          {showCheckbox ? (
+            <TouchableOpacity
+              style={styles.imageCheckbox}
+              onPress={() => selectionStore?.toggle(item.id)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              activeOpacity={0.85}>
+              {isSelected ? (
+                <CheckedBoxIcon width={24} height={24} />
+              ) : (
+                <View style={styles.uncheckedBox} />
+              )}
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View style={styles.bodyContent}>
           <Text style={styles.plantTitle} numberOfLines={2}>
             {item.genus} {item.species}
@@ -199,19 +214,9 @@ const ForReceivingPlantCard = ({
                   <CountryFlagIcon code={item.country} width={22} height={14} />
                 </View>
               ) : null}
-              {selectionMode ? (
-                <TouchableOpacity onPress={() => onToggleSelect(item.id)} hitSlop={8}>
-                  {isSelected ? (
-                    <CheckedBoxIcon width={24} height={24} />
-                  ) : (
-                    <View style={styles.uncheckedBox} />
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity onPress={openTagMenu} hitSlop={8}>
-                  <Options width={22} height={22} />
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity onPress={openTagMenu} hitSlop={8}>
+                <Options width={22} height={22} />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -219,6 +224,17 @@ const ForReceivingPlantCard = ({
     </View>
   );
 };
+
+function plantCardPropsAreEqual(prev, next) {
+  return (
+    prev.item?.id === next.item?.id &&
+    prev.isSelected === next.isSelected &&
+    prev.showCheckbox === next.showCheckbox &&
+    prev.compact === next.compact &&
+    prev.statusPillLabel === next.statusPillLabel &&
+    prev.statusPillVariant === next.statusPillVariant
+  );
+}
 
 const styles = StyleSheet.create({
   card: {
@@ -348,6 +364,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  imageWrap: {
+    position: 'relative',
+    width: 80,
+    height: 104,
+  },
+  imageCheckbox: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    zIndex: 2,
+  },
   plantImage: {
     width: 80,
     height: 104,
@@ -431,4 +458,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ForReceivingPlantCard;
+export default memo(ForReceivingPlantCard, plantCardPropsAreEqual);

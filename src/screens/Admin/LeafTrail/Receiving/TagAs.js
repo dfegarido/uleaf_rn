@@ -1,11 +1,13 @@
 import React from 'react';
-import { Modal,
+import {
+  Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CheckIcon from '../../../../assets/admin-icons/check-icon.svg';
 import CrossIcon from '../../../../assets/admin-icons/cross-icon.svg';
 import RightArrowIcon from '../../../../assets/admin-icons/rigth-arrow.svg';
@@ -36,18 +38,47 @@ const OptionItem = ({ isCrossIcon, isCheckIcon, title, hasRightArrow = false, se
   </TouchableOpacity>
 )};
 
-const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=false, isNeedsToStay=false, isOthers=false, forShipping=false }) => {
+const MenuActionItem = ({ title, onPress }) => (
+  <TouchableOpacity
+    style={styles.optionsRow}
+    onPress={onPress}
+    activeOpacity={0.7}>
+    <View style={styles.listLeft}>
+      <Text style={styles.listTitle}>{title}</Text>
+    </View>
+    <View style={styles.listRight}>
+      <View style={styles.iconContainer}>
+        <RightArrowIcon />
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
+const TagAsOptions = ({
+  visible,
+  onClose,
+  setTagAs,
+  isMissing = false,
+  isDamaged = false,
+  isNeedsToStay = false,
+  isOthers = false,
+  forShipping = false,
+  showStatusActions = false,
+  onLeafTrailStatusPress,
+  onPlantStatusPress,
+}) => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       animationType="slide"
-      transparent={true}
+      transparent
       visible={visible}
-      onRequestClose={onClose}>
-      {/* 2. This Pressable is the overlay that closes the modal */}
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        {/* 3. This Pressable stops clicks inside the sheet from closing it */}
-        <Pressable>
-          <View style={styles.actionSheetContainer}>
+      onRequestClose={onClose}
+      statusBarTranslucent>
+      <View style={styles.root}>
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" />
+        <View style={[styles.actionSheetContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             {/* Indicator */}
             <View style={styles.indicatorContainer}>
               <View style={styles.indicatorBar} />
@@ -55,7 +86,28 @@ const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=f
 
             {/* Content */}
             <View style={styles.content}>
-              {forShipping && 
+              {showStatusActions ? (
+                <View>
+                  <MenuActionItem
+                    title="Change leaf trail status"
+                    onPress={() => {
+                      onClose?.();
+                      onLeafTrailStatusPress?.();
+                    }}
+                  />
+                  <View style={styles.dividerContainer}>
+                    <View style={styles.divider} />
+                  </View>
+                  <MenuActionItem
+                    title="Change plant status"
+                    onPress={() => {
+                      onClose?.();
+                      onPlantStatusPress?.();
+                    }}
+                  />
+                </View>
+              ) : null}
+              {!showStatusActions && forShipping && 
                 <View>
                   <OptionItem
                     isCheckIcon={true}
@@ -69,7 +121,7 @@ const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=f
                   </View>
                 </View>
               }
-              {isMissing &&
+              {!showStatusActions && isMissing &&
                 <View>
                   <OptionItem
                     isCrossIcon={true}
@@ -83,8 +135,7 @@ const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=f
                   </View>
                 </View>
               }
-              {
-                isDamaged && 
+              {!showStatusActions && isDamaged && 
                 <View>
                   <OptionItem
                     isCrossIcon={true}
@@ -98,7 +149,7 @@ const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=f
                   </View>
                 </View>
               }
-              {isNeedsToStay && (
+              {!showStatusActions && isNeedsToStay && (
                 <View>
                   <OptionItem
                     isCheckIcon={true}
@@ -112,7 +163,7 @@ const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=f
                   </View>
                 </View>
               )}
-              {isOthers && (
+              {!showStatusActions && isOthers && (
                 <View>
                   <OptionItem
                     isCheckIcon={true}
@@ -127,9 +178,8 @@ const TagAsOptions = ({ visible, onClose, setTagAs, isMissing=false, isDamaged=f
                 </View>
               )}
             </View>
-          </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 };
@@ -138,17 +188,20 @@ export default TagAsOptions;
 
 // --- Stylesheet ---
 const styles = StyleSheet.create({
-  modalOverlay: {
+  root: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dim the background
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   actionSheetContainer: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 34, // Space for home indicator
+    overflow: 'hidden',
   },
   indicatorContainer: {
     width: '100%',

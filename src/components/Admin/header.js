@@ -42,16 +42,23 @@ const ScreenHeader = ({
 }) => {
     return (
         <View style={styles.header}>
-            <TouchableOpacity onPress={selectionMode ? onCancelSelection : () => navigation.goBack()}>
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={selectionMode ? onCancelSelection : () => navigation.goBack()}>
                 {selectionMode ? <CloseIcon /> : <BackSolidIcon />}
             </TouchableOpacity>
 
-            {!searchActive && !selectionMode && (
-                <Text style={styles.headerTitle} numberOfLines={1}>
-                    {title}
-                </Text>
-            )}
-            {selectionMode && <Text style={styles.headerTitle}>{selectedCount} selected</Text>}
+            <View style={styles.headerCenter}>
+                {!searchActive && !selectionMode && (
+                    <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+                        {title}
+                    </Text>
+                )}
+                {selectionMode && (
+                    <Text style={styles.headerTitleSelection} numberOfLines={1} ellipsizeMode="tail">
+                        {selectedCount} selected
+                    </Text>
+                )}
 
             {searchActive && (
                 <View style={styles.searchInputContainer}>
@@ -76,6 +83,7 @@ const ScreenHeader = ({
                     )}
                 </View>
             )}
+            </View>
 
             <View style={styles.rightActions}>
                 {selectionMode && onSelectAll && (
@@ -150,18 +158,30 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 10,
         backgroundColor: '#FFFFFF',
-        height: 58,
+        minHeight: 58,
+    },
+    backButton: {
+        flexShrink: 0,
+        marginRight: 4,
+    },
+    headerCenter: {
+        flex: 1,
+        minWidth: 0,
+        justifyContent: 'center',
+        marginHorizontal: 4,
     },
     headerTitle: {
-        flex: 1,
         fontSize: 18,
         fontWeight: '700',
         color: '#202325',
-        marginHorizontal: 8,
+    },
+    headerTitleSelection: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#202325',
     },
     headerSearchInput: {
         flex: 1,

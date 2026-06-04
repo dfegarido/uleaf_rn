@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CloseIcon from '../../../assets/admin-icons/x.svg';
 
 const OptionRow = ({ title, onPress }) => (
@@ -55,6 +56,36 @@ export const PLANT_STATUS_EDIT_OPTIONS = [
   ...PLANT_STATUS_OPTIONS,
 ];
 
+/**
+ * Receiving ⋯ → Change plant status: standard plant statuses plus legacy tag-as actions.
+ * @param {{ isOthers?: boolean, forShipping?: boolean }} tagFlags
+ */
+export function buildReceivingPlantStatusOptions(tagFlags = {}) {
+  const options = PLANT_STATUS_EDIT_OPTIONS.map((o) => ({ ...o }));
+  const values = new Set(options.map((o) => o.value));
+
+  if (tagFlags.forShipping && !values.has('received')) {
+    options.push({
+      label: 'For shipping',
+      value: 'received',
+      updatesLeafTrail: true,
+    });
+  }
+  if (tagFlags.isOthers && !values.has('others')) {
+    options.push({
+      label: 'Others',
+      value: 'others',
+      updatesLeafTrail: true,
+    });
+  }
+  return options;
+}
+
+export function receivingPlantStatusUsesLeafTrail(value, options = []) {
+  const opt = options.find((o) => o.value === value);
+  return Boolean(opt?.updatesLeafTrail);
+}
+
 /** Map stored leafTrailStatus to plant-status picker value */
 export const leafTrailToPlantStatusPickerValue = (rawLeaf, rawOrderStatus = '') => {
   const leaf = String(rawLeaf || '').toLowerCase().trim();
@@ -75,15 +106,24 @@ const OrderSummaryStatusSheet = ({
   options,
   onClose,
   onSelect,
-}) => (
-  <Modal
-    animationType="slide"
-    transparent
-    visible={visible}
-    onRequestClose={onClose}>
-    <Pressable style={styles.modalOverlay} onPress={onClose}>
-      <Pressable onPress={() => {}}>
-        <View style={styles.actionSheetContainer}>
+}) => {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent
+      visible={visible}
+      onRequestClose={onClose}
+      statusBarTranslucent>
+      <View style={styles.root}>
+        <Pressable
+          style={styles.backdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        />
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.indicatorContainer}>
             <View style={styles.indicatorBar} />
           </View>
@@ -94,8 +134,7 @@ const OrderSummaryStatusSheet = ({
               onPress={onClose}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityLabel="Close"
-              accessibilityRole="button"
-            >
+              accessibilityRole="button">
               <CloseIcon width={24} height={24} fill="#647276" />
             </TouchableOpacity>
           </View>
@@ -115,23 +154,26 @@ const OrderSummaryStatusSheet = ({
             ))}
           </View>
         </View>
-      </Pressable>
-    </Pressable>
-  </Modal>
-);
+      </View>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  root: {
     flex: 1,
     justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  actionSheetContainer: {
+  sheet: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 34,
+    overflow: 'hidden',
   },
   indicatorContainer: {
     width: '100%',
