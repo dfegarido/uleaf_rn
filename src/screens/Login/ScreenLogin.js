@@ -27,6 +27,10 @@ import {auth} from '../../../firebase';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AuthContext} from '../../auth/AuthProvider';
+import {
+  completeLoginSession,
+  isSupplierAccount,
+} from '../../utils/completeLoginSession';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -40,7 +44,7 @@ const TOKENS = {
 };
 
 const ScreenLogin = ({navigation}) => {
-  const {setIsLoggedIn} = useContext(AuthContext);
+  const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
   const insets = useSafeAreaInsets();
 
   const safeBottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 16) : insets.bottom;
@@ -57,7 +61,25 @@ const ScreenLogin = ({navigation}) => {
           if (storedPhase === 'otp_verified') {
             setIsLoggedIn(true);
           } else if (storedPhase === 'credentials_entered') {
-            navigation.navigate('LoginOtp');
+            const storedUserInfo = await AsyncStorage.getItem('userInfo');
+            let parsedUserInfo = null;
+            if (storedUserInfo) {
+              try {
+                parsedUserInfo = JSON.parse(storedUserInfo);
+              } catch (parseError) {
+                console.log('Failed to parse stored userInfo:', parseError.message);
+              }
+            }
+
+            if (isSupplierAccount(parsedUserInfo)) {
+              await completeLoginSession({
+                idToken: token,
+                setIsLoggedIn,
+                setUserInfo,
+              });
+            } else {
+              navigation.navigate('LoginOtp');
+            }
           }
         } catch (err) {
           console.log('Session token error:', err.message);

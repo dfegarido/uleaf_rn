@@ -7,11 +7,13 @@ import {auth} from '../../../firebase';
 import {
   postSellerPinCodeApi,
   postSellerAfterSignInApi,
-  postAdminAfterSignInApi,
-  getProfileInfoApi,
 } from '../../components/Api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AuthContext} from '../../auth/AuthProvider';
+import {
+  completeLoginSession,
+  isSupplierAccount,
+} from '../../utils/completeLoginSession';
 import Loading from '../../components/Loading';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import XCircleIcon from '../../assets/icons/greydark/x-circle.svg';
@@ -44,6 +46,7 @@ const ScreenLoginOtp = ({navigation}) => {
   const [resendModalVisible, setResendModalVisible] = useState(false);
   const [resendDisabled, setResendDisabled] = useState(true);
   const [countdown, setCountdown] = useState(120);
+  const [isSellerAccount, setIsSellerAccount] = useState(false);
   const autoSubmitRef = React.useRef(false);
   const lastAutoSubmittedPinRef = React.useRef(null);
   const countdownIntervalRef = React.useRef(null);
@@ -79,7 +82,7 @@ const ScreenLoginOtp = ({navigation}) => {
   };
 
   useEffect(() => {
-  const user = auth.currentUser;
+    const user = auth.currentUser;
     console.log('User Here:' + JSON.stringify(user));
     if (user) {
       setCurrentUser(user);
@@ -89,6 +92,18 @@ const ScreenLoginOtp = ({navigation}) => {
     } else {
       console.log('No user is signed in.');
     }
+
+    AsyncStorage.getItem('userInfo').then(stored => {
+      if (!stored) {
+        return;
+      }
+      try {
+        const parsed = JSON.parse(stored);
+        setIsSellerAccount(isSupplierAccount(parsed));
+      } catch (error) {
+        console.log('Failed to parse stored userInfo for seller OTP skip:', error.message);
+      }
+    });
   }, []);
 
   // Allow auto-submit again only after user edits code below expected length.
@@ -99,13 +114,13 @@ const ScreenLoginOtp = ({navigation}) => {
     }
   }, [pin]);
 
-  // Auto-submit when pin reaches expected length (skip for test user)
+  // Auto-submit when pin reaches expected length (skip for test user / seller)
   useEffect(() => {
     const EXPECTED_LENGTH = 4;
     const isTestUser = currentUser?.email === 'testuser@example.com';
-    
-    // For test user, auto-submit immediately without requiring PIN
-    if (isTestUser && !loading && !autoSubmitRef.current) {
+    const skipOtp = isTestUser || isSellerAccount;
+
+    if (skipOtp && !loading && !autoSubmitRef.current) {
       autoSubmitRef.current = true;
       setTimeout(async () => {
         try {
@@ -137,7 +152,7 @@ const ScreenLoginOtp = ({navigation}) => {
         }
       }, 100);
     }
-  }, [pin, loading, currentUser?.email]);
+  }, [pin, loading, currentUser?.email, isSellerAccount]);
 
   // const handlePressLogin = async () => {
   //   if (pin.length !== 4) {
@@ -164,9 +179,9 @@ const ScreenLoginOtp = ({navigation}) => {
 
   const handlePressLogin = async () => {
     const isTestUser = currentUser?.email === 'testuser@example.com';
-    
-    // For test user, skip PIN validation
-    if (!isTestUser && pin.length !== 4) {
+    const skipOtp = isTestUser || isSellerAccount;
+
+    if (!skipOtp && pin.length !== 4) {
       Alert.alert('Invalid Code', 'Please enter the 4-digit code.');
       return;
     }
@@ -174,86 +189,39 @@ const ScreenLoginOtp = ({navigation}) => {
     try {
       if (idToken !== '') {
         setLoading(true);
-        
-        // Skip OTP verification for test user
-        if (!isTestUser) {
+
+        if (!skipOtp) {
           await postData(idToken);
         } else {
-          console.log('Skipping OTP verification for test user:', currentUser?.email);
+          console.log(
+            'Skipping OTP verification for',
+            isSellerAccount ? 'seller account' : 'test user',
+            currentUser?.email,
+          );
         }
 
-        await AsyncStorage.setItem('authToken', idToken);
-        await AsyncStorage.setItem('loginPhase', 'otp_verified');
+        const profileData = await completeLoginSession({
+          idToken,
+          setIsLoggedIn,
+          setUserInfo,
+          deferLoggedIn: true,
+        });
 
-        // ✅ Fetch and store user profile info BEFORE setting isLoggedIn
-        // This ensures AppNavigation has userInfo when it checks auth state
-        let profileData = null;
-        try {
-          const profile = await getProfileInfoApi();
-          if (profile?.success) {
-            profileData = profile;
-            // Set userInfo in context FIRST - use a callback to ensure it's set
-            setUserInfo(profile);
-            // Then save to AsyncStorage
-            await AsyncStorage.setItem('userInfo', JSON.stringify(profile));
-            console.log('✅ userInfo set in context and AsyncStorage');
-
-            // Extract and store profile photo
-            const profilePhotoUrl = profile?.data?.profilePhotoUrl || 
-                                   profile?.data?.profileImage ||
-                                   profile?.user?.profilePhotoUrl ||
-                                   profile?.user?.profileImage ||
-                                   profile?.profilePhotoUrl ||
-                                   profile?.profileImage ||
-                                   null;
-            
-            if (profilePhotoUrl) {
-              const timestamp = Date.now();
-              const cacheBustedUrl = `${profilePhotoUrl}${profilePhotoUrl.includes('?') ? '&' : '?'}cb=${timestamp}`;
-              await AsyncStorage.setItem('profilePhotoUrl', profilePhotoUrl);
-              await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', cacheBustedUrl);
-              console.log('✅ Profile photo stored in AsyncStorage:', profilePhotoUrl);
-            } else {
-              console.log('ℹ️ No profile photo found in profile response');
-            }
-
-            // Log user type for debugging
-            console.log('✅ User type detected:', profile?.user?.userType);
-            console.log('✅ Profile loaded successfully');
-          } else {
-            console.warn('⚠️ Profile fetch returned unsuccessful response:', profile);
-            // Still set isLoggedIn even if profile fetch fails
-            // AppNavigation will handle the fallback
-          }
-        } catch (profileError) {
-          console.error('❌ Profile fetch error:', profileError);
-          // Don't block login if profile fetch fails - AppNavigation will handle it
-          // But log the error for debugging
-        }
-        
-        // Clear loading state BEFORE setting isLoggedIn to ensure screen is ready for navigation
         setLoading(false);
-
-        // Show success checkmark animation before switching to dashboard
         setShowSuccess(true);
         await new Promise(resolve => setTimeout(resolve, 1500));
         setShowSuccess(false);
 
-        // Ensure userInfo is available before setting isLoggedIn
-        // If profile fetch failed, AppNavigation will show loading and handle fallback
         if (!profileData) {
           console.warn('⚠️ No profile data available, but proceeding with login');
         }
 
-        console.log('🔄 Setting isLoggedIn to true...');
         setIsLoggedIn(true);
-        console.log('✅ setIsLoggedIn(true) called - NavigationContainer should remount with new key');
       }
     } catch (error) {
       console.error('OTP verification error:', error);
       setLoading(false);
-      // Only show error modal if not a test user (test user skips OTP)
-      if (!isTestUser) {
+      if (!skipOtp) {
         setErrorModalVisible(true);
       }
     }
@@ -365,9 +333,11 @@ const ScreenLoginOtp = ({navigation}) => {
           </View>
 
           <Text style={styles.title}>Verification Code</Text>
-          {currentUser?.email === 'testuser@example.com' ? (
+          {currentUser?.email === 'testuser@example.com' || isSellerAccount ? (
             <Text style={[styles.subtitle, {color: TOKENS.sage, fontStyle: 'italic'}]}>
-              Test user detected - OTP verification skipped
+              {isSellerAccount
+                ? 'Seller account — OTP verification skipped'
+                : 'Test user detected - OTP verification skipped'}
             </Text>
           ) : (
             <Text style={styles.subtitle}>
@@ -376,12 +346,12 @@ const ScreenLoginOtp = ({navigation}) => {
           )}
 
           <View style={styles.inputSection}>
-            {currentUser?.email !== 'testuser@example.com' && (
+            {currentUser?.email !== 'testuser@example.com' && !isSellerAccount && (
               <OtpInput length={4} onChangeOtp={setPin} />
             )}
           </View>
 
-          {currentUser?.email !== 'testuser@example.com' && (
+          {currentUser?.email !== 'testuser@example.com' && !isSellerAccount && (
             <View style={styles.resendRow}>
               <TouchableOpacity
                 onPress={handleResendPin}

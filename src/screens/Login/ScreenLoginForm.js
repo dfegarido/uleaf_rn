@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useContext} from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,11 @@ import {auth} from '../../../firebase';
 import {postSellerAfterSignInApi, postAdminAfterSignInApi} from '../../components/Api';
 import {checkMaintenanceApi} from '../../components/Api/maintenanceApi';
 import Loading from '../../components/Loading';
+import {AuthContext} from '../../auth/AuthProvider';
+import {
+  completeLoginSession,
+  isSupplierAccount,
+} from '../../utils/completeLoginSession';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
@@ -146,6 +151,7 @@ function FloatingInput({
 // Screen
 // ------------------------------------------------------------------
 const ScreenLoginForm = ({navigation}) => {
+  const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
   const [formData, setFormData] = useState({email: '', password: ''});
   const [loading, setLoading] = useState(false);
   const [validateErrors, setValidateErrors] = useState({});
@@ -271,7 +277,6 @@ const ScreenLoginForm = ({navigation}) => {
           const localIdToken = await user.getIdToken();
           const userData = await loadData(localIdToken);
           await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
-          await AsyncStorage.setItem('loginPhase', 'credentials_entered');
 
           const profilePhotoUrl =
             userData?.data?.profilePhotoUrl ||
@@ -289,7 +294,16 @@ const ScreenLoginForm = ({navigation}) => {
             await AsyncStorage.setItem('profilePhotoUrlWithTimestamp', cacheBustedUrl);
           }
 
-          navigation.navigate('LoginOtp');
+          if (isSupplierAccount(userData)) {
+            await completeLoginSession({
+              idToken: localIdToken,
+              setIsLoggedIn,
+              setUserInfo,
+            });
+          } else {
+            await AsyncStorage.setItem('loginPhase', 'credentials_entered');
+            navigation.navigate('LoginOtp');
+          }
         }
       } catch (error) {
         console.error('Login error:', error);
