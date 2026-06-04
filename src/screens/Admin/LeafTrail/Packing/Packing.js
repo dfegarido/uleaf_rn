@@ -18,6 +18,7 @@ import TrayIcon from '../../../../assets/admin-icons/tray.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
+import ThermalLabelViewerModal from '../../../../components/Admin/ThermalLabelViewerModal';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
@@ -46,7 +47,14 @@ async function fetchPlantsForTrays(trayItems) {
   if (!trayNumbers.length) return [];
 
   const responses = await Promise.all(
-    trayNumbers.map((sortingTrayNumber) => getOrdersBySortingTray(sortingTrayNumber)),
+    trayNumbers.map(async (sortingTrayNumber) => {
+      try {
+        return await getOrdersBySortingTray(sortingTrayNumber);
+      } catch (e) {
+        console.warn('fetchPlantsForTrays:', sortingTrayNumber, e?.message);
+        return { data: [] };
+      }
+    }),
   );
   return responses.flatMap((r) => r?.data || []);
 }
@@ -93,8 +101,11 @@ const PackingListItem = ({ item, navigation }) => (
 const PackingScreen = ({ navigation }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [packingData, setPackingData] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [generatedLabels, setGeneratedLabels] = useState([]);
+  const [showLabelViewer, setShowLabelViewer] = useState(false);
   const [adminFilters, setAdminFilters] = useState(null);
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -109,11 +120,19 @@ const PackingScreen = ({ navigation }) => {
 
   const fetchData = async (filters) => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       const response = await getAdminLeafTrailPacking(filters);
       setPackingData(response);
     } catch (e) {
       console.error('Failed to fetch packing data:', e);
+      setFetchError(e?.message || 'Could not load packing trays.');
+      setPackingData({ total: 0, data: [] });
+      Alert.alert(
+        'Packing load failed',
+        e?.message ||
+          'Could not reach the server. If using the emulator, confirm npm run serve is running and LOCAL_BASE_URL in .env matches your machine IP.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -161,6 +180,10 @@ const PackingScreen = ({ navigation }) => {
 
   const handlePrintList = useCallback(async () => {
     if (actionLoading) return;
+    if (isLoading) {
+      Alert.alert('Please wait', 'Still loading trays…');
+      return;
+    }
     if (!trays.length) {
       Alert.alert('Print', 'No trays in the current list.');
       return;
@@ -169,12 +192,20 @@ const PackingScreen = ({ navigation }) => {
       setActionLoading(true);
       const plants = await fetchPlantsForTrays(trays);
       if (!plants.length) {
-        Alert.alert('Print', 'No plants found in the current tray list.');
+        Alert.alert(
+          'Print',
+          'No plants found for these trays. Confirm tray numbers are assigned and plants are sorted.',
+        );
         return;
       }
       const ids = plants.map((p) => p.id).filter(Boolean);
       const response = await generateThermalLabels(ids);
-      if (!response?.success) {
+      if (response?.success && response?.labels?.length) {
+        setGeneratedLabels(response.labels);
+        setShowLabelViewer(true);
+      } else if (response?.success) {
+        Alert.alert('Print', 'Labels were generated but no images were returned.');
+      } else {
         Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
       }
     } catch (e) {
@@ -182,10 +213,14 @@ const PackingScreen = ({ navigation }) => {
     } finally {
       setActionLoading(false);
     }
-  }, [actionLoading, trays]);
+  }, [actionLoading, isLoading, trays]);
 
   const handleExportList = useCallback(async () => {
     if (actionLoading) return;
+    if (isLoading) {
+      Alert.alert('Please wait', 'Still loading trays…');
+      return;
+    }
     if (!trays.length) {
       Alert.alert('Export', 'No trays in the current list.');
       return;
@@ -194,10 +229,16 @@ const PackingScreen = ({ navigation }) => {
       setActionLoading(true);
       const plants = await fetchPlantsForTrays(trays);
       if (!plants.length) {
-        Alert.alert('Export', 'No plants found in the current tray list.');
+        Alert.alert(
+          'Export',
+          'No plants found for these trays. Confirm tray numbers are assigned and plants are sorted.',
+        );
         return;
       }
-      await exportLeafTrailLinesToCsv(plants, { stageLabel: 'packing-trays' });
+      const result = await exportLeafTrailLinesToCsv(plants, { stageLabel: 'packing-trays' });
+      if (result?.success) {
+        Alert.alert('Export', `Shared CSV for ${result.count} plant line(s).`);
+      }
     } catch (e) {
       if (e?.message !== 'User did not share') {
         Alert.alert('Export failed', e?.message || 'Could not export data.');
@@ -205,18 +246,24 @@ const PackingScreen = ({ navigation }) => {
     } finally {
       setActionLoading(false);
     }
-  }, [actionLoading, trays]);
+  }, [actionLoading, isLoading, trays]);
 
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {(isLoading || actionLoading) && (
+      {(isLoading || actionLoading) && !showLabelViewer && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
           </View>
         </Modal>
       )}
+      <ThermalLabelViewerModal
+        visible={showLabelViewer}
+        labels={generatedLabels}
+        onClose={() => setShowLabelViewer(false)}
+        title="Packing labels"
+      />
       <ScreenHeader
         onSearchChange={(text) => setSearchValue(forceUppercaseHubLabel(text))}
         searchValue={searchValue}
@@ -228,9 +275,9 @@ const PackingScreen = ({ navigation }) => {
         navigation={navigation}
         title="Packing"
         search
-        printButton={!!hubSpecEnabled}
+        printButton
         onPrint={handlePrintList}
-        downloadCsv={!!hubSpecEnabled}
+        downloadCsv
         onDownloadCsv={handleExportList}
         downloadLoading={actionLoading}
         scarQr={hubSpecEnabled}
@@ -265,7 +312,28 @@ const PackingScreen = ({ navigation }) => {
         ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
         ListEmptyComponent={
           !isLoading ? (
-            <Text style={styles.emptyText}>No trays ready for packing.</Text>
+            <View style={styles.emptyWrap}>
+              {fetchError ? (
+                <Text style={styles.emptyErrorText}>{fetchError}</Text>
+              ) : (
+                <>
+                  <Text style={styles.emptyText}>No trays ready for packing.</Text>
+                  <Text style={styles.emptyHint}>
+                    Trays appear here after plants are scanned as sorted in Plant Sorting and
+                    assigned a tray number on the receiver box (tray icon in the box header).
+                  </Text>
+                  {activeFilters &&
+                  (activeFilters.search ||
+                    activeFilters.flightDate ||
+                    activeFilters.gardenOrCompanyName ||
+                    activeFilters.sellerName) ? (
+                    <Text style={styles.emptyHint}>
+                      Active filters may be hiding trays — clear filters and try again.
+                    </Text>
+                  ) : null}
+                </>
+              )}
+            </View>
           ) : null
         }
         contentContainerStyle={styles.listContentContainer}
@@ -302,11 +370,28 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 15,
   },
+  emptyWrap: {
+    paddingHorizontal: 20,
+    marginTop: 24,
+    gap: 10,
+  },
   emptyText: {
     textAlign: 'center',
     color: '#647276',
     fontSize: 16,
-    marginTop: 24,
+    fontWeight: '600',
+  },
+  emptyHint: {
+    textAlign: 'center',
+    color: '#7F8D91',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  emptyErrorText: {
+    textAlign: 'center',
+    color: '#C62828',
+    fontSize: 14,
+    lineHeight: 20,
   },
   listItemContainer: {
     backgroundColor: '#F5F6F6',

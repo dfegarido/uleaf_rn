@@ -601,6 +601,11 @@ export const getOrdersBySortingTray = async (trayNumber) => {
       },
     );
 
+    if (response.status === 404) {
+      const json = await response.json().catch(() => ({}));
+      return { success: false, data: [], ...(typeof json === 'object' ? json : {}) };
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
