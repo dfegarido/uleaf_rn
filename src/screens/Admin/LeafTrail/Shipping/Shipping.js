@@ -21,13 +21,11 @@ import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailListPrintExport } from '../../../../hooks/useLeafTrailListPrintExport';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
-import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
 import {
-  generateThermalLabels,
   getAdminLeafTrailFilters,
   getAdminLeafTrailShipping,
-  getOrdersByBoxNumber,
 } from '../../../../components/Api/getAdminLeafTrail';
 
 const compareBoxes = (a, b) =>
@@ -35,22 +33,6 @@ const compareBoxes = (a, b) =>
     numeric: true,
     sensitivity: 'base',
   });
-
-async function fetchPlantsForBoxes(boxItems) {
-  const boxNumbers = [
-    ...new Set(
-      (boxItems || [])
-        .map((b) => String(b.boxNumber || '').trim())
-        .filter(Boolean),
-    ),
-  ];
-  if (!boxNumbers.length) return [];
-
-  const responses = await Promise.all(
-    boxNumbers.map((boxNumber) => getOrdersByBoxNumber(boxNumber)),
-  );
-  return responses.flatMap((r) => r?.data || []);
-}
 
 const ShippingListItem = ({ item, navigation }) => (
   <TouchableOpacity onPress={() => navigation.navigate('ViewShippingScreen', { item })}>
@@ -114,7 +96,6 @@ const ShippingScreen = ({ navigation }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [shippingData, setShippingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [adminFilters, setAdminFilters] = useState(null);
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -155,6 +136,23 @@ const ShippingScreen = ({ navigation }) => {
     return [...(shippingData?.data || [])].sort(compareBoxes);
   }, [shippingData?.data]);
 
+  const {
+    actionLoading,
+    showLabelViewer,
+    LabelViewer,
+    handlePrint: handlePrintList,
+    handleExport: handleExportList,
+    exportLoading,
+  } = useLeafTrailListPrintExport({
+    labelTitle: 'In-Transit labels',
+    exportStageLabel: 'in-transit-boxes',
+    listKind: 'boxes',
+    isLoading,
+    listItems: boxes,
+    emptyListMessage: 'No boxes in the current list.',
+    noPlantsMessage: 'No plants found for these boxes.',
+  });
+
   const handleSearch = () => {
     const trimmed = forceUppercaseHubLabel(String(searchValue || '').trim());
     setSearchValue(trimmed);
@@ -179,64 +177,17 @@ const ShippingScreen = ({ navigation }) => {
     fetchData(payload);
   };
 
-  const handlePrintList = useCallback(async () => {
-    if (actionLoading) return;
-    if (!boxes.length) {
-      Alert.alert('Print', 'No boxes in the current list.');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      const plants = await fetchPlantsForBoxes(boxes);
-      if (!plants.length) {
-        Alert.alert('Print', 'No plants found in the current box list.');
-        return;
-      }
-      const ids = plants.map((p) => p.id).filter(Boolean);
-      const response = await generateThermalLabels(ids);
-      if (!response?.success) {
-        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
-      }
-    } catch (e) {
-      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
-    } finally {
-      setActionLoading(false);
-    }
-  }, [actionLoading, boxes]);
-
-  const handleExportList = useCallback(async () => {
-    if (actionLoading) return;
-    if (!boxes.length) {
-      Alert.alert('Export', 'No boxes in the current list.');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      const plants = await fetchPlantsForBoxes(boxes);
-      if (!plants.length) {
-        Alert.alert('Export', 'No plants found in the current box list.');
-        return;
-      }
-      await exportLeafTrailLinesToCsv(plants, { stageLabel: 'in-transit-boxes' });
-    } catch (e) {
-      if (e?.message !== 'User did not share') {
-        Alert.alert('Export failed', e?.message || 'Could not export data.');
-      }
-    } finally {
-      setActionLoading(false);
-    }
-  }, [actionLoading, boxes]);
-
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {(isLoading || actionLoading) && (
+      {(isLoading || actionLoading) && !showLabelViewer && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
           </View>
         </Modal>
       )}
+      <LabelViewer />
       <ScreenHeader
         onSearchChange={(text) => setSearchValue(forceUppercaseHubLabel(text))}
         searchValue={searchValue}
@@ -248,11 +199,11 @@ const ShippingScreen = ({ navigation }) => {
         navigation={navigation}
         title="In-Transit"
         search
-        printButton={!!hubSpecEnabled}
+        printButton
         onPrint={handlePrintList}
-        downloadCsv={!!hubSpecEnabled}
+        downloadCsv
         onDownloadCsv={handleExportList}
-        downloadLoading={actionLoading}
+        downloadLoading={exportLoading}
         scarQr={hubSpecEnabled}
         scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipping}
       />

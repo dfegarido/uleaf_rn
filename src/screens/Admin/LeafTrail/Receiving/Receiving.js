@@ -1339,7 +1339,10 @@ const ReceivingScreen = ({navigation}) => {
         }
         try {
             setExportBusy(true);
-            await exportLeafTrailLinesToCsv(lines, { stageLabel: activeTabKey });
+            const result = await exportLeafTrailLinesToCsv(lines, { stageLabel: activeTabKey });
+            if (result?.success) {
+                Alert.alert('Export', `Shared CSV for ${result.count} plant line(s).`);
+            }
         } catch (e) {
             if (e?.message !== 'User did not share') {
                 Alert.alert('Export failed', e?.message || 'Could not export data.');

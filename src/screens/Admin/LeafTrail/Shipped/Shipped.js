@@ -21,13 +21,11 @@ import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailListPrintExport } from '../../../../hooks/useLeafTrailListPrintExport';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
-import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
 import {
-  generateThermalLabels,
   getAdminLeafTrailFilters,
   getAdminLeafTrailShipped,
-  getOrdersByTrackingNumber,
 } from '../../../../components/Api/getAdminLeafTrail';
 
 const compareTracking = (a, b) =>
@@ -35,22 +33,6 @@ const compareTracking = (a, b) =>
     numeric: true,
     sensitivity: 'base',
   });
-
-async function fetchPlantsForTracking(trackingItems) {
-  const trackingNumbers = [
-    ...new Set(
-      (trackingItems || [])
-        .map((t) => String(t.trackingNumber || '').trim())
-        .filter(Boolean),
-    ),
-  ];
-  if (!trackingNumbers.length) return [];
-
-  const responses = await Promise.all(
-    trackingNumbers.map((trackingNumber) => getOrdersByTrackingNumber(trackingNumber)),
-  );
-  return responses.flatMap((r) => r?.data || []);
-}
 
 const ShippedListItem = ({ item, navigation }) => (
   <TouchableOpacity onPress={() => navigation.navigate('ViewShippedScreen', { item })}>
@@ -114,7 +96,6 @@ const ShippedScreen = ({ navigation }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [shippedData, setShippedData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [adminFilters, setAdminFilters] = useState(null);
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -155,6 +136,23 @@ const ShippedScreen = ({ navigation }) => {
     return [...(shippedData?.data || [])].sort(compareTracking);
   }, [shippedData?.data]);
 
+  const {
+    actionLoading,
+    showLabelViewer,
+    LabelViewer,
+    handlePrint: handlePrintList,
+    handleExport: handleExportList,
+    exportLoading,
+  } = useLeafTrailListPrintExport({
+    labelTitle: 'Delivered labels',
+    exportStageLabel: 'delivered-boxes',
+    listKind: 'tracking',
+    isLoading,
+    listItems: trackingGroups,
+    emptyListMessage: 'No tracking numbers in the current list.',
+    noPlantsMessage: 'No plants found for the current list.',
+  });
+
   const handleSearch = () => {
     const trimmed = forceUppercaseHubLabel(String(searchValue || '').trim());
     setSearchValue(trimmed);
@@ -179,64 +177,17 @@ const ShippedScreen = ({ navigation }) => {
     fetchData(payload);
   };
 
-  const handlePrintList = useCallback(async () => {
-    if (actionLoading) return;
-    if (!trackingGroups.length) {
-      Alert.alert('Print', 'No tracking numbers in the current list.');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      const plants = await fetchPlantsForTracking(trackingGroups);
-      if (!plants.length) {
-        Alert.alert('Print', 'No plants found in the current list.');
-        return;
-      }
-      const ids = plants.map((p) => p.id).filter(Boolean);
-      const response = await generateThermalLabels(ids);
-      if (!response?.success) {
-        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
-      }
-    } catch (e) {
-      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
-    } finally {
-      setActionLoading(false);
-    }
-  }, [actionLoading, trackingGroups]);
-
-  const handleExportList = useCallback(async () => {
-    if (actionLoading) return;
-    if (!trackingGroups.length) {
-      Alert.alert('Export', 'No tracking numbers in the current list.');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      const plants = await fetchPlantsForTracking(trackingGroups);
-      if (!plants.length) {
-        Alert.alert('Export', 'No plants found in the current list.');
-        return;
-      }
-      await exportLeafTrailLinesToCsv(plants, { stageLabel: 'delivered-boxes' });
-    } catch (e) {
-      if (e?.message !== 'User did not share') {
-        Alert.alert('Export failed', e?.message || 'Could not export data.');
-      }
-    } finally {
-      setActionLoading(false);
-    }
-  }, [actionLoading, trackingGroups]);
-
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {(isLoading || actionLoading) && (
+      {(isLoading || actionLoading) && !showLabelViewer && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
           </View>
         </Modal>
       )}
+      <LabelViewer />
       <ScreenHeader
         onSearchChange={(text) => setSearchValue(forceUppercaseHubLabel(text))}
         searchValue={searchValue}
@@ -248,11 +199,11 @@ const ShippedScreen = ({ navigation }) => {
         navigation={navigation}
         title="Delivered"
         search
-        printButton={!!hubSpecEnabled}
+        printButton
         onPrint={handlePrintList}
-        downloadCsv={!!hubSpecEnabled}
+        downloadCsv
         onDownloadCsv={handleExportList}
-        downloadLoading={actionLoading}
+        downloadLoading={exportLoading}
         scarQr={hubSpecEnabled}
         scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipped}
       />

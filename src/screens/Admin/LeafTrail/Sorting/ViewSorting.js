@@ -21,11 +21,11 @@ import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import {
   addSortingTrayNumber,
-  generateThermalLabels,
   updateLeafTrailStatus,
   updatePlantsToSorted,
   updatePlantsToNeedsToStay,
 } from '../../../../components/Api/getAdminLeafTrail';
+import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import TagAsOptions from './TagAs';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
@@ -519,32 +519,19 @@ const SortingDetailsScreen = ({ navigation, route }) => {
 
   }
 
-  const handlePrintBarcodes = async () => {
-    if (!exportLines.length) {
-      Alert.alert('Print', 'No plants to print on this receiver.');
-      return;
-    }
-    try {
-      setIsLoading(true);
-      const ids =
-        selectedPlants.length > 0
-          ? selectedPlants
-          : exportLines.map((p) => p.id).filter(Boolean);
-      const response = await generateThermalLabels(ids);
-      if (!response?.success) {
-        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
-      } else if (response?.labels?.length) {
-        Alert.alert('Success', `Generated ${response.labels.length} label(s).`);
-      }
-    } catch (e) {
-      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
-    } finally {
-      setIsLoading(false);
-    }
+  const { printOrderIds, LabelViewer } = useLeafTrailThermalPrint('Receiver labels');
+
+  const handlePrintBarcodes = () => {
+    const ids =
+      selectedPlants.length > 0
+        ? selectedPlants
+        : exportLines.map((p) => p.id).filter(Boolean);
+    printOrderIds(ids, { emptyMessage: 'No plants to print on this receiver.' });
   };
 
   return (
     <SafeAreaView style={styles.screen}>
+      <LabelViewer />
       {hubSpecEnabled ? (
         <LeafTrailDetailHeader
           title="Receiver's Details"

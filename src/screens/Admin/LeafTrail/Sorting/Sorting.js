@@ -18,6 +18,7 @@ import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolba
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
+import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import {
   getAdminLeafTrailFilters,
@@ -209,13 +210,32 @@ const SortingScreen = ({ navigation }) => {
     );
   }, [receiverBoxes]);
 
+  const allBoxPlants = useMemo(
+    () => receiverBoxes.flatMap((b) => b.plants || []),
+    [receiverBoxes],
+  );
+
+  const {
+    printOrderIds,
+    actionLoading: printLoading,
+    showLabelViewer,
+    LabelViewer,
+  } = useLeafTrailThermalPrint('Plant Sorting labels');
+
+  const handlePrintAllBoxes = useCallback(() => {
+    printOrderIds(allBoxPlants.map((p) => p.id).filter(Boolean), {
+      isListLoading: isLoading && !activeBox,
+      emptyMessage: 'No plants in receiver boxes to print.',
+    });
+  }, [printOrderIds, allBoxPlants, isLoading, activeBox]);
+
   const hubHeaderActions = useLeafTrailHubActions({
-    exportLines: receiverBoxes.flatMap((b) => b.plants || []),
+    exportLines: allBoxPlants,
     exportStageLabel: 'sorting-receivers',
-    onPrintPress: () => {},
-    printDisabled: true,
+    onPrintPress: handlePrintAllBoxes,
+    printDisabled: !allBoxPlants.length,
     exportDisabled: !receiverBoxes.length,
-    emptyPrintMessage: 'Open a receiver box to print plant barcodes.',
+    emptyPrintMessage: 'No plants in receiver boxes to print.',
     emptyExportMessage: 'No receiver boxes to export.',
   });
 
@@ -266,19 +286,20 @@ const SortingScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.screenContainer}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {isLoading && !activeBox && (
+      {((isLoading && !activeBox) || (printLoading && !showLabelViewer)) && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
           </View>
         </Modal>
       )}
+      <LabelViewer />
       <ScreenHeader
         navigation={navigation}
         title="Plant Sorting"
-        printButton={!!hubSpecEnabled}
+        printButton
         onPrint={hubHeaderActions.onPrint}
-        downloadCsv={!!hubSpecEnabled}
+        downloadCsv
         onDownloadCsv={hubHeaderActions.onExport}
         downloadLoading={hubHeaderActions.exportLoading}
         scarQr={hubSpecEnabled}

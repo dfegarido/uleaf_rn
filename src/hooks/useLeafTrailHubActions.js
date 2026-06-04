@@ -35,7 +35,12 @@ export function useLeafTrailHubActions({
     }
     try {
       setExporting(true);
-      await exportLeafTrailLinesToCsv(exportLines, { stageLabel: exportStageLabel });
+      const result = await exportLeafTrailLinesToCsv(exportLines, {
+        stageLabel: exportStageLabel,
+      });
+      if (result?.success) {
+        Alert.alert('Export', `Shared CSV for ${result.count} plant line(s).`);
+      }
     } catch (e) {
       if (e?.message !== 'User did not share') {
         Alert.alert('Export failed', e?.message || 'Could not export data.');

@@ -18,15 +18,12 @@ import TrayIcon from '../../../../assets/admin-icons/tray.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
-import ThermalLabelViewerModal from '../../../../components/Admin/ThermalLabelViewerModal';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailListPrintExport } from '../../../../hooks/useLeafTrailListPrintExport';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
-import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
 import {
-  generateThermalLabels,
   getAdminLeafTrailFilters,
   getAdminLeafTrailPacking,
-  getOrdersBySortingTray,
 } from '../../../../components/Api/getAdminLeafTrail';
 
 const compareTrays = (a, b) =>
@@ -35,29 +32,6 @@ const compareTrays = (a, b) =>
     undefined,
     { numeric: true, sensitivity: 'base' },
   );
-
-async function fetchPlantsForTrays(trayItems) {
-  const trayNumbers = [
-    ...new Set(
-      (trayItems || [])
-        .map((t) => String(t.sortingTrayNumber || '').trim())
-        .filter(Boolean),
-    ),
-  ];
-  if (!trayNumbers.length) return [];
-
-  const responses = await Promise.all(
-    trayNumbers.map(async (sortingTrayNumber) => {
-      try {
-        return await getOrdersBySortingTray(sortingTrayNumber);
-      } catch (e) {
-        console.warn('fetchPlantsForTrays:', sortingTrayNumber, e?.message);
-        return { data: [] };
-      }
-    }),
-  );
-  return responses.flatMap((r) => r?.data || []);
-}
 
 const PackingListItem = ({ item, navigation }) => (
   <TouchableOpacity onPress={() => navigation.navigate('ViewPackingScreen', { item })}>
@@ -103,9 +77,6 @@ const PackingScreen = ({ navigation }) => {
   const [packingData, setPackingData] = useState(null);
   const [fetchError, setFetchError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [generatedLabels, setGeneratedLabels] = useState([]);
-  const [showLabelViewer, setShowLabelViewer] = useState(false);
   const [adminFilters, setAdminFilters] = useState(null);
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -154,6 +125,24 @@ const PackingScreen = ({ navigation }) => {
     return [...(packingData?.data || [])].sort(compareTrays);
   }, [packingData?.data]);
 
+  const {
+    actionLoading,
+    showLabelViewer,
+    LabelViewer,
+    handlePrint: handlePrintList,
+    handleExport: handleExportList,
+    exportLoading,
+  } = useLeafTrailListPrintExport({
+    labelTitle: 'Packing labels',
+    exportStageLabel: 'packing-trays',
+    listKind: 'trays',
+    isLoading,
+    listItems: trays,
+    emptyListMessage: 'No trays in the current list.',
+    noPlantsMessage:
+      'No plants found for these trays. Confirm tray numbers are assigned and plants are sorted.',
+  });
+
   const handleSearch = () => {
     const trimmed = forceUppercaseHubLabel(String(searchValue || '').trim());
     setSearchValue(trimmed);
@@ -178,76 +167,6 @@ const PackingScreen = ({ navigation }) => {
     fetchData(payload);
   };
 
-  const handlePrintList = useCallback(async () => {
-    if (actionLoading) return;
-    if (isLoading) {
-      Alert.alert('Please wait', 'Still loading trays…');
-      return;
-    }
-    if (!trays.length) {
-      Alert.alert('Print', 'No trays in the current list.');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      const plants = await fetchPlantsForTrays(trays);
-      if (!plants.length) {
-        Alert.alert(
-          'Print',
-          'No plants found for these trays. Confirm tray numbers are assigned and plants are sorted.',
-        );
-        return;
-      }
-      const ids = plants.map((p) => p.id).filter(Boolean);
-      const response = await generateThermalLabels(ids);
-      if (response?.success && response?.labels?.length) {
-        setGeneratedLabels(response.labels);
-        setShowLabelViewer(true);
-      } else if (response?.success) {
-        Alert.alert('Print', 'Labels were generated but no images were returned.');
-      } else {
-        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
-      }
-    } catch (e) {
-      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
-    } finally {
-      setActionLoading(false);
-    }
-  }, [actionLoading, isLoading, trays]);
-
-  const handleExportList = useCallback(async () => {
-    if (actionLoading) return;
-    if (isLoading) {
-      Alert.alert('Please wait', 'Still loading trays…');
-      return;
-    }
-    if (!trays.length) {
-      Alert.alert('Export', 'No trays in the current list.');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      const plants = await fetchPlantsForTrays(trays);
-      if (!plants.length) {
-        Alert.alert(
-          'Export',
-          'No plants found for these trays. Confirm tray numbers are assigned and plants are sorted.',
-        );
-        return;
-      }
-      const result = await exportLeafTrailLinesToCsv(plants, { stageLabel: 'packing-trays' });
-      if (result?.success) {
-        Alert.alert('Export', `Shared CSV for ${result.count} plant line(s).`);
-      }
-    } catch (e) {
-      if (e?.message !== 'User did not share') {
-        Alert.alert('Export failed', e?.message || 'Could not export data.');
-      }
-    } finally {
-      setActionLoading(false);
-    }
-  }, [actionLoading, isLoading, trays]);
-
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -258,12 +177,7 @@ const PackingScreen = ({ navigation }) => {
           </View>
         </Modal>
       )}
-      <ThermalLabelViewerModal
-        visible={showLabelViewer}
-        labels={generatedLabels}
-        onClose={() => setShowLabelViewer(false)}
-        title="Packing labels"
-      />
+      <LabelViewer />
       <ScreenHeader
         onSearchChange={(text) => setSearchValue(forceUppercaseHubLabel(text))}
         searchValue={searchValue}
@@ -279,7 +193,7 @@ const PackingScreen = ({ navigation }) => {
         onPrint={handlePrintList}
         downloadCsv
         onDownloadCsv={handleExportList}
-        downloadLoading={actionLoading}
+        downloadLoading={exportLoading}
         scarQr={hubSpecEnabled}
         scanQrParams={LEAF_TRAIL_SCAN_PARAMS.packing}
       />

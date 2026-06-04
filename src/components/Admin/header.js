@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator,
+    Alert,
     StyleSheet,
     Text,
     TextInput,
@@ -40,6 +41,22 @@ const ScreenHeader = ({
     onScanPress,
     scanQrParams,
 }) => {
+    const handlePrintPress = () => {
+        if (typeof onPrint === 'function') {
+            onPrint();
+            return;
+        }
+        Alert.alert('Print', 'Print is not available on this screen.');
+    };
+
+    const handleExportPress = () => {
+        if (typeof onDownloadCsv === 'function') {
+            onDownloadCsv();
+            return;
+        }
+        Alert.alert('Export', 'Export is not available on this screen.');
+    };
+
     return (
         <View style={styles.header}>
             <TouchableOpacity
@@ -100,7 +117,7 @@ const ScreenHeader = ({
                 {printButton && !searchActive && (
                     <TouchableOpacity 
                         style={styles.headerAction} 
-                        onPress={onPrint}
+                        onPress={handlePrintPress}
                         accessibilityLabel="Print barcode"
                     >
                         <PrintIcon width={22} height={22} />
@@ -110,7 +127,7 @@ const ScreenHeader = ({
                 {downloadCsv && !searchActive && (
                     <TouchableOpacity 
                         style={[styles.headerAction, downloadLoading && styles.headerActionDisabled]} 
-                        onPress={onDownloadCsv}
+                        onPress={handleExportPress}
                         disabled={downloadLoading}
                         accessibilityLabel="Export data"
                     >

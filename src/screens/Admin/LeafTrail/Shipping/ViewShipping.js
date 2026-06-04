@@ -23,12 +23,12 @@ import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import {
   addLeafTrailShippingDetails,
   addLeafTrailTrackingNumber,
-  generateThermalLabels,
   getOrdersByBoxNumber,
 } from '../../../../components/Api/getAdminLeafTrail';
 import DeliveryDateTimeInput from './DeliveryDateTimeInput';
 import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
@@ -295,26 +295,17 @@ const ViewShippingScreen = ({ navigation, route }) => {
   const dimensions = shippingDetails?.packingData?.dimensions;
   const weight = shippingDetails?.packingData?.weight;
 
-  const handlePrintBarcodes = async () => {
-    if (!plantList.length) {
-      Alert.alert('Print', 'No plants in this box to print.');
-      return;
-    }
-    try {
-      setIsLoading(true);
-      const response = await generateThermalLabels(plantList.map((p) => p.id));
-      if (!response?.success) {
-        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
-      }
-    } catch (e) {
-      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
-    } finally {
-      setIsLoading(false);
-    }
+  const { printOrderIds, LabelViewer } = useLeafTrailThermalPrint('Box labels');
+
+  const handlePrintBarcodes = () => {
+    printOrderIds(plantList.map((p) => p.id).filter(Boolean), {
+      emptyMessage: 'No plants in this box to print.',
+    });
   };
 
   return (
     <SafeAreaView style={styles.screen}>
+      <LabelViewer />
       {hubSpecEnabled ? (
         <LeafTrailDetailHeader
           title="Box Details"

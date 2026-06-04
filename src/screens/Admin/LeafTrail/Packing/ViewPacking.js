@@ -21,13 +21,13 @@ import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import {
   addLeafTrailBoxNumber,
-  generateThermalLabels,
   getOrdersBySortingTray,
   updateLeafTrailStatus,
   updatePlantsToNeedsToStay,
 } from '../../../../components/Api/getAdminLeafTrail';
 import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
@@ -333,27 +333,19 @@ const ViewPackingScreen = ({ navigation, route }) => {
     plants: item.sortedPlantsData || [],
   };
 
-  const handlePrintBarcodes = async () => {
-    if (!plantList.length) {
-      Alert.alert('Print', 'No plants in this tray to print.');
-      return;
-    }
-    try {
-      setIsLoading(true);
-      const ids = selectedPlants.length > 0 ? selectedPlants : plantList.map((p) => p.id);
-      const response = await generateThermalLabels(ids);
-      if (!response?.success) {
-        Alert.alert('Print', response?.message || 'Failed to generate barcodes.');
-      }
-    } catch (e) {
-      Alert.alert('Print', e?.message || 'Failed to generate barcodes.');
-    } finally {
-      setIsLoading(false);
-    }
+  const { printOrderIds, LabelViewer } = useLeafTrailThermalPrint('Tray labels');
+
+  const handlePrintBarcodes = () => {
+    const ids =
+      selectedPlants.length > 0
+        ? selectedPlants
+        : plantList.map((p) => p.id).filter(Boolean);
+    printOrderIds(ids, { emptyMessage: 'No plants in this tray to print.' });
   };
 
   return (
     <SafeAreaView style={styles.screen}>
+      <LabelViewer />
       {hubSpecEnabled ? (
         <LeafTrailDetailHeader
           title="Tray Details"
