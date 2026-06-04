@@ -2,16 +2,30 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import { addSortingTrayNumber } from '../../../../components/Api/getAdminLeafTrail';
 import { forceUppercaseHubLabel } from '../../../../utils/leafTrailScanNav';
 import { isSortedPlant } from '../../../../utils/sortingBoxMetrics';
+
+/** Shared tray label when all sorted plants use the same tray #. */
+export function getSharedSortingTrayNumber(plants = []) {
+  const sortedPlants = (plants || []).filter(isSortedPlant);
+  const fromSorted = sortedPlants
+    .map((p) => String(p.sortingTrayNumber || '').trim())
+    .filter(Boolean);
+  if (!fromSorted.length) return '';
+  const first = fromSorted[0];
+  return fromSorted.every((t) => t === first) ? first : '';
+}
 
 /**
  * Assign one tray # to all sorted plants in the open receiver box (Packing uses tray next).
@@ -22,15 +36,10 @@ const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
     [plants],
   );
 
-  const existingTray = useMemo(() => {
-    const fromSorted = sortedPlants
-      .map((p) => String(p.sortingTrayNumber || '').trim())
-      .filter(Boolean);
-    if (!fromSorted.length) return '';
-    const first = fromSorted[0];
-    const allSame = fromSorted.every((t) => t === first);
-    return allSame ? first : '';
-  }, [sortedPlants]);
+  const existingTray = useMemo(
+    () => getSharedSortingTrayNumber(plants),
+    [plants],
+  );
 
   const [trayNumber, setTrayNumber] = useState(forceUppercaseHubLabel(existingTray));
   const [saving, setSaving] = useState(false);
@@ -72,10 +81,10 @@ const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
     }
   };
 
-  const isFooter = variant === 'footer';
+  const isSheet = variant === 'sheet';
 
   return (
-    <View style={[styles.wrap, isFooter && styles.wrapFooter]}>
+    <View style={[styles.wrap, isSheet && styles.wrapSheet]}>
       <Text style={styles.title}>Tray number</Text>
       <Text style={styles.subtitle}>
         {sortedPlants.length > 0
@@ -114,6 +123,73 @@ const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
   );
 };
 
+/** Bottom sheet — opened from the tray icon so the plant list stays visible. */
+export const SortingTrayAssignSheet = ({
+  visible,
+  onClose,
+  plants = [],
+  onAssigned,
+}) => {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent>
+      <View style={sheetStyles.root}>
+        <Pressable
+          style={sheetStyles.backdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close tray assignment"
+        />
+        <View style={[sheetStyles.panel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={sheetStyles.handle} />
+          <SortingTrayAssign
+            plants={plants}
+            variant="sheet"
+            onAssigned={() => {
+              onAssigned?.();
+              onClose?.();
+            }}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const sheetStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  panel: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    overflow: 'hidden',
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CDD3D4',
+    marginBottom: 12,
+  },
+});
+
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 4,
@@ -121,14 +197,10 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#ECEFEF',
   },
-  wrapFooter: {
+  wrapSheet: {
     marginTop: 0,
     paddingTop: 0,
     borderTopWidth: 0,
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E3E7E8',
   },
   title: {
     fontSize: 15,

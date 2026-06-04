@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
 import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
+import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import {
@@ -25,7 +26,10 @@ import {
   sortingPlantStatusLabel,
 } from '../../../../utils/sortingBoxMetrics';
 import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
-import SortingTrayAssign from './SortingTrayAssign';
+import {
+  SortingTrayAssignSheet,
+  getSharedSortingTrayNumber,
+} from './SortingTrayAssign';
 
 const SortingPlantRow = ({ plant, index }) => {
   const sorted = plantIsSorted(plant);
@@ -82,6 +86,7 @@ const BOX_PLANT_TABS = {
 const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   const insets = useSafeAreaInsets();
   const [finishPromptVisible, setFinishPromptVisible] = useState(false);
+  const [traySheetVisible, setTraySheetVisible] = useState(false);
   const [plantTab, setPlantTab] = useState(BOX_PLANT_TABS.awaiting);
 
   const metrics = useMemo(
@@ -112,7 +117,11 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   React.useEffect(() => {
     if (visible && box?.boxKey) {
       setPlantTab(BOX_PLANT_TABS.awaiting);
+      setTraySheetVisible(false);
       prevSortedCountRef.current = (box?.plants || []).filter(plantIsSorted).length;
+    }
+    if (!visible) {
+      setTraySheetVisible(false);
     }
   }, [visible, box?.boxKey]);
 
@@ -136,6 +145,11 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   const statusTint = metrics.isComplete
     ? SORTING_BOX_COLOR_COMPLETE
     : SORTING_BOX_COLOR_INCOMPLETE;
+
+  const sharedTrayNumber = useMemo(
+    () => getSharedSortingTrayNumber(box?.plants || []),
+    [box?.plants],
+  );
 
   const openScan = useCallback(() => {
     if (!box?.boxKey) return;
@@ -268,12 +282,31 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           <Text style={styles.headerTitle} numberOfLines={1}>
             Receiver box
           </Text>
-          <TouchableOpacity
-            style={styles.headerScanIcon}
-            onPress={openScan}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <ScanQrIcon width={32} height={32} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[
+                styles.headerActionIcon,
+                sharedTrayNumber && styles.headerActionIconActive,
+              ]}
+              onPress={() => setTraySheetVisible(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                sharedTrayNumber
+                  ? `Tray number ${sharedTrayNumber}. Tap to edit.`
+                  : 'Assign tray number'
+              }>
+              <TrayIcon width={26} height={26} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerActionIcon}
+              onPress={openScan}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Scan to sort plants">
+              <ScanQrIcon width={32} height={32} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <FlatList
@@ -287,7 +320,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: 200 + insets.bottom },
+            { paddingBottom: 88 + insets.bottom },
           ]}
           showsVerticalScrollIndicator={false}
           onRefresh={onRefresh}
@@ -304,11 +337,6 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
         />
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <SortingTrayAssign
-            plants={box?.plants || []}
-            onAssigned={onRefresh}
-            variant="footer"
-          />
           <TouchableOpacity
             style={styles.finishButton}
             onPress={() => setFinishPromptVisible(true)}
@@ -316,6 +344,13 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
             <Text style={styles.finishButtonText}>Finished scanning?</Text>
           </TouchableOpacity>
         </View>
+
+        <SortingTrayAssignSheet
+          visible={traySheetVisible}
+          onClose={() => setTraySheetVisible(false)}
+          plants={box?.plants || []}
+          onAssigned={onRefresh}
+        />
 
         <Modal transparent visible={finishPromptVisible} animationType="fade">
           <View style={styles.finishOverlay}>
@@ -390,11 +425,23 @@ const styles = StyleSheet.create({
     color: '#202325',
     marginHorizontal: 8,
   },
-  headerScanIcon: {
-    width: 40,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerActionIcon: {
+    minWidth: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 4,
+  },
+  headerActionIconActive: {
+    backgroundColor: '#EAF7EF',
+    borderWidth: 1,
+    borderColor: '#B8DFC4',
   },
   listHeader: {
     paddingBottom: 8,
