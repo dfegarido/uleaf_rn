@@ -17,6 +17,10 @@ import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
+import {
+  mergeFlightDatesIntoAdminFilters,
+  mergeSellerFilterLists,
+} from '../../../../components/Admin/plantFlightFilter';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { useLeafTrailListPrintExport } from '../../../../hooks/useLeafTrailListPrintExport';
@@ -78,6 +82,7 @@ const PackingScreen = ({ navigation }) => {
   const [fetchError, setFetchError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [adminFilters, setAdminFilters] = useState(null);
+  const [filtersLoading, setFiltersLoading] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [activeFilters, setActiveFilters] = useState(null);
@@ -85,8 +90,19 @@ const PackingScreen = ({ navigation }) => {
   activeFiltersRef.current = activeFilters;
 
   const getFilters = async () => {
-    const adminFilter = await getAdminLeafTrailFilters('["sorted", "packed"]');
-    setAdminFilters(adminFilter);
+    setFiltersLoading(true);
+    try {
+      const adminFilter = await getAdminLeafTrailFilters(
+        '["sorted", "packed", "received"]',
+        { lite: true },
+      );
+      setAdminFilters(adminFilter);
+    } catch (e) {
+      console.error('Failed to load packing filters:', e);
+      setAdminFilters((prev) => prev || {});
+    } finally {
+      setFiltersLoading(false);
+    }
   };
 
   const fetchData = async (filters) => {
@@ -111,8 +127,7 @@ const PackingScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData(activeFiltersRef.current);
-      getFilters();
+      Promise.all([fetchData(activeFiltersRef.current), getFilters()]);
     }, []),
   );
 
@@ -125,9 +140,32 @@ const PackingScreen = ({ navigation }) => {
     return [...(packingData?.data || [])].sort(compareTrays);
   }, [packingData?.data]);
 
+  const adminFiltersWithFlights = useMemo(() => {
+    const fromTrays = mergeFlightDatesIntoAdminFilters(adminFilters, trays);
+    const responseIsos = packingData?.flightDateIsos || [];
+    const withFlights = mergeFlightDatesIntoAdminFilters(
+      fromTrays,
+      responseIsos.map((iso) => ({
+        flightDateIso: iso,
+      })),
+    );
+    const mergedSellers = mergeSellerFilterLists(
+      withFlights?.seller,
+      packingData?.sellers,
+    );
+    return {
+      ...withFlights,
+      seller: mergedSellers,
+    };
+  }, [adminFilters, trays, packingData?.flightDateIsos, packingData?.sellers]);
+
+  const sellersLoading =
+    filtersLoading && !(adminFiltersWithFlights?.seller || []).length;
+
   const {
     actionLoading,
     showLabelViewer,
+    printStatusMessage,
     LabelViewer,
     handlePrint: handlePrintList,
     handleExport: handleExportList,
@@ -174,6 +212,9 @@ const PackingScreen = ({ navigation }) => {
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
+            {printStatusMessage ? (
+              <Text style={styles.loadingMessage}>{printStatusMessage}</Text>
+            ) : null}
           </View>
         </Modal>
       )}
@@ -207,11 +248,16 @@ const PackingScreen = ({ navigation }) => {
           <>
             {hubSpecEnabled ? (
               <LeafTrailHubToolbar
-                adminFilters={adminFilters}
+                adminFilters={adminFiltersWithFlights}
                 onFilterChange={onFilterChange}
+                sellersLoading={sellersLoading}
               />
             ) : (
-              <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+              <FilterBar
+                adminFilters={adminFiltersWithFlights}
+                onFilterChange={onFilterChange}
+                sellersLoading={sellersLoading}
+              />
             )}
             {activeFilters?.search ? (
               <Text style={styles.searchHint}>
@@ -262,6 +308,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 32,
+  },
+  loadingMessage: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#202325',
+    textAlign: 'center',
   },
   screenContainer: {
     flex: 1,

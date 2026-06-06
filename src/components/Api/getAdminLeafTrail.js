@@ -349,7 +349,7 @@ export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = fals
 
 export const getAdminLeafTrailFilters = async (
   statuses = null,
-  { sellerBuyerStatuses = null } = {},
+  { sellerBuyerStatuses = null, lite = false } = {},
 ) => {
   try {
     const token = await getStoredAuthToken();
@@ -367,6 +367,9 @@ export const getAdminLeafTrailFilters = async (
           ? sellerBuyerStatuses
           : JSON.stringify(sellerBuyerStatuses);
       params.set('sellerBuyerStatuses', sellerBuyerParam);
+    }
+    if (lite) {
+      params.set('lite', 'true');
     }
     if (params.toString()) {
       url = `${url}?${params.toString()}`;

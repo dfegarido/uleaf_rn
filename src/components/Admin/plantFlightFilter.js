@@ -71,14 +71,20 @@ export const parseAdminFlightDateTokenToIso = (token) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
 
-  const mdyComma = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2}),\s*(\d{4})$/);
+  const monthMap = {
+    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4,
+    may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8,
+    sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11,
+    dec: 12, december: 12,
+  };
+  const resolveMonthNum = (monthToken) => {
+    const key = String(monthToken || '').trim().toLowerCase();
+    return monthMap[key] ?? monthMap[key.slice(0, 3)] ?? monthMap[key.slice(0, 4)];
+  };
+
+  const mdyComma = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2}),?\s*(\d{4})$/);
   if (mdyComma) {
-    const monthMap = {
-      jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-      jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
-    };
-    const monKey = mdyComma[1].slice(0, 4).toLowerCase();
-    const monthNum = monthMap[monKey] ?? monthMap[monKey.slice(0, 3)];
+    const monthNum = resolveMonthNum(mdyComma[1]);
     if (monthNum) {
       const day = parseInt(mdyComma[2], 10);
       const year = parseInt(mdyComma[3], 10);
@@ -88,18 +94,23 @@ export const parseAdminFlightDateTokenToIso = (token) => {
     }
   }
 
-  const mmm = s.match(/^([A-Za-z]{3,4})-(\d{1,2})-(\d{4})$/);
+  const mmm = s.match(/^([A-Za-z]{3,9})-(\d{1,2})-(\d{4})$/);
   if (mmm) {
-    const monKey = mmm[1].slice(0, 3).toLowerCase();
-    const monthMap = {
-      jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-      jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
-    };
-    const monthNum = monthMap[monKey];
-    if (monthNum === undefined) return null;
+    const monthNum = resolveMonthNum(mmm[1]);
+    if (!monthNum) return null;
     const day = parseInt(mmm[2], 10);
     const year = parseInt(mmm[3], 10);
     if (!year || !day) return null;
+    return `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  const mmmShortYear = s.match(/^([A-Za-z]{3,9})-(\d{1,2})$/);
+  if (mmmShortYear) {
+    const monthNum = resolveMonthNum(mmmShortYear[1]);
+    if (!monthNum) return null;
+    const day = parseInt(mmmShortYear[2], 10);
+    const year = new Date().getFullYear();
+    if (!day) return null;
     return `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
   const d = new Date(s);
@@ -114,6 +125,63 @@ export const formatIsoToAdminFlightDateToken = (iso) => {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   if (!m || m < 1 || m > 12) return null;
   return `${monthNames[m - 1]}-${d}-${y}`;
+};
+
+/**
+ * Merge flight dates from loaded list items into admin filter options.
+ * Packing/Sorting trays often have flightDate while getAdminFilters may return none for narrow statuses.
+ */
+export const mergeFlightDatesIntoAdminFilters = (
+  adminFilters,
+  items = [],
+  pickFlightTokens = (item) => [
+    item?.flightDateIso,
+    ...(Array.isArray(item?.flightDateIsos) ? item.flightDateIsos : []),
+    item?.flightDate,
+    item?.flightDateFormatted,
+  ],
+) => {
+  const baseFilters = adminFilters || {};
+
+  const isoSet = new Set();
+  const addToken = (token) => {
+    const iso = parseAdminFlightDateTokenToIso(token);
+    if (iso) isoSet.add(iso);
+  };
+
+  (baseFilters.flightDates || []).forEach(addToken);
+  (baseFilters.flightDateIsos || []).forEach((iso) => {
+    if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      isoSet.add(iso);
+    }
+  });
+
+  (items || []).forEach((item) => {
+    const tokens = pickFlightTokens(item);
+    (Array.isArray(tokens) ? tokens : [tokens]).forEach(addToken);
+  });
+
+  const mergedFlightDateIsos = [...isoSet].sort((a, b) => b.localeCompare(a));
+  const mergedFlightDates = mergedFlightDateIsos
+    .map((iso) => formatIsoToAdminFlightDateToken(iso))
+    .filter(Boolean);
+
+  return {
+    ...baseFilters,
+    flightDateIsos: mergedFlightDateIsos,
+    flightDates: mergedFlightDates.length
+      ? mergedFlightDates
+      : (baseFilters.flightDates || []),
+  };
+};
+
+/** Merge seller filter options (e.g. packing API sellers + getAdminFilters). */
+export const mergeSellerFilterLists = (base = [], extra = []) => {
+  const map = new Map();
+  [...(base || []), ...(extra || [])].forEach((seller) => {
+    if (seller?.id) map.set(seller.id, seller);
+  });
+  return [...map.values()].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 };
 
 const SelectedDateChip = ({ date, onRemove }) => (
@@ -171,6 +239,11 @@ const PlantFlightFilter = ({
     Array.isArray(flightDates) ? flightDates.join('|') : '',
   ]);
 
+  const availableIsoList = useMemo(
+    () => [...availableFlightDateIsoSet].sort((a, b) => b.localeCompare(a)),
+    [availableFlightDateIsoSet],
+  );
+
   // Initialize draft selection when modal opens
   useEffect(() => {
     if (isVisible) {
@@ -178,15 +251,17 @@ const PlantFlightFilter = ({
         .map((v) => parseAdminFlightDateTokenToIso(v))
         .filter(Boolean);
       setDraftSelection(normalizedSelection);
-      // Set current month to the first selected date or current month
-      if (normalizedSelection.length > 0) {
-        const firstDate = new Date(normalizedSelection[0] + 'T00:00:00');
-        if (!isNaN(firstDate.getTime())) {
-          setCurrentMonth(new Date(firstDate.getFullYear(), firstDate.getMonth(), 1));
+
+      const jumpIso =
+        normalizedSelection[0] || availableIsoList[0] || null;
+      if (jumpIso) {
+        const [year, month] = jumpIso.split('-').map(Number);
+        if (year && month) {
+          setCurrentMonth(new Date(year, month - 1, 1));
         }
       }
     }
-  }, [isVisible, memoizedSelectedValues]);
+  }, [isVisible, memoizedSelectedValues, availableIsoList.join('|')]);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -208,10 +283,15 @@ const PlantFlightFilter = ({
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   };
 
+  const calendarDayIso = (day) => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth() + 1;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
   const handleDateSelect = (day) => {
-    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateISO = toISODateString(selectedDate);
-    
+    const dateISO = calendarDayIso(day);
+
     setDraftSelection(prev => {
       const safePrev = prev.filter(d => typeof d === 'string' && d.trim().length > 0);
       if (safePrev.includes(dateISO)) {
@@ -222,17 +302,9 @@ const PlantFlightFilter = ({
     });
   };
 
-  const isDateSelected = (day) => {
-    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateISO = toISODateString(date);
-    return draftSelection.includes(dateISO);
-  };
+  const isDateSelected = (day) => draftSelection.includes(calendarDayIso(day));
 
-  const isDateAvailable = (day) => {
-    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateISO = toISODateString(date);
-    return availableFlightDateIsoSet.has(dateISO);
-  };
+  const isDateAvailable = (day) => availableFlightDateIsoSet.has(calendarDayIso(day));
 
   const handleRemoveDate = (dateToRemove) => {
     setDraftSelection(prev => prev.filter(d => d !== dateToRemove));
@@ -370,6 +442,19 @@ const PlantFlightFilter = ({
 
                   {/* Divider */}
                   {sortedSelection.length > 0 && <View style={styles.divider} />}
+
+                  {availableFlightDateIsoSet.size === 0 ? (
+                    <Text style={styles.noDatesHint}>
+                      No plant flight dates are available for the current packing list.
+                      Load trays first, or clear other filters and try again.
+                    </Text>
+                  ) : (
+                    <Text style={styles.availableDatesHint}>
+                      {availableFlightDateIsoSet.size} flight date
+                      {availableFlightDateIsoSet.size === 1 ? '' : 's'} available
+                      — use arrows to change month if needed.
+                    </Text>
+                  )}
 
                   {/* Calendar Header */}
                   <View style={styles.calendarHeader}>
@@ -530,6 +615,24 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E4E7E9',
     marginVertical: 8,
+  },
+  noDatesHint: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#E65100',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  availableDatesHint: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#647276',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
   calendarHeader: {
     flexDirection: 'row',

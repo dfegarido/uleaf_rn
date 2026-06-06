@@ -19,7 +19,12 @@ import SortOptions from './sort';
 import { globalStyles } from '../../assets/styles/styles';
 import OrderActionSheet from '../../screens/Seller/Order/components/OrderActionSheet';
 
-const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
+const FilterBar = ({
+  onFilterChange,
+  adminFilters,
+  showScan = false,
+  sellersLoading = false,
+}) => {
   const [filters, setFilters] = useState({
     sort: null,
     flightDate: null,
@@ -504,6 +509,7 @@ const FilterBar = ({ onFilterChange, adminFilters, showScan = false }) => {
         sellers={adminFilters?.seller || []}
         selectedValues={parseSellerFilterValues(filters.sellerName)}
         currentSeller={filters.sellerName}
+        sellersLoading={sellersLoading}
       />
 
       <BuyerFilter

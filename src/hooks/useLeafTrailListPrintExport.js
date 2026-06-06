@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import {
+  confirmLargeLabelPrint,
   exportPlantsWithFeedback,
   fetchPlantsForBoxes,
   fetchPlantsForTracking,
@@ -20,9 +21,16 @@ export function useLeafTrailListPrintExport({
   emptyListMessage = 'Nothing in the current list.',
   noPlantsMessage = 'No plants found for the current list.',
 }) {
-  const { actionLoading: printLoading, showLabelViewer, printOrderIds, LabelViewer } =
-    useLeafTrailThermalPrint(labelTitle);
+  const {
+    actionLoading: printLoading,
+    showLabelViewer,
+    printStatusMessage,
+    printOrderIds,
+    LabelViewer,
+  } = useLeafTrailThermalPrint(labelTitle);
   const [exportLoading, setExportLoading] = useState(false);
+  const [listPrintBusy, setListPrintBusy] = useState(false);
+  const [listPrintMessage, setListPrintMessage] = useState('');
 
   const resolvePlants = useCallback(async () => {
     if (!listItems?.length) {
@@ -39,17 +47,33 @@ export function useLeafTrailListPrintExport({
   }, [listItems, listKind, emptyListMessage]);
 
   const handlePrint = useCallback(async () => {
-    if (printLoading || exportLoading) return;
-    const plants = await resolvePlants();
-    if (!plants.length) {
-      Alert.alert('Print', noPlantsMessage);
-      return;
+    if (printLoading || exportLoading || listPrintBusy) return;
+    setListPrintBusy(true);
+    try {
+      setListPrintMessage('Loading plants from list…');
+      const plants = await resolvePlants();
+      if (!plants.length) {
+        Alert.alert('Print', noPlantsMessage);
+        return;
+      }
+      const orderIds = plants.map((p) => p.id).filter(Boolean);
+      const shouldContinue = await confirmLargeLabelPrint(orderIds.length);
+      if (!shouldContinue) return;
+      setListPrintMessage(`Preparing ${orderIds.length} label(s)…`);
+      await printOrderIds(orderIds, { isListLoading: isLoading });
+    } finally {
+      setListPrintBusy(false);
+      setListPrintMessage('');
     }
-    await printOrderIds(
-      plants.map((p) => p.id),
-      { isListLoading: isLoading },
-    );
-  }, [printLoading, exportLoading, resolvePlants, printOrderIds, isLoading, noPlantsMessage]);
+  }, [
+    printLoading,
+    exportLoading,
+    listPrintBusy,
+    resolvePlants,
+    printOrderIds,
+    isLoading,
+    noPlantsMessage,
+  ]);
 
   const handleExport = useCallback(async () => {
     if (printLoading || exportLoading) return;
@@ -88,9 +112,10 @@ export function useLeafTrailListPrintExport({
   ]);
 
   return {
-    actionLoading: printLoading || exportLoading,
+    actionLoading: printLoading || exportLoading || listPrintBusy,
     exportLoading,
     showLabelViewer,
+    printStatusMessage: listPrintMessage || printStatusMessage,
     LabelViewer,
     handlePrint,
     handleExport,

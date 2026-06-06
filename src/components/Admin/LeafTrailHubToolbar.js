@@ -22,6 +22,7 @@ const LeafTrailHubToolbar = ({
   adminFilters,
   onFilterChange,
   showReceiptStatus = false,
+  sellersLoading = false,
 }) => {
   const [filters, setFilters] = useState({
     flightDate: null,
@@ -166,6 +167,7 @@ const LeafTrailHubToolbar = ({
         sellers={adminFilters?.seller || []}
         selectedValues={parseCsvList(filters.sellerName)}
         currentSeller={filters.sellerName}
+        sellersLoading={sellersLoading}
       />
     </View>
   );

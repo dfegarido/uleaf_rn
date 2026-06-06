@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Modal,
@@ -20,42 +21,71 @@ const ThermalLabelViewerModal = ({
   labels = [],
   onClose,
   title = 'Generated Labels',
-}) => (
-  <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.backButton} hitSlop={12}>
-          <BackIcon width={22} height={22} />
-        </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>
-          {title} ({labels.length})
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
-      <FlatList
-        data={labels}
-        keyExtractor={(item, index) => String(item.orderId || item.plantCode || index)}
-        numColumns={2}
-        contentContainerStyle={styles.grid}
-        renderItem={({ item, index }) => (
-          <View style={styles.preview}>
-            <Text style={styles.previewLabel} numberOfLines={1}>
-              {item.plantCode || `Label ${index + 1}`}
+  loadingMore = false,
+  expectedTotal = 0,
+}) => {
+  const countLabel =
+    expectedTotal > labels.length
+      ? `${labels.length} of ${expectedTotal}`
+      : String(labels.length);
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton} hitSlop={12}>
+            <BackIcon width={22} height={22} />
+          </TouchableOpacity>
+          <Text style={styles.title} numberOfLines={1}>
+            {title} ({countLabel})
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        {loadingMore ? (
+          <View style={styles.loadingMoreBar}>
+            <ActivityIndicator size="small" color="#539461" />
+            <Text style={styles.loadingMoreText}>
+              Loading more labels ({labels.length}
+              {expectedTotal ? ` of ${expectedTotal}` : ''})…
             </Text>
-            <Image
-              source={{ uri: `data:image/png;base64,${item.base64}` }}
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
           </View>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No label images to display.</Text>
-        }
-      />
-    </SafeAreaView>
-  </Modal>
-);
+        ) : null}
+        <FlatList
+          data={labels}
+          keyExtractor={(item, index) => String(item.orderId || item.plantCode || index)}
+          numColumns={2}
+          contentContainerStyle={styles.grid}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews
+          renderItem={({ item, index }) => (
+            <View style={styles.preview}>
+              <Text style={styles.previewLabel} numberOfLines={1}>
+                {item.plantCode || `Label ${index + 1}`}
+              </Text>
+              <Image
+                source={{ uri: `data:image/png;base64,${item.base64}` }}
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+          ListEmptyComponent={
+            loadingMore ? (
+              <View style={styles.emptyLoading}>
+                <ActivityIndicator size="large" color="#539461" />
+                <Text style={styles.empty}>Preparing label previews…</Text>
+              </View>
+            ) : (
+              <Text style={styles.empty}>No label images to display.</Text>
+            )
+          }
+        />
+      </SafeAreaView>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -90,6 +120,22 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+  loadingMoreBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0F7F1',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E9EB',
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#539461',
+  },
   grid: {
     padding: 12,
     gap: 10,
@@ -119,6 +165,11 @@ const styles = StyleSheet.create({
     color: '#647276',
     marginTop: 32,
     fontSize: 15,
+  },
+  emptyLoading: {
+    alignItems: 'center',
+    paddingTop: 48,
+    gap: 12,
   },
 });
 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Modal,
   ScrollView,
@@ -76,6 +77,7 @@ const SellerFilter = ({
   sellers = [],
   selectedValues,
   currentSeller = null,
+  sellersLoading = false,
 }) => {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,7 +210,14 @@ const SellerFilter = ({
                         filteredSellers.length === 0 ? styles.listContentEmpty : undefined
                       }
                     >
-                      {filteredSellers.length === 0 ? (
+                      {sellersLoading && filteredSellers.length === 0 ? (
+                        <View style={styles.emptyStateContainer}>
+                          <ActivityIndicator size="large" color="#539461" />
+                          <Text style={[styles.emptyStateText, styles.loadingStateText]}>
+                            Loading sellers…
+                          </Text>
+                        </View>
+                      ) : filteredSellers.length === 0 ? (
                         <View style={styles.emptyStateContainer}>
                           <Text style={styles.emptyStateText}>No sellers found</Text>
                           <Text style={styles.emptyStateSubtext}>
@@ -328,6 +337,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#393D40',
     marginBottom: 8,
+  },
+  loadingStateText: {
+    marginTop: 12,
+    marginBottom: 0,
+    fontWeight: '500',
+    color: '#647276',
   },
   emptyStateSubtext: {
     fontSize: 14,
