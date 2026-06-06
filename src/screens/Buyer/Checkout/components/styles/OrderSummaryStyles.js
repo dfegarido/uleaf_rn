@@ -194,10 +194,9 @@ const styles = StyleSheet.create({
   baseAirCargoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 0,
+    alignItems: 'flex-start',
+    paddingVertical: 4,
     width: '100%',
-    height: 28,
     alignSelf: 'stretch',
   },
   wholesaleAirCargoRow: {
@@ -318,10 +317,11 @@ const styles = StyleSheet.create({
   baseAirCargoLabelContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: 0,
     flex: 1,
-    height: 28,
+    flexShrink: 1,
+    marginRight: 8,
     gap: 8,
   },
   baseAirCargoLabel: {
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#647276',
     flex: 1,
-    height: 22,
+    flexShrink: 1,
   },
   baseAirCargoTooltip: {
     flexDirection: 'column',
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 22,
     color: '#202325',
-    height: 22,
+    flexShrink: 0,
     textAlign: 'right',
   },
   wholesaleAirCargoLabel: {

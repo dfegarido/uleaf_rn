@@ -133,8 +133,8 @@ const ScreenShop = ({navigation}) => {
 
   // Price filter state
   const [priceOptions, setPriceOptions] = useState([
-    {label: '$0 - $20', value: '$0 - $20'},
-    {label: '$21 - $50', value: '$21 - $50'},
+    {label: '$0 - $30', value: '$0 - $30'},
+    {label: '$31 - $50', value: '$31 - $50'},
     {label: '$51 - $100', value: '$51 - $100'},
     {label: '$101 - $200', value: '$101 - $200'},
     {label: '$201 - $500', value: '$201 - $500'},

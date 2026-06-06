@@ -343,8 +343,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
             case 'Top 5 Buyer Wish List':
               loadTop5WishListPlants();
               break;
-            case 'Below $20':
-              loadBelow20Plants();
+            case 'Below $30':
+              loadBelow30Plants();
               break;
             case 'Latest Nursery Drop':
               loadLatestNurseryDropPlants();
@@ -440,7 +440,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       
       // Don't reload if a special badge is active
       // Check ref first (immediate) then state (for consistency)
-      const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $20', 'Unicorn', 'Top 5 Buyer Wish List'];
+      const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $30', 'Unicorn', 'Top 5 Buyer Wish List'];
       const currentBadge = activeBadgeRef.current || activeBadge;
       if (specialBadges.includes(currentBadge)) {
         console.log('⏭️ [ScreenGenusPlants] Focus effect - skipping, badge active:', currentBadge);
@@ -482,7 +482,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         
         routeFilterApplied.current = true;
         
-        const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $20', 'Unicorn', 'Top 5 Buyer Wish List'];
+        const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $30', 'Unicorn', 'Top 5 Buyer Wish List'];
         const currentBadge = activeBadgeRef.current || activeBadge;
         if (!specialBadges.includes(currentBadge)) {
           setTimeout(() => {
@@ -518,7 +518,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
     try {
       // Don't load regular plants if a special badge is active
       // Check ref first (immediate) then state (for consistency)
-      const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $20', 'Unicorn', 'Top 5 Buyer Wish List'];
+      const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $30', 'Unicorn', 'Top 5 Buyer Wish List'];
       const currentBadge = activeBadgeRef.current || activeBadge;
       if (specialBadges.includes(currentBadge)) {
         console.log('⏭️ [loadPlants] Skipping - special badge active:', currentBadge);
@@ -791,8 +791,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
     }
   };
 
-  // Load plants for Below $20 badge with specific parameters
-  const loadBelow20Plants = async () => {
+  // Load plants for Below $30 badge with specific parameters
+  const loadBelow30Plants = async () => {
     setLoading(true);
     setPlants([]);
     
@@ -802,18 +802,19 @@ const ScreenGenusPlants = ({navigation, route}) => {
         throw new Error('No internet connection.');
       }
 
-      // Specific parameters for Below $20 badge - show ALL items under $20
-      const below20Params = {
-        maxPrice: 20,
+      // Show all items priced at or below $30 (buyer-visible price)
+      const below30Params = {
+        maxPrice: 30,
+        limit: 500,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
 
 
-      const res = await retryAsync(() => getBuyerListingsApi(below20Params), 3, 1000);
+      const res = await retryAsync(() => getBuyerListingsApi(below30Params), 3, 1000);
 
       if (!res?.success) {
-        throw new Error(res?.error || 'Failed to load Below $20 plants');
+        throw new Error(res?.error || 'Failed to load Below $30 plants');
       }
 
 
@@ -844,11 +845,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
       setPlants(newPlants);
       setNextPageToken(null);
 
-      // For Below $20, load all items at once - no pagination needed
+      // For Below $30, load all items at once - no pagination needed
       setHasMore(false);
 
     } catch (error) {
-      console.error('Error loading Below $20 plants:', error);
+      console.error('Error loading Below $30 plants:', error);
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
@@ -1155,11 +1156,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
       // Apply price filter
       if (filters.price && filters.price.length > 0) {
         const priceValue = Array.isArray(filters.price) ? filters.price[0] : filters.price;
-        if (priceValue === '$0 - $20') {
+        if (priceValue === '$0 - $30') {
           baseParams.minPrice = 0;
-          baseParams.maxPrice = 20;
-        } else if (priceValue === '$21 - $50') {
-          baseParams.minPrice = 21;
+          baseParams.maxPrice = 30;
+        } else if (priceValue === '$31 - $50') {
+          baseParams.minPrice = 31;
           baseParams.maxPrice = 50;
         } else if (priceValue === '$51 - $100') {
           baseParams.minPrice = 51;
@@ -1250,7 +1251,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
     'Price Drop': { price: ['$0 - $20'] },
     'New Arrivals': { sort: ['Newest to Oldest'] },
     'Latest Nursery Drop': { listingType: ['Latest Nursery Drop'] },
-    'Below $20': { price: ['$0 - $20'] },
+    'Below $30': { price: ['$0 - $30'] },
     'Unicorn': { listingType: ['Unicorn'] },
     'Top 5 Buyer Wish List': { listingType: ['Top 5 Buyer Wish List'] },
   };
@@ -1307,11 +1308,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
         return;
       }
 
-      // Special handling for Below $20 badge with specific API parameters
-      if (label === 'Below $20') {
-        setActiveBadge('Below $20');
+      // Special handling for Below $30 badge with specific API parameters
+      if (label === 'Below $30') {
+        setActiveBadge('Below $30');
         justFiltered.current = true;
-        loadBelow20Plants();
+        loadBelow30Plants();
         return;
       }
 

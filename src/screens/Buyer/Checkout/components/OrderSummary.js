@@ -2,6 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Animated, TextInput } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { formatCurrencyFull } from '../../../../utils/formatCurrency';
+import {
+  AIR_CARGO_DOCUMENTATION_FEE_LABEL,
+  HANDLING_FEE_CREDIT_LABEL,
+  getAirCargoPromoQualifiedText,
+} from '../../../../config/shippingConstants';
 import styles from './styles/OrderSummaryStyles';
 import LeafGreenIcon from '../../../../assets/buyer-icons/leaf-green.svg';
 import PlantVioletIcon from '../../../../assets/buyer-icons/plant-violet.svg';
@@ -15,6 +20,7 @@ const OrderSummary = ({
   quantityBreakdown = {},
   orderSummary = {},
   shippingCalculation = { loading: false },
+  promoQualifiedMessage = '',
   shimmerAnim = new Animated.Value(0),
   upsNextDayEnabled = false,
   onToggleUpsNextDay = () => {},
@@ -164,13 +170,13 @@ const OrderSummary = ({
         </View>
 
         {/* Shipping Credits Notification */}
-        {(orderSummary.shippingCreditsDiscount || 0) > 0 && (
+        {(orderSummary.shippingCreditsDiscount || 0) > 0 && promoQualifiedMessage ? (
           <View style={styles.shippingCreditsNotification}>
             <Text style={styles.shippingCreditsNotificationText}>
-              🎉 Congratulations! You qualify for $150 shipping credits for spending $500+ and buying 15+ plants.
+              🎉 {promoQualifiedMessage}
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Shipping Summary */}
         <View style={styles.shippingSummary}>
@@ -232,7 +238,7 @@ const OrderSummary = ({
                 <View style={styles.labeledToggle}>
                   <View style={styles.toggleLabel}>
                     <Text style={styles.toggleLabelText}>
-                      Upgrading to UPS Next Day
+                      Upgrade to Next Day Saver
                       {isJoinerApproved && (
                         <Text style={styles.toggleLabelTextSubtle}> (controlled by receiver)</Text>
                       )}
@@ -290,7 +296,9 @@ const OrderSummary = ({
                 {/* Base Air Cargo - always show (for Single Plant/Grower's Choice items) */}
                 <View style={styles.baseAirCargoRow}>
                   <View style={styles.baseAirCargoLabelContainer}>
-                    <Text style={styles.baseAirCargoLabel}>Base Air Cargo</Text>
+                    <Text style={styles.baseAirCargoLabel}>
+                      {AIR_CARGO_DOCUMENTATION_FEE_LABEL}
+                    </Text>
                     <View style={styles.baseAirCargoTooltip}>
                       <View style={styles.baseAirCargoTooltipIcon}>
                         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -324,7 +332,7 @@ const OrderSummary = ({
                 {(orderSummary.shippingCreditsDiscount || 0) > 0 && (
                   <View style={styles.shippingCreditsRow}>
                     <Text style={styles.shippingCreditsLabel}>
-                      Shipping Credits
+                      {HANDLING_FEE_CREDIT_LABEL}
                     </Text>
                     <Text style={styles.shippingCreditsAmount}>
                       -{formatCurrencyFull(orderSummary.shippingCreditsDiscount)}
@@ -538,7 +546,7 @@ const OrderSummary = ({
                   <TruckBlueIcon width={32} height={32} />
                 </View>
                 <Text style={[styles.iconLabel, styles.shippingIconLabel]}>
-                  Shipping Credit
+                  {HANDLING_FEE_CREDIT_LABEL}
                 </Text>
               </View>
 

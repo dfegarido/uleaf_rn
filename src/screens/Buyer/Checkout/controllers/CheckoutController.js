@@ -11,6 +11,7 @@ import { validateDiscountCodeApi } from '../../../../components/Api/discountApi'
 import { getBuyerProfileApi } from '../../../../components/Api/getBuyerProfileApi';
 import { getBuyerOrdersApi } from '../../../../components/Api/orderManagementApi';
 import { getActiveFlightDatesApi } from '../../../../components/Api/getActiveFlightDatesApi';
+import { getAirCargoPromoQualifiedText } from '../../../../config/shippingConstants';
 import { roundToCents } from '../../../../utils/money';
 import { createAndCapturePaypalOrder } from '../../../../components/Api/paymentApi';
 
@@ -837,6 +838,32 @@ export const useCheckoutController = (props) => {
       shippingCreditNote: shippingCreditNote, // Customer message about remaining shipping credit
     };
   }, [plantItems, shippingCalculation, quantityBreakdown, leafPointsEnabled, plantCreditsEnabled, shippingCreditsEnabled, leafPoints, plantCredits, shippingCredits, normalizeListingType, appliedDiscount]);
+
+  const promoQualifiedMessage = useMemo(() => {
+    if ((orderSummary.shippingCreditsDiscount || 0) <= 0) {
+      return '';
+    }
+
+    const currentCartPlants =
+      shippingCalculation?.currentPromoEligiblePlantCount ??
+      plantItems.reduce((sum, item) => {
+        if (normalizeListingType(item.listingType) === 'wholesale') {
+          return sum;
+        }
+        return sum + (Number(item.quantity) || 1);
+      }, 0);
+
+    return getAirCargoPromoQualifiedText({
+      totalEligiblePlants: shippingCalculation?.promoEligiblePlantCount ?? currentCartPlants,
+      currentCartPlants,
+    });
+  }, [
+    orderSummary.shippingCreditsDiscount,
+    shippingCalculation?.promoEligiblePlantCount,
+    shippingCalculation?.currentPromoEligiblePlantCount,
+    plantItems,
+    normalizeListingType,
+  ]);
 
   // Check if all plants are from Thailand
   const isThailandPlant = useMemo(() => {
@@ -2771,6 +2798,7 @@ export const useCheckoutController = (props) => {
     plantItems,
     quantityBreakdown,
     orderSummary,
+    promoQualifiedMessage,
     flightDateOptions,
     flightLockInfo,
 

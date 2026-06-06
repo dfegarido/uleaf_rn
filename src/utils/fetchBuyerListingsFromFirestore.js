@@ -229,7 +229,25 @@ function passesPriceFilter(listing, minPrice, maxPrice, isUnicornFilter) {
     priceToCheck = prices.length > 0 ? Math.max(...prices) : 0;
     return priceToCheck >= 2000 && (maxVal == null || priceToCheck <= maxVal);
   }
-  priceToCheck = listing.finalPrice ?? listing.usdPrice ?? 0;
+
+  const minValNum = minVal != null ? minVal : 0;
+  const isBelowPriceCeilingFilter =
+    maxVal != null &&
+    maxVal <= 100 &&
+    (minVal == null || minValNum === 0);
+
+  if (isBelowPriceCeilingFilter) {
+    const candidates = [
+      listing.finalPrice,
+      listing.usdPrice,
+      listing.originalPrice,
+    ]
+      .map((p) => Number(p))
+      .filter((p) => !Number.isNaN(p) && p > 0);
+    priceToCheck = candidates.length > 0 ? Math.min(...candidates) : 0;
+  } else {
+    priceToCheck = listing.finalPrice ?? listing.usdPrice ?? 0;
+  }
   if (minVal != null && priceToCheck < minVal) return false;
   if (maxVal != null && priceToCheck > maxVal) return false;
   return true;

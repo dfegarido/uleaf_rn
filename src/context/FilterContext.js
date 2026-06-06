@@ -113,11 +113,11 @@ export const FilterProvider = ({ children }) => {
     // Apply price filter
     if (filters.price) {
       const priceRange = filters.price;
-      if (priceRange === '$0 - $20') {
+      if (priceRange === '$0 - $30') {
         params.minPrice = 0;
-        params.maxPrice = 20;
-      } else if (priceRange === '$21 - $50') {
-        params.minPrice = 21;
+        params.maxPrice = 30;
+      } else if (priceRange === '$31 - $50') {
+        params.minPrice = 31;
         params.maxPrice = 50;
       } else if (priceRange === '$51 - $100') {
         params.minPrice = 51;

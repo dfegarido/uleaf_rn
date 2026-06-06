@@ -15,7 +15,7 @@ const DEFAULT_PROMO_BADGES = [
   {label: 'Price Drop', icon: PriceDropIcon},
   {label: 'New Arrivals', icon: NewArrivalsIcon},
   {label: 'Latest Nursery Drop', icon: LeavesIcon},
-  {label: 'Below $20', icon: PriceTagIcon},
+  {label: 'Below $30', icon: PriceTagIcon},
   {label: 'Unicorn', icon: UnicornIcon},
   {label: 'Top 5 Buyer Wish List', icon: Top5Icon},
 ];
@@ -25,7 +25,7 @@ const BADGE_TO_GENUS_MAP = {
   'Price Drop': 'Price Drop',
   'New Arrivals': 'New Arrivals',
   'Latest Nursery Drop': 'Latest Nursery Drop',
-  'Below $20': 'Below $20',
+  'Below $30': 'Below $30',
   'Unicorn': 'Unicorn',
   'Top 5 Buyer Wish List': 'Top 5 Buyer Wish List',
 };
@@ -35,7 +35,7 @@ const SPECIAL_BADGES = [
   'Price Drop',
   'New Arrivals',
   'Latest Nursery Drop',
-  'Below $20',
+  'Below $30',
   'Unicorn',
   'Top 5 Buyer Wish List',
 ];

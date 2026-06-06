@@ -23,6 +23,14 @@ import { ActivityIndicator,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from 'react-native-url-polyfill';
 import { paymentPaypalVenmoUrl } from '../../../../config';
+import {
+  AIR_CARGO_DOCUMENTATION_FEE_LABEL,
+  HANDLING_FEE_CREDIT_LABEL,
+  getAirCargoPromoQualifiedText,
+  PROMO_FREE_AIR_CARGO_MIN_ITEMS,
+  PROMO_FREE_AIR_CARGO_MIN_SUBTOTAL,
+  REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
+} from '../../../config/shippingConstants';
 import { db } from '../../../../firebase';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
@@ -627,7 +635,12 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       
       if (!plants || plants.length === 0) {
         console.log('⚠️ No plants found, skipping API call');
-        setShippingCalculation({ baseCost: 50, addOnCost: 0, baseCargo: 150, loading: false });
+        setShippingCalculation({
+          baseCost: 50,
+          addOnCost: 0,
+          baseCargo: REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
+          loading: false,
+        });
         return;
       }
 
@@ -639,10 +652,13 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         
         if (!isCancelled) {
           setShippingCalculation({
-            baseCost: result.shippingTotal ?? 0,     // Use backend value or 0
+            baseCost: result.shippingTotal ?? 0,
             addOnCost: 0,
-            baseCargo: 150,   // Use backend value or 0
-            wholesaleAirCargo: result.wholesaleAirCargoTotal ?? 0, // Use backend value or 0
+            baseCargo: result.regularAirCargoTotal ?? REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
+            wholesaleAirCargo: result.wholesaleAirCargoTotal ?? 0,
+            shippingCreditsDiscount: result.shippingCreditsDiscount ?? 0,
+            promoEligiblePlantCount: result.promoEligiblePlantCount ?? 0,
+            currentPromoEligiblePlantCount: result.currentPromoEligiblePlantCount ?? 0,
             loading: false,
             details: result.details,
             appliedCredit: result.appliedAirBaseCredit,
@@ -651,8 +667,8 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
               airCargoTotal: result.airCargoTotal,
               wholesaleAirCargoTotal: result.wholesaleAirCargoTotal,
               total: result.total,
-              details: result.details
-            }
+              details: result.details,
+            },
           });
         }
       } catch (error) {
@@ -660,7 +676,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           setShippingCalculation({ 
             baseCost: undefined, 
             addOnCost: 0, 
-            baseCargo: 150,
+            baseCargo: REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
             wholesaleAirCargo: undefined,
             loading: false 
           });
@@ -1062,8 +1078,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
 
           const shippingRates = calculateUpsShippingCost();
           // Apply credit for buyers who already paid air cargo on first order
-          // This will show Base Air Cargo: $150, Credit: -$150, Effective: $0
-          setPriorPaidAirBaseCargoAmount(150);
+          setPriorPaidAirBaseCargoAmount(REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE);
         } else {
           setLockedFlightDate(null);
           setLockedFlightKey(null);
@@ -1122,6 +1137,22 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       0,
     );
 
+    const promoEligibleCartPlants = plantItems.reduce((sum, item) => {
+      const listingType = (item.listingType || '').toString().toLowerCase();
+      if (listingType.includes('whole')) {
+        return sum;
+      }
+      return sum + (item.quantity || 1);
+    }, 0);
+
+    const promoEligibleSubtotal = plantItems.reduce((sum, item) => {
+      const listingType = (item.listingType || '').toString().toLowerCase();
+      if (listingType.includes('whole')) {
+        return sum;
+      }
+      return sum + (item.price * (item.quantity || 1));
+    }, 0);
+
     // Calculate total original cost (sum of all original prices)
     const totalOriginalCost = plantItems.reduce((sum, item) => {
       const originalPrice = item.originalPrice || item.price; // Use original price if available, otherwise use current price
@@ -1178,9 +1209,12 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     // UPS Next Day upgrade (only frontend calculation - user toggle)
     const upsNextDayUpgradeCost = upsNextDayEnabled ? (baseShipping * 0.3) : 0;
     
-    // Shipping credits (qualifies if >=$500 and >=15 items)
-    const qualifiesForShippingCredits = subtotal >= 500 && totalItems >= 15;
-    const shippingCreditsDiscount = qualifiesForShippingCredits ? 150 : 0;
+    const shippingCreditsDiscount =
+      shippingCalculation.shippingCreditsDiscount ??
+      (promoEligibleSubtotal >= PROMO_FREE_AIR_CARGO_MIN_SUBTOTAL &&
+      promoEligibleCartPlants >= PROMO_FREE_AIR_CARGO_MIN_ITEMS
+        ? REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE
+        : 0);
     
     // Calculate total shipping (use effective air cargo, not base)
     const totalShippingCost = baseShipping + airBaseCargoEffective + wholesaleAirCargo + upsNextDayUpgradeCost;
@@ -1212,7 +1246,8 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       appliedAirBaseCargoCredit: airBaseCargoCredit,
       discount: discountAmount,
       creditsApplied,
-      finalTotal
+      finalTotal,
+      promoEligibleCartPlants,
     };
 
  
@@ -1231,7 +1266,32 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     plantCredits,
     shippingCredits,
     priorPaidAirBaseCargoAmount,
-    shippingCalculation.loading, // Add loading state to dependencies
+    shippingCalculation.loading,
+    shippingCalculation.shippingCreditsDiscount,
+    shippingCalculation.promoEligiblePlantCount,
+    shippingCalculation.currentPromoEligiblePlantCount,
+  ]);
+
+  const promoQualifiedMessage = useMemo(() => {
+    if ((orderSummary.shippingCreditsDiscount || 0) <= 0) {
+      return '';
+    }
+
+    return getAirCargoPromoQualifiedText({
+      totalEligiblePlants:
+        shippingCalculation.promoEligiblePlantCount ??
+        orderSummary.promoEligibleCartPlants ??
+        0,
+      currentCartPlants:
+        shippingCalculation.currentPromoEligiblePlantCount ??
+        orderSummary.promoEligibleCartPlants ??
+        0,
+    });
+  }, [
+    orderSummary.shippingCreditsDiscount,
+    orderSummary.promoEligibleCartPlants,
+    shippingCalculation.promoEligiblePlantCount,
+    shippingCalculation.currentPromoEligiblePlantCount,
   ]);
 
   const quantityBreakdown = useMemo(() => {
@@ -2076,13 +2136,13 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           </View>
 
           {/* Shipping Credits Notification */}
-          {(orderSummary.shippingCreditsDiscount || 0) > 0 && (
+          {(orderSummary.shippingCreditsDiscount || 0) > 0 && promoQualifiedMessage ? (
             <View style={styles.shippingCreditsNotification}>
               <Text style={styles.shippingCreditsNotificationText}>
-                🎉 Congratulations! You qualify for $150 shipping credits for spending $500+ and buying 15+ plants.
+                🎉 {promoQualifiedMessage}
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Shipping Summary */}
           <View style={styles.shippingSummary}>
@@ -2144,7 +2204,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
               <View style={styles.labeledToggle}>
                 <View style={styles.toggleLabel}>
                   <Text style={styles.toggleLabelText}>
-                    Upgrading to UPS Next Day
+                    Upgrade to Next Day Saver
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -2187,9 +2247,11 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Base Air Cargo (always show original amount $150) */}
+              {/* Base Air Cargo */}
               <View style={styles.baseAirCargoRow}>
-                <Text style={styles.summaryRowLabel}>Base Air Cargo</Text>
+                <Text style={styles.summaryRowLabel}>
+                  {AIR_CARGO_DOCUMENTATION_FEE_LABEL}
+                </Text>
                 <Text style={styles.summaryRowNumber}>
                   {formatCurrencyFull(orderSummary.airBaseCargo)}
                 </Text>
@@ -2220,7 +2282,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
               {(orderSummary.shippingCreditsDiscount || 0) > 0 && (
                 <View style={styles.shippingCreditsRow}>
                   <Text style={styles.summaryRowLabel}>
-                    Shipping Credits
+                    {HANDLING_FEE_CREDIT_LABEL}
                   </Text>
                   <Text style={styles.shippingCreditsAmount}>
                     -{formatCurrencyFull(orderSummary.shippingCreditsDiscount)}
@@ -2375,7 +2437,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                   <View style={styles.shippingIcon}>
                     <TruckBlueIcon width={36} height={36} />
                   </View>
-                  <Text style={styles.iconLabelText}>Shipping Credits</Text>
+                  <Text style={styles.iconLabelText}>{HANDLING_FEE_CREDIT_LABEL}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.formToggle}
@@ -3035,12 +3097,11 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 20,
+    lineHeight: 22,
     color: '#647276',
     flex: 1,
-    // Allow the label to share space with the amount on the right
-    // and avoid covering the entire row which could hide the text.
-    flexShrink: 0,
+    flexShrink: 1,
+    marginRight: 8,
   },
   summaryRowNumber: {
     fontFamily: 'Inter',
@@ -3049,7 +3110,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: '#202325',
-    flex: 0,
+    flexShrink: 0,
     textAlign: 'right',
   },
   quantityTotalLabel: {
@@ -3398,10 +3459,9 @@ const styles = StyleSheet.create({
   baseAirCargoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 0,
+    alignItems: 'flex-start',
+    paddingVertical: 4,
     width: '100%',
-    minHeight: 32,
     flex: 0,
     alignSelf: 'stretch',
   },

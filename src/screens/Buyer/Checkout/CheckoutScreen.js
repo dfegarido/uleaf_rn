@@ -193,6 +193,7 @@ const CheckoutScreen = () => {
     plantItems,
     quantityBreakdown,
     orderSummary,
+    promoQualifiedMessage,
     flightDateOptions,
     flightLockInfo,
 
@@ -320,6 +321,7 @@ const CheckoutScreen = () => {
           onDiscountCodeChange={setDiscountCode}
           onApplyDiscount={handleApplyDiscount}
           isJoinerApproved={isJoinerApproved}
+          promoQualifiedMessage={promoQualifiedMessage}
         />
         
         {/* Browse More Plants Component */}

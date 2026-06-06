@@ -252,6 +252,16 @@ export const getBuyerListingsApi = async (params = {}) => {
       ...params
     };
 
+    const maxPriceNum = finalParams.maxPrice != null ? parseFloat(finalParams.maxPrice) : NaN;
+    const minPriceNum = finalParams.minPrice != null ? parseFloat(finalParams.minPrice) : NaN;
+    const isBelowPriceCeiling =
+      !Number.isNaN(maxPriceNum) &&
+      maxPriceNum <= 100 &&
+      (Number.isNaN(minPriceNum) || minPriceNum === 0);
+    if (isBelowPriceCeiling) {
+      finalParams.limit = Math.max(Number(finalParams.limit) || 10, 500);
+    }
+
     const authToken = await getStoredAuthToken();
     const queryParams = new URLSearchParams();
 

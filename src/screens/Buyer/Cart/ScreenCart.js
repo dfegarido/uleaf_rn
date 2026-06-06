@@ -22,6 +22,7 @@ import SearchHeader from '../../../components/Header/SearchHeader';
 import {addToCartApi} from '../../../components/Api/cartApi';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE} from '../../../config/shippingConstants';
 
 import PromoBadgeList from '../../../components/PromoBadgeList';
 import PlantItemCard from '../../../components/PlantItemCard/PlantItemCard';
@@ -318,7 +319,7 @@ const ScreenCart = () => {
               return {
                 cost: singleCost,
                 addOnCost: singleAddOn,
-                baseCargo: 150,
+                baseCargo: REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
                 description: height > 12 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
                 displayText: 'UPS 2nd Day ',
                 mainPrice: height > 12 ? '$70' : '$50',
@@ -337,7 +338,7 @@ const ScreenCart = () => {
               return {
                 cost: growersCost,
                 addOnCost: growersAddOn,
-                baseCargo: 150,
+                baseCargo: REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
                 description: potSizeNum > 4 ? 'UPS 2nd Day $70, add-on plant $7' : 'UPS 2nd Day $50, add-on plant $5',
                 displayText: 'UPS 2nd Day ',
                 mainPrice: potSizeNum > 4 ? '$70' : '$50',
@@ -370,7 +371,7 @@ const ScreenCart = () => {
               return {
                 cost: 50,
                 addOnCost: 5,
-                baseCargo: 150,
+                baseCargo: REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
                 description: 'UPS 2nd Day $50, add-on plant $5',
                 displayText: 'UPS 2nd Day ',
                 mainPrice: '$50',

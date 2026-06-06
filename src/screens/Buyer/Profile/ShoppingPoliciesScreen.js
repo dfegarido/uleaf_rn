@@ -8,6 +8,12 @@ import { View,
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
+import {
+  AIR_CARGO_DOCUMENTATION_FEE_LABEL,
+  PROMO_FREE_AIR_CARGO_MIN_ITEMS,
+  PROMO_FREE_AIR_CARGO_MIN_SUBTOTAL,
+  REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
+} from '../../../config/shippingConstants';
 
 const ShoppingPoliciesScreen = () => {
   const navigation = useNavigation();
@@ -39,9 +45,9 @@ const ShoppingPoliciesScreen = () => {
         'A Receiver is the main account for a Plant Flight and must have an active paid order.\n- Joiners ride under the Receiver’s flight and must be approved.\n- A Receiver cannot be a Joiner in the same flight.\n- A Joiner can only be assigned to one Receiver per flight.\n- Joiners will automatically follow the Receiver’s UPS shipping method and cannot select separately.',
     },
     {
-      subtitle: '5. Air Cargo Fees & Shipping Credit (Single Plant Listings Only — Receiver Only)',
+      subtitle: '5. Refundable Import Handling Fee & Shipping Credit (Single Plant Listings Only — Receiver Only)',
       content:
-        'Base Air Cargo Fee is $150, and it applies only to single plant listings.\n- This cargo fee is paid only by the Receiver at checkout.\n- Wholesale plants have separate cargo charges and do not count toward this $150 air cargo fee or toward Shipping Credit eligibility.\n- The $150 cargo fee becomes free as Shipping Credit when: ■ There are 15 or more single plant listings in the combined order (Receiver + Joiners) ■ And the total spend reaches $500 or more\n- Once conditions are met, a $150 Shipping Credit is applied back to the Receiver’s wallet only.\n- Joiners do not receive Shipping Credit, as they do not pay air cargo fees.',
+        `${AIR_CARGO_DOCUMENTATION_FEE_LABEL} is $${REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE}, and it applies only to single plant listings.\n- This fee is paid only by the Receiver at checkout.\n- Wholesale plants have separate cargo charges and do not count toward this fee or toward Shipping Credit eligibility.\n- The $${REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE} ${AIR_CARGO_DOCUMENTATION_FEE_LABEL} is refunded as Shipping Credit when: ■ There are ${PROMO_FREE_AIR_CARGO_MIN_ITEMS} or more single plant listings in the combined order (Receiver + Joiners) ■ And the total spend reaches $${PROMO_FREE_AIR_CARGO_MIN_SUBTOTAL} or more\n- Once conditions are met, a $${REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE} Shipping Credit is applied back to the Receiver’s wallet only.\n- Joiners do not receive Shipping Credit, as they do not pay the ${AIR_CARGO_DOCUMENTATION_FEE_LABEL}.`,
     },
     {
       subtitle: '6. Plant Flight Options',
@@ -91,7 +97,7 @@ const ShoppingPoliciesScreen = () => {
     {
       subtitle: '15. Leafy Dictionary',
       content:
-        'Plant Flight: Grouped shipment cycle from Asia to the U.S.\nReceiver: Main buyer who pays cargo and receives UPS delivery.\nJoiner: Buyer approved under the Receiver to share cargo and UPS delivery.\nReady to Fly: Payment confirmed — plant queued for export.\nFinal Boarding: Last call stage — no edits or cancellations allowed.\nShipping Credit: $150 cargo refund given only to the Receiver after qualifying conditions.\nMelt / Import Shock: Natural leaf stress not considered a dead plant.\nMissing Plant: A plant that never arrives or is lost in transit — eligible for credit.',
+        `Plant Flight: Grouped shipment cycle from Asia to the U.S.\nReceiver: Main buyer who pays cargo and receives UPS delivery.\nJoiner: Buyer approved under the Receiver to share cargo and UPS delivery.\nReady to Fly: Payment confirmed — plant queued for export.\nFinal Boarding: Last call stage — no edits or cancellations allowed.\nShipping Credit: $${REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE} ${AIR_CARGO_DOCUMENTATION_FEE_LABEL} refund given only to the Receiver after qualifying conditions.\nMelt / Import Shock: Natural leaf stress not considered a dead plant.\nMissing Plant: A plant that never arrives or is lost in transit — eligible for credit.`,
     },
   ];
 
