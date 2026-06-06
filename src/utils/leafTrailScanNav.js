@@ -1,3 +1,6 @@
+/** Receiving screen route — used when returning from an intake scan. */
+export const LEAF_TRAIL_RECEIVING_SCREEN = 'LeafTrailReceivingScreenAdminScreen';
+
 /** Navigation params for LeafTrailScanQRAdminScreen per stage. */
 export const LEAF_TRAIL_SCAN_PARAMS = {
   receivingIntake: { intakeMode: true },
@@ -25,4 +28,25 @@ export const LEAF_TRAIL_SCAN_PARAMS = {
 /** Tray # and box # — always uppercase as the user types. */
 export function forceUppercaseHubLabel(value) {
   return String(value ?? '').toUpperCase();
+}
+
+/** Params when opening scan from a Receiving tab (tracks where the user came from). */
+export function buildReceivingScanParams(activeTabKey, baseParams = {}) {
+  return {
+    ...baseParams,
+    ...(activeTabKey === 'forReceiving' ? { sourceTabKey: 'forReceiving' } : {}),
+  };
+}
+
+/** Return to Receiving and switch tab after a successful For Receiving intake scan. */
+export function navigateBackToReceivingAfterScan(
+  navigation,
+  { advanceToTab = 'received' } = {},
+) {
+  navigation.navigate({
+    name: LEAF_TRAIL_RECEIVING_SCREEN,
+    params: { advanceToTab },
+    merge: true,
+  });
+  navigation.goBack();
 }

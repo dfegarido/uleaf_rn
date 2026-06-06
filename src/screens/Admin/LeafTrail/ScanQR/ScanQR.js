@@ -23,6 +23,7 @@ import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.sv
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import { getAdminScanQr, updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import { navigateBackToReceivingAfterScan } from '../../../../utils/leafTrailScanNav';
 import {
   describeSortingScanPlantOutcome,
   normalizeLeafTrailStatus,
@@ -71,6 +72,7 @@ const ScanQRScreen = ({ navigation, route }) => {
     boxReceiverName = '',
     expectedSortingTrayNumber = '',
     trayLabel = '',
+    sourceTabKey = '',
   } = route.params || {};
   const intakeMode = intakeModeParam === true && isLeafTrailHubSpecEnabled();
   const sortingBoxMode =
@@ -83,6 +85,47 @@ const ScanQRScreen = ({ navigation, route }) => {
   const isLongPress = useRef(false);
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const autoReturnTimerRef = useRef(null);
+  const lastReceivingIntakeSuccessRef = useRef(false);
+
+  const isReceivingIntakeSuccess = useCallback((data) => {
+    if (!data) return false;
+    const status = normalizeLeafTrailStatus(data.leafTrailStatus);
+    return (
+      status === 'received' &&
+      (intakeMode || sourceTabKey === 'forReceiving')
+    );
+  }, [intakeMode, sourceTabKey]);
+
+  const clearAutoReturnTimer = useCallback(() => {
+    if (autoReturnTimerRef.current) {
+      clearTimeout(autoReturnTimerRef.current);
+      autoReturnTimerRef.current = null;
+    }
+  }, []);
+
+  const returnToReceivingAfterIntake = useCallback(() => {
+    clearAutoReturnTimer();
+    lastReceivingIntakeSuccessRef.current = false;
+    navigateBackToReceivingAfterScan(navigation, { advanceToTab: 'received' });
+  }, [clearAutoReturnTimer, navigation]);
+
+  const scheduleReceivingAutoReturn = useCallback(() => {
+    clearAutoReturnTimer();
+    autoReturnTimerRef.current = setTimeout(() => {
+      returnToReceivingAfterIntake();
+    }, 2000);
+  }, [clearAutoReturnTimer, returnToReceivingAfterIntake]);
+
+  const handleScanBack = useCallback(() => {
+    if (lastReceivingIntakeSuccessRef.current) {
+      returnToReceivingAfterIntake();
+      return;
+    }
+    navigation.goBack();
+  }, [navigation, returnToReceivingAfterIntake]);
+
+  useEffect(() => () => clearAutoReturnTimer(), [clearAutoReturnTimer]);
 
   const sortingScanOutcome = sortingBoxMode && plantData
     ? describeSortingScanPlantOutcome(plantData)
@@ -151,6 +194,10 @@ const ScanQRScreen = ({ navigation, route }) => {
           setPlantData(response);
           setButtomData('success');
           Vibration.vibrate();
+          if (isReceivingIntakeSuccess(response)) {
+            lastReceivingIntakeSuccessRef.current = true;
+            scheduleReceivingAutoReturn();
+          }
           setTimeout(() => {
             setIsScanning(false);
           }, 5000);
@@ -198,6 +245,8 @@ const ScanQRScreen = ({ navigation, route }) => {
   }
 
   const resetForNextScan = () => {
+    clearAutoReturnTimer();
+    lastReceivingIntakeSuccessRef.current = false;
     setPlantData(null);
     setLatestScannedData(null);
     setButtomData('scan');
@@ -249,7 +298,7 @@ const ScanQRScreen = ({ navigation, route }) => {
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}
+              onPress={handleScanBack}
             >
               <BackSolidIcon />
             </TouchableOpacity>
@@ -384,8 +433,7 @@ const ScanQRScreen = ({ navigation, route }) => {
                     : packingTrayMode &&
                         normalizeLeafTrailStatus(plantData?.leafTrailStatus) === 'packed'
                       ? 'Marked as Packed'
-                      : intakeMode &&
-                          normalizeLeafTrailStatus(plantData?.leafTrailStatus) === 'received'
+                      : isReceivingIntakeSuccess(plantData)
                         ? 'Marked as Received'
                         : 'Scan Success!'}
                 </Text>
@@ -422,12 +470,17 @@ const ScanQRScreen = ({ navigation, route }) => {
                 </View>
               ) : null}
 
-              {(intakeMode || sortingBoxMode || packingTrayMode) && (
+              {(intakeMode ||
+                sortingBoxMode ||
+                packingTrayMode ||
+                (sourceTabKey === 'forReceiving' && isReceivingIntakeSuccess(plantData))) && (
                 <View style={styles.intakeActionRow}>
                   <TouchableOpacity style={styles.intakeSecondaryButton} onPress={resetForNextScan}>
                     <Text style={styles.intakeSecondaryButtonText}>Scan next</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.intakePrimaryButton} onPress={() => navigation.goBack()}>
+                  <TouchableOpacity
+                    style={styles.intakePrimaryButton}
+                    onPress={handleScanBack}>
                     <Text style={styles.intakePrimaryButtonText}>Done</Text>
                   </TouchableOpacity>
                 </View>

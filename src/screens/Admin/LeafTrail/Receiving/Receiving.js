@@ -75,7 +75,10 @@ import {
   getDateOrderedDatePart,
 } from './receivingPlantFormatters';
 import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
-import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import {
+    buildReceivingScanParams,
+    LEAF_TRAIL_SCAN_PARAMS,
+} from '../../../../utils/leafTrailScanNav';
 import {
     buildReceiverBoxAssignments,
     groupItemsIntoSortedReceiverBoxes,
@@ -922,7 +925,7 @@ const ReceivingLoadingOverlay = ({ message, contextLabel = 'Receiving', title = 
     </View>
 );
 
-const ReceivingScreen = ({navigation}) => {
+const ReceivingScreen = ({navigation, route}) => {
     const hubSpecEnabled = isLeafTrailHubSpecEnabled();
     const trail1IntakeMode = isTrail1ForReceivingEnabled();
     const [index, setIndex] = useState(0);
@@ -1040,40 +1043,40 @@ const ReceivingScreen = ({navigation}) => {
             }
     };
 
-    useFocusEffect(
-        useCallback(() => {
-            fetchData();
-        }, []),
-    );
-
     const activeTabKey = routes[index]?.key || 'forReceiving';
     const supportsPlantSelection = TABS_WITH_PLANT_SELECTION.has(activeTabKey);
     const showPlantCheckboxes = supportsPlantSelection;
 
     const openLeafTrailScan = useCallback(() => {
-        const params = trail1IntakeMode
+        const baseParams = trail1IntakeMode
             ? LEAF_TRAIL_SCAN_PARAMS.receivingIntake
             : LEAF_TRAIL_SCAN_PARAMS.receiving;
-        navigation.navigate('LeafTrailScanQRAdminScreen', params);
-    }, [navigation, trail1IntakeMode]);
+        navigation.navigate(
+            'LeafTrailScanQRAdminScreen',
+            buildReceivingScanParams(activeTabKey, baseParams),
+        );
+    }, [navigation, trail1IntakeMode, activeTabKey]);
 
     const handleScanPress = useCallback(() => {
         const selectedIds = selectionStore.toArray();
         if (supportsPlantSelection && selectedIds.length > 0) {
-            const params = trail1IntakeMode
+            const baseParams = trail1IntakeMode
                 ? LEAF_TRAIL_SCAN_PARAMS.receivingIntake
                 : LEAF_TRAIL_SCAN_PARAMS.receiving;
-            navigation.navigate('LeafTrailScanQRAdminScreen', {
-                ...params,
-                preselectedOrderIds: selectedIds,
-            });
+            navigation.navigate(
+                'LeafTrailScanQRAdminScreen',
+                buildReceivingScanParams(activeTabKey, {
+                    ...baseParams,
+                    preselectedOrderIds: selectedIds,
+                }),
+            );
             return;
         }
         if (supportsPlantSelection && !selectedIds.length) {
             Alert.alert('No selection', 'Select at least one plant, or use Scan QR to scan without a selection.');
         }
         openLeafTrailScan();
-    }, [supportsPlantSelection, selectionStore, trail1IntakeMode, navigation, openLeafTrailScan]);
+    }, [supportsPlantSelection, selectionStore, trail1IntakeMode, navigation, openLeafTrailScan, activeTabKey]);
 
     const onFilterChange = (filters) => {
          fetchData(filters);
@@ -1290,6 +1293,26 @@ const ReceivingScreen = ({navigation}) => {
         tabStatusesRef.current = statuses;
         await refreshAdminFilters(statuses, { withPageLoader: true });
     }
+
+    const switchToTabByKey = useCallback((tabKey) => {
+        const tabIndex = routes.findIndex((r) => r.key === tabKey);
+        if (tabIndex >= 0) {
+            setIndex(tabIndex);
+            tabChange(tabIndex);
+            clearSelectedItems();
+        }
+    }, [routes, clearSelectedItems]);
+
+    useFocusEffect(
+        useCallback(() => {
+            const advanceToTab = route.params?.advanceToTab;
+            if (advanceToTab) {
+                switchToTabByKey(advanceToTab);
+                navigation.setParams({ advanceToTab: undefined });
+            }
+            fetchData();
+        }, [route.params?.advanceToTab, switchToTabByKey, navigation]),
+    );
 
     const runThermalPrint = async (ids) => {
         if (!ids.length) {
