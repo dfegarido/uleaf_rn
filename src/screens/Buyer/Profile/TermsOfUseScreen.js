@@ -14,12 +14,12 @@ const TermsOfUseScreen = () => {
 
   const termsData = [
     {
-      title: "ILEAFU Terms of Use",
-      content: "Welcome to ILEAFU (Imports Live Exotic Asian Foliage USA). By accessing or using our platform, you agree to comply with the following Terms of Use. These terms govern your use of the ILEAFU website and services, and form a binding agreement between you and ILEAFU."
+      title: "ileafU Terms of Use",
+      content: "Welcome to ileafU (Imports Live Exotic Asian Foliage USA). By accessing or using our platform, you agree to comply with the following Terms of Use. These terms govern your use of the ileafU website and services, and form a binding agreement between you and ileafU."
     },
     {
-      subtitle: "1. Platform Purpose ILEAFU is a U.S.",
-      content: "ILEAFU is a U.S.-based company with operational hubs in Asia, primarily Thailand. We provide a worry-free, scam-free plant importing service connecting collectors and sellers from Asia to buyers in the United States."
+      subtitle: "1. Platform Purpose ileafU is a U.S.",
+      content: "ileafU is a U.S.-based company with operational hubs in Asia, primarily Thailand. We provide a worry-free, scam-free plant importing service connecting collectors and sellers from Asia to buyers in the United States."
     },
     {
       subtitle: "2. User Eligibility",
@@ -35,35 +35,35 @@ const TermsOfUseScreen = () => {
     },
     {
       subtitle: "5. Intellectual Property",
-      content: "All content on ILEAFU including logos, graphics, and text is the property of ILEAFU and protected under intellectual property laws. You may not reproduce or distribute content without permission."
+      content: "All content on ileafU including logos, graphics, and text is the property of ileafU and protected under intellectual property laws. You may not reproduce or distribute content without permission."
     },
     {
       subtitle: "6. Product Listings and Transactions",
-      content: "Listings must be accurate and reflect actual items available. ILEAFU reserves the right to remove listings that violate our policies."
+      content: "Listings must be accurate and reflect actual items available. ileafU reserves the right to remove listings that violate our policies."
     },
     {
       subtitle: "7. Privacy and Data Handling",
-      content: "We collect data necessary for transaction processing and platform operations. By using ILEAFU, you consent to the collection and appropriate use of your data. Data will not be sold or misused."
+      content: "We collect data necessary for transaction processing and platform operations. By using ileafU, you consent to the collection and appropriate use of your data. Data will not be sold or misused."
     },
     {
       subtitle: "8. Dispute Resolution",
-      content: "Any disputes between suppliers and ILEAFU will be resolved through direct negotiation. If unresolved, both parties agree to binding arbitration under U.S. law."
+      content: "Any disputes between suppliers and ileafU will be resolved through direct negotiation. If unresolved, both parties agree to binding arbitration under U.S. law."
     },
     {
       subtitle: "9. User-Generated Content",
-      content: "By uploading photos, descriptions, or other content, you grant ILEAFU a non-exclusive, royalty-free license to use such content for promotional and operational purposes."
+      content: "By uploading photos, descriptions, or other content, you grant ileafU a non-exclusive, royalty-free license to use such content for promotional and operational purposes."
     },
     {
       subtitle: "10. Force Majeure",
-      content: "ILEAFU is not liable for delays or failures caused by events beyond our control, such as natural disasters, strikes, or transportation disruptions."
+      content: "ileafU is not liable for delays or failures caused by events beyond our control, such as natural disasters, strikes, or transportation disruptions."
     },
     {
       subtitle: "11. Third-Party Services",
-      content: "Certain services on ILEAFU are powered by third-party providers. Use of those services is subject to their own terms and privacy policies."
+      content: "Certain services on ileafU are powered by third-party providers. Use of those services is subject to their own terms and privacy policies."
     },
     {
       subtitle: "12. Platform Modification",
-      content: "ILEAFU reserves the right to modify or discontinue services at any time without prior notice."
+      content: "ileafU reserves the right to modify or discontinue services at any time without prior notice."
     },
     {
       subtitle: "13. Termination",
@@ -71,15 +71,15 @@ const TermsOfUseScreen = () => {
     },
     {
       subtitle: "14. Disclaimer",
-      content: "ILEAFU provides the platform 'as is' and makes no warranties regarding reliability or accuracy of the services."
+      content: "ileafU provides the platform 'as is' and makes no warranties regarding reliability or accuracy of the services."
     },
     {
       subtitle: "15. Limitation of Liability",
-      content: "ILEAFU is not liable for indirect or consequential damages arising from the use of the platform."
+      content: "ileafU is not liable for indirect or consequential damages arising from the use of the platform."
     },
     {
       subtitle: "16. Amendments to Terms",
-      content: "ILEAFU may update or change these Terms at any time. Continued use of the platform after such changes indicates your acceptance of the updated terms."
+      content: "ileafU may update or change these Terms at any time. Continued use of the platform after such changes indicates your acceptance of the updated terms."
     },
     {
       subtitle: "17. Governing Law",
@@ -90,7 +90,7 @@ const TermsOfUseScreen = () => {
       content: "For questions or concerns, please contact us at ileafuasiausa@gmail.com"
     },
     {
-      content: "By using the ILEAFU platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use."
+      content: "By using the ileafU platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use."
     }
   ];
 

@@ -196,7 +196,7 @@ const LiveSellerScreen = ({navigation}) => {
             <View style={styles.requestIconCircle}>
               <Text style={styles.requestIconText}>LIVE</Text>
             </View>
-            <Text style={styles.requestTitle}>Go Live with iLeafU</Text>
+            <Text style={styles.requestTitle}>Go Live with ileafU</Text>
             <Text style={styles.requestDescription}>
               Request permission to host live sales and purge events. Our team will review and approve your request.
             </Text>

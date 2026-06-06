@@ -19,11 +19,11 @@ const AdminTermsOfUseScreen = () => {
   const termsData = [
     {
       title: "Terms of Use for Admin Users",
-      content: "These terms govern your access to and use of the ILEAFU administrative platform and services."
+      content: "These terms govern your access to and use of the ileafU administrative platform and services."
     },
     {
       subtitle: "1. Admin Platform Overview",
-      content: "ILEAFU is a U.S.-based company with operational hubs in Asia, primarily Thailand. As an admin user, you have privileged access to manage platform operations, user accounts, and system configurations."
+      content: "ileafU is a U.S.-based company with operational hubs in Asia, primarily Thailand. As an admin user, you have privileged access to manage platform operations, user accounts, and system configurations."
     },
     {
       subtitle: "2. Admin Eligibility",

@@ -255,7 +255,7 @@ const ScreenProfile = ({navigation}) => {
               onPress={() => {
                 // Open email app with the specified email address (encoded)
                 const subject = encodeURIComponent('Support Request');
-                const body = encodeURIComponent('Hello iLeafU Support Team,\n\n');
+                const body = encodeURIComponent('Hello ileafU Support Team,\n\n');
                 const emailUrl = `mailto:ileafuasiausa@gmail.com?subject=${subject}&body=${body}`;
                 console.log('mailto url:', emailUrl);
                 Linking.openURL(emailUrl).catch(err => {

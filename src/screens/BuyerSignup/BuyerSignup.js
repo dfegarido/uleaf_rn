@@ -246,7 +246,7 @@ const BuyerSignup = () => {
       <CustomAlert
         visible={infoModalVisible}
         title="Invite Code"
-        message="Have a friend on iLeafU? Ask them for their 6-digit invite code. When you make your first purchase, they earn 20 Leaf Points and you receive 20 Leaf Coins."
+        message="Have a friend on ileafU? Ask them for their 6-digit invite code. When you make your first purchase, they earn 20 Leaf Points and you receive 20 Leaf Coins."
         buttons={[{text: 'Got it', onPress: () => setInfoModalVisible(false)}]}
         onDismiss={() => setInfoModalVisible(false)}
       />

@@ -9,23 +9,23 @@ const ScreenTerms = () => {
     <ScrollView style={[styles.mainContent, {paddingTop: insets.top}]}>
       <View style={styles.mainContainer}>
         <Text style={[globalStyles.textXLGreyDark, {paddingBottom: 10}]}>
-          ILEAFU Terms of Use
+          ileafU Terms of Use
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          Welcome to ILEAFU (Imports Live Exotic Asian Foliage USA). By
+          Welcome to ileafU (Imports Live Exotic Asian Foliage USA). By
           accessing or using our platform, you agree to comply with the
-          following Terms of Use. These terms govern your use of the ILEAFU
+          following Terms of Use. These terms govern your use of the ileafU
           website and services, and form a binding agreement between you and
-          ILEAFU.
+          ileafU.
         </Text>
 
         <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 10}]}>
-          1. Platform Purpose ILEAFU is a U.S.
+          1. Platform Purpose ileafU is a U.S.
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          ILEAFU is a U.S.-based company with operational hubs in Asia,
+          ileafU is a U.S.-based company with operational hubs in Asia,
           primarily Thailand. We provide a worry-free, scam-free plant importing
           service connecting collectors and sellers from Asia to buyers in the
           United States.
@@ -71,8 +71,8 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          All content on ILEAFU including logos, graphics, and text is the
-          property of ILEAFU and protected under intellectual property laws. You
+          All content on ileafU including logos, graphics, and text is the
+          property of ileafU and protected under intellectual property laws. You
           may not reproduce or distribute content without permission.
         </Text>
 
@@ -84,7 +84,7 @@ const ScreenTerms = () => {
           {'\u2022'} Listings must be accurate and reflect actual items
           available.
           {'\n'}
-          {'\u2022'} ILEAFU reserves the right to remove listings that violate
+          {'\u2022'} ileafU reserves the right to remove listings that violate
           our policies.
         </Text>
 
@@ -94,7 +94,7 @@ const ScreenTerms = () => {
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
           We collect data necessary for transaction processing and platform
-          operations. By using ILEAFU, you consent to the collection and
+          operations. By using ileafU, you consent to the collection and
           appropriate use of your data. Data will not be sold or misused.
         </Text>
 
@@ -103,7 +103,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          Any disputes between suppliers and ILEAFU will be resolved through
+          Any disputes between suppliers and ileafU will be resolved through
           direct negotiation. If unresolved, both parties agree to binding
           arbitration under U.S. law.
         </Text>
@@ -113,7 +113,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          By uploading photos, descriptions, or other content, you grant ILEAFU
+          By uploading photos, descriptions, or other content, you grant ileafU
           a non-exclusive, royalty-free license to use such content for
           promotional and operational purposes.
         </Text>
@@ -123,7 +123,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          ILEAFU is not liable for delays or failures caused by events beyond
+          ileafU is not liable for delays or failures caused by events beyond
           our control, such as natural disasters, strikes, or transportation
           disruptions.
         </Text>
@@ -133,7 +133,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          Certain services on ILEAFU are powered by third-party providers. Use
+          Certain services on ileafU are powered by third-party providers. Use
           of those services is subject to their own terms and privacy policies.
         </Text>
 
@@ -142,7 +142,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          ILEAFU reserves the right to modify or discontinue services at any
+          ileafU reserves the right to modify or discontinue services at any
           time without prior notice.
         </Text>
 
@@ -160,7 +160,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          ILEAFU provides the platform 'as is' and makes no warranties regarding
+          ileafU provides the platform 'as is' and makes no warranties regarding
           reliability or accuracy of the services.
         </Text>
 
@@ -169,7 +169,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          ILEAFU is not liable for indirect or consequential damages arising
+          ileafU is not liable for indirect or consequential damages arising
           from the use of the platform.
         </Text>
 
@@ -178,7 +178,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          ILEAFU may update or change these Terms at any time. Continued use of
+          ileafU may update or change these Terms at any time. Continued use of
           the platform after such changes indicates your acceptance of the
           updated terms.
         </Text>
@@ -202,7 +202,7 @@ const ScreenTerms = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          By using the ILEAFU platform, you acknowledge that you have read,
+          By using the ileafU platform, you acknowledge that you have read,
           understood, and agree to be bound by these Terms of Use.
         </Text>
       </View>

@@ -9,13 +9,13 @@ const ScreenPrivacy = () => {
     <ScrollView style={[styles.mainContent, {paddingTop: insets.top}]}>
       <View style={styles.mainContainer}>
         <Text style={[globalStyles.textXLGreyDark, {paddingBottom: 10}]}>
-          ILEAFU Privacy Policy
+          ileafU Privacy Policy
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
           Effective Date: May 2025
           {'\n'}
-          ILEAFU (Imports Live Exotic Asian Foliage USA) respects your privacy.
+          ileafU (Imports Live Exotic Asian Foliage USA) respects your privacy.
           This Privacy Policy explains how we collect, use, store, and protect
           your personal information when you use our website and services.
         </Text>
@@ -133,7 +133,7 @@ const ScreenPrivacy = () => {
         </Text>
 
         <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 10}]}>
-          By using ILEAFU, you acknowledge that you have read and agree to this
+          By using ileafU, you acknowledge that you have read and agree to this
           Privacy Policy.
         </Text>
       </View>

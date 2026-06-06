@@ -19,7 +19,7 @@ const AdminPrivacyPolicyScreen = () => {
   const privacyData = [
     {
       title: "Privacy Policy for Admin Users",
-      content: "This privacy policy explains how ILEAFU collects, uses, and protects information related to admin users and their activities on our platform."
+      content: "This privacy policy explains how ileafU collects, uses, and protects information related to admin users and their activities on our platform."
     },
     {
       subtitle: "1. Information We Collect from Admin Users",

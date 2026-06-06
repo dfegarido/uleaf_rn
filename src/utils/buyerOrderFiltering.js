@@ -8,7 +8,7 @@
  * optimized for React Native/JavaScript environments.
  * 
  * For complete documentation, see the backend version:
- * iLeafU-functions/functions/firestore/buyer/buyerOrderFiltering.js
+ * ileafU-functions/functions/firestore/buyer/buyerOrderFiltering.js
  * 
  * USAGE:
  * 

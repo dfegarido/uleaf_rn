@@ -239,7 +239,7 @@ if (!__DEV__) {
 
 ---
 
-## Project-Specific Notes (iLeafU Buyer App)
+## Project-Specific Notes (ileafU Buyer App)
 
 Based on recent buyer-side review:
 - Long-running live video usage is naturally heat-intensive (Agora + realtime listeners).

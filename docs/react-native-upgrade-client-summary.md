@@ -1,7 +1,7 @@
-# iLeafU Mobile App — Planned Technology Update (Summary for Review)
+# ileafU Mobile App — Planned Technology Update (Summary for Review)
 
 **Purpose of this document**  
-To explain, in plain language, a planned update to the **iLeafU mobile app** (the software that runs on customers’ and sellers’ phones). This is **not** a redesign of features; it is an update to the **underlying technology** so the app stays reliable, secure, and compatible with Apple and Google’s requirements.
+To explain, in plain language, a planned update to the **ileafU mobile app** (the software that runs on customers’ and sellers’ phones). This is **not** a redesign of features; it is an update to the **underlying technology** so the app stays reliable, secure, and compatible with Apple and Google’s requirements.
 
 ---
 

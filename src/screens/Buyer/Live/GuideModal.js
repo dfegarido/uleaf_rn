@@ -152,14 +152,14 @@ plant. Missing Plant: A plant that never arrives or is lost in transit — eligi
               <Text style={styles.bodyTextBottom}>
                 While we encourage sellers to establish clear and detailed shop
                 policies, it's important to ensure these policies align with
-                ILeafU's platform policies and Terms and Conditions. 
+                ileafU's platform policies and Terms and Conditions. 
               </Text>
               <Text style={styles.bodyTextBottom}>If there's ever a conflict between a seller's shop policies and
-                ILeafU's platform policies, our platform's policies will be
+                ileafU's platform policies, our platform's policies will be
                 prioritized to maintain a fair and consistent experience for all
                 users. </Text>
               <Text style={styles.bodyTextBottom}> For more details or assistance, please reach out to
-                ILeafU's Customer Support team.</Text>
+                ileafU's Customer Support team.</Text>
             </View> */}
           </ScrollView>
       </View>

@@ -350,7 +350,7 @@ const AddNewAddressScreen = () => {
           `limit=5`,
           {
             headers: {
-              'User-Agent': 'iLeafU-App/1.0'
+              'User-Agent': 'ileafU-App/1.0'
             }
           }
         );

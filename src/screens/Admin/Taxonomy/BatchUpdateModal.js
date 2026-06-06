@@ -107,7 +107,7 @@ const BatchUpdateModal = ({ visible, onClose, onSuccess }) => {
         if (Platform.OS === 'ios') {
           Alert.alert(
             'Download Complete! ✅',
-            `Template saved to:\n${fileName}\n\n📱 iOS Instructions:\n\n1. Tap "Browse" when uploading\n2. Go to "On My iPhone" → iLeafU folder\n3. Find ${fileName}\n4. Edit in Numbers/Excel if needed\n5. Save and upload`,
+            `Template saved to:\n${fileName}\n\n📱 iOS Instructions:\n\n1. Tap "Browse" when uploading\n2. Go to "On My iPhone" → ileafU folder\n3. Find ${fileName}\n4. Edit in Numbers/Excel if needed\n5. Save and upload`,
             [
               {
                 text: 'Open Files App',

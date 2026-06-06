@@ -15,7 +15,7 @@ const PrivacyPolicyScreen = () => {
   const privacyData = [
     {
       title: "Privacy Policy",
-      content: "Effective Date: May 2025\n\nILEAFU (Imports Live Exotic Asian Foliage USA) respects your privacy. This Privacy Policy explains how we collect, use, store, and protect your personal information when you use our website and services."
+      content: "Effective Date: May 2025\n\nileafU (Imports Live Exotic Asian Foliage USA) respects your privacy. This Privacy Policy explains how we collect, use, store, and protect your personal information when you use our website and services."
     },
     {
       subtitle: "1. Information We Collect",
@@ -58,7 +58,7 @@ const PrivacyPolicyScreen = () => {
       content: "If you have any questions or concerns, please contact us at: ileafuasiausa@gmail.com"
     },
     {
-      content: "By using ILEAFU, you acknowledge that you have read and agree to this Privacy Policy."
+      content: "By using ileafU, you acknowledge that you have read and agree to this Privacy Policy."
     }
   ];
 

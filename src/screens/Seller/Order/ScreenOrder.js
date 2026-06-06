@@ -454,7 +454,7 @@ const ScreenOrder = ({navigation}) => {
           <View style={{flex: 1}}>
             {/* <InputGroupLeftIcon
               IconLeftComponent={SearchIcon}
-              placeholder={'Search I Leaf U'}
+              placeholder={'Search ileafU'}
             /> */}
             <InputSearch
               placeholder="Search transaction number"

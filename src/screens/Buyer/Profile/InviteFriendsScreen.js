@@ -210,7 +210,7 @@ const InviteFriendsScreen = () => {
             <TouchableOpacity
               onPress={() => Alert.alert(
                 'Referral rewards',
-                'Invite friends to iLeafU. When they buy their first plant: they get 20 Leaf Coins, you earn 20 Leaf Points.',
+                'Invite friends to ileafU. When they buy their first plant: they get 20 Leaf Coins, you earn 20 Leaf Points.',
                 [{ text: 'OK' }],
               )}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -268,7 +268,7 @@ const InviteFriendsScreen = () => {
 
         {/* Description */}
         <Text style={styles.noteText}>
-          Invite friends to iLeafU. When your friend buys their first plant:{'\n'}
+          Invite friends to ileafU. When your friend buys their first plant:{'\n'}
           🌱 They get 20 Leaf Coins{'\n'}
           🍃 You earn 20 Leaf Points
         </Text>

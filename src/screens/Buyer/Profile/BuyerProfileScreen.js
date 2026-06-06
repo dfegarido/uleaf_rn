@@ -735,7 +735,7 @@ const BuyerProfileScreen = (props) => {
             onPress={() => {
               // Open email app with the specified email address (encoded)
               const subject = encodeURIComponent('Support Request');
-              const body = encodeURIComponent('Hello iLeafU Support Team,');
+              const body = encodeURIComponent('Hello ileafU Support Team,');
               const emailUrl = `mailto:ileafuasiausa@gmail.com?subject=${subject}&body=${body}`;
               Linking.openURL(emailUrl).catch(err => {
                 console.error('Failed to open email app:', err);

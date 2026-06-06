@@ -15,7 +15,7 @@ jest.mock('../App', () => {
     return ReactMod.createElement(
       RN.View,
       {testID: 'jest-app-smoke'},
-      ReactMod.createElement(RN.Text, null, 'iLeafU'),
+      ReactMod.createElement(RN.Text, null, 'ileafU'),
     );
   }
   return {__esModule: true, default: App};
