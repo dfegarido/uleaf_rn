@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -102,6 +104,8 @@ const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
             onChangeText={(text) => setTrayNumber(forceUppercaseHubLabel(text))}
             autoCapitalize="characters"
             autoCorrect={false}
+            returnKeyType="done"
+            blurOnSubmit
             editable={!saving}
           />
         </View>
@@ -131,29 +135,65 @@ export const SortingTrayAssignSheet = ({
   onAssigned,
 }) => {
   const insets = useSafeAreaInsets();
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardOffset(0);
+      return undefined;
+    }
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (event) => {
+      setKeyboardOffset(event?.endCoordinates?.height || 0);
+    };
+    const onHide = () => setKeyboardOffset(0);
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
+
+  const dismissSheet = () => {
+    Keyboard.dismiss();
+    onClose?.();
+  };
 
   return (
     <Modal
       transparent
       visible={visible}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={dismissSheet}
       statusBarTranslucent>
       <View style={sheetStyles.root}>
         <Pressable
           style={sheetStyles.backdrop}
-          onPress={onClose}
+          onPress={dismissSheet}
           accessibilityRole="button"
           accessibilityLabel="Close tray assignment"
         />
-        <View style={[sheetStyles.panel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View
+          style={[
+            sheetStyles.panel,
+            {
+              paddingBottom: Math.max(insets.bottom, 16),
+              marginBottom: keyboardOffset,
+            },
+          ]}>
           <View style={sheetStyles.handle} />
           <SortingTrayAssign
             plants={plants}
             variant="sheet"
             onAssigned={() => {
               onAssigned?.();
-              onClose?.();
+              dismissSheet();
             }}
           />
         </View>

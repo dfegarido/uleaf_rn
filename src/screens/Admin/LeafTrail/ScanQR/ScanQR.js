@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Image,
   ScrollView,
   StatusBar,
@@ -25,9 +25,9 @@ import { getAdminScanQr, updateLeafTrailStatus } from '../../../../components/Ap
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { navigateBackToReceivingAfterScan } from '../../../../utils/leafTrailScanNav';
 import {
-  describeSortingScanPlantOutcome,
-  normalizeLeafTrailStatus,
-} from '../../../../utils/sortingBoxMetrics';
+  describeScanQrOutcome,
+  isNewReceivingIntakeScan,
+} from '../../../../utils/scanQrOutcome';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
@@ -88,14 +88,21 @@ const ScanQRScreen = ({ navigation, route }) => {
   const autoReturnTimerRef = useRef(null);
   const lastReceivingIntakeSuccessRef = useRef(false);
 
-  const isReceivingIntakeSuccess = useCallback((data) => {
-    if (!data) return false;
-    const status = normalizeLeafTrailStatus(data.leafTrailStatus);
-    return (
-      status === 'received' &&
-      (intakeMode || sourceTabKey === 'forReceiving')
-    );
-  }, [intakeMode, sourceTabKey]);
+  const scanContext = useMemo(
+    () => ({
+      intakeMode,
+      sortingBoxMode,
+      packingTrayMode,
+      sourceTabKey,
+      targetLeafTrailStatus: leafTrailStatus,
+    }),
+    [intakeMode, sortingBoxMode, packingTrayMode, sourceTabKey, leafTrailStatus],
+  );
+
+  const scanOutcome = useMemo(() => {
+    if (!plantData || buttomData !== 'success') return null;
+    return describeScanQrOutcome(plantData, scanContext);
+  }, [plantData, buttomData, scanContext]);
 
   const clearAutoReturnTimer = useCallback(() => {
     if (autoReturnTimerRef.current) {
@@ -127,9 +134,11 @@ const ScanQRScreen = ({ navigation, route }) => {
 
   useEffect(() => () => clearAutoReturnTimer(), [clearAutoReturnTimer]);
 
-  const sortingScanOutcome = sortingBoxMode && plantData
-    ? describeSortingScanPlantOutcome(plantData)
-    : null;
+  const showIntakeActions =
+    intakeMode ||
+    sortingBoxMode ||
+    packingTrayMode ||
+    (sourceTabKey === 'forReceiving' && buttomData === 'success');
 
   // --- Side Effect: Request Camera Permission ---
   useEffect(() => {
@@ -192,9 +201,20 @@ const ScanQRScreen = ({ navigation, route }) => {
           }
 
           setPlantData(response);
+          const outcome = describeScanQrOutcome(response, {
+            intakeMode,
+            sortingBoxMode,
+            packingTrayMode,
+            sourceTabKey,
+            targetLeafTrailStatus: leafTrailStatus,
+          });
           setButtomData('success');
-          Vibration.vibrate();
-          if (isReceivingIntakeSuccess(response)) {
+          if (outcome?.tone === 'warning') {
+            Vibration.vibrate([0, 120, 60, 120]);
+          } else {
+            Vibration.vibrate();
+          }
+          if (isNewReceivingIntakeScan(response, { intakeMode, sourceTabKey })) {
             lastReceivingIntakeSuccessRef.current = true;
             scheduleReceivingAutoReturn();
           }
@@ -364,6 +384,11 @@ const ScanQRScreen = ({ navigation, route }) => {
                 This plant does not belong here
                 {boxReceiverName ? ` (${boxReceiverName})` : ''}.
               </Text>
+              {plantData?.leafTrailStatus ? (
+                <Text style={styles.noteTextStatus}>
+                  Plant status: {plantData.leafTrailStatus}
+                </Text>
+              ) : null}
               <TouchableOpacity
                 style={[
                   styles.setAsideButton,
@@ -397,6 +422,11 @@ const ScanQRScreen = ({ navigation, route }) => {
                 This plant does not belong in this tray
                 {trayLabel ? ` (${trayLabel})` : ''}.
               </Text>
+              {plantData?.leafTrailStatus ? (
+                <Text style={styles.noteTextStatus}>
+                  Plant status: {plantData.leafTrailStatus}
+                </Text>
+              ) : null}
               <TouchableOpacity
                 style={[
                   styles.setAsideButton,
@@ -426,42 +456,33 @@ const ScanQRScreen = ({ navigation, route }) => {
             <View style={styles.contentInnerContainer}>
               {/* Title */}
               <View style={styles.titleSection}>
-                <Text style={styles.titleText}>
-                  {sortingBoxMode &&
-                  normalizeLeafTrailStatus(plantData?.leafTrailStatus) === 'sorted'
-                    ? 'Marked as Sorted'
-                    : packingTrayMode &&
-                        normalizeLeafTrailStatus(plantData?.leafTrailStatus) === 'packed'
-                      ? 'Marked as Packed'
-                      : isReceivingIntakeSuccess(plantData)
-                        ? 'Marked as Received'
-                        : 'Scan Success!'}
+                <Text
+                  style={[
+                    styles.titleText,
+                    scanOutcome?.tone === 'warning' && styles.titleTextWarning,
+                  ]}>
+                  {scanOutcome?.title || 'Scan Success!'}
                 </Text>
               </View>
 
-              {intakeMode &&
-                normalizeLeafTrailStatus(plantData?.leafTrailStatus) !== 'received' && (
-                <View style={styles.intakeWarningBox}>
-                  <Text style={styles.intakeWarningText}>
-                    This plant is not in For Receiving (current status: {plantData?.leafTrailStatus || 'unknown'}).
-                  </Text>
-                </View>
-              )}
-
-              {sortingScanOutcome ? (
+              {scanOutcome?.lines?.length ? (
                 <View
                   style={
-                    sortingScanOutcome.tone === 'success'
+                    scanOutcome.tone === 'success'
                       ? styles.intakeSuccessBox
-                      : styles.intakeWarningBox
+                      : scanOutcome.tone === 'warning'
+                        ? styles.intakeWarningBox
+                        : styles.intakeInfoBox
                   }>
-                  {sortingScanOutcome.lines.map((line, lineIdx) => (
+                  {scanOutcome.lines.map((line, lineIdx) => (
                     <Text
-                      key={line}
+                      key={`${line}-${lineIdx}`}
                       style={[
-                        sortingScanOutcome.tone === 'success'
+                        scanOutcome.tone === 'success'
                           ? styles.intakeSuccessText
-                          : styles.intakeWarningText,
+                          : scanOutcome.tone === 'warning'
+                            ? styles.intakeWarningText
+                            : styles.intakeInfoText,
                         lineIdx > 0 && styles.intakeOutcomeLineGap,
                       ]}>
                       {line}
@@ -470,10 +491,7 @@ const ScanQRScreen = ({ navigation, route }) => {
                 </View>
               ) : null}
 
-              {(intakeMode ||
-                sortingBoxMode ||
-                packingTrayMode ||
-                (sourceTabKey === 'forReceiving' && isReceivingIntakeSuccess(plantData))) && (
+              {showIntakeActions && (
                 <View style={styles.intakeActionRow}>
                   <TouchableOpacity style={styles.intakeSecondaryButton} onPress={resetForNextScan}>
                     <Text style={styles.intakeSecondaryButtonText}>Scan next</Text>
@@ -736,6 +754,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#E7522F',
   },
+  titleTextWarning: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 24,
+    textAlign: 'center',
+    color: '#E65100',
+  },
   noteContainer: {
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -748,6 +774,15 @@ const styles = StyleSheet.create({
     lineHeight: 22, // 140% of 16px
     textAlign: 'center',
     color: '#647276',
+  },
+  noteTextStatus: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: '#202325',
+    marginTop: 8,
   },
   contentContainer: {
     position: 'absolute',
@@ -1047,6 +1082,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#1F6F3D',
+  },
+  intakeInfoBox: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F0F4F5',
+    borderWidth: 1,
+    borderColor: '#D5DDE0',
+  },
+  intakeInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#4A5559',
   },
   intakeOutcomeLineGap: {
     marginTop: 6,
