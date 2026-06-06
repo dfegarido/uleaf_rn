@@ -38,7 +38,7 @@ import BuyerFilter from '../../../components/Admin/buyerFilter';
 import ReceiverFilter from '../../../components/Admin/receiverFilter';
 import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
-import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS } from './OrderSummaryStatusSheet';
+import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, deriveOrderSummaryPlantStatus } from './OrderSummaryStatusSheet';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
 
@@ -193,6 +193,7 @@ const OrderSummary = ({navigation}) => {
   ];
 
   const STATUS_INFO_TABS = ['readyToFly', 'completed', 'wildgone', 'all'];
+  const ORDER_DETAIL_TABS = ['all', 'wildgone'];
 
   // Sort options (matching Listings Viewer)
   const adminSortOptions = [
@@ -375,31 +376,14 @@ const OrderSummary = ({navigation}) => {
 
     let plantStatus;
     let rawPlantStatus = '';
-    if (activeTab === 'all') {
-      const plantStatusMishapValues = new Set([
-        'missing', 'damaged', 'needstostay', 'cancelled', 'canceled', 'dead',
-      ]);
-      const plantStatusActiveValues = new Set([
-        'active', 'forreceiving', 'received', 'sorted', 'packed', 'shipping', 'shipped', 'delivered',
-      ]);
-      const explicitPlant = String(order.plantStatus || '').toLowerCase().trim();
-      const rawLeaf = String(order.leafTrailStatus || '').toLowerCase().trim();
-      const rawOrderStatus = String(order.status || '').toLowerCase().trim();
-      plantStatus = '—';
-      if (explicitPlant) {
-        rawPlantStatus = order.plantStatus;
-        if (explicitPlant === 'active') {
-          plantStatus = 'Active';
-        } else if (plantStatusMishapValues.has(explicitPlant)) {
-          plantStatus = formatCamelCase(order.plantStatus);
-        }
-      } else if (plantStatusMishapValues.has(rawLeaf)) {
-        plantStatus = formatCamelCase(order.leafTrailStatus);
-      } else if (rawOrderStatus === 'cancelled' || rawOrderStatus === 'canceled') {
-        plantStatus = 'Cancelled';
-      } else if (plantStatusActiveValues.has(rawLeaf)) {
-        plantStatus = 'Active';
-      }
+    const resolvedPlantStatus = deriveOrderSummaryPlantStatus({
+      plantStatus: order.plantStatus,
+      leafTrailStatus: order.leafTrailStatus,
+      status: order.status,
+    });
+    rawPlantStatus = resolvedPlantStatus.rawPlantStatus || (order.plantStatus || '').toString();
+    if (resolvedPlantStatus.display !== '—') {
+      plantStatus = resolvedPlantStatus.display;
     }
 
     return {
@@ -1785,7 +1769,10 @@ const OrderSummary = ({navigation}) => {
                 {orders.map((order, i) => {
                   const rowBody = (
                   <View
-                    style={[styles.tableRow, activeTab === 'all' && styles.tableRowPressable]}
+                    style={[
+                      styles.tableRow,
+                      ORDER_DETAIL_TABS.includes(activeTab) && styles.tableRowPressable,
+                    ]}
                   >
                     {/* Image */}
                     <View style={[styles.tableCell, {width: 116}]}>
@@ -1813,7 +1800,7 @@ const OrderSummary = ({navigation}) => {
                         {STATUS_INFO_TABS.includes(activeTab) && (
                           <>
                             <Text style={styles.orderDate}>Leaf Trail Status: {order.leafTrailStatus}</Text>
-                            {activeTab === 'all' && order.plantStatus ? (
+                            {order.plantStatus && order.plantStatus !== '—' ? (
                               <Text style={styles.orderDate}>Plant Status: {order.plantStatus}</Text>
                             ) : null}
                             {(activeTab === 'readyToFly' || activeTab === 'completed' || activeTab === 'all') && (
@@ -1963,7 +1950,7 @@ const OrderSummary = ({navigation}) => {
                     </View>
                   </View>
                   );
-                  if (activeTab === 'all') {
+                  if (ORDER_DETAIL_TABS.includes(activeTab)) {
                     return (
                       <TouchableOpacity
                         key={order.id || i}

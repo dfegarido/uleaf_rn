@@ -44,10 +44,9 @@ export const ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS = [
 ];
 
 export const PLANT_STATUS_OPTIONS = [
-  { label: 'Missing', value: 'missing' },
-  { label: 'Damaged', value: 'damaged' },
-  { label: 'Needs to stay', value: 'needsToStay' },
-  { label: 'Cancelled (Wildgone)', value: 'cancelled' },
+  { label: 'Wildgone', value: 'wildgone' },
+  { label: 'Need to Stay', value: 'needsToStay' },
+  { label: 'Others', value: 'others' },
 ];
 
 /** Detail screen only — includes Active (maps to forReceiving) */
@@ -55,6 +54,74 @@ export const PLANT_STATUS_EDIT_OPTIONS = [
   { label: 'Active', value: 'forReceiving' },
   ...PLANT_STATUS_OPTIONS,
 ];
+
+/** Display labels for stored plantStatus / legacy leafTrailStatus values. */
+export const formatPlantStatusDisplayLabel = (rawStatus) => {
+  const key = String(rawStatus || '').toLowerCase().trim();
+  if (!key) return '—';
+  if (key === 'active' || key === 'forreceiving') return 'Active';
+  if (key === 'missing' || key === 'damaged' || key === 'damage' || key === 'wildgone') {
+    return 'Wildgone';
+  }
+  if (key === 'needstostay') return 'Need to Stay';
+  if (key === 'others' || key === 'cancelled' || key === 'canceled') return 'Others';
+  const spaced = key.replace(/([A-Z])/g, ' $1');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
+
+/** Map picker value to API payload for updatePlantStatus. */
+export const mapPlantStatusPickerToApi = (pickerValue) => {
+  if (pickerValue === 'wildgone') return 'missing';
+  return pickerValue;
+};
+
+const PLANT_STATUS_MISHAP_VALUES = new Set([
+  'missing', 'damaged', 'damage', 'needstostay', 'others', 'cancelled', 'canceled', 'dead',
+]);
+
+const PLANT_STATUS_ACTIVE_VALUES = new Set([
+  'active', 'forreceiving', 'received', 'sorted', 'packed', 'shipping', 'shipped', 'delivered',
+]);
+
+/**
+ * Resolve Admin Order Summary plant status label from order fields.
+ * Used by the list (all tabs) and Order Details screen.
+ */
+export const deriveOrderSummaryPlantStatus = ({
+  plantStatus: rawPlantStatus = '',
+  leafTrailStatus: rawLeafTrailStatus = '',
+  status: rawOrderStatus = '',
+} = {}) => {
+  const explicitPlant = String(rawPlantStatus || '').toLowerCase().trim();
+  const rawLeaf = String(rawLeafTrailStatus || '').toLowerCase().trim();
+  const rawOrd = String(rawOrderStatus || '').toLowerCase().trim();
+  const storedRaw = String(rawPlantStatus || '');
+
+  if (explicitPlant) {
+    if (explicitPlant === 'active') {
+      return { display: 'Active', rawPlantStatus: storedRaw };
+    }
+    if (PLANT_STATUS_MISHAP_VALUES.has(explicitPlant)) {
+      return {
+        display: formatPlantStatusDisplayLabel(rawPlantStatus),
+        rawPlantStatus: storedRaw,
+      };
+    }
+  }
+  if (PLANT_STATUS_MISHAP_VALUES.has(rawLeaf)) {
+    return {
+      display: formatPlantStatusDisplayLabel(rawLeafTrailStatus),
+      rawPlantStatus: storedRaw,
+    };
+  }
+  if (rawOrd === 'cancelled' || rawOrd === 'canceled') {
+    return { display: 'Others', rawPlantStatus: storedRaw };
+  }
+  if (PLANT_STATUS_ACTIVE_VALUES.has(rawLeaf)) {
+    return { display: 'Active', rawPlantStatus: storedRaw };
+  }
+  return { display: '—', rawPlantStatus: storedRaw };
+};
 
 /**
  * Receiving ⋯ → Change plant status: standard plant statuses plus legacy tag-as actions.
@@ -71,12 +138,17 @@ export function buildReceivingPlantStatusOptions(tagFlags = {}) {
       updatesLeafTrail: true,
     });
   }
-  if (tagFlags.isOthers && !values.has('others')) {
-    options.push({
-      label: 'Others',
-      value: 'others',
-      updatesLeafTrail: true,
-    });
+  if (tagFlags.isOthers) {
+    const othersIdx = options.findIndex((o) => o.value === 'others');
+    if (othersIdx >= 0) {
+      options[othersIdx] = { ...options[othersIdx], updatesLeafTrail: true };
+    } else {
+      options.push({
+        label: 'Others',
+        value: 'others',
+        updatesLeafTrail: true,
+      });
+    }
   }
   return options;
 }
@@ -86,19 +158,35 @@ export function receivingPlantStatusUsesLeafTrail(value, options = []) {
   return Boolean(opt?.updatesLeafTrail);
 }
 
-/** Map stored leafTrailStatus to plant-status picker value */
-export const leafTrailToPlantStatusPickerValue = (rawLeaf, rawOrderStatus = '') => {
+/** Map stored plantStatus / leafTrailStatus to plant-status picker value */
+export const plantStatusToPickerValue = (rawPlant, rawLeaf, rawOrderStatus = '') => {
+  const plant = String(rawPlant || '').toLowerCase().trim();
   const leaf = String(rawLeaf || '').toLowerCase().trim();
   const ord = String(rawOrderStatus || '').toLowerCase().trim();
-  const mishap = new Set(['missing', 'damaged', 'needstostay', 'cancelled', 'canceled']);
+
+  if (plant === 'active' || plant === 'forreceiving') return 'forReceiving';
+  if (plant === 'missing' || plant === 'damaged' || plant === 'damage' || plant === 'wildgone') {
+    return 'wildgone';
+  }
+  if (plant === 'needstostay') return 'needsToStay';
+  if (plant === 'others' || plant === 'cancelled' || plant === 'canceled') return 'others';
+
+  const wildgoneLeaf = new Set(['missing', 'damaged', 'damage']);
   const active = new Set([
     'active', 'forreceiving', 'received', 'sorted', 'packed', 'shipping', 'shipped', 'delivered',
   ]);
-  if (mishap.has(leaf)) return leaf === 'needstostay' ? 'needsToStay' : leaf;
-  if (ord === 'cancelled' || ord === 'canceled') return 'cancelled';
+
+  if (wildgoneLeaf.has(leaf)) return 'wildgone';
+  if (leaf === 'needstostay') return 'needsToStay';
+  if (leaf === 'others' || leaf === 'cancelled' || leaf === 'canceled') return 'others';
+  if (ord === 'cancelled' || ord === 'canceled') return 'others';
   if (active.has(leaf)) return 'forReceiving';
   return 'forReceiving';
 };
+
+/** @deprecated Use plantStatusToPickerValue */
+export const leafTrailToPlantStatusPickerValue = (rawLeaf, rawOrderStatus = '') =>
+  plantStatusToPickerValue('', rawLeaf, rawOrderStatus);
 
 const OrderSummaryStatusSheet = ({
   visible,

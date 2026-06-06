@@ -43,6 +43,7 @@ import {
 import OrderSummaryStatusSheet, {
     LEAF_TRAIL_STATUS_OPTIONS,
     buildReceivingPlantStatusOptions,
+    mapPlantStatusPickerToApi,
     receivingPlantStatusUsesLeafTrail,
 } from '../../OrderSummary/OrderSummaryStatusSheet';
 import { exportLeafTrailLinesToCsv } from '../../../../utils/leafTrailHubExport';
@@ -1382,7 +1383,7 @@ const ReceivingScreen = ({navigation}) => {
         setLoadingMessage('Updating plant status...');
         setIsLoading(true);
         try {
-            const response = await updatePlantStatus(orderId, status);
+            const response = await updatePlantStatus(orderId, mapPlantStatusPickerToApi(status));
             if (response?.success) {
                 await fetchData();
                 Alert.alert('Success', 'Plant status updated.');

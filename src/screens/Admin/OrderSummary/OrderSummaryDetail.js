@@ -19,7 +19,9 @@ import { updateLeafTrailStatus, updatePlantStatus } from '../../../components/Ap
 import Toast from '../../../components/Toast/Toast';
 import OrderSummaryDeliveredModal from './OrderSummaryDeliveredModal';
 import OrderSummaryStatusSheet, {
+  deriveOrderSummaryPlantStatus,
   LEAF_TRAIL_STATUS_OPTIONS,
+  mapPlantStatusPickerToApi,
   PLANT_STATUS_EDIT_OPTIONS,
 } from './OrderSummaryStatusSheet';
 
@@ -36,36 +38,25 @@ const formatLabel = (value) => {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 };
 
-const deriveDisplayPlantStatus = (rawPlantStatus, rawLeaf, rawOrderStatus) => {
-  const mishap = new Set(['missing', 'damaged', 'needstostay', 'cancelled', 'canceled']);
-  const plant = String(rawPlantStatus || '').toLowerCase().trim();
-  if (plant) {
-    if (plant === 'active') return 'Active';
-    if (mishap.has(plant)) return formatLabel(rawPlantStatus);
-  }
-  const active = new Set([
-    'active', 'forreceiving', 'received', 'sorted', 'packed', 'shipping', 'shipped', 'delivered',
-  ]);
-  const leaf = String(rawLeaf || '').toLowerCase().trim();
-  const ord = String(rawOrderStatus || '').toLowerCase().trim();
-  if (mishap.has(leaf)) return formatLabel(rawLeaf);
-  if (ord === 'cancelled' || ord === 'canceled') return 'Cancelled';
-  if (active.has(leaf)) return 'Active';
-  return '—';
-};
+const deriveDisplayPlantStatus = (rawPlantStatus, rawLeaf, rawOrderStatus) =>
+  deriveOrderSummaryPlantStatus({
+    plantStatus: rawPlantStatus,
+    leafTrailStatus: rawLeaf,
+    status: rawOrderStatus,
+  }).display;
 
 const getPlantStatusTheme = (displayStatus) => {
   const key = String(displayStatus || '').toLowerCase();
   if (key === 'active') {
     return { bg: '#E8F5EB', text: '#2D6A3E', border: '#B8DFC4', dot: '#539461' };
   }
-  if (key === 'missing' || key === 'damaged') {
+  if (key === 'wildgone' || key === 'missing' || key === 'damaged') {
     return { bg: '#FDECE8', text: '#B83D1F', border: '#F5C4B8', dot: '#E7522F' };
   }
   if (key.includes('stay')) {
     return { bg: '#FFF8E6', text: '#8A6A00', border: '#F5E6A8', dot: '#E6A817' };
   }
-  if (key === 'cancelled') {
+  if (key === 'others' || key === 'cancelled') {
     return { bg: '#F0F2F2', text: '#647276', border: '#CDD3D4', dot: '#7F8D91' };
   }
   return { bg: '#F5F6F6', text: '#647276', border: '#E4E7E9', dot: '#7F8D91' };
@@ -253,7 +244,7 @@ const OrderSummaryDetail = ({ navigation, route }) => {
     }
     setSaving(true);
     try {
-      const response = await updatePlantStatus(orderId, status);
+      const response = await updatePlantStatus(orderId, mapPlantStatusPickerToApi(status));
       const isSuccess =
         response?.success === true || response?.plantStatus != null;
 
