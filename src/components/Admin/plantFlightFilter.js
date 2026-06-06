@@ -184,6 +184,19 @@ export const mergeSellerFilterLists = (base = [], extra = []) => {
   return [...map.values()].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 };
 
+/** Merge garden name filter options from list API + getAdminFilters. */
+export const mergeGardenFilterLists = (base = [], extra = []) => {
+  const names = new Set();
+  [...(base || []), ...(extra || [])].forEach((garden) => {
+    const name =
+      typeof garden === 'string'
+        ? garden.trim()
+        : String(garden?.name || garden?.garden || '').trim();
+    if (name && name !== 'N/A') names.add(name);
+  });
+  return [...names].sort((a, b) => a.localeCompare(b));
+};
+
 const SelectedDateChip = ({ date, onRemove }) => (
   <View style={styles.selectedChip}>
     <Text style={styles.selectedChipText}>{formatFlightDate(date)}</Text>

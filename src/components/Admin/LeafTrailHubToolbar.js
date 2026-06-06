@@ -23,6 +23,7 @@ const LeafTrailHubToolbar = ({
   onFilterChange,
   showReceiptStatus = false,
   sellersLoading = false,
+  gardensLoading = false,
 }) => {
   const [filters, setFilters] = useState({
     flightDate: null,
@@ -159,6 +160,7 @@ const LeafTrailHubToolbar = ({
         gardens={adminFilters?.garden || []}
         selectedValues={parseCsvList(filters.gardenOrCompanyName)}
         currentGarden={filters.gardenOrCompanyName}
+        gardensLoading={gardensLoading}
       />
       <SellerFilter
         isVisible={sellerVisible}

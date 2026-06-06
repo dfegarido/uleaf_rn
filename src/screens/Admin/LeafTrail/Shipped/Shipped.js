@@ -19,6 +19,11 @@ import DimensionIcon from '../../../../assets/admin-icons/dimension.svg';
 import ScaleIcon from '../../../../assets/admin-icons/scale.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
+import {
+  mergeFlightDatesIntoAdminFilters,
+  mergeGardenFilterLists,
+  mergeSellerFilterLists,
+} from '../../../../components/Admin/plantFlightFilter';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { useLeafTrailListPrintExport } from '../../../../hooks/useLeafTrailListPrintExport';
@@ -97,6 +102,7 @@ const ShippedScreen = ({ navigation }) => {
   const [shippedData, setShippedData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [adminFilters, setAdminFilters] = useState(null);
+  const [filtersLoading, setFiltersLoading] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [activeFilters, setActiveFilters] = useState(null);
@@ -104,8 +110,16 @@ const ShippedScreen = ({ navigation }) => {
   activeFiltersRef.current = activeFilters;
 
   const getFilters = async () => {
-    const adminFilter = await getAdminLeafTrailFilters('["shipped"]');
-    setAdminFilters(adminFilter);
+    setFiltersLoading(true);
+    try {
+      const adminFilter = await getAdminLeafTrailFilters('["shipped"]', { lite: true });
+      setAdminFilters(adminFilter);
+    } catch (e) {
+      console.error('Failed to load delivered filters:', e);
+      setAdminFilters((prev) => prev || {});
+    } finally {
+      setFiltersLoading(false);
+    }
   };
 
   const fetchData = async (filters) => {
@@ -122,8 +136,7 @@ const ShippedScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData(activeFiltersRef.current);
-      getFilters();
+      Promise.all([fetchData(activeFiltersRef.current), getFilters()]);
     }, []),
   );
 
@@ -135,6 +148,24 @@ const ShippedScreen = ({ navigation }) => {
   const trackingGroups = useMemo(() => {
     return [...(shippedData?.data || [])].sort(compareTracking);
   }, [shippedData?.data]);
+
+  const adminFiltersMerged = useMemo(() => {
+    const fromList = mergeFlightDatesIntoAdminFilters(adminFilters, trackingGroups);
+    const withFlights = mergeFlightDatesIntoAdminFilters(
+      fromList,
+      (shippedData?.flightDateIsos || []).map((iso) => ({ flightDateIso: iso })),
+    );
+    return {
+      ...withFlights,
+      seller: mergeSellerFilterLists(withFlights?.seller, shippedData?.sellers),
+      garden: mergeGardenFilterLists(withFlights?.garden, shippedData?.gardens),
+    };
+  }, [adminFilters, trackingGroups, shippedData?.flightDateIsos, shippedData?.sellers, shippedData?.gardens]);
+
+  const sellersLoading =
+    filtersLoading && !(adminFiltersMerged?.seller || []).length;
+  const gardensLoading =
+    filtersLoading && !(adminFiltersMerged?.garden || []).length;
 
   const {
     actionLoading,
@@ -208,9 +239,19 @@ const ShippedScreen = ({ navigation }) => {
         scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipped}
       />
       {hubSpecEnabled ? (
-        <LeafTrailHubToolbar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+        <LeafTrailHubToolbar
+          adminFilters={adminFiltersMerged}
+          onFilterChange={onFilterChange}
+          sellersLoading={sellersLoading}
+          gardensLoading={gardensLoading}
+        />
       ) : (
-        <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+        <FilterBar
+          adminFilters={adminFiltersMerged}
+          onFilterChange={onFilterChange}
+          sellersLoading={sellersLoading}
+          gardensLoading={gardensLoading}
+        />
       )}
       {activeFilters?.search ? (
         <Text style={styles.searchHint}>

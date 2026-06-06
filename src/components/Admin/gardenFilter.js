@@ -66,6 +66,7 @@ const GardenFilter = ({
   fetchFullGardenList,
   currentGarden = null,
   selectedValues,
+  gardensLoading = false,
 }) => {
   const insets = useSafeAreaInsets();
   // Mock data for the list of gardens
@@ -109,7 +110,7 @@ const GardenFilter = ({
         payload = await fetchFullGardenList();
       } else {
         try {
-          const res = await getAdminLeafTrailFilters();
+          const res = await getAdminLeafTrailFilters(null, { lite: true });
           payload = res?.garden || res?.data?.garden || res?.gardenList || [];
         } catch (apiError) {
           // If API fails (e.g. for Order Summary which uses different order types),
@@ -180,7 +181,7 @@ const GardenFilter = ({
         payload = await fetchFullGardenList();
       } else {
         try {
-          const res = await getAdminLeafTrailFilters();
+          const res = await getAdminLeafTrailFilters(null, { lite: true });
           payload = res?.garden || res?.data?.garden || res?.gardenList || [];
         } catch (apiError) {
           // If API fails (e.g. for Order Summary which uses different order types),
@@ -416,7 +417,12 @@ const GardenFilter = ({
                     bounces={true}
                     showsVerticalScrollIndicator={true}
                   >
-                    {filteredGardens.length === 0 ? (
+                    {gardensLoading && filteredGardens.length === 0 ? (
+                      <View style={styles.emptyContainer}>
+                        <ActivityIndicator size="large" color="#539461" />
+                        <Text style={[styles.emptyText, styles.loadingText]}>Loading gardens…</Text>
+                      </View>
+                    ) : filteredGardens.length === 0 ? (
                       <View style={styles.emptyContainer}>
                         <Text style={styles.emptyText}>No gardens found</Text>
                       </View>
@@ -622,6 +628,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 16,
     color: '#647276',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontWeight: '500',
   },
   divider: {
     height: 1,

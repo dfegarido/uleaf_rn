@@ -24,6 +24,7 @@ const FilterBar = ({
   adminFilters,
   showScan = false,
   sellersLoading = false,
+  gardensLoading = false,
 }) => {
   const [filters, setFilters] = useState({
     sort: null,
@@ -500,6 +501,7 @@ const FilterBar = ({
         gardens={adminFilters?.garden || []}
         selectedValues={parseGardenFilterValues(filters.gardenOrCompanyName)}
         currentGarden={filters.gardenOrCompanyName}
+        gardensLoading={gardensLoading}
       />
 
       <SellerFilter
