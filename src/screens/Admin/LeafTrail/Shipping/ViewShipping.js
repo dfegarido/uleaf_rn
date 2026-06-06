@@ -236,9 +236,13 @@ const ViewShippingScreen = ({ navigation, route }) => {
         Alert.alert("Validation Error", "Please enter a tracking number.");
         return;
     }
+    const orderIds = plantList.map((p) => p.id).filter(Boolean);
+    if (!orderIds.length) {
+      Alert.alert('Please wait', 'Still loading plants for this box. Try again in a moment.');
+      return;
+    }
     setIsSavingTracking(true);
     try {
-      const orderIds = plantList.map((p) => p.id);
       const response = await addLeafTrailTrackingNumber({
         orderIds,
         trackingNumber: normalizedTracking,
@@ -262,14 +266,20 @@ const ViewShippingScreen = ({ navigation, route }) => {
       Alert.alert('Validation Error', 'Please select both delivery date and time.');
       return;
     }
+    const orderIds = plantList.map((p) => p.id).filter(Boolean);
+    if (!orderIds.length) {
+      Alert.alert('Please wait', 'Still loading plants for this box. Try again in a moment.');
+      return;
+    }
+    const normalizedTracking = forceUppercaseHubLabel(String(trackingNumber || '').trim());
     setIsSavingDelivery(true);
     try {
-      const orderIds = plantList.map((p) => p.id);
       const response = await addLeafTrailShippingDetails({
         orderIds,
         deliveryDate,
         deliveryTime,
         isDelayed,
+        trackingNumber: normalizedTracking || undefined,
       });
       if (response.success) {
         Alert.alert('Success', 'Delivery details saved. Box moved to Delivered.', [

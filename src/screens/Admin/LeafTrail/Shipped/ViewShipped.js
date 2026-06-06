@@ -20,12 +20,14 @@ import QuestionMarkTooltip from '../../../../assets/admin-icons/question-mark.sv
 import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import {
   addLeafTrailShippingDetails,
+  addLeafTrailTrackingNumber,
   getOrdersByTrackingNumber,
 } from '../../../../components/Api/getAdminLeafTrail';
 import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
+import LeafTrailTrackingInput from '../../../../components/Admin/LeafTrailTrackingInput';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
-import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import DeliveryDateTimeInput from '../Shipping/DeliveryDateTimeInput';
 
@@ -167,6 +169,10 @@ const ViewShippedScreen = ({ navigation, route }) => {
   const [plantList, setPlantList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingTracking, setIsSavingTracking] = useState(false);
+  const [trackingNumber, setTrackingNumber] = useState(
+    item?.hasUpsTracking === false ? '' : forceUppercaseHubLabel(item?.trackingNumber || ''),
+  );
   const [shippedDetails, setShippedDetails] = useState(item);
   const [deliveryDate, setDeliveryDate] = useState(item?.deliveryDate || null);
   const [deliveryTime, setDeliveryTime] = useState(item?.deliveryTime || null);
@@ -176,11 +182,20 @@ const ViewShippedScreen = ({ navigation, route }) => {
     setIsLoading(true);
     try {
       const response = await getOrdersByTrackingNumber(item.trackingNumber);
-      const plants = (response.data || []).filter(
-        (p) => p?.shippingData?.trackingNumber === item.trackingNumber,
-      );
+      const plants = (response.data || []).filter((p) => {
+        if (item?.hasUpsTracking === false) {
+          return String(p?.leafTrailStatus || '').toLowerCase() === 'shipped';
+        }
+        return (
+          String(p?.shippingData?.trackingNumber || '').toUpperCase() ===
+          String(item.trackingNumber || '').toUpperCase()
+        );
+      });
       setPlantList(plants);
       const sample = plants[0];
+      if (sample?.shippingData?.trackingNumber) {
+        setTrackingNumber(forceUppercaseHubLabel(sample.shippingData.trackingNumber));
+      }
       if (sample?.shippedData?.deliveryDate) {
         setDeliveryDate(sample.shippedData.deliveryDate);
       }
@@ -210,15 +225,61 @@ const ViewShippedScreen = ({ navigation, route }) => {
     }, [item.trackingNumber]),
   );
 
+  const handleSaveTrackingNumber = async () => {
+    const normalizedTracking = forceUppercaseHubLabel(String(trackingNumber || '').trim());
+    if (!normalizedTracking) {
+      Alert.alert('Validation Error', 'Please enter a tracking number.');
+      return;
+    }
+    const orderIds = plantList.map((p) => p.id).filter(Boolean);
+    if (!orderIds.length) {
+      Alert.alert('Please wait', 'Still loading plants for this shipment. Try again in a moment.');
+      return;
+    }
+    setIsSavingTracking(true);
+    try {
+      const response = await addLeafTrailTrackingNumber({
+        orderIds,
+        trackingNumber: normalizedTracking,
+      });
+      if (response.success) {
+        setTrackingNumber(normalizedTracking);
+        setShippedDetails((prev) => ({
+          ...prev,
+          trackingNumber: normalizedTracking,
+          hasUpsTracking: true,
+        }));
+        Alert.alert('Success', 'Tracking number saved. Go back and refresh Delivered to see the UPS row.');
+      } else {
+        throw new Error(response.error || 'Failed to update tracking number.');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setIsSavingTracking(false);
+    }
+  };
+
   const handleSaveDeliveryDetails = async () => {
     if (!deliveryDate || !deliveryTime) {
         Alert.alert("Validation Error", "Please select both delivery date and time.");
         return;
     }
+    const orderIds = plantList.map((p) => p.id).filter(Boolean);
+    if (!orderIds.length) {
+      Alert.alert('Please wait', 'Still loading plants for this shipment. Try again in a moment.');
+      return;
+    }
+    const normalizedTracking = forceUppercaseHubLabel(String(trackingNumber || '').trim());
     setIsSaving(true);
     try {
-        const orderIds = plantList.map(p => p.id);
-        const response = await addLeafTrailShippingDetails({ orderIds, deliveryDate, deliveryTime, isDelayed });
+        const response = await addLeafTrailShippingDetails({
+          orderIds,
+          deliveryDate,
+          deliveryTime,
+          isDelayed,
+          trackingNumber: normalizedTracking || undefined,
+        });
         if (response.success) {
             setShippedDetails(prev => ({...prev, deliveryDate, deliveryTime}));
             Alert.alert("Success", "Delivery details updated successfully.");
@@ -266,7 +327,17 @@ const ViewShippedScreen = ({ navigation, route }) => {
         <Header title="Shipping Details" navigation={navigation} />
       )}
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <TrackingInfo trackingNumber={shippedDetails.trackingNumber} label="Tracking Number" />
+        <LeafTrailTrackingInput
+          trackingNumber={trackingNumber}
+          setTrackingNumber={setTrackingNumber}
+          onSave={handleSaveTrackingNumber}
+          isLoading={isSavingTracking}
+          hint={
+            item?.hasUpsTracking === false && !shippedDetails?.hasUpsTracking
+              ? 'No UPS tracking saved yet. Enter the tracking number and tap Add.'
+              : undefined
+          }
+        />
 
         <DeliveryDateTimeInput 
             deliveryDate={deliveryDate}
@@ -324,7 +395,7 @@ const ViewShippedScreen = ({ navigation, route }) => {
             )}
         </View>
       </ScrollView>
-      {(isLoading || isSaving) && (
+      {(isLoading || isSaving || isSavingTracking) && (
         <Modal transparent animationType="fade">
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />

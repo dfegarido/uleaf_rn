@@ -48,7 +48,12 @@ const ShippedListItem = ({ item, navigation }) => (
         </View>
         <View style={styles.cardContent}>
           <View style={styles.infoRow}>
-            <Text style={styles.trackingNumber}>{item.trackingNumber}</Text>
+            <View style={styles.trackingNumberWrap}>
+              <Text style={styles.trackingNumber}>{item.trackingNumber}</Text>
+              {item.hasUpsTracking === false ? (
+                <Text style={styles.trackingHint}>Box · no UPS tracking</Text>
+              ) : null}
+            </View>
             <Text style={styles.plantCount}>
               {item.shippedPlantsCount}{' '}
               <Text style={{ color: '#556065' }}> plant(s)</Text>
@@ -343,11 +348,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  trackingNumberWrap: {
+    flex: 1,
+    flexShrink: 1,
+    gap: 2,
+  },
   trackingNumber: {
     fontSize: 18,
     fontWeight: '700',
     color: '#202325',
-    flexShrink: 1,
+  },
+  trackingHint: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#7F8D91',
   },
   plantCount: {
     fontSize: 16,
