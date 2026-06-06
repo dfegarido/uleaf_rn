@@ -167,7 +167,7 @@ const BuyerFilter = ({
 
   const filteredBuyers = useMemo(() => {
     if (!searchQuery || searchQuery.trim().length < 2) {
-      return buyers.slice(0, 50);
+      return buyers;
     }
 
     const query = searchQuery.toLowerCase();
