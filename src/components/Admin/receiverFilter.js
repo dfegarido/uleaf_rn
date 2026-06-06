@@ -163,7 +163,7 @@ const ReceiverFilter = ({
               >
                 <SafeAreaView style={{ flex: 1 }}>
                   <View style={styles.titleContainer}>
-                    <Text style={styles.titleText}>Hub Staff</Text>
+                    <Text style={styles.titleText}>Order Receiver</Text>
                     <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
                       <CloseIcon width={24} height={24} />
                     </TouchableOpacity>
@@ -194,7 +194,7 @@ const ReceiverFilter = ({
                         style={styles.showAllLink}
                         onPress={() => setShowAllResults(true)}
                       >
-                        <Text style={styles.showAllLinkText}>Show all matching hub staff</Text>
+                        <Text style={styles.showAllLinkText}>Show all matching order receivers</Text>
                       </TouchableOpacity>
                     ) : null}
 
@@ -210,11 +210,11 @@ const ReceiverFilter = ({
                     >
                       {filteredItems.length === 0 ? (
                         <View style={styles.emptyStateContainer}>
-                          <Text style={styles.emptyStateText}>No hub staff found</Text>
+                          <Text style={styles.emptyStateText}>No order receivers found</Text>
                           <Text style={styles.emptyStateSubtext}>
                             {searchQuery
                               ? 'Try adjusting your search'
-                              : 'No hub staff data available for these orders'}
+                              : 'No order receiver data available for these orders'}
                           </Text>
                         </View>
                       ) : (
