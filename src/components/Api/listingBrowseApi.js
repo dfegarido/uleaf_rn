@@ -277,16 +277,27 @@ export const getBuyerListingsApi = async (params = {}) => {
       }
     });
 
-    const response = await fetch(
-      `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    const hasGenusFilter = Boolean(finalParams.genus);
+    const controller = new AbortController();
+    const timeoutMs = hasGenusFilter ? 120000 : 60000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    let response;
+    try {
+      response = await fetch(
+        `${API_ENDPOINTS.GET_BUYER_LISTINGS}?${queryParams.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
+          signal: controller.signal,
         },
-      },
-    );
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
@@ -294,15 +305,22 @@ export const getBuyerListingsApi = async (params = {}) => {
     }
 
     const json = await response.json();
-    const result = { success: !!json?.success, data: json?.data || json };
+    const payload = json?.data ?? json;
 
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to fetch buyer listings');
+    if (!json?.success && !payload?.success) {
+      throw new Error(json?.error || payload?.error || 'Failed to fetch buyer listings');
     }
+
+    const listings = payload?.listings ?? json?.listings ?? [];
 
     return {
       success: true,
-      data: result.data,
+      data: {
+        ...payload,
+        listings,
+        hasNextPage: payload?.hasNextPage ?? json?.hasNextPage ?? false,
+        nextPageToken: payload?.nextPageToken ?? json?.nextPageToken ?? null,
+      },
     };
   } catch (error) {
     console.error('Get buyer listings API error:', error);

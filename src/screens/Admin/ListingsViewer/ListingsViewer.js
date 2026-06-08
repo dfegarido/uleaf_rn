@@ -752,6 +752,26 @@ const ListingsViewer = ({ navigation }) => {
         limit: 1000,
       };
 
+      if (selectedBadgeFilter) {
+        switch (selectedBadgeFilter) {
+          case 'latest':
+            filters.sort = 'latest';
+            break;
+          case 'below20':
+            filters.priceMax = 20;
+            break;
+          case 'unicorn':
+            filters.rarity = 'unicorn';
+            break;
+          case 'wishlist':
+            filters.isWishlist = true;
+            break;
+          case 'sellers-fave':
+            filters.isSellersFave = true;
+            break;
+        }
+      }
+
       const resp = await getAdminListingsApi(filters);
       if (!resp || !resp.success) return [];
       // Extract listings robustly (same as loadListings)
@@ -1301,7 +1321,9 @@ const ListingsViewer = ({ navigation }) => {
       : ((typeof pagination.totalPages === 'number' && pagination.totalPages > 0) ? pagination.totalPages : '...');
     const totalItemsDisplay = loading 
       ? 'Loading...' 
-      : ((typeof pagination.totalItems === 'number' && pagination.totalItems > 0) ? `${pagination.totalItems} total listings` : `${listings.length} listings on this page`);
+      : ((typeof pagination.totalItems === 'number' && pagination.totalItems > 0)
+          ? `${pagination.totalItems} total listings`
+          : `${listings.length} listings on this page`);
 
     return (
       <View style={styles.paginationContainer}>
@@ -1421,8 +1443,6 @@ const ListingsViewer = ({ navigation }) => {
             handleSearchSubmit={handleStatusView}
             clearFilters={() => handleResetFilter('Status')}
           />
-
-          {/* Status Modal removed from Listings Viewer */}
 
             {/* Genus Modal */}
             <ReusableActionSheet

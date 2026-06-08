@@ -32,6 +32,23 @@ import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import PromoBadgeList from '../../../components/PromoBadgeList';
 
+const isNetworkAvailable = (state) => {
+  if (!state) return false;
+  if (typeof state.isInternetReachable === 'boolean') {
+    return state.isInternetReachable;
+  }
+  return !!state.isConnected;
+};
+
+const fetchNetworkState = async () => {
+  try {
+    return await NetInfo.fetch();
+  } catch (error) {
+    console.warn('[ScreenGenusPlants] NetInfo.fetch failed, proceeding to API call', error);
+    return {isConnected: true, isInternetReachable: null};
+  }
+};
+
 const GenusHeader = ({
   navigation,
   insets,
@@ -107,6 +124,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const justFiltered = React.useRef(false);
   const initialLoadComplete = React.useRef(false); // Track if initial load is done
   const isLoadingRef = React.useRef(false); // Prevent concurrent loadPlants calls
+  const skipSearchReloadRef = React.useRef(true); // Skip search effect on first mount
 
   // Plants data state
   const [plants, setPlants] = useState([]);
@@ -117,7 +135,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const [nextPageToken, setNextPageToken] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const limit = 10;
+  const limit = 20;
+
+  const isDisplayableBuyerPlant = (plant) => {
+    if (!plant || typeof plant.plantCode !== 'string' || plant.plantCode.trim() === '') {
+      return false;
+    }
+    return (
+      (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+      (typeof plant.plantName === 'string' && plant.plantName.trim() !== '')
+    );
+  };
   // Offset only for Price Drop badge (getPriceDropBadgeListingsApi still uses offset)
   const [offset, setOffset] = useState(0);
   
@@ -164,8 +192,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
         setLoadingMore(true);
       }
 
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
+      const netState = await fetchNetworkState();
+      if (!isNetworkAvailable(netState)) {
         throw new Error('No internet connection.');
       }
 
@@ -239,14 +267,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         potSize: p.potSizes && p.potSizes.length > 0 ? p.potSizes[0] : null,
       }));
       
-      const newPlants = rawPlants.filter(plant => {
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        return hasPlantCode && hasTitle && hasSubtitle;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlant);
       
       if (refresh) {
         setPlants(newPlants);
@@ -281,14 +302,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
           imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
         }));
         
-        const newPlants = rawPlants.filter(plant => {
-          const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-          const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-          const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                             (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-          return hasPlantCode && hasTitle && hasSubtitle;
-        });
+        const newPlants = rawPlants.filter(isDisplayableBuyerPlant);
         
         if (refresh) {
           setPlants(newPlants);
@@ -377,6 +391,11 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
   // Reload plants when search term changes (for search within genus plants screen)
   useEffect(() => {
+    if (skipSearchReloadRef.current) {
+      skipSearchReloadRef.current = false;
+      return;
+    }
+
     // Only reload if search term is 2+ characters and we're not coming from initial search navigation
     if (searchTerm.trim().length >= 2 && !(fromSearch && searchQuery)) {
       console.log('🔍 [ScreenGenusPlants] Search term changed, reloading:', searchTerm);
@@ -522,6 +541,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       const currentBadge = activeBadgeRef.current || activeBadge;
       if (specialBadges.includes(currentBadge)) {
         console.log('⏭️ [loadPlants] Skipping - special badge active:', currentBadge);
+        isLoadingRef.current = false;
         return;
       }
       
@@ -533,8 +553,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
         setLoadingMore(true);
       }
 
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
+      const netState = await fetchNetworkState();
+      if (!isNetworkAvailable(netState)) {
         throw new Error('No internet connection.');
       }
 
@@ -554,24 +574,18 @@ const ScreenGenusPlants = ({navigation, route}) => {
         baseParams.plant = activeSearchTerm;
       }
 
-      // Handle genus parameter with proper priority:
-      // 1. If coming from filter sheet (fromFilter=true), ALWAYS use FilterContext genus
-      // 2. If FilterContext has genus filters, those take priority
-      // 3. Otherwise, use route genus parameter (from clicking genus cards)
-      const hasFilterContextGenus = appliedFilters?.genus && appliedFilters.genus.length > 0;
-      
-      if (fromFilter) {
-        // Came from filter sheet - FilterContext is the source of truth
-        // buildFilterParams will handle adding genus from FilterContext
-      } else if (!hasFilterContextGenus && genus && genus !== 'All') {
-        // Direct genus navigation (clicked genus card), no filter context
+      if (genus && genus !== 'All') {
         baseParams.genus = genus.toLowerCase();
-      } else if (hasFilterContextGenus) {
       }
 
-      // Use buildFilterParams to construct all filter parameters
-      // This will add genus from FilterContext if available
       const params = buildFilterParams(baseParams);
+
+      // Direct genus card navigation must always query the tapped genus
+      if (!fromFilter && genus && genus !== 'All') {
+        params.genus = genus.toLowerCase();
+      }
+
+      console.log('[ScreenGenusPlants] getBuyerListings params:', JSON.stringify(params));
 
       const res = await retryAsync(() => getBuyerListingsApi(params), 3, 1000);
 
@@ -585,25 +599,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imagePrimaryWebp: p.imagePrimaryWebp || p.imagePrimaryWebp || p.imagePrimary,
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
-      
-      // Filter out plants with invalid data (same logic as BrowseMorePlants and ScreenPlantDetail)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
 
-        }
-        
-        return isValid;
-      });
+      console.log(
+        '[ScreenGenusPlants] API returned',
+        rawPlants.length,
+        'listings, hasNextPage=',
+        res.data?.hasNextPage,
+      );
       
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlant);
+
+      console.log('[ScreenGenusPlants] After display filter:', newPlants.length, 'plants');
       
       if (refresh) {
         // Deduplicate by plantCode — safety net against concurrent calls
@@ -1084,8 +1090,8 @@ const ScreenGenusPlants = ({navigation, route}) => {
         setLoadingMore(true);
       }
 
-      let netState = await NetInfo.fetch();
-      if (!netState.isConnected || !netState.isInternetReachable) {
+      const netState = await fetchNetworkState();
+      if (!isNetworkAvailable(netState)) {
         throw new Error('No internet connection.');
       }
 
@@ -1099,8 +1105,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         baseParams.plant = searchTerm.trim();
       }
 
-      // Add genus from route params if available and no genus filter is applied
-      if (genus && genus !== 'All' && (!filters.genus || filters.genus.length === 0)) {
+      if (genus && genus !== 'All') {
         baseParams.genus = genus.toLowerCase();
       }
 
@@ -1191,22 +1196,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
       }));
       
       // Filter out plants with invalid data (same logic as BrowseMorePlants and ScreenPlantDetail)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-        }
-        
-        return isValid;
-      });
-      
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlant);
       
       if (refresh) {
         setPlants(newPlants);
