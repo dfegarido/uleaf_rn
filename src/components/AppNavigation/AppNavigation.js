@@ -1330,18 +1330,7 @@ const AppNavigation = () => {
           return;
         }
 
-        if (
-          state.isLoggedIn &&
-          !state.fallbackTriggered &&
-          !state.isBuyer &&
-          !state.isAdmin &&
-          state.hasUserProfile
-        ) {
-          const storeUrl = Platform.OS === 'ios' ? IOS_STORE : ANDROID_STORE;
-          Linking.openURL(storeUrl).catch(() => {});
-          return;
-        }
-
+        // Seller / other roles: keep plant code for after buyer login — never send to store when app is installed.
         try {
           await AsyncStorage.setItem('pendingPlantCode', plantCode);
         } catch (e) {
