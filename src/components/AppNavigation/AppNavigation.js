@@ -1278,6 +1278,10 @@ const AppNavigation = () => {
     };
 
     const pushPlantDetail = (nav, plantCode) => {
+      if (nav?.navigate) {
+        nav.navigate('ScreenPlantDetail', {plantCode});
+        return;
+      }
       nav.dispatch(StackActions.push('ScreenPlantDetail', {plantCode}));
     };
 

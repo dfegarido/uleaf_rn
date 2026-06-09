@@ -62,13 +62,15 @@
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
+            <!-- ileafu://plant/?code= (slash) and ileafu://plant?code= (no slash) -->
+            <data android:scheme="ileafu" android:host="plant" />
             <data android:scheme="ileafu" android:host="plant" android:pathPrefix="/" />
         </intent-filter>
         <intent-filter android:label="live-deeplink">
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="ileafu" android:host="live" android:pathPrefix="/" />
+            <data android:scheme="ileafu" android:host="live" />
         </intent-filter>
         <intent-filter android:autoVerify="true">
             <action android:name="android.intent.action.VIEW" />
