@@ -147,6 +147,13 @@ const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation, flightChan
   };
 
   const buyerRequest = getBuyerRequest();
+  const approvedFlightDateLabel =
+    flightChangeRequest?.newFlightDate ||
+    (buyerRequest?.requestedDate ? formatDate(buyerRequest.requestedDate) : null);
+  const effectiveCurrentFlightDate =
+    buyerRequest?.status === 'approved' && approvedFlightDateLabel
+      ? approvedFlightDateLabel
+      : formatDate(currentFlightDate);
 
   const handleApprove = async () => {
     if (!buyerRequest || !buyerRequest.requestId) {
@@ -389,8 +396,10 @@ const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation, flightChan
 
       {/* Current Flight Date Section */}
       <View style={styles.currentFlightSection}>
-        <Text style={styles.sectionLabel}>Current Flight Date</Text>
-        <Text style={styles.currentFlightDate}>{formatDate(currentFlightDate)}</Text>
+        <Text style={styles.sectionLabel}>
+          {buyerRequest?.status === 'approved' ? 'Updated Flight Date' : 'Current Flight Date'}
+        </Text>
+        <Text style={styles.currentFlightDate}>{effectiveCurrentFlightDate}</Text>
       </View>
 
       {/* Flight Change Request Section */}
@@ -446,7 +455,7 @@ const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation, flightChan
           {buyerRequest.status === 'approved' && (
             <View style={styles.approvedSection}>
               <Text style={styles.approvedText}>
-                ✓ Flight change approved. New flight date: {buyerRequest.requestedDate ? formatDate(buyerRequest.requestedDate) : 'N/A'}
+                ✓ Flight change approved. New flight date: {approvedFlightDateLabel || 'N/A'}
               </Text>
             </View>
           )}

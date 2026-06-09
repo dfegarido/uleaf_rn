@@ -14,6 +14,7 @@ import { getActiveFlightDatesApi } from '../../../../components/Api/getActiveFli
 import { getAirCargoPromoQualifiedText } from '../../../../config/shippingConstants';
 import { roundToCents } from '../../../../utils/money';
 import { createAndCapturePaypalOrder } from '../../../../components/Api/paymentApi';
+import { findMatchingFlightOption } from '../../../../utils/flightDateMatching';
 
 /**
  * CheckoutController - Handles all business logic for CheckoutScreen
@@ -1485,11 +1486,11 @@ export const useCheckoutController = (props) => {
       // Find and auto-select the matching flight option
       const existingOrderIso = formatFlightDateToISO(flightDate, new Date().getFullYear());
       
-      const flightOption = flightDateOptions.find(option => {
-        if (option.iso === existingOrderIso) return true;
-        if (option.key === normalizeFlightKey(flightDate)) return true;
-        return false;
-      });
+      const flightOption = findMatchingFlightOption(
+        existingOrderIso,
+        flightDateOptions,
+        formatFlightDateToISO,
+      );
       
       if (flightOption) {
         console.log('✅ [Re-check Existing Orders] Auto-selecting existing order flight date:', flightOption);
@@ -1497,32 +1498,13 @@ export const useCheckoutController = (props) => {
         if (flightOption.iso) {
           setCargoDate(flightOption.iso);
         }
-        // Trigger shipping calculation after auto-selecting date
-        console.log('🔄 [Re-check Existing Orders] Triggering shipping calculation for auto-selected date');
         setTimeout(() => {
           if (isCalculatingRef.current === false) {
-            lastCalculationParamsRef.current = null; // Clear to force recalculation
+            lastCalculationParamsRef.current = null;
           }
         }, 100);
       } else {
-        // Fallback to first suggested option if exact match not found
-        const firstSuggestedOption = flightDateOptions
-          .filter(opt => opt.iso)
-          .sort((a, b) => a.iso.localeCompare(b.iso))[0];
-        
-        if (firstSuggestedOption) {
-          console.log('⚠️ [Re-check Existing Orders] Exact match not found, using first suggested option as fallback');
-          setSelectedFlightDate(firstSuggestedOption);
-          if (firstSuggestedOption.iso) {
-            setCargoDate(firstSuggestedOption.iso);
-          }
-          // Trigger shipping calculation
-          setTimeout(() => {
-            if (isCalculatingRef.current === false) {
-              lastCalculationParamsRef.current = null;
-            }
-          }, 100);
-        }
+        console.log('⚠️ [Re-check Existing Orders] No matching flight option for locked date:', existingOrderIso);
       }
     }
     }, [flightDateOptions, formatFlightDateToISO, normalizeFlightKey]);
@@ -1556,6 +1538,9 @@ export const useCheckoutController = (props) => {
           
           // Handle different API response structures
           let ordersArray = [];
+          const checkoutLockedFlightDate =
+            ordersResult?.data?.data?.checkoutLockedFlightDate || null;
+
           if (ordersResult && ordersResult.success) {
             if (Array.isArray(ordersResult.data)) {
               ordersArray = ordersResult.data;
@@ -1634,26 +1619,24 @@ export const useCheckoutController = (props) => {
             });
             
             if (readyToFlyOrders.length > 0) {
-              // Sort by creation date to get the FIRST (oldest) order
-              // Use createdAt, orderDate, or timestamp - whichever is available
-              const sortedOrders = readyToFlyOrders.sort((a, b) => {
-                const dateA = a.createdAt || a.orderDate || a.timestamp || 0;
-                const dateB = b.createdAt || b.orderDate || b.timestamp || 0;
-                // Convert to comparable values
-                const timeA = dateA instanceof Date ? dateA.getTime() : (typeof dateA === 'number' ? dateA : new Date(dateA).getTime() || 0);
-                const timeB = dateB instanceof Date ? dateB.getTime() : (typeof dateB === 'number' ? dateB : new Date(dateB).getTime() || 0);
-                return timeA - timeB; // Ascending order: oldest first
-              });
-              
-              // Get the FIRST (oldest) order
-              const firstOrder = sortedOrders[0];
-              const flightDate = firstOrder.flightDate || firstOrder.cargoDate || firstOrder.selectedFlightDate;
-              
-              console.log('🔒 [checkExistingOrders] First Ready to Fly order found with flight date:', {
-                orderIndex: 0,
-                orderStatus: firstOrder.status || firstOrder.orderStatus,
-                flightDate: flightDate,
-                createdAt: firstOrder.createdAt || firstOrder.orderDate,
+              let flightDate = checkoutLockedFlightDate;
+
+              if (!flightDate) {
+                const sortedOrders = readyToFlyOrders.sort((a, b) => {
+                  const dateA = a.createdAt || a.orderDate || a.timestamp || 0;
+                  const dateB = b.createdAt || b.orderDate || b.timestamp || 0;
+                  const timeA = dateA instanceof Date ? dateA.getTime() : (typeof dateA === 'number' ? dateA : new Date(dateA).getTime() || 0);
+                  const timeB = dateB instanceof Date ? dateB.getTime() : (typeof dateB === 'number' ? dateB : new Date(dateB).getTime() || 0);
+                  return timeB - timeA;
+                });
+
+                const latestOrder = sortedOrders[0];
+                flightDate = latestOrder.flightDate || latestOrder.cargoDate || latestOrder.selectedFlightDate;
+              }
+
+              console.log('🔒 [checkExistingOrders] Ready to Fly lock flight date:', {
+                checkoutLockedFlightDate,
+                flightDate,
                 totalReadyToFlyOrders: readyToFlyOrders.length,
               });
               
@@ -1690,23 +1673,11 @@ export const useCheckoutController = (props) => {
                     flightDateOptionsCount: currentFlightOptions.length,
                   });
 
-                  // Find matching flight option for the existing order's date
-                  const flightOption = currentFlightOptions.find(option => {
-                    if (option.iso === existingOrderIso) return true;
-                    if (option.key === normalizeFlightKey(flightDate)) return true;
-                    // Try partial match on date parts
-                    if (existingOrderIso && option.iso) {
-                      const existingParts = existingOrderIso.split('-');
-                      const optionParts = option.iso.split('-');
-                      if (existingParts.length === 3 && optionParts.length === 3) {
-                        // Match year-month-day
-                        return existingParts[0] === optionParts[0] && 
-                               existingParts[1] === optionParts[1] && 
-                               existingParts[2] === optionParts[2];
-                      }
-                    }
-                    return false;
-                  });
+                  const flightOption = findMatchingFlightOption(
+                    existingOrderIso,
+                    currentFlightOptions,
+                    formatFlightDateToISO,
+                  );
 
                   if (flightOption) {
                     console.log('✅ [checkExistingOrders] Auto-selecting existing order flight date:', flightOption);
@@ -1714,32 +1685,13 @@ export const useCheckoutController = (props) => {
                     if (flightOption.iso) {
                       setCargoDate(flightOption.iso);
                     }
-                    // Trigger shipping calculation after auto-selecting date
-                    console.log('🔄 [checkExistingOrders] Triggering shipping calculation for auto-selected date');
                     setTimeout(() => {
                       if (isCalculatingRef.current === false) {
-                        lastCalculationParamsRef.current = null; // Clear to force recalculation
+                        lastCalculationParamsRef.current = null;
                       }
                     }, 100);
                   } else {
-                    // If no exact match found, use first suggested option as fallback
-                    const firstSuggestedOption = currentFlightOptions
-                      .filter(opt => opt.iso)
-                      .sort((a, b) => a.iso.localeCompare(b.iso))[0];
-                    
-                    if (firstSuggestedOption) {
-                      console.log('⚠️ [checkExistingOrders] No exact match found, using first suggested option as fallback:', firstSuggestedOption);
-                      setSelectedFlightDate(firstSuggestedOption);
-                      if (firstSuggestedOption.iso) {
-                        setCargoDate(firstSuggestedOption.iso);
-                      }
-                      // Trigger shipping calculation
-                      setTimeout(() => {
-                        if (isCalculatingRef.current === false) {
-                          lastCalculationParamsRef.current = null;
-                        }
-                      }, 100);
-                    }
+                    console.log('⚠️ [checkExistingOrders] No matching flight option for locked date:', existingOrderIso);
                   }
                 } else {
                   // No flight options available yet - wait for them to be calculated

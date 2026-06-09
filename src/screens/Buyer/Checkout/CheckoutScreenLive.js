@@ -51,6 +51,7 @@ import { calculateCheckoutShippingApi } from '../../../components/Api/checkoutSh
 import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
 import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
+import { findMatchingFlightOption } from '../../../utils/flightDateMatching';
 
 // Helper function to determine country from currency
 const getCountryFromCurrency = currency => {
@@ -970,9 +971,11 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     const checkReadyToFlyOrders = async () => {
       setCheckingOrders(true);
       try {
-        const params = {limit: 50, status: 'Ready to Fly'};
+        const params = { limit: 50 };
 
         const resp = await getBuyerOrdersApi(params);
+        const checkoutLockedFlightDate =
+          resp?.data?.data?.checkoutLockedFlightDate || null;
         if (!mounted) return;
 
         // Normalize possible response shapes into an array of orders
@@ -1030,36 +1033,39 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
             })
             .filter(Boolean);
 
-          // Choose the greatest (latest) ISO date string
-          const greatestIso = readyIsos.length > 0 ? readyIsos.reduce((a, b) => (a > b ? a : b)) : null;
+          const greatestIso =
+            checkoutLockedFlightDate ||
+            (readyIsos.length > 0 ? readyIsos.reduce((a, b) => (a > b ? a : b)) : null);
 
           if (greatestIso) {
-            // suggestedOptionIso is the first generated option; prefer comparing against that
             const suggestedOptionIso = flightDateOptions && flightDateOptions[0] && (flightDateOptions[0].iso || flightDateOptions[0].value);
-            // Normalize both dates to canonical ISO (if possible) before comparing
             const normalizedGreatest = formatFlightDateToISO(greatestIso, new Date().getFullYear()) || greatestIso;
             const normalizedSuggested = formatFlightDateToISO(suggestedOptionIso, new Date().getFullYear()) || suggestedOptionIso;
-            // If there is an existing Ready-to-Fly order date that is equal or greater than the suggested option,
-            // enforce the existing order date and disable the plant flight selection button.
+            const matchedOption = findMatchingFlightOption(
+              normalizedGreatest,
+              flightDateOptions,
+              formatFlightDateToISO,
+            );
+
             if (suggestedOptionIso && normalizedGreatest && normalizedGreatest >= normalizedSuggested) {
               setLockedFlightDate(normalizedGreatest);
               setLockedFlightKey(normalizeFlightKey(normalizedGreatest));
-              // set selection to the existing order date and disable changes
-              const obj = { label: normalizedGreatest, iso: normalizedGreatest };
-              setSelectedFlightDate(obj);
-              setCargoDate(normalizedGreatest);
+              if (matchedOption) {
+                setSelectedFlightDate(matchedOption);
+                if (matchedOption.iso) setCargoDate(matchedOption.iso);
+              } else {
+                const obj = { label: normalizedGreatest, iso: normalizedGreatest };
+                setSelectedFlightDate(obj);
+                setCargoDate(normalizedGreatest);
+              }
               setDisablePlantFlightSelection(true);
             } else {
-              // Otherwise, allow suggestion/lock behavior as before
               setLockedFlightDate(greatestIso);
-              const key = normalizeFlightKey(greatestIso);
-              setLockedFlightKey(key);
+              setLockedFlightKey(normalizeFlightKey(greatestIso));
 
-              // try to match one of the available options
-              const matched = flightDateOptions.find(opt => normalizeFlightKey(opt.iso || opt.value) === key || normalizeFlightKey(opt.label) === key);
-              if (matched) {
-                const iso = formatFlightDateToISO(matched.iso || matched.value, new Date(cargoDate).getFullYear());
-                const obj = { label: matched.label || matched.value, iso: iso || matched.iso || matched.value };
+              if (matchedOption) {
+                const iso = formatFlightDateToISO(matchedOption.iso || matchedOption.value, new Date(cargoDate).getFullYear());
+                const obj = { label: matchedOption.label || matchedOption.value, iso: iso || matchedOption.iso || matchedOption.value };
                 setSelectedFlightDate(obj);
                 if (obj.iso) setCargoDate(obj.iso);
               } else {
@@ -1067,7 +1073,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                 setSelectedFlightDate(obj);
                 if (obj.iso) setCargoDate(obj.iso);
               }
-              // ensure selection is enabled when suggestion is acceptable
               setDisablePlantFlightSelection(false);
             }
           } else {
