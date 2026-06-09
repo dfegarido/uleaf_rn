@@ -973,19 +973,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
         <View
           style={[
             styles.header,
-            styles.headerWithShare,
             Platform.OS === 'android' && {paddingTop: Math.min(insets.top + 12, 50)},
           ]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}>
             <BackIcon width={24} height={24} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleShare}
-            accessibilityLabel="Share listing">
-            <ShareIcon width={20} height={20} />
           </TouchableOpacity>
         </View>
 
@@ -1773,9 +1766,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 20,
   },
-  headerWithShare: {
-    justifyContent: 'space-between',
-  },
   backButton: {
     width: 32,
     height: 32,
@@ -1790,15 +1780,6 @@ const styles = StyleSheet.create({
       minWidth: 40,
       padding: 4,
     }),
-  },
-  shareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(245, 246, 246, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
   },
   scrollContainer: {
     flex: 1,
