@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator} from 'react-native';
+import {View, Text, Image, StyleSheet, TouchableOpacity} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import { useLovedListings } from '../../context/LovedListingsContext';
 // Removed image caching (AsyncStorage) usage
@@ -11,8 +11,13 @@ import PhilippinesFlag from '../../assets/buyer-icons/philippines-flag.svg';
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaFlag from '../../assets/buyer-icons/indonesia-flag.svg';
 import { formatCurrencyFull } from '../../utils/formatCurrency';
+import PlantListingImage from '../PlantListingImage/PlantListingImage';
+import {
+  getDetailListingImageUri,
+  PLANT_LISTING_MISSING_IMAGE,
+} from '../../utils/plantListingImage';
 
-const placeholderImage = require('../../assets/buyer-icons/png/ficus-lyrata.png');
+const placeholderImage = PLANT_LISTING_MISSING_IMAGE;
 const placeholderFlag = require('../../assets/buyer-icons/philippines-flag.svg');
 // const HeartIcon = require('../../assets/buyer-icons/heart.svg');
 const noteIcon = require('../../assets/buyer-icons/note.svg');
@@ -80,41 +85,18 @@ const PlantItemCard = ({
   const { isLoved, toggleLove } = useLovedListings();
 
   const plantData = data || {};
-  const resolvedPrimary =
-    plantData.imagePrimaryWebp ||
-    plantData.imagePrimary ||
-    (Array.isArray(plantData.imageCollectionWebp) && plantData.imageCollectionWebp[0]) ||
-    (Array.isArray(plantData.imageCollection) && plantData.imageCollection[0]) ||
-    (Array.isArray(plantData.images) && plantData.images[0]) ||
-    plantData.imagePrimaryOriginal;
-  const displayImage = data ? (resolvedPrimary ? { uri: resolvedPrimary } : placeholderImage) : image;
+  const listingImageUri = data
+    ? getDetailListingImageUri(plantData)
+    : image && typeof image === 'object' && image.uri
+      ? String(image.uri).trim()
+      : null;
+  const staticListingImage =
+    !listingImageUri && image && typeof image !== 'object' ? image : null;
 
-  const imageUriKey = React.useMemo(() => {
-    if (data) {
-      return resolvedPrimary && String(resolvedPrimary).trim()
-        ? String(resolvedPrimary).trim()
-        : '';
-    }
-    if (image && typeof image === 'object' && image.uri) {
-      return String(image.uri).trim();
-    }
-    return '';
-  }, [data, resolvedPrimary, image]);
-
-  const imageUriKeyRef = React.useRef(imageUriKey);
-  const [imageError, setImageError] = React.useState(false);
-  const [imageLoading, setImageLoading] = React.useState(() => Boolean(imageUriKey));
   const [localLoveCount, setLocalLoveCount] = React.useState(null);
   const [isTogglingLove, setIsTogglingLove] = React.useState(false);
   const [_removedCacheHook] = React.useState(null);
   React.useEffect(() => { /* no-op */ }, []);
-
-  React.useLayoutEffect(() => {
-    if (imageUriKeyRef.current !== imageUriKey) {
-      imageUriKeyRef.current = imageUriKey;
-      setImageLoading(Boolean(imageUriKey));
-    }
-  }, [imageUriKey]);
   
   // Removed AsyncStorage-based image caching effect
   
@@ -123,6 +105,7 @@ const PlantItemCard = ({
       // Navigate to plant detail screen with plantCode
       navigation.navigate('ScreenPlantDetail', {
         plantCode: plantData.plantCode,
+        previewImageUri: listingImageUri || undefined,
       });
     } else {
       // Fallback to legacy onPress prop
@@ -296,26 +279,13 @@ const PlantItemCard = ({
         onPress={handleCardPress}
         activeOpacity={0.9}>
         <View style={styles.imageContainer}>
-          <Image 
-            source={displayImage} 
-            style={styles.image} 
+          <PlantListingImage
+            uri={listingImageUri}
+            staticSource={staticListingImage}
+            style={styles.image}
             resizeMode="cover"
-            onError={() => {
-              setImageError(true);
-              setImageLoading(false);
-            }}
-            onLoadEnd={() => {
-              setImageLoading(false);
-            }}
-            key={`${plantData?.plantCode || 'default'}-${imageUriKey}-${imageError}`}
+            enableSlowFallback={false}
           />
-          
-          {/* Loading Overlay */}
-          {imageLoading && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="small" color="#7CBD58" />
-            </View>
-          )}
           
           {/* Listing Type + Country Overlay */}
           <View style={styles.listingOverlay}>

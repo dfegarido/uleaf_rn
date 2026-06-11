@@ -51,10 +51,12 @@ import {
   AIR_CARGO_PROMO_EARN_BACK_TEXT,
   REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
 } from '../../../config/shippingConstants';
+import PlantListingImage from '../../../components/PlantListingImage/PlantListingImage';
+import {getDetailListingImageUri} from '../../../utils/plantListingImage';
 
 const ScreenPlantDetail = ({navigation, route}) => {
   const {user} = useAuth();
-  const {plantCode} = route.params || {};
+  const {plantCode, previewImageUri} = route.params || {};
 
   // Get screen dimensions for dynamic card sizing
   const screenWidth = Dimensions.get('window').width;
@@ -70,9 +72,6 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [isLoved, setIsLoved] = useState(false);
   const [loveCount, setLoveCount] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [imageSource, setImageSource] = useState(
-    require('../../../assets/buyer-icons/png/ficus-lyrata.png'),
-  );
   
   // Available pot sizes from backend
   const [availablePotSizes, setAvailablePotSizes] = useState([]);
@@ -233,6 +232,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
     return false;
   }, [plantData, selectedVariationStock]);
 
+  useEffect(() => {
+    setPlantData(null);
+    setLoading(true);
+    setCurrentImageIndex(0);
+  }, [plantCode, previewImageUri]);
+
   // Load plant details when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -242,10 +247,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
     }, [plantCode]),
   );
 
+  const detailImageUri =
+    getDetailListingImageUri(plantData) || previewImageUri || null;
+
   useEffect(() => {
-    if (plantData?.imagePrimary) {
-      setImageSource({uri: plantData.imagePrimary});
-    }
     if (plantData?.loveCount !== undefined) {
       setLoveCount(plantData.loveCount || 0);
     }
@@ -846,8 +851,17 @@ const ScreenPlantDetail = ({navigation, route}) => {
     return (
       <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["left", "right", "top", "bottom"]}>
       <View style={styles.container}>
-        {/* Skeleton Background Image */}
-        <View style={styles.skeletonBackgroundImage} />
+        {detailImageUri ? (
+          <View style={styles.backgroundImageWrapper}>
+            <PlantListingImage
+              uri={detailImageUri}
+              style={styles.backgroundImage}
+              resizeMode="cover"
+            />
+          </View>
+        ) : (
+          <View style={styles.skeletonBackgroundImage} />
+        )}
         
         
           {/* Header Navigation */}
@@ -945,13 +959,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
     <SafeAreaView style={styles.container}>
       {/* Background Plant Image */}
       <View style={styles.backgroundImageWrapper}>
-        <Image
-          source={imageSource}
+        <PlantListingImage
+          uri={detailImageUri}
           style={styles.backgroundImage}
           resizeMode="cover"
-          onError={() => {
-            setImageSource(require('../../../assets/buyer-icons/png/ficus-lyrata.png'));
-          }}
         />
         {plantSoldOut && (
         <View style={styles.backgroundSoldBadge}>
@@ -1207,9 +1218,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
                       styles.potSizeImage,
                       selectedPotSize === potSize && { borderColor: '#539461' }
                     ]}>
-                      <Image
-                        source={imageSource}
+                      <PlantListingImage
+                        uri={detailImageUri}
                         style={styles.potImage}
+                        showLoading={false}
                       />
                     </View>
                     <Text style={styles.potSizeCardLabel}>{potSize}</Text>
@@ -1370,7 +1382,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
               initialLimit={8}
               loadMoreLimit={8}
               showLoadMore={false}
-              onPlantPress={(plant) => navigation.push('ScreenPlantDetail', { plantCode: plant.plantCode, plantData: plant })}
+              onPlantPress={(plant) =>
+                navigation.push('ScreenPlantDetail', {
+                  plantCode: plant.plantCode,
+                  previewImageUri: getDetailListingImageUri(plant) || undefined,
+                })
+              }
               containerStyle={{paddingVertical:0}}
             />
         
@@ -1476,9 +1493,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
                           styles.modalPotSizeImage,
                           selectedPotSize === potSize && styles.modalSelectedPotSizeImage
                         ]}>
-                          <Image
-                            source={imageSource}
+                          <PlantListingImage
+                            uri={detailImageUri}
                             style={styles.modalPotImage}
+                            showLoading={false}
                           />
                         </View>
                         <Text style={styles.modalPotSizeCardLabel}>{potSize}</Text>
