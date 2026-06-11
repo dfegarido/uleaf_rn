@@ -15,123 +15,19 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import XIcon from '../../../assets/icons/greylight/x-regular';
 import { getBuyerOrdersApi, getBuyerOrdersGroupedApi } from '../../../components/Api/orderManagementApi';
-import { OrderItemCard } from '../../../components/OrderItemCard';
+import { JoinerOrderCard, OrderItemCard } from '../../../components/OrderItemCard';
+import {
+  transformPayToBoardPlant,
+  transformPlantsAreHomePlant,
+  transformReadyToFlyPlant,
+} from '../../../utils/buyerOrderCardTransform';
 import { retryAsync } from '../../../utils/utils';
 
 const RECENT_SEARCHES_KEY = 'recent_order_searches';
 const MAX_RECENT = 10;
-
-const FLAG_MAP = {
-  TH: ThailandFlag,
-  PH: PhilippinesFlag,
-  ID: IndonesiaFlag,
-};
-
-const getCountryCode = (record) => {
-  if (!record) return 'ID';
-  if (record.plantSourceCountry) return record.plantSourceCountry;
-  if (record.order && record.order.plantSourceCountry) return record.order.plantSourceCountry;
-  if (record.products && record.products.length > 0) {
-    return record.products[0].plantSourceCountry || record.products[0].supplierCountry || 'ID';
-  }
-  if (record.plantDetails && record.plantDetails.plantSourceCountry) return record.plantDetails.plantSourceCountry;
-  return 'ID';
-};
-
-const getCountryFlag = (record) => {
-  const code = getCountryCode(record);
-  return FLAG_MAP[code] || IndonesiaFlag;
-};
-
-// Transform individual plant format (from getBuyerOrdersApi)
-const transformIndividualPlant = (plant) => {
-  const plantDetails = plant.plantDetails || {};
-  const orderMeta = plant.order || {};
-  const fullOrderLike = {
-    ...orderMeta,
-    products: [plant],
-    plantDetails,
-  };
-  const countryCode = getCountryCode(plant);
-  const priceValue = (orderMeta.pricing?.finalTotal ?? plant.productTotal ?? plant.unitPrice) || 0;
-
-  return {
-    id: `${orderMeta.id || orderMeta.transactionNumber || ''}_${plant.plantCode || ''}`,
-    status: orderMeta.status || 'Ready to Fly',
-    airCargoDate: plant.flightDateFormatted || orderMeta.flightDateFormatted || plant.flightDate || 'TBD',
-    countryCode,
-    flag: getCountryFlag(plant),
-    planeIcon: PlaneGrayIcon,
-    image: plantDetails?.imageCollectionWebp?.[0]
-      ? { uri: plantDetails.imageCollectionWebp[0] }
-      : plantDetails?.image
-        ? { uri: plantDetails.image }
-        : plantDetails?.imageCollection?.[0]
-          ? { uri: plantDetails.imageCollection[0] }
-          : require('../../../assets/images/plant1.png'),
-    plantName: plantDetails?.title || plant.plantName || 'Unknown Plant',
-    variety: plant.variegation || plantDetails?.variegation || 'Standard',
-    size: plant.potSize || plantDetails?.potSize || '',
-    price: `$${priceValue.toFixed(2)}`,
-    quantity: plant.quantity || 1,
-    plantCode: plant.plantCode || '',
-    orderId: orderMeta.id,
-    transactionNumber: orderMeta.transactionNumber || orderMeta.id || '',
-    fullOrderData: fullOrderLike,
-    isJoinerOrder: plant.isJoinerOrder || false,
-    joinerInfo: plant.joinerInfo || null,
-    buyerUid: plant.buyerUid || orderMeta.buyerUid || null,
-    _rawPlantRecord: plant,
-  };
-};
-
-// Transform grouped plant format (from getBuyerOrdersGroupedApi)
-const transformGroupedPlant = (group, plant) => {
-  const plantDetails = plant.plantDetails || {};
-  const fullOrderLike = {
-    ...group,
-    products: [plant],
-    plantDetails,
-  };
-  const countryCode = getCountryCode(plant);
-  const priceValue = (group.pricing?.finalTotal ?? plant.productTotal ?? plant.unitPrice) || 0;
-
-  return {
-    id: `${group.id || group.transactionNumber || ''}_${plant.plantCode || ''}`,
-    status: group.status || 'pending_payment',
-    airCargoDate: plant.flightDateFormatted || group.flightDateFormatted || plant.flightDate || 'TBD',
-    countryCode,
-    flag: getCountryFlag(plant),
-    planeIcon: PlaneGrayIcon,
-    image: plantDetails?.imageCollectionWebp?.[0]
-      ? { uri: plantDetails.imageCollectionWebp[0] }
-      : plantDetails?.image
-        ? { uri: plantDetails.image }
-        : plantDetails?.imageCollection?.[0]
-          ? { uri: plantDetails.imageCollection[0] }
-          : require('../../../assets/images/plant1.png'),
-    plantName: plantDetails?.title || plant.plantName || 'Unknown Plant',
-    variety: plant.variegation || plantDetails?.variegation || 'Standard',
-    size: plant.potSize || plantDetails?.potSize || '',
-    price: `$${priceValue.toFixed(2)}`,
-    quantity: plant.quantity || 1,
-    plantCode: plant.plantCode || '',
-    orderId: group.id,
-    transactionNumber: group.transactionNumber || group.id || '',
-    fullOrderData: fullOrderLike,
-    isJoinerOrder: plant.isJoinerOrder || group.isJoinerOrder || false,
-    joinerInfo: plant.joinerInfo || group.joinerInfo || null,
-    buyerUid: plant.buyerUid || group.buyerUid || null,
-    _rawPlantRecord: plant,
-  };
-};
 
 const ScreenOrderSearch = () => {
   const navigation = useNavigation();
@@ -144,7 +40,6 @@ const ScreenOrderSearch = () => {
   const [allOrders, setAllOrders] = useState([]);
   const inputRef = useRef(null);
 
-  // Load recent searches and fetch all orders on mount
   useEffect(() => {
     const loadRecent = async () => {
       try {
@@ -183,32 +78,27 @@ const ScreenOrderSearch = () => {
 
       const combinedOrders = [];
 
-      // Ready to Fly
       if (responses[0].status === 'fulfilled' && responses[0].value?.success) {
         const plants = responses[0].value.data?.data?.plants || [];
-        plants.forEach(plant => combinedOrders.push(transformIndividualPlant(plant)));
+        plants.forEach((plant) => combinedOrders.push(transformReadyToFlyPlant(plant)));
       }
 
-      // Delivered
       if (responses[1].status === 'fulfilled' && responses[1].value?.success) {
         const plants = responses[1].value.data?.data?.plants || [];
-        plants.forEach(plant => combinedOrders.push(transformIndividualPlant(plant)));
+        plants.forEach((plant) => combinedOrders.push(transformPlantsAreHomePlant(plant)));
       }
 
-      // Pending Payment (grouped)
       if (responses[2].status === 'fulfilled' && responses[2].value?.success) {
         const groups = responses[2].value.data?.data?.groups || [];
-        groups.forEach(group => {
-          const groupPlants = group.plants || [];
-          groupPlants.forEach(plant => {
-            combinedOrders.push(transformGroupedPlant(group, plant));
+        groups.forEach((group) => {
+          (group.plants || []).forEach((plant) => {
+            combinedOrders.push(transformPayToBoardPlant(plant, group));
           });
         });
       }
 
-      // Deduplicate by id
       const seen = new Set();
-      const deduped = combinedOrders.filter(order => {
+      const deduped = combinedOrders.filter((order) => {
         if (seen.has(order.id)) return false;
         seen.add(order.id);
         return true;
@@ -252,10 +142,13 @@ const ScreenOrderSearch = () => {
 
     setHasSearched(true);
     const trimmed = query.trim().toLowerCase();
-    const filtered = allOrders.filter(order => {
+    const filtered = allOrders.filter((order) => {
       const plantNameMatch = order.plantName && order.plantName.toLowerCase().includes(trimmed);
       const txnMatch = order.transactionNumber && order.transactionNumber.toLowerCase().includes(trimmed);
-      return plantNameMatch || txnMatch;
+      const invoiceMatch =
+        order.fullOrderData?.invoiceNumber &&
+        String(order.fullOrderData.invoiceNumber).toLowerCase().includes(trimmed);
+      return plantNameMatch || txnMatch || invoiceMatch;
     });
     setResults(filtered);
   }, [allOrders]);
@@ -291,14 +184,28 @@ const ScreenOrderSearch = () => {
     inputRef.current?.focus();
   }, []);
 
-  const handleOrderPress = useCallback((order) => {
-    if (order.plantCode && order.fullOrderData) {
-      navigation.navigate('OrderDetailsScreen', {
-        order: order.fullOrderData,
-        plantCode: order.plantCode,
-      });
+  const renderOrderCard = (item, index) => {
+    const key = `${item.plantCode}_${item.activeTab}_${index}`;
+
+    if (item.isJoinerOrder) {
+      return (
+        <JoinerOrderCard
+          key={key}
+          {...item}
+          joinerInfo={item.joinerInfo}
+          activeTab={item.activeTab}
+        />
+      );
     }
-  }, [navigation]);
+
+    return (
+      <OrderItemCard
+        key={key}
+        {...item}
+        activeTab={item.activeTab}
+      />
+    );
+  };
 
   const showEmptyState = hasSearched && !loading && results.length === 0;
   const showResults = hasSearched && results.length > 0;
@@ -308,7 +215,6 @@ const ScreenOrderSearch = () => {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Header */}
       <View style={[styles.header, { paddingTop: 12 }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -350,7 +256,6 @@ const ScreenOrderSearch = () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Recent Searches */}
         {showRecent && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -380,7 +285,6 @@ const ScreenOrderSearch = () => {
           </View>
         )}
 
-        {/* Loading */}
         {loading && !hasSearched && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#539461" />
@@ -388,39 +292,15 @@ const ScreenOrderSearch = () => {
           </View>
         )}
 
-        {/* Results */}
         {showResults && (
           <View style={styles.resultsSection}>
             <Text style={styles.resultsCount}>
               {results.length} result{results.length !== 1 ? 's' : ''}
             </Text>
-            {results.map((order) => (
-              <TouchableOpacity
-                key={order.id}
-                activeOpacity={0.8}
-                onPress={() => handleOrderPress(order)}
-              >
-                <OrderItemCard
-                  status={order.status}
-                  airCargoDate={order.airCargoDate}
-                  countryCode={order.countryCode}
-                  flag={order.flag}
-                  planeIcon={order.planeIcon}
-                  image={order.image}
-                  plantName={order.plantName}
-                  variety={order.variety}
-                  size={order.size}
-                  price={order.price}
-                  quantity={order.quantity}
-                  plantCode={order.plantCode}
-                  fullOrderData={order.fullOrderData}
-                />
-              </TouchableOpacity>
-            ))}
+            {results.map(renderOrderCard)}
           </View>
         )}
 
-        {/* Empty State */}
         {showEmptyState && (
           <View style={styles.emptyStateContainer}>
             <Text style={styles.emptyStateTitle}>No orders found</Text>
@@ -430,7 +310,6 @@ const ScreenOrderSearch = () => {
           </View>
         )}
 
-        {/* Bottom padding for safe area */}
         <View style={{ height: insets.bottom + 20 }} />
       </ScrollView>
     </SafeAreaView>
