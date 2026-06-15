@@ -843,7 +843,7 @@ const OrderDetailsScreen = () => {
                 styles.creditStatusBadge,
                 getCreditStatusBadgeStyle(order.plant.creditRequestStatus)
               ]}>
-                <Text style={styles.creditStatusText}>
+                <Text style={styles.creditStatusText} numberOfLines={1}>
                   {order.plant.creditRequestStatus === 'pending' ? 'Credit Requested' :
                    order.plant.creditRequestStatus === 'approved' ? 'Credit Approved' :
                    order.plant.creditRequestStatus === 'processed' ? 'Credit Completed' :
@@ -1306,11 +1306,14 @@ const styles = StyleSheet.create({
   creditStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
     height: 28,
     minHeight: 28,
     borderRadius: 8,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   creditStatusText: {
     fontFamily: 'Inter',
@@ -1318,6 +1321,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#FFFFFF',
+    flexShrink: 0,
   },
   creditCompletedSection: {
     flexDirection: 'column',

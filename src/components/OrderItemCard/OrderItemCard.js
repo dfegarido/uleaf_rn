@@ -428,12 +428,12 @@ const OrderItemCard = ({
         <View style={styles.journeyMishapDetails}>
           {/* Plant / Fulfillment Status */}
           <View style={styles.plantFulfillmentStatus}>
-            <Text style={styles.issueTypeText}>{issueType}</Text>
+            <Text style={styles.issueTypeText} numberOfLines={1} ellipsizeMode="tail">{issueType}</Text>
             <View style={[
               styles.creditStatusBadge,
               getCreditStatusBadgeStyle(creditRequestStatus || creditStatus)
             ]}>
-              <Text style={styles.creditStatusText}>
+              <Text style={styles.creditStatusText} numberOfLines={1}>
                 {(creditRequestStatus || creditStatus) === 'pending' ? 'Credit Requested' :
                  (creditRequestStatus || creditStatus) === 'approved' ? 'Credit Approved' :
                  (creditRequestStatus || creditStatus) === 'processed' ? 'Credit Completed' :
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     gap: 12,
     width: '100%',
-    height: 64,
+    minHeight: 64,
     order: 0,
     alignSelf: 'stretch',
     flexGrow: 0,
@@ -908,14 +908,15 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     gap: 10,
     width: '100%',
-    height: 28,
+    minHeight: 28,
     order: 0,
     alignSelf: 'stretch',
     flexGrow: 0,
   },
   issueTypeText: {
-    width: 194,
-    height: 24,
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 8,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '700',
@@ -923,33 +924,28 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#E7522F',
     order: 0,
-    flexGrow: 1,
   },
   creditStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 1,
-    paddingBottom: 2,
-    width: 135,
-    height: 28,
+    paddingVertical: 4,
     minHeight: 28,
     backgroundColor: '#48A7F8',
     borderRadius: 8,
     order: 1,
-    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   creditStatusText: {
-    width: 119,
-    height: 20,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '600',
     fontSize: 14,
-    lineHeight: 20, // 140% of 14px
+    lineHeight: 20,
     color: '#FFFFFF',
-    order: 0,
-    flexGrow: 0,
+    flexShrink: 0,
   },
   plantFlightDate: {
     flexDirection: 'row',
