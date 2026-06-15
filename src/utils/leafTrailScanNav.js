@@ -43,10 +43,11 @@ export function navigateBackToReceivingAfterScan(
   navigation,
   { advanceToTab = 'received' } = {},
 ) {
+  // navigate() pops Scan and focuses Receiving when it is already on the stack.
+  // Do not call goBack() here — that would pop past Receiving to Admin Home.
   navigation.navigate({
     name: LEAF_TRAIL_RECEIVING_SCREEN,
     params: { advanceToTab },
     merge: true,
   });
-  navigation.goBack();
 }
