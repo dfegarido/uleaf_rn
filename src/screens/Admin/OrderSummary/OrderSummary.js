@@ -192,8 +192,36 @@ const OrderSummary = ({navigation}) => {
     {id: 'wildgone', label: 'Wildgone', active: false, tabWidth: 100, contentWidth: 93, indicatorWidth: 100, badge: true},
   ];
 
-  const STATUS_INFO_TABS = ['readyToFly', 'completed', 'wildgone', 'all'];
-  const ORDER_DETAIL_TABS = ['all', 'wildgone'];
+const STATUS_INFO_TABS = ['readyToFly', 'completed', 'wildgone', 'all'];
+const ORDER_DETAIL_TABS = ['all', 'wildgone'];
+
+/** Drop duplicate table rows (same order id or identical txn/plant/buyer line). */
+const dedupeOrderTableRows = (rows = []) => {
+  const seenIds = new Set();
+  const seenLineKeys = new Set();
+  return rows.filter((row) => {
+    const id = String(row?.id || '').trim();
+    if (id) {
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+    }
+    const lineKey = [
+      row?.transactionNumber,
+      row?.plantCode,
+      row?.buyerFirstName,
+      row?.buyerLastName,
+      row?.potSizes?.[0],
+      row?.quantities?.[0],
+    ]
+      .map((v) => String(v || '').trim())
+      .join('|');
+    if (lineKey.replace(/\|/g, '').length > 0) {
+      if (seenLineKeys.has(lineKey)) return false;
+      seenLineKeys.add(lineKey);
+    }
+    return true;
+  });
+};
 
   // Sort options (matching Listings Viewer)
   const adminSortOptions = [
@@ -646,7 +674,7 @@ const OrderSummary = ({navigation}) => {
           })));
         }
         
-        const mappedOrders = response.orders.map(mapOrderToTableRow);
+        const mappedOrders = dedupeOrderTableRows(response.orders.map(mapOrderToTableRow));
         setOrders(mappedOrders);
         
         // Update pagination info
@@ -1767,6 +1795,9 @@ const OrderSummary = ({navigation}) => {
                 nestedScrollEnabled={true}
               >
                 {orders.map((order, i) => {
+                  const rowKey =
+                    order.id ||
+                    `${order.transactionNumber}|${order.plantCode}|${order.buyerFirstName}|${i}`;
                   const rowBody = (
                   <View
                     style={[
@@ -1953,7 +1984,7 @@ const OrderSummary = ({navigation}) => {
                   if (ORDER_DETAIL_TABS.includes(activeTab)) {
                     return (
                       <TouchableOpacity
-                        key={order.id || i}
+                        key={rowKey}
                         onPress={() => openOrderDetail(order)}
                         activeOpacity={0.85}
                       >
@@ -1961,7 +1992,7 @@ const OrderSummary = ({navigation}) => {
                       </TouchableOpacity>
                     );
                   }
-                  return React.cloneElement(rowBody, { key: order.id || i });
+                  return React.cloneElement(rowBody, { key: rowKey });
                 })}
               </ScrollView>
             )}
