@@ -38,7 +38,6 @@ import {
     generateThermalLabels,
     emailThermalLabels,
     assignReceiverBoxes,
-    generateReceiverBoxLabels,
 } from '../../../../components/Api/getAdminLeafTrail';
 import OrderSummaryStatusSheet, {
     LEAF_TRAIL_STATUS_OPTIONS,
@@ -81,8 +80,10 @@ import {
 } from '../../../../utils/leafTrailScanNav';
 import {
     buildReceiverBoxAssignments,
+    filterReceiverBoxAssignmentsNeedingPersist,
     groupItemsIntoSortedReceiverBoxes,
-    isHubReceivedPlant,
+    getReceiverBoxPlantStatusPill,
+    getReceiverBoxPlantsFromReceivingResponse,
     mergeReceivingItemsForReceiverBoxes,
     receiverBoxAssignmentSignature,
 } from './receiverBoxUtils';
@@ -91,7 +92,7 @@ import {
 const ADMIN_FILTER_STATUSES_BY_TAB = {
   forReceiving: '["forReceiving"]',
   inventoryForHub: '["received","needsToStay"]',
-  received: '["received"]',
+  received: '["forReceiving","received","sorted","needsToStay"]',
   missing: '["missing"]',
   damaged: '["damaged"]',
   needsToStay: '["needsToStay"]',
@@ -103,6 +104,23 @@ const ADMIN_FILTER_STATUSES_FOR_SELLER_BUYER = '["forReceiving"]';
 
 /** Tabs that show per-plant cards (select all, bulk status, print/export/scan). */
 const TABS_WITH_PLANT_SELECTION = new Set(['forReceiving', 'inventoryForHub']);
+
+/** Tabs whose ⋯ menu includes Change leaf trail / Change plant status sheets. */
+const TABS_WITH_STATUS_ACTIONS = new Set([
+    'forReceiving',
+    'inventoryForHub',
+    'missing',
+    'damaged',
+    'needsToStay',
+    'others',
+]);
+
+const RECEIVING_PLANT_STATUS_MENU_FLAGS = {
+    isMissing: true,
+    isDamaged: true,
+    isNeedsToStay: true,
+    isOthers: true,
+};
 
 const formatStatusLabel = (value) => {
     if (!value) return '';
@@ -183,18 +201,7 @@ const PlantListItem = ({ item, type, openTagAs, showCheckbox, isSelected, onTogg
     };
 
     const setTags = () => {
-        const normalizedStatus = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
-        let status = { isMissing: true, isDamaged: true, isNeedsToStay: true, isOthers: true };
-        if (normalizedStatus === 'missing') {
-            status = { isDamaged: true, isNeedsToStay: true, isOthers: true, forShipping: true };
-        } else if (normalizedStatus === 'damaged') {
-            status = { isMissing: true, isNeedsToStay: true, isOthers: true, forShipping: true };
-        } else if (normalizedStatus === 'needstostay') {
-            status = { isMissing: true, isDamaged: true, isOthers: true, forShipping: true };
-        } else if (normalizedStatus === 'others') {
-            status = { isMissing: true, isDamaged: true, isNeedsToStay: true, forShipping: true };
-        }
-        openTagAs(status, item.id);
+        openTagAs(null, item.id);
     };
 
     const dateOrderedDatePart = getDateOrderedDatePart(item);
@@ -440,23 +447,22 @@ const ForReceivingTab = React.memo(function ForReceivingTab({
 });
 
 const ReceivedTab = ({
-    data,
-    forReceivingData,
+    receivingData,
     onFilterChange,
     adminFilters,
     openTagAs,
-    onPrintBoxLabels,
-    boxActionsLoading,
 }) => {
     const [activeBox, setActiveBox] = useState(null);
 
+    const receiverBoxPlantItems = React.useMemo(
+        () => getReceiverBoxPlantsFromReceivingResponse(receivingData || {}),
+        [receivingData],
+    );
+
     const receiverBoxes = React.useMemo(() => {
-        const items = mergeReceivingItemsForReceiverBoxes(
-            forReceivingData || [],
-            data?.data || [],
-        );
+        const items = mergeReceivingItemsForReceiverBoxes(receiverBoxPlantItems);
         return groupItemsIntoSortedReceiverBoxes(items);
-    }, [data, forReceivingData]);
+    }, [receiverBoxPlantItems]);
 
     // Sort buyers alphabetically by name for the Received tab only
     const sortedAdminFilters = React.useMemo(() => {
@@ -476,7 +482,10 @@ const ReceivedTab = ({
         };
     }, [adminFilters]);
     
-    const plantTotal = data?.total ?? 0;
+    const plantTotal =
+        receivingData?.receiverBoxPlants?.total ??
+        receiverBoxPlantItems.length ??
+        receiverBoxes.reduce((sum, box) => sum + box.items.length, 0);
 
     if (!receiverBoxes.length) {
         return (
@@ -524,6 +533,11 @@ const ReceivedTab = ({
                     <Text style={styles.receiverBoxTitle} numberOfLines={2}>
                         {item.receiverName}
                     </Text>
+                    {item.receiverUsername ? (
+                        <Text style={styles.receiverBoxUsername} numberOfLines={1}>
+                            @{item.receiverUsername}
+                        </Text>
+                    ) : null}
 
                     <View style={styles.receiverBoxDivider} />
 
@@ -555,18 +569,6 @@ const ReceivedTab = ({
                         <Text style={styles.receivedSummaryPill}>{receiverBoxes.length} box(es)</Text>
                         <Text style={styles.countText}>{plantTotal} plant(s)</Text>
                     </View>
-                    <View style={styles.receivedActionsRow}>
-                        <TouchableOpacity
-                            style={[
-                                styles.receivedActionButton,
-                                styles.receivedActionButtonFull,
-                                boxActionsLoading && styles.buttonDisabled,
-                            ]}
-                            onPress={() => onPrintBoxLabels(receiverBoxes)}
-                            disabled={boxActionsLoading || !receiverBoxes.length}>
-                            <Text style={styles.receivedActionButtonText}>Print Box Labels</Text>
-                        </TouchableOpacity>
-                    </View>
                 </>
             }
             contentContainerStyle={styles.listContentContainer}
@@ -589,6 +591,11 @@ const ReceivedTab = ({
                                         ? `Box ${activeBox.boxNumber} · ${activeBox.receiverName || 'Receiver'}`
                                         : activeBox?.receiverName || 'Receiver Box'}
                                 </Text>
+                                {activeBox?.receiverUsername ? (
+                                    <Text style={styles.receiverBoxModalUsername} numberOfLines={1}>
+                                        @{activeBox.receiverUsername}
+                                    </Text>
+                                ) : null}
                                 <Text style={styles.receiverBoxModalMeta}>
                                     {(activeBox?.items || []).length} plant(s) · Scanned {activeBox?.scannedCount || 0} · Unscanned {activeBox?.unscannedCount || 0}
                                 </Text>
@@ -597,15 +604,17 @@ const ReceivedTab = ({
                         <FlatList
                             data={activeBox?.items || []}
                             keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
+                            renderItem={({ item }) => {
+                                const statusPill = getReceiverBoxPlantStatusPill(item);
+                                return (
                                 <ForReceivingPlantCard
                                     item={item}
                                     openTagAs={openTagAs}
                                     compact={false}
-                                    statusPillLabel={isHubReceivedPlant(item) ? 'Scanned' : 'Unscanned'}
-                                    statusPillVariant={isHubReceivedPlant(item) ? 'scanned' : 'unscanned'}
+                                    statusPillLabel={statusPill.label}
+                                    statusPillVariant={statusPill.variant}
                                 />
-                            )}
+                            )}}
                             ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
                             contentContainerStyle={styles.receiverBoxModalListContent}
                         />
@@ -939,11 +948,6 @@ const ReceivingScreen = ({navigation, route}) => {
     const [loadingMessage, setLoadingMessage] = useState('Preparing For Receiving data...');
     const [error, setError] = useState(null);
     const [isTagAsVisible, setTagAsVisible] = useState(false);
-    const [isMissing, setIsMissing] = useState(false);
-    const [isDamaged, setIsDamaged] = useState(false);
-    const [isNeedsToStay, setIsNeedsToStay] = useState(false);
-    const [isOthers, setIsOthers] = useState(false);
-    const [forShipping, setForShipping] = useState(false);
     const [orderId, setOrderId] = useState(null);
     const { store: selectionStore } = useReceivingSelection();
     const [leafSheetVisible, setLeafSheetVisible] = useState(false);
@@ -954,20 +958,13 @@ const ReceivingScreen = ({navigation, route}) => {
     const [exportBusy, setExportBusy] = useState(false);
     const [generatedLabels, setGeneratedLabels] = useState([]);
     const [showLabelViewer, setShowLabelViewer] = useState(false);
-    const [labelContext, setLabelContext] = useState('thermal');
-    const [boxActionsLoading, setBoxActionsLoading] = useState(false);
     const lastReceivingFiltersRef = useRef(undefined);
     const tabStatusesRef = useRef(ADMIN_FILTER_STATUSES_BY_TAB.forReceiving);
     const lastAssignedSignatureRef = useRef('');
 
-    const openTagAs = (status, id) => {
-        setIsMissing(status.isMissing);
-        setIsDamaged(status.isDamaged);
-        setIsNeedsToStay(status.isNeedsToStay);
-        setIsOthers(status.isOthers);
-        setForShipping(status.forShipping);
+    const openTagAs = (_status, id) => {
         setOrderId(id);
-        setPlantStatusSheetOptions(buildReceivingPlantStatusOptions(status));
+        setPlantStatusSheetOptions(buildReceivingPlantStatusOptions(RECEIVING_PLANT_STATUS_MENU_FLAGS));
         setTagAsVisible(true);
     };
 
@@ -1014,10 +1011,12 @@ const ReceivingScreen = ({navigation, route}) => {
                 await refreshAdminFilters(tabStatusesRef.current, { withPageLoader: false });
 
                 const itemsForBoxes = mergeReceivingItemsForReceiverBoxes(
-                    response?.forReceiving?.data || [],
-                    response?.received?.data || [],
+                    getReceiverBoxPlantsFromReceivingResponse(response),
                 );
-                const assignments = buildReceiverBoxAssignments(itemsForBoxes);
+                const assignments = filterReceiverBoxAssignmentsNeedingPersist(
+                    itemsForBoxes,
+                    buildReceiverBoxAssignments(itemsForBoxes),
+                );
                 const assignmentSignature = receiverBoxAssignmentSignature(assignments);
                 if (assignmentSignature && assignmentSignature !== lastAssignedSignatureRef.current) {
                     assignReceiverBoxes(assignments)
@@ -1045,6 +1044,7 @@ const ReceivingScreen = ({navigation, route}) => {
 
     const activeTabKey = routes[index]?.key || 'forReceiving';
     const supportsPlantSelection = TABS_WITH_PLANT_SELECTION.has(activeTabKey);
+    const supportsStatusActions = TABS_WITH_STATUS_ACTIONS.has(activeTabKey);
     const showPlantCheckboxes = supportsPlantSelection;
 
     const openLeafTrailScan = useCallback(() => {
@@ -1081,38 +1081,6 @@ const ReceivingScreen = ({navigation, route}) => {
     const onFilterChange = (filters) => {
          fetchData(filters);
     }
-
-    const handlePrintReceiverBoxLabels = async (receiverBoxes) => {
-        try {
-            if (!receiverBoxes?.length) {
-                Alert.alert('Print Box Labels', 'No receiver boxes available.');
-                return;
-            }
-            setLoadingMessage('Generating receiver box labels, please wait...');
-            setIsLoading(true);
-            setBoxActionsLoading(true);
-            const boxesPayload = receiverBoxes.map((box) => ({
-                boxNumber: box.boxNumber,
-                boxKey: `BOX-${box.boxNumber}`,
-                receiverName: box.receiverName,
-                joiners: box.joiners || [],
-                plantCount: box.items?.length || 0,
-            }));
-            const response = await generateReceiverBoxLabels(boxesPayload);
-            if (response?.success && response?.labels?.length) {
-                setLabelContext('receiverBoxes');
-                setGeneratedLabels(response.labels);
-                setShowLabelViewer(true);
-            } else {
-                Alert.alert('Print Box Labels', response?.message || 'Failed to generate receiver box labels.');
-            }
-        } catch (e) {
-            Alert.alert('Print Box Labels', e?.message || 'Failed to generate receiver box labels.');
-        } finally {
-            setIsLoading(false);
-            setBoxActionsLoading(false);
-        }
-    };
 
     const adminFiltersForActiveTab = React.useMemo(() => {
         if (!adminFilters) {
@@ -1152,7 +1120,7 @@ const ReceivingScreen = ({navigation, route}) => {
             case 'inventoryForHub':
                 return receivingData?.inventoryForHub || {};
             case 'received':
-                return receivingData?.received || {};
+                return receivingData?.receiverBoxPlants || { total: 0, data: [] };
             case 'missing':
                 return receivingData?.missing || {};
             case 'damaged':
@@ -1196,11 +1164,8 @@ const ReceivingScreen = ({navigation, route}) => {
                     <ReceivedTab
                         openTagAs={openTagAs}
                         onFilterChange={onFilterChange}
-                        data={receivingData?.received || {}}
-                        forReceivingData={receivingData?.forReceiving?.data || []}
+                        receivingData={receivingData}
                         adminFilters={adminFiltersForActiveTab}
-                        onPrintBoxLabels={handlePrintReceiverBoxLabels}
-                        boxActionsLoading={boxActionsLoading}
                     />
                 );
             case 'missing':
@@ -1253,27 +1218,7 @@ const ReceivingScreen = ({navigation, route}) => {
         selectionStore,
         trail1IntakeMode,
         hubSpecEnabled,
-        handlePrintReceiverBoxLabels,
-        boxActionsLoading,
     ]);
-
-    const setTagAs = async (status) => {
-        if (!orderId) {
-            Alert.alert('Error', 'Order ID is missing.');
-            return;
-        }
-        setIsLoading(true);
-        setTagAsVisible(false);
-        const response = await updateLeafTrailStatus(orderId, status);
-        if (response.success) {
-          await fetchData();
-          setIsLoading(false);
-          Alert.alert('Success', 'Order status updated successfully!');
-        } else {
-          setIsLoading(false);
-          Alert.alert('Error', response?.message || 'Failed to update status.');
-        }
-    };
 
     const renderTabBar = props => (
         <TabBar
@@ -1324,7 +1269,6 @@ const ReceivingScreen = ({navigation, route}) => {
             setIsLoading(true);
             const response = await generateThermalLabels(ids);
             if (response.success && response.labels) {
-                setLabelContext('thermal');
                 setGeneratedLabels(response.labels);
                 setShowLabelViewer(true);
                 selectionStore.clear();
@@ -1513,10 +1457,6 @@ const ReceivingScreen = ({navigation, route}) => {
 
     const sendViaEmail = async () => {
         try {
-            if (labelContext === 'receiverBoxes') {
-                Alert.alert('Send via Email', 'Email delivery is currently available only for thermal plant labels.');
-                return;
-            }
             setLoadingMessage('Sending your labels via email, please wait...');
             setIsLoading(true);
             // Get the order IDs from the generated labels
@@ -1568,7 +1508,7 @@ const ReceivingScreen = ({navigation, route}) => {
                                 <BackIcon width={24} height={24} />
                             </TouchableOpacity>
                             <Text style={styles.labelViewerTitle}>
-                                {labelContext === 'receiverBoxes' ? 'Receiver Box Labels' : 'Generated Labels'} ({generatedLabels.length})
+                                Generated Labels ({generatedLabels.length})
                             </Text>
                             <View style={styles.headerSpacer} />
                         </View>
@@ -1588,12 +1528,9 @@ const ReceivingScreen = ({navigation, route}) => {
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
-                                style={[
-                                    styles.emailButton,
-                                    (isLoading || labelContext === 'receiverBoxes') && styles.buttonDisabled,
-                                ]}
+                                style={[styles.emailButton, isLoading && styles.buttonDisabled]}
                                 onPress={sendViaEmail}
-                                disabled={isLoading || labelContext === 'receiverBoxes'}
+                                disabled={isLoading}
                             >
                                 <View style={styles.buttonContent}>
                                     <Text style={styles.emailButtonText}>
@@ -1681,13 +1618,7 @@ const ReceivingScreen = ({navigation, route}) => {
 
             <TagAsOptions
                 visible={isTagAsVisible}
-                setTagAs={setTagAs}
-                isMissing={isMissing}
-                isDamaged={isDamaged}
-                isNeedsToStay={isNeedsToStay}
-                isOthers={isOthers}
-                forShipping={forShipping}
-                showStatusActions={supportsPlantSelection}
+                showStatusActions={supportsStatusActions}
                 onLeafTrailStatusPress={openLeafTrailSheetFromCardMenu}
                 onPlantStatusPress={openPlantSheetFromCardMenu}
                 onClose={() => setTagAsVisible(false)}
@@ -1845,41 +1776,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    receivedActionsRow: {
-        flexDirection: 'row',
-        gap: 8,
-        paddingHorizontal: 15,
-        paddingBottom: 8,
-    },
-    receivedActionButton: {
-        flex: 1,
-        backgroundColor: '#2F8C4F',
-        borderRadius: 10,
-        paddingVertical: 10,
-        alignItems: 'center',
-    },
-    receivedActionButtonFull: {
-        flex: 1,
-    },
-    receivedActionButtonText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        fontWeight: '700',
-    },
-    receivedActionButtonSecondary: {
-        flex: 1,
-        backgroundColor: '#EFF8F2',
-        borderRadius: 10,
-        paddingVertical: 10,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#BFE4CB',
-    },
-    receivedActionButtonSecondaryText: {
-        color: '#1F6F3D',
-        fontSize: 12,
-        fontWeight: '700',
-    },
     receivedSummaryPill: {
         fontSize: 13,
         fontWeight: '700',
@@ -1939,6 +1835,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: '#1F2A23',
+    },
+    receiverBoxUsername: {
+        marginTop: 2,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#647276',
     },
     receiverBoxSubtitle: {
         marginTop: 2,
@@ -2032,6 +1934,12 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#1F2A23',
+    },
+    receiverBoxModalUsername: {
+        marginTop: 2,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#647276',
     },
     receiverBoxModalMeta: {
         marginTop: 2,

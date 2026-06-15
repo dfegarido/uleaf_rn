@@ -111,7 +111,7 @@ const ForReceivingPlantCard = ({
   const traits = [item.variegation, item.size].filter(Boolean).join(' · ');
 
   const openTagMenu = () => {
-    openTagAs({ isMissing: true, isDamaged: true, isNeedsToStay: true, isOthers: true }, item.id);
+    openTagAs(null, item.id);
   };
 
   return (
@@ -125,6 +125,7 @@ const ForReceivingPlantCard = ({
             statusPillVariant === 'missing' && styles.statusPillMissing,
             statusPillVariant === 'damaged' && styles.statusPillDamaged,
             statusPillVariant === 'needsToStay' && styles.statusPillNeedsToStay,
+            statusPillVariant === 'sorted' && styles.statusPillSorted,
             statusPillVariant === 'inventoryReceived' && styles.statusPillInventoryReceived,
           ]}>
           <Text
@@ -135,6 +136,7 @@ const ForReceivingPlantCard = ({
               statusPillVariant === 'missing' && styles.statusPillTextMissing,
               statusPillVariant === 'damaged' && styles.statusPillTextDamaged,
               statusPillVariant === 'needsToStay' && styles.statusPillTextNeedsToStay,
+              statusPillVariant === 'sorted' && styles.statusPillTextSorted,
               statusPillVariant === 'inventoryReceived' && styles.statusPillTextInventoryReceived,
             ]}>
             {statusPillLabel}
@@ -283,6 +285,9 @@ const styles = StyleSheet.create({
   statusPillNeedsToStay: {
     backgroundColor: '#FFF4E5',
   },
+  statusPillSorted: {
+    backgroundColor: '#E8F0FE',
+  },
   statusPillInventoryReceived: {
     backgroundColor: '#EAF8EE',
   },
@@ -294,6 +299,9 @@ const styles = StyleSheet.create({
   },
   statusPillTextNeedsToStay: {
     color: '#B7791F',
+  },
+  statusPillTextSorted: {
+    color: '#2B5DBF',
   },
   statusPillTextInventoryReceived: {
     color: '#1F7A45',

@@ -116,7 +116,7 @@ const SortingBoxCard = ({ box, onPress }) => {
         </View>
       </View>
       <Text style={styles.receiverBoxSubtitle}>
-        Receiver · {plantCount} plant{plantCount === 1 ? '' : 's'}
+        Box {box.boxNumber || '—'} · Receiver · {plantCount} plant{plantCount === 1 ? '' : 's'}
       </Text>
       {box.joiners?.length > 0 ? (
         <View style={styles.joinersBlock}>
@@ -192,10 +192,17 @@ const SortingScreen = ({ navigation }) => {
     fetchData(filters);
   };
 
-  /** One card per receiver — merged and sorted A→Z by first name. */
+  /** One card per receiver — sorted by stable box number (1, 2, 3…). */
   const receiverBoxes = useMemo(() => {
     const merged = mergeSortingReceiverBoxesByReceiver(sortingData?.receiverBoxes || []);
-    return [...merged].sort(compareSortingBoxes);
+    return [...merged].sort((a, b) => {
+      const boxA = Number(a.boxNumber) || 0;
+      const boxB = Number(b.boxNumber) || 0;
+      if (boxA && boxB && boxA !== boxB) return boxA - boxB;
+      if (boxA && !boxB) return -1;
+      if (!boxA && boxB) return 1;
+      return compareSortingBoxes(a, b);
+    });
   }, [sortingData?.receiverBoxes]);
 
   /** Aggregate received/sorted totals across all hub boxes for the summary row. */

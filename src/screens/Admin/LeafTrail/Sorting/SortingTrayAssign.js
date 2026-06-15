@@ -32,15 +32,15 @@ export function getSharedSortingTrayNumber(plants = []) {
 /**
  * Assign one tray # to all sorted plants in the open receiver box (Packing uses tray next).
  */
-const SortingTrayAssign = ({ plants = [], onAssigned, variant = 'inline' }) => {
+const SortingTrayAssign = ({ plants = [], defaultTrayNumber, onAssigned, variant = 'inline' }) => {
   const sortedPlants = useMemo(
     () => (plants || []).filter(isSortedPlant),
     [plants],
   );
 
   const existingTray = useMemo(
-    () => getSharedSortingTrayNumber(plants),
-    [plants],
+    () => getSharedSortingTrayNumber(plants) || (defaultTrayNumber ? String(defaultTrayNumber).trim() : ''),
+    [plants, defaultTrayNumber],
   );
 
   const [trayNumber, setTrayNumber] = useState(forceUppercaseHubLabel(existingTray));
@@ -132,6 +132,7 @@ export const SortingTrayAssignSheet = ({
   visible,
   onClose,
   plants = [],
+  defaultTrayNumber,
   onAssigned,
 }) => {
   const insets = useSafeAreaInsets();
@@ -190,6 +191,7 @@ export const SortingTrayAssignSheet = ({
           <View style={sheetStyles.handle} />
           <SortingTrayAssign
             plants={plants}
+            defaultTrayNumber={defaultTrayNumber}
             variant="sheet"
             onAssigned={() => {
               onAssigned?.();

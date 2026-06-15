@@ -147,8 +147,11 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
     : SORTING_BOX_COLOR_INCOMPLETE;
 
   const sharedTrayNumber = useMemo(
-    () => getSharedSortingTrayNumber(box?.plants || []),
-    [box?.plants],
+    () =>
+      getSharedSortingTrayNumber(box?.plants || []) ||
+      (box?.boxNumber ? String(box.boxNumber) : '') ||
+      (box?.sortingTrayNumber ? String(box.sortingTrayNumber) : ''),
+    [box?.plants, box?.boxNumber, box?.sortingTrayNumber],
   );
 
   const openScan = useCallback(() => {
@@ -186,6 +189,11 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
             <Text style={styles.heroName}>{box.receiverName}</Text>
             {box.username ? (
               <Text style={styles.heroUsername}>@{box.username}</Text>
+            ) : null}
+            {box.boxNumber ? (
+              <Text style={styles.heroBoxTray}>
+                Box {box.boxNumber} · Tray {sharedTrayNumber || box.boxNumber}
+              </Text>
             ) : null}
           </View>
         </View>
@@ -349,6 +357,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           visible={traySheetVisible}
           onClose={() => setTraySheetVisible(false)}
           plants={box?.plants || []}
+          defaultTrayNumber={box?.boxNumber}
           onAssigned={onRefresh}
         />
 
@@ -511,6 +520,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: '#7F8D91',
+  },
+  heroBoxTray: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2F8C4F',
   },
   joinersCard: {
     backgroundColor: '#F8FAF9',

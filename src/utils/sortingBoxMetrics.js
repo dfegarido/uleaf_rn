@@ -190,13 +190,16 @@ export function buildReceiverBoxKeyFromName(receiverName) {
   );
 }
 
-/** Merge API boxes that share the same receiver into one card. */
+/** Merge API boxes that share the same receiver customer (UID) into one card. */
 export function mergeSortingReceiverBoxesByReceiver(boxes = []) {
   const merged = new Map();
 
   boxes.forEach((box) => {
     const receiverName = String(box?.receiverName || 'Unassigned Receiver').trim();
-    const boxKey = buildReceiverBoxKeyFromName(receiverName);
+    const boxKey =
+      (box?.boxKey && String(box.boxKey).trim()) ||
+      (box?.buyerUid ? `RX-UID-${box.buyerUid}` : '') ||
+      buildReceiverBoxKeyFromName(receiverName);
     const existing = merged.get(boxKey);
 
     if (!existing) {
@@ -220,13 +223,26 @@ export function mergeSortingReceiverBoxesByReceiver(boxes = []) {
     if (!existing.avatar && box.avatar) existing.avatar = box.avatar;
     if (!existing.username && box.username) existing.username = box.username;
     if (!existing.buyerUid && box.buyerUid) existing.buyerUid = box.buyerUid;
+    if (!existing.boxNumber && box.boxNumber) existing.boxNumber = box.boxNumber;
+    if (
+      box.boxNumber &&
+      (!existing.boxNumber || Number(box.boxNumber) < Number(existing.boxNumber))
+    ) {
+      existing.boxNumber = box.boxNumber;
+    }
+    if (!existing.sortingTrayNumber && box.sortingTrayNumber) {
+      existing.sortingTrayNumber = box.sortingTrayNumber;
+    }
   });
 
   return [...merged.values()].map((box) => {
     const metrics = computeSortingBoxMetrics(box.plants);
+    const boxNumber = Number(box.boxNumber) || 0;
     return {
       ...box,
       ...metrics,
+      boxNumber: boxNumber || undefined,
+      sortingTrayNumber: box.sortingTrayNumber || (boxNumber ? String(boxNumber) : ''),
       plants: sortPlantsForSortingBoxList(box.plants),
       joiners: [...(box.joiners || [])].sort((a, b) => a.localeCompare(b)),
     };
