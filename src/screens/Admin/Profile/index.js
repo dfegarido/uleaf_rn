@@ -3,3 +3,4 @@ export {default as AdminAccountInformationScreen} from './AdminAccountInformatio
 export {default as AdminUpdatePasswordScreen} from './AdminUpdatePasswordScreen';
 export {default as AdminTermsOfUseScreen} from './AdminTermsOfUseScreen';
 export {default as AdminPrivacyPolicyScreen} from './AdminPrivacyPolicyScreen';
+export {default as AdminVersionControlScreen} from './AdminVersionControlScreen';

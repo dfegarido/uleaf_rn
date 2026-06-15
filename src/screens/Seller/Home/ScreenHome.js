@@ -4,6 +4,7 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { Alert,
   Dimensions,
   Image,
+  Linking,
   Platform,
   ScrollView,
   StatusBar,
@@ -26,7 +27,8 @@ import { CustomSalesChart } from '../../../components/Charts';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
 import { getCurrencySymbol } from '../../../utils/getCurrencySymbol';
 import { roundNumber } from '../../../utils/roundNumber';
-import { retryAsync } from '../../../utils/utils';
+import { isAppUpdateRequired, retryAsync } from '../../../utils/utils';
+import { version as appVersion } from '../../../../package.json';
 import { useUnreadMessageCount } from '../../../hooks/useUnreadMessageCount';
 import BusinessPerformance from './components/BusinessPerformance';
 import HomeDurationDropdown from './components/HomeDurationDropdown';
@@ -36,6 +38,7 @@ import { getDateFilterApi,
   getHomeEventsApi,
   getHomeSummaryApi,
 } from '../../../components/Api';
+import { getAppVersionApi } from '../../../components/Api/appVersionApi';
 
 
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
@@ -145,6 +148,50 @@ const ScreenHome = ({navigation}) => {
   const [totalSales, setTotalSales] = useState();
   const [plantSold, setPlantSold] = useState();
   const [plantListed, setPlantListed] = useState();
+
+  // Update card visibility
+  const [showUpdateCard, setShowUpdateCard] = useState(false);
+
+  // Check whether the backend requires an update
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await getAppVersionApi();
+        if (cancelled || !response?.success) return;
+        const { minimumVersion, currentVersion } = response?.data?.data || {};
+        const required = isAppUpdateRequired(appVersion, minimumVersion) ||
+          isAppUpdateRequired(appVersion, currentVersion);
+        if (required) {
+          setShowUpdateCard(true);
+        }
+      } catch (error) {
+        console.error('Error checking app version:', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Open the appropriate app store for the user's platform
+  const handleUpdatePress = async () => {
+    const url = Platform.OS === 'ios'
+      ? 'https://apps.apple.com/us/app/ileafu/id6749962372'
+      : 'https://play.google.com/store/apps/details?id=com.ileafu';
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (error) {
+      console.error('Error opening store URL:', error);
+      Alert.alert('Error', 'Could not open the app store. Please try again.');
+    }
+  };
   const loadSalesData = async () => {
     const res = await retryAsync(() => getHomeSummaryApi(), 3, 1000);
 
@@ -535,6 +582,96 @@ const ScreenHome = ({navigation}) => {
             paddingTop: 20,
             paddingHorizontal: 20,
           }}>
+          {/* App Update Available Card */}
+          {showUpdateCard && (
+            <View
+              style={{
+                backgroundColor: '#0F3D24',
+                borderRadius: 16,
+                marginBottom: 16,
+                padding: 18,
+                flexDirection: 'row',
+                alignItems: 'center',
+                overflow: 'hidden',
+                position: 'relative',
+                minHeight: 150,
+              }}>
+              {/* Close button */}
+              <TouchableOpacity
+                onPress={() => setShowUpdateCard(false)}
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  zIndex: 2,
+                  padding: 4,
+                }}>
+                <Text style={{color: '#FFFFFF', fontSize: 18, fontWeight: '600'}}>
+                  ✕
+                </Text>
+              </TouchableOpacity>
+
+              {/* Text + button */}
+              <View style={{flex: 1, paddingRight: 12}}>
+                <Text
+                  style={{
+                    fontSize: 17,
+                    fontWeight: '700',
+                    color: '#FFFFFF',
+                    marginBottom: 6,
+                  }}>
+                  New app version available
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: '#D6E5DA',
+                    marginBottom: 14,
+                    lineHeight: 18,
+                  }}>
+                  The latest version has new features and improvements. Update for the best experience.
+                </Text>
+                <View style={{flexDirection: 'row', gap: 10}}>
+                  <TouchableOpacity
+                    onPress={handleUpdatePress}
+                    activeOpacity={0.8}
+                    style={{
+                      backgroundColor: '#9FE870',
+                      paddingHorizontal: 18,
+                      paddingVertical: 10,
+                      borderRadius: 10,
+                    }}>
+                    <Text
+                      style={{
+                        color: '#0F3D24',
+                        fontSize: 14,
+                        fontWeight: '700',
+                      }}>
+                      Update now
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Decorative illustration on the right */}
+              <View
+                style={{
+                  width: 90,
+                  height: 90,
+                  borderRadius: 45,
+                  backgroundColor: '#1F5A36',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'absolute',
+                  right: -20,
+                  bottom: -20,
+                }}>
+                <Text style={{fontSize: 36}}>🌿</Text>
+              </View>
+            </View>
+          )}
+
           {/* Stats Cards */}
           <ScrollView
             horizontal

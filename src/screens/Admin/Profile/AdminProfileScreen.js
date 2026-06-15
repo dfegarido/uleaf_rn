@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import icons
 import ProfileIcon from '../../../assets/icons/greydark/profile.svg';
 import PasswordIcon from '../../../assets/icons/greydark/lock-key-regular.svg';
+import NoteEditIcon from '../../../assets/icons/greydark/note-edit.svg';
 import RightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
@@ -353,7 +354,7 @@ const AdminProfileScreen = () => {
             <View style={styles.maintenanceToggleLeft}>
               <Text style={styles.maintenanceTitle}>App Maintenance</Text>
               <Text style={styles.maintenanceDescription}>
-                {maintenanceEnabled 
+                {maintenanceEnabled
                   ? 'App is currently disabled for all users'
                   : 'App is currently accessible to all users'}
               </Text>
@@ -370,6 +371,12 @@ const AdminProfileScreen = () => {
               />
             )}
           </View>
+
+          <MenuItem
+            icon={<NoteEditIcon width={24} height={24} fill="#556065" />}
+            title="Version Control"
+            onPress={() => navigation.navigate('AdminVersionControl')}
+          />
         </View>
 
         <Divider />

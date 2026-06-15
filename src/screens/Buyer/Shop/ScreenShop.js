@@ -6,6 +6,7 @@ import { ActivityIndicator,
   Alert,
   Image,
   Linking,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -60,6 +61,7 @@ import { addToCartApi,
   searchPlantsApi,
 } from '../../../components/Api';
 import { browsePlantsByGenusApi } from '../../../components/Api/listingBrowseApi';
+import { getAppVersionApi } from '../../../components/Api/appVersionApi';
 import { getAcclimationIndexApi,
   getCountryApi,
   getListingTypeApi,
@@ -76,7 +78,8 @@ import { CACHE_CONFIGS,
   getCachedImageUri,
   setCachedImageUri
 } from '../../../utils/imageCache';
-import { retryAsync } from '../../../utils/utils';
+import { isAppUpdateRequired, retryAsync } from '../../../utils/utils';
+import { version as appVersion } from '../../../../package.json';
 
 const countryData = [
   {
@@ -194,7 +197,32 @@ const ScreenShop = ({navigation}) => {
   
   // Refresh state
   const [refreshing, setRefreshing] = useState(false);
-  
+
+  // Update card visibility state
+  const [showUpdateCard, setShowUpdateCard] = useState(false);
+
+  // Check whether the backend requires an update
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await getAppVersionApi();
+        if (cancelled || !response?.success) return;
+        const { minimumVersion, currentVersion } = response?.data?.data || {};
+        const required = isAppUpdateRequired(appVersion, minimumVersion) ||
+          isAppUpdateRequired(appVersion, currentVersion);
+        if (required) {
+          setShowUpdateCard(true);
+        }
+      } catch (error) {
+        console.error('Error checking app version:', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Browse plants state persistence to prevent unnecessary reloading
   const [browseMorePlantsKey, setBrowseMorePlantsKey] = useState(1);
   const [browseMorePlantsComponent, setBrowseMorePlantsComponent] = useState(null);
@@ -1065,14 +1093,14 @@ const ScreenShop = ({navigation}) => {
 
   const handleAddToCartFromBrowseMore = async (plant) => {
     try {
-      
+
       const params = {
         plantCode: plant.plantCode,
         quantity: 1,
       };
-      
+
       const response = await addToCartApi(params);
-      
+
       if (response.success) {
         Alert.alert('Success', 'Plant added to cart successfully!');
       } else {
@@ -1081,6 +1109,25 @@ const ScreenShop = ({navigation}) => {
     } catch (error) {
       console.error('Error adding plant to cart:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
+  // Open the appropriate app store for the user's platform
+  const handleUpdatePress = async () => {
+    const url = Platform.OS === 'ios'
+      ? 'https://apps.apple.com/us/app/ileafu/id6749962372'
+      : 'https://play.google.com/store/apps/details?id=com.ileafu';
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (error) {
+      console.error('Error opening store URL:', error);
+      Alert.alert('Error', 'Could not open the app store. Please try again.');
     }
   };
 
@@ -1235,6 +1282,97 @@ const ScreenShop = ({navigation}) => {
         }>
         
         <PromoBadgeList navigation={navigation} />
+
+        {/* App Update Available Card */}
+        {showUpdateCard && (
+          <View
+            style={{
+              backgroundColor: '#0F3D24',
+              borderRadius: 16,
+              marginHorizontal: 10,
+              marginTop: 10,
+              padding: 18,
+              flexDirection: 'row',
+              alignItems: 'center',
+              overflow: 'hidden',
+              position: 'relative',
+              minHeight: 150,
+            }}>
+          {/* Close button */}
+          <TouchableOpacity
+            onPress={() => setShowUpdateCard(false)}
+            hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 2,
+              padding: 4,
+            }}>
+            <Text style={{color: '#FFFFFF', fontSize: 18, fontWeight: '600'}}>
+              ✕
+            </Text>
+          </TouchableOpacity>
+
+          {/* Text + buttons */}
+          <View style={{flex: 1, paddingRight: 12}}>
+            <Text
+              style={{
+                fontSize: 17,
+                fontWeight: '700',
+                color: '#FFFFFF',
+                marginBottom: 6,
+              }}>
+              New app version available
+            </Text>
+            <Text
+              style={{
+                fontSize: 13,
+                color: '#D6E5DA',
+                marginBottom: 14,
+                lineHeight: 18,
+              }}>
+              The latest version has new features and improvements. Update for the best experience.
+            </Text>
+            <View style={{flexDirection: 'row', gap: 10}}>
+              <TouchableOpacity
+                onPress={handleUpdatePress}
+                activeOpacity={0.8}
+                style={{
+                  backgroundColor: '#9FE870',
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                }}>
+                <Text
+                  style={{
+                    color: '#0F3D24',
+                    fontSize: 14,
+                    fontWeight: '700',
+                  }}>
+                  Update now
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Decorative illustration on the right */}
+          <View
+            style={{
+              width: 90,
+              height: 90,
+              borderRadius: 45,
+              backgroundColor: '#1F5A36',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'absolute',
+              right: -20,
+              bottom: -20,
+            }}>
+            <Text style={{fontSize: 36}}>🌿</Text>
+          </View>
+        </View>
+        )}
 
         {/* Live Seller Strip */}
         <LiveSellerStrip navigation={navigation} />

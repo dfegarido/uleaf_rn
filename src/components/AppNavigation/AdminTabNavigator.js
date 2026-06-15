@@ -39,7 +39,8 @@ import { AdminAccountInformationScreen,
   AdminPrivacyPolicyScreen,
   AdminProfileScreen,
   AdminTermsOfUseScreen,
-  AdminUpdatePasswordScreen
+  AdminUpdatePasswordScreen,
+  AdminVersionControlScreen
 } from '../../screens/Admin/Profile';
 // import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 // import SimpleTaxonomy from '../../screens/Admin/Taxonomy/SimpleTaxonomy';
@@ -285,6 +286,7 @@ function AdminTabs() {
       <Stack.Screen name="AdminUpdatePassword" options={{headerShown: false}} component={AdminUpdatePasswordScreen} />
       <Stack.Screen name="AdminTermsOfUse" options={{headerShown: false}} component={AdminTermsOfUseScreen} />
       <Stack.Screen name="AdminPrivacyPolicy" options={{headerShown: false}} component={AdminPrivacyPolicyScreen} />
+      <Stack.Screen name="AdminVersionControl" options={{headerShown: false}} component={AdminVersionControlScreen} />
       </Stack.Navigator>
     );
   }
