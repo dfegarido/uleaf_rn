@@ -98,17 +98,17 @@ const NotificationSettingsScreen = () => {
   const osDenied = hydrated && status === 'denied';
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <StatusBar backgroundColor="#DFECDF" barStyle="dark-content" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
 
-      <View style={[styles.header, { paddingTop: Math.min(insets.top, 40) }]}>
+      <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
           <LeftIcon width={24} height={24} fill="#393D40" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notification Settings</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.spacer} />
       </View>
 
       <ScrollView
@@ -187,24 +187,29 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#DFECDF',
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    width: '100%',
   },
   backButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    width: 24,
+    height: 24,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#202325',
     fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: '#202325',
+    flex: 1,
   },
-  headerSpacer: { width: 32, height: 32 },
+  spacer: {
+    width: 24,
+    height: 24,
+  },
   content: { flex: 1, backgroundColor: '#FFFFFF' },
   section: {
     paddingHorizontal: 16,
