@@ -609,6 +609,12 @@ const BuyerProfileScreen = (props) => {
           />
 
           <MenuItem
+            icon={<ProfileIcon width={24} height={24} fill="#556065" />}
+            title="Notification Settings"
+            onPress={() => navigation.navigate('NotificationSettingsScreen')}
+          />
+
+          <MenuItem
             icon={<EnvelopeIcon width={24} height={24} fill="#556065" />}
             title="My Address Book"
             rightText={addressBookCount > 0 ? `${addressBookCount} address${addressBookCount !== 1 ? 'es' : ''}` : ''}

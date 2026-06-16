@@ -42,6 +42,7 @@ import { AdminAccountInformationScreen,
   AdminUpdatePasswordScreen,
   AdminVersionControlScreen
 } from '../../screens/Admin/Profile';
+import NotificationSettingsScreen from '../../screens/Buyer/Profile/NotificationSettingsScreen';
 // import Taxonomy from '../../screens/Admin/Taxonomy/Taxonomy';
 // import SimpleTaxonomy from '../../screens/Admin/Taxonomy/SimpleTaxonomy';
 // import TaxonomySimple from '../../screens/Admin/Taxonomy/TaxonomySimple';
@@ -284,6 +285,7 @@ function AdminTabs() {
       <Stack.Screen name="AdminProfile" options={{headerShown: false}} component={AdminProfileScreen} />
       <Stack.Screen name="AdminAccountInformation" options={{headerShown: false}} component={AdminAccountInformationScreen} />
       <Stack.Screen name="AdminUpdatePassword" options={{headerShown: false}} component={AdminUpdatePasswordScreen} />
+      <Stack.Screen name="AdminNotificationSettings" options={{headerShown: false}} component={NotificationSettingsScreen} />
       <Stack.Screen name="AdminTermsOfUse" options={{headerShown: false}} component={AdminTermsOfUseScreen} />
       <Stack.Screen name="AdminPrivacyPolicy" options={{headerShown: false}} component={AdminPrivacyPolicyScreen} />
       <Stack.Screen name="AdminVersionControl" options={{headerShown: false}} component={AdminVersionControlScreen} />

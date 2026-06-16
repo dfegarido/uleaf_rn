@@ -3,11 +3,18 @@
 #import <React/RCTBundleURLProvider.h>
 #import <Foundation/Foundation.h>
 #import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
+#import <FirebaseCore/FirebaseCore.h>
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+  // Initialize the default Firebase app from GoogleService-Info.plist before any
+  // @react-native-firebase/* JS call (e.g. messaging() in index.js) reaches the
+  // bridge. Without this, NATIVE_FIREBASE_APPS is empty and the JS side throws
+  // "No Firebase App '[DEFAULT]' has been created" at module load.
+  [FIRApp configure];
+
   self.moduleName = @"iLeafU";
 
   // Required with New Architecture (Fabric): wires codegen third-party modules / Fabric components.

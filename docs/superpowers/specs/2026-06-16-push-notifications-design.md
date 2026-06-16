@@ -191,3 +191,33 @@ The route name and param shape (`{ sessionId: string, broadcasterId?: string }`)
 ## 9. Open Questions
 
 None. The buyer-side storage (`fcmTokens` array on `buyer/{uid}`), the trigger (`sendLiveStartedNotification` HTTP), the deep-link target (`BuyerLiveStreamScreen` with `{ sessionId, broadcasterId }`), and the permission UX (system prompt) are all decided.
+
+## 10. Known Issues (out of scope)
+
+### Pre-existing iOS build cycle (discovered 2026-06-16)
+
+When smoke-building the iOS app after installing `@react-native-firebase/messaging`, the build fails with:
+
+```
+error: Cycle in dependencies between targets 'ReactCodegen' and 'RNSVG'; building could produce unreliable results.
+```
+
+**Root cause:** `react-native-svg@15.15.4`'s `RNSVG.podspec` declares a hard `pod.dependency "ReactCodegen"` via `install_modules_dependencies(s)`. RN 0.84 made `ReactCodegen` a real framework target with generated C++ symbols, and Xcode 16+'s new build system flags the implicit re-export graph as a cycle. This is latent in the upstream podspec and reproduces on RN 0.84+ Fabric builds regardless of which other packages are installed.
+
+**Impact:** iOS smoke build (Task 18) cannot complete with the current setup. Android builds (all tasks) are unaffected. The push notification implementation itself is platform-agnostic and not implicated.
+
+**Recommended fix (out of scope, not part of this spec):** patch `RNSVG.podspec` to drop the `ReactCodegen` pod dependency and rely on the codegen-generated header search path instead, applied via `patch-package`. Investigation notes from 2026-06-16 are in the agent transcript (not committed).
+
+**Workaround for now:** verify iOS via the existing iOS development workflow (manual `xcodebuild` runs that have workarounds baked into the user's `post_install` Podfile hooks). The Task 18 iOS smoke step should be considered a "best-effort" verification until the SVG cycle is resolved separately.
+
+## 11. Plan revisions made during execution
+
+The following spec/plan inconsistencies were discovered during Task 6 (NotificationService) and corrected inline. Recording here so the corrections are visible:
+
+1. **Mock change (`__mocks__/@react-native-firebase/messaging.js`):** The original plan called for `messaging()` to return a fresh object on every call. Tests assert call counts on the same `jest.fn()` instance across calls, so the mock now returns a single cached `messagingApi` object. Per-test `__reset()` clears call counts via `mockClear()`. Test helpers `messaging.getInitialNotification = jest.fn(...)` work via a `Object.defineProperty` accessor pair on the function that proxies to the cached object.
+
+2. **`NotificationService._handleTokenRefresh` guard:** Plan had `if (!this._writeToken || !this._currentUid) return;`. Test 5 (token refresh test) expects `writeToken` to be called even when no user is registered. The guard was relaxed to `if (!this._writeToken) return;` — `_currentUid` may be `undefined`. The next `requestPermissionAndRegister` will overwrite the row.
+
+3. **`_currentUid` initial value:** Use `undefined` (not `null`) so test assertions on `writeToken` arg shape are exact.
+
+4. **Test 8 (`tap with missing broadcasterId defaults to empty string`):** Was missing the `await NotificationService.init(navigationRef)` call. Added it — without it, no `onMessage` listener is registered and the test cannot exercise the behavior it claims to verify.

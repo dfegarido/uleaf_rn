@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
     <!-- CRITICAL: Explicitly remove MEDIA_PROJECTION permission added by Agora SDK -->
     <!-- We do NOT use screen recording/projection - only camera-based live streaming -->
@@ -29,6 +30,13 @@
       android:supportsRtl="true"
       tools:replace="android:allowBackup">
       <uses-library android:name="org.webrtc" android:required="false" />
+      <meta-data
+          android:name="com.google.firebase.messaging.default_notification_channel_id"
+          android:value="live_sales"
+          tools:replace="android:value" />
+      <meta-data
+          android:name="com.google.firebase.messaging.default_notification_icon"
+          android:resource="@drawable/ic_notification" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

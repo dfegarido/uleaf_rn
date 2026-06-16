@@ -12,6 +12,7 @@ import { ActivityIndicator,
   View,
 } from 'react-native';
 import { AuthContext } from '../../auth/AuthProvider';
+import { navigationRef } from '../../navigation/navigationRef';
 import { normalizeDeepLinkPlantCode } from '../../utils/plantDeepLinkParse';
 import BuyerTabNavigator from './BuyerTabNavigator';
 
@@ -978,7 +979,6 @@ const AppNavigation = () => {
       : 'loggedOut';
   const shouldShowAuth = !isLoggedIn || fallbackTriggered;
 
-  const navigationRef = useRef(null);
   const pendingPlantNavRef = useRef(null);
   const deepLinkStateRef = useRef({
     isBuyer: false,

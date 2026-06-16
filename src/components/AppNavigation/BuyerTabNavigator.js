@@ -31,6 +31,7 @@ import PrivacyPolicyScreen from '../../screens/Buyer/Profile/PrivacyPolicyScreen
 import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScreen';
 import RequestChangePlantFlightScreen from '../../screens/Buyer/Profile/RequestChangePlantFlightScreen';
 import MyShippingBuddiesRouter from '../../screens/Buyer/Profile/ShippingBuddies/MyShippingBuddiesRouter';
+import NotificationSettingsScreen from '../../screens/Buyer/Profile/NotificationSettingsScreen';
 import BuyerPlantCreditsScreen from '../../screens/Buyer/Profile/BuyerPlantCreditsScreen';
 import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
@@ -219,6 +220,12 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="UpdatePasswordScreen"
         component={UpdatePasswordScreen}
+        options={{headerShown: false}}
+      />
+
+      <Stack.Screen
+        name="NotificationSettingsScreen"
+        component={NotificationSettingsScreen}
         options={{headerShown: false}}
       />
 

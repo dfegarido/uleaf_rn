@@ -560,7 +560,7 @@ class NotificationService {
   }
 
   async _handleTokenRefresh(newToken) {
-    if (!this._writeToken || !this._currentUid) return;
+    if (!this._writeToken) return;
     try {
       await this._writeToken(this._currentUid, newToken);
     } catch (e) {
@@ -1129,11 +1129,14 @@ Inside `<application>`, immediately after the existing `<meta-data>` block for `
 ```xml
 <meta-data
     android:name="com.google.firebase.messaging.default_notification_channel_id"
-    android:value="live_sales" />
+    android:value="live_sales"
+    tools:replace="android:value" />
 <meta-data
     android:name="com.google.firebase.messaging.default_notification_icon"
     android:resource="@drawable/ic_notification" />
 ```
+
+The `tools:replace="android:value"` is required because `@react-native-firebase/messaging`'s library manifest also declares `default_notification_channel_id` (with an empty value), and the Android manifest merger refuses to override it without an explicit replace directive.
 
 - [ ] **Step 4: Verify the build still succeeds**
 

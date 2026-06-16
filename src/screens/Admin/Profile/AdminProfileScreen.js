@@ -342,6 +342,12 @@ const AdminProfileScreen = () => {
             title="Update Password"
             onPress={() => navigation.navigate('AdminUpdatePassword')}
           />
+
+          <MenuItem
+            icon={<ProfileIcon width={24} height={24} fill="#556065" />}
+            title="Notification Settings"
+            onPress={() => navigation.navigate('AdminNotificationSettings')}
+          />
         </View>
 
         <Divider />
