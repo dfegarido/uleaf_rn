@@ -23,9 +23,11 @@ import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular
 
 import NetInfo from '@react-native-community/netinfo';
 import moment from 'moment';
+import { useIsFocused } from '@react-navigation/native';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { getListingTypeApi, getSortApi } from '../../../components/Api';
 import { getOrderForReceiving } from '../../../components/Api/sellerOrderApi';
+import { getOrderTabCount, useSellerOrderCounts } from '../../../hooks/useSellerOrderCounts';
 import { InputSearch } from '../../../components/InputGroup/Left';
 import { retryAsync } from '../../../utils/utils';
 import CheckBox from '../../../components/CheckBox/CheckBox';
@@ -135,12 +137,13 @@ const PlantCard = React.memo(({ item, index, activeTab, isSelected, onSelect }) 
 const OrderScreen = ({navigation}) => {
   const {userInfo} = useContext(AuthContext);
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const { ordersCount, refresh: refreshOrderCounts } = useSellerOrderCounts();
   const [activeTab, setActiveTab] = useState('forDelivery');
   const [orders, setOrders] = useState([]);
   const [lastDoc, setLastDoc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [totalCounts, setTotalCounts] = useState(0);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
@@ -339,7 +342,6 @@ const OrderScreen = ({navigation}) => {
           setOrders(prevOrders => [...prevOrders, ...response.data]);
         }
         setLastDoc(response.lastDocument);
-        setTotalCounts(response.total || 0);
       }
     } catch (error) {
       console.error("Failed to fetch orders:", error);
@@ -356,6 +358,12 @@ const OrderScreen = ({navigation}) => {
     setSelectedOrders([]);
     setIsSelectionMode(false);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (isFocused) {
+      refreshOrderCounts();
+    }
+  }, [isFocused, refreshOrderCounts]);
 
   const handleLoadMore = () => {
     if (!loadingMore && lastDoc) {
@@ -434,7 +442,9 @@ const OrderScreen = ({navigation}) => {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabContainer}>
-          {Object.keys(TABS).map(tabKey => (
+          {Object.keys(TABS).map(tabKey => {
+            const tabCount = getOrderTabCount(ordersCount, tabKey);
+            return (
             <TouchableOpacity
               key={tabKey}
               onPress={() => setActiveTab(tabKey)}
@@ -444,16 +454,15 @@ const OrderScreen = ({navigation}) => {
                   styles.tabText,
                   activeTab === tabKey && styles.activeTabText,
                 ]}>
-                {TABS[tabKey]} 
-                {activeTab === tabKey && (
-                  <Text> {totalCounts} plant(s)</Text>
-                )}
+                {TABS[tabKey]}
+                {tabCount > 0 ? ` (${tabCount})` : ''}
               </Text>
               {activeTab === tabKey && (
                 <View style={styles.activeIndicator} />
               )}
             </TouchableOpacity>
-          ))}
+          );
+          })}
         </ScrollView>
       </View>
     </View>

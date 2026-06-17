@@ -15,6 +15,7 @@ import { AuthContext } from '../../auth/AuthProvider';
 import { navigationRef } from '../../navigation/navigationRef';
 import { normalizeDeepLinkPlantCode } from '../../utils/plantDeepLinkParse';
 import BuyerTabNavigator from './BuyerTabNavigator';
+import { useSellerOrderCounts } from '../../hooks/useSellerOrderCounts';
 
 import { ChatScreen } from '../../screens/ChatScreen';
 import ChatSettingsScreen from '../../screens/ChatScreen/ChatSettingsScreen';
@@ -840,8 +841,22 @@ const MainStack = () => {
   );
 };
 
+const SellerOrdersBadge = ({ count }) => {
+  if (!count || count <= 0) return null;
+
+  return (
+    <View style={sellerTabBadgeStyles.badgeContainer}>
+      <Text style={sellerTabBadgeStyles.badgeText}>
+        {count > 99 ? '99+' : count.toString()}
+      </Text>
+    </View>
+  );
+};
+
 // Tab navigator containing Home, Vote, Community, and Store screens
 function MainTabNavigator() {
+  const { badgeCount: sellerOrdersBadgeCount } = useSellerOrderCounts();
+
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
@@ -896,10 +911,15 @@ function MainTabNavigator() {
                 </View>
               );
             case 'Orders':
-              return focused ? (
-                <OrderIconSelected width={size} height={size} />
-              ) : (
-                <OrderIcon width={size} height={size} />
+              return (
+                <View style={sellerTabBadgeStyles.ordersIconContainer}>
+                  {focused ? (
+                    <OrderIconSelected width={size} height={size} />
+                  ) : (
+                    <OrderIcon width={size} height={size} />
+                  )}
+                  <SellerOrdersBadge count={sellerOrdersBadgeCount} />
+                </View>
               );
             case 'Delivery':
               return focused ? (
@@ -1508,6 +1528,35 @@ const AppNavigation = () => {
     // </SafeAreaView>
   );
 };
+
+const sellerTabBadgeStyles = StyleSheet.create({
+  ordersIconContainer: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    backgroundColor: '#E7522F',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'Inter',
+    textAlign: 'center',
+  },
+});
 
 const styles = StyleSheet.create({
   focusedLabel: {
