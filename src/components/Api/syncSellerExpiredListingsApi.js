@@ -1,20 +1,16 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
 
-export const getListingDetails = async plantCode => {
+export const syncSellerExpiredListingsApi = async () => {
   try {
     const token = await getStoredAuthToken();
-    const params = new URLSearchParams();
-    params.append('plantCode', plantCode);
-    const url = `${API_ENDPOINTS.GET_LISTING}?${params.toString()}`;
-    console.log(url);
-
-    const response = await fetch(url, {
-      method: 'GET',
+    const response = await fetch(API_ENDPOINTS.SYNC_SELLER_EXPIRED_LISTINGS, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
@@ -22,10 +18,9 @@ export const getListingDetails = async plantCode => {
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    const json = await response.json();
-    return json;
+    return await response.json();
   } catch (error) {
-    console.log('getListingDetails error:', error.message);
+    console.log('syncSellerExpiredListingsApi error:', error.message);
     throw error;
   }
 };

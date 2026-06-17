@@ -16,51 +16,13 @@ import IconAccentPin from '../../../../assets/icons/accent/pin.svg';
 import IconMenu from '../../../../assets/icons/greylight/dots-three-vertical-regular.svg';
 import IconPin from '../../../../assets/icons/greylight/pin-light.svg';
 import { formatDateMonthDayYear } from '../../../../utils/formatDateMonthDayYear';
+import {
+  formatListingExpirationDisplay,
+  getSellerListingDisplayStatus,
+} from '../../../../utils/listingExpirationUtils';
 import { numberToCurrency } from '../../../../utils/numberToCurrency';
 
 const COLUMN_WIDTH = 150;
-
-// Helper function to calculate expiration date (+14 days from publish or modification date)
-const calculateExpirationDate = (listingData) => {
-  try {
-    // Determine which date to use (updatedAt if exists, otherwise publishDate)
-    const baseDateFormatted = listingData?.updatedAtFormatted || listingData?.publishDateFormatted;
-    const baseDateRaw = listingData?.updatedAt || listingData?.publishDate;
-    
-    let dateObj;
-    
-    // Priority 1: Use formatted date string if available
-    if (baseDateFormatted) {
-      dateObj = new Date(baseDateFormatted);
-    }
-    // Priority 2: Use raw Firestore timestamp
-    else if (baseDateRaw) {
-      if (baseDateRaw.toDate && typeof baseDateRaw.toDate === 'function') {
-        // Firestore Timestamp object
-        dateObj = baseDateRaw.toDate();
-      } else if (baseDateRaw.seconds) {
-        // Firestore Timestamp-like object
-        dateObj = new Date(baseDateRaw.seconds * 1000);
-      } else if (baseDateRaw instanceof Date) {
-        dateObj = baseDateRaw;
-      } else {
-        dateObj = new Date(baseDateRaw);
-      }
-    } else {
-      return 'No Data';
-    }
-    
-    // Add 14 days
-    const expirationDate = new Date(dateObj);
-    expirationDate.setDate(expirationDate.getDate() + 14);
-    
-    // Format using the existing formatDateMonthDayYear utility
-    return formatDateMonthDayYear(expirationDate.toISOString());
-  } catch (error) {
-    console.error('Error calculating expiration date:', error);
-    return 'No Data';
-  }
-};
 
 const ListingTable = ({
   headers = [],
@@ -192,6 +154,11 @@ const ListingTable = ({
               ) : (
                 <StatusBadge
                   statusCode={(function getStatus() {
+                    const effectiveStatus = getSellerListingDisplayStatus(listing);
+                    if (effectiveStatus === 'Expired') {
+                      return 'Expired';
+                    }
+
                     const derivedStatus = (listing._displayStatus || listing.status || '').trim().toLowerCase();
                     if (derivedStatus === 'sold') {
                       return 'Sold';
@@ -519,7 +486,7 @@ const ListingTable = ({
             {/* Expiration Date */}
             <View style={[styles.cell, {width: 150}]}>
               <Text style={globalStyles.textSMGreyDark}>
-                {calculateExpirationDate(listing)}
+                {formatListingExpirationDisplay(listing, formatDateMonthDayYear)}
               </Text>
             </View>
 

@@ -6,24 +6,23 @@
  */
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
-
-function formatTimestamp(timestamp) {
-  if (!timestamp) return null;
-  if (typeof timestamp.toDate === 'function') {
-    const d = timestamp.toDate();
-    return d.toISOString ? d.toISOString().slice(0, 10) : String(d);
-  }
-  return null;
-}
+import {
+  applyComputedExpirationFormattedFields,
+  applySellerListingExpirationView,
+  formatListingDateYmd,
+  isListingPastExpiration,
+} from './listingExpirationUtils';
 
 const processDoc = async (docSnap) => {
   const data = docSnap.data();
   const id = docSnap.id;
 
-  data.createdAtFormatted = formatTimestamp(data.createdAt);
-  data.updatedAtFormatted = formatTimestamp(data.updatedAt);
-  data.publishDateFormatted = formatTimestamp(data.publishDate);
-  data.expirationDateFormatted = formatTimestamp(data.expirationDate);
+  data.createdAtFormatted = formatListingDateYmd(data.createdAt, data);
+  data.updatedAtFormatted = formatListingDateYmd(data.updatedAt, data);
+  data.publishDateFormatted = formatListingDateYmd(data.publishDate, data);
+  data.expirationDateFormatted = formatListingDateYmd(data.expirationDate, data);
+  applyComputedExpirationFormattedFields(data);
+  applySellerListingExpirationView(data);
 
   const listingTypeCanon = canonicalListingType(data.listingType);
   const needsVariations =
@@ -386,10 +385,16 @@ export function isListingPinned(listing) {
   return false;
 }
 
-/** Active tab rules: status Active and at least one unit in stock (incl. variations). */
-export function isSellerActiveListing(listing) {
+/** Active tab / My Store rules: status Active, not expired; optional in-stock requirement. */
+export function isSellerActiveListing(listing, { requireInStock = true } = {}) {
+  if (isListingPastExpiration(listing)) return false;
+
   const isActiveStatus =
     (listing.status || '').trim().toLowerCase() === 'active';
+  if (!isActiveStatus) return false;
+
+  if (!requireInStock) return true;
+
   const qty = parseInt(listing.availableQty, 10) || 0;
   const variations = Array.isArray(listing.variations) ? listing.variations : [];
   const hasVariationQuantity =
@@ -397,7 +402,21 @@ export function isSellerActiveListing(listing) {
       ? variations.some(v => (parseInt(v.availableQty, 10) || 0) > 0)
       : true;
   const hasQuantity = qty > 0 || (variations.length > 0 && hasVariationQuantity);
-  return isActiveStatus && hasQuantity;
+  return hasQuantity;
+}
+
+/** Live / Group Chat tabs: matching status and not expired (includes sold-out until expired). */
+export function isSellerChannelTabListing(listing, channelStatus) {
+  if (isListingPastExpiration(listing)) return false;
+  return (listing.status || '').trim() === channelStatus;
+}
+
+export function isSellerLiveTabListing(listing) {
+  return isSellerChannelTabListing(listing, 'Live');
+}
+
+export function isSellerGroupChatTabListing(listing) {
+  return isSellerChannelTabListing(listing, 'GroupChatListing');
 }
 
 const toMs = val => {
@@ -407,9 +426,9 @@ const toMs = val => {
 };
 
 /**
- * Filter/sort seller listings for My Store (Active listings with stock only).
+ * Filter/sort seller listings for Live or Group Chat Listing tabs.
  */
-export function prepareMyStoreActiveListings(rawListings, filters = {}) {
+export function prepareSellerChannelTabListings(rawListings, channelStatus, filters = {}) {
   const {
     sortBy = '',
     genus = [],
@@ -430,7 +449,113 @@ export function prepareMyStoreActiveListings(rawListings, filters = {}) {
   const seen = new Set();
   const filtered = (Array.isArray(rawListings) ? rawListings : []).filter(
     listing => {
-      if (!isSellerActiveListing(listing)) return false;
+      if (!isSellerChannelTabListing(listing, channelStatus)) return false;
+
+      const uniqueKey = listing.plantCode || listing.id;
+      if (uniqueKey) {
+        if (seen.has(uniqueKey)) return false;
+        seen.add(uniqueKey);
+      }
+
+      if (pinOnly && !isListingPinned(listing)) return false;
+
+      if (searchTerm) {
+        const haystack = [
+          listing.genus,
+          listing.species,
+          listing.variegation,
+          listing.mutation,
+          listing.plantCode,
+        ]
+          .map(v => (v || '').toString().toLowerCase())
+          .join(' ');
+        if (!haystack.includes(searchTerm)) return false;
+      }
+
+      if (!listingMatchesTypeFilter(listing, listingTypeFilters)) {
+        return false;
+      }
+
+      if (!listingMatchesGenusFilter(listing, genusFilters)) {
+        return false;
+      }
+
+      const variegationNormalized = (listing.variegation || listing.mutation || '')
+        .trim()
+        .toLowerCase();
+      if (
+        variegationFilters.length > 0 &&
+        !variegationFilters.includes(variegationNormalized)
+      ) {
+        return false;
+      }
+
+      return true;
+    },
+  );
+
+  const sorted = [...filtered];
+  const comparePinned = (a, b) => {
+    const aPinned = isListingPinned(a) ? 1 : 0;
+    const bPinned = isListingPinned(b) ? 1 : 0;
+    return bPinned - aPinned;
+  };
+
+  const compareBySort = (a, b) => {
+    switch (normalizedSortValue) {
+      case 'Price Low To High':
+        return getListingSortPrice(a) - getListingSortPrice(b);
+      case 'Price High To Low':
+        return getListingSortPrice(b) - getListingSortPrice(a);
+      case 'Most Loved':
+        return getListingLoveCount(b) - getListingLoveCount(a);
+      case 'Oldest to Newest':
+        return (
+          toMs(a.createdAt || a.orderDate) - toMs(b.createdAt || b.orderDate)
+        );
+      case 'Newest to Oldest':
+      default:
+        return (
+          toMs(b.createdAt || b.orderDate) - toMs(a.createdAt || a.orderDate)
+        );
+    }
+  };
+
+  sorted.sort((a, b) => {
+    const pinCmp = comparePinned(a, b);
+    if (pinCmp !== 0) return pinCmp;
+    return compareBySort(a, b);
+  });
+
+  return sorted;
+}
+
+/**
+ * Filter/sort seller listings for My Store (Active listings with stock only).
+ */
+export function prepareMyStoreActiveListings(rawListings, filters = {}) {
+  const {
+    sortBy = '',
+    genus = [],
+    variegation = [],
+    listingType = [],
+    search = '',
+    pinOnly = false,
+    requireInStock = true,
+  } = filters;
+
+  const listingTypeFilters = normalizeFilterValues(listingType);
+  const genusFilters = normalizeFilterValues(genus);
+  const variegationFilters = normalizeFilterValues(variegation).map(v =>
+    v.toLowerCase(),
+  );
+  const searchTerm = typeof search === 'string' ? search.trim().toLowerCase() : '';
+  const normalizedSortValue = normalizeSortValue(sortBy);
+
+  const seen = new Set();
+  const filtered = (Array.isArray(rawListings) ? rawListings : []).filter(
+    listing => {
+      if (!isSellerActiveListing(listing, { requireInStock })) return false;
 
       const uniqueKey = listing.plantCode || listing.id;
       if (uniqueKey) {

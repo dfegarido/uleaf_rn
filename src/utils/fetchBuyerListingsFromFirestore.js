@@ -14,6 +14,7 @@ import { collection,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { isListingPastExpiration } from './listingExpirationUtils';
 
 const MAIN_GENERA = ['ALOCASIA', 'ANTHURIUM', 'BEGONIA', 'HOYA', 'MONSTERA', 'SCINDAPSUS', 'SYNGONIUM', 'PHILODENDRON'];
 const CURRENCY_TO_COUNTRY = { PHP: 'PH', THB: 'TH', IDR: 'ID', USD: 'US' };
@@ -461,6 +462,7 @@ export async function fetchBuyerListingsFromFirestore(params = {}) {
       const isSoldOut = listing.availableQty === 0;
       const variationsSoldOut = (listing.listingType === 'Wholesale' || listing.listingType === "Grower's Choice") ? isSoldOut : false;
       if (shouldExcludeSoldListing(listing, isSoldOut, variationsSoldOut)) continue;
+      if (isListingPastExpiration(listing)) continue;
 
       if (hasDiscountFilter) {
         const hasDiscount = (listing.discountPrice && listing.discountPrice > 0) || (listing.discountPercent && listing.discountPercent > 0);

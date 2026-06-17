@@ -230,6 +230,8 @@ const generateEndpoints = () => ({
   UPLOAD_CHAT_VIDEO: `${getBaseUrl()}/uploadChatVideo`,
   ADD_LISTING: `${getBaseUrl()}/addListing`,
   UPDATE_LISTING: `${getBaseUrl()}/updateListing`,
+  GET_LISTING: `${getBaseUrl()}/getListing`,
+  SYNC_SELLER_EXPIRED_LISTINGS: `${getBaseUrl()}/syncSellerExpiredListings`,
   DUPLICATE_LISTING: `${getBaseUrl()}/duplicateListing`,
   DELETE_LISTING: `${getBaseUrl()}/deleteListingByPlantCode`,
   // External listing/reporting service used for business performance charts

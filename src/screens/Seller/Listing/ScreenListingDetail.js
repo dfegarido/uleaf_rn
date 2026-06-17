@@ -25,6 +25,15 @@ import ListingActionSheet from './components/ListingActionSheetEdit';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import {InputBox} from '../../../components/Input';
 import {formatDateMonthDayYear} from '../../../utils/formatDateMonthDayYear';
+import {
+  formatListingCreatedDisplay,
+  formatListingExpirationDisplay,
+  formatListingModifiedDisplay,
+  formatListingPublishDisplay,
+  getSellerListingDisplayStatus,
+  isSellerListingExpired,
+  applySellerListingExpirationView,
+} from '../../../utils/listingExpirationUtils';
 import {Platform} from 'react-native';
 import ConfirmDelete from './components/ConfirmDelete';
 import {numberToCurrency} from '../../../utils/numberToCurrency';
@@ -70,60 +79,6 @@ const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
 
 import {useNavigationState} from '@react-navigation/native';
-
-// Helper function to calculate expiration date (+14 days from publish or modification date)
-const calculateExpirationDate = (listingData) => {
-  try {
-    // Determine which date to use (updatedAt if exists, otherwise publishDate)
-    // Try formatted fields first, then raw timestamps
-    const baseDateFormatted = listingData?.updatedAtFormatted || listingData?.publishDateFormatted;
-    const baseDateRaw = listingData?.updatedAt || listingData?.publishDate;
-    
-    let dateObj;
-    
-    // Priority 1: Use formatted date string if available
-    if (baseDateFormatted) {
-      dateObj = new Date(baseDateFormatted);
-    }
-    // Priority 2: Use raw Firestore timestamp
-    else if (baseDateRaw) {
-      if (baseDateRaw.toDate && typeof baseDateRaw.toDate === 'function') {
-        // Firestore Timestamp object
-        dateObj = baseDateRaw.toDate();
-      } else if (baseDateRaw.seconds) {
-        // Firestore Timestamp-like object
-        dateObj = new Date(baseDateRaw.seconds * 1000);
-      } else if (baseDateRaw instanceof Date) {
-        dateObj = baseDateRaw;
-      } else {
-        dateObj = new Date(baseDateRaw);
-      }
-    } else {
-      return 'No Data';
-    }
-    
-    // Add 14 days
-    const expirationDate = new Date(dateObj);
-    expirationDate.setDate(expirationDate.getDate() + 14);
-    
-    // Format using the existing formatDateMonthDayYear utility
-    // Convert to ISO string format which the utility function expects
-    const result = formatDateMonthDayYear(expirationDate.toISOString());
-    
-    console.log('📅 Expiration Calculation:', {
-      baseDateFormatted,
-      baseDateRaw,
-      dateObj: dateObj.toISOString(),
-      expirationDate: expirationDate.toISOString(),
-      result
-    });
-    
-    return result;
-  } catch (error) {
-    console.error('Error calculating expiration date:', error);
-    return 'No Data';
-  }
-};
 
 const ScreenListingDetail = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -174,13 +129,14 @@ const ScreenListingDetail = ({navigation, route}) => {
     console.log('📅 Listing Data - publishDateFormatted:', res.data?.publishDateFormatted);
     console.log('📅 Listing Data - updatedAt:', res.data?.updatedAt);
     console.log('📅 Listing Data - updatedAtFormatted:', res.data?.updatedAtFormatted);
-    console.log('📅 Calculated Expiration:', calculateExpirationDate(res.data));
+    console.log('📅 Expiration:', formatListingExpirationDisplay(res.data, formatDateMonthDayYear));
     console.log('🔧 Variations:', res.data?.variations);
     console.log('🔧 Variations Count:', res.data?.variations?.length);
     console.log('💰 Currency Info - userInfo:', userInfo);
     console.log('💰 Currency Symbol:', userInfo?.currencySymbol);
     console.log('💰 Listing Currency Symbol:', res.data?.localCurrencySymbol);
-    setSwitchActive(res.data.status == 'Active' ? true : false);
+    applySellerListingExpirationView(res.data);
+    setSwitchActive(res.data.status == 'Active' && !isSellerListingExpired(res.data));
     setListingData(res.data);
   };
   // ✅ Fetch on mount
@@ -190,7 +146,14 @@ const ScreenListingDetail = ({navigation, route}) => {
     listingData?.active == 'Active' ? true : false,
   );
 
+  const listingExpired = listingData ? isSellerListingExpired(listingData) : false;
+  const displayStatus = listingData ? getSellerListingDisplayStatus(listingData) : '';
+
   const toggleSwitch = () => {
+    if (!switchActive && listingExpired) {
+      setRenewModalVisible(true);
+      return;
+    }
     setSwitchActive(previousState => !previousState);
     if (switchActive == true) {
       deactivateAction();
@@ -198,7 +161,6 @@ const ScreenListingDetail = ({navigation, route}) => {
       activeAction();
     }
 
-    // Do something on change
     console.log('Switch is now:', !switchActive);
   };
   // Inactive and Active
@@ -707,52 +669,19 @@ const ScreenListingDetail = ({navigation, route}) => {
             <View>
               <Text style={globalStyles.textSMGreyLight}>Created</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {(() => {
-                  const formatted = listingData?.createdAtFormatted
-                    ? formatDateMonthDayYear(listingData.createdAtFormatted)
-                    : 'No Data';
-                  console.log('📅 iOS/Android Date Check - Created:', {
-                    platform: Platform.OS,
-                    raw: listingData?.createdAtFormatted,
-                    formatted: formatted,
-                    isExpectedFormat: /^[A-Z][a-z]{2} \d{2}, \d{4}$/.test(formatted)
-                  });
-                  return formatted;
-                })()}
+                {formatListingCreatedDisplay(listingData, formatDateMonthDayYear)}
               </Text>
             </View>
             <View>
               <Text style={globalStyles.textSMGreyLight}>Published</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {(() => {
-                  const formatted = listingData?.publishDateFormatted
-                    ? formatDateMonthDayYear(listingData.publishDateFormatted)
-                    : 'No Data';
-                  console.log('📅 iOS/Android Date Check - Published:', {
-                    platform: Platform.OS,
-                    raw: listingData?.publishDateFormatted,
-                    formatted: formatted,
-                    isExpectedFormat: /^[A-Z][a-z]{2} \d{2}, \d{4}$/.test(formatted)
-                  });
-                  return formatted;
-                })()}
+                {formatListingPublishDisplay(listingData, formatDateMonthDayYear)}
               </Text>
             </View>
             <View>
               <Text style={globalStyles.textSMGreyLight}>Modified</Text>
               <Text style={globalStyles.textMDGreyDark}>
-                {(() => {
-                  const formatted = listingData?.updatedAtFormatted
-                    ? formatDateMonthDayYear(listingData.updatedAtFormatted)
-                    : 'No Data';
-                  console.log('📅 iOS/Android Date Check - Modified:', {
-                    platform: Platform.OS,
-                    raw: listingData?.updatedAtFormatted,
-                    formatted: formatted,
-                    isExpectedFormat: /^[A-Z][a-z]{2} \d{2}, \d{4}$/.test(formatted)
-                  });
-                  return formatted;
-                })()}
+                {formatListingModifiedDisplay(listingData, formatDateMonthDayYear)}
               </Text>
             </View>
           </View>
@@ -780,7 +709,7 @@ const ScreenListingDetail = ({navigation, route}) => {
                     marginBottom: 10,
                     width: '50%',
                   }}>
-                  {listingData?.status && listingData?.status == 'Active' && (
+                  {listingExpired && (
                     <View style={{flexDirection: 'row'}}>
                       <PlantIcon width={25} height={25} />
                       <View>
@@ -789,7 +718,28 @@ const ScreenListingDetail = ({navigation, route}) => {
                             globalStyles.textMDAccentDark,
                             {paddingLeft: 5},
                           ]}>
-                          {listingData?.status ?? 'No Data'}
+                          Expired
+                        </Text>
+                        <Text
+                          style={[
+                            globalStyles.textMDGreyLight,
+                            {paddingLeft: 5},
+                          ]}>
+                          Activate to republish
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                  {listingData?.status && displayStatus === 'Active' && !listingExpired && (
+                    <View style={{flexDirection: 'row'}}>
+                      <PlantIcon width={25} height={25} />
+                      <View>
+                        <Text
+                          style={[
+                            globalStyles.textMDAccentDark,
+                            {paddingLeft: 5},
+                          ]}>
+                          {displayStatus || 'No Data'}
                         </Text>
                         <Text
                           style={[
@@ -806,16 +756,14 @@ const ScreenListingDetail = ({navigation, route}) => {
                     <View>
                       <Text
                         style={[globalStyles.textMDGreyDark, {paddingLeft: 5}]}>
-                        {listingData?.status && listingData?.status == 'Active'
-                          ? 'Published'
-                          : listingData?.status}
+                        {displayStatus === 'Active' ? 'Published' : displayStatus}
                       </Text>
                       <Text
                         style={[
                           globalStyles.textXSGreyLight,
                           {paddingLeft: 5},
                         ]}>
-                        {listingData?.status && listingData?.status == 'Active'
+                        {displayStatus === 'Active'
                           ? ''
                           : listingData?.publishType}
                       </Text>
@@ -827,7 +775,7 @@ const ScreenListingDetail = ({navigation, route}) => {
                     <View>
                       <Text
                         style={[globalStyles.textMDGreyDark, {paddingLeft: 5}]}>
-                        {calculateExpirationDate(listingData)}
+                        {formatListingExpirationDisplay(listingData, formatDateMonthDayYear)}
                       </Text>
                       <Text
                         style={[
@@ -847,7 +795,7 @@ const ScreenListingDetail = ({navigation, route}) => {
                     width: '50%',
                     alignItems: 'flex-end',
                   }}>
-                  {listingData?.status && listingData?.status == 'Active' && (
+                  {listingData?.status && displayStatus === 'Active' && !listingExpired && (
                     <>
                       <View>
                         <CustomSwitch
@@ -889,14 +837,14 @@ const ScreenListingDetail = ({navigation, route}) => {
                       </TouchableOpacity>
                     )}
 
-                  {listingData?.status && listingData?.status == 'Expired' && (
+                  {listingExpired && (
                     <TouchableOpacity
                       style={{flexDirection: 'row', paddingTop: 10}}
                       onPress={() => setRenewModalVisible(!renewModalVisible)}>
                       <RenewIcon width={25} height={25} />
                       <Text
                         style={[globalStyles.textMDAccent, {paddingLeft: 5}]}>
-                        Renew
+                        Activate
                       </Text>
                     </TouchableOpacity>
                   )}

@@ -13,15 +13,8 @@ import { collection,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { listingMatchesGenusFilter } from './fetchSellerListingsFromFirestore';
-
-function formatTimestamp(timestamp) {
-  if (!timestamp) return null;
-  if (typeof timestamp.toDate === 'function') {
-    const d = timestamp.toDate();
-    return d.toISOString ? d.toISOString().slice(0, 10) : String(d);
-  }
-  return null;
-}
+import { applyComputedExpirationFormattedFields, applySellerListingExpirationView, formatListingDateYmd } from './listingExpirationUtils';
+import { isSellerLiveTabListing } from './fetchSellerListingsFromFirestore';
 
 function extractValues(arr) {
   return (arr || [])
@@ -91,10 +84,12 @@ export async function fetchLiveListingsFromFirestore(uid, {
     const data = docSnap.data();
     const id = docSnap.id;
 
-    data.createdAtFormatted = formatTimestamp(data.createdAt);
-    data.updatedAtFormatted = formatTimestamp(data.updatedAt);
-    data.publishDateFormatted = formatTimestamp(data.publishDate);
-    data.expirationDateFormatted = formatTimestamp(data.expirationDate);
+    data.createdAtFormatted = formatListingDateYmd(data.createdAt, data);
+    data.updatedAtFormatted = formatListingDateYmd(data.updatedAt, data);
+    data.publishDateFormatted = formatListingDateYmd(data.publishDate, data);
+    data.expirationDateFormatted = formatListingDateYmd(data.expirationDate, data);
+    applyComputedExpirationFormattedFields(data);
+    applySellerListingExpirationView(data);
 
     if (
       data.listingType === "Grower's Choice" ||
@@ -149,7 +144,7 @@ export async function fetchLiveListingsFromFirestore(uid, {
     }
   }
 
-  let result = listings;
+  let result = listings.filter((item) => isSellerLiveTabListing(item));
   if (fetchAll) {
     result.forEach((item, i) => {
       item._originalIndex = i + 1;

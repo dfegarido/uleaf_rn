@@ -81,6 +81,7 @@ export {postListingApplyDiscountActionApi} from './postListingApplyDiscountActio
 export {postListingRemoveDiscountActionApi} from './postListingRemoveDiscountActionApi';
 export {postListingDeactivateActionApi} from './postListingDeactivateActionApi';
 export {postListingActivateActionApi} from './postListingActivateActionApi';
+export {syncSellerExpiredListingsApi} from './syncSellerExpiredListingsApi';
 export {postListingPublishNowActionApi} from './postListingPublishNowActionApi';
 export {postListingRenewActionApi} from './postListingRenewActionApi';
 export {getListingDetails} from './getListingDetails';

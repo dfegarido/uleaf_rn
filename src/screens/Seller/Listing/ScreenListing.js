@@ -37,12 +37,14 @@ import TabFilter from '../../../components/TabFilter/TabFilter';
 import Toast from '../../../components/Toast/Toast';
 import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../../../../firebase';
-import { fetchLiveListingsFromFirestore } from '../../../utils/fetchLiveListingsFromFirestore';
 import {
   fetchSellerListingsFromFirestore,
   listingMatchesGenusFilter,
   prepareMyStoreActiveListings,
+  prepareSellerChannelTabListings,
 } from '../../../utils/fetchSellerListingsFromFirestore';
+import { syncSellerExpiredListingsApi } from '../../../components/Api/syncSellerExpiredListingsApi';
+import { isListingPastExpiration } from '../../../utils/listingExpirationUtils';
 import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
@@ -491,6 +493,20 @@ const ScreenListing = ({navigation}) => {
     try {
       setLoading(true);
 
+      const syncExpiredListingsForSeller = async uid => {
+        if (!uid) return;
+        try {
+          const res = await syncSellerExpiredListingsApi();
+          if (res?.expiredCount > 0) {
+            allListingsRef.current = [];
+          }
+        } catch (syncErr) {
+          if (__DEV__) {
+            console.warn('[Listings] syncSellerExpiredListings:', syncErr?.message);
+          }
+        }
+      };
+
       if (activeTab === 'Live') {
         const uid =
           userInfo?.uid ||
@@ -498,69 +514,62 @@ const ScreenListing = ({navigation}) => {
           userInfo?.user?.uid ||
           userInfo?.user?.id ||
           auth.currentUser?.uid;
-        if (__DEV__ && uid) {
-          console.log('[Live tab] Using uid for Firestore query:', uid);
-        }
-        if (uid) {
-          const fetchId = ++liveFetchIdRef.current;
-          const liveFilters = {
-            genus: reusableGenus,
-            variegation: reusableVariegation,
-            listingType: reusableListingType,
-            search,
-            sort: reusableSort,
-          };
-          if (__DEV__) {
-            console.log(
-              '[Live tab] filters:',
-              liveFilters,
-            );
-          }
-          try {
-            liveLastDocRef.current = null;
 
-            // — Cache check —
-            const cached = _getLiveCache(uid, liveFilters);
-            if (cached) {
-              if (__DEV__) console.log('[Live tab] Cache HIT — skipping Firestore fetch');
-              if (fetchId !== liveFetchIdRef.current) return;
-              liveAllListingsRef.current = cached;
-              setDataTable(cached.slice(0, LIVE_DISPLAY_PAGE));
-              setLiveHasMore(cached.length > LIVE_DISPLAY_PAGE);
-              setRefreshing(false);
-              setLoading(false);
-              return;
-            }
-
-            if (__DEV__) console.log('[Live tab] Cache MISS — fetching from Firestore');
-            const { listings } = await fetchLiveListingsFromFirestore(uid, {
-              pageSize: 12,
-              lastDoc: null,
-              fetchAll: true,
-              filters: liveFilters,
-            });
-            _setLiveCache(uid, liveFilters, listings);
-            if (fetchId !== liveFetchIdRef.current) return;
-            liveAllListingsRef.current = listings;
-            setDataTable(listings.slice(0, LIVE_DISPLAY_PAGE));
-            setLiveHasMore(listings.length > LIVE_DISPLAY_PAGE);
-          } catch (liveErr) {
-            if (fetchId !== liveFetchIdRef.current) return;
-            console.error('[Live tab] Firestore fetch error:', liveErr?.message || liveErr);
-            Alert.alert(
-              'Live listings',
-              liveErr?.message?.includes('permission')
-                ? 'Could not load Live listings. Check Firestore rules allow read for your account.'
-                : liveErr?.message || 'Failed to load Live listings.',
-            );
-          }
-        } else {
+        if (!uid) {
           if (__DEV__) {
             console.warn('[Live tab] No uid available (userInfo or auth.currentUser)');
           }
           setDataTable([]);
           setLiveHasMore(false);
+          setRefreshing(false);
+          setLoading(false);
+          return;
         }
+
+        const fetchId = ++liveFetchIdRef.current;
+        const channelFilters = {
+          sortBy: reusableSort,
+          genus: reusableGenus,
+          variegation: reusableVariegation,
+          listingType: reusableListingType,
+          search,
+          pinOnly: pinSearch,
+        };
+
+        try {
+          await syncExpiredListingsForSeller(uid);
+
+          if (allListingsRef.current.length === 0) {
+            if (__DEV__) console.log('[Live tab] Fetching listings from Firestore…');
+            const { listings: rawListings } = await fetchSellerListingsFromFirestore(uid);
+            if (fetchId !== liveFetchIdRef.current) return;
+            allListingsRef.current = rawListings;
+          }
+
+          const sortedAggregated = prepareSellerChannelTabListings(
+            allListingsRef.current,
+            'Live',
+            channelFilters,
+          );
+          sortedAggregated.forEach((item, i) => {
+            item._originalIndex = i + 1;
+          });
+
+          if (fetchId !== liveFetchIdRef.current) return;
+          liveAllListingsRef.current = sortedAggregated;
+          setDataTable(sortedAggregated.slice(0, LIVE_DISPLAY_PAGE));
+          setLiveHasMore(sortedAggregated.length > LIVE_DISPLAY_PAGE);
+        } catch (liveErr) {
+          if (fetchId !== liveFetchIdRef.current) return;
+          console.error('[Live tab] Firestore fetch error:', liveErr?.message || liveErr);
+          Alert.alert(
+            'Live listings',
+            liveErr?.message?.includes('permission')
+              ? 'Could not load Live listings. Check Firestore rules allow read for your account.'
+              : liveErr?.message || 'Failed to load Live listings.',
+          );
+        }
+
         setRefreshing(false);
         setLoading(false);
         return;
@@ -585,6 +594,8 @@ const ScreenListing = ({navigation}) => {
         return;
       }
 
+      await syncExpiredListingsForSeller(uid);
+
       // Only re-fetch from Firestore when cache is empty (first load / after refresh)
       if (allListingsRef.current.length === 0) {
         const fetchId = ++allFetchIdRef.current;
@@ -595,7 +606,7 @@ const ScreenListing = ({navigation}) => {
         if (__DEV__) console.log(`[All tabs] Fetched ${rawListings.length} listing(s)`);
       }
 
-      // Active tab uses the same rules as My Store (status Active + in stock, filters, sort).
+      // Active tab: status Active and not expired (includes sold-out until expired).
       if (activeTab === 'Active') {
         const sortedAggregated = prepareMyStoreActiveListings(allListingsRef.current, {
           sortBy: reusableSort,
@@ -604,7 +615,31 @@ const ScreenListing = ({navigation}) => {
           listingType: reusableListingType,
           search,
           pinOnly: pinSearch,
+          requireInStock: false,
         });
+        allDisplayListingsRef.current = sortedAggregated;
+        setDataTable(sortedAggregated.slice(0, ALL_DISPLAY_PAGE));
+        setTotalListings(sortedAggregated.length);
+        setAllHasMore(sortedAggregated.length > ALL_DISPLAY_PAGE);
+        setRefreshing(false);
+        setLoading(false);
+        return;
+      }
+
+      // Group Chat Listing tab: status GroupChatListing and not expired.
+      if (activeTab === 'Group Chat Listing') {
+        const sortedAggregated = prepareSellerChannelTabListings(
+          allListingsRef.current,
+          'GroupChatListing',
+          {
+            sortBy: reusableSort,
+            genus: reusableGenus,
+            variegation: reusableVariegation,
+            listingType: reusableListingType,
+            search,
+            pinOnly: pinSearch,
+          },
+        );
         allDisplayListingsRef.current = sortedAggregated;
         setDataTable(sortedAggregated.slice(0, ALL_DISPLAY_PAGE));
         setTotalListings(sortedAggregated.length);
@@ -674,6 +709,7 @@ const ScreenListing = ({navigation}) => {
       const hasDiscountFilter = isDiscounted === true;
       const isSoldTab = activeTab === 'Sold';
       const isOutOfStockTab = activeTab === 'Out of Stock';
+      const isAllTab = activeTab === 'All';
       const isActiveTab = activeTab === 'Active';
       const isLiveTab = activeTab === 'Live';
       const isGroupChatListing = activeTab === 'Group Chat Listing';
@@ -767,12 +803,15 @@ const ScreenListing = ({navigation}) => {
           
           // Listing must have status "Active" AND (direct quantity > 0 OR has variation with quantity > 0)
           const hasQuantity = qty > 0 || (variations.length > 0 && hasVariationQuantity);
+
+          if (isListingPastExpiration(listing)) return false;
           
           return isActiveStatus && hasQuantity;
         }
 
         if (activeTab === 'Sold') {
-          return listing._displayStatus === 'sold';
+          if (listing._displayStatus !== 'sold') return false;
+          return !isListingPastExpiration(listing);
         }
 
         if (activeTab === 'Out of Stock') {
@@ -781,13 +820,30 @@ const ScreenListing = ({navigation}) => {
 
         if (activeTab === 'Live') {
           const isLiveStatus = (listing.status || '').trim() === 'Live';
-          const isSold = listing._displayStatus === 'sold';
-          return isLiveStatus && !isSold;
+          if (isListingPastExpiration(listing)) return false;
+          return isLiveStatus;
         }
 
         if (activeTab === 'Group Chat Listing') {
-          const isGroupChatListingStatus = (listing.status || '').trim() === 'GroupChatListing';
+          const isGroupChatListingStatus =
+            (listing.status || '').trim() === 'GroupChatListing';
+          if (isListingPastExpiration(listing)) return false;
           return isGroupChatListingStatus;
+        }
+
+        if (activeTab === 'Expired') {
+          if (listing._displayStatus === 'sold') return false;
+          const statusNorm = (listing.status || '').trim().toLowerCase();
+          return statusNorm === 'expired' || isListingPastExpiration(listing);
+        }
+
+        // All tab: show every listing (expired, sold, inactive, etc.) — only user filters apply.
+        if (isAllTab) {
+          return true;
+        }
+
+        if (isListingPastExpiration(listing)) {
+          return false;
         }
 
         if (activeTab === 'Inactive') {
