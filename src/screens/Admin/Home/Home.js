@@ -16,9 +16,9 @@ const IconTile = ({title, children, onPress, badgeCount = 0}) => {
   );
 };
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Alert, Image, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
 import DiscountsIcon from '../../../assets/admin-icons/discounts.svg';
 import ForShippingIcon from '../../../assets/admin-icons/for-shipping.svg';
@@ -46,12 +46,10 @@ import PlantCreditsIcon from '../../../assets/admin-icons/plant-credits.svg';
 import PaymentMgmtIcon from '../../../assets/admin-icons/payment-mgmt.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
+import AppUpdateCard from '../../../components/AppUpdateCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAdminFlightChangeRequestsApi } from '../../../components/Api/adminOrderApi';
 import { getAdminJourneyMishapDataApi } from '../../../components/Api/orderManagementApi';
-import { getAppVersionApi } from '../../../components/Api/appVersionApi';
-import { isAppUpdateRequired } from '../../../utils/utils';
-import { version as appVersion } from '../../../../package.json';
 import NetInfo from '@react-native-community/netinfo';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../../firebase';
@@ -390,50 +388,6 @@ const Home = () => {
     }, [])
   );
 
-  // Update card visibility
-  const [showUpdateCard, setShowUpdateCard] = useState(false);
-
-  // Check whether the backend requires an update
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await getAppVersionApi();
-        if (cancelled || !response?.success) return;
-        const { minimumVersion, currentVersion } = response?.data?.data || {};
-        const required = isAppUpdateRequired(appVersion, minimumVersion) ||
-          isAppUpdateRequired(appVersion, currentVersion);
-        if (required) {
-          setShowUpdateCard(true);
-        }
-      } catch (error) {
-        console.error('Error checking app version:', error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Open the appropriate app store for the user's platform
-  const handleUpdatePress = async () => {
-    const url = Platform.OS === 'ios'
-      ? 'https://apps.apple.com/us/app/ileafu/id6749962372'
-      : 'https://play.google.com/store/apps/details?id=com.ileafu';
-
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        await Linking.openURL(url);
-      }
-    } catch (error) {
-      console.error('Error opening store URL:', error);
-      Alert.alert('Error', 'Could not open the app store. Please try again.');
-    }
-  };
-
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={['top', 'left', 'right']}>
       <StatusBar
@@ -451,95 +405,7 @@ const Home = () => {
         contentContainerStyle={{paddingBottom: totalBottomPadding}}
         showsVerticalScrollIndicator={false}>
         {/* App Update Available Card */}
-        {showUpdateCard && (
-          <View
-            style={{
-              backgroundColor: '#0F3D24',
-              borderRadius: 16,
-              marginHorizontal: 20,
-              marginTop: 16,
-              padding: 18,
-              flexDirection: 'row',
-              alignItems: 'center',
-              overflow: 'hidden',
-              position: 'relative',
-              minHeight: 150,
-            }}>
-            {/* Close button */}
-            <TouchableOpacity
-              onPress={() => setShowUpdateCard(false)}
-              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-              style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                zIndex: 2,
-                padding: 4,
-              }}>
-              <Text style={{color: '#FFFFFF', fontSize: 18, fontWeight: '600'}}>
-                ✕
-              </Text>
-            </TouchableOpacity>
-
-            {/* Text + button */}
-            <View style={{flex: 1, paddingRight: 12}}>
-              <Text
-                style={{
-                  fontSize: 17,
-                  fontWeight: '700',
-                  color: '#FFFFFF',
-                  marginBottom: 6,
-                }}>
-                New app version available
-              </Text>
-              <Text
-                style={{
-                  fontSize: 13,
-                  color: '#D6E5DA',
-                  marginBottom: 14,
-                  lineHeight: 18,
-                }}>
-                The latest version has new features and improvements. Update for the best experience.
-              </Text>
-              <View style={{flexDirection: 'row', gap: 10}}>
-                <TouchableOpacity
-                  onPress={handleUpdatePress}
-                  activeOpacity={0.8}
-                  style={{
-                    backgroundColor: '#9FE870',
-                    paddingHorizontal: 18,
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                  }}>
-                  <Text
-                    style={{
-                      color: '#0F3D24',
-                      fontSize: 14,
-                      fontWeight: '700',
-                    }}>
-                    Update now
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Decorative illustration on the right */}
-            <View
-              style={{
-                width: 90,
-                height: 90,
-                borderRadius: 45,
-                backgroundColor: '#1F5A36',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'absolute',
-                right: -20,
-                bottom: -20,
-              }}>
-              <Text style={{fontSize: 36}}>🌿</Text>
-            </View>
-          </View>
-        )}
+        <AppUpdateCard style={{marginHorizontal: 20, marginTop: 16}} />
 
         {/* Listings Viewer quick link directly under header */}
         <View style={styles.sectionContainer}>

@@ -1,3 +1,57 @@
+# App Update Card Refactor
+
+## Goal
+Consolidate the duplicated app-update card JSX from the buyer shop, seller home, and admin home screens into a single reusable `AppUpdateCard` component. Apply the new green-themed wording already drafted in `ScreenShop.js` to all three screens.
+
+## Context
+The same update card is copy-pasted inline in three screens:
+- `ileafu/src/screens/Buyer/Shop/ScreenShop.js` (lines ~1287–1376)
+- `ileafu/src/screens/Seller/Home/ScreenHome.js` (lines ~586–673)
+- `ileafu/src/screens/Admin/Home/Home.js` (lines ~454–542)
+
+All three duplicate:
+- `showUpdateCard` state
+- a `useEffect` calling `getAppVersionApi()` and `isAppUpdateRequired()`
+- the store-link `handleUpdatePress` handler
+- the same card JSX, colors, close button, and decorative icon
+
+Only the surrounding margins differ slightly between screens.
+
+## Plan
+- [x] 1. Create `src/components/AppUpdateCard/AppUpdateCard.js` with self-contained logic:
+  - own `showUpdateCard` state
+  - mount-time version check using `getAppVersionApi`, `isAppUpdateRequired`, and `appVersion`
+  - store-link handler using `Linking` and `Platform`
+  - default green-themed copy from ScreenShop (heading, body, CTA)
+  - optional `title`, `body`, `ctaText`, and `style` props for flexibility
+- [x] 2. Create `src/components/AppUpdateCard/index.js` to re-export the component (matches existing project convention).
+- [x] 3. Replace the inline card in `ScreenShop.js` with `<AppUpdateCard style={{ marginHorizontal: 10, marginTop: 10 }} />` and remove duplicated state, effect, handler, and related imports.
+- [x] 4. Replace the inline card in `ScreenHome.js` with `<AppUpdateCard style={{ marginBottom: 16 }} />` and remove duplicated state, effect, handler, and related imports.
+- [x] 5. Replace the inline card in `Home.js` with `<AppUpdateCard style={{ marginHorizontal: 20, marginTop: 16 }} />` and remove duplicated state, effect, handler, and related imports.
+- [x] 6. Run ESLint on the touched files and verify no new errors.
+- [x] 7. Confirm no `ActivityIndicator` usage and no hardcoded Cloud Function URLs were introduced.
+- [x] 8. Update this todo with a short review note.
+
+## Files touched
+- `ileafu/src/components/AppUpdateCard/AppUpdateCard.js` (new)
+- `ileafu/src/components/AppUpdateCard/index.js` (new)
+- `ileafu/src/screens/Buyer/Shop/ScreenShop.js`
+- `ileafu/src/screens/Seller/Home/ScreenHome.js`
+- `ileafu/src/screens/Admin/Home/Home.js`
+
+## Review
+- Created `AppUpdateCard` as a self-contained component that handles its own version check, visibility state, and store-link navigation.
+- Used the green-themed copy from ScreenShop as the default heading/body/CTA so all three screens share the same wording.
+- Added optional `title`, `body`, `ctaText`, and `style` props so the card remains reusable without sacrificing flexibility.
+- Replaced the duplicated inline JSX in all three screens with a single `<AppUpdateCard />` usage, passing a `style` prop to preserve each screen's original margins.
+- Cleaned up now-redundant imports: removed `getAppVersionApi`, `isAppUpdateRequired`, `appVersion`, and `Platform`/`Linking` where they were no longer used.
+- Fixed the hardcoded `{true && (...)}` guard in ScreenShop; the card now respects the version-check result.
+- Implemented the new component with `StyleSheet.create`, so it introduces no new inline-style warnings.
+- ESLint shows only pre-existing warnings/errors in the touched screens; no new errors were introduced by this refactor.
+- No `ActivityIndicator` or hardcoded Cloud Function URLs were added.
+
+---
+
 # Fix RN Firebase messaging deprecation + iOS APNS token error
 
 ## Problem
