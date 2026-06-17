@@ -1,7 +1,7 @@
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../../../firebase';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
@@ -129,6 +129,18 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
 const LiveSellerStrip = ({ navigation }) => {
   const [liveStreams, setLiveStreams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const slideAnim = useRef(new Animated.Value(60)).current;
+  const phase = loading || liveStreams.length === 0 ? 'fallback' : 'live';
+
+  useEffect(() => {
+    slideAnim.setValue(60);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+      easing: (x) => Math.sqrt(1 - Math.pow(x - 1, 2)), // easeOutCirc
+    }).start();
+  }, [phase, slideAnim]);
 
   useEffect(() => {
     const q = query(
@@ -171,38 +183,28 @@ const LiveSellerStrip = ({ navigation }) => {
     return () => unsubscribe();
   }, []);
 
-  if (loading) {
-    return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Live Sales</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          style={{ flexGrow: 0 }}>
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={[styles.card, styles.skeletonCard]}>
-              <View style={[styles.cardImage, styles.skeletonImage]}>
-                <ActivityIndicator color="#CDD3D4" />
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-    );
-  }
+  const animatedSectionStyle = {
+    transform: [{ translateX: slideAnim }],
+  };
 
-  if (liveStreams.length === 0) {
+  if (loading || liveStreams.length === 0) {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Live Sales</Text>
-        <View style={styles.scrollContent}>
-          <Image
-            source={require('../../assets/images/upcomming_live.jpg')}
-            style={styles.placeholderImage}
-            resizeMode="cover"
-          />
-        </View>
+        <Animated.View style={animatedSectionStyle}>
+          <View style={styles.scrollContent}>
+            <Image
+              source={require('../../assets/images/upcomming_live.jpg')}
+              style={styles.placeholderImage}
+              resizeMode="cover"
+            />
+            <Image
+              source={require('../../assets/images/meedong.png')}
+              style={styles.placeholderImage}
+              resizeMode="cover"
+            />
+          </View>
+        </Animated.View>
       </View>
     );
   }
@@ -219,41 +221,41 @@ const LiveSellerStrip = ({ navigation }) => {
           <Text style={styles.viewAllText}>View All</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        style={{ flexGrow: 0 }}>
-        {visibleStreams.map((stream) => (
-          <LiveSellerCard
-            key={stream.id}
-            stream={stream}
-            displayName={
-              stream.title || 'Live Stream'
-            }
-            onPress={() => {
-              if (stream.status === 'waiting') {
-                Alert.alert('Waiting for the Broadcaster...');
-                return;
-              }
-              if (stream.status === 'draft') {
-                const time = formatScheduledTime(stream.scheduledAt);
-                Alert.alert('Upcoming Live', `This live is scheduled for ${time}. Come back then!`);
-                return;
-              }
-              navigation.navigate(
-                stream.liveType === 'purge'
-                  ? 'LivePurgeScreen'
-                  : 'BuyerLiveStreamScreen',
-                {
-                  sessionId: stream.sessionId,
-                  broadcasterId: stream.createdBy,
-                },
-              );
-            }}
-          />
-        ))}
-      </ScrollView>
+      <Animated.View style={animatedSectionStyle}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          style={{ flexGrow: 0 }}>
+          {visibleStreams.map((stream) => (
+            <LiveSellerCard
+              key={stream.id}
+              stream={stream}
+              displayName={stream.title || 'Live Stream'}
+              onPress={() => {
+                if (stream.status === 'waiting') {
+                  Alert.alert('Waiting for the Broadcaster...');
+                  return;
+                }
+                if (stream.status === 'draft') {
+                  const time = formatScheduledTime(stream.scheduledAt);
+                  Alert.alert('Upcoming Live', `This live is scheduled for ${time}. Come back then!`);
+                  return;
+                }
+                navigation.navigate(
+                  stream.liveType === 'purge'
+                    ? 'LivePurgeScreen'
+                    : 'BuyerLiveStreamScreen',
+                  {
+                    sessionId: stream.sessionId,
+                    broadcasterId: stream.createdBy,
+                  },
+                );
+              }}
+            />
+          ))}
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 };
@@ -396,14 +398,6 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 12,
-  },
-  skeletonCard: {
-    opacity: 0.7,
-  },
-  skeletonImage: {
-    backgroundColor: '#E8ECED',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

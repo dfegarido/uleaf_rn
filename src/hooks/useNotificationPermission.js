@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import messaging from '@react-native-firebase/messaging';
+import { getMessaging, hasPermission, requestPermission } from '@react-native-firebase/messaging';
+
+const messaging = getMessaging();
 
 const DENIED_KEY = 'notifications.denied';
 const DISABLED_KEY = 'notifications.disabled';
@@ -19,7 +21,7 @@ export function useNotificationPermission() {
       if (denied === 'true') {
         setStatus('denied');
       } else {
-        const s = await messaging().hasPermission();
+        const s = await hasPermission(messaging);
         // 1 = AUTHORIZED, 2 = PROVISIONAL
         setStatus(s === 1 || s === 2 ? 'granted' : 'unknown');
       }
@@ -30,7 +32,7 @@ export function useNotificationPermission() {
   }, []);
 
   const request = useCallback(async () => {
-    const s = await messaging().requestPermission();
+    const s = await requestPermission(messaging);
     if (s === 1 || s === 2) {
       setStatus('granted');
       await AsyncStorage.removeItem(DENIED_KEY);
