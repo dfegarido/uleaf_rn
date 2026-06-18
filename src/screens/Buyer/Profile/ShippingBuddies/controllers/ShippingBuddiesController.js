@@ -15,8 +15,8 @@ import { getStoredAuthToken } from '../../../../../utils/getStoredAuthToken';
  * ShippingBuddiesController - Handles all business logic for Shipping Buddies screens
  */
 export const useShippingBuddiesController = () => {
-  const { userInfo } = useContext(AuthContext);
-  
+  const { userInfo, isLoggedIn } = useContext(AuthContext);
+
   // State management
   const [joiners, setJoiners] = useState([]);
   const [loadingJoiners, setLoadingJoiners] = useState(true);
@@ -92,8 +92,9 @@ export const useShippingBuddiesController = () => {
     await Promise.all([loadJoiners(), loadMyReceiverRequest()]);
   }, [loadJoiners, loadMyReceiverRequest]);
 
-  // Load data immediately on mount
+  // Load data immediately on mount only when logged in
   useEffect(() => {
+    if (!isLoggedIn) return;
     loadJoiners();
     loadMyReceiverRequest();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,9 +103,10 @@ export const useShippingBuddiesController = () => {
   // Fetch joiners and my receiver request when screen is focused (for refresh on return)
   useFocusEffect(
     useCallback(() => {
+      if (!isLoggedIn) return;
       loadJoiners();
       loadMyReceiverRequest();
-    }, [loadJoiners, loadMyReceiverRequest])
+    }, [loadJoiners, loadMyReceiverRequest, isLoggedIn])
   );
 
   // Show toast notification

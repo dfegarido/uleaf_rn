@@ -12,6 +12,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
+import { useAuth } from '../../../auth/AuthProvider';
 import { retryAsync } from '../../../utils/utils';
 import { getAddressBookEntriesApi,
   updateAddressBookEntryApi,
@@ -26,16 +27,17 @@ const AddressBookScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  
+  const { isLoggedIn } = useAuth();
+
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (isFocused) {
+    if (isFocused && isLoggedIn) {
       loadAddresses();
     }
-  }, [isFocused]);
+  }, [isFocused, isLoggedIn]);
 
   const loadAddresses = async () => {
     try {

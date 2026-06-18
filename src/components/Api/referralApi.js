@@ -7,6 +7,16 @@ import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 export const getReferralInfoApi = async () => {
   try {
     const authToken = await getStoredAuthToken();
+    if (!authToken) {
+      // During logout, token may be cleared - return gracefully instead of throwing
+      // This prevents error spam when components are unmounting
+      return {
+        success: false,
+        data: null,
+        error: 'Authentication token not found',
+      };
+    }
+
     const response = await fetch(
       'https://us-central1-i-leaf-u.cloudfunctions.net/getReferralInfo',
       {

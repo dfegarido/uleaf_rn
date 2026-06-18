@@ -125,6 +125,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
   const initialLoadComplete = React.useRef(false); // Track if initial load is done
   const isLoadingRef = React.useRef(false); // Prevent concurrent loadPlants calls
   const skipSearchReloadRef = React.useRef(true); // Skip search effect on first mount
+  const lastLoadedGenusRef = React.useRef(null); // Track the last genus we loaded to detect changes
 
   // Plants data state
   const [plants, setPlants] = useState([]);
@@ -456,7 +457,17 @@ const ScreenGenusPlants = ({navigation, route}) => {
         lastSearchQueryRef.current = null;
         setIsSearchMode(false); // Clear search mode
       }
-      
+
+      // Detect direct genus-card navigation changes and reload if needed
+      const currentGenus = route.params?.genus;
+      const normalizedGenus = currentGenus ? currentGenus.toLowerCase() : null;
+      if (normalizedGenus && normalizedGenus !== 'all' && lastLoadedGenusRef.current !== normalizedGenus) {
+        console.log('🔄 [ScreenGenusPlants] Focus effect - genus changed:', currentGenus);
+        lastLoadedGenusRef.current = normalizedGenus;
+        loadPlants(true);
+        return;
+      }
+
       // Don't reload if a special badge is active
       // Check ref first (immediate) then state (for consistency)
       const specialBadges = ['Price Drop', 'New Arrivals', 'Latest Nursery Drop', 'Below $30', 'Unicorn', 'Top 5 Buyer Wish List'];
@@ -576,6 +587,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
 
       if (genus && genus !== 'All') {
         baseParams.genus = genus.toLowerCase();
+        lastLoadedGenusRef.current = genus.toLowerCase();
       }
 
       const params = buildFilterParams(baseParams);

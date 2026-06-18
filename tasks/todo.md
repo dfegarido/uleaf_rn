@@ -125,3 +125,25 @@ On iOS the APNS error still occurred because `registerDeviceForRemoteMessages()`
 - [x] `npx jest --no-coverage` → 23/23 tests pass.
 - [x] `npx eslint` on all changed files → 0 errors, 0 warnings.
 - [x] `grep` confirmed no remaining `import messaging from '@react-native-firebase/messaging'` or `messaging().` calls in source (outside `node_modules`).
+
+---
+
+# Fix "Browse Plants by Genus" stuck on skeletons
+
+## Problem
+The buyer shop screen's "Browse Plants by Genus" grid stayed on skeleton placeholders and never loaded genus images/names.
+
+## Root cause
+Recent uncommitted changes in `src/screens/Buyer/Shop/ScreenShop.js` introduced a `browseGenusLoadInitiatedRef` guard and an early-return check `if (loadingGenusData) { return; }` inside `loadBrowseGenusData`. Because `loadingGenusData` is initialized to `true`, the very first call to `loadBrowseGenusData` returned immediately without ever starting the API request, leaving the grid in a permanent loading/skeleton state.
+
+## Files touched
+- `src/screens/Buyer/Shop/ScreenShop.js`
+
+## Fix
+Removed the redundant `if (loadingGenusData) { return; }` guard. The `browseGenusLoadInitiatedRef` already prevents duplicate concurrent automatic loads; `loadingGenusData` remains the UI state and is correctly set to `false` in the `finally` block after the API call completes or fails.
+
+## Verification
+- Confirmed `API_ENDPOINTS.BROWSE_PLANTS_BY_GENUS` is defined in `src/config/apiConfig.js`.
+- Confirmed `browsePlantsByGenusApi` in `src/components/Api/listingBrowseApi.js` uses that endpoint.
+- Made a real GET to `https://us-central1-i-leaf-u.cloudfunctions.net/browsePlantsByGenus?limit=20&sortBy=genus&sortOrder=asc` and received HTTP 200 with `{"success":true,"genusGroups":[...]}` in the expected shape.
+- Ran `npx eslint src/screens/Buyer/Shop/ScreenShop.js`: only pre-existing warnings/errors remain; the change introduced no new issues.

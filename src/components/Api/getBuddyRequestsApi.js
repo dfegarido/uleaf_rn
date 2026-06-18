@@ -5,7 +5,13 @@ export const getBuddyRequestsApi = async () => {
   try {
     const token = await getStoredAuthToken();
     if (!token) {
-      throw new Error('Authentication token not found. Please log in again.');
+      // During logout, token may be cleared - return gracefully instead of throwing
+      // This prevents error spam when components are unmounting or effects are cleaning up
+      return {
+        success: false,
+        data: null,
+        message: 'Authentication token not found',
+      };
     }
 
     const response = await fetch(API_ENDPOINTS.GET_BUDDY_REQUESTS, {
@@ -24,8 +30,17 @@ export const getBuddyRequestsApi = async () => {
 
     return data;
   } catch (error) {
-    console.error('getBuddyRequestsApi error:', error);
-    throw error;
+    // Only log error if it's not a missing token (which is expected during logout)
+    if (!error.message?.includes('Authentication token not found')) {
+      console.error('getBuddyRequestsApi error:', error);
+    }
+    // Return graceful error response instead of throwing
+    return {
+      success: false,
+      data: null,
+      message: error.message || 'Failed to fetch buddy requests',
+      error: error.message,
+    };
   }
 };
 

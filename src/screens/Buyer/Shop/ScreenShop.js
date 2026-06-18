@@ -132,6 +132,12 @@ const ScreenShop = ({navigation}) => {
   const [code, setCode] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
 
+  // Loading states for lazily-loaded filter dropdowns
+  const [countryLoading, setCountryLoading] = useState(false);
+  const [shippingIndexLoading, setShippingIndexLoading] = useState(false);
+  const [acclimationIndexLoading, setAcclimationIndexLoading] = useState(false);
+  const [listingTypeLoading, setListingTypeLoading] = useState(false);
+
   // Price filter state
   const [priceOptions, setPriceOptions] = useState([
     {label: '$0 - $30', value: '$0 - $30'},
@@ -201,6 +207,9 @@ const ScreenShop = ({navigation}) => {
   const [browseMorePlantsComponent, setBrowseMorePlantsComponent] = useState(null);
   // (Removed) recommendations state – replaced by BrowseMorePlants component elsewhere
 
+  // Guard to prevent concurrent/duplicate browse-genus loads on mount/focus
+  const browseGenusLoadInitiatedRef = useRef(false);
+
   // Log auth token and user info when Shop tab is accessed
   useFocusEffect(
     React.useCallback(() => {
@@ -230,11 +239,7 @@ const ScreenShop = ({navigation}) => {
           loadSortByData(),
           loadGenusData(),
           loadVariegationData(),
-          loadCountryData(),
-          loadListingTypeData(),
-          loadShippingIndexData(),
-          loadAcclimationIndexData(),
-          loadBrowseGenusData(),
+          // Filter dropdowns (country, listing type, shipping/acclimation index) are loaded lazily when their sheet opens
           loadEventsData(),
           loadChatShops(),
         ]);
@@ -270,15 +275,11 @@ const ScreenShop = ({navigation}) => {
         loadSortByData(),
         loadGenusData(),
         loadVariegationData(),
-        loadCountryData(),
-        loadListingTypeData(),
-        loadShippingIndexData(),
-        loadAcclimationIndexData(),
-        loadBrowseGenusData(),
+        loadBrowseGenusData({ force: true }),
         loadEventsData(),
         loadChatShops(),
       ]);
-      
+
       // Force BrowseMorePlants to reload by changing its key
       setBrowseMorePlantsKey(prev => prev + 1);
     } catch (error) {
@@ -518,10 +519,22 @@ const ScreenShop = ({navigation}) => {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   };
 
-  const loadBrowseGenusData = async () => {
+  const loadBrowseGenusData = async (options = {}) => {
+    const { force = false } = options;
+    // Allow explicit refresh/retry to reset the guard and run again
+    if (force) {
+      browseGenusLoadInitiatedRef.current = false;
+    }
+    // Prevent duplicate concurrent automatic loads on mount/focus
+    if (!force && browseGenusLoadInitiatedRef.current) {
+      return;
+    }
+
+    browseGenusLoadInitiatedRef.current = true;
+
     try {
       setLoadingGenusData(true);
-      
+
       // Check network connectivity with tolerant check
       // On some emulators/devices, isInternetReachable can be null even when connected
       let netState;
@@ -594,6 +607,8 @@ const ScreenShop = ({navigation}) => {
       console.error('[loadBrowseGenusData] Error loading genus data:', error);
       // Fallback to static images on error
       loadStaticGenusImages();
+      // Reset the guard so an explicit retry can be attempted
+      browseGenusLoadInitiatedRef.current = false;
     } finally {
       setLoadingGenusData(false);
     }
@@ -929,6 +944,37 @@ const ScreenShop = ({navigation}) => {
     applyFilters(updatedFilters);
   };
 
+  const loadDropdownForFilter = pressCode => {
+    switch (pressCode) {
+      case 'COUNTRY':
+        if (countryOptions.length === 0 && !countryLoading) {
+          setCountryLoading(true);
+          loadCountryData().finally(() => setCountryLoading(false));
+        }
+        break;
+      case 'LISTING_TYPE':
+        if (listingTypeOptions.length === 0 && !listingTypeLoading) {
+          setListingTypeLoading(true);
+          loadListingTypeData().finally(() => setListingTypeLoading(false));
+        }
+        break;
+      case 'SHIPPING_INDEX':
+        if (shippingIndexOptions.length === 0 && !shippingIndexLoading) {
+          setShippingIndexLoading(true);
+          loadShippingIndexData().finally(() => setShippingIndexLoading(false));
+        }
+        break;
+      case 'ACCLIMATION_INDEX':
+        if (acclimationIndexOptions.length === 0 && !acclimationIndexLoading) {
+          setAcclimationIndexLoading(true);
+          loadAcclimationIndexData().finally(() => setAcclimationIndexLoading(false));
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   const onPressFilter = pressCode => {
     // Map pressCode to filter label
     const filterLabelMap = {
@@ -941,15 +987,18 @@ const ScreenShop = ({navigation}) => {
       'SHIPPING_INDEX': 'Shipping Index',
       'ACCLIMATION_INDEX': 'Acclimation Index',
     };
-    
+
     const filterLabel = filterLabelMap[pressCode];
-    
+
     // If filter is active, clear it instead of opening the modal
     if (filterLabel && isFilterActive(filterLabel)) {
       clearSpecificFilter(filterLabel);
       return;
     }
-    
+
+    // Load the dropdown options the first time this filter opens
+    loadDropdownForFilter(pressCode);
+
     // Otherwise, open the filter modal as usual
     setCode(pressCode);
     setShowSheet(true);
@@ -980,7 +1029,8 @@ const ScreenShop = ({navigation}) => {
   };
 
   const retryLoadGenusData = () => {
-    loadBrowseGenusData();
+    // Force a fresh load on explicit user retry
+    loadBrowseGenusData({ force: true });
   };
 
   const filterOptions = [
@@ -1735,9 +1785,13 @@ const ScreenShop = ({navigation}) => {
         variegationOptions={variegationOptions}
         priceOptions={priceOptions}
         countryOptions={countryOptions}
+        countryLoading={countryLoading}
         listingTypeOptions={listingTypeOptions}
+        listingTypeLoading={listingTypeLoading}
         shippingIndexOptions={shippingIndexOptions}
+        shippingIndexLoading={shippingIndexLoading}
         acclimationIndexOptions={acclimationIndexOptions}
+        acclimationIndexLoading={acclimationIndexLoading}
         sortValue={globalFilters.sort}
         sortChange={handleSortChange}
         genusValue={globalFilters.genus}

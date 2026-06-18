@@ -1,5 +1,4 @@
 /* eslint-disable react-native/no-inline-styles */
-/* eslint-disable no-trailing-spaces */
 /* eslint-disable react/no-unstable-nested-components */
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
@@ -139,12 +138,7 @@ const LivePlaceholder = () => (
 // Create a Shop Stack Navigator to include shop-related screens
 function ShopStackNavigator() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        lazy: false, // Disable lazy loading to keep screens mounted
-        detachPreviousScreen: false, // Keep previous screens in memory
-      }}
-    >
+    <Stack.Navigator>
       <Stack.Screen
         name="ScreenShop"
         component={ScreenShop}
