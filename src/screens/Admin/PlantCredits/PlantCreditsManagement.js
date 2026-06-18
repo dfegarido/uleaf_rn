@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View,
+import {
+  View,
   Text,
   StyleSheet,
   FlatList,
@@ -42,10 +43,9 @@ const PlantCreditsManagement = ({ navigation }) => {
   const [creditHistory, setCreditHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
-  const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [allBuyersCache, setAllBuyersCache] = useState([]);
-  
+
   const PAGE_SIZE = 10;
 
   const handleLoadMore = useCallback(() => {
@@ -82,35 +82,99 @@ const PlantCreditsManagement = ({ navigation }) => {
     try {
       setLoading(true);
       setHasMore(true);
-      
-      // 1. Fetch buyers from buyer collection (check both plantCredits and plant_credits)
-      const buyersSnap = await getDocs(collection(db, 'buyer'));
+
       const buyerMap = new Map(); // uid -> buyer data
-      
-      buyersSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        const plantCredits = data.plantCredits ?? data.plant_credits ?? 0;
-        
-        if (plantCredits > 0) {
-          buyerMap.set(docSnap.id, {
-            uid: docSnap.id,
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            email: data.email || '',
-            username: data.username || '',
-            plantCredits: Number(plantCredits),
-            country: data.country || data.region || '',
-            createdAt: data.createdAt,
-          });
-        }
+
+      // Helper to build buyer base object
+      const buildBuyer = (buyerUid, data, fallbackBalance = null, lastActivityAt = null) => ({
+        uid: buyerUid,
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        email: data.email || '',
+        username: data.username || '',
+        plantCredits: fallbackBalance ?? (data.plantCredits ?? data.plant_credits ?? 0),
+        country: data.country || data.region || '',
+        createdAt: data.createdAt,
+        lastActivityAt,
       });
-      
-      // 2. Also check plant_credits collection for buyers with available credits
-      // (catches cases where buyer.plantCredits wasn't synced)
+
+      // Helper to add/update buyer info
+      const ensureBuyer = async (buyerUid, fallbackBalance = null, lastActivityAt = null) => {
+        const buyerDoc = await getDoc(doc(db, 'buyer', buyerUid));
+        const data = buyerDoc?.exists() ? buyerDoc.data() : {};
+        if (buyerMap.has(buyerUid)) {
+          const existing = buyerMap.get(buyerUid);
+          if (fallbackBalance != null) {
+            existing.plantCredits = Math.max(existing.plantCredits, Number(fallbackBalance));
+          }
+          if (lastActivityAt != null && (existing.lastActivityAt == null || lastActivityAt > existing.lastActivityAt)) {
+            existing.lastActivityAt = lastActivityAt;
+          }
+        } else {
+          buyerMap.set(buyerUid, buildBuyer(buyerUid, data, fallbackBalance, lastActivityAt));
+        }
+      };
+
+      // 1. Get latest balance and transaction presence from credit_transactions (authoritative)
+      try {
+        const transactionsSnap = await getDocs(
+          query(
+            collection(db, 'credit_transactions'),
+            orderBy('createdAt', 'desc'),
+            limit(3000)
+          )
+        );
+        const latestBalanceByBuyer = new Map();
+        const latestActivityByBuyer = new Map();
+
+        transactionsSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          const isShipping = data.creditType?.toLowerCase().includes('shipping') ||
+            data.type?.toLowerCase().includes('shipping') ||
+            data.transactionType?.toLowerCase().includes('shipping');
+          if (isShipping) return;
+          const buyerUid = data.buyerUid;
+          if (!buyerUid) return;
+          const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() :
+            data.createdAt ? new Date(data.createdAt) : new Date();
+          if (!latestActivityByBuyer.has(buyerUid)) {
+            latestActivityByBuyer.set(buyerUid, createdAt);
+            latestBalanceByBuyer.set(buyerUid, Number(data.balanceAfter ?? 0));
+          }
+        });
+
+        // Include every buyer with a plant credit history, even if balance is 0
+        for (const [buyerUid, balance] of latestBalanceByBuyer) {
+          await ensureBuyer(buyerUid, balance, latestActivityByBuyer.get(buyerUid));
+        }
+      } catch (txErr) {
+        console.warn('Could not fetch latest balance from credit_transactions:', txErr);
+      }
+
+      // 2. Also include buyers with a positive buyer.plantCredits balance
+      try {
+        const buyersSnap = await getDocs(collection(db, 'buyer'));
+        buyersSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          const plantCredits = data.plantCredits ?? data.plant_credits ?? 0;
+          if (plantCredits > 0) {
+            if (buyerMap.has(docSnap.id)) {
+              const existing = buyerMap.get(docSnap.id);
+              existing.plantCredits = Math.max(existing.plantCredits, Number(plantCredits));
+            } else {
+              buyerMap.set(docSnap.id, buildBuyer(docSnap.id, data, Number(plantCredits)));
+            }
+          }
+        });
+      } catch (buyerErr) {
+        console.warn('Could not fetch buyer collection:', buyerErr);
+      }
+
+      // 3. Also check plant_credits collection for buyers with available credits
       try {
         const plantCreditsSnap = await getDocs(collection(db, 'plant_credits'));
-        const creditsByBuyer = new Map(); // buyerUid -> total available amount
-        
+        const creditsByBuyer = new Map();
+
         plantCreditsSnap.forEach(docSnap => {
           const data = docSnap.data();
           if (data.buyerUid && (data.status === 'available' || !data.status)) {
@@ -120,115 +184,42 @@ const PlantCreditsManagement = ({ navigation }) => {
             }
           }
         });
-        
-        // Add buyers from plant_credits who aren't in buyerMap or have higher balance
-        const missingUids = [];
+
         for (const [buyerUid, totalCredits] of creditsByBuyer) {
-          const existing = buyerMap.get(buyerUid);
           const credits = Number(totalCredits.toFixed(2));
           if (credits > 0) {
-            if (existing) {
-              if (credits > existing.plantCredits) {
-                existing.plantCredits = credits;
-              }
+            if (buyerMap.has(buyerUid)) {
+              const existing = buyerMap.get(buyerUid);
+              existing.plantCredits = Math.max(existing.plantCredits, credits);
             } else {
-              missingUids.push({ buyerUid, credits });
+              await ensureBuyer(buyerUid, credits);
             }
           }
         }
-        const buyerDocs = await Promise.all(missingUids.map(({ buyerUid }) => getDoc(doc(db, 'buyer', buyerUid))));
-        missingUids.forEach(({ buyerUid, credits }, i) => {
-          const buyerDoc = buyerDocs[i];
-          const data = buyerDoc?.exists() ? buyerDoc.data() : {};
-          // If the buyer document explicitly has plantCredits set to 0,
-          // that is the authoritative source — skip stale plant_credits records
-          const buyerDocCredits = data.plantCredits ?? data.plant_credits;
-          if (buyerDocCredits === 0) {
-            console.log(`⚠️ Skipping ${data.firstName} ${data.lastName}: buyer.plantCredits is 0 (stale plant_credits record)`);
-            return;
-          }
-          buyerMap.set(buyerUid, {
-            uid: buyerUid,
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            email: data.email || '',
-            username: data.username || '',
-            plantCredits: credits,
-            country: data.country || data.region || '',
-            createdAt: data.createdAt,
-          });
-        });
       } catch (plantCreditsErr) {
         console.warn('Could not fetch plant_credits collection:', plantCreditsErr);
       }
-      
-      // 3. Get latest balance from credit_transactions (authoritative source)
-      try {
-        const transactionsSnap = await getDocs(
-          query(
-            collection(db, 'credit_transactions'),
-            orderBy('createdAt', 'desc'),
-            limit(2000)
-          )
-        );
-        const latestBalanceByBuyer = new Map(); // buyerUid -> balance (from most recent tx)
-        transactionsSnap.forEach(docSnap => {
-          const data = docSnap.data();
-          const isShipping = data.creditType?.toLowerCase().includes('shipping') ||
-            data.type?.toLowerCase().includes('shipping');
-          if (isShipping) return;
-          const buyerUid = data.buyerUid;
-          if (!buyerUid || latestBalanceByBuyer.has(buyerUid)) return;
-          const balanceAfter = data.balanceAfter ?? 0;
-          latestBalanceByBuyer.set(buyerUid, Number(balanceAfter));
-        });
-        latestBalanceByBuyer.forEach((balance, buyerUid) => {
-          if (balance > 0) {
-            const existing = buyerMap.get(buyerUid);
-            if (existing) {
-              existing.plantCredits = balance;
-            }
-          } else {
-            // Balance is 0 or negative — remove from map (credits fully used/reversed)
-            if (buyerMap.has(buyerUid)) {
-              console.log(`🔄 Removing ${buyerUid} from list: latest transaction balance is ${balance}`);
-              buyerMap.delete(buyerUid);
-            }
-          }
-        });
-        const uidsNeedingBuyerInfo = [...latestBalanceByBuyer.entries()]
-          .filter(([uid, balance]) => balance > 0 && !buyerMap.has(uid))
-          .map(([uid]) => uid);
-        if (uidsNeedingBuyerInfo.length > 0) {
-          const buyerDocs = await Promise.all(uidsNeedingBuyerInfo.map(uid => getDoc(doc(db, 'buyer', uid))));
-          uidsNeedingBuyerInfo.forEach((buyerUid, i) => {
-            const buyerDoc = buyerDocs[i];
-            const data = buyerDoc?.exists() ? buyerDoc.data() : {};
-            const balance = latestBalanceByBuyer.get(buyerUid);
-            buyerMap.set(buyerUid, {
-              uid: buyerUid,
-              firstName: data.firstName || '',
-              lastName: data.lastName || '',
-              email: data.email || '',
-              username: data.username || '',
-              plantCredits: balance,
-              country: data.country || data.region || '',
-              createdAt: data.createdAt,
-            });
-          });
+
+      const buyersWithCredits = Array.from(buyerMap.values());
+
+      // Sort by most recent activity first, then by current balance descending
+      buyersWithCredits.sort((a, b) => {
+        const aActivity = a.lastActivityAt ? a.lastActivityAt.getTime() : 0;
+        const bActivity = b.lastActivityAt ? b.lastActivityAt.getTime() : 0;
+        if (bActivity !== aActivity) {
+          return bActivity - aActivity;
         }
-      } catch (txErr) {
-        console.warn('Could not fetch latest balance from credit_transactions:', txErr);
-      }
-      
-      const buyersWithCredits = Array.from(buyerMap.values()).filter(b => b.plantCredits > 0);
-      
-      // Sort by plantCredits descending (highest first)
-      buyersWithCredits.sort((a, b) => b.plantCredits - a.plantCredits);
-      
-      console.log(`💰 Found ${buyersWithCredits.length} total buyers with plant credits`);
+        if (b.plantCredits !== a.plantCredits) {
+          return b.plantCredits - a.plantCredits;
+        }
+        const aName = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const bName = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return aName.localeCompare(bName);
+      });
+
+      console.log(`💰 Found ${buyersWithCredits.length} total buyers with plant credit history`);
       setAllBuyersCache(buyersWithCredits);
-      
+
       // Get first page
       const firstPage = buyersWithCredits.slice(0, PAGE_SIZE);
       setBuyers(firstPage);
@@ -667,6 +658,23 @@ const PlantCreditsManagement = ({ navigation }) => {
     setCreditHistory([]);
   };
 
+  const openClearScreen = () => {
+    if (!selectedBuyer) {
+      return;
+    }
+    setHistoryModalVisible(false);
+    // Pass only serializable buyer fields to avoid React Navigation warnings.
+    navigation.navigate('AdminClearCreditsScreen', {
+      buyer: {
+        uid: selectedBuyer.uid,
+        firstName: selectedBuyer.firstName || '',
+        lastName: selectedBuyer.lastName || '',
+        email: selectedBuyer.email || '',
+        plantCredits: selectedBuyer.plantCredits ?? 0,
+      },
+    });
+  };
+
   const formatDate = (date) => {
     if (!date) return '—';
     const d = date instanceof Date ? date : new Date(date);
@@ -682,13 +690,19 @@ const PlantCreditsManagement = ({ navigation }) => {
     const amount = item.amount || 0;
     const isPositive = amount > 0;
     const description = item.description || item.reason || '';
-    
+    const isCleared = item.transactionType === 'cleared' ||
+                      description.toLowerCase().includes('credits cleared by admin') ||
+                      description.toLowerCase().includes('cleared');
+
     // PlantItemCard approach: title = genus || plantName, subtitle = species
     const displayTitle = item.genus || item.plantName || item.plantCode || 'Unknown Plant';
     const displaySubtitle = item.species || '';
-    
+
     // Source badge
     const getSourceBadge = () => {
+      if (isCleared) {
+        return { text: 'Clear Credit', color: '#E74C3C', bgColor: '#FDEDEC' };
+      }
       if (description.toLowerCase().includes('reversed') || amount < 0) {
         return { text: 'Reversed', color: '#E74C3C', bgColor: '#FDEDEC' };
       }
@@ -709,10 +723,10 @@ const PlantCreditsManagement = ({ navigation }) => {
       }
       return { text: 'Credit', color: '#539461', bgColor: '#F0F7F1' };
     };
-    
+
     const badge = getSourceBadge();
     const plantPrice = item.unitPrice ?? item.usdPrice ?? amount;
-    
+
     return (
       <View style={styles.transactionCard}>
         {/* Header: badge + amount */}
@@ -724,69 +738,87 @@ const PlantCreditsManagement = ({ navigation }) => {
             {isPositive ? '+' : ''}${Math.abs(amount).toFixed(0)}
           </Text>
         </View>
-        
-        {/* Plant section - PlantItemCard style, clickable */}
-        <TouchableOpacity
-          style={styles.plantInfoSection}
-          onPress={() => {
-            if (item.plantCode) {
-              closeHistoryModal();
-              setTimeout(() => {
-                navigation.navigate('ScreenPlantDetail', { plantCode: item.plantCode });
-              }, 100);
-            }
-          }}
-          activeOpacity={item.plantCode ? 0.7 : 1}
-          disabled={!item.plantCode}
-        >
-          {item.plantImage ? (
-            <Image source={{ uri: item.plantImage }} style={styles.plantImage} resizeMode="cover" />
-          ) : (
-            <View style={[styles.plantImage, styles.plantImagePlaceholder]}>
-              <Text style={styles.plantImagePlaceholderText}>🌿</Text>
-            </View>
-          )}
-          <View style={styles.plantTextInfo}>
-            <Text style={styles.plantName} numberOfLines={2}>{displayTitle}</Text>
-            {displaySubtitle ? (
-              <Text style={styles.plantSubtitle} numberOfLines={1}>{displaySubtitle}</Text>
-            ) : null}
-            {item.plantCode && (
-              <Text style={styles.plantCodeText}>{item.plantCode}</Text>
-            )}
+
+        {/* Cleared transactions show the note/description prominently */}
+        {isCleared ? (
+          <View style={styles.clearedBody}>
+            <Text style={styles.clearedLabel}>Note</Text>
+            <Text style={styles.clearedNote}>{item.reason || description.replace(/^Credits cleared by admin:?\s*/i, '') || '—'}</Text>
           </View>
-        </TouchableOpacity>
-        
+        ) : (
+          <>
+            {/* Plant section - PlantItemCard style, clickable */}
+            <TouchableOpacity
+              style={styles.plantInfoSection}
+              onPress={() => {
+                if (item.plantCode) {
+                  closeHistoryModal();
+                  setTimeout(() => {
+                    navigation.navigate('ScreenPlantDetail', { plantCode: item.plantCode });
+                  }, 100);
+                }
+              }}
+              activeOpacity={item.plantCode ? 0.7 : 1}
+              disabled={!item.plantCode}
+            >
+              {item.plantImage ? (
+                <Image source={{ uri: item.plantImage }} style={styles.plantImage} resizeMode="cover" />
+              ) : (
+                <View style={[styles.plantImage, styles.plantImagePlaceholder]}>
+                  <Text style={styles.plantImagePlaceholderText}>🌿</Text>
+                </View>
+              )}
+              <View style={styles.plantTextInfo}>
+                <Text style={styles.plantName} numberOfLines={2}>{displayTitle}</Text>
+                {displaySubtitle ? (
+                  <Text style={styles.plantSubtitle} numberOfLines={1}>{displaySubtitle}</Text>
+                ) : null}
+                {item.plantCode && (
+                  <Text style={styles.plantCodeText}>{item.plantCode}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
+
         {/* Required fields - always show on every card */}
         <View style={styles.transactionDetails}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Transaction #</Text>
-            <Text style={styles.detailValue}>{item.transactionNumber || item.orderId || '—'}</Text>
+            <Text style={styles.detailLabel}>Date</Text>
+            <Text style={styles.detailValue}>{formatDate(item.createdAt)}</Text>
           </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Order Date</Text>
-            <Text style={styles.detailValue}>{formatDate(item.orderDate)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Flight Date</Text>
-            <Text style={styles.detailValue}>{formatDate(item.flightDate)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Plant Code</Text>
-            <Text style={styles.detailValue}>{item.plantCode || '—'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Genus</Text>
-            <Text style={styles.detailValue}>{item.genus || '—'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Species</Text>
-            <Text style={styles.detailValue}>{item.species || '—'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Price (USD)</Text>
-            <Text style={styles.detailValue}>${Number(plantPrice).toFixed(2)}</Text>
-          </View>
+          {!isCleared && (
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Transaction #</Text>
+                <Text style={styles.detailValue}>{item.transactionNumber || item.orderId || '—'}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Order Date</Text>
+                <Text style={styles.detailValue}>{formatDate(item.orderDate)}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Flight Date</Text>
+                <Text style={styles.detailValue}>{formatDate(item.flightDate)}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Plant Code</Text>
+                <Text style={styles.detailValue}>{item.plantCode || '—'}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Genus</Text>
+                <Text style={styles.detailValue}>{item.genus || '—'}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Species</Text>
+                <Text style={styles.detailValue}>{item.species || '—'}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Price (USD)</Text>
+                <Text style={styles.detailValue}>${Number(plantPrice).toFixed(2)}</Text>
+              </View>
+            </>
+          )}
           {item.processedByName && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Processed by</Text>
@@ -820,8 +852,8 @@ const PlantCreditsManagement = ({ navigation }) => {
             <Text style={styles.buyerCountry}>{item.country}</Text>
           )}
         </View>
-        <View style={styles.creditsContainer}>
-          <Text style={styles.creditsValue}>${item.plantCredits}</Text>
+        <View style={[styles.creditsContainer, item.plantCredits === 0 && styles.creditsContainerZero]}>
+          <Text style={[styles.creditsValue, item.plantCredits === 0 && styles.creditsValueZero]}>${item.plantCredits}</Text>
           <Text style={styles.creditsLabel}>credits</Text>
         </View>
       </TouchableOpacity>
@@ -863,11 +895,11 @@ const PlantCreditsManagement = ({ navigation }) => {
       {/* Summary */}
       <View style={styles.summaryContainer}>
         <Text style={styles.summaryText}>
-          {filteredBuyers.length} {filteredBuyers.length === 1 ? 'buyer' : 'buyers'} with plant credits
+          {filteredBuyers.length} {filteredBuyers.length === 1 ? 'buyer' : 'buyers'} with plant credit history
         </Text>
         {filteredBuyers.length > 0 && (
           <Text style={styles.summarySubtext}>
-            Total: ${filteredBuyers.reduce((sum, b) => sum + b.plantCredits, 0)} in credits
+            Current total balance: ${filteredBuyers.reduce((sum, b) => sum + b.plantCredits, 0).toFixed(0)}
           </Text>
         )}
       </View>
@@ -916,10 +948,10 @@ const PlantCreditsManagement = ({ navigation }) => {
       ) : (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>
-            {searchText ? 'No buyers found' : 'No buyers with plant credits'}
+            {searchText ? 'No buyers found' : 'No buyers with plant credit history'}
           </Text>
           <Text style={styles.emptySubtitle}>
-            {searchText ? 'Try a different search term' : 'Buyers will appear here when they receive plant credits'}
+            {searchText ? 'Try a different search term' : 'Buyers will appear here when they receive or clear plant credits'}
           </Text>
         </View>
       )}
@@ -935,7 +967,7 @@ const PlantCreditsManagement = ({ navigation }) => {
           {Platform.OS === 'android' && (
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
           )}
-          
+
           {/* Modal Header */}
           <View style={[styles.modalHeader, { paddingTop: Math.max(insets.top + 8, 16) }]}>
             <TouchableOpacity
@@ -953,7 +985,19 @@ const PlantCreditsManagement = ({ navigation }) => {
                 </Text>
               )}
             </View>
-            <View style={{ width: 24 }} />
+            {selectedBuyer?.plantCredits > 0 ? (
+              <TouchableOpacity
+                onPress={openClearScreen}
+                style={styles.clearCreditButton}
+                activeOpacity={0.7}
+                accessibilityLabel="Clear credits"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.clearCreditButtonText}>Clear Credit</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.headerSpacer} />
+            )}
           </View>
 
           {/* Current Balance */}
@@ -971,7 +1015,7 @@ const PlantCreditsManagement = ({ navigation }) => {
               <Text style={styles.loadingText}>Loading history...</Text>
             </View>
           ) : creditHistory.length > 0 ? (
-            <ScrollView 
+            <ScrollView
               style={styles.historyList}
               contentContainerStyle={styles.historyContent}
               showsVerticalScrollIndicator={false}
@@ -993,6 +1037,7 @@ const PlantCreditsManagement = ({ navigation }) => {
           )}
         </SafeAreaView>
       </Modal>
+
     </SafeAreaView>
   );
 };
@@ -1099,6 +1144,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#FF8C00',
+  },
+  creditsValueZero: {
+    color: '#9AA4A8',
+  },
+  creditsContainerZero: {
+    backgroundColor: '#F0F2F2',
   },
   creditsLabel: {
     fontSize: 11,
@@ -1349,6 +1400,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9AA4A8',
     fontStyle: 'italic',
+  },
+  clearCreditButton: {
+    backgroundColor: '#E74C3C',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearCreditButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  clearedBody: {
+    marginTop: 12,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8EEEA',
+  },
+  clearedLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#202325',
+    marginBottom: 6,
+  },
+  clearedNote: {
+    fontSize: 14,
+    color: '#6B777B',
+    lineHeight: 20,
   },
 });
 

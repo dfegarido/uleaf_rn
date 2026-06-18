@@ -74,6 +74,7 @@ import OrderSummaryDetail from '../../screens/Admin/OrderSummary/OrderSummaryDet
 import ChatShops from '../../screens/Admin/ChatShops/ChatShops';
 import LeafPointsManagement from '../../screens/Admin/LeafPoints/LeafPointsManagement';
 import PlantCreditsManagement from '../../screens/Admin/PlantCredits/PlantCreditsManagement';
+import AdminClearCreditsScreen from '../../screens/Admin/PlantCredits/AdminClearCreditsScreen';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 
 const Tab = createBottomTabNavigator();
@@ -266,6 +267,7 @@ function AdminTabs() {
       
       {/* Plant Credits Management */}
       <Stack.Screen name="PlantCreditsManagement" options={{headerShown: false}} component={PlantCreditsManagement} />
+      <Stack.Screen name="AdminClearCreditsScreen" options={{headerShown: false}} component={AdminClearCreditsScreen} />
 
       {/* Live Setup Management */}
       <Stack.Screen name="LiveSetupScreen" options={{headerShown: false}} component={LiveSetup} />
