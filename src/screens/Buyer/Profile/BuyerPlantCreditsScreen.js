@@ -4,7 +4,6 @@ import { View,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
   StatusBar,
   Image,
@@ -16,6 +15,7 @@ import { AuthContext } from '../../../auth/AuthProvider';
 import { collection, getDocs, query, where, limit, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import Loading from '../../../components/Loading/Loading';
 
 const BuyerPlantCreditsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -142,9 +142,10 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
 
           // Fallback: extract plant name from description if still missing
           if (!transaction.plantName && data.description) {
-            // Pattern: "Credit for Missing - PLANT NAME" or similar
+            // Patterns: "Credit for Missing - PLANT NAME", "Credit for Dead on Arrival - PLANT NAME", etc.
             const descPatterns = [
-              /Credit for \w+ - (.+)$/i,
+              /Credit for [\w\s]+ - (.+)$/i,
+              /Credit reversed for [\w\s]+ - (.+)$/i,
               /credit.* - (.+)$/i,
             ];
             for (const pattern of descPatterns) {
@@ -212,12 +213,28 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
     const amount = item.amount || 0;
     const isPositive = amount > 0;
     const desc = item.description || item.reason || '';
-    const displayTitle = item.genus || item.plantName || item.plantCode || 'Unknown Plant';
+    const type = (item.transactionType || item.type || '').toLowerCase();
+    const getFallbackTitle = () => {
+      if (type === 'cleared') return 'Credits Cleared';
+      if (type === 'used') return 'Credits Used';
+      if (type === 'credit_reversal' || type === 'reversal') return 'Credit Reversed';
+      if (type === 'earned' || type === 'credit_refund' || desc.toLowerCase().includes('credit')) return 'Plant Credit';
+      return 'Unknown Plant';
+    };
+    const displayTitle = item.genus || item.plantName || item.plantCode || getFallbackTitle();
     const displaySubtitle = item.species || '';
-    const plantPrice = item.unitPrice ?? item.usdPrice ?? amount;
+    const plantPrice = item.unitPrice ?? item.usdPrice ?? Math.abs(amount);
 
     const getBadge = () => {
-      if (desc.toLowerCase().includes('reversed') || amount < 0) return { text: 'Reversed', bgColor: '#FDEDEC' };
+      if (type === 'cleared' || desc.toLowerCase().includes('credits cleared by admin') || desc.toLowerCase().includes('cleared')) {
+        return { text: 'Cleared', bgColor: '#FDEDEC' };
+      }
+      if (type === 'used' || desc.toLowerCase().includes('used plant credits')) {
+        return { text: 'Used', bgColor: '#EBF5FB' };
+      }
+      if (type === 'credit_reversal' || desc.toLowerCase().includes('reversed') || amount < 0) {
+        return { text: 'Reversed', bgColor: '#FDEDEC' };
+      }
       if (desc.toLowerCase().includes('dead on arrival') || desc.toLowerCase().includes('doa')) return { text: 'DOA', bgColor: '#FEF5E7' };
       if (desc.toLowerCase().includes('damaged')) return { text: 'Damaged', bgColor: '#F5EEF8' };
       if (desc.toLowerCase().includes('missing')) return { text: 'Missing', bgColor: '#FEF9E7' };
@@ -226,6 +243,11 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
       return { text: 'Credit', bgColor: '#F0F7F1' };
     };
     const badge = getBadge();
+    const noteText = type === 'cleared' && item.reason
+      ? item.reason
+      : type === 'credit_reversal' && item.reason
+        ? item.reason
+        : desc;
 
     return (
       <View style={styles.card}>
@@ -237,6 +259,12 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
             {isPositive ? '+' : ''}${Math.abs(amount).toFixed(0)}
           </Text>
         </View>
+        {noteText ? (
+          <View style={styles.noteBanner}>
+            <Text style={styles.noteBannerIcon}>📝</Text>
+            <Text style={styles.noteBannerText} numberOfLines={3}>{noteText}</Text>
+          </View>
+        ) : null}
         <TouchableOpacity
           style={styles.plantSection}
           onPress={() => item.plantCode && navigation.navigate('ScreenPlantDetail', { plantCode: item.plantCode })}
@@ -285,6 +313,18 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
             <Text style={styles.detailLabel}>Price (USD)</Text>
             <Text style={styles.detailValue}>${Number(plantPrice).toFixed(2)}</Text>
           </View>
+          {type === 'cleared' && item.processedByName ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Cleared by</Text>
+              <Text style={styles.detailValue}>{item.processedByName}</Text>
+            </View>
+          ) : null}
+          {type === 'credit_reversal' && item.processedByName ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Reversed by</Text>
+              <Text style={styles.detailValue}>{item.processedByName}</Text>
+            </View>
+          ) : null}
           {item.balanceBefore !== undefined && item.balanceAfter !== undefined && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Balance</Text>
@@ -328,12 +368,8 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
         <Text style={styles.balanceLabel}>Current Balance</Text>
         <Text style={styles.balanceValue}>${plantCredits}</Text>
       </View>
-      {loading ? (
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" color="#539461" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      ) : transactions.length > 0 ? (
+      <Loading visible={loading} fullscreen />
+      {!loading && (transactions.length > 0 ? (
         <FlatList
           data={transactions}
           keyExtractor={(item) => item.id}
@@ -346,7 +382,7 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
           <Text style={styles.emptyTitle}>No plant credits yet</Text>
           <Text style={styles.emptySub}>Plant credits will appear here when you receive them.</Text>
         </View>
-      )}
+      ))}
     </SafeAreaView>
   );
 };
@@ -385,6 +421,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  noteBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  noteBannerIcon: { fontSize: 16, marginRight: 8 },
+  noteBannerText: { flex: 1, fontSize: 13, fontWeight: '500', color: '#202325', lineHeight: 18 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#202325' },
   amount: { fontSize: 20, fontWeight: '700' },
@@ -406,8 +453,8 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   detailLabel: { fontSize: 12, color: '#6B777B' },
   detailValue: { fontSize: 12, fontWeight: '500', color: '#202325' },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#6B777B' },
+  notesRow: { alignItems: 'flex-start' },
+  notesValue: { flex: 1, textAlign: 'right', marginLeft: 12, lineHeight: 18 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyText: { fontSize: 14, color: '#6B777B', textAlign: 'center' },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: '#202325', marginBottom: 8 },
