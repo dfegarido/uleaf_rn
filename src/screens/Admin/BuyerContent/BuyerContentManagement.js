@@ -1,10 +1,12 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -14,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -102,6 +104,7 @@ const sortItems = (items) =>
   });
 
 export default function BuyerContentManagement({ navigation, route }) {
+  const insets = useSafeAreaInsets();
   const requestedSection = route.params?.section || 'deals';
   const activeSection = SECTIONS.some((s) => s.key === requestedSection)
     ? requestedSection
@@ -116,6 +119,13 @@ export default function BuyerContentManagement({ navigation, route }) {
   const [photo, setPhoto] = useState(null);
   const [priority, setPriority] = useState('1');
   const [uploading, setUploading] = useState(false);
+  const modalScrollRef = useRef(null);
+
+  const scrollModalToEnd = () => {
+    requestAnimationFrame(() => {
+      modalScrollRef.current?.scrollToEnd({ animated: true });
+    });
+  };
 
   const sectionItems = allItems.filter((item) => item.section === activeSection);
   const sectionLabel = SECTIONS.find((s) => s.key === activeSection)?.label || 'Content';
@@ -385,7 +395,11 @@ export default function BuyerContentManagement({ navigation, route }) {
         hardwareAccelerated
         onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        >
           <Pressable style={styles.modalBackdrop} onPress={closeModal} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -397,7 +411,16 @@ export default function BuyerContentManagement({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              ref={modalScrollRef}
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              automaticallyAdjustKeyboardInsets
+              nestedScrollEnabled
+            >
               <Text style={styles.label}>
                 Title <Text style={styles.required}>*</Text>
               </Text>
@@ -446,6 +469,7 @@ export default function BuyerContentManagement({ navigation, route }) {
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
+                onFocus={scrollModalToEnd}
               />
 
               <Text style={[styles.label, { marginTop: 16 }]}>
@@ -459,31 +483,37 @@ export default function BuyerContentManagement({ navigation, route }) {
                 style={styles.input}
                 keyboardType="numeric"
                 maxLength={2}
+                onFocus={scrollModalToEnd}
               />
               <Text style={styles.helperText}>
                 Lower numbers appear first in the carousel.
               </Text>
-
-              <View style={styles.modalFooter}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={closeModal} activeOpacity={0.7}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, uploading && styles.saveBtnDisabled]}
-                  onPress={handleSave}
-                  activeOpacity={0.7}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
             </ScrollView>
+
+            <View
+              style={[
+                styles.modalFooter,
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}
+            >
+              <TouchableOpacity style={styles.cancelBtn} onPress={closeModal} activeOpacity={0.7}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, uploading && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                activeOpacity={0.7}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -659,7 +689,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '85%',
+    maxHeight: '90%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -686,8 +717,13 @@ const styles = StyleSheet.create({
     color: '#6B777B',
     fontWeight: '300',
   },
+  modalScroll: {
+    flexShrink: 1,
+  },
   modalBody: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 120,
   },
   label: {
     fontSize: 14,
@@ -741,7 +777,11 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E6ECE7',
+    backgroundColor: '#fff',
   },
   cancelBtn: {
     flex: 1,
