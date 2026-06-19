@@ -38,9 +38,10 @@ import BuyerFilter from '../../../components/Admin/buyerFilter';
 import ReceiverFilter from '../../../components/Admin/receiverFilter';
 import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
-import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, deriveOrderSummaryPlantStatus } from './OrderSummaryStatusSheet';
+import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, deriveOrderSummaryPlantStatus, formatLeafTrailStatusDisplayLabel } from './OrderSummaryStatusSheet';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
+import { filterSupersededPendingOrders, excludePendingPaymentFromAllTab } from '../../../utils/filterSupersededPendingOrders';
 
 // Skeleton component for pagination loading
 const SkeletonBox = ({ width, height, style }) => {
@@ -394,12 +395,7 @@ const dedupeOrderTableRows = (rows = []) => {
       if (activeTab === 'readyToFly' && lower === 'shipping') return 'In-transit';
       if (activeTab === 'completed' && lower === 'shipped') return 'Delivered';
 
-      // Default admin-friendly labels
-      if (lower === 'shipping') return 'In transit (UPS)';
-      if (lower === 'shipped') return 'Shipped';
-
-      const spacedString = raw.replace(/([A-Z])/g, ' $1');
-      return spacedString.charAt(0).toUpperCase() + spacedString.slice(1);
+      return formatLeafTrailStatusDisplayLabel(raw);
     };
 
     let plantStatus;
@@ -674,7 +670,11 @@ const dedupeOrderTableRows = (rows = []) => {
           })));
         }
         
-        const mappedOrders = dedupeOrderTableRows(response.orders.map(mapOrderToTableRow));
+        const visibleOrders = excludePendingPaymentFromAllTab(
+          filterSupersededPendingOrders(response.orders),
+          { allTab: activeTab === 'all' },
+        );
+        const mappedOrders = dedupeOrderTableRows(visibleOrders.map(mapOrderToTableRow));
         setOrders(mappedOrders);
         
         // Update pagination info

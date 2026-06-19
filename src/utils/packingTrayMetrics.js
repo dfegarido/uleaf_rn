@@ -1,6 +1,8 @@
 /** Lowercase leafTrailStatus for comparisons. */
 export function normalizeLeafTrailStatus(status) {
-  return String(status || '').trim().toLowerCase();
+  const key = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+  if (key === 'active' || key === 'forreceiving') return 'forreceiving';
+  return key;
 }
 
 function hasBoxNumber(plant) {

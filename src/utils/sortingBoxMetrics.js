@@ -4,7 +4,9 @@ export const SORTING_BOX_COLOR_COMPLETE = '#DFF5E6';
 
 /** Lowercase leafTrailStatus for comparisons (handles "Sorted", "For Receiving", etc.). */
 export function normalizeLeafTrailStatus(status) {
-  return String(status || '').trim().toLowerCase().replace(/\s+/g, '');
+  const key = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+  if (key === 'active' || key === 'forreceiving') return 'forreceiving';
+  return key;
 }
 
 /**

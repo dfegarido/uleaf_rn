@@ -1,10 +1,13 @@
 /** Shared receiver-box grouping — matches Sorting alphabetical order + 1-based box numbers. */
 
-const normalizeLeafTrailStatusKey = (status) =>
-    String(status || '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '');
+const normalizeLeafTrailStatusKey = (status) => {
+  const key = String(status || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+  if (key === 'active' || key === 'forreceiving') return 'forreceiving';
+  return key;
+};
 
 /** Order receiver (customer) display name — never the hub admin who scanned. */
 export const getOrderReceiverDisplayName = (item) => {

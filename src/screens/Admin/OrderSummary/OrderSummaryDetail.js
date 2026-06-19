@@ -20,6 +20,7 @@ import Toast from '../../../components/Toast/Toast';
 import OrderSummaryDeliveredModal from './OrderSummaryDeliveredModal';
 import OrderSummaryStatusSheet, {
   deriveOrderSummaryPlantStatus,
+  formatLeafTrailStatusDisplayLabel,
   LEAF_TRAIL_STATUS_OPTIONS,
   mapPlantStatusPickerToApi,
   PLANT_STATUS_EDIT_OPTIONS,
@@ -31,12 +32,7 @@ const resolveInitialTracking = (order) => {
   return t && t !== '—' ? t : '';
 };
 
-const formatLabel = (value) => {
-  if (!value) return '—';
-  const raw = String(value).trim();
-  const spaced = raw.replace(/([A-Z])/g, ' $1');
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-};
+const formatLabel = (value) => formatLeafTrailStatusDisplayLabel(value);
 
 const deriveDisplayPlantStatus = (rawPlantStatus, rawLeaf, rawOrderStatus) =>
   deriveOrderSummaryPlantStatus({

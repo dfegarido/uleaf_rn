@@ -31,7 +31,6 @@ export const LEAF_TRAIL_STATUS_OPTIONS = [
  * Values match leafTrailStatus stored on order docs (verified against production Firestore).
  */
 export const ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS = [
-  { label: 'Active', value: 'active' },
   { label: 'For receiving', value: 'forReceiving' },
   { label: 'Received', value: 'received' },
   { label: 'Sorted', value: 'sorted' },
@@ -54,6 +53,17 @@ export const PLANT_STATUS_EDIT_OPTIONS = [
   { label: 'Active', value: 'forReceiving' },
   ...PLANT_STATUS_OPTIONS,
 ];
+
+/** Display labels for stored leafTrailStatus values. */
+export const formatLeafTrailStatusDisplayLabel = (rawStatus) => {
+  const key = String(rawStatus || '').toLowerCase().trim();
+  if (!key || key === '—') return '—';
+  if (key === 'active' || key === 'forreceiving') return 'For receiving';
+  if (key === 'shipping') return 'In transit (UPS)';
+  if (key === 'shipped') return 'Shipped';
+  const spaced = String(rawStatus).trim().replace(/([A-Z])/g, ' $1');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
 
 /** Display labels for stored plantStatus / legacy leafTrailStatus values. */
 export const formatPlantStatusDisplayLabel = (rawStatus) => {
