@@ -23,12 +23,12 @@ const UserMentionPicker = ({
   searchQuery = '',
   currentUserUid 
 }) => {
-  if (!visible || users.length === 0) {
+  if (!visible) {
     return null;
   }
 
   // Filter users based on search query
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = (users || []).filter(user => {
     // Don't suggest self
     if (user.uid === currentUserUid) return false;
     
@@ -41,6 +41,10 @@ const UserMentionPicker = ({
 
   // Check if "everyone" matches the search query
   const showEveryone = 'everyone'.includes(searchQuery.toLowerCase()) || searchQuery === '';
+
+  if (!showEveryone && filteredUsers.length === 0) {
+    return null;
+  }
 
   const renderUser = ({ item }) => {
     const avatarSource = item.avatarUrl 

@@ -113,6 +113,15 @@ const formatTimeAgo = (timestamp) => {
   return `${diffYears}y`;
 };
 
+const buildChatListSignature = (chats) => {
+  if (!Array.isArray(chats) || chats.length === 0) return '';
+  return chats.map((chat) => {
+    const unread = Array.isArray(chat.unreadBy) ? [...chat.unreadBy].sort().join('.') : '';
+    const ts = chat.timestamp?.seconds ?? chat.timestamp?.toDate?.()?.getTime?.() ?? 0;
+    return `${chat.id}:${ts}:${chat.lastMessage ?? ''}:${unread}`;
+  }).join('|');
+};
+
 const MessagesScreen = ({navigation}) => {
   const insets = useSafeAreaInsets();
   
@@ -122,7 +131,7 @@ const MessagesScreen = ({navigation}) => {
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 24; // Extra 24px for spacing
   
   const {userInfo} = useContext(AuthContext);
-  // Handle admin API response structure: userInfo.data.* or regular userInfo.user.* or flat userInfo.*
+  const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
   // Use username instead of firstName/lastName
   const userName = userInfo?.data?.username || userInfo?.user?.username || userInfo?.username || 
                    userInfo?.data?.email || userInfo?.user?.email || userInfo?.email || 'User';
@@ -168,6 +177,9 @@ const MessagesScreen = ({navigation}) => {
   const groupAvatarSelectionRef = useRef(new Map()); // chatId -> sender uid[]
   const groupAvatarFetchMetaRef = useRef(new Map()); // chatId -> timestamp millis
   const groupAvatarFetchInFlightRef = useRef(new Set()); // chatId currently fetching
+  const hasLoadedChatsRef = useRef(false);
+  const chatsSignatureRef = useRef('');
+  const messagesRef = useRef([]);
 
   useEffect(() => {
     avatarMapRef.current = avatarMap;
@@ -289,15 +301,19 @@ const MessagesScreen = ({navigation}) => {
   }, [isAdmin, userInfo]);
 
   useEffect(() => {
-    setLoading(true);
-
-    const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-    if (!userInfo || !currentUserUid) {
+    if (!currentUserUid) {
+      hasLoadedChatsRef.current = false;
+      chatsSignatureRef.current = '';
       setMemberChats([]);
       setAdminGroupChats([]);
       setPublicGroupChats([]);
+      setMessages([]);
       setLoading(false);
       return;
+    }
+
+    if (!hasLoadedChatsRef.current) {
+      setLoading(true);
     }
 
     const unsubscribers = [];
@@ -377,7 +393,7 @@ const MessagesScreen = ({navigation}) => {
         try { unsub(); } catch (_) { /* noop */ }
       });
     };
-  }, [userInfo, isBuyer, isSeller, isAdmin]);
+  }, [currentUserUid, isBuyer, isSeller, isAdmin]);
 
   useEffect(() => {
     const allChatsMap = new Map();
@@ -395,7 +411,19 @@ const MessagesScreen = ({navigation}) => {
       return bTime - aTime;
     });
 
+    const signature = buildChatListSignature(allChats);
+    if (signature === chatsSignatureRef.current) {
+      if (!hasLoadedChatsRef.current) {
+        hasLoadedChatsRef.current = true;
+        setLoading(false);
+      }
+      return;
+    }
+
+    chatsSignatureRef.current = signature;
+    hasLoadedChatsRef.current = true;
     setMessages(allChats);
+    messagesRef.current = allChats;
     fetchAvatarsForChats(allChats).catch(() => {});
     setLoading(false);
   }, [memberChats, adminGroupChats, publicGroupChats, fetchAvatarsForChats]);
@@ -434,17 +462,26 @@ const MessagesScreen = ({navigation}) => {
     loadChatShops();
   }, []);
 
+  const shopGroupIds = useMemo(() => {
+    const ids = new Set();
+    chatShops.forEach(s => { if (s.groupChatId) ids.add(s.groupChatId); });
+    return ids;
+  }, [chatShops]);
+
   // Tab-focused prefetch: when user switches tabs, resolve only currently visible chats.
   useEffect(() => {
-    if (!Array.isArray(messages) || messages.length === 0) return;
+    const visibleMessages = messagesRef.current;
+    if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) return;
     const visibleChats = selectedTab === 'groups'
-      ? messages.filter(msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id))
-      : messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
+      ? visibleMessages.filter(msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id))
+      : visibleMessages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
     fetchAvatarsForChats(visibleChats, { requireUsername: selectedTab !== 'groups' }).catch(() => {});
-  }, [selectedTab, messages, fetchAvatarsForChats, shopGroupIds]);
+  }, [selectedTab, fetchAvatarsForChats, shopGroupIds]);
 
   // Keep per-group avatar sender selection aligned to latest message senders.
   useEffect(() => {
+    if (selectedTab !== 'groups') return;
+
     const run = async () => {
       if (!Array.isArray(messages) || messages.length === 0) return;
       const visibleGroupChats = messages.filter(msg => msg.isGroup || (msg.participants && msg.participants.length > 2));
@@ -990,38 +1027,20 @@ const MessagesScreen = ({navigation}) => {
     </View>
   );
 
-  // Set of group chat IDs linked to chat shops
-  const shopGroupIds = useMemo(() => {
-    const ids = new Set();
-    chatShops.forEach(s => { if (s.groupChatId) ids.add(s.groupChatId); });
-    return ids;
-  }, [chatShops]);
-
-  const isShopGroup = (msg) => shopGroupIds.has(msg.id);
-
-  // Filter messages based on selected tab
-  const getFilteredMessages = () => {
-    const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-
+  const filteredMessages = useMemo(() => {
     if (selectedTab === 'groups') {
-      // Show only group chats (more than 2 participants), excluding shop-linked groups
       return messages.filter(
-        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !isShopGroup(msg),
+        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id),
       );
-    } else if (selectedTab === 'chatshops') {
-      // Chat Shops tab has its own rendering, return empty here
-      return [];
-    } else {
-      // 'messages' - show only 1-on-1 chats (exclude groups and shop-linked groups)
-      return messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
     }
-  };
+    if (selectedTab === 'chatshops') {
+      return [];
+    }
+    return messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
+  }, [messages, selectedTab, shopGroupIds]);
 
-  // Calculate unread counts for badges
-  const getUnreadCounts = () => {
-    const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-
-    const unreadMessages = messages.filter(
+  const { unreadMessages, unreadGroups } = useMemo(() => {
+    const unreadMessagesCount = messages.filter(
       msg =>
         msg.unreadBy &&
         msg.unreadBy.includes(currentUserUid) &&
@@ -1029,19 +1048,16 @@ const MessagesScreen = ({navigation}) => {
         (!msg.participants || msg.participants.length <= 2),
     ).length;
 
-    const unreadGroups = messages.filter(
+    const unreadGroupsCount = messages.filter(
       msg =>
         msg.unreadBy &&
         msg.unreadBy.includes(currentUserUid) &&
         (msg.isGroup || (msg.participants && msg.participants.length > 2)) &&
-        !isShopGroup(msg),
+        !shopGroupIds.has(msg.id),
     ).length;
 
-    return { unreadMessages, unreadGroups };
-  };
-
-  const filteredMessages = getFilteredMessages();
-  const { unreadMessages, unreadGroups } = getUnreadCounts();
+    return { unreadMessages: unreadMessagesCount, unreadGroups: unreadGroupsCount };
+  }, [messages, currentUserUid, shopGroupIds]);
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["top", "left", "right"]}>
@@ -1172,16 +1188,21 @@ const MessagesScreen = ({navigation}) => {
         ) : (
           <FlatList
             style={{flex: 1}}
-            data={loading ? [] : filteredMessages}
+            data={filteredMessages}
             keyExtractor={(item, index) => (item && item.id) ? item.id : `chat-${index}`}
             renderItem={renderItem}
+            extraData={avatarMap}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            initialNumToRender={12}
+            maxToRenderPerBatch={8}
+            windowSize={7}
             contentContainerStyle={[
               styles.listContainer,
               {paddingBottom: totalBottomPadding},
               filteredMessages.length === 0 && !loading && styles.emptyListContainer,
             ]}
             ListEmptyComponent={() =>
-              loading ? (
+              loading && filteredMessages.length === 0 ? (
                 // Show skeleton loading when loading
                 <View style={styles.skeletonContainer}>
                   {Array.from({length: 6}).map((_, idx) => (

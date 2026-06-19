@@ -53,17 +53,14 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     }
   }, [editingMessage]);
   
-  // Detect @ mentions
-  const handleTextChange = (text) => {
-    setMessage(text);
-    
+  const detectMentionAtCursor = (text, cursor) => {
     // Only process mentions in group chats
     if (chatType !== 'group') {
       return;
     }
-    
+
     // Find @ symbol before cursor
-    const textBeforeCursor = text.substring(0, cursorPosition);
+    const textBeforeCursor = text.substring(0, cursor);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
     if (lastAtIndex >= 0) {
@@ -86,6 +83,17 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     
     // Hide mention picker if no valid mention detected
     setShowMentionPicker(false);
+  };
+
+  // Detect @ mentions
+  const handleTextChange = (text) => {
+    const prevLength = message.length;
+    const lengthDelta = text.length - prevLength;
+    const estimatedCursor = Math.max(0, cursorPosition + lengthDelta);
+
+    setMessage(text);
+    setCursorPosition(estimatedCursor);
+    detectMentionAtCursor(text, estimatedCursor);
   };
   
   // Handle mention selection
@@ -206,8 +214,12 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     }
     // If we only have text
     else if (hasText) {
+      const finalMentions = [...mentions];
+      if (/@everyone\b/i.test(textToSend) && !finalMentions.some(m => m.uid === 'everyone')) {
+        finalMentions.push({ uid: 'everyone', name: 'Everyone', username: 'everyone' });
+      }
       // Include mentions in the message
-      onSend(textToSend, false, null, null, null, replyTo, mentions.length > 0 ? mentions : null);
+      onSend(textToSend, false, null, null, null, replyTo, finalMentions.length > 0 ? finalMentions : null);
       setMessage('');
       setInputHeight(40);
       setMentions([]); // Clear mentions after sending
@@ -640,7 +652,9 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
             value={message}
             onChangeText={handleTextChange}
             onSelectionChange={(event) => {
-              setCursorPosition(event.nativeEvent.selection.start);
+              const pos = event.nativeEvent.selection.start;
+              setCursorPosition(pos);
+              detectMentionAtCursor(message, pos);
             }}
             onContentSizeChange={handleContentSizeChange}
             multiline={true}

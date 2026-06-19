@@ -24,6 +24,7 @@ import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
+import { sendEveryoneMentionNotificationApi } from '../../components/Api/sendEveryoneMentionNotificationApi';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
@@ -1114,6 +1115,39 @@ const ChatScreen = ({navigation, route}) => {
     }
   };
 
+  const hasEveryoneMention = (messageMentions, messageText) => {
+    if (Array.isArray(messageMentions) && messageMentions.some(
+      (m) => m?.uid === 'everyone' || String(m?.username || '').toLowerCase() === 'everyone'
+    )) {
+      return true;
+    }
+    return typeof messageText === 'string' && /@everyone\b/i.test(messageText);
+  };
+
+  const notifyEveryoneMention = (messageText, messageMentions) => {
+    if (chatType !== 'group' || !id || !currentUserUid) {
+      return;
+    }
+    if (!hasEveryoneMention(messageMentions, messageText)) {
+      return;
+    }
+
+    const senderName = participantDataMap[currentUserUid]?.name
+      || userInfo?.data?.name
+      || userInfo?.user?.displayName
+      || 'Someone';
+
+    sendEveryoneMentionNotificationApi({
+      chatId: id,
+      senderId: currentUserUid,
+      senderName,
+      groupChatName: name,
+      messageText: messageText?.trim() || '',
+    }).catch((err) => {
+      console.warn('Failed to send @everyone notification:', err?.message || err);
+    });
+  };
+
   // Send a message: create message doc and update chat metadata
   const sendMessage = async (text, isListing = false, listingId = null, imageUrl = null, imageUrls = null, replyTo = null, mentions = null) => {
     if (!id) {
@@ -1218,6 +1252,8 @@ const ChatScreen = ({navigation, route}) => {
       } catch (err) {
         // ignore update failures
       }
+
+      notifyEveryoneMention(text, mentions);
     } catch (error) {
       console.error('Error sending message:', error);
       // Remove optimistic message on error

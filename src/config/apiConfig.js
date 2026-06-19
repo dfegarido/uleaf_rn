@@ -375,6 +375,7 @@ const generateEndpoints = () => ({
 
   // Group Chat Notification
   SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,
+  SEND_EVERYONE_MENTION_NOTIFICATION: `${getBaseUrl()}/sendEveryoneMentionNotification`,
 
   // Live Notifications
   SCHEDULE_LIVE_REMINDER: `${getBaseUrl()}/scheduleLiveReminder`,
