@@ -5,7 +5,6 @@ import React, { useEffect, useRef, useState } from 'react'; // keep hook imports
 import { ActivityIndicator,
   Alert,
   Image,
-  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -54,7 +53,6 @@ import { collection,
 } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import { addToCartApi,
-  getBuyerEventsApi,
   getBuyerListingsApi,
   getGenusApi,
   getVariegationApi,
@@ -94,14 +92,23 @@ const countryData = [
   },
 ];
 
-/** Deals/news carousel item should open in-app Invite Friends (matches CMS title copy). */
-function isReferFriendsNewsItem(item) {
-  const t = `${item?.name || ''} ${item?.label || ''}`.toLowerCase();
-  if (!t.trim()) return false;
-  const mentionsFriend = t.includes('friend') || t.includes('friends');
-  if (!mentionsFriend) return false;
-  return t.includes('refer') || t.includes('invite');
-}
+const BUYER_CONTENT_SECTIONS = [
+  { key: 'deals', title: 'Deals' },
+  { key: 'rewards', title: 'Rewards' },
+  { key: 'news', title: 'Latest News' },
+];
+
+const sortBuyerContentItems = (items) =>
+  items.sort((a, b) => {
+    const aPriority = a.priority ?? 999;
+    const bPriority = b.priority ?? 999;
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+    const aTime = a.createdAt?.toDate?.() || new Date(0);
+    const bTime = b.createdAt?.toDate?.() || new Date(0);
+    return aTime - bTime;
+  });
 
 const ScreenShop = ({navigation}) => {
   const {user} = useAuth();
@@ -153,13 +160,17 @@ const ScreenShop = ({navigation}) => {
   const [loadingGenusData, setLoadingGenusData] = useState(true);
   const [failedGenusImages, setFailedGenusImages] = useState(new Set()); // Track failed genus images
   
-  // Events data state
-  const [eventsData, setEventsData] = useState([]);
-  const [loadingEventsData, setLoadingEventsData] = useState(true);
-  
-  // Events image cache state
-  const [eventImageCache, setEventImageCache] = useState({});
-  const [eventImageLoading, setEventImageLoading] = useState({});
+  // Buyer content (Deals, Rewards, News) state
+  const [buyerContent, setBuyerContent] = useState({
+    deals: [],
+    rewards: [],
+    news: [],
+  });
+  const [loadingBuyerContent, setLoadingBuyerContent] = useState(true);
+
+  // Buyer content image cache state
+  const [contentImageCache, setContentImageCache] = useState({});
+  const [contentImageLoading, setContentImageLoading] = useState({});
   
   // Chat Shops data state
   const [chatShops, setChatShops] = useState([]);
@@ -240,7 +251,7 @@ const ScreenShop = ({navigation}) => {
           loadGenusData(),
           loadVariegationData(),
           // Filter dropdowns (country, listing type, shipping/acclimation index) are loaded lazily when their sheet opens
-          loadEventsData(),
+          loadBuyerContent(),
           loadChatShops(),
         ]);
       } catch (error) {
@@ -276,7 +287,7 @@ const ScreenShop = ({navigation}) => {
         loadGenusData(),
         loadVariegationData(),
         loadBrowseGenusData({ force: true }),
-        loadEventsData(),
+        loadBuyerContent(),
         loadChatShops(),
       ]);
 
@@ -614,103 +625,231 @@ const ScreenShop = ({navigation}) => {
     }
   };
 
-  const loadEventsData = async () => {
+  const loadBuyerContent = async () => {
     try {
-      setLoadingEventsData(true);
+      setLoadingBuyerContent(true);
 
-      // Robust network check: NetInfo.isInternetReachable can be null on some
-      // platforms (meaning "unknown"). Only treat it as offline when it's
-      // explicitly false. If NetInfo.fetch() itself fails, log and proceed
-      // with the network request (the fetch will surface any real errors).
-      let netState;
-      try {
-        netState = await NetInfo.fetch();
-      } catch (netErr) {
-        console.warn('NetInfo.fetch failed, proceeding to call events API', netErr);
-        netState = { isConnected: true, isInternetReachable: null };
-      }
+      const snapshot = await getDocs(collection(db, 'buyerContent'));
+      const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      if (netState.isConnected === false || netState.isInternetReachable === false) {
-        throw new Error('No internet connection.');
-      }
+      const grouped = {
+        deals: sortBuyerContentItems(items.filter((item) => item.section === 'deals')),
+        rewards: sortBuyerContentItems(items.filter((item) => item.section === 'rewards')),
+        news: sortBuyerContentItems(items.filter((item) => item.section === 'news')),
+      };
 
-      const res = await retryAsync(() => getBuyerEventsApi(), 3, 1000);
-
-      if (!res?.success) {
-        throw new Error(res?.message || 'Failed to load events API.');
-      }
-
-      const events = res.data || [];
-      setEventsData(events);
-      
-      // Load cached images for events
-      await loadCachedEventsImages(events);
+      setBuyerContent(grouped);
+      await loadCachedContentImages(items);
     } catch (error) {
-      console.error('Error loading events data:', error);
-      // Set fallback data or empty array on error
-      setEventsData([]);
+      console.error('Error loading buyer content:', error);
+      setBuyerContent({ deals: [], rewards: [], news: [] });
     } finally {
-      setLoadingEventsData(false);
+      setLoadingBuyerContent(false);
     }
   };
 
-  // Load cached images for events
-  const loadCachedEventsImages = async (events) => {
+  const loadCachedContentImages = async (items) => {
     const cache = {};
     const loadingState = {};
-    
-    for (const event of events) {
-      if (event.image) {
-        const eventId = event.id || event.image;
-        loadingState[eventId] = false;
-        
+
+    for (const item of items) {
+      if (item.imageUrl) {
+        const itemId = item.id || item.imageUrl;
+        loadingState[itemId] = false;
+
         try {
-          const cachedUri = await getCachedImageUri(event.image, CACHE_CONFIGS.EVENTS_IMAGES.expiryDays);
+          const cachedUri = await getCachedImageUri(
+            item.imageUrl,
+            CACHE_CONFIGS.EVENTS_IMAGES.expiryDays,
+          );
           if (cachedUri) {
-            cache[eventId] = cachedUri;
+            cache[itemId] = cachedUri;
           }
         } catch (error) {
+          // ignore cache errors
         }
       }
     }
-    
-    setEventImageCache(cache);
-    setEventImageLoading(loadingState);
+
+    setContentImageCache(cache);
+    setContentImageLoading(loadingState);
   };
 
-  // Handle events image caching on load
-  const handleEventsImageLoad = async (event, eventUri) => {
-    const eventId = event.id || event.image;
-    
+  const handleContentImageLoad = async (item, imageUri) => {
+    const itemId = item.id || item.imageUrl;
+
     try {
-      // Update loading state
-      setEventImageLoading(prev => ({
+      setContentImageLoading((prev) => ({
         ...prev,
-        [eventId]: false
+        [itemId]: false,
       }));
-      
-      // Cache the image if not already cached
-      if (!eventImageCache[eventId] && event.image) {
-        await setCachedImageUri(eventUri, event.image, CACHE_CONFIGS.EVENTS_IMAGES.expiryDays);
-        setEventImageCache(prev => ({
+
+      if (!contentImageCache[itemId] && item.imageUrl) {
+        await setCachedImageUri(imageUri, item.imageUrl, CACHE_CONFIGS.EVENTS_IMAGES.expiryDays);
+        setContentImageCache((prev) => ({
           ...prev,
-          [eventId]: eventUri
+          [itemId]: imageUri,
         }));
       }
     } catch (error) {
+      // ignore cache errors
     }
   };
 
-  const handleEventsImageLoadStart = (event) => {
-    const eventId = event.id || event.image;
-    
-    // Only show loading if not cached
-    if (!eventImageCache[eventId]) {
-      setEventImageLoading(prev => ({
+  const handleContentImageLoadStart = (item) => {
+    const itemId = item.id || item.imageUrl;
+
+    if (!contentImageCache[itemId]) {
+      setContentImageLoading((prev) => ({
         ...prev,
-        [eventId]: true
+        [itemId]: true,
       }));
     }
+  };
+
+  const renderBuyerContentCarousel = (sectionKey, sectionTitle, items) => {
+    if (!loadingBuyerContent && items.length === 0) {
+      return null;
+    }
+
+    return (
+      <>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: '#393D40',
+            marginTop: 10,
+          }}>
+          {sectionTitle}
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'flex-start',
+            paddingHorizontal: 10,
+          }}
+          style={{ flexGrow: 0 }}>
+          {loadingBuyerContent ? (
+            Array.from({ length: 2 }).map((_, idx) => (
+              <View key={idx} style={{ width: 275 }}>
+                <View
+                  style={{
+                    width: 260,
+                    height: 120,
+                    borderRadius: 16,
+                    backgroundColor: '#f0f0f0',
+                  }}
+                />
+                <View
+                  style={{
+                    width: 150,
+                    height: 16,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 4,
+                    marginTop: 4,
+                    marginHorizontal: 5,
+                  }}
+                />
+              </View>
+            ))
+          ) : (
+            items.map((item, idx) => {
+              const itemId = item.id || item.imageUrl;
+              const cachedImageUri = contentImageCache[itemId];
+              const isImageLoading = contentImageLoading[itemId];
+              const displayImage = cachedImageUri
+                ? { uri: cachedImageUri }
+                : item.imageUrl
+                  ? { uri: item.imageUrl }
+                  : null;
+
+              return (
+                <View key={item.id || idx} style={{ width: 275, position: 'relative' }}>
+                  {displayImage ? (
+                    <Image
+                      source={displayImage}
+                      style={{ width: 260, height: 120, borderRadius: 16 }}
+                      resizeMode="cover"
+                      onLoadStart={() => handleContentImageLoadStart(item)}
+                      onLoad={(event) => {
+                        handleContentImageLoad(item, event.nativeEvent.source?.uri);
+                      }}
+                      onError={() => {
+                        setContentImageLoading((prev) => ({
+                          ...prev,
+                          [itemId]: false,
+                        }));
+                      }}
+                      key={`content-${itemId}-${cachedImageUri ? 'cached' : 'original'}`}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 260,
+                        height: 120,
+                        borderRadius: 16,
+                        backgroundColor: '#f5f5f5',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                      <Text style={{ color: '#888', fontSize: 14 }}>No image</Text>
+                    </View>
+                  )}
+
+                  {isImageLoading && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: 260,
+                        height: 120,
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: 16,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                      <ActivityIndicator size="small" color="#7CBD58" />
+                    </View>
+                  )}
+
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: '900',
+                      color: '#393D40',
+                      marginTop: 4,
+                      textAlign: 'left',
+                      paddingHorizontal: 5,
+                    }}>
+                    {item.title}
+                  </Text>
+                  {item.description ? (
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: '#6B777B',
+                        marginTop: 2,
+                        textAlign: 'left',
+                        paddingHorizontal: 5,
+                      }}
+                      numberOfLines={3}>
+                      {item.description}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </>
+    );
   };
 
   // Load chat shops from Firestore
@@ -1389,143 +1528,14 @@ const ScreenShop = ({navigation}) => {
           </>
         )}
         
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: 'bold',
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            color: '#393D40',
-            marginTop: 10,
-          }}>
-          Deals, Rewards & Latest News
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            flexDirection: 'row',
-            gap: 10,
-            alignItems: 'flex-start',
-            paddingHorizontal: 10,
-          }}
-          style={{flexGrow: 0}}>
-          {loadingEventsData ? (
-            // Loading state
-            Array.from({length: 2}).map((_, idx) => (
-              <View key={idx} style={{width: 275}}>
-                <View
-                  style={{
-                    width: 260,
-                    height: 120,
-                    borderRadius: 16,
-                    backgroundColor: '#f0f0f0',
-                  }}
-                />
-                <View
-                  style={{
-                    width: 150,
-                    height: 16,
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: 4,
-                    marginTop: 4,
-                    marginHorizontal: 5,
-                  }}
-                />
-              </View>
-            ))
-          ) : eventsData.length > 0 ? (
-            eventsData.map((item, idx) => {
-              const eventId = item.id || item.image;
-              const cachedImageUri = eventImageCache[eventId];
-              const isImageLoading = eventImageLoading[eventId];
-              
-              // Determine which image to display
-              const displayImage = cachedImageUri ? { uri: cachedImageUri } : { uri: item.image };
-              
-              return (
-                <TouchableOpacity
-                  key={item.id || idx}
-                  style={{width: 275, position: 'relative'}}
-                  onPress={() => {
-                    if (isReferFriendsNewsItem(item)) {
-                      navigation.navigate('InviteFriendsScreen');
-                      return;
-                    }
-                    if (item.link) {
-                      Linking.openURL(item.link).catch(err =>
-                        console.error('Failed to open link:', err)
-                      );
-                    }
-                  }}>
-                  <Image
-                    source={displayImage}
-                    style={{width: 260, height: 120, borderRadius: 16}}
-                    resizeMode="cover"
-                    onLoadStart={() => handleEventsImageLoadStart(item)}
-                    onLoad={(event) => {
-                      handleEventsImageLoad(item, event.nativeEvent.source?.uri);
-                    }}
-                    onError={(error) => {
-                      setEventImageLoading(prev => ({
-                        ...prev,
-                        [eventId]: false
-                      }));
-                    }}
-                    key={`event-${eventId}-${cachedImageUri ? 'cached' : 'original'}`}
-                  />
-                  
-                  {/* Loading overlay for events images */}
-                  {isImageLoading && (
-                    <View style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: 260,
-                      height: 120,
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: 16,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}>
-                      <ActivityIndicator size="small" color="#7CBD58" />
-                    </View>
-                  )}
-                  
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: '900',
-                      color: '#393D40',
-                      marginTop: 4,
-                      textAlign: 'left',
-                      paddingHorizontal: 5,
-                    }}>
-                    {item.name || item.label || 'Deals, Rewards & News'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            // Fallback when no events data
-            <View style={{width: 275}}>
-              <View
-                style={{
-                  width: 260,
-                  height: 120,
-                  borderRadius: 16,
-                  backgroundColor: '#f5f5f5',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}>
-                <Text style={{color: '#888', fontSize: 14}}>
-                  No events available
-                </Text>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-        
+        {BUYER_CONTENT_SECTIONS.map((section) =>
+          renderBuyerContentCarousel(
+            section.key,
+            section.title,
+            buyerContent[section.key] || [],
+          ),
+        )}
+
         <Text
           style={{
             fontSize: 20,

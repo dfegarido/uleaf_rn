@@ -72,6 +72,7 @@ import InvoiceViewScreen from '../../screens/Buyer/Orders/InvoiceViewScreen';
 import OrderSummary from '../../screens/Admin/OrderSummary/OrderSummary';
 import OrderSummaryDetail from '../../screens/Admin/OrderSummary/OrderSummaryDetail';
 import ChatShops from '../../screens/Admin/ChatShops/ChatShops';
+import BuyerContentManagement from '../../screens/Admin/BuyerContent/BuyerContentManagement';
 import LeafPointsManagement from '../../screens/Admin/LeafPoints/LeafPointsManagement';
 import PlantCreditsManagement from '../../screens/Admin/PlantCredits/PlantCreditsManagement';
 import AdminClearCreditsScreen from '../../screens/Admin/PlantCredits/AdminClearCreditsScreen';
@@ -261,6 +262,9 @@ function AdminTabs() {
 
       {/* Chat Shops */}
       <Stack.Screen name="ChatShops" options={{headerShown: false}} component={ChatShops} />
+
+      {/* Deals, Rewards & News */}
+      <Stack.Screen name="BuyerContentManagement" options={{headerShown: false}} component={BuyerContentManagement} />
       
       {/* Leaf Points Management */}
       <Stack.Screen name="LeafPointsManagement" options={{headerShown: false}} component={LeafPointsManagement} />

@@ -1,8 +1,8 @@
 // Add IconTile component for use in LeafTrailGreenhouse and other sections
-const IconTile = ({title, children, onPress, badgeCount = 0}) => {
+const IconTile = ({title, children, onPress, badgeCount = 0, tileStyle}) => {
   const hasBadge = badgeCount > 0;
   return (
-    <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile]} onPress={onPress}>
+    <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile, tileStyle]} onPress={onPress}>
       <View style={styles.iconTileContainer}>
         {children}
         {hasBadge && (
@@ -21,6 +21,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState, useCallback } from 'react';
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
 import DiscountsIcon from '../../../assets/admin-icons/discounts.svg';
+import DealsIcon from '../../../assets/admin-icons/deals.svg';
+import RewardsIcon from '../../../assets/admin-icons/rewards.svg';
 import ForShippingIcon from '../../../assets/admin-icons/for-shipping.svg';
 import HappeningsIcon from '../../../assets/admin-icons/happenings.svg';
 import JungleAccessIcon from '../../../assets/admin-icons/jungle-access.svg';
@@ -313,25 +315,68 @@ const LeafTrailGreenhouse = ({navigation}) => {
 
   const NewsEventsRewards = ({isFullAdmin = false}) => {
     const navigation = useNavigation();
+
+    const tiles = [
+      {
+        key: 'deals',
+        title: 'Deals',
+        icon: <DealsIcon width={48} height={48} />,
+        onPress: () => navigation.navigate('BuyerContentManagement', { section: 'deals' }),
+      },
+      {
+        key: 'rewards',
+        title: 'Rewards',
+        icon: <RewardsIcon width={48} height={48} />,
+        onPress: () => navigation.navigate('BuyerContentManagement', { section: 'rewards' }),
+      },
+      {
+        key: 'news',
+        title: 'News',
+        icon: <HappeningsIcon width={48} height={48} />,
+        onPress: () => navigation.navigate('BuyerContentManagement', { section: 'news' }),
+      },
+      ...(isFullAdmin
+        ? [{
+            key: 'discounts',
+            title: 'Discounts',
+            icon: <DiscountsIcon width={48} height={48} />,
+            onPress: () => navigation.navigate('AdminDiscounts'),
+          }]
+        : []),
+      {
+        key: 'leaf-points',
+        title: 'Leaf Points',
+        icon: <LeafPointsIcon width={48} height={48} />,
+        onPress: () => navigation.navigate('LeafPointsManagement'),
+      },
+    ];
+
+    const rows = [];
+    for (let i = 0; i < tiles.length; i += 3) {
+      rows.push(tiles.slice(i, i + 3));
+    }
+
     return (
       <View style={[styles.sectionContainer, {paddingTop: 24}]}>
         <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>News, Events and Rewards</Text>
 
-        <View style={styles.cardRow}>
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]}>
-            <HappeningsIcon width={48} height={48} />
-            <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Happenings</Text>
-          </TouchableOpacity>
-          {isFullAdmin && (
-            <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('AdminDiscounts')}>
-              <DiscountsIcon width={48} height={48} />
-              <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Discounts</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={[globalStyles.cardLightAccent, styles.card]} onPress={() => navigation.navigate('LeafPointsManagement')}>
-            <LeafPointsIcon width={48} height={48} />
-            <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>Leaf Points</Text>
-          </TouchableOpacity>
+        <View style={styles.newsEventsGrid}>
+          {rows.map((row, rowIndex) => (
+            <View
+              key={`news-events-row-${rowIndex}`}
+              style={[
+                styles.newsEventsRow,
+                row.length < 3 && styles.newsEventsRowPartial,
+              ]}>
+              {row.map((tile) => (
+                <View key={tile.key} style={styles.newsEventsTileSlot}>
+                  <IconTile title={tile.title} onPress={tile.onPress} tileStyle={styles.newsEventsTile}>
+                    {tile.icon}
+                  </IconTile>
+                </View>
+              ))}
+            </View>
+          ))}
         </View>
       </View>
     );
@@ -478,6 +523,25 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginTop: 12,
+  },
+  newsEventsGrid: {
+    marginTop: 12,
+    gap: 16,
+  },
+  newsEventsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  newsEventsRowPartial: {
+    justifyContent: 'center',
+  },
+  newsEventsTileSlot: {
+    width: '30%',
+  },
+  newsEventsTile: {
+    width: '100%',
+    marginBottom: 0,
   },
   tile: {
     width: '32%',
