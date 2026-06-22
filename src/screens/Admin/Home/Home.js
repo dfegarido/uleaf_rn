@@ -305,7 +305,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
           <IconTile title="Chat Shops" onPress={() => navigation.navigate('ChatShops')}>
             <ChatShopsIcon width={48} height={48} />
           </IconTile>
-          <IconTile title="Plant Credits" onPress={() => navigation.navigate('PlantCreditsManagement')}>
+          <IconTile title="Credit Mgmt" onPress={() => navigation.navigate('PlantCreditsManagement')}>
             <PlantCreditsIcon width={48} height={48} />
           </IconTile>
         </View>

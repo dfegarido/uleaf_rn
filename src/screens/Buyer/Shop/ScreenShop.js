@@ -713,7 +713,7 @@ const ScreenShop = ({navigation}) => {
     }
 
     return (
-      <>
+      <React.Fragment key={sectionKey}>
         <Text
           style={{
             fontSize: 20,
@@ -848,7 +848,7 @@ const ScreenShop = ({navigation}) => {
             })
           )}
         </ScrollView>
-      </>
+      </React.Fragment>
     );
   };
 

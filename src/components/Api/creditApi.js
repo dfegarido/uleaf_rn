@@ -53,10 +53,13 @@ export const getJourneyMishapOrdersApi = async (params = {}) => {
 };
 
 /**
- * Clear all plant credits for a buyer (admin action)
+ * Clear plant credits (admin action).
+ * Pass transactionId + amount to clear a single credit, or omit to clear all.
  * @param {Object} clearData - Clear data
- * @param {string} clearData.buyerId - Buyer ID
- * @param {string} clearData.reason - Reason for clearing credits
+ * @param {string} clearData.buyerId - Buyer ID (required)
+ * @param {string} clearData.reason - Reason for clearing credits (required)
+ * @param {string} [clearData.transactionId] - Specific transaction to clear (optional)
+ * @param {number} [clearData.amount] - Amount to clear for single transaction (optional)
  * @returns {Promise<Object>} Clear credits response
  */
 export const clearCreditsApi = async (clearData) => {
@@ -67,17 +70,25 @@ export const clearCreditsApi = async (clearData) => {
 
     const authToken = await getStoredAuthToken();
 
+    const body = {
+      buyerUid: clearData.buyerId,
+      reason: clearData.reason,
+      adminUid: clearData.adminUid,
+    };
+
+    // Single credit clear
+    if (clearData.transactionId) {
+      body.transactionId = clearData.transactionId;
+      body.amount = clearData.amount ?? 0;
+    }
+
     const response = await fetch(API_ENDPOINTS.CLEAR_CREDITS, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`,
       },
-      body: JSON.stringify({
-        buyerUid: clearData.buyerId,
-        reason: clearData.reason,
-        adminUid: clearData.adminUid,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
