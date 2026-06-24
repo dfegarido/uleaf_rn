@@ -6,19 +6,12 @@ function isDevEnvOptOut(value) {
 }
 
 /**
- * Leaf Trail / Greenhouse hub spec (development builds only):
- * - Trail #1 For Receiving intake
- * - Plant Flight + Garden + Seller filters on all trails
- * - Scan, Print barcode, Export on all trails
+ * Leaf Trail / Greenhouse hub spec — receiver boxes, hub toolbar, scan/export on trails.
  *
- * On by default when __DEV__ is true (no .env entry required).
- * Set ENABLE_TRAIL1_FOR_RECEIVING=false in .env to use the legacy UI locally.
- * Production release builds: __DEV__ === false → always off.
+ * On by default in all builds (dev + production release).
+ * Set ENABLE_TRAIL1_FOR_RECEIVING=false in .env to use the legacy UI.
  */
 export function isLeafTrailHubSpecEnabled() {
-  if (!__DEV__) {
-    return false;
-  }
   if (isDevEnvOptOut(ENV_ENABLE_TRAIL1_FOR_RECEIVING)) {
     return false;
   }
