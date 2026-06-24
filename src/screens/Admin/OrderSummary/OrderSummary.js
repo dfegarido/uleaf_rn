@@ -190,7 +190,7 @@ const OrderSummary = ({navigation}) => {
     {id: 'all', label: 'All', active: true, tabWidth: 56, contentWidth: 56, indicatorWidth: 56},
     {id: 'readyToFly', label: 'Ready To Fly', active: false, tabWidth: 103, contentWidth: 103, indicatorWidth: 103},
     {id: 'completed', label: 'Plants are Home', active: false, tabWidth: 130, contentWidth: 130, indicatorWidth: 130},
-    {id: 'wildgone', label: 'Wildgone', active: false, tabWidth: 100, contentWidth: 93, indicatorWidth: 100, badge: true},
+    {id: 'wildgone', label: 'Buyer Journey Mishap', active: false, tabWidth: 180, contentWidth: 173, indicatorWidth: 180, badge: true},
   ];
 
 const STATUS_INFO_TABS = ['readyToFly', 'completed', 'wildgone', 'all'];

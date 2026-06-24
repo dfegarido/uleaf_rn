@@ -42,6 +42,7 @@ import {
 import OrderSummaryStatusSheet, {
     LEAF_TRAIL_STATUS_OPTIONS,
     buildReceivingPlantStatusOptions,
+    formatLeafTrailStatusDisplayLabel,
     mapPlantStatusPickerToApi,
     receivingPlantStatusUsesLeafTrail,
 } from '../../OrderSummary/OrderSummaryStatusSheet';
@@ -1375,7 +1376,7 @@ const ReceivingScreen = ({navigation, route}) => {
         }
         Alert.alert(
             'Update leaf trail status',
-            `Set this plant to "${formatStatusLabel(value)}"?`,
+            `Set this plant to "${formatLeafTrailStatusDisplayLabel(value)}"?`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Update', onPress: () => applyLeafTrailForCard(value) },

@@ -21,10 +21,21 @@ export const LEAF_TRAIL_STATUS_OPTIONS = [
   { label: 'Received', value: 'received' },
   { label: 'Sorted', value: 'sorted' },
   { label: 'Packed', value: 'packed' },
-  { label: 'Shipping', value: 'shipping' },
-  { label: 'Shipped', value: 'shipped' },
+  { label: 'For Shipping', value: 'shipping' },
+  { label: 'In-transit', value: 'shipped' },
   { label: 'Delivered', value: 'delivered' },
+  { label: 'Removed from Flight', value: 'removedFromFlight' },
 ];
+
+/** Leaf trail values displayed and selectable as "Removed from Flight". */
+const REMOVED_FROM_FLIGHT_LEAF_STATUSES = new Set([
+  'missing',
+  'damaged',
+  'damage',
+  'cancelled',
+  'canceled',
+  'removedfromflight',
+]);
 
 /**
  * Multi-select filter options for Admin Order Summary.
@@ -35,15 +46,16 @@ export const ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS = [
   { label: 'Received', value: 'received' },
   { label: 'Sorted', value: 'sorted' },
   { label: 'Packed', value: 'packed' },
-  { label: 'Shipping', value: 'shipping' },
-  { label: 'Shipped', value: 'shipped' },
+  { label: 'For Shipping', value: 'shipping' },
+  { label: 'In-transit', value: 'shipped' },
   { label: 'Missing', value: 'missing' },
   { label: 'Damaged', value: 'damaged' },
   { label: 'Needs to stay', value: 'needsToStay' },
 ];
 
 export const PLANT_STATUS_OPTIONS = [
-  { label: 'Wildgone', value: 'wildgone' },
+  { label: 'Missing', value: 'missing' },
+  { label: 'Damaged', value: 'damaged' },
   { label: 'Need to Stay', value: 'needsToStay' },
   { label: 'Others', value: 'others' },
 ];
@@ -59,8 +71,10 @@ export const formatLeafTrailStatusDisplayLabel = (rawStatus) => {
   const key = String(rawStatus || '').toLowerCase().trim();
   if (!key || key === '—') return '—';
   if (key === 'active' || key === 'forreceiving') return 'For receiving';
-  if (key === 'shipping') return 'In transit (UPS)';
-  if (key === 'shipped') return 'Shipped';
+  if (key === 'shipping') return 'For Shipping';
+  if (key === 'shipped') return 'In-transit';
+  const normalizedKey = key.replace(/[\s_-]+/g, '');
+  if (REMOVED_FROM_FLIGHT_LEAF_STATUSES.has(normalizedKey)) return 'Removed from Flight';
   const spaced = String(rawStatus).trim().replace(/([A-Z])/g, ' $1');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 };
@@ -70,9 +84,8 @@ export const formatPlantStatusDisplayLabel = (rawStatus) => {
   const key = String(rawStatus || '').toLowerCase().trim();
   if (!key) return '—';
   if (key === 'active' || key === 'forreceiving') return 'Active';
-  if (key === 'missing' || key === 'damaged' || key === 'damage' || key === 'wildgone') {
-    return 'Wildgone';
-  }
+  if (key === 'missing' || key === 'wildgone') return 'Missing';
+  if (key === 'damaged' || key === 'damage') return 'Damaged';
   if (key === 'needstostay') return 'Need to Stay';
   if (key === 'others' || key === 'cancelled' || key === 'canceled') return 'Others';
   const spaced = key.replace(/([A-Z])/g, ' $1');
@@ -82,6 +95,7 @@ export const formatPlantStatusDisplayLabel = (rawStatus) => {
 /** Map picker value to API payload for updatePlantStatus. */
 export const mapPlantStatusPickerToApi = (pickerValue) => {
   if (pickerValue === 'wildgone') return 'missing';
+  if (pickerValue === 'damage') return 'damaged';
   return pickerValue;
 };
 
@@ -138,7 +152,25 @@ export const deriveOrderSummaryPlantStatus = ({
  * @param {{ isOthers?: boolean, forShipping?: boolean }} tagFlags
  */
 export function buildReceivingPlantStatusOptions(tagFlags = {}) {
-  const options = PLANT_STATUS_EDIT_OPTIONS.map((o) => ({ ...o }));
+  let options = PLANT_STATUS_EDIT_OPTIONS.map((o) => ({ ...o }));
+
+  if (tagFlags.isMissing || tagFlags.isDamaged) {
+    options = options.filter((o) => !['wildgone', 'missing', 'damaged'].includes(o.value));
+    const mishapOptions = [];
+    if (tagFlags.isMissing) {
+      mishapOptions.push({ label: 'Tag as Missing', value: 'missing' });
+    }
+    if (tagFlags.isDamaged) {
+      mishapOptions.push({ label: 'Tag as Damage', value: 'damaged' });
+    }
+    const activeIdx = options.findIndex((o) => o.value === 'forReceiving');
+    if (activeIdx >= 0) {
+      options.splice(activeIdx + 1, 0, ...mishapOptions);
+    } else {
+      options.unshift(...mishapOptions);
+    }
+  }
+
   const values = new Set(options.map((o) => o.value));
 
   if (tagFlags.forShipping && !values.has('received')) {
@@ -175,18 +207,17 @@ export const plantStatusToPickerValue = (rawPlant, rawLeaf, rawOrderStatus = '')
   const ord = String(rawOrderStatus || '').toLowerCase().trim();
 
   if (plant === 'active' || plant === 'forreceiving') return 'forReceiving';
-  if (plant === 'missing' || plant === 'damaged' || plant === 'damage' || plant === 'wildgone') {
-    return 'wildgone';
-  }
+  if (plant === 'missing' || plant === 'wildgone') return 'missing';
+  if (plant === 'damaged' || plant === 'damage') return 'damaged';
   if (plant === 'needstostay') return 'needsToStay';
   if (plant === 'others' || plant === 'cancelled' || plant === 'canceled') return 'others';
 
-  const wildgoneLeaf = new Set(['missing', 'damaged', 'damage']);
   const active = new Set([
     'active', 'forreceiving', 'received', 'sorted', 'packed', 'shipping', 'shipped', 'delivered',
   ]);
 
-  if (wildgoneLeaf.has(leaf)) return 'wildgone';
+  if (leaf === 'missing') return 'missing';
+  if (leaf === 'damaged' || leaf === 'damage') return 'damaged';
   if (leaf === 'needstostay') return 'needsToStay';
   if (leaf === 'others' || leaf === 'cancelled' || leaf === 'canceled') return 'others';
   if (ord === 'cancelled' || ord === 'canceled') return 'others';

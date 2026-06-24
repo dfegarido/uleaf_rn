@@ -20,7 +20,7 @@ export const getAdminOrdersApi = async (filters = {}) => {
       'all': 'all',
       'readyToFly': 'Ready to Fly', // Orders ready to fly
       'completed': 'delivered', // Plants are Home - delivered orders (matches buyer side)
-      'wildgone': 'wildgone', // Wildgone: mishap leaf trail only (backend TAB.WILDGONE)
+      'wildgone': 'wildgone', // Buyer Journey Mishap: missing/damaged mishap (backend TAB.WILDGONE)
     };
 
     // Map frontend sort values to backend sort field and direction
